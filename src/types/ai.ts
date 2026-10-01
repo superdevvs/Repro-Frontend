@@ -22,6 +22,7 @@ export interface AiChatRequest {
     role?: string;
     targetShootId?: string | number;
     targetShootAddress?: string;
+    knowledge_article_id?: string;
     address?: string;
     pendingUpload?: {
       uploadId: string;

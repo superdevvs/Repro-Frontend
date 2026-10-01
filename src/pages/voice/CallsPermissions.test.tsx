@@ -8,9 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CallsSettings from './CallsSettings';
 import CallsSchedule from './CallsSchedule';
 import CallsAutomations from './CallsAutomations';
+import CallsFollowUps from './CallsFollowUps';
 import CallLiveCockpit from './CallLiveCockpit';
 
 const mocks = vi.hoisted(() => ({
+  getVoiceTranscript: vi.fn().mockResolvedValue({ transcript: '', state: 'off' }), reconcileVoiceTranscript: vi.fn(),
   can: vi.fn(), getVoiceSettings: vi.fn(), getVoiceNumbers: vi.fn(), getVoiceLlmUsage: vi.fn(),
   getScheduleOverrides: vi.fn(), getScheduledVoiceCalls: vi.fn(), getVoiceCall: vi.fn(),
   updateVoiceSettings: vi.fn(), updateVoiceNumber: vi.fn(), createScheduleOverride: vi.fn(), deleteScheduleOverride: vi.fn(),
@@ -24,6 +26,7 @@ vi.mock('@/services/voiceAutomations', async (importOriginal) => ({
   getVoiceAutomationRules: vi.fn().mockResolvedValue({ rules: [], managed_triggers: [], assignees: [] }),
   getVoiceAutomationRuns: vi.fn().mockResolvedValue({ data: [], current_page: 1, last_page: 1, total: 0 }),
 }));
+vi.mock('@/components/voice/VoiceNotificationSettings', () => ({ VoiceNotificationSettings: () => null }));
 vi.mock('@/hooks/use-page-loading', () => ({ usePageLoading: () => false }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock('@/components/ui/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
@@ -53,6 +56,7 @@ describe('Calls permission boundaries', () => {
   it('disables number controls and every settings field for a viewer', async () => {
     const user = userEvent.setup();
     renderPage(<CallsSettings />);
+    await userEvent.click(screen.getByRole('button', { name: 'Business lines & routing' }));
     expect(await screen.findByRole('button', { name: 'Save settings' })).toBeDisabled();
     for (const control of [...screen.getAllByRole('textbox'), ...screen.getAllByRole('switch')]) expect(control).toBeDisabled();
     await user.click(screen.getByRole('button', { name: /Allow all/i }));
@@ -73,6 +77,7 @@ describe('Calls permission boundaries', () => {
   it('allows a manager to edit configuration', async () => {
     mocks.can.mockImplementation((_resource: string, action: string) => action === 'view' || action === 'manage');
     renderPage(<CallsSettings />);
+    await userEvent.click(screen.getByRole('button', { name: 'Business lines & routing' }));
     expect(await screen.findByRole('button', { name: 'Save settings' })).toBeEnabled();
     expect(screen.getByPlaceholderText('+12025550100')).toBeEnabled();
     for (const control of screen.getAllByRole('switch')) expect(control).toBeEnabled();
@@ -81,21 +86,21 @@ describe('Calls permission boundaries', () => {
   it('allows an operator to cancel callbacks without editing automation rules', async () => {
     mocks.can.mockImplementation((_resource: string, action: string) => action !== 'manage');
     const user = userEvent.setup();
-    renderPage(<CallsAutomations />);
-    expect(await screen.findByRole('switch', { name: 'Missed call callback' })).toBeDisabled();
+    renderPage(<><CallsAutomations /><CallsFollowUps /></>);
+    expect(await screen.findByRole('switch', { name: 'Missed call' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Schedule callback' })).toBeEnabled();
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel callback' }));
     await waitFor(() => expect(mocks.cancelScheduledVoiceCall).toHaveBeenCalledWith(3));
     expect(mocks.updateVoiceSettings).not.toHaveBeenCalled();
   });
 
   it('does not let a configuration manager operate callbacks', async () => {
     mocks.can.mockImplementation((_resource: string, action: string) => action !== 'operate');
-    renderPage(<CallsAutomations />);
-    expect(await screen.findByRole('switch', { name: 'Missed call callback' })).toBeEnabled();
+    renderPage(<><CallsAutomations /><CallsFollowUps /></>);
+    expect(await screen.findByRole('switch', { name: 'Missed call' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Schedule callback' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Retry callback' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel callback' })).toBeDisabled();
   });
 
   it('allows live transcript review without triggering intelligence or call mutations', async () => {

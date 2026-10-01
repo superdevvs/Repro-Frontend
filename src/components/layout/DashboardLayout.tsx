@@ -51,6 +51,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   };
   const [bottomNavHeight, setBottomNavHeight] = React.useState(0);
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/');
+  const isCallsWorkspace = location.pathname === '/calls' || location.pathname.startsWith('/calls/');
   const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
   const isStudioWorkspace = location.pathname === '/ai-editing' && new URLSearchParams(location.search).has('workspace');
   const fillSms =
@@ -73,11 +74,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
     && isDesktopCalendarViewport;
   // The compact shell keeps 12px at the sides (Availability's gutter) and 6px
   // above the page. Pages must not add extra horizontal padding on compact.
-  const compactBottomInset = useCompactShell ? bottomNavHeight : 0;
+  const compactBottomInset = useCompactShell && !isCallsWorkspace ? bottomNavHeight : 0;
   const lockCompactDashboard = useCompactShell && isDashboardRoute;
   const lockMainScroll =
-    lockCompactDashboard || isStudioWorkspace || fillSms || lockWorkflowEditor || fillDesktopCalendar;
-  const contentPadding = useCompactShell
+    isCallsWorkspace || lockCompactDashboard || isStudioWorkspace || fillSms || lockWorkflowEditor || fillDesktopCalendar;
+  const contentPadding = isCallsWorkspace ? 'p-0' : useCompactShell
     ? `${isStudioWorkspace || fillSms ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 || lockCompactDashboard ? '' : 'pb-20'}`
     : fillSms
       ? 'p-0'
@@ -91,7 +92,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
       }
     : undefined;
   const shouldHideFooter =
-    hideFooter || lockCompactDashboard || fillDesktopCalendar ||
+    hideFooter || isCallsWorkspace || lockCompactDashboard || fillDesktopCalendar ||
     location.pathname === '/ai-editing' ||
     location.pathname.startsWith('/chat-with-reproai') ||
     location.pathname === '/messaging/sms' ||
@@ -115,7 +116,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
       {/* The viewport rule keeps the dynamic height after its legacy fallback;
           combining h-screen and h-dvh lets Tailwind's h-screen rule win. */}
       <div className="dashboard-viewport flex overflow-hidden">
-        {!useCompactShell && !isSimplifiedLayout && <Sidebar />}
+        {!isCallsWorkspace && !useCompactShell && !isSimplifiedLayout && <Sidebar />}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {isImpersonating && user && (
             <div className="bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center justify-between">
@@ -134,14 +135,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
               </Button>
             </div>
           )}
-          {!hideNavbar && <Navbar />}
+          {!isCallsWorkspace && !hideNavbar && <Navbar />}
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
-            <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`} bottomInset={useCompactShell ? bottomNavHeight : 0}>
+            <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`} bottomInset={compactBottomInset}>
             <main style={compactMainStyle} className={`flex-1 min-w-0 min-h-0 ${lockMainScroll ? 'flex flex-col overflow-hidden overflow-x-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
               <PageTransition className={lockMainScroll ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : 'flex flex-col min-h-full'}>
                 <EmailVerificationNotice>
-                  {lockCompactDashboard || fillSms || fillDesktopCalendar ? (
+                  {isCallsWorkspace || lockCompactDashboard || fillSms || fillDesktopCalendar ? (
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children || <Outlet />}</div>
                   ) : (
                     children || <Outlet />
@@ -169,7 +170,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             </main>
             </PageLoadingBoundary>
           </ErrorBoundary>
-          {useCompactShell && <MobileMenu onBottomNavHeightChange={setBottomNavHeight} />}
+          {!isCallsWorkspace && useCompactShell && <MobileMenu onBottomNavHeightChange={setBottomNavHeight} />}
         </div>
       </div>
       {listingStudioOpen && (

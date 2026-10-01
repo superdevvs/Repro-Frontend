@@ -15,7 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { createScheduledVoiceCall } from '@/services/voice';
+import { createScheduledVoiceCall, updateScheduledVoiceCall } from '@/services/voice';
 import { usePermissions } from '@/context/PermissionsContext';
 
 interface ScheduleVoiceCallDialogProps {
@@ -24,6 +24,7 @@ interface ScheduleVoiceCallDialogProps {
   initialFromPhone?: string;
   initialReason?: string;
   initialScheduledAt?: string;
+  scheduledCallId?: number;
 }
 
 const localDateTime = (date: Date) => {
@@ -37,6 +38,7 @@ export default function ScheduleVoiceCallDialog({
   initialFromPhone = '',
   initialReason = 'manual_callback',
   initialScheduledAt,
+  scheduledCallId,
 }: ScheduleVoiceCallDialogProps) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -55,25 +57,27 @@ export default function ScheduleVoiceCallDialog({
       setTargetPhone(initialTargetPhone);
       setFromPhone(initialFromPhone);
       setReason(initialReason);
-      setScheduledAt(initialScheduledAt ?? defaultTime);
+      setScheduledAt(initialScheduledAt ? localDateTime(new Date(initialScheduledAt)) : defaultTime);
       setMaxAttempts(3);
     }
   }, [defaultTime, initialFromPhone, initialReason, initialScheduledAt, initialTargetPhone, open]);
 
   const create = useMutation({
-    mutationFn: () =>
-      createScheduledVoiceCall({
+    mutationFn: () => {
+      const payload = {
         target_phone: targetPhone.trim(),
         from_phone: fromPhone.trim() || undefined,
         reason: reason.trim() || 'manual_callback',
         scheduled_at: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
         max_attempts: maxAttempts,
         summary: reason.trim() || 'Manual callback',
-      }),
+      };
+      return scheduledCallId ? updateScheduledVoiceCall(scheduledCallId, payload) : createScheduledVoiceCall(payload);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['scheduled-voice-calls'] });
       queryClient.invalidateQueries({ queryKey: ['voice-calls'] });
-      toast({ title: 'Callback scheduled', description: 'The call was added to the callback queue.' });
+      toast({ title: scheduledCallId ? 'Callback rescheduled' : 'Callback scheduled', description: 'The callback queue has been updated.' });
       setTargetPhone(initialTargetPhone);
       setFromPhone(initialFromPhone);
       setReason(initialReason);
@@ -90,7 +94,9 @@ export default function ScheduleVoiceCallDialog({
     },
   });
 
-  const canSubmit = canOperate && targetPhone.trim().length > 0 && !create.isPending;
+  const validPhone = /^\+[1-9]\d{7,14}$/.test(targetPhone.replace(/[\s().-]/g, ''));
+  const validTime = Boolean(scheduledAt) && new Date(scheduledAt).getTime() > Date.now();
+  const canSubmit = canOperate && validPhone && validTime && maxAttempts >= 1 && maxAttempts <= 10 && !create.isPending;
 
   return (
     <Dialog open={open} onOpenChange={(next) => { if (!next || canOperate) setOpen(next); }}>
@@ -98,19 +104,22 @@ export default function ScheduleVoiceCallDialog({
       <DialogContent className="calls-workspace">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <CalendarClock className="h-4 w-4 text-blue-600" /> Schedule Callback
+            <CalendarClock className="h-4 w-4 text-[var(--calls-brand)]" /> {scheduledCallId ? 'Reschedule callback' : 'Schedule callback'}
           </DialogTitle>
-          <DialogDescription>Add a manual outbound follow-up to the callback queue.</DialogDescription>
+          <DialogDescription>Robbie will call at the chosen time, respecting quiet hours. Times use {Intl.DateTimeFormat().resolvedOptions().timeZone}.</DialogDescription>
         </DialogHeader>
         <fieldset disabled={!canOperate || create.isPending} className="grid min-w-0 gap-4">
           <div className="space-y-1.5">
             <Label htmlFor="scheduled-target-phone">Target phone</Label>
             <Input
               id="scheduled-target-phone"
+              type="tel"
+              inputMode="tel"
               value={targetPhone}
               onChange={(event) => setTargetPhone(event.target.value)}
               placeholder="+12025550123"
             />
+            {targetPhone && !validPhone && <p className="text-xs text-[var(--calls-warning)]">Include a country code starting with +.</p>}
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="scheduled-from-phone">From phone</Label>
@@ -130,6 +139,7 @@ export default function ScheduleVoiceCallDialog({
                 value={scheduledAt}
                 onChange={(event) => setScheduledAt(event.target.value)}
               />
+              {!validTime && <p className="text-xs text-[var(--calls-warning)]">Choose a future time.</p>}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="scheduled-attempts">Max attempts</Label>

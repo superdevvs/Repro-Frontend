@@ -13,14 +13,24 @@ import {
  * `ShootRescheduleRequestController::STAFF_ROLES`.
  */
 describe('canReviewRescheduleRequests', () => {
-  it.each(['admin', 'superadmin', 'super_admin', 'editing_manager'])(
+  it.each([
+    'admin',
+    'superadmin',
+    'super_admin',
+    'editing_manager',
+    'salesRep',
+    'sales_rep',
+    'salesrep',
+    'rep',
+    'representative',
+  ])(
     'treats %s as staff who reschedule directly',
     (role) => {
       expect(canReviewRescheduleRequests(role)).toBe(true);
     },
   );
 
-  it.each(['client', 'photographer', 'editor', 'salesRep', 'rep', ''])(
+  it.each(['client', 'photographer', 'editor', ''])(
     'treats %s as request-only',
     (role) => {
       expect(canReviewRescheduleRequests(role)).toBe(false);

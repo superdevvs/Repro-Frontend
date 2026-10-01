@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import '@testing-library/jest-dom/vitest';
@@ -26,6 +26,9 @@ vi.mock('@/services/voice', () => ({
   getVoiceHealth: vi.fn().mockResolvedValue({ can_place_calls: true, readiness_blockers: [] }),
   placeVoiceCall: vi.fn(),
   createScheduledVoiceCall: vi.fn(),
+  updateScheduledVoiceCall: vi.fn(),
+  getVoiceTranscript: vi.fn().mockResolvedValue({ transcript: '', state: 'ready', message: 'Saved' }),
+  reconcileVoiceTranscript: vi.fn(),
 }));
 
 vi.mock('@/services/messaging', () => ({
@@ -93,6 +96,7 @@ describe('CallsInbox', () => {
   it('sends an SMS from the composer', async () => {
     const user = userEvent.setup();
     renderInbox();
+    await user.click(await screen.findByRole('button', { name: 'Message' }));
     const send = await screen.findByRole('button', { name: 'Send' });
     await user.click(send);
     expect(mocks.sendSms).toHaveBeenCalledWith(expect.objectContaining({ to: '+12025550124' }));
@@ -103,11 +107,9 @@ describe('CallsInbox', () => {
     const user = userEvent.setup();
     renderInbox();
     expect(await screen.findByText('You have read-only Calls access.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Call back' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'More call actions' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
-    expect(screen.getByPlaceholderText('Reply to Alex…')).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: 'SMS' }));
+    expect(screen.getByRole('button', { name: 'Schedule callback' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Call now Alex Morgan' })).toBeDisabled();
+    expect(screen.getByPlaceholderText('Add a private note…')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Save note' })).toBeDisabled();
     expect(screen.getByRole('link', { name: 'Review wrap-up' })).toBeInTheDocument();
     expect(mocks.sendSms).not.toHaveBeenCalled();
@@ -119,12 +121,27 @@ describe('CallsInbox', () => {
     mocks.addVoiceCallNote.mockResolvedValue(sample);
     const user = userEvent.setup();
     renderInbox();
-    expect(await screen.findByRole('button', { name: 'Send' })).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: 'SMS' }));
+    await screen.findByRole('button', { name: 'Save note' });
     await user.type(screen.getByPlaceholderText('Add a private note…'), 'Confirmed access');
     await user.click(screen.getByRole('button', { name: 'Save note' }));
     await waitFor(() => expect(mocks.addVoiceCallNote).toHaveBeenCalledWith(12, 'Confirmed access'));
     expect(mocks.sendSms).not.toHaveBeenCalled();
+  });
+
+  it('preserves a new note draft while the previous note finishes saving', async () => {
+    let resolveSave: (value: typeof sample) => void = () => undefined;
+    mocks.addVoiceCallNote.mockReturnValue(new Promise<typeof sample>((resolve) => { resolveSave = resolve; }));
+    const user = userEvent.setup();
+    renderInbox();
+    const composer = await screen.findByPlaceholderText('Add a private note…');
+    await user.type(composer, 'First note');
+    await user.click(screen.getByRole('button', { name: 'Save note' }));
+    await waitFor(() => expect(mocks.addVoiceCallNote).toHaveBeenCalledWith(12, 'First note'));
+    await user.clear(composer);
+    await user.type(composer, 'New note still being written');
+    await act(async () => { resolveSave({ ...sample }); });
+    await waitFor(() => expect(mocks.toast).toHaveBeenCalledWith({ title: 'Note saved' }));
+    expect(composer).toHaveValue('New note still being written');
   });
 
   it('replies to the outbound recipient and labels the device call link accurately', async () => {
@@ -132,7 +149,8 @@ describe('CallsInbox', () => {
     const user = userEvent.setup();
     renderInbox();
     await screen.findByText('Outbound');
-    expect(screen.getByRole('link', { name: 'Call on this device' })).toHaveAttribute('href', 'tel:+12025550199');
+    expect(screen.getByRole('button', { name: 'Call now Alex Morgan' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Message' }));
     await user.click(screen.getByRole('button', { name: 'Send' }));
     expect(mocks.sendSms).toHaveBeenCalledWith(expect.objectContaining({ to: '+12025550199' }));
   });
@@ -149,7 +167,7 @@ describe('CallsInbox', () => {
     mocks.getVoiceCalls.mockResolvedValue({ data: [sample], total: 50, last_page: 2 });
     const user = userEvent.setup();
     renderInbox('/calls/inbox');
-    await user.click(await screen.findByRole('button', { name: 'Next' }));
+    await user.click(await screen.findByRole('button', { name: 'Next conversations' }));
     await waitFor(() => expect(mocks.getVoiceCalls).toHaveBeenCalledWith(expect.objectContaining({ page: 2 })));
   });
 });

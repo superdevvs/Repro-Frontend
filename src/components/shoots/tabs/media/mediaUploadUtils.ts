@@ -667,9 +667,9 @@ export function validateFilesAgainstUploadLimits(
   uploadLimits?: UploadLimitsPayload,
 ): { acceptedFiles: File[]; rejectedIssues: UploadIssue[] } {
   const resolved = resolveUploadLimits(uploadLimits);
-  // A single file is the whole request, so the tighter of the two caps is the
-  // one that governs it.
-  const maxBytesPerFile = Math.min(resolved.perFileBytes, resolved.totalRequestBytes);
+  // Chunked large files must not be blocked by PHP post_max (totalRequest).
+  // Gate on the per-file ceiling only; request-size is enforced server-side per chunk.
+  const maxBytesPerFile = resolved.perFileBytes;
   const acceptedFiles: File[] = [];
   const rejectedIssues: UploadIssue[] = [];
 

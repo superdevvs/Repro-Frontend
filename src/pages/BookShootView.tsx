@@ -170,6 +170,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
                   getPhotographerRate={getPhotographerRate}
                   clients={clients}
                   photographers={photographers}
+                  schedulingPhotographers={getAvailablePhotographers()}
                   handleSubmit={handleSubmit}
                   goBack={goBack}
                   sameDayAddressWarningMessage={sameDayAddressWarningMessage}

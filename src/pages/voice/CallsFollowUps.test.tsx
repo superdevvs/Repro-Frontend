@@ -3,7 +3,8 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import '@testing-library/jest-dom/vitest';
-import CallsAutomations from './CallsAutomations';
+import CallsFollowUps from './CallsFollowUps';
+import { MemoryRouter } from 'react-router-dom';
 
 const mocks = vi.hoisted(() => ({ getScheduledVoiceCalls: vi.fn(), cancelScheduledVoiceCall: vi.fn(), retryScheduledVoiceCall: vi.fn(), can: vi.fn() }));
 vi.mock('@/services/voice', () => ({
@@ -20,7 +21,7 @@ vi.mock('./ScheduleVoiceCallDialog', () => ({ default: () => null }));
 
 function renderAutomations() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  return render(<QueryClientProvider client={client}><CallsAutomations /></QueryClientProvider>);
+  return render(<MemoryRouter><QueryClientProvider client={client}><CallsFollowUps /></QueryClientProvider></MemoryRouter>);
 }
 
 describe('scheduled callback pagination', () => {
@@ -38,18 +39,18 @@ describe('scheduled callback pagination', () => {
   it('reaches older callbacks and targets the selected page for retry or cancellation', async () => {
     const user = userEvent.setup(); renderAutomations();
     expect(await screen.findByText('+12025550041')).toBeInTheDocument();
-    expect(screen.getByText('Page 1 of 2 · 41 callbacks')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Previous callbacks' })).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: 'Next callbacks' }));
+    expect(screen.getByText('1–1 of 41')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous follow-ups' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Next follow-ups' }));
     expect(await screen.findByText('+12025550001')).toBeInTheDocument();
     expect(screen.queryByText('+12025550041')).not.toBeInTheDocument();
-    expect(mocks.getScheduledVoiceCalls).toHaveBeenCalledWith({ per_page: 40, page: 2 });
-    expect(screen.getByRole('button', { name: 'Next callbacks' })).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(mocks.getScheduledVoiceCalls).toHaveBeenCalledWith(expect.objectContaining({ per_page: 20, page: 2 }));
+    expect(screen.getByRole('button', { name: 'Next follow-ups' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Retry callback' }));
     await waitFor(() => expect(mocks.retryScheduledVoiceCall.mock.calls[0]?.[0]).toBe(1));
-    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await user.click(screen.getByRole('button', { name: 'Cancel callback' }));
     await waitFor(() => expect(mocks.cancelScheduledVoiceCall.mock.calls[0]?.[0]).toBe(1));
-    await user.click(screen.getByRole('button', { name: 'Previous callbacks' }));
+    await user.click(screen.getByRole('button', { name: 'Previous follow-ups' }));
     expect(await screen.findByText('+12025550041')).toBeInTheDocument();
   });
 
@@ -57,10 +58,10 @@ describe('scheduled callback pagination', () => {
     mocks.can.mockImplementation((_resource: string, action: string) => action === 'view');
     const user = userEvent.setup(); renderAutomations();
     await screen.findByText('+12025550041');
-    await user.click(screen.getByRole('button', { name: 'Next callbacks' }));
+    await user.click(screen.getByRole('button', { name: 'Next follow-ups' }));
     await screen.findByText('+12025550001');
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Retry callback' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Cancel callback' })).toBeDisabled();
   });
 
   it('keeps a way back when loading an older page fails', async () => {
@@ -69,12 +70,12 @@ describe('scheduled callback pagination', () => {
       return { current_page: 1, last_page: 2, total: 41, data: [] };
     });
     const user = userEvent.setup(); renderAutomations();
-    await screen.findByText('Page 1 of 2 · 41 callbacks');
-    await user.click(screen.getByRole('button', { name: 'Next callbacks' }));
-    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load scheduled calls.');
-    expect(screen.getByRole('button', { name: 'Previous callbacks' })).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Next callbacks' })).toBeDisabled();
-    await user.click(screen.getByRole('button', { name: 'Previous callbacks' }));
-    expect(await screen.findByText('Page 1 of 2 · 41 callbacks')).toBeInTheDocument();
+    await screen.findByText('0–0 of 41');
+    await user.click(screen.getByRole('button', { name: 'Next follow-ups' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not load follow-ups.');
+    expect(screen.getByRole('button', { name: 'Previous follow-ups' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Next follow-ups' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Previous follow-ups' }));
+    expect(await screen.findByText('0–0 of 41')).toBeInTheDocument();
   });
 });

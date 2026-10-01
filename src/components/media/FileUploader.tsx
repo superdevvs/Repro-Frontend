@@ -196,8 +196,8 @@ const expectedFileCount = useMemo(() => {
         return;
       }
       
-      if (file.size > 100 * 1024 * 1024) {
-        invalidFiles.push({ file, reason: 'File exceeds 100MB size limit' });
+      if (file.size > 10 * 1024 * 1024 * 1024) {
+        invalidFiles.push({ file, reason: 'File exceeds 10GB size limit' });
         return;
       }
       
@@ -536,7 +536,7 @@ const expectedFileCount = useMemo(() => {
             <UploadCloudIcon className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">Drop files here or click to browse</h3>
             <p className="text-sm text-muted-foreground mb-2">
-              Upload up to 100 files at once (100MB max per file)
+              Upload up to 100 files at once (10GB max per file)
             </p>
             <Button variant="outline" className="mt-2" disabled={uploading}>
               <ArrowUpIcon className="h-4 w-4 mr-2" />

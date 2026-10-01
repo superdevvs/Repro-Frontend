@@ -38,10 +38,10 @@ export const TRACKED_MEDIA_TYPES: UploadQueueMediaType[] = [
 ];
 
 export const DEFAULT_UPLOAD_LIMITS = {
-  perFileBytes: 1024 * 1024 * 1024,
-  totalRequestBytes: 1024 * 1024 * 1024,
-  perFileLabel: '1GB',
-  totalRequestLabel: '1GB',
+  perFileBytes: 10737418240,
+  totalRequestBytes: 10737418240,
+  perFileLabel: '10GB',
+  totalRequestLabel: '10GB',
 } as const;
 
 export const UPLOAD_CLASSIFICATION_OPTIONS: UploadClassificationOption[] = [

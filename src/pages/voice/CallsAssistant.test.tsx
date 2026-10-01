@@ -26,6 +26,7 @@ vi.mock('@/services/voice', () => ({
   getVoiceNumbers: vi.fn().mockResolvedValue([]),
   getScheduleState: vi.fn().mockResolvedValue({ state: { state: 'team_open' } }),
   placeVoiceCall: vi.fn(),
+  getVoiceDirectory: vi.fn().mockResolvedValue({ data: [], total: 0, last_page: 1 }),
 }));
 
 vi.mock('@/services/messaging', () => ({

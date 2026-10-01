@@ -9,6 +9,8 @@ import type { VoiceBrowserSession, VoiceBrowserToken } from '@/types/voiceBrowse
 import { useBrowserPhoneActions } from './useBrowserPhoneActions';
 import { matchesBrowserOffer } from './browserPhoneIdentity';
 import { createBrowserPhonePresence } from './browserPhonePresence';
+import { useBrowserPhoneStart } from './useBrowserPhoneStart';
+import { useVoicePushLifecycle } from './useVoicePushLifecycle';
 
 const BrowserPhoneBar = lazy(() => import('./BrowserPhoneBar'));
 
@@ -17,6 +19,7 @@ const TERMINAL = ['hangup', 'destroy', 'purge'];
 const errorText = (error: unknown) => error instanceof Error ? error.message : 'The browser phone could not complete this action.';
 
 export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
+  useVoicePushLifecycle();
   const { user, isAuthenticated, isImpersonating } = useAuth();
   const { can } = usePermissions();
   const eligible = isAuthenticated && !isImpersonating && can('voice-calls', 'view') && (can('voice-calls', 'operate') || can('voice-calls', 'supervise'));
@@ -159,10 +162,10 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
     if (revoke && current) await api.deleteVoiceBrowserSession(current.id);
   }, [updateActive, updateSession]);
 
-  const connect = useCallback(() => run(async () => {
+  const connectNow = useCallback(async () => {
     if (!eligibleRef.current) throw new Error('You do not have permission to connect a browser phone.');
     if (rtc.current) {
-      if (status === 'ready' || activeRef.current) return;
+      if (sessionRef.current?.registered || activeRef.current) return;
       await closeConnection();
     }
     if (!config.data?.ready || config.isError) throw new Error(config.data?.blockers?.[0] || 'Browser calling is not configured yet.');
@@ -182,7 +185,9 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
       const sdk = await import('@telnyx/webrtc');
       const credential = await api.createVoiceBrowserSession(deviceId);
       if (connectionEpoch !== epoch.current || !eligibleRef.current) { await api.deleteVoiceBrowserSession(credential.id); return; }
-      updateSession(credential);
+      // New credentials do not prove this transport is registered, even if an old
+      // server heartbeat is still fresh. Only the presence monitor can mark ready.
+      updateSession({ ...credential, registered: false });
       await wait(Math.max(0, Math.min(credential.registration_delay_ms ?? 0, 10000)));
       if (connectionEpoch !== epoch.current) return;
       const client = new sdk.TelnyxRTC({ login_token: credential.token, debug: false, enableCallReports: false, enableCallRecording: false, hangupOnBeforeUnload: true });
@@ -236,7 +241,8 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
       if (connectionEpoch === epoch.current) { await closeConnection().catch(() => undefined); setStatus('error'); }
       throw cause;
     }
-  }), [closeConnection, config.data, config.isError, handleNotification, refreshDevices, run, status, sync, updateSession, user?.id]);
+  }, [closeConnection, config.data, config.isError, handleNotification, refreshDevices, sync, updateSession, user?.id]);
+  const connect = useCallback(() => run(connectNow), [connectNow, run]);
 
   useEffect(() => {
     if (!eligible) return;
@@ -279,11 +285,12 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
   }, [refreshDevices]);
 
   const actions = useBrowserPhoneActions({ rtc, sdkCall, sessionRef, activeRef, status, eligible, run, sync, updateActive, invalidate, playAudio, inputId, outputId, setInputId, setOutputId });
+  const startActions = useBrowserPhoneStart({ rtc, sdkCall, sessionRef, activeRef, eligibleRef, epoch, connect: connectNow, disconnect: closeConnection, run, sync, invalidate, playAudio, inputId, outputId, setError });
   const value: BrowserPhoneContextValue = {
     status, eligible, config: config.isError ? undefined : verifiedConfig, configLoading: config.isLoading, session, active, busy,
     error: error || (config.isError ? 'Could not check browser calling readiness.' : null), playbackBlocked, inputs, outputs, inputId, outputId,
     connect, disconnect: () => run(async () => { if (activeRef.current) throw new Error('End or leave the active call before disconnecting.'); await closeConnection(); }),
-    playAudio, refreshConfig: () => { void config.refetch(); }, ...actions,
+    playAudio, refreshConfig: () => { void config.refetch(); }, ...actions, ...startActions,
   };
-  return <BrowserPhoneContext.Provider value={value}>{children}<audio ref={audio} autoPlay playsInline onPlay={() => setPlaybackBlocked(false)} />{eligible && (session || error || status === 'connecting') && <Suspense fallback={null}><BrowserPhoneBar /></Suspense>}</BrowserPhoneContext.Provider>;
+  return <BrowserPhoneContext.Provider value={value}>{children}<audio ref={audio} autoPlay playsInline onPlay={() => setPlaybackBlocked(false)} />{eligible && (session || error || status === 'connecting' || startActions.outgoingPhase !== 'idle') && <Suspense fallback={null}><BrowserPhoneBar /></Suspense>}</BrowserPhoneContext.Provider>;
 }

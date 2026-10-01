@@ -190,7 +190,7 @@ describe('reschedule request dashboard queue', () => {
     client.clear();
   });
 
-  it('does not poll pending-reschedules when disabled (sales_rep / non-reviewer)', async () => {
+  it('does not poll pending-reschedules when disabled (non-reviewer)', async () => {
     const fetchMock = vi.fn(async () => response({ data: [request] }));
     vi.stubGlobal('fetch', fetchMock);
     const client = new QueryClient({

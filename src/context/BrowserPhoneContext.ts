@@ -17,6 +17,7 @@ export interface BrowserPhoneContextValue {
   session: VoiceBrowserSession | null;
   active: BrowserPhoneActiveCall | null;
   busy: boolean;
+  outgoingPhase: 'idle' | 'connecting' | 'dialing' | 'answering' | 'cancelling';
   error: string | null;
   playbackBlocked: boolean;
   inputs: MediaDeviceInfo[];
@@ -28,6 +29,8 @@ export interface BrowserPhoneContextValue {
   answer: () => Promise<void>;
   decline: () => Promise<void>;
   startHuman: (payload: Omit<HumanVoiceCallPayload, 'session_id' | 'idempotency_key'>) => Promise<VoiceCall>;
+  answerIncoming: (offerId: string) => Promise<void>;
+  cancelPending: () => Promise<void>;
   takeOver: (id: number) => Promise<void>;
   supervise: (id: number, mode: VoiceSupervisorMode) => Promise<void>;
   changeMode: (mode: VoiceSupervisorMode) => Promise<void>;
@@ -41,9 +44,9 @@ export interface BrowserPhoneContextValue {
 const unavailable = async (): Promise<never> => { throw new Error('Connect your browser phone first.'); };
 export const BrowserPhoneContext = createContext<BrowserPhoneContextValue>({
   status: 'disconnected', eligible: false, configLoading: false, session: null, active: null,
-  busy: false, error: null, playbackBlocked: false, inputs: [], outputs: [], inputId: '', outputId: '',
+  busy: false, outgoingPhase: 'idle', error: null, playbackBlocked: false, inputs: [], outputs: [], inputId: '', outputId: '',
   connect: unavailable, disconnect: unavailable, answer: unavailable, decline: unavailable,
-  startHuman: unavailable, takeOver: unavailable, supervise: unavailable, changeMode: unavailable,
+  startHuman: unavailable, answerIncoming: unavailable, cancelPending: unavailable, takeOver: unavailable, supervise: unavailable, changeMode: unavailable,
   control: unavailable, setConsent: unavailable, setInput: unavailable, setOutput: unavailable, playAudio: unavailable, refreshConfig: () => undefined,
 });
 export const useBrowserPhone = () => useContext(BrowserPhoneContext);

@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import CallsInsights from './CallsInsights';
+import { MemoryRouter } from 'react-router-dom';
 
 const mocks = vi.hoisted(() => ({
   getVoiceInsights: vi.fn(),
@@ -46,9 +47,9 @@ describe('CallsInsights', () => {
   it('renders stored counts and hides invented comparisons', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
-      <QueryClientProvider client={client}>
+      <MemoryRouter><QueryClientProvider client={client}>
         <CallsInsights />
-      </QueryClientProvider>,
+      </QueryClientProvider></MemoryRouter>,
     );
     expect(await screen.findByText('66.7%')).toBeInTheDocument();
     expect(screen.getAllByText('No prior period to compare').length).toBeGreaterThan(0);
@@ -60,7 +61,7 @@ describe('CallsInsights', () => {
     const data = await mocks.getVoiceInsights();
     mocks.getVoiceInsights.mockResolvedValue({ ...data, median_answer_delta: -8 });
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><CallsInsights /></QueryClientProvider>);
+    render(<MemoryRouter><QueryClientProvider client={client}><CallsInsights /></QueryClientProvider></MemoryRouter>);
     expect(await screen.findByText('-8s · faster')).toHaveClass('text-[var(--calls-brand)]');
     expect(screen.getByRole('img', { name: '2026-09-20: 1 team, 1 Robbie, 1 missed, 3 total' })).toBeInTheDocument();
   });

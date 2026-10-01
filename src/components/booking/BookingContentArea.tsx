@@ -67,6 +67,8 @@ interface BookingContentAreaProps {
   getPhotographerRate: () => number;
   clients: Client[];
   photographers: Array<{ id: string; name: string; avatar?: string }>;
+  /** Staff pre-filter (within-hours). Scheduling uses this; Review keeps full directory. */
+  schedulingPhotographers?: Array<{ id: string; name: string; avatar?: string }>;
   handleSubmit: () => void;
   goBack: () => void;
   sameDayAddressWarningMessage?: string;
@@ -126,6 +128,7 @@ export function BookingContentArea({
   getPhotographerRate,
   clients,
   photographers,
+  schedulingPhotographers,
   handleSubmit,
   goBack,
   sameDayAddressWarningMessage = '',
@@ -214,7 +217,7 @@ export function BookingContentArea({
           serviceSchedules={serviceSchedules}
           setServiceSchedules={setServiceSchedules}
           selectedServices={selectedServices}
-          photographers={photographers}
+          photographers={schedulingPhotographers ?? photographers}
           handleSubmit={handleSubmit}
           goBack={goBack}
           sameDayAddressWarningMessage={sameDayAddressWarningMessage}

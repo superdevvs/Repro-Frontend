@@ -9,10 +9,12 @@ export default function BrowserPhoneBar() {
   const phone = useBrowserPhone();
   const { pathname } = useLocation();
   const active = phone.active;
-  if (!phone.eligible || (!phone.session && !phone.error && phone.status !== 'connecting')) return null;
+  const pending = phone.outgoingPhase !== 'idle';
+  if (!phone.eligible || (!phone.session && !phone.error && phone.status !== 'connecting' && !pending)) return null;
   const onOwnCockpit = active && pathname === `/calls/live/${active.offer.voice_call_id}`;
   if (onOwnCockpit && !phone.error && !phone.playbackBlocked && !['ringing', 'new', 'trying'].includes(active.state)) return null;
-  const idle = !active && phone.status === 'ready' && !phone.error && !phone.playbackBlocked;
+  const idle = !active && phone.status === 'ready' && !phone.error && !phone.playbackBlocked && !pending;
+  if (idle && pathname.startsWith('/calls')) return null;
   const position = { '--browser-phone-bottom': 'calc(88px + env(safe-area-inset-bottom, 0px) + 12px)' } as CSSProperties;
   return <aside aria-label="Browser phone" style={position} className={`calls-workspace fixed inset-x-3 bottom-[var(--browser-phone-bottom)] z-50 mx-auto max-h-[70dvh] max-w-2xl overflow-y-auto rounded-2xl border border-[var(--calls-border)] bg-[var(--calls-surface)] text-[var(--calls-text)] shadow-xl md:inset-x-auto md:bottom-5 md:right-5 md:w-[480px] ${idle ? 'p-2.5' : 'p-4'}`}>
     {!idle && <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
@@ -20,6 +22,7 @@ export default function BrowserPhoneBar() {
       {active ? <Button asChild variant="outline" className="calls-secondary h-9"><Link to={`/calls/live/${active.offer.voice_call_id}`}>Open call</Link></Button> : <BrowserPhoneConnectButton />}
     </div>}
     {phone.error && <p role="alert" className="mb-3 rounded-lg bg-[var(--calls-warning-soft)] p-3 text-sm text-[var(--calls-warning)]">{phone.error}</p>}
+    {pending && <div className="mb-3 flex items-center justify-between gap-3"><p role="status" className="text-sm">{phone.outgoingPhase === 'connecting' ? 'Preparing your phone…' : phone.outgoingPhase === 'dialing' ? 'Starting the call…' : phone.outgoingPhase === 'answering' ? 'Connecting call audio…' : 'Confirming cancellation…'}</p><Button variant="outline" className="calls-secondary h-11" onClick={() => { void phone.cancelPending().catch(() => undefined); }}>Cancel connection</Button></div>}
     <BrowserPhoneControls compact idleCompact={idle} />
   </aside>;
 }

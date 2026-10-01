@@ -63,6 +63,7 @@ const MlsPublishingQueue = lazy(() => import('./pages/MlsPublishingQueue'));
 const PrivateListingPortal = lazy(() => import('./pages/PrivateListingPortal'));
 const ExclusiveListingDetails = lazy(() => import('./pages/ExclusiveListingDetails'));
 const ChatWithReproAi = lazy(() => import('./pages/ChatWithReproAi'));
+const Support = lazy(() => import('./pages/Support'));
 const AiEditing = lazy(() => import('./pages/AiEditing'));
 const PermissionSettings = lazy(() => import('./pages/PermissionSettings'));
 const AddressLookupDemo = lazy(() => import('./components/AddressLookupDemo'));
@@ -572,6 +573,7 @@ const AppRoutes = () => {
           <ChatWithReproAi />
         </PermissionRoute>
       } />
+      <Route path="/support" element={<PermissionRoute resource="support"><Support /></PermissionRoute>} />
       <Route path="/ai-editing" element={
         <PermissionRoute resource="ai-editing">
           <AiEditing />

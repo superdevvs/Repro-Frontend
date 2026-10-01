@@ -1,250 +1,100 @@
-import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Phone } from 'lucide-react';
+import { ChevronDown, Loader2, Phone, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
-import { getSmsThreads } from '@/services/messaging';
-import { getScheduleState, getVoiceHealth, getVoiceNumbers, placeVoiceCall } from '@/services/voice';
-import type { SmsContact } from '@/types/messaging';
+import { getVoiceDirectory, getVoiceHealth, getVoiceNumbers, placeVoiceCall } from '@/services/voice';
 import { usePermissions } from '@/context/PermissionsContext';
 import { useBrowserPhone } from '@/context/BrowserPhoneContext';
-import { BrowserPhoneConnectButton } from '@/components/voice/BrowserPhoneControls';
+import { CallsPagination } from './CallsPagination';
+import { useCallSearch } from './useCallSearch';
+import { directoryRoles, directoryRoleLabel, nameInitials, validCallPhone } from './directoryDisplay';
+import { CallsAvatar } from './bits';
 
 interface NewCallDialogProps {
   trigger?: ReactNode;
   initialTo?: string;
   initialFrom?: string;
   initialReason?: string;
+  initialCaller?: 'me' | 'robbie';
 }
 
-const uniqueContacts = (threads: Array<{ contact?: SmsContact | null }> = []) => {
-  const seen = new Set<string>();
-  return threads
-    .map((thread) => thread.contact)
-    .filter((contact): contact is SmsContact => Boolean(contact?.primaryNumber || contact?.numbers?.[0]?.number))
-    .filter((contact) => {
-      const key = String(contact.id || contact.primaryNumber);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-};
-
-export default function NewCallDialog({
-  trigger,
-  initialTo = '',
-  initialFrom = '',
-  initialReason = '',
-}: NewCallDialogProps) {
-  const queryClient = useQueryClient();
+export default function NewCallDialog({ trigger, initialTo = '', initialFrom = '', initialReason = '', initialCaller = 'me' }: NewCallDialogProps) {
+  const cache = useQueryClient();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { can } = usePermissions();
   const canOperate = can('voice-calls', 'operate');
   const phone = useBrowserPhone();
-  const [caller, setCaller] = useState<'robbie' | 'me'>('robbie');
-  const canReadContacts = can('messaging-sms', 'view');
   const initializedOpen = useRef(false);
   const [open, setOpen] = useState(false);
+  const [caller, setCaller] = useState(initialCaller);
   const [to, setTo] = useState(initialTo);
   const [from, setFrom] = useState(initialFrom);
   const [reason, setReason] = useState(initialReason);
   const [search, setSearch] = useState('');
-
+  const [selectedName, setSelectedName] = useState('');
+  const [role, setRole] = useState('all');
+  const [page, setPage] = useState(1);
+  const [options, setOptions] = useState(false);
+  const query = useCallSearch(search);
   const numbers = useQuery({ queryKey: ['voice-numbers'], queryFn: getVoiceNumbers, enabled: open });
-  const schedule = useQuery({ queryKey: ['voice-schedule-state'], queryFn: () => getScheduleState(), enabled: open });
-  const health = useQuery({ queryKey: ['voice-health'], queryFn: getVoiceHealth, enabled: open });
-  const threads = useQuery({
-    queryKey: ['sms-threads', 'new-call', search],
-    queryFn: () => getSmsThreads({ per_page: 8, search: search || undefined }),
-    enabled: open && canReadContacts,
-  });
-
-  const contacts = useMemo(() => uniqueContacts(threads.data?.data), [threads.data?.data]);
+  const health = useQuery({ queryKey: ['voice-health'], queryFn: getVoiceHealth, enabled: open && caller === 'robbie' });
+  const directory = useQuery({ queryKey: ['voice-directory', query, role, page, 6], queryFn: () => getVoiceDirectory({ q: query, role, page, per_page: 6 }), enabled: open && canOperate });
   const defaultFrom = numbers.data?.find((item) => item.is_default)?.phone_number || numbers.data?.[0]?.phone_number || initialFrom;
-  const scheduleState = schedule.data?.state?.state;
-  const closed = scheduleState === 'quiet_hours' || scheduleState === 'holiday_closed' || scheduleState === 'override_closed';
-
   useEffect(() => {
     if (!open) { initializedOpen.current = false; return; }
     if (initializedOpen.current) return;
     initializedOpen.current = true;
-    setTo(initialTo);
-    setFrom(initialFrom || defaultFrom || '');
-    setReason(initialReason);
-    setSearch('');
-    setCaller('robbie');
-  }, [defaultFrom, initialFrom, initialReason, initialTo, open]);
-
-  useEffect(() => {
-    if (open && defaultFrom) setFrom((current) => current || defaultFrom);
-  }, [open, defaultFrom]);
-
+    setTo(initialTo); setFrom(initialFrom || defaultFrom || ''); setReason(initialReason); setSearch(''); setSelectedName(''); setCaller(initialCaller); setRole('all'); setPage(1); setOptions(false);
+  }, [open, initialTo, initialFrom, initialReason, defaultFrom, initialCaller]);
+  useEffect(() => { if (open && defaultFrom) setFrom((value) => value || defaultFrom); }, [open, defaultFrom]);
   const normalizedTo = to.replace(/[\s().-]/g, '');
   const normalizedFrom = from.replace(/[\s().-]/g, '');
-  const validDestination = /^\+[1-9]\d{7,14}$/.test(normalizedTo);
-  const validFrom = /^\+[1-9]\d{7,14}$/.test(normalizedFrom) && Boolean(numbers.data?.some((item) => item.phone_number.replace(/[\s().-]/g, '') === normalizedFrom));
-  const lineReady = canOperate && validDestination && validFrom && !numbers.isError && !numbers.isFetching;
-  const ready = lineReady && (caller === 'me'
-    ? phone.config?.capabilities.human_outbound && phone.status === 'ready' && phone.session?.registered && !phone.active && !phone.busy
-    : !health.isError && !health.isFetching && health.data?.can_place_calls === true);
-
+  const validTo = /^\+[1-9]\d{7,14}$/.test(normalizedTo);
+  const validFrom = validCallPhone(normalizedFrom) && Boolean(numbers.data?.some((item) => item.phone_number.replace(/[\s().-]/g, '') === normalizedFrom));
+  const line = numbers.data?.find((item) => item.phone_number === from);
+  const ready = canOperate && validTo && validFrom && !numbers.isError && (caller === 'me' ? !phone.active && !phone.busy && phone.config?.ready && phone.config?.capabilities.human_outbound : health.data?.can_place_calls && !health.isError);
   const call = useMutation({
-    mutationFn: () => {
-      if (!ready) return Promise.reject(new Error('Check the destination, business line, and calling readiness.'));
-      if (caller === 'me') return phone.startHuman({ to: normalizedTo, from: normalizedFrom, reason: reason.trim() || undefined });
-      return placeVoiceCall({
-        to: normalizedTo,
-        from: normalizedFrom,
-        assistant_mode: 'robbie_ai',
-        source: 'new_call_dialog',
-        dynamic_variables: {
-          reason: reason.trim() || 'New call from Calls workspace',
-          source: 'calls_workspace_new_call',
-        },
-      });
+    mutationFn: async () => {
+      if (!ready) throw new Error('Choose a number and an available business line.');
+      return caller === 'me' ? phone.startHuman({ to: normalizedTo, from: normalizedFrom, reason: reason.trim() || undefined }) : placeVoiceCall({ to: normalizedTo, from: normalizedFrom, assistant_mode: 'robbie_ai', source: 'new_call_dialog', dynamic_variables: { reason: reason.trim() || 'New call from Calls workspace', source: 'calls_workspace_new_call' } });
     },
-    onSuccess: (created) => {
-      queryClient.invalidateQueries({ queryKey: ['voice-calls'] });
-      queryClient.invalidateQueries({ queryKey: ['voice-stats'] });
-      toast({ title: caller === 'me' ? 'Answer your browser phone' : 'Call started', description: caller === 'me' ? 'The customer is dialed after you answer.' : `Robbie is connecting to ${to.trim()}.` });
-      setOpen(false);
-      if (created?.id) navigate(`/calls/live/${created.id}`);
-    },
-    onError: (error) => {
-      toast({
-        title: 'Unable to start the call',
-        description: error instanceof Error ? error.message : 'Check the number and voice readiness.',
-        variant: 'destructive',
-      });
-    },
+    onSuccess: (created) => { void cache.invalidateQueries({ queryKey: ['voice-calls'] }); setOpen(false); navigate(`/calls/live/${created.id}`); },
+    onError: (error) => toast({ title: 'Unable to start the call', description: error instanceof Error ? error.message : 'Check calling readiness.', variant: 'destructive' }),
   });
-
-  const canCall = ready && !call.isPending;
-
-  return (
-    <Dialog open={open} onOpenChange={(next) => { if (!next || canOperate) setOpen(next); }}>
-      {trigger ? <DialogTrigger asChild disabled={!canOperate}>{trigger}</DialogTrigger> : null}
-      <DialogContent className="calls-workspace sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Start a new call</DialogTitle>
-          <DialogDescription>
-            Choose who speaks using your business line. Follow the conversation from the live view.
-          </DialogDescription>
-        </DialogHeader>
-        <fieldset disabled={!canOperate || call.isPending} className="min-w-0 space-y-3">
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Who’s calling?</p>
-            <div className="grid grid-cols-2 gap-2" role="group" aria-label="Who is calling">
-              <Button type="button" variant="outline" className={caller === 'robbie' ? 'calls-primary h-11' : 'calls-secondary h-11'} aria-pressed={caller === 'robbie'} onClick={() => setCaller('robbie')}>Robbie AI</Button>
-              <Button type="button" variant="outline" className={caller === 'me' ? 'calls-primary h-11' : 'calls-secondary h-11'} aria-pressed={caller === 'me'} onClick={() => setCaller('me')}>Me · browser phone</Button>
-            </div>
-            {caller === 'me' && <div className="space-y-2 rounded-lg bg-[var(--calls-subtle)] p-3">
-              <p className="text-xs text-[var(--calls-muted)]">{phone.active ? 'Finish your current call first.' : phone.status === 'ready' ? 'Your phone is connected. Answer it to dial the customer.' : phone.config?.blockers?.[0] || 'Connect your microphone to make this call from your browser.'}</p>
-              <BrowserPhoneConnectButton />
-              {phone.error && <p role="alert" className="text-xs text-[var(--calls-danger)]">{phone.error}</p>}
-            </div>}
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="new-call-search">Find someone</Label>
-            <Input
-              id="new-call-search"
-              disabled={!canReadContacts}
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name, number, property or phrase"
-            />
-            {!canReadContacts && <p className="text-xs text-[var(--calls-muted)]">Enter a number below. SMS access is required to search contacts.</p>}
-          </div>
-          {contacts.length > 0 && (
-            <div className="max-h-32 space-y-1 overflow-y-auto rounded-lg border border-[var(--calls-border)] p-1">
-              {contacts.map((contact) => {
-                const phone = contact.primaryNumber || contact.numbers?.[0]?.number || '';
-                return (
-                  <button
-                    key={contact.id || phone}
-                    type="button"
-                    onClick={() => setTo(phone)}
-                    className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-sm hover:bg-[var(--calls-subtle)]"
-                  >
-                    <span className="truncate">{contact.name || phone}</span>
-                    <span className="ml-2 shrink-0 text-[var(--calls-muted)]">{phone}</span>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="space-y-1">
-              <Label htmlFor="new-call-to">Number</Label>
-              <Input id="new-call-to" type="tel" inputMode="tel" autoComplete="tel" value={to} onChange={(event) => setTo(event.target.value)} placeholder="+1 (202) 555-0124" />
-              {to.trim() && !validDestination && <p className="text-xs text-[var(--calls-warning)]">Enter a full phone number with country code, starting with +.</p>}
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="new-call-from">From</Label>
-              <select
-                id="new-call-from"
-                value={validFrom ? from : ''}
-                onChange={(event) => setFrom(event.target.value)}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="" disabled>Choose a business line</option>
-                {(numbers.data ?? []).map((item) => {
-                  const available = /^\+[1-9]\d{7,14}$/.test(item.phone_number.replace(/[\s().-]/g, ''));
-                  return <option key={item.id} value={item.phone_number} disabled={!available}>
-                    {item.label || 'Line'} · {item.phone_number}{!available ? ' · Unavailable for calling' : ''}
-                  </option>;
-                })}
-              </select>
-              {!numbers.isLoading && !numbers.isError && !validFrom && <p className="text-xs text-[var(--calls-warning)]">Select an available business line.</p>}
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label htmlFor="new-call-reason">Why you’re calling</Label>
-            <Textarea
-              id="new-call-reason"
-              value={reason}
-              onChange={(event) => setReason(event.target.value)}
-              placeholder="Property access, booking follow-up, reschedule…"
-              className="min-h-20"
-            />
-          </div>
-          {closed && (
-            <p className="text-sm text-[var(--calls-warning)]">
-              Coverage is closed right now. The call can still be placed if you need an exception.
-            </p>
-          )}
-          {((caller === 'robbie' && health.isError) || numbers.isError) && <div role="alert" className="space-y-2 text-sm text-[var(--calls-danger)]">
-            <p>Could not check calling readiness or load your lines.</p>
-            <Button type="button" variant="outline" onClick={() => { void health.refetch(); void numbers.refetch(); }}>Try again</Button>
-          </div>}
-          {caller === 'robbie' && health.data && !health.data.can_place_calls && (
-            <p className="text-sm text-[var(--calls-warning)]">{health.data.readiness_blockers[0] || 'Outbound calling is not ready.'}</p>
-          )}
-        </fieldset>
-        <DialogFooter>
-          <Button type="button" variant="outline" className="calls-secondary h-11 rounded-lg" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button type="button" className="calls-primary h-11 rounded-lg" disabled={!canCall} onClick={() => call.mutate()}>
-            <Phone className="h-4 w-4" />
-            {call.isPending ? 'Starting…' : 'Start call'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+  const close = (next: boolean) => { if (call.isPending) return; if (!next || canOperate) setOpen(next); };
+  return <Dialog open={open} onOpenChange={close}>
+    {trigger && <DialogTrigger asChild disabled={!canOperate}>{trigger}</DialogTrigger>}
+    <DialogContent className="calls-workspace sm:max-w-[600px]">
+      <DialogHeader><DialogTitle>{caller === 'me' ? 'Call someone' : 'Ask Robbie to call'}</DialogTitle><DialogDescription>{caller === 'me' ? 'Call from your business line. Your personal number stays private.' : 'Robbie will speak on this call. Review the number and reason first.'}</DialogDescription></DialogHeader>
+      <fieldset disabled={call.isPending} className="min-w-0 space-y-3">
+        <div className="relative"><Search className="absolute left-3 top-4 h-4 w-4 text-[var(--calls-muted)]" /><Input aria-label="Search everyone or enter a number" className="calls-search pl-10" placeholder="Search everyone or enter a number" value={search} onChange={(event) => { const value = event.target.value; setSearch(value); setPage(1); if (/^[+\d\s().-]+$/.test(value)) { setTo(value); setSelectedName(''); } }} /></div>
+        <div className="calls-filter-row" aria-label="Directory roles">{directoryRoles.slice(0, 4).map(([value, label]) => <button key={value} type="button" className="calls-filter" data-active={role === value} aria-pressed={role === value} onClick={() => { setRole(value); setPage(1); }}>{label}</button>)}</div>
+        <div className="max-h-[25dvh] min-h-12 space-y-2 overflow-y-auto p-0.5" aria-label="Call directory">
+          {directory.isLoading && <p role="status" className="p-3 text-sm text-[var(--calls-muted)]">Loading people…</p>}
+          {directory.isError && <div role="alert" className="text-sm text-[var(--calls-danger)]">Could not load people. Enter a number below or <button type="button" className="underline" onClick={() => void directory.refetch()}>try again</button>.</div>}
+          {directory.data?.data.map((person) => <button key={person.id} type="button" disabled={!person.callable} className="calls-panel calls-item flex w-full items-center gap-3 p-3 text-left disabled:opacity-50" data-selected={to === person.phone} onClick={() => { setTo(person.phone || ''); setSelectedName(person.name); }}><CallsAvatar initials={nameInitials(person.name)} size={36} /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{person.name}</span><span className="block truncate text-xs text-[var(--calls-muted)]">{directoryRoleLabel(person.role)} · {person.phone || 'No phone number'}</span></span></button>)}
+          {directory.data?.data.length === 0 && <p className="p-2 text-sm text-[var(--calls-muted)]">No matches. You can enter a full phone number below.</p>}
+        </div>
+        {(directory.data?.last_page || 1) > 1 && <CallsPagination page={page} pages={directory.data?.last_page} total={directory.data?.total} count={directory.data?.data.length} perPage={6} pending={directory.isFetching} onChange={setPage} label="Contacts" />}
+        <div><Label htmlFor="new-call-to">{selectedName || 'Phone number'}</Label><Input id="new-call-to" type="tel" inputMode="tel" value={to} onChange={(event) => { setTo(event.target.value); setSelectedName(''); }} placeholder="+1 (202) 555-0124" />{to && !validTo && <p className="mt-1 text-xs text-[var(--calls-warning)]">Include the country code, starting with +.</p>}</div>
+        <p className="text-sm">Calling as {caller === 'me' ? 'you' : 'Robbie'} · {line?.label || from || 'Choose a business line'}</p>
+        {!numbers.isLoading && !numbers.isError && numbers.data?.length && !validFrom ? <p role="alert" className="text-xs text-[var(--calls-warning)]">Select an available business line in options.</p> : null}
+        {caller === 'me' && <div className="rounded-xl bg-[var(--calls-brand-soft)] p-3 text-sm"><p>{phone.active ? 'Finish your current call first.' : phone.status === 'ready' ? 'This browser · microphone ready' : 'First call on this device?'}</p><p className="mt-1 text-xs text-[var(--calls-muted)]">{phone.config?.blockers?.[0] || 'Call asks for microphone access only when needed.'}</p></div>}
+        {caller === 'robbie' && <div><Label htmlFor="new-call-reason">What should Robbie say?</Label><Textarea id="new-call-reason" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Explain the purpose of this call…" />{health.data && !health.data.can_place_calls && <p role="alert" className="text-xs text-[var(--calls-warning)]">{health.data.readiness_blockers?.join(' ') || 'Robbie calling is unavailable.'}</p>}</div>}
+        <button type="button" className="flex min-h-11 items-center gap-2 text-sm text-[var(--calls-muted)]" onClick={() => setOptions(!options)} aria-expanded={options}><ChevronDown className="h-4 w-4" />Business line & options</button>
+        {options && <div className="space-y-3 rounded-xl border border-[var(--calls-border)] p-3"><Label htmlFor="new-call-from">Business line</Label><select id="new-call-from" className="h-11 w-full rounded-lg border bg-[var(--calls-surface)] px-3 text-sm" value={from} onChange={(event) => setFrom(event.target.value)}><option value="">Choose a line</option>{numbers.data?.map((item) => <option key={item.id} value={item.phone_number} disabled={!validCallPhone(item.phone_number)}>{item.label || 'Line'} · {item.phone_number}{!validCallPhone(item.phone_number) ? ' · Unavailable for calling' : ''}</option>)}</select>{caller === 'me' && <><Label htmlFor="human-call-reason">Private reason (optional)</Label><Input id="human-call-reason" value={reason} onChange={(event) => setReason(event.target.value)} /></>}</div>}
+        {numbers.isError && <p role="alert" className="text-sm text-[var(--calls-danger)]">Could not load business lines. <button type="button" className="underline" onClick={() => void numbers.refetch()}>Try again</button></p>}
+        {!numbers.isLoading && !numbers.isError && !numbers.data?.length && <p role="alert" className="text-sm text-[var(--calls-warning)]">Add a business line in Calls settings first.</p>}
+        {call.isError && <p role="alert" className="text-sm text-[var(--calls-danger)]">{call.error instanceof Error ? call.error.message : 'Could not start call.'}</p>}
+      </fieldset>
+      <DialogFooter className="flex-col gap-2 sm:flex-col"><Button className="calls-call h-12 w-full rounded-xl" disabled={!ready || call.isPending} onClick={() => call.mutate()}>{call.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}{call.isPending ? 'Connecting…' : caller === 'me' ? `Call ${selectedName.split(' ')[0] || (validTo ? normalizedTo : 'now')}` : 'Start Robbie call'}</Button>{call.isPending && caller === 'me' ? <Button variant="outline" className="h-11" onClick={() => void phone.cancelPending()}>Cancel connection</Button> : <button type="button" className="min-h-11 text-sm text-[var(--calls-brand)]" onClick={() => setCaller((value) => value === 'me' ? 'robbie' : 'me')}>{caller === 'me' ? 'Ask Robbie to call instead' : 'Make this call myself'}</button>}</DialogFooter>
+    </DialogContent>
+  </Dialog>;
 }

@@ -1,5 +1,6 @@
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,9 +15,11 @@ import { useToast } from '@/hooks/use-toast';
 import { CallsQueryError } from './workspace/CallsQueryError';
 import { usePermissions } from '@/context/PermissionsContext';
 import { useBrowserPhone } from '@/context/BrowserPhoneContext';
-import { BrowserPhoneConnectButton } from '@/components/voice/BrowserPhoneControls';
+import BrowserPhoneControls, { BrowserPhoneConnectButton } from '@/components/voice/BrowserPhoneControls';
+import { VoiceNotificationSettings } from '@/components/voice/VoiceNotificationSettings';
 
 const voiceTools = [
+  'search_support_knowledge',
   'verify_caller',
   'get_shoot_details',
   'list_shoots',
@@ -31,6 +34,18 @@ const voiceTools = [
 ];
 
 export default function CallsSettings() {
+  const [params, setParams] = useSearchParams();
+  const business = params.get('section') === 'business';
+  const phone = useBrowserPhone();
+  const { can } = usePermissions();
+  return <div className="space-y-5">
+    <header className="calls-page-heading"><h2>{business ? 'Business settings' : 'Audio & alerts'}</h2><p>{business ? 'Business lines, routing, recording and Robbie’s allowed actions.' : 'Your devices, your availability, your business line.'}</p></header>
+    <div className="calls-filter-row" aria-label="Settings sections">{[['audio', 'Audio & alerts'], ['business', 'Business lines & routing']].map(([value, label]) => <button key={value} type="button" className="calls-filter" data-active={business === (value === 'business')} aria-pressed={business === (value === 'business')} onClick={() => setParams(value === 'business' ? { section: 'business' } : {})}>{label}</button>)}</div>
+    {business ? <BusinessSettings /> : <><section className="calls-panel space-y-3 p-5"><h3 className="font-semibold">This browser</h3><p className="text-sm text-[var(--calls-muted)]">{phone.status === 'ready' ? 'Connected. Choose the microphone and speaker for this device.' : phone.config?.blockers?.[0] || 'Calling connects automatically when you choose Call or Answer. Connect here to choose audio devices in advance.'}</p>{can('voice-calls', 'operate') ? <><BrowserPhoneConnectButton />{phone.status === 'ready' && <BrowserPhoneControls compact />}<p className="text-xs text-[var(--calls-muted)]">Microphone access requires your permission. Use your operating system’s audio settings if speaker selection is unavailable.</p></> : <p className="text-sm text-[var(--calls-muted)]">Calls operate permission is required to enable devices.</p>}</section><VoiceNotificationSettings /></>}
+  </div>;
+}
+
+function BusinessSettings() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { can, isLoading: permissionsLoading } = usePermissions();
@@ -63,8 +78,7 @@ export default function CallsSettings() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-[28px] font-semibold leading-9">The lines, the rules, the quiet parts.</h2>
-        <p className="mt-1 text-sm text-[var(--calls-muted)]">Numbers, recording, routing, and the tools Robbie may use. Nothing here is decorative.</p>
+        <div className="flex flex-wrap gap-2"><Button asChild className="calls-secondary h-11"><Link to="/calls/schedule">Business hours & holidays</Link></Button><Button asChild className="calls-secondary h-11"><Link to="/calls/automations">Automations</Link></Button><Button asChild className="calls-secondary h-11"><Link to="/calls/assistant">Greeting & knowledge</Link></Button></div>
         {!permissionsLoading && !canManage && <p className="mt-2 text-sm text-[var(--calls-muted)]">You can review these settings. Manage Calls permission is required to change them.</p>}
       </div>
       <CallsNumbers />
@@ -75,7 +89,7 @@ export default function CallsSettings() {
         </p>
         <div className="mt-3"><BrowserPhoneConnectButton /></div>
       </section>
-      <fieldset disabled={!canManage} className="min-w-0 space-y-4">
+      <fieldset disabled={!canManage || save.isPending} className="min-w-0 space-y-4">
       <section className="calls-panel space-y-4 p-5">
         <OutboundModeControl
           mode={draft.outbound_mode}

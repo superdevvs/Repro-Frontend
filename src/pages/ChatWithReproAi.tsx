@@ -1,7 +1,7 @@
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 
 const LazyShootDetailsModal = lazy(() =>
@@ -34,6 +34,7 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { toast } from '@/components/ui/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
+import { isRobbieHelpOnlyRole, isSupportQuestion, roleHelpPrompts } from '@/services/supportKnowledge';
 
 import { ChatWithReproAiView } from './ChatWithReproAiView';
 import {
@@ -81,6 +82,9 @@ const ChatWithReproAi = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const helpOnly = isRobbieHelpOnlyRole(user?.role);
+  const helpPrompts = roleHelpPrompts(user?.role);
   const { trackUpload } = useUpload();
   const hasConsumedNavigation = useRef(false);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
@@ -92,7 +96,20 @@ const ChatWithReproAi = () => {
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const pendingUploadFilesRef = useRef<File[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('home');
-  const [tabMode, setTabMode] = useState<TabMode>('chat');
+  const [tabMode, setTabModeState] = useState<TabMode>(() => searchParams.get('tab') === 'help' ? 'help' : 'chat');
+  const setTabMode = useCallback<React.Dispatch<React.SetStateAction<TabMode>>>((next) => {
+    const nextTab = typeof next === 'function' ? next(tabMode) : next;
+    setTabModeState(nextTab);
+    setSearchParams((current) => {
+      const updated = new URLSearchParams(current);
+      if (nextTab === 'help') updated.set('tab', 'help');
+      else { updated.delete('tab'); updated.delete('article'); }
+      return updated;
+    }, { replace: true });
+  }, [tabMode, setSearchParams]);
+  useEffect(() => {
+    setTabModeState((current) => searchParams.get('tab') === 'help' ? 'help' : current === 'help' ? 'chat' : current);
+  }, [searchParams]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [message, setMessage] = useState('');
@@ -297,16 +314,21 @@ const ChatWithReproAi = () => {
 
   // Helper to map suggestion text to intent
   const getIntentFromSuggestion = useCallback((suggestion: string): string | undefined => {
+    if (helpOnly || isSupportQuestion(suggestion)) return 'support_faq';
     const s = suggestion.toLowerCase();
     if (s.includes('book') && (s.includes('shoot') || s.includes('new'))) return 'book_shoot';
     if (s.includes('manage') && s.includes('booking')) return 'manage_booking';
     if (s.includes('availability') || s.includes('available')) return 'availability';
     return undefined;
-  }, []);
+  }, [helpOnly]);
 
   const handleSendMessage = useCallback(async (msg?: string, context?: AiChatRequest['context']) => {
     const messageToSend = msg || message.trim();
     if (!messageToSend || isSendingRef.current) return;
+    if (/^view help guides$/i.test(messageToSend.trim())) {
+      setTabMode('help');
+      return;
+    }
 
     isSendingRef.current = true;
     shouldAutoScrollRef.current = true;
@@ -331,7 +353,7 @@ const ChatWithReproAi = () => {
     // Once inside a flow (sessionId exists), rely on the backend session state to keep the
     // correct intent — sending a re-detected intent on every follow-up message can reset the
     // flow and cause loops.
-    const intent = context?.intent || (!sessionId ? getIntentFromSuggestion(messageToSend) : undefined);
+    const intent = helpOnly ? 'support_faq' : context?.intent || (isSupportQuestion(messageToSend) ? 'support_faq' : !sessionId ? getIntentFromSuggestion(messageToSend) : undefined);
     const finalContext = {
       ...pageContext,
       ...context,
@@ -412,9 +434,10 @@ const ChatWithReproAi = () => {
       setIsLoading(false);
       isSendingRef.current = false;
     }
-  }, [message, sessionId, viewMode, pageContext, user?.role, getIntentFromSuggestion]);
+  }, [message, sessionId, viewMode, pageContext, user?.role, getIntentFromSuggestion, helpOnly, setTabMode]);
 
   const startConfirmedRobbieUpload = useCallback((action: AiActionPayload) => {
+    if (helpOnly) return;
     const shootId = typeof action?.shootId === 'string' || typeof action?.shootId === 'number'
       ? action.shootId
       : null;
@@ -534,9 +557,10 @@ const ChatWithReproAi = () => {
       title: 'Robbie upload started',
       description: `${files.length} file${files.length === 1 ? '' : 's'} uploading to shoot #${shootId}.`,
     });
-  }, [handleSendMessage, trackUpload]);
+  }, [handleSendMessage, trackUpload, helpOnly]);
 
   const handleUploadFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    if (helpOnly) return;
     const selected = Array.from(event.target.files || []);
     event.target.value = '';
     if (selected.length === 0) return;
@@ -565,7 +589,7 @@ const ChatWithReproAi = () => {
       targetShootId: pageContext.entityType === 'shoot' ? pageContext.entityId : undefined,
       source: 'robbie_attachment_tray',
     });
-  }, [handleSendMessage, pageContext.entityId, pageContext.entityType]);
+  }, [handleSendMessage, pageContext.entityId, pageContext.entityType, helpOnly]);
 
   useEffect(() => {
     const state = location.state as InsightNavigationState | null;
@@ -630,14 +654,16 @@ const ChatWithReproAi = () => {
       insight: { message: 'Summarize key selling points for one of my properties.', intent: undefined },
     };
 
-    const prompt = prompts[cardType];
+    const prompt = helpOnly
+      ? { message: roleHelpPrompts(user?.role)[['booking', 'listing', 'insight'].indexOf(cardType)], intent: 'support_faq' }
+      : prompts[cardType];
     handleSendMessage(prompt.message, { intent: prompt.intent });
     // Focus input after a brief delay
     setTimeout(() => {
       const input = document.querySelector('input[placeholder="Type your message..."]') as HTMLInputElement;
       input?.focus();
     }, 100);
-  }, [handleSendMessage, isLoading, viewMode]);
+  }, [handleSendMessage, isLoading, viewMode, helpOnly, user?.role, setTabMode]);
 
   const handleSessionClick = async (session: AiChatSession) => {
     setSessionId(session.id);
@@ -768,12 +794,13 @@ const ChatWithReproAi = () => {
   }, [selectedSessions, sessionId, loadSessions]);
 
   const handleBackToHome = useCallback(() => {
+    setTabMode('chat');
     setViewMode('home');
     setMessages([]);
     setSessionId(null);
     setMessage('');
     setCurrentSuggestions([]);
-  }, []);
+  }, [setTabMode]);
 
   const handleNavigateBack = useCallback(() => {
     try {
@@ -789,7 +816,7 @@ const ChatWithReproAi = () => {
   }, [location.pathname, navigate]);
 
   const pagePrompts = useMemo(() => getPagePrompts(pageContext.page), [pageContext.page]);
-  const suggestionFallbacks = pagePrompts ?? DEFAULT_PROMPTS;
+  const suggestionFallbacks = helpOnly ? helpPrompts : [...helpPrompts.slice(0, 1), ...(pagePrompts ?? DEFAULT_PROMPTS)];
 
   // On the Robbie home view we hide the entire sticky tab header (tabs +
   // bottom divider line) for a cleaner, focused landing screen. The History
@@ -800,6 +827,7 @@ const ChatWithReproAi = () => {
     <ChatWithReproAiView
       {...{
         isRobbieHome,
+        helpOnly,
         tabMode,
         filteredSessions,
         searchTerm,
@@ -813,7 +841,7 @@ const ChatWithReproAi = () => {
         handleBackToHome,
         contentScrollRef,
         userName,
-        suggestedCards: SUGGESTED_CARDS,
+        suggestedCards: helpOnly ? SUGGESTED_CARDS.map((card, index) => ({ ...card, title: helpPrompts[index], description: 'Get clear steps and troubleshooting advice for your role.' })) : SUGGESTED_CARDS,
         activeCardIndex,
         setActiveCardIndex,
         handleCardClick,

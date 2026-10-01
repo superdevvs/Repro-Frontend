@@ -2,7 +2,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { lazy, Suspense, type ChangeEventHandler, type Dispatch, type MouseEvent, type MutableRefObject, type RefObject, type SetStateAction } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
-import { Archive, ArrowLeft, Clock, Code, FileIcon, FileText, Link as LinkIcon, MessageSquare, Mic, MoreVertical, Plus, Search, Send, Trash2, X } from 'lucide-react';
+import { Archive, ArrowLeft, BookOpen, Clock, Code, FileIcon, FileText, Link as LinkIcon, MessageSquare, Mic, MoreVertical, Plus, Search, Send, Trash2, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { AiMessageBubble } from '@/components/ai/AiMessageBubble';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -18,6 +18,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { AiChatRequest, AiChatSession, AiMessage } from '@/types/ai';
 import type { ShootModalTab, TabMode, ViewMode } from './chatWithReproAiModel';
+import RobbieKnowledgePanel from '@/components/ai/RobbieKnowledgePanel';
 
 const LazyShootDetailsModal = lazy(() =>
   import('@/components/shoots/ShootDetailsModal').then((module) => ({
@@ -40,6 +41,7 @@ type SessionsStats = {
 
 export interface ChatWithReproAiViewProps {
   isRobbieHome: boolean;
+  helpOnly: boolean;
   tabMode: TabMode;
   filteredSessions: AiChatSession[];
   searchTerm: string;
@@ -98,6 +100,7 @@ export interface ChatWithReproAiViewProps {
 export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
   const {
     isRobbieHome,
+    helpOnly,
     tabMode,
     filteredSessions,
     searchTerm,
@@ -163,7 +166,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
             <div className="mx-auto w-full max-w-5xl px-3 md:px-4 pt-2 md:pt-3 pb-2 md:pb-3">
               <div
                 className={cn(
-                  "flex items-start md:items-center gap-2 pointer-events-auto",
+                  "flex flex-wrap items-start md:items-center gap-2 pointer-events-auto",
                   tabMode === 'history' ? 'justify-between' : 'justify-end'
                 )}
               >
@@ -223,7 +226,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                       value="chat"
                       onClick={(e) => {
                         // Handle click explicitly for navigation
-                        if (viewMode === 'chat') {
+                        if (viewMode === 'chat' && tabMode === 'chat') {
                           e.preventDefault();
                           handleBackToHome();
                         }
@@ -268,6 +271,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                     >
                       History
                     </TabsTrigger>
+                    <TabsTrigger value="help" className="h-full min-h-9 rounded-full px-3 text-xs font-semibold md:px-4 md:text-sm">Help & guides</TabsTrigger>
                   </TabsList>
                 </Tabs>
                 </div>
@@ -289,6 +293,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
           >
           {/* Tabs Content */}
           <div className="flex flex-col">
+            {tabMode === 'help' && <RobbieKnowledgePanel onAsk={(question, context) => { setTabMode('chat'); void handleSendMessage(question, context); }} />}
             {tabMode === 'chat' && (
               <div className="mt-0 flex flex-col">
                 <AnimatePresence mode="sync">
@@ -317,8 +322,9 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                             Welcome, {userName}
                           </h2>
                           <p className="text-muted-foreground text-sm md:text-base px-2 text-center">
-                            Use Robbie to book shoots, improve your listings, and understand your properties in one place.
+                            {helpOnly ? 'Ask Robbie how to use your dashboard, solve common problems, or find the right next step.' : 'Use Robbie to book shoots, improve your listings, and get help with your dashboard.'}
                           </p>
+                          <Button variant="outline" className="mt-4 min-h-11 rounded-full px-5" onClick={() => setTabMode('help')}><BookOpen className="mr-2 h-4 w-4" />Help & guides</Button>
                         </div>
                       </motion.div>
   
@@ -819,7 +825,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                       disabled={isLoading}
                     />
                     <div className="flex items-center gap-2">
-                      <div className="hidden md:flex items-center gap-2">
+                      {!helpOnly && <div className="hidden md:flex items-center gap-2">
                         <Button variant="ghost" size="icon" className="h-8 w-8">
                           <LinkIcon className="h-4 w-4" />
                         </Button>
@@ -832,8 +838,8 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                         >
                           <FileIcon className="h-4 w-4" />
                         </Button>
-                      </div>
-                      <Button
+                      </div>}
+                      {!helpOnly && <Button
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 md:hidden"
@@ -841,7 +847,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                         disabled={isLoading}
                       >
                         <FileIcon className="h-4 w-4" />
-                      </Button>
+                      </Button>}
                       <Button variant="ghost" size="icon" className="h-8 w-8 md:h-9 md:w-9">
                         <Mic className="h-4 w-4 md:h-5 md:w-5" />
                       </Button>
@@ -916,4 +922,3 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
       </DashboardLayout>
     );
 }
-

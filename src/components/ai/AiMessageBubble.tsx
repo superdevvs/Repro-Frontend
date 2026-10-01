@@ -11,41 +11,13 @@ import { apiClient } from '@/services/api';
 import { executeShootOperatorAction } from '@/services/aiService';
 import { toast } from '@/components/ui/use-toast';
 import { openCheckoutLink } from '@/utils/checkoutLaunch';
+import { Link } from 'react-router-dom';
+import { supportArticleUrl } from '@/services/supportKnowledge';
+import { ChatText } from './ChatText';
 
 interface AiMessageBubbleProps {
   message: AiMessage;
   className?: string;
-}
-
-/**
- * Lightweight inline markdown rendering for chat messages.
- * Supports:
- *   **bold**
- *   `inline code`
- * Returns an array of React nodes safe for use inside a <p> element.
- */
-function renderInlineMarkdown(content: string): React.ReactNode {
-  if (!content) return null;
-  // Split on **...** and `...`, keeping delimiters as captured groups.
-  const tokens = content.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-  return tokens.map((token, i) => {
-    if (!token) return null;
-    if (token.startsWith('**') && token.endsWith('**') && token.length >= 4) {
-      return (
-        <strong key={i} className="font-semibold">
-          {token.slice(2, -2)}
-        </strong>
-      );
-    }
-    if (token.startsWith('`') && token.endsWith('`') && token.length >= 2) {
-      return (
-        <code key={i} className="rounded bg-black/5 px-1 py-0.5 text-[0.85em] dark:bg-white/10">
-          {token.slice(1, -1)}
-        </code>
-      );
-    }
-    return <React.Fragment key={i}>{token}</React.Fragment>;
-  });
 }
 
 export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
@@ -54,6 +26,9 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
   const metadata = message.metadata || {};
   const toolStatus = metadata.tool_status as string | undefined;
   const actions = Array.isArray(metadata.actions) ? (metadata.actions as AiActionPayload[]) : [];
+  const knowledgeArticles = Array.isArray(metadata.knowledge_articles)
+    ? metadata.knowledge_articles.filter((item: unknown): item is { id: string; title: string } => Boolean(item && typeof item === 'object' && 'id' in item && typeof item.id === 'string' && 'title' in item && typeof item.title === 'string'))
+    : [];
   const showToolStatus = isAssistant && Boolean(toolStatus);
   const toolStatusOk = showToolStatus ? toolStatus === 'success' : false;
   const [actionLoading, setActionLoading] = useState<Record<string, boolean>>({});
@@ -246,9 +221,11 @@ export function AiMessageBubble({ message, className }: AiMessageBubbleProps) {
             )}
           >
             <p className="text-sm whitespace-pre-wrap break-words [overflow-wrap:anywhere] max-w-full leading-relaxed">
-              {renderInlineMarkdown(message.content)}
+              <ChatText content={message.content} />
             </p>
           </div>
+
+        {isAssistant && knowledgeArticles.length > 0 && <nav aria-label="Guides used in this answer" className="max-w-full space-y-2 px-1"><p className="text-xs font-medium text-muted-foreground">Related guides</p><div className="flex flex-wrap gap-2">{knowledgeArticles.map((article: { id: string; title: string }) => <Link key={article.id} to={supportArticleUrl(article.id)} className="inline-flex min-h-11 items-center rounded-lg border bg-background px-3 py-2 text-xs font-medium text-primary hover:bg-accent">{article.title}</Link>)}</div></nav>}
 
         {/* Action buttons for assistant messages with specific actions */}
         {isAssistant && (metadata.action || actions.length > 0) && (

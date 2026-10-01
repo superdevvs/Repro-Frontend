@@ -23,7 +23,7 @@ interface PhoneRuntime {
   setOutputId: Dispatch<SetStateAction<string>>;
 }
 
-export function useBrowserPhoneActions(runtime: PhoneRuntime): Pick<BrowserPhoneContextValue, 'answer' | 'decline' | 'startHuman' | 'takeOver' | 'supervise' | 'changeMode' | 'control' | 'setConsent' | 'setInput' | 'setOutput'> {
+export function useBrowserPhoneActions(runtime: PhoneRuntime): Pick<BrowserPhoneContextValue, 'answer' | 'decline' | 'takeOver' | 'supervise' | 'changeMode' | 'control' | 'setConsent' | 'setInput' | 'setOutput'> {
   const operations = useRef(new Map<string, string>());
   const keyFor = (payload: unknown) => {
     const fingerprint = JSON.stringify(payload);
@@ -68,14 +68,6 @@ export function useBrowserPhoneActions(runtime: PhoneRuntime): Pick<BrowserPhone
       const { active, call } = requireCall();
       if (active.offer.role === 'supervisor') await api.leaveVoiceSupervision(active.offer.voice_call_id);
       await call.hangup(); runtime.invalidate();
-    }),
-    startHuman: (payload) => runtime.run(async () => {
-      const session = requireSession(true);
-      const operation = keyFor({ session: session.id, ...payload });
-      const call = await api.startHumanVoiceCall({ ...payload, session_id: session.id, idempotency_key: operation.key });
-      operations.current.delete(operation.fingerprint);
-      runtime.invalidate(); await runtime.sync().catch(() => undefined);
-      return call;
     }),
     takeOver: (id) => runtime.run(async () => {
       const session = requireSession(true);

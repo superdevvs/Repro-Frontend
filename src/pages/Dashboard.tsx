@@ -424,8 +424,9 @@ const Dashboard = () => {
     ["admin", "superadmin", "editing_manager", "salesRep"].includes(role),
     `${role}:${user?.id ?? "guest"}`,
   );
-  // ACL for GET /api/shoots/pending-reschedules is staff reviewers only (not sales_rep).
-  // Match FE canReviewRescheduleRequests — do not poll or surface the Reschedule tab otherwise.
+  // ACL for GET /api/shoots/pending-reschedules is office reviewers (admin /
+  // superadmin / editing_manager / salesRep). Match FE canReviewRescheduleRequests
+  // — do not poll or surface the Reschedule tab for non-reviewers.
   const canReviewReschedules = canReviewRescheduleRequests(role);
   const rescheduleRequests = useRescheduleRequests(
     canReviewReschedules,

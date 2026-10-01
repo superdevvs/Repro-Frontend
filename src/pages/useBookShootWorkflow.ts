@@ -10,6 +10,7 @@ import type { InternalShootType } from '@/components/booking/ClientPropertyForm'
 import type { ShootData } from '@/types/shoots';
 import axios from 'axios';
 import API_ROUTES from '@/lib/api';
+import { bookingTimeToMinutes, normalizeSlotClock, slotCoversBookingTime } from './bookShootAvailabilityMatch';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
@@ -557,27 +558,23 @@ export const useBookShootWorkflow = ({
         return;
       }
       if (!date || !time) { setAvailablePhotographerIds([]); setAvailabilityChecked(true); return; }
-      const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-      if (!match) { setAvailablePhotographerIds([]); setAvailabilityChecked(true); return; }
-      let hhNum = parseInt(match[1], 10);
-      const mmNum = parseInt(match[2], 10);
-      const mer = match[3].toUpperCase();
-      if (mer === 'PM' && hhNum !== 12) hhNum += 12;
-      if (mer === 'AM' && hhNum === 12) hhNum = 0;
-      const hh = String(hhNum).padStart(2, '0');
-      const mm = String(mmNum).padStart(2, '0');
+      const bookingStartMinutes = bookingTimeToMinutes(time);
+      if (bookingStartMinutes === null) {
+        // Unknown time shape — keep full list (fail open) instead of blanking the picker.
+        console.warn('[Availability] Unrecognized time format; keeping full photographer list', time);
+        setAvailablePhotographerIds((photographers ?? []).map((p) => String(p.id)));
+        setAvailabilityChecked(true);
+        return;
+      }
+      const hh = String(Math.floor(bookingStartMinutes / 60)).padStart(2, '0');
+      const mm = String(bookingStartMinutes % 60).padStart(2, '0');
       const start_time = `${hh}:${mm}`;
       const d = new Date(date);
       const y = d.getFullYear();
       const m = String(d.getMonth()+1).padStart(2,'0');
       const day = String(d.getDate()).padStart(2,'0');
       const fmtDate = `${y}-${m}-${day}`;
-      console.debug('[Availability] Checking start-time only', { fmtDate, start_time, totalPhotographers: photographers?.length || 0 });
-      const startDateTmp = new Date(2000, 0, 1, Number(hh), Number(mm), 0);
-      const endDateTmp = new Date(startDateTmp.getTime() + 30 * 60 * 1000);
-      const endH = String(endDateTmp.getHours()).padStart(2, '0');
-      const endM = String(endDateTmp.getMinutes()).padStart(2, '0');
-      const end_time = `${endH}:${endM}`;
+      console.debug('[Availability] Checking within-window coverage', { fmtDate, start_time, totalPhotographers: photographers?.length || 0 });
       try {
         if (!photographers || photographers.length === 0) { setAvailablePhotographerIds([]); return; }
         const token = localStorage.getItem('authToken');
@@ -611,16 +608,11 @@ export const useBookShootWorkflow = ({
           const relevant = specific.length > 0 ? specific : weekly;
           relevant.forEach((r) => {
             if ((r?.status ?? 'available') !== 'unavailable') {
-              const raw = (r?.start_time ?? '').toString();
-              const norm = raw.includes(':') ? raw.slice(0, 5) : raw;
+              const norm = normalizeSlotClock(r?.start_time);
               if (norm) allTimesSet.add(norm);
             }
           });
-          return relevant.some((r) => {
-            const raw = (r?.start_time ?? '').toString();
-            const rowStart = raw.includes(':') ? raw.slice(0, 5) : raw;
-            return (r?.status ?? 'available') !== 'unavailable' && rowStart === start_time;
-          });
+          return relevant.some((r) => slotCoversBookingTime(r, bookingStartMinutes));
         }).map((p) => String(p.id));
         setAvailablePhotographerIds(ids);
         console.debug('[Availability] Available photographer IDs (bulk):', ids);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUpRight, Calendar, ChevronRight, Filter, MoreHorizontal, Phone, Search, Send, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Calendar, ChevronRight, Phone, Search, Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -11,7 +11,10 @@ import { usePermissions } from '@/context/PermissionsContext';
 import { sendSms } from '@/services/messaging';
 import { addVoiceCallNote, getVoiceCall, getVoiceCalls } from '@/services/voice';
 import type { VoiceCall } from '@/types/voice';
-import NewCallDialog from './workspace/NewCallDialog';
+import CallNowButton from './workspace/CallNowButton';
+import { CallsPagination } from './workspace/CallsPagination';
+import TranscriptPanel from './workspace/TranscriptPanel';
+import { useCallSearch } from './workspace/useCallSearch';
 import ScheduleVoiceCallDialog from './ScheduleVoiceCallDialog';
 import { CallsAvatar, EmptyCalls } from './workspace/bits';
 import {
@@ -36,14 +39,14 @@ import {
 } from './workspace/callDisplay';
 
 const filters: Array<{ id: InboxFilter; label: string }> = [
+  { id: 'all', label: 'All' },
   { id: 'needs_attention', label: 'Needs attention' },
-  { id: 'all', label: 'All calls' },
   { id: 'voicemail', label: 'Voicemail' },
 ];
 
 export default function CallsInbox() {
   const { id } = useParams();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -51,23 +54,21 @@ export default function CallsInbox() {
   const canOperate = can('voice-calls', 'operate');
   const canSendSms = canOperate && can('messaging-sms', 'view');
   const selectedId = id ? Number(id) : null;
-  const [filter, setFilter] = useState<InboxFilter>('needs_attention');
-  const [search, setSearch] = useState('');
-  const [debounced, setDebounced] = useState('');
-  const [page, setPage] = useState(1);
+  const filter = (filters.some((item) => item.id === searchParams.get('filter')) ? searchParams.get('filter') : 'all') as InboxFilter;
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const search = searchParams.get('q') || '';
+  const setSearch = (value: string) => setSearchParams((params) => { params.set('q', value); params.set('page', '1'); return params; }, { replace: true });
+  const debounced = useCallSearch(search.trim());
+  const setPage = (value: number) => setSearchParams((params) => { params.set('page', String(value)); return params; }, { replace: true });
+  const setFilter = (value: InboxFilter) => setSearchParams((params) => { params.set('filter', value); params.set('page', '1'); return params; }, { replace: true });
   const [tab, setTab] = useState<'activity' | 'transcript' | 'notes'>(searchParams.get('tab') === 'transcript' ? 'transcript' : 'activity');
-  const [composeMode, setComposeMode] = useState<'sms' | 'note'>('sms');
+  const [composeMode, setComposeMode] = useState<'sms' | 'note'>('note');
   const [draft, setDraft] = useState('');
   const initializedComposer = useRef('');
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => { setDebounced(search.trim()); setPage(1); }, 300);
-    return () => window.clearTimeout(timer);
-  }, [search]);
-
   const list = useQuery({
     queryKey: ['voice-calls', 'inbox', filter, debounced, page],
-    queryFn: () => getVoiceCalls({ per_page: 40, page, filter: inboxFilterFor(filter), search: debounced || undefined }),
+    queryFn: () => getVoiceCalls({ per_page: 20, page, filter: inboxFilterFor(filter), search: debounced || undefined }),
   });
   const attention = useQuery({
     queryKey: ['voice-calls', 'inbox-count', 'needs_attention'],
@@ -105,10 +106,10 @@ export default function CallsInbox() {
 
   const sendNote = useMutation({
     mutationFn: (body: string) => addVoiceCallNote(call!.id, body),
-    onSuccess: (updated) => {
+    onSuccess: (updated, sentBody) => {
       queryClient.setQueryData(['voice-call', updated.id], updated);
       queryClient.invalidateQueries({ queryKey: ['voice-calls'] });
-      setDraft('');
+      setDraft((current) => current.trim() === sentBody ? '' : current);
       toast({ title: 'Note saved' });
     },
     onError: (error) =>
@@ -117,13 +118,13 @@ export default function CallsInbox() {
 
   const sendReply = useMutation({
     mutationFn: (body: string) => sendSms({ to: phone, body_text: body }),
-    onSuccess: (result) => {
+    onSuccess: (result, sentBody) => {
       if (result.message.status === 'FAILED' || result.message.status === 'CANCELLED') {
         toast({ title: 'Message was not sent', description: 'Your draft is still here. Review the message status before retrying.', variant: 'destructive' });
         return;
       }
       queryClient.invalidateQueries({ queryKey: ['voice-call', call?.id] });
-      setDraft('');
+      setDraft((current) => current.trim() === sentBody ? '' : current);
       toast({ title: result.message.status === 'SENT' || result.message.status === 'DELIVERED' ? 'Message sent' : 'Message queued' });
     },
     onError: (error) =>
@@ -145,64 +146,51 @@ export default function CallsInbox() {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="calls-fill-page">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-          <h2 className="text-[28px] font-semibold leading-9">Your conversations</h2>
+          <h2 className="text-[28px] font-semibold leading-9">Conversations</h2>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="calls-chip calls-chip-warning">{attention.data?.total ?? 0} need attention</span>
-            <span className="calls-chip calls-chip-success">{live.data?.total ?? liveRows.length} live</span>
+            {attention.data && <span className="calls-chip calls-chip-warning">{attention.data.total ?? 0} need attention</span>}
+            <Link to="/calls/live" className="calls-chip calls-chip-success">Team queue{live.data ? ` · ${live.data.total ?? liveRows.length} live` : ''}</Link>
           </div>
-        </div>
-        <div className="flex items-center gap-2 text-sm text-[var(--calls-muted)]">
-          <span>Today · {new Date().toLocaleDateString([], { month: 'long', day: 'numeric' })}</span>
-          <Filter className="h-4 w-4" />
         </div>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-        <div className={selectedId ? 'hidden xl:flex xl:flex-col xl:gap-3' : 'flex flex-col gap-3'}>
+      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
+        <div className={selectedId ? 'hidden min-h-0 lg:flex lg:flex-col lg:gap-3' : 'flex min-h-0 flex-col gap-3'}>
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-[var(--calls-muted)]" />
             <Input
               value={search}
+              aria-label="Search conversations"
               onChange={(event) => setSearch(event.target.value)}
-              placeholder="Name, number, property or phrase"
-              className="h-11 rounded-lg border-[var(--calls-border)] bg-[var(--calls-surface)] pl-9"
+              placeholder="Search name, phone or transcript"
+              className="calls-search pl-9"
             />
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="calls-filter-row">
             {filters.map((item) => (
-              <button key={item.id} type="button" className="calls-filter" data-active={filter === item.id} onClick={() => { setFilter(item.id); setPage(1); }}>
+              <button key={item.id} type="button" className="calls-filter" data-active={filter === item.id} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>
                 {item.label}
               </button>
             ))}
           </div>
-          {(list.data?.last_page ?? 1) > 1 && (
-            <div className="flex items-center justify-between gap-2">
-              <Button className="calls-secondary" disabled={page === 1 || list.isFetching} onClick={() => setPage((value) => value - 1)}>Previous</Button>
-              <span className="text-xs text-[var(--calls-muted)]">Page {page} of {list.data?.last_page}</span>
-              <Button className="calls-secondary" disabled={page >= (list.data?.last_page ?? 1) || list.isFetching} onClick={() => setPage((value) => value + 1)}>Next</Button>
-            </div>
-          )}
-          <div className="space-y-2">
+          <div key={`${filter}-${debounced}-${page}`} className="calls-scroll space-y-2" aria-label="Conversation results" tabIndex={0}>
+            {list.isLoading && <p role="status" className="p-4 text-sm text-[var(--calls-muted)]">Loading conversations…</p>}
             {rows.map((item) => (
               <button
                 key={item.id}
                 type="button"
                 data-selected={item.id === selectedId}
-                onClick={() => navigate(`/calls/inbox/${item.id}`)}
-                className="calls-item calls-panel flex w-full flex-col gap-2 p-4 text-left"
+                onClick={() => navigate(`/calls/inbox/${item.id}?${searchParams.toString()}`)}
+                className="calls-item calls-panel flex w-full flex-col gap-1.5 p-3 text-left"
               >
                 <div className="flex items-center gap-3">
-                  <CallsAvatar initials={callerInitials(item)} />
-                  <span className="flex-1 truncate text-base font-semibold">{callerName(item)}</span>
+                  <CallsAvatar initials={callerInitials(item)} size={40} />
+                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{callerName(item)}</span><span className="mt-1 block truncate text-xs text-[var(--calls-muted)]">{inboxDetail(item)} · {inboxStatusLine(item)}</span></span>
                   <span className="text-xs text-[var(--calls-muted)]">{formatRelative(item.ended_at || item.started_at || item.created_at)}</span>
                 </div>
-                <p className="truncate text-xs text-[var(--calls-muted)]">{inboxDetail(item)}</p>
-                <p className={`text-xs ${item.id === selectedId || needsReview(item) ? 'text-[var(--calls-brand)]' : 'text-[var(--calls-muted)]'}`}>
-                  {inboxStatusLine(item)}
-                </p>
               </button>
             ))}
             {list.isError && (
@@ -217,6 +205,7 @@ export default function CallsInbox() {
               <EmptyCalls title={debounced || filter !== 'all' ? 'No conversations match' : 'No calls yet'} />
             )}
           </div>
+          <CallsPagination label="Conversations" page={page} pages={list.data?.last_page} total={list.data?.total} count={rows.length} pending={list.isFetching} error={list.isError} onChange={setPage} />
           {liveRows[0] && (
             <Link to={`/calls/live/${liveRows[0].id}`} className="calls-panel flex items-center gap-3 bg-[var(--calls-brand-soft)] p-3 text-sm">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--calls-surface)]">
@@ -231,7 +220,7 @@ export default function CallsInbox() {
           )}
         </div>
 
-        <div className={!selectedId ? 'hidden xl:block' : undefined}>
+        <div className={!selectedId ? 'calls-scroll hidden lg:block' : 'calls-scroll'} aria-label="Conversation detail">
           {selected.isError && (
             <div role="alert" className="calls-panel p-5 text-sm text-[var(--calls-danger)]">
               Could not load this conversation.
@@ -246,8 +235,8 @@ export default function CallsInbox() {
           {call && (
             <div className="calls-panel overflow-hidden">
               <div className="flex flex-col gap-4 border-b border-[var(--calls-border)] p-5">
-                <div className="xl:hidden">
-                  <Button variant="ghost" className="h-8 px-2" onClick={() => navigate('/calls/inbox')}>
+                <div className="lg:hidden">
+                  <Button variant="ghost" className="h-11 px-2" onClick={() => navigate(`/calls/inbox?${searchParams.toString()}`)}>
                     Back to inbox
                   </Button>
                 </div>
@@ -262,35 +251,18 @@ export default function CallsInbox() {
                       <div className="mt-2 flex flex-wrap gap-2">
                         <span className="calls-chip calls-chip-neutral">{callDirectionLabel(call)}</span>
                         <span className="calls-chip calls-chip-neutral">Owner · {callOwnerLabel(call)}</span>
-                        {call.recording_consent_given && <span className="calls-chip calls-chip-success">Recording · client</span>}
+                        {call.recording_consent_given && <span className="calls-chip calls-chip-success">Recording consent received</span>}
                       </div>
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <CallNowButton to={phone} name={callerName(call)} reason={`Follow-up with ${callerName(call)}`} />
                     <ScheduleVoiceCallDialog
                       initialTargetPhone={phone}
                       initialReason={`Callback for ${callerName(call)}`}
-                      trigger={<Button disabled={!canOperate} className="calls-secondary h-11 rounded-lg">Call back</Button>}
-                    />
-                    <NewCallDialog
-                      initialTo={phone}
-                      initialReason={`Follow-up with ${callerName(call)}`}
-                      trigger={
-                        <Button disabled={!canOperate} variant="outline" className="calls-secondary h-11 w-11 rounded-lg p-0" aria-label="More call actions">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      }
+                      trigger={<Button disabled={!canOperate} className="calls-secondary h-11 rounded-lg">Schedule callback</Button>}
                     />
                   </div>
-                </div>
-                <div className="flex justify-end">
-                  {phone && canOperate ? (
-                    <a href={`tel:${phone}`} className="text-sm text-[var(--calls-brand)]">
-                      Call on this device
-                    </a>
-                  ) : !phone ? (
-                    <span className="text-sm text-[var(--calls-muted)]">No saved contact</span>
-                  ) : null}
                 </div>
                 {shoot && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[var(--calls-subtle)] p-4">
@@ -338,7 +310,6 @@ export default function CallsInbox() {
                       {item}
                     </button>
                   ))}
-                  <Search className="h-4 w-4 text-[var(--calls-muted)]" />
                 </div>
 
                 {tab === 'activity' && (
@@ -356,9 +327,7 @@ export default function CallsInbox() {
                   </div>
                 )}
                 {tab === 'transcript' && (
-                  <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--calls-text)]">
-                    {call.transcript || call.live_transcript_preview || 'No transcript is available for this call.'}
-                  </p>
+                  <TranscriptPanel call={call} />
                 )}
                 {tab === 'notes' && (
                   <div className="space-y-3">
@@ -381,18 +350,11 @@ export default function CallsInbox() {
                     className="min-h-20 border-0 bg-transparent shadow-none"
                   />
                   <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      className="calls-filter"
-                      data-active={true}
-                      onClick={() => setComposeMode((current) => (current === 'sms' ? 'note' : 'sms'))}
-                    >
-                      {composeMode === 'sms' ? 'SMS' : 'Note'}
-                    </button>
+                    <div className="flex gap-1" role="group" aria-label="Reply type"><button type="button" className="calls-filter" data-active={composeMode === 'note'} aria-pressed={composeMode === 'note'} onClick={() => setComposeMode('note')}>Private note</button><button type="button" className="calls-filter" data-active={composeMode === 'sms'} aria-pressed={composeMode === 'sms'} onClick={() => setComposeMode('sms')}>Message</button></div>
                     <div className="flex gap-2">
-                      <Button disabled={!canOperate || (composeMode === 'sms' && !canSendSms)} type="button" variant="outline" className="calls-ai h-11 rounded-lg" onClick={() => setDraft(suggestedSms(call))}>
+                      {composeMode === 'sms' && <Button disabled={!canOperate || !canSendSms} type="button" variant="outline" className="calls-ai h-11 rounded-lg" onClick={() => setDraft(suggestedSms(call))}>
                         Use recap draft
-                      </Button>
+                      </Button>}
                       <Button
                         type="button"
                         className="calls-primary h-11 rounded-lg"

@@ -114,11 +114,11 @@ export default function CallsSchedule() {
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-[28px] font-semibold leading-9">Coverage people can trust.</h2>
+        <h2 className="text-[28px] font-semibold leading-9">Business hours</h2>
         <p className="mt-1 text-sm text-[var(--calls-muted)]">Hours, holidays, quiet hours, and same-day overrides. Robbie follows what you save here.</p>
         {!permissionsLoading && !canManage && <p className="mt-2 text-sm text-[var(--calls-muted)]">You can review coverage. Manage Calls permission is required to change it.</p>}
       </div>
-      <fieldset disabled={!canManage} className="min-w-0 space-y-4">
+      <fieldset disabled={!canManage || save.isPending} className="min-w-0 space-y-4">
       <Card className="calls-panel border-[var(--calls-border)] shadow-none">
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center justify-between text-base">

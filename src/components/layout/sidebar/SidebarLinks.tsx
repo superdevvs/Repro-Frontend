@@ -292,6 +292,8 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
 
+      {permission.can('support', 'view') && <NavLink to="/support" icon={<MessageSquare className="h-5 w-5" />} label="Support" isCollapsed={isCollapsed} isActive={pathname === '/support'} onActivePreview={previewActiveIndicator} />}
+
       {/* Chat with Robbie - Special styled link - Above separator */}
       {/* Only visible to client, admin, superadmin */}
       {canViewRobbie && (

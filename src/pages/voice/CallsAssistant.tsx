@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertCircle, Bot, CheckCircle2, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -78,13 +79,19 @@ export default function CallsAssistant() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-[28px] font-semibold leading-9">Robbie, in his own words.</h2>
-          <p className="mt-1 text-sm text-[var(--calls-muted)]">Personality, greeting, and the tools he is actually allowed to use.</p>
+          <h2 className="text-[28px] font-semibold leading-9">Robbie</h2>
+          <p className="mt-1 text-sm text-[var(--calls-muted)]">Helpful answers. Clear boundaries. Human backup.</p>
           {!permissionsLoading && !canManage && <p className="mt-2 text-sm text-[var(--calls-muted)]">You can review Robbie’s configuration. Manage Calls permission is required to change it.</p>}
         </div>
-        <NewCallDialog trigger={<Button disabled={!canOperate} className="calls-primary h-11 rounded-lg">Test with a real call</Button>} />
+        <NewCallDialog initialCaller="robbie" trigger={<Button disabled={!canOperate} className="calls-primary h-11 rounded-lg">Test with a real call</Button>} />
       </div>
 
+      <section className="calls-panel space-y-4 p-5">
+        <h3 className="font-semibold">What Robbie knows</h3><p className="text-sm text-[var(--calls-muted)]">Guides match the signed-in role and permitted account context. Account actions still require verification and confirmation.</p>
+        <div className="grid gap-3 sm:grid-cols-3">{[['Clients', 'Booking, payments, delivery and downloads'], ['Sales reps', 'Clients, shoot follow-up and commissions'], ['Photographers', 'Availability, assignments and uploads']].map(([title, detail]) => <div className="rounded-xl bg-[var(--calls-subtle)] p-3" key={title}><h4 className="text-sm font-medium">{title}</h4><p className="mt-1 text-xs leading-5 text-[var(--calls-muted)]">{detail}</p></div>)}</div>
+        <div className="flex flex-wrap gap-2"><Button asChild className="calls-primary h-11"><Link to="/chat-with-reproai?tab=help">Browse knowledge</Link></Button><Button asChild className="calls-secondary h-11"><Link to="/chat-with-reproai">Preview an answer</Link></Button><Button asChild variant="ghost" className="h-11"><Link to="/support">Support requests</Link></Button></div>
+        <p className="rounded-xl bg-[var(--calls-brand-soft)] p-3 text-xs leading-5 text-[var(--calls-muted)]">When Robbie is unsure, it should say what is unknown, ask one useful question and offer the real support path.</p>
+      </section>
       <section className="calls-panel p-5">
         <OutboundModeControl
           mode={settings.data?.outbound_mode ?? health.data?.outbound_mode}

@@ -14,7 +14,30 @@ import type {
   VoiceSettings,
   VoiceStats,
   VoiceWrapUpPayload,
+  VoiceDirectoryResponse,
+  VoiceIncomingOffer,
+  VoicePhoneSettings,
+  VoiceTranscriptState,
 } from '@/types/voice';
+import type { VoiceBrowserCallState } from '@/types/voiceBrowser';
+
+export const getVoiceDirectory = async (params: { q?: string; role?: string; page?: number; per_page?: number } = {}): Promise<VoiceDirectoryResponse> =>
+  (await apiClient.get('/voice/directory', { params })).data;
+
+export const getIncomingVoiceOffers = async (): Promise<VoiceIncomingOffer[]> =>
+  (await apiClient.get('/voice/incoming-offers')).data.data ?? [];
+
+export const claimIncomingVoiceOffer = async (id: string, data: { session_id?: string; idempotency_key: string; device: 'browser' | 'phone' }): Promise<VoiceBrowserCallState & { incoming_offer: VoiceIncomingOffer; phone_pending?: boolean }> =>
+  (await apiClient.post(`/voice/incoming-offers/${encodeURIComponent(id)}/claim`, data)).data;
+
+export const getVoicePhoneSettings = async (): Promise<VoicePhoneSettings> => (await apiClient.get('/voice/phone/settings')).data;
+export const updateVoicePhoneSettings = async (data: { available?: boolean; phone_enabled?: boolean }): Promise<VoicePhoneSettings> => (await apiClient.patch('/voice/phone/settings', data)).data;
+export const requestVoicePhoneVerification = async (phone: string): Promise<VoicePhoneSettings> => (await apiClient.post('/voice/phone/verification', { phone })).data;
+export const verifyVoicePhone = async (code: string): Promise<VoicePhoneSettings> => (await apiClient.post('/voice/phone/verify', { code })).data;
+export const removeVoicePhone = async (): Promise<VoicePhoneSettings> => (await apiClient.delete('/voice/phone/settings')).data;
+export const getVoiceTranscript = async (id: number): Promise<VoiceTranscriptState> => (await apiClient.get(`/voice/calls/${id}/transcript`)).data;
+export const reconcileVoiceTranscript = async (id: number): Promise<VoiceTranscriptState> => (await apiClient.post(`/voice/calls/${id}/transcript/reconcile`)).data;
+export const recoverVoiceTranscript = async (id: number, idempotency_key: string): Promise<VoiceTranscriptState> => (await apiClient.post(`/voice/calls/${id}/transcript/retry`, { idempotency_key })).data;
 
 export const getVoiceStats = async (range = '7d'): Promise<VoiceStats> => {
   const response = await apiClient.get('/voice/calls/stats', { params: { range } });

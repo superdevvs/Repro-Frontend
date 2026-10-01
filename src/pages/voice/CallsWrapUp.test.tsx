@@ -20,6 +20,11 @@ vi.mock('@/services/voice', () => ({
   getVoiceCall: mocks.getVoiceCall,
   getVoiceCallRecordingUrl: mocks.getVoiceCallRecordingUrl,
   wrapUpVoiceCall: mocks.wrapUpVoiceCall,
+  getVoiceNumbers: vi.fn().mockResolvedValue([]),
+  getVoiceTranscript: vi.fn().mockResolvedValue({ transcript: '', state: 'off', message: 'Not recorded' }),
+  reconcileVoiceTranscript: vi.fn(),
+  createScheduledVoiceCall: vi.fn(),
+  updateScheduledVoiceCall: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-toast', () => ({
@@ -76,7 +81,7 @@ describe('CallsWrapUp', () => {
   it('saves wrap-up without sending SMS', async () => {
     const user = userEvent.setup();
     renderWrapUp();
-    expect(await screen.findByText(/A good conversation/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Call recap/i)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: /Save without sending/i }));
     await waitFor(() => {
       expect(mocks.wrapUpVoiceCall).toHaveBeenCalledWith(12, expect.objectContaining({
@@ -110,7 +115,7 @@ describe('CallsWrapUp', () => {
   it('sends the follow-up when requested', async () => {
     const user = userEvent.setup();
     renderWrapUp();
-    await screen.findByText(/A good conversation/i);
+    await screen.findByText(/Call recap/i);
     await user.click(screen.getByRole('button', { name: /Save & send follow-up/i }));
     await waitFor(() => {
       expect(mocks.wrapUpVoiceCall).toHaveBeenCalledWith(12, expect.objectContaining({ send_sms: true }));

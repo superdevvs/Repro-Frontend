@@ -1,0 +1,15 @@
+{
+  "id": "/",
+  "name": "R/E Pro Dashboard",
+  "short_name": "REPro",
+  "description": "Your shoots, support and calls in one place.",
+  "start_url": "/dashboard",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#060a0e",
+  "icons": [
+    { "src": "/brand/re/favicon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/brand/re/favicon-static.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

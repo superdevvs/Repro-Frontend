@@ -22,6 +22,7 @@ import { callerInitials, callerName, formatDuration, relatedShoot } from './work
 import { usePermissions } from '@/context/PermissionsContext';
 import { useBrowserPhone } from '@/context/BrowserPhoneContext';
 import CallBrowserPanel from '@/components/voice/CallBrowserPanel';
+import TranscriptPanel from './workspace/TranscriptPanel';
 
 export default function CallLiveCockpit() {
   const params = useParams();
@@ -126,7 +127,7 @@ export default function CallLiveCockpit() {
   }
 
   return (
-    <div className="space-y-4 pb-20 md:pb-0">
+    <div className="space-y-4">
       <div className="calls-panel flex flex-wrap items-center justify-between gap-3 bg-[var(--calls-brand-soft)] p-4">
         <div className="flex items-center gap-3">
           <CallsAvatar initials={callerInitials(call.data)} size={40} />
@@ -148,24 +149,24 @@ export default function CallLiveCockpit() {
         </div>
       </div>
 
-      <CallBrowserPanel callId={callId} ended={ended} />
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_360px]">
-        <section className="calls-panel flex min-h-[520px] flex-col p-5">
+      {!ownBrowserCall && <CallBrowserPanel callId={callId} ended={ended} />}
+      <div className="calls-cockpit-grid">
+        <section className="calls-panel flex min-h-0 flex-col p-4 sm:p-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="text-[22px] font-semibold">In the conversation</h2>
+            <h2 className="text-[22px] font-semibold">Transcript</h2>
             <div className="flex gap-2">
               <span className="calls-chip calls-chip-success">{ended ? 'Ended' : live.connected ? 'Live transcript' : 'Connecting'}</span>
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-[var(--calls-muted)]" />
-                <Input value={search} onChange={(event) => setSearch(event.target.value)} className="h-9 w-40 pl-7 text-xs" placeholder="Search" />
+                <Input value={search} aria-label="Search live transcript" onChange={(event) => setSearch(event.target.value)} className="h-11 w-40 pl-7 text-xs" placeholder="Search" />
               </div>
             </div>
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[var(--calls-muted)]">
             <span>{call.data?.recording_consent_given ? (call.data.metadata?.recording_started_at ? 'Recording started · Consent received' : 'Consent received · Recording is not active') : 'Recording consent not received'}</span>
           </div>
-          <div className="mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto">
-            {transcript.length === 0 && <EmptyCalls title={search ? 'No matching transcript' : ended ? 'No transcript available' : 'Waiting for transcript…'} />}
+          <div className="mt-4 h-[42dvh] min-h-48 space-y-4 overflow-y-auto pr-2" aria-label="Live transcript text" tabIndex={0}>
+            {transcript.length === 0 && (call.data && !search ? <TranscriptPanel call={call.data} compact /> : <EmptyCalls title={search ? 'No matching transcript' : 'Waiting for transcript…'} />)}
             {transcript.map((chunk) => (
               <div key={chunk.seq}>
                 <p className="text-xs uppercase tracking-wide text-[var(--calls-muted)]">
@@ -203,6 +204,7 @@ export default function CallLiveCockpit() {
         </section>
 
         <aside className="space-y-4">
+          <section className="calls-panel bg-[var(--calls-brand-soft)] p-5"><h3 className="font-semibold">Help during this call</h3><p className="mt-2 text-sm text-[var(--calls-muted)]">Search verified guides or record an issue for the support team.</p><div className="mt-3 flex flex-wrap gap-2"><Button asChild className="calls-secondary h-11"><Link to="/chat-with-reproai?tab=help" target="_blank" rel="noopener noreferrer">Open guides</Link></Button><Button asChild className="calls-secondary h-11"><Link to="/support" target="_blank" rel="noopener noreferrer">Support request</Link></Button></div></section>
           <section className="calls-panel bg-[var(--calls-ai-soft)] p-5">
             <p className="flex items-center gap-2 text-sm font-medium text-[var(--calls-ai)]">
               <Sparkles className="h-4 w-4" />
@@ -236,7 +238,8 @@ export default function CallLiveCockpit() {
         </aside>
       </div>
 
-      {!ownBrowserCall && <div className="calls-panel flex flex-wrap items-center justify-between gap-2 p-3 md:gap-3">
+      {ownBrowserCall && <div className="calls-sticky-controls"><CallBrowserPanel callId={callId} ended={ended} /></div>}
+      {!ownBrowserCall && <div className="calls-panel calls-sticky-controls flex flex-wrap items-center justify-between gap-2 p-3 md:gap-3">
         <div className="flex flex-wrap gap-2">
           <AlertDialog>
             <AlertDialogTrigger asChild>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Clock3, PhoneIncoming, Sparkles, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,7 +25,7 @@ export default function CallsInsights() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h2 className="text-[28px] font-semibold leading-9">What your conversations are telling you</h2>
+          <h2 className="text-[28px] font-semibold leading-9">Call insights</h2>
           <p className="mt-1 text-sm text-[var(--calls-muted)]">
             Call coverage, completed follow-ups and confirmed booking outcomes.
           </p>
@@ -49,7 +50,8 @@ export default function CallsInsights() {
 
       {insights.isLoading && <p role="status" className="calls-panel p-5 text-sm text-[var(--calls-muted)]">Loading call insights…</p>}
       {data && <>
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div className="calls-panel flex flex-wrap items-center justify-between gap-3 bg-[var(--calls-brand-soft)] p-4"><div><p className="font-medium">Service quality</p><p className="mt-1 text-sm text-[var(--calls-muted)]">{data.handoffs_needing_callback} handoffs need a callback. Review missed calls and transcript status from each conversation.</p></div><div className="flex flex-wrap gap-2"><Button asChild className="calls-secondary h-11"><Link to="/calls/inbox?filter=needs_attention">Review calls</Link></Button><Button asChild className="calls-secondary h-11"><Link to="/calls/follow-ups">Follow-ups</Link></Button></div></div>
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
         <InsightCard icon={PhoneIncoming} label="Answered" value={data?.answered_rate == null ? '—' : `${data.answered_rate}%`} delta={data?.answered_rate_delta} unit=" pts" />
         <InsightCard icon={Clock3} label="Median answer" value={data?.median_answer_seconds == null ? '—' : `${data.median_answer_seconds}s`} delta={data?.median_answer_delta} unit="s" lowerIsBetter />
         <InsightCard icon={TrendingUp} label="Bookings from calls" value={data ? String(data.bookings_from_calls) : '—'} delta={data?.bookings_delta} />

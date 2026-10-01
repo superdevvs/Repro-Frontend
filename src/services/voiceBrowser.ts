@@ -9,6 +9,8 @@ export const getVoiceBrowserSession = async (id: VoiceBrowserSessionId): Promise
 export const heartbeatVoiceBrowserSession = async (id: VoiceBrowserSessionId, transport_connected: boolean): Promise<VoiceBrowserSession> => (await apiClient.post(`/voice/browser/sessions/${id}/heartbeat`, { transport_connected }, { timeout: 5000 })).data;
 export const deleteVoiceBrowserSession = async (id: VoiceBrowserSessionId): Promise<void> => { await apiClient.delete(`/voice/browser/sessions/${id}`); };
 export const startHumanVoiceCall = async (payload: HumanVoiceCallPayload): Promise<VoiceCall> => (await apiClient.post('/voice/calls/human', payload)).data;
+export const cancelHumanVoiceCall = async (idempotency_key: string): Promise<void> => { await apiClient.post('/voice/calls/human/cancel', { idempotency_key }); };
+export const cancelIncomingVoiceClaim = async (offerId: string, idempotency_key: string): Promise<void> => { await apiClient.post(`/voice/incoming-offers/${offerId}/cancel`, { idempotency_key }); };
 export const getVoiceBrowserCallState = async (id: number): Promise<VoiceBrowserCallState> => (await apiClient.get(`/voice/calls/${id}/browser`, { timeout: 5000 })).data;
 export const takeOverVoiceCall = async (id: number, session_id: VoiceBrowserSessionId, idempotency_key: string): Promise<VoiceBrowserCallState> => (await apiClient.post(`/voice/calls/${id}/takeover`, { session_id, idempotency_key })).data;
 export const superviseVoiceCall = async (id: number, session_id: VoiceBrowserSessionId, mode: VoiceSupervisorMode, idempotency_key: string): Promise<VoiceBrowserCallState> => (await apiClient.post(`/voice/calls/${id}/supervise`, { session_id, mode, idempotency_key })).data;

@@ -203,8 +203,10 @@ export const useBookShootController = () => {
   const getAvailablePhotographers = () => {
     const role = user?.role;
     if (role === 'admin' || role === 'superadmin') return photographers;
-    if (!date || !time) return [];
-    if (availablePhotographerIds.length === 0) return [];
+    // Before date/time or while bulk availability is unresolved, keep the full
+    // directory so Scheduling / for-booking can still render (fail open).
+    if (!date || !time || !availabilityChecked) return photographers;
+    if (availablePhotographerIds.length === 0) return photographers;
     return photographers.filter(p => availablePhotographerIds.includes(p.id));
   };
   useEffect(() => {

@@ -44,7 +44,7 @@ describe('upload limit validation', () => {
 
   it('still rejects a single file above the per-file limit without touching the others', () => {
     const result = validateFilesAgainstUploadLimits([
-      fakeFile('walkthrough.mov', 2500 * MB),
+      fakeFile('walkthrough.mov', 10 * 1024 * MB + 1),
       fakeFile('SNAP8561.CR3', 55 * MB),
     ]);
 
@@ -55,14 +55,23 @@ describe('upload limit validation', () => {
       errorType: 'oversize',
       retryable: false,
     });
-    expect(result.rejectedIssues[0].message).toContain('1GB per-file limit');
+    expect(result.rejectedIssues[0].message).toContain('10GB per-file limit');
   });
 
-  it('rejects a 1.5GB file against the default 1GB per-file limit', () => {
-    const result = validateFilesAgainstUploadLimits([fakeFile('walkthrough.mov', 1500 * MB)]);
+  it('accepts a file exactly at the 10GiB per-file boundary for chunked transfer', () => {
+    const file = fakeFile('walkthrough.mov', 10 * 1024 * MB);
+    const result = validateFilesAgainstUploadLimits([file]);
 
-    expect(result.acceptedFiles).toEqual([]);
-    expect(result.rejectedIssues[0].message).toContain('1GB per-file limit');
+    expect(result.acceptedFiles).toEqual([file]);
+    expect(result.rejectedIssues).toEqual([]);
+  });
+
+  it('does not apply the per-request cap to a file sent as smaller chunks', () => {
+    const file = fakeFile('walkthrough.mov', 1500 * MB);
+    const result = validateFilesAgainstUploadLimits([file], [], { per_file: '10GB', total_request: '100MB' });
+
+    expect(result.acceptedFiles).toEqual([file]);
+    expect(result.rejectedIssues).toEqual([]);
   });
 
   it('honours a smaller per-file limit advertised by the server', () => {

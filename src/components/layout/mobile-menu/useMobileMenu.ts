@@ -91,6 +91,10 @@ export const useMobileMenu = () => {
       visible: permission.can('robbie', 'view'),
     },
     {
+      to: '/support', icon: 'MessageSquare', label: 'Support',
+      isActive: pathname === '/support', visible: permission.can('support', 'view'),
+    },
+    {
       to: "/accounts",
       icon: "Building",
       label: "Accounts",

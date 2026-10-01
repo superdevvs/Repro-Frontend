@@ -13,6 +13,12 @@ export const RESCHEDULE_REVIEWER_ROLES = [
   'superadmin',
   'super_admin',
   'editing_manager',
+  // Match Hold / pending-holds office roles so sales reps see and act on the
+  // Requests → Reschedule tab the same way admin / superadmin already do.
+  'salesrep',
+  'sales_rep',
+  'rep',
+  'representative',
 ] as const;
 
 export type RescheduleRequestStatus = 'pending' | 'approved' | 'rejected';

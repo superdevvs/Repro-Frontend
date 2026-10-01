@@ -12,6 +12,9 @@ import { usePermissions } from '@/context/PermissionsContext';
 import { getVoiceCall, getVoiceCallRecordingUrl, wrapUpVoiceCall } from '@/services/voice';
 import type { VoiceWrapUpPayload } from '@/types/voice';
 import { CallsWave, EmptyCalls } from './workspace/bits';
+import TranscriptPanel from './workspace/TranscriptPanel';
+import CallNowButton from './workspace/CallNowButton';
+import ScheduleVoiceCallDialog from './ScheduleVoiceCallDialog';
 import {
   callerName,
   formatDuration,
@@ -193,7 +196,7 @@ export default function CallsWrapUp() {
     <div className="space-y-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-[28px] font-semibold leading-9">A good conversation. A clear next step.</h2>
+          <h2 className="text-[28px] font-semibold leading-9">Call recap</h2>
           <p className="mt-1 text-sm text-[var(--calls-muted)]">
             {data ? `${callerName(data)} · ${duration} · Call ended at ${data.ended_at ? new Date(data.ended_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '—'}` : 'Loading…'}
           </p>
@@ -206,6 +209,7 @@ export default function CallsWrapUp() {
         </div>
       </div>
 
+      {data && <div className="flex flex-wrap gap-2"><CallNowButton to={getCallPhone(data)} name={callerName(data)} /><ScheduleVoiceCallDialog initialTargetPhone={getCallPhone(data)} initialReason={`Follow up with ${callerName(data)}`} trigger={<Button className="calls-secondary h-11" disabled={!canOperate}>Schedule callback</Button>} /></div>}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_380px]">
         <div className="space-y-4">
           <section className="calls-panel p-5">
@@ -251,7 +255,7 @@ export default function CallsWrapUp() {
           </section>
 
           <section className="calls-panel p-5">
-            <h3 className="text-lg font-semibold">Replay what matters</h3>
+            <h3 className="text-lg font-semibold">Recording</h3>
             <div className="mt-4 flex items-center gap-3 rounded-2xl bg-[var(--calls-subtle)] p-3">
               <Button
                 type="button"
@@ -350,6 +354,7 @@ export default function CallsWrapUp() {
         </div>
 
         <aside className="space-y-4">
+          {data && <section className="calls-panel p-5"><TranscriptPanel call={data} /></section>}
           <section className="calls-panel p-5">
             <h3 className="text-lg font-semibold">Ready when you are</h3>
             <p className="mt-1 text-sm text-[var(--calls-muted)]">Choose what to store or send.</p>

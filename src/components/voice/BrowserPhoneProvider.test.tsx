@@ -11,12 +11,13 @@ import type { VoiceBrowserOffer } from '@/types/voiceBrowser';
 const mocks = vi.hoisted(() => ({
   can: vi.fn(), gum: vi.fn(), stop: vi.fn(), constructor: vi.fn<(options: unknown) => void>(), connect: vi.fn(), disconnect: vi.fn(), login: vi.fn(), registered: vi.fn(),
   getVoiceBrowserConfig: vi.fn(), createVoiceBrowserSession: vi.fn(), getVoiceBrowserSession: vi.fn(), heartbeatVoiceBrowserSession: vi.fn(), deleteVoiceBrowserSession: vi.fn(), refreshVoiceBrowserToken: vi.fn(),
-  getVoiceBrowserCallState: vi.fn(), startHumanVoiceCall: vi.fn(), takeOverVoiceCall: vi.fn(), superviseVoiceCall: vi.fn(), changeVoiceSupervision: vi.fn(), leaveVoiceSupervision: vi.fn(), performVoiceBrowserAction: vi.fn(), setVoiceBrowserConsent: vi.fn(),
+  getVoiceBrowserCallState: vi.fn(), startHumanVoiceCall: vi.fn(), cancelHumanVoiceCall: vi.fn(), cancelIncomingVoiceClaim: vi.fn(), claimIncomingVoiceOffer: vi.fn(), takeOverVoiceCall: vi.fn(), superviseVoiceCall: vi.fn(), changeVoiceSupervision: vi.fn(), leaveVoiceSupervision: vi.fn(), performVoiceBrowserAction: vi.fn(), setVoiceBrowserConsent: vi.fn(),
   handlers: {} as Record<string, (event?: unknown) => void>, connected: true, emitReady: true,
 }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 9 }, isAuthenticated: true, isImpersonating: false }) }));
 vi.mock('@/context/PermissionsContext', () => ({ usePermissions: () => ({ can: mocks.can }) }));
 vi.mock('@/services/voiceBrowser', () => mocks);
+vi.mock('@/services/voice', () => ({ claimIncomingVoiceOffer: mocks.claimIncomingVoiceOffer }));
 vi.mock('@telnyx/webrtc', () => ({ TELNYX_ERROR_CODES: { NETWORK_OFFLINE: 48001 }, TelnyxRTC: class {
   constructor(options: unknown) { mocks.constructor(options); }
   on(name: string, handler: (event?: unknown) => void) { mocks.handlers[name] = handler; }
@@ -38,7 +39,7 @@ const state = () => ({ voice_call_id: 12, state: 'active', capabilities, recordi
 function Harness() {
   const phone = useBrowserPhone();
   const run = (fn: () => Promise<unknown>) => { void fn().catch(() => undefined); };
-  return <><p data-testid="phone-status">{phone.status}</p><button onClick={() => run(phone.connect)}>Connect test phone</button><button onClick={() => run(() => phone.startHuman({ to: '+12025550123' }))}>Start human</button><button onClick={() => run(() => phone.takeOver(12))}>Take over test call</button><button onClick={() => run(() => phone.control('unmute'))}>Force unmute</button><Link to="/settings">Navigate away</Link><Routes><Route path="*" element={<p>Page content</p>} /></Routes></>;
+  return <><p data-testid="phone-status">{phone.status}</p><p data-testid="outgoing-phase">{phone.outgoingPhase}</p><p data-testid="phone-error">{phone.error}</p><button onClick={() => run(phone.connect)}>Connect test phone</button><button onClick={() => run(() => phone.startHuman({ to: '+12025550123' }))}>Start human</button><button onClick={() => run(() => phone.answerIncoming('incoming-1'))}>Answer shared</button><button onClick={() => run(phone.cancelPending)}>Cancel pending</button><button onClick={() => run(() => phone.takeOver(12))}>Take over test call</button><button onClick={() => run(() => phone.control('unmute'))}>Force unmute</button><Link to="/settings">Navigate away</Link><Routes><Route path="*" element={<p>Page content</p>} /></Routes></>;
 }
 function renderPhone() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -88,6 +89,7 @@ describe('browser phone lifecycle and customer controls', () => {
     mocks.getVoiceBrowserCallState.mockImplementation(async () => state());
     mocks.performVoiceBrowserAction.mockImplementation(async () => state());
     mocks.startHumanVoiceCall.mockResolvedValue({ id: 12, status: 'queued' });
+    mocks.cancelHumanVoiceCall.mockResolvedValue(undefined); mocks.cancelIncomingVoiceClaim.mockResolvedValue(undefined);
     mocks.leaveVoiceSupervision.mockResolvedValue(undefined); mocks.changeVoiceSupervision.mockResolvedValue(state()); mocks.setVoiceBrowserConsent.mockResolvedValue(state());
     mocks.takeOverVoiceCall.mockResolvedValue(state());
   });
@@ -110,14 +112,15 @@ describe('browser phone lifecycle and customer controls', () => {
     mocks.gum.mockRejectedValue(new Error('Microphone permission denied'));
     renderPhone(); await waitFor(() => expect(mocks.getVoiceBrowserConfig).toHaveBeenCalled());
     await userEvent.click(screen.getByText('Connect test phone'));
-    expect(await screen.findByText('Microphone permission denied')).toBeInTheDocument();
-    expect(screen.getByText('Your browser phone')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('phone-error')).toHaveTextContent('Microphone permission denied'));
     expect(mocks.createVoiceBrowserSession).not.toHaveBeenCalled(); expect(mocks.constructor).not.toHaveBeenCalled();
   });
 
   it('keeps an idle phone to one status row with expandable audio and a direct disconnect', async () => {
     renderPhone(); const user = await connectPhone();
-    expect(await screen.findByText('Phone ready')).toBeInTheDocument();
+    expect(screen.queryByText('Phone ready')).not.toBeInTheDocument();
+    await user.click(screen.getByText('Navigate away'));
+    expect(await screen.findByText('Phone ready', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.queryByText('Your browser phone')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Phone connected' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Call microphone')).not.toBeInTheDocument();
@@ -180,7 +183,7 @@ describe('browser phone lifecycle and customer controls', () => {
     await user.click(screen.getByRole('button', { name: 'Join supervision' }));
     mocks.changeVoiceSupervision.mockRejectedValueOnce(new Error('Coaching is unavailable'));
     await user.click(await screen.findByRole('button', { name: 'Coach staff only' }));
-    await screen.findByText('Coaching is unavailable');
+    await waitFor(() => expect(screen.getByTestId('phone-error')).toHaveTextContent('Coaching is unavailable'));
     expect(call.unmuteAudio).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Coach staff only' }));
     await waitFor(() => expect(call.unmuteAudio).toHaveBeenCalledOnce());
@@ -199,15 +202,119 @@ describe('browser phone lifecycle and customer controls', () => {
     expect(mocks.performVoiceBrowserAction).not.toHaveBeenCalled();
   });
 
-  it('retries the same human dial with the same idempotency key after an uncertain response', async () => {
+  it('confirms cancellation of an uncertain dial before allowing a new attempt', async () => {
     mocks.startHumanVoiceCall.mockRejectedValueOnce(new Error('Network interrupted')).mockResolvedValueOnce({ id: 12 });
     renderPhone(); const user = await connectPhone();
     await user.click(screen.getByText('Start human'));
-    await screen.findByText('Network interrupted');
+    await waitFor(() => expect(screen.getByTestId('phone-error')).toHaveTextContent('Network interrupted'));
+    expect(mocks.cancelHumanVoiceCall).toHaveBeenCalledWith(mocks.startHumanVoiceCall.mock.calls[0][0].idempotency_key);
     await user.click(screen.getByText('Start human'));
     await waitFor(() => expect(mocks.startHumanVoiceCall).toHaveBeenCalledTimes(2));
-    expect(mocks.startHumanVoiceCall.mock.calls[0][0].idempotency_key).toBe(mocks.startHumanVoiceCall.mock.calls[1][0].idempotency_key);
+    expect(mocks.startHumanVoiceCall.mock.calls[0][0].idempotency_key).not.toBe(mocks.startHumanVoiceCall.mock.calls[1][0].idempotency_key);
     expect(mocks.startHumanVoiceCall.mock.calls[0][0]).toMatchObject({ session_id: 'session-1', to: '+12025550123' });
+    await user.click(screen.getByText('Cancel pending'));
+  });
+
+  it('uses one deliberate gesture to connect, verify and answer only its outbound staff leg', async () => {
+    const call = makeCall();
+    mocks.startHumanVoiceCall.mockImplementation(async () => {
+      expect(mocks.heartbeatVoiceBrowserSession).toHaveBeenCalledWith('session-1', true);
+      offers = [{ voice_call_id: 12, agent_call_control_id: 'agent-leg', role: 'agent', state: 'ringing' }];
+      mocks.handlers['telnyx.notification']?.({ type: 'callUpdate', call });
+      return { id: 12 };
+    });
+    renderPhone(); await waitFor(() => expect(mocks.getVoiceBrowserConfig).toHaveBeenCalled());
+    await userEvent.click(screen.getByText('Start human'));
+    await waitFor(() => expect(call.answer).toHaveBeenCalledOnce());
+    expect(mocks.gum).toHaveBeenCalledOnce(); expect(mocks.startHumanVoiceCall).toHaveBeenCalledOnce();
+    await waitFor(() => expect(screen.getByTestId('outgoing-phase')).toHaveTextContent('idle'));
+  });
+
+  it('waits for the current SDK ready signal even when initial server credentials contain old registration', async () => {
+    mocks.emitReady = false;
+    const call = makeCall();
+    mocks.startHumanVoiceCall.mockImplementation(async () => {
+      offers = [{ voice_call_id: 12, agent_call_control_id: 'agent-leg', role: 'agent', state: 'ringing' }];
+      mocks.handlers['telnyx.notification']?.({ type: 'callUpdate', call });
+      return { id: 12 };
+    });
+    renderPhone(); await waitFor(() => expect(mocks.getVoiceBrowserConfig).toHaveBeenCalled());
+    await userEvent.click(screen.getByText('Start human'));
+    await waitFor(() => expect(mocks.connect).toHaveBeenCalled());
+    expect(mocks.startHumanVoiceCall).not.toHaveBeenCalled();
+    expect(screen.getByTestId('outgoing-phase')).toHaveTextContent('connecting');
+    act(() => { mocks.handlers['telnyx.ready']?.(); });
+    await waitFor(() => expect(call.answer).toHaveBeenCalledOnce());
+  });
+
+  it('keeps a denied-microphone error specific and never starts or cancels a server call', async () => {
+    mocks.gum.mockRejectedValue(new Error('Microphone permission denied'));
+    renderPhone(); await waitFor(() => expect(mocks.getVoiceBrowserConfig).toHaveBeenCalled());
+    await userEvent.click(screen.getByText('Start human'));
+    await waitFor(() => expect(screen.getByTestId('phone-error')).toHaveTextContent('Microphone permission denied'));
+    expect(mocks.startHumanVoiceCall).not.toHaveBeenCalled(); expect(mocks.cancelHumanVoiceCall).not.toHaveBeenCalled();
+  });
+
+  it('never auto-answers an unrelated incoming offer during an outbound start', async () => {
+    const unrelated = makeCall('unrelated-leg');
+    mocks.startHumanVoiceCall.mockImplementation(async () => {
+      offers = [{ voice_call_id: 99, agent_call_control_id: 'unrelated-leg', role: 'agent', state: 'ringing' }];
+      mocks.handlers['telnyx.notification']?.({ type: 'callUpdate', call: unrelated });
+      return { id: 12 };
+    });
+    renderPhone(); await waitFor(() => expect(mocks.getVoiceBrowserConfig).toHaveBeenCalled());
+    await userEvent.click(screen.getByText('Start human'));
+    await waitFor(() => expect(mocks.cancelHumanVoiceCall).toHaveBeenCalled());
+    expect(unrelated.answer).not.toHaveBeenCalled(); expect(unrelated.hangup).not.toHaveBeenCalled();
+  });
+
+  it('cancels by the original key and never answers a late dial response', async () => {
+    let finish!: (value: { id: number }) => void;
+    mocks.startHumanVoiceCall.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    renderPhone(); await waitFor(() => expect(mocks.getVoiceBrowserConfig).toHaveBeenCalled());
+    const user = userEvent.setup(); await user.click(screen.getByText('Start human'));
+    await waitFor(() => expect(mocks.startHumanVoiceCall).toHaveBeenCalled());
+    const key = mocks.startHumanVoiceCall.mock.calls[0][0].idempotency_key;
+    await user.click(screen.getByText('Cancel pending'));
+    expect(mocks.cancelHumanVoiceCall).toHaveBeenCalledWith(key);
+    await act(async () => { finish({ id: 12 }); });
+    expect(screen.getByTestId('outgoing-phase')).toHaveTextContent('idle');
+  });
+
+  it('connects and atomically claims a shared incoming offer before auto-answering', async () => {
+    const call = makeCall();
+    mocks.claimIncomingVoiceOffer.mockImplementation(async () => {
+      offers = [{ voice_call_id: 12, agent_call_control_id: 'agent-leg', role: 'agent', state: 'ringing' }];
+      mocks.handlers['telnyx.notification']?.({ type: 'callUpdate', call });
+      return { voice_call_id: 12 };
+    });
+    renderPhone(); await waitFor(() => expect(mocks.getVoiceBrowserConfig).toHaveBeenCalled());
+    await userEvent.click(screen.getByText('Answer shared'));
+    await waitFor(() => expect(call.answer).toHaveBeenCalledOnce());
+    expect(mocks.claimIncomingVoiceOffer).toHaveBeenCalledWith('incoming-1', expect.objectContaining({ session_id: 'session-1', device: 'browser', idempotency_key: expect.any(String) }));
+    expect(mocks.startHumanVoiceCall).not.toHaveBeenCalled();
+  });
+
+  it('leaves connected incoming calls on explicit End controls when cancellation loses the join race', async () => {
+    const call = makeCall();
+    let finishAnswer!: () => void;
+    call.answer.mockImplementation(() => { call.state = 'active'; mocks.handlers['telnyx.notification']?.({ type: 'callUpdate', call }); return new Promise<void>((resolve) => { finishAnswer = resolve; }); });
+    mocks.claimIncomingVoiceOffer.mockImplementation(async () => {
+      offers = [{ voice_call_id: 12, agent_call_control_id: 'agent-leg', role: 'agent', state: 'ringing' }];
+      mocks.handlers['telnyx.notification']?.({ type: 'callUpdate', call });
+      return { voice_call_id: 12 };
+    });
+    mocks.cancelIncomingVoiceClaim.mockRejectedValueOnce({ response: { status: 409 } });
+    renderPhone(); await waitFor(() => expect(mocks.getVoiceBrowserConfig).toHaveBeenCalled());
+    const user = userEvent.setup(); await user.click(screen.getByText('Answer shared'));
+    await waitFor(() => expect(call.answer).toHaveBeenCalled());
+    await user.click(screen.getByText('Cancel pending'));
+    await waitFor(() => expect(screen.getByTestId('outgoing-phase')).toHaveTextContent('idle'));
+    expect(screen.getByTestId('phone-error')).toHaveTextContent('Use End call');
+    expect(call.hangup).not.toHaveBeenCalled();
+    await act(async () => { finishAnswer(); });
+    await user.click(await screen.findByRole('button', { name: 'End call' }));
+    await waitFor(() => expect(call.hangup).toHaveBeenCalled());
   });
 
   it('requires explicit verbal-consent confirmation before recording consent is saved', async () => {
@@ -370,7 +477,7 @@ describe('browser phone lifecycle and customer controls', () => {
     renderPhone();
     await waitFor(() => expect(mocks.getVoiceBrowserConfig).toHaveBeenCalled());
     await userEvent.click(screen.getByText('Connect test phone'));
-    expect(await screen.findByText('Browser presence verification requires a server update.')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('phone-error')).toHaveTextContent('Browser presence verification requires a server update.'));
     expect(mocks.gum).not.toHaveBeenCalled();
     expect(mocks.createVoiceBrowserSession).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Connect phone' })).toBeDisabled();
@@ -401,7 +508,7 @@ describe('browser phone lifecycle and customer controls', () => {
     renderPhone(); const user = await connectPhone();
     mocks.getVoiceBrowserCallState.mockResolvedValueOnce({ ...state(), capabilities: { ...capabilities, can_takeover: false } });
     await user.click(screen.getByText('Take over test call'));
-    await screen.findByText('Takeover is not available for this call.');
+    await waitFor(() => expect(screen.getByTestId('phone-error')).toHaveTextContent('Takeover is not available for this call.'));
     expect(mocks.takeOverVoiceCall).not.toHaveBeenCalled();
     await user.click(screen.getByText('Take over test call'));
     await waitFor(() => expect(mocks.takeOverVoiceCall).toHaveBeenCalledWith(12, 'session-1', expect.any(String)));

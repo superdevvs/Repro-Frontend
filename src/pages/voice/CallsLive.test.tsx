@@ -17,6 +17,8 @@ vi.mock('@/services/voice', () => ({
   getScheduleState: mocks.getScheduleState,
   getVoiceSettings: mocks.getVoiceSettings,
   getVoiceHealth: mocks.getVoiceHealth,
+  getIncomingVoiceOffers: vi.fn().mockResolvedValue([]),
+  claimIncomingVoiceOffer: vi.fn(),
 }));
 
 vi.mock('@/hooks/use-page-loading', () => ({

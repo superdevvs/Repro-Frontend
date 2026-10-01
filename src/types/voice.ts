@@ -5,6 +5,57 @@ export interface VoiceCaller {
   phone?: string | null;
 }
 
+export interface VoiceDirectoryEntry {
+  id: string;
+  user_id?: number;
+  contact_id?: number;
+  name: string;
+  role: string;
+  phone: string | null;
+  callable: boolean;
+  company_name?: string | null;
+}
+export interface VoiceDirectoryResponse {
+  data: VoiceDirectoryEntry[];
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+}
+export interface VoiceIncomingOffer {
+  id: string;
+  voice_call_id: number;
+  status: 'waiting' | 'claimed' | 'expired' | 'cancelled';
+  expires_at: string;
+  caller_name: string;
+  remote_phone: string;
+  claimed_by: { id: number; name: string } | null;
+  can_claim: boolean;
+  phone_available: boolean;
+}
+export interface VoicePhoneSettings {
+  available: boolean;
+  phone_enabled: boolean;
+  phone_number: string | null;
+  phone_verified_at: string | null;
+  pending_phone: string | null;
+}
+
+export interface VoiceTranscriptState {
+  transcript: string;
+  state: 'off' | 'starting' | 'live' | 'delayed' | 'finalizing' | 'ready' | 'partial' | 'unavailable';
+  last_chunk_at: string | null;
+  segment_count: number;
+  summary_stale: boolean;
+  can_rebuild: boolean;
+  completeness: 'provider_unverified';
+  message: string;
+  recording_available: boolean;
+  source: 'live_segments' | 'recording_recovery';
+  can_retry_recording: boolean;
+  recovery: null | { id: number | string; status: 'queued' | 'processing' | 'succeeded' | 'failed' | 'uncertain'; attempt: number; error: string | null; source: 'customer_recording' };
+}
+
 export interface VoiceRelatedShoot {
   id: number;
   address?: string | null;
