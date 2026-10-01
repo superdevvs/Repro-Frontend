@@ -176,8 +176,8 @@ export const useDashboardDerivedData = ({
     [photographerSummaries],
   );
   const photographerDelivered = useMemo(
-    () => filterDeliveredShoots(photographerSummaries),
-    [photographerSummaries],
+    () => filterDeliveredShoots(photographerSummaries, role),
+    [photographerSummaries, role],
   );
   const photographerPendingReviews = useMemo(
     () => filterPendingReviews(photographerSummaries),
@@ -208,12 +208,12 @@ export const useDashboardDerivedData = ({
 
   const editorDelivered = useMemo(() => {
     if (!editorReadyToDeliver.length) {
-      return filterDeliveredShoots(editorSummaries);
+      return filterDeliveredShoots(editorSummaries, role);
     }
 
     const readyIds = new Set(editorReadyToDeliver.map((shoot) => shoot.id));
-    return filterDeliveredShoots(editorSummaries).filter((shoot) => !readyIds.has(shoot.id));
-  }, [editorReadyToDeliver, editorSummaries]);
+    return filterDeliveredShoots(editorSummaries, role).filter((shoot) => !readyIds.has(shoot.id));
+  }, [editorReadyToDeliver, editorSummaries, role]);
 
   const ownedClientShoots = useMemo(() => {
     if (!isClient || !user) return [];
@@ -360,7 +360,7 @@ export const useDashboardDerivedData = ({
 
   const repUpcoming = useMemo(() => filterUpcomingShoots(repVisibleSummaries, role), [repVisibleSummaries, role]);
   const repPendingReviews = useMemo(() => filterPendingReviews(repVisibleSummaries), [repVisibleSummaries]);
-  const repDelivered = useMemo(() => filterDeliveredShoots(repVisibleSummaries), [repVisibleSummaries]);
+  const repDelivered = useMemo(() => filterDeliveredShoots(repVisibleSummaries, role), [repVisibleSummaries, role]);
 
   const clientLatestCompleted = clientCompletedRecords[0] ?? null;
 

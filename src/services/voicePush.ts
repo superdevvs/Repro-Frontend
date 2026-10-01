@@ -71,31 +71,64 @@ export async function localVoicePushIdentity(): Promise<VoicePushIdentity | null
 }
 
 export async function enableVoicePush(userId: string, publicKey: string, label: string): Promise<VoicePushIdentity> {
+  const revision = identityRevision;
+  const assertCurrentIdentity = () => {
+    if (revision !== identityRevision) throw new Error('Your sign-in or call permissions changed while enabling alerts. Open call settings and enable this device again.');
+  };
   const support = pushSupport();
   if (!support.supported) throw new Error(support.reason);
   // The permission request starts directly within the button gesture.
   const permission = await Notification.requestPermission();
+  assertCurrentIdentity();
   if (permission !== 'granted') throw new Error('Notifications are blocked. Allow notifications in this browser’s site settings, then try again.');
   const existing = await navigator.serviceWorker.getRegistration('/');
+  assertCurrentIdentity();
   if (existing && !isVoicePushWorker(existing.active || existing.waiting || existing.installing)) throw new Error('Another app service is registered. Ask an administrator to review notification setup.');
   await navigator.serviceWorker.register(VOICE_PUSH_WORKER_URL, { scope: '/', updateViaCache: 'none' });
   const registration = await navigator.serviceWorker.ready;
+  assertCurrentIdentity();
   await workerMessage(registration, { type: 'VOICE_PUSH_IDENTITY', user_id: userId, enabled: true });
+  assertCurrentIdentity();
   const bytes = Uint8Array.from(atob(publicKey.replace(/-/g, '+').replace(/_/g, '/')), (char) => char.charCodeAt(0));
   let subscription = await registration.pushManager.getSubscription();
+  assertCurrentIdentity();
   const previousKey = subscription?.options.applicationServerKey;
   if (subscription && (!previousKey || new Uint8Array(previousKey).some((value, index) => value !== bytes[index]) || previousKey.byteLength !== bytes.byteLength)) {
     await subscription.unsubscribe(); subscription = null;
+    assertCurrentIdentity();
   }
-  subscription ??= await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+  if (!subscription) {
+    try {
+      subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+    } catch (cause) {
+      if ((cause instanceof Error || cause instanceof DOMException) && /push service error/i.test(cause.message)) {
+        throw new Error('This browser could not register for call alerts. This device is not enabled. Fully close and reopen the browser, check for browser updates, then try Enable this device again. You can use the verified phone option below while browser alerts are unavailable.', { cause });
+      }
+      throw cause;
+    }
+  }
+  assertCurrentIdentity();
   let identity: VoicePushIdentity | undefined;
   try {
     identity = { ...(await apiClient.post('/voice/push/subscriptions', { ...subscription.toJSON(), label })).data, user_id: userId };
+    assertCurrentIdentity();
     await workerMessage(registration, { type: 'VOICE_PUSH_SAVE', subscription: identity });
+    assertCurrentIdentity();
   } catch (cause) {
+    if (revision !== identityRevision) {
+      // The registration response can arrive after logout/account switching. Use
+      // its revocation capability without the old session, and leave any newer
+      // account's worker authorization and native subscription untouched.
+      if (identity) await fetch('/api/voice/push/revoke', {
+        method: 'POST', credentials: 'omit',
+        headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        body: JSON.stringify({ id: identity.id, token: identity.revoke_token }),
+      }).catch(() => undefined);
+      throw cause;
+    }
     if (identity) await deleteVoicePushDevice(identity.id).catch(() => undefined);
-    await workerMessage(registration, { type: 'VOICE_PUSH_CLEAR' }).catch(() => undefined);
-    await subscription.unsubscribe().catch(() => undefined);
+    if (revision === identityRevision) await workerMessage(registration, { type: 'VOICE_PUSH_CLEAR' }).catch(() => undefined);
+    if (revision === identityRevision) await subscription.unsubscribe().catch(() => undefined);
     throw cause;
   }
   return identity;

@@ -88,6 +88,7 @@ export interface ShootDetailsTabDefinition {
     isAdmin: boolean;
     isRep: boolean;
     isClient: boolean;
+    canEditVideoTours?: boolean;
     isRequestedStatus: boolean;
     isClientReleaseLocked: boolean;
     shoot: ShootData | null;
@@ -96,6 +97,7 @@ export interface ShootDetailsTabDefinition {
     isAdmin: boolean;
     isRep: boolean;
     isClient: boolean;
+    canEditVideoTours?: boolean;
     isRequestedStatus: boolean;
     isClientReleaseLocked: boolean;
     shoot: ShootData | null;

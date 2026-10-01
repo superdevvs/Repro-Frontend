@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Download, Trash2 } from "lucide-react";
 import { format } from "date-fns";
@@ -10,6 +9,7 @@ import { addInvoiceMiscItem, removeInvoiceMiscItem, updateInvoiceMiscItem } from
 import { formatPaymentBreakdown, formatPaymentMethod } from '@/utils/paymentUtils';
 import type { InvoiceViewDialogInvoice, InvoiceViewDialogItem } from '@/types/invoice';
 import { InvoiceAdjustmentEditor } from './InvoiceAdjustmentEditor';
+import { ClientInvoiceDialog } from './ClientInvoiceDialog';
 import { resolveInvoicePricingDisplay } from '@/utils/invoicePricingSummary';
 import { writeInvoicePdfSummary } from './invoicePdfSummary';
 import {
@@ -661,13 +661,14 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
   }, [clientDetailLines, clientName, displayInvoiceNumber, formatDate, formatDateTime, invoiceNumber, isComplimentaryReceipt, isPaid, issueDate, isPdfGenerating, items, loadLogoPngForPdf, overpaymentAmount, paidAmount, paidAt, paymentBreakdown, paymentMethodLabel, pricing.itemAmountNote, pricing.rows, propertyAddress, resolvePhotographerName, total]);
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-2xl font-bold">
-              {isComplimentaryReceipt ? 'Complimentary receipt' : 'Invoice'}
-            </DialogTitle>
+    <ClientInvoiceDialog
+      open={isOpen}
+      onOpenChange={(open) => { if (!open) onClose(); }}
+      title={isComplimentaryReceipt ? 'Complimentary receipt' : 'Invoice'}
+      description="Review your statement and download a PDF for your records."
+      className="max-w-4xl"
+      bodyClassName="p-0"
+      headerAction={
             <Button
               onClick={handleDownloadPDF}
               variant="outline"
@@ -678,17 +679,17 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
               <Download className="h-4 w-4" />
               {isPdfGenerating ? 'Generating…' : 'Download as PDF'}
             </Button>
-          </div>
-        </DialogHeader>
+      }
+    >
         
-        <div className="p-6 space-y-8 bg-background">
+        <div className="p-4 sm:p-6 space-y-6 sm:space-y-8 bg-background">
           {/* Company Logo and Header */}
-          <div className="flex items-start justify-between gap-6">
-            <div className="flex items-start gap-4">
+          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:gap-6">
+            <div className="flex min-w-0 items-start gap-3 sm:gap-4">
               <div className="shrink-0 pt-0.5">
                 <Logo className="h-9 w-auto" />
               </div>
-              <div className="text-left">
+              <div className="min-w-0 break-words text-left">
                 <p className="font-semibold text-lg leading-tight">{BRAND_NAME}</p>
                 <div className="text-sm text-muted-foreground leading-relaxed">
                   <p>Phone: {BRAND_PHONE}</p>
@@ -696,7 +697,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
                 </div>
               </div>
             </div>
-            <div className="text-right space-y-1">
+            <div className="min-w-0 space-y-1 text-left sm:text-right">
               <div className="text-xs font-semibold text-muted-foreground tracking-widest">
                 {isComplimentaryReceipt ? 'RECEIPT' : 'INVOICE'}
               </div>
@@ -876,7 +877,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
 
           {/* Summary Section */}
           <div className="flex justify-end">
-            <div className="w-80 space-y-2">
+            <div className="w-full max-w-80 space-y-2">
               {pricing.rows.map((row) => (
                 <div key={row.key} className="flex justify-between gap-4 text-sm">
                   <span className="text-muted-foreground">{row.label}</span>
@@ -906,7 +907,6 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
             </div>
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+    </ClientInvoiceDialog>
   );
 }

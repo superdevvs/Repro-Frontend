@@ -1,7 +1,8 @@
 import type { MediaFile } from '@/hooks/useShootFiles';
 import { formatViewerDateTime, formatViewerFileSize } from './mediaViewerTypes';
+import { canViewAiEditStatus } from './mediaAiVisibility';
 
-export function getMediaViewerDetailRows(currentFile: MediaFile, isClient: boolean, fileExt?: string) {
+export function getMediaViewerDetailRows(currentFile: MediaFile, isClient: boolean, fileExt?: string, role?: string) {
   return [
     {
       label: 'Type',
@@ -15,10 +16,10 @@ export function getMediaViewerDetailRows(currentFile: MediaFile, isClient: boole
       label: 'Stage',
       value: currentFile.workflowStage ? String(currentFile.workflowStage).replace(/_/g, ' ') : '—',
     },
-    {
+    ...(canViewAiEditStatus(role) ? [{
       label: 'Edited with AI',
       value: currentFile.is_ai_edited || currentFile.isAiEdited ? 'Yes' : 'No',
-    },
+    }] : []),
     {
       label: 'Resolution',
       value: currentFile.width && currentFile.height ? `${currentFile.width} × ${currentFile.height}` : '—',

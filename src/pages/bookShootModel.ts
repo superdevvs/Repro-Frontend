@@ -42,7 +42,7 @@ export type ServicePackage = {
   service_group_ids?: string[];
 };
 
-export type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
+export type ServiceScheduleMap = Record<string, { date?: string; time?: string; duration_minutes?: number }>;
 
 export type BookingWizardStep = {
   title: string;

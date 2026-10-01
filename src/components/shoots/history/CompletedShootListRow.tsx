@@ -36,6 +36,7 @@ import {
 import { AlertCircle, Calendar as CalendarIcon, Camera, Check, CheckCircle2, ChevronRight, Clock, CreditCard, DollarSign, Download, Edit, FileText, Image, Layers, PauseCircle, Send, Star, Trash2, User, X, XCircle } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots'
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests'
 
 const getServiceLabel = (service: unknown): string => {
   if (typeof service === 'string') return service
@@ -289,6 +290,7 @@ export const CompletedShootListRow = ({
               {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
             </p>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
+              <ShootActionRequestBadges shoot={shoot} />
               <span className="flex items-center gap-1.5">
                 <CalendarIcon className="h-3.5 w-3.5" />
                 <span>{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate, !shoot.completedDate)}</span>
@@ -387,6 +389,7 @@ export const CompletedShootListRow = ({
                 >
                   {statusLabel || 'Status'}
                 </Badge>
+                <ShootActionRequestBadges shoot={shoot} />
                 {showAwaitingFinalize && (
                   <Badge
                     variant="outline"

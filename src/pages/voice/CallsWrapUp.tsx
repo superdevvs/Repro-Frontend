@@ -189,7 +189,7 @@ export default function CallsWrapUp() {
   }
 
   if (!data && !call.isLoading) {
-    return <EmptyCalls title="This conversation is no longer available" />;
+    return <EmptyCalls fill icon="conversations" title="This conversation is no longer available" />;
   }
 
   return (

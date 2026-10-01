@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom/vitest';
@@ -40,6 +40,16 @@ describe('Robbie knowledge guides', () => {
     await waitFor(() => expect(mocks.catalog).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2, per_page: 12 }), expect.any(AbortSignal)));
     await user.type(screen.getByRole('textbox', { name: 'Search help guides' }), 'failed upload');
     await waitFor(() => expect(mocks.catalog).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, query: 'failed upload' }), expect.any(AbortSignal)));
+  });
+
+  it('does not reset a quickly selected page from the initial empty search debounce', async () => {
+    const user = userEvent.setup();
+    mount();
+    await screen.findByRole('link', { name: /Upload shoot photos/ });
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(mocks.catalog).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }), expect.any(AbortSignal)));
+    await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+    expect(mocks.catalog).toHaveBeenLastCalledWith(expect.objectContaining({ page: 2 }), expect.any(AbortSignal));
   });
 
   it('shows a recoverable unavailable state for role-forbidden deep links', async () => {

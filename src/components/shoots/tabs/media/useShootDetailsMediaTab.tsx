@@ -13,7 +13,8 @@ import { Upload } from 'lucide-react';
 
 import { ShootData } from '@/types/shoots';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { isPhotoOnlyEditorOnShoot, isVideoOnlyEditorOnShoot } from '@/utils/shootEditorAssignments';
+import { canAccessOverviewVideoEmbedsOnShoot, isPhotoOnlyEditorOnShoot, isVideoOnlyEditorOnShoot } from '@/utils/shootEditorAssignments';
+import { canDeleteMediaFile, canDeleteMediaSelection } from './mediaDeletePermissions';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
@@ -534,6 +535,7 @@ export function useShootDetailsMediaTab({
     cacheKey: shootFilesCacheKey,
   });
   const { data: editedFilesData = [], isLoading: editedLoading } = useScopedShootFiles(fullShoot, activeUnitId, 'edited', {
+    refetchInterval: ['editing', 'review'].includes(String(fullShoot.status)) ? 5000 : false,
     enabled: Boolean(shoot.id),
     cacheKey: shootFilesCacheKey,
   });
@@ -1059,15 +1061,17 @@ export function useShootDetailsMediaTab({
   // Superadmin can always delete, even after delivery
   const DELIVERED_STATUSES = ['delivered', 'client_delivered', 'workflow_completed', 'finalized'];
   const isDelivered = DELIVERED_STATUSES.some(status => normalizedShootStatus.includes(status));
-  const isSuperAdmin = role === 'superadmin';
-  const canDelete =
-    isSuperAdmin ||
-    ((isAdmin || isPhotographer) && !isDelivered) ||
-    (isEditor && !isDelivered && !isSubmittedForReview);
+  const isVideoEditor = canAccessOverviewVideoEmbedsOnShoot(shoot, authUser);
+  const canDeleteFile = (file: MediaFile) => canDeleteMediaFile(file, {
+    role, isAdmin, isPhotographer, isEditor, isVideoEditor,
+    isDelivered, isSubmittedForReview, displayTab,
+  });
+  const displayFiles = displayTab === 'edited' ? clientVisibleEditedFiles : rawFiles;
   const editorRestrictedToEditedTab = isEditor;
   const canUploadInDisplayTab = showUploadTab && (!editorRestrictedToEditedTab || displayTab === 'edited');
-  const canDeleteInDisplayTab = canDelete && (!editorRestrictedToEditedTab || displayTab === 'edited');
-  const canSelectInDisplayTab = canDownload || canDeleteInDisplayTab;
+  const canDeleteInDisplayTab = canDeleteMediaSelection(selectedFiles, displayFiles, canDeleteFile);
+  const canSelectFile = (file: MediaFile) => canDownload || canDeleteFile(file);
+  const canSelectInDisplayTab = canDownload || displayFiles.some(canDeleteFile);
   const activeShootUploads = useMemo(
     () => uploads.filter((upload) => upload.shootId === String(shoot.id) && upload.status === 'uploading'),
     [shoot.id, uploads],
@@ -1164,7 +1168,7 @@ export function useShootDetailsMediaTab({
 
               // Scoped to the section that was clicked, so "select all" inside Drone does
               // not sweep up the HDR sets sitting above it.
-              const paneIds = paneFiles.map((f) => f.id);
+              const paneIds = paneFiles.filter(canSelectFile).map((f) => f.id);
               const allSelected = paneIds.every((id) => selectedFiles.has(id));
               setSelectedFiles((current) => {
                 const next = new Set(current);
@@ -1179,6 +1183,7 @@ export function useShootDetailsMediaTab({
               });
             }}
             canSelect={canSelectInDisplayTab}
+            canSelectFile={canSelectFile}
             sortOrder={sortOrder}
             manualSortActive={isDragMode}
             manualOrder={manualOrder}

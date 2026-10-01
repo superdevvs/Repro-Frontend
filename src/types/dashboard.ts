@@ -54,6 +54,7 @@ export interface DashboardIssueResponse {
 
 export interface DashboardShootSummaryResponse {
   id: number;
+  completed_at?: string | null;
   day_label?: string | null;
   time_label?: string | null;
   start_time?: string | null;
@@ -69,6 +70,10 @@ export interface DashboardShootSummaryResponse {
   client_id?: number | null;
   client_phone?: string | null;
   cancellation_reason?: string | null;
+  cancellation_requested_at?: string | null;
+  hold_requested_at?: string | null;
+  hold_requested_by?: string | number | null;
+  hold_reason?: string | null;
   temperature?: string | null;
   services: DashboardShootServiceTagResponse[];
   photographer?: {
@@ -85,6 +90,8 @@ export interface DashboardShootSummaryResponse {
   preview_images?: string[];
   payment_status?: 'paid' | 'unpaid' | 'partial' | 'partially_paid' | string | null;
   paymentStatus?: 'paid' | 'unpaid' | 'partial' | 'partially_paid' | string | null;
+  total_paid?: number | string | null;
+  total_quote?: number | string | null;
   // Notes fields
   shoot_notes?: string | null;
   company_notes?: string | null;
@@ -114,6 +121,7 @@ export interface DashboardWorkflowResponse {
 export interface DashboardOverviewResponse {
   stats: DashboardStatsResponse;
   upcoming_shoots: DashboardShootSummaryResponse[];
+  latest_deliveries?: DashboardShootSummaryResponse[];
   photographers: DashboardPhotographerResponse[];
   pending_reviews: DashboardShootSummaryResponse[];
   activity_log: DashboardActivityResponse[];
@@ -201,7 +209,10 @@ export interface DashboardClientRequest {
 }
 
 export interface DashboardShootSummary {
+  /** Current editor still has an unfinished assigned media lane after other media was delivered. */
+  hasPendingEditorWork?: boolean;
   id: number;
+  completedAt?: string | null;
   dayLabel: string;
   timeLabel: string | null;
   /**
@@ -237,6 +248,8 @@ export interface DashboardShootSummary {
   holdRequestedAt?: string | null;
   holdRequestedBy?: string | number | null;
   holdReason?: string | null;
+  cancellationRequestedAt?: string | null;
+  cancellationReason?: string | null;
   createdBy?: string | null;
   heroImage?: string | null;
   previewImages?: string[];
@@ -291,6 +304,7 @@ export interface DashboardCancellationItem {
 export interface DashboardOverview {
   stats: DashboardStats;
   upcomingShoots: DashboardShootSummary[];
+  latestDeliveries?: DashboardShootSummary[];
   photographers: DashboardPhotographerSummary[];
   pendingReviews: DashboardShootSummary[];
   activityLog: DashboardActivityItem[];

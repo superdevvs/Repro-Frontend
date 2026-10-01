@@ -15,7 +15,7 @@ import { CompReshootReasonStep } from '@/features/complimentary-reshoots/CompRes
 import { CompReshootServicesStep } from '@/features/complimentary-reshoots/CompReshootServicesStep';
 import { getBookingWizardConfig, type ServicePackage } from '@/pages/bookShootModel';
 
-type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
+type ServiceScheduleMap = Record<string, { date?: string; time?: string; duration_minutes?: number }>;
 
 interface BookingContentAreaProps {
   enforceNewBookingEligibility: boolean;

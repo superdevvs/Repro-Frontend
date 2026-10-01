@@ -4,6 +4,20 @@ export type Photographer = { id: string; name: string; avatar?: string };
 
 export type AvailabilityStatus = "available" | "booked" | "unavailable";
 
+/** Identifying fields are optional and only supplied by an authorized availability response. */
+export type BookingAvailabilitySlot = {
+  start_time: string;
+  end_time: string;
+  status?: string;
+  shoot_id?: number;
+  client_name?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  services?: Array<{ id: number; name: string }>;
+};
+
 export interface ShootDetails {
   id: number;
   title: string;

@@ -14,6 +14,8 @@ import { ShootDetailsNotesTab } from '../tabs/ShootDetailsNotesTab';
 import { ShootDetailsIssuesTab } from '../tabs/ShootDetailsIssuesTab';
 import { ShootDetailsSettingsTab } from '../tabs/ShootDetailsSettingsTab';
 import { ShootDetailsActivityLogTab } from '../tabs/ShootDetailsActivityLogTab';
+import type { VideoTourEditor } from '../tabs/tours/videoTourAccess';
+import { ShootActionRequestBanner } from '@/components/shoots/ShootActionRequests';
 
 const LazyShootDetailsTourTab = React.lazy(() =>
   import('../tabs/ShootDetailsTourTab').then((module) => ({
@@ -42,6 +44,7 @@ interface ShootDetailsModalBodyProps {
   activeMediaDisplayTab: 'uploaded' | 'edited';
   visibleTabs: Array<{ id: string; label: string; disabled?: boolean }>;
   currentUserRole: string;
+  editorUser?: VideoTourEditor;
   weather: WeatherInfo | null;
   initialFocus?: 'schedule_assignments';
   isAdmin: boolean;
@@ -171,6 +174,7 @@ export function ShootDetailsModalBody({
   activeMediaDisplayTab,
   visibleTabs,
   currentUserRole,
+  editorUser,
   weather,
   initialFocus,
   isAdmin,
@@ -262,6 +266,7 @@ export function ShootDetailsModalBody({
 
   return (
     <ShootUnitScopeProvider shoot={shoot}>
+      <ShootActionRequestBanner shoot={shoot} className="mx-2 my-1.5 shrink-0 sm:mx-4" />
       <div className={`flex flex-1 min-h-0 flex-col sm:flex-row overflow-hidden ${showMobileFooter ? 'pb-14' : 'pb-0'} sm:pb-0`}>
         <div
           className={`relative w-full sm:w-[37.5%] border-r sm:border-r border-b sm:border-b-0 ${activeTab === 'media' ? 'hidden sm:flex' : 'flex'} flex-col sm:min-h-0 overflow-hidden bg-muted/30 flex-1 sm:flex-none`}
@@ -342,18 +347,19 @@ export function ShootDetailsModalBody({
                 />
               </TabsContent>
 
-              {(isAdmin || isRep || isClient) && activeTab === 'tours' && (
+              {visibleTabs.some(tab => tab.id === 'tours' && !tab.disabled) && activeTab === 'tours' && (
                 <TabsContent value="tours" className="mt-0">
                   <React.Suspense fallback={null}>
                     <LazyShootDetailsTourTab
                       isUnitSwitchDisabled={isEditMode || hasInflightUploads}
                       shoot={shoot}
+                      editorUser={editorUser}
                       isAdmin={isAdmin}
                       isRep={isRep}
                       isClient={isClient}
                       isClientReleaseLocked={isClientReleaseLocked}
                       onShootUpdate={refreshShootAndParent}
-                      onShowAnalytics={() => setShowTourAnalytics(true)}
+                      onShowAnalytics={isEditor ? undefined : () => setShowTourAnalytics(true)}
                     />
                   </React.Suspense>
                 </TabsContent>

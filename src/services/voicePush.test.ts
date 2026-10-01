@@ -29,7 +29,9 @@ beforeEach(() => {
   vi.stubGlobal('isSecureContext', true);
   vi.stubGlobal('PushManager', class {});
   vi.stubGlobal('Notification', { requestPermission: vi.fn().mockResolvedValue('granted') });
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
   api.post.mockReset().mockResolvedValue({ data: identity });
+  api.delete.mockReset().mockResolvedValue(undefined);
 });
 afterEach(() => { vi.unstubAllGlobals(); Reflect.deleteProperty(navigator, 'serviceWorker'); });
 
@@ -50,6 +52,22 @@ it('preserves status, closing, and logout revocation for a worker with a version
   expect(messages).toContainEqual({ type: 'VOICE_PUSH_IDENTITY', user_id: null, enabled: false });
   expect(messages).toContainEqual({ type: 'VOICE_PUSH_CLEAR' });
   expect(register).not.toHaveBeenCalled();
+});
+
+it('explains native push registration failure without saving a device or reporting enablement', async () => {
+  const cause = new DOMException('Registration failed - push service error', 'AbortError');
+  vi.mocked(registration.pushManager.subscribe).mockRejectedValue(cause);
+  await expect(enableVoicePush('9', btoa(String.fromCharCode(...new Uint8Array(65))), 'Desktop'))
+    .rejects.toMatchObject({ message: expect.stringContaining('This device is not enabled'), cause });
+  expect(api.post).not.toHaveBeenCalled();
+  expect(messages.some(message => message.type === 'VOICE_PUSH_SAVE')).toBe(false);
+});
+
+it('preserves other native enrollment errors', async () => {
+  const cause = new DOMException('Application server key is invalid', 'InvalidAccessError');
+  vi.mocked(registration.pushManager.subscribe).mockRejectedValue(cause);
+  await expect(enableVoicePush('9', btoa(String.fromCharCode(...new Uint8Array(65))), 'Desktop')).rejects.toBe(cause);
+  expect(api.post).not.toHaveBeenCalled();
 });
 
 it.each(['https://foreign.example/voice-push-worker.js?v=old', `${location.origin}/another-app-worker.js`])('never reads or replaces the foreign worker %s', async (scriptURL) => {
@@ -77,5 +95,36 @@ it('does not restore an old account after logout while its worker upgrade is pen
   await vi.waitFor(() => expect(register).toHaveBeenCalledOnce());
   await syncVoicePushIdentity(null, false);
   finish(registration); await login;
+  expect(messages.at(-1)).toEqual({ type: 'VOICE_PUSH_IDENTITY', user_id: null, enabled: false });
+});
+
+it.each([[null, false], ['another-user', true]] as const)('cancels pending enrollment when the identity changes to %s', async (userId, enabled) => {
+  let finish!: (value: { data: typeof identity }) => void;
+  api.post.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  const enrollment = enableVoicePush('9', btoa(String.fromCharCode(...new Uint8Array(65))), 'Desktop');
+  const cancelled = expect(enrollment).rejects.toThrow('sign-in or call permissions changed');
+  await vi.waitFor(() => expect(api.post).toHaveBeenCalledOnce());
+  await syncVoicePushIdentity(userId, enabled);
+  finish({ data: identity });
+  await cancelled;
+  expect(messages.some(message => message.type === 'VOICE_PUSH_SAVE' || message.type === 'VOICE_PUSH_CLEAR')).toBe(false);
+  expect(messages.at(-1)).toEqual({ type: 'VOICE_PUSH_IDENTITY', user_id: userId, enabled });
+  expect(fetch).toHaveBeenCalledWith('/api/voice/push/revoke', expect.objectContaining({
+    method: 'POST', credentials: 'omit', body: JSON.stringify({ id: identity.id, token: identity.revoke_token }),
+  }));
+  expect(api.delete).not.toHaveBeenCalled();
+});
+
+it('does not install or subscribe after logout while the permission prompt is pending', async () => {
+  let finish!: (value: NotificationPermission) => void;
+  vi.mocked(Notification.requestPermission).mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+  const enrollment = enableVoicePush('9', btoa(String.fromCharCode(...new Uint8Array(65))), 'Desktop');
+  const cancelled = expect(enrollment).rejects.toThrow('sign-in or call permissions changed');
+  await syncVoicePushIdentity(null, false);
+  finish('granted');
+  await cancelled;
+  expect(register).not.toHaveBeenCalled();
+  expect(registration.pushManager.subscribe).not.toHaveBeenCalled();
+  expect(api.post).not.toHaveBeenCalled();
   expect(messages.at(-1)).toEqual({ type: 'VOICE_PUSH_IDENTITY', user_id: null, enabled: false });
 });

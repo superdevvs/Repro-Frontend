@@ -17,6 +17,7 @@ import type { UserRole } from "@/types/auth";
 import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
 import { ProfileActivityCard } from "@/components/profile/ProfileActivityCard";
 import { ProfileSecurityCard } from "@/components/profile/ProfileSecurityCard";
+import { NotificationSettingsLink } from '@/components/profile/NotificationSettingsLink';
 
 const getRoleLabel = (role?: UserRole) => {
   switch (role) {
@@ -57,9 +58,6 @@ export function AdminProfile() {
   const savedPreferences = metadata.preferences && typeof metadata.preferences === 'object'
     ? metadata.preferences as Record<string, unknown>
     : {};
-  const savedNotifications = savedPreferences.notifications && typeof savedPreferences.notifications === 'object'
-    ? savedPreferences.notifications as Record<string, unknown>
-    : {};
   
   const [formData, setFormData] = useState({
     name: user?.name || "",
@@ -67,11 +65,6 @@ export function AdminProfile() {
     phone: user?.phone || "",
     avatar: user?.avatar || "",
     department: String(savedPreferences.department || "Operations"),
-    notifications: {
-      shootReminders: typeof savedNotifications.shootReminders === 'boolean' ? savedNotifications.shootReminders : true,
-      paymentReminders: typeof savedNotifications.paymentReminders === 'boolean' ? savedNotifications.paymentReminders : true,
-      weeklySummaries: typeof savedNotifications.weeklySummaries === 'boolean' ? savedNotifications.weeklySummaries : true
-    },
     uiDensity: String(savedPreferences.uiDensity || "default"),
     currentPassword: "",
   });
@@ -85,36 +78,19 @@ export function AdminProfile() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSwitchChange = (name: string, checked: boolean) => {
-    const [category, setting] = name.split('.');
-    
-    if (category === 'notifications') {
-      setFormData(prev => ({
-        ...prev,
-        notifications: {
-          ...prev.notifications,
-          [setting]: checked
-        }
-      }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: checked }));
-    }
-  };
-
   const handleAvatarChange = async (url: string) => {
-    setFormData(prev => ({ ...prev, avatar: url }));
-
     // Don't save blob URLs to the backend
     if (url.startsWith('blob:')) return;
 
     try {
       const result = await saveProfile({ avatar: url || null });
+      setFormData(prev => ({ ...prev, avatar: url }));
       if (!result.reauthRequired) {
         toast.success(url ? "Avatar saved" : "Avatar removed");
       }
     } catch (error) {
       console.error('Error saving avatar:', error);
-      toast.error("Could not save avatar. Please try again.");
+      throw error;
     }
   };
 
@@ -132,7 +108,6 @@ export function AdminProfile() {
           preferences: {
             department: formData.department || null,
             uiDensity: formData.uiDensity,
-            notifications: formData.notifications,
           },
       });
       if (!result.reauthRequired) {
@@ -249,49 +224,7 @@ export function AdminProfile() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Notification Preferences</CardTitle>
-                <CardDescription>Customize when and how you receive alerts</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between border p-4 rounded-lg">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="notifications.shootReminders">Shoot Reminders</Label>
-                      <p className="text-sm text-muted-foreground">Receive alerts about upcoming shoots</p>
-                    </div>
-                    <Switch
-                      id="notifications.shootReminders"
-                      checked={formData.notifications.shootReminders}
-                      onCheckedChange={(checked) => handleSwitchChange("notifications.shootReminders", checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between border p-4 rounded-lg">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="notifications.paymentReminders">Payment Reminders</Label>
-                      <p className="text-sm text-muted-foreground">Get notified about pending payments</p>
-                    </div>
-                    <Switch
-                      id="notifications.paymentReminders"
-                      checked={formData.notifications.paymentReminders}
-                      onCheckedChange={(checked) => handleSwitchChange("notifications.paymentReminders", checked)}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between border p-4 rounded-lg">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="notifications.weeklySummaries">Weekly Summaries</Label>
-                      <p className="text-sm text-muted-foreground">Receive weekly platform activity reports</p>
-                    </div>
-                    <Switch
-                      id="notifications.weeklySummaries"
-                      checked={formData.notifications.weeklySummaries}
-                      onCheckedChange={(checked) => handleSwitchChange("notifications.weeklySummaries", checked)}
-                    />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            <NotificationSettingsLink />
 
             <Card>
               <CardHeader>

@@ -10,6 +10,7 @@ const CUSTOMER_MOOD_CLASS: Record<string, string> = {
 };
 
 const ROBBIE_QUALITY_CLASS: Record<string, string> = {
+  unknown: 'border-slate-300 bg-slate-50 text-slate-700 dark:border-slate-700 dark:bg-slate-900/40 dark:text-slate-300',
   excellent: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
   good: 'border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
   ok: 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
@@ -34,7 +35,7 @@ export function MoodChips({ customerMood, robbieQuality, className }: MoodChipsP
       </Badge>
       <Badge
         variant="outline"
-        className={cn('text-[11px] capitalize', ROBBIE_QUALITY_CLASS[robbieQuality ?? 'good'] ?? ROBBIE_QUALITY_CLASS.good)}
+        className={cn('text-[11px] capitalize', ROBBIE_QUALITY_CLASS[robbieQuality ?? 'unknown'] ?? ROBBIE_QUALITY_CLASS.unknown)}
       >
         Robbie: {robbieQuality ?? '—'}
       </Badge>

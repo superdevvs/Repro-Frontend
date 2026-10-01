@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { resolveShootDuration } from '@/utils/shootDuration';
 import { useToast } from '@/hooks/use-toast';
 import { useShoots } from '@/context/shootsContextState';
 import { useNavigate } from 'react-router-dom';
@@ -10,7 +11,7 @@ import type { InternalShootType } from '@/components/booking/ClientPropertyForm'
 import type { ShootData } from '@/types/shoots';
 import axios from 'axios';
 import API_ROUTES from '@/lib/api';
-import { bookingTimeToMinutes, normalizeSlotClock, slotCoversBookingTime } from './bookShootAvailabilityMatch';
+import { bookingTimeToMinutes, normalizeSlotClock } from './bookShootAvailabilityMatch';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
@@ -26,6 +27,7 @@ import type {
   ServiceScheduleMap,
 } from './bookShootModel';
 import { asRecord } from './bookShootModel';
+import { isBookingTimeAvailable } from './bookShootAvailability';
 import { hydrateBookedServiceSelection, restoreCachedServiceQuantities } from './bookShootServiceSelection';
 import { serviceRequiresPhotographer, syncPhotographerRequiredFromCatalog } from '@/utils/photographerAssignment';
 import { getShootSchedule } from '@/utils/shootSchedule';
@@ -605,7 +607,7 @@ export const useBookShootWorkflow = ({
           const weekly = rows.filter((r) => !r?.date && String(r?.day_of_week ?? '').toLowerCase() === dayName);
           const relevant = specific.length > 0 ? specific : weekly;
           relevant.forEach((r) => {
-            if ((r?.status ?? 'available') !== 'unavailable') {
+            if ((r?.status ?? 'available') === 'available') {
               const norm = normalizeSlotClock(r?.start_time);
               if (norm) allTimesSet.add(norm);
             }
@@ -613,7 +615,7 @@ export const useBookShootWorkflow = ({
           // No configured hours for the day → keep photographer (Backend_Fallback_Hours /
           // fail-open). Only drop when there are windows and none cover the booking start.
           if (relevant.length === 0) return true;
-          return relevant.some((r) => slotCoversBookingTime(r, bookingStartMinutes));
+          return isBookingTimeAvailable(start_time, relevant);
         }).map((p) => String(p.id));
         setAvailablePhotographerIds(ids);
         console.debug('[Availability] Available photographer IDs (bulk):', ids);
@@ -697,6 +699,9 @@ export const useBookShootWorkflow = ({
                 svcPhotographers[svcId] = svcPhotographerId;
               }
               const scheduledValue = svc.scheduled_at || svc.scheduledAt;
+              if (svcId && Number(svc.duration_minutes) > 0) {
+                svcSchedules[svcId] = { duration_minutes: resolveShootDuration(svc.duration_minutes) };
+              }
               if (svcId && scheduledValue) {
                 const serviceSchedule = getShootSchedule({
                   scheduled_at: scheduledValue,
@@ -704,6 +709,7 @@ export const useBookShootWorkflow = ({
                 });
                 if (serviceSchedule.date && serviceSchedule.time) {
                   svcSchedules[svcId] = {
+                    ...svcSchedules[svcId],
                     date: serviceSchedule.date,
                     time: serviceSchedule.time,
                   };

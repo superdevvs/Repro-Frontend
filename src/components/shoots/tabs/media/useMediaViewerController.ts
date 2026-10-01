@@ -1,4 +1,5 @@
 import { getMediaViewerDetailRows, getSlideshowMotionVariants } from './mediaViewerPresentation';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { useReducedMotion } from 'framer-motion';
@@ -59,6 +60,7 @@ export function useMediaViewerController({
   downloadingFileIds,
   onShootUpdate,
 }: MediaViewerProps) {
+  const { role } = useAuth();
   const { toast } = useToast();
   const prefersReducedMotion = useReducedMotion();
   const isImageFile = (file: MediaFile): boolean => checkIsImageFile(file);
@@ -793,7 +795,7 @@ export function useMediaViewerController({
         mediaType !== 'extra' &&
         mediaType !== 'floorplan' &&
         ['completed', 'verified'].includes((currentFile.workflowStage || '').toLowerCase())));
-  const detailRows = getMediaViewerDetailRows(currentFile, isClient, fileExt);
+  const detailRows = getMediaViewerDetailRows(currentFile, isClient, fileExt, role);
   const slideshowMotionVariants = getSlideshowMotionVariants(prefersReducedMotion);
   const sidebarActionButtonClassName =
     'h-auto min-h-10 min-w-0 justify-start whitespace-normal break-words !border-white/10 !bg-black/40 px-3 py-2 text-left text-[13px] leading-snug !text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] hover:!border-white/20 hover:!bg-black/55 hover:!text-white focus-visible:ring-white/30 lg:min-h-9 lg:px-2.5 lg:py-1.5 lg:text-[12px] xl:min-h-10 xl:px-3 xl:py-2 xl:text-sm';

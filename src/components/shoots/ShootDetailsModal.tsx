@@ -161,6 +161,7 @@ export function ShootDetailsModal({
     currentRole,
     authRole,
     userId: user?.id,
+    editorUser: user,
     shouldHideClientDetailsProp,
   });
   const createdByLabel = useMemo(
@@ -363,6 +364,8 @@ export function ShootDetailsModal({
     shoot?.cancellationFeeWindow ?? shoot?.cancellation_fee_window ?? false;
 
   const {
+    holdNotifications,
+    isPuttingOnHold,
     isOnHoldDialogOpen,
     setIsOnHoldDialogOpen,
     onHoldReason,
@@ -810,6 +813,7 @@ export function ShootDetailsModal({
           activeMediaDisplayTab={activeMediaDisplayTab}
           visibleTabs={visibleTabs}
           currentUserRole={currentUserRole}
+          editorUser={{ ...user, role: currentUserRole }}
           weather={weather || null}
           initialFocus={initialFocus}
           isAdmin={isAdmin}
@@ -888,6 +892,8 @@ export function ShootDetailsModal({
         pendingAction={pendingAction}
         isOnHoldDialogOpen={isOnHoldDialogOpen}
         onHoldReason={onHoldReason}
+        holdNotifications={holdNotifications}
+        isPuttingOnHold={isPuttingOnHold}
         holdDialogTitle={holdDialogTitle}
         holdDialogDescription={holdDialogDescription}
         holdSubmitLabel={holdSubmitLabel}

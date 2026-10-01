@@ -8,6 +8,7 @@ interface SubItem {
   to: string;
   label: string;
   badge?: number | null;
+  isActive?: boolean;
 }
 
 interface ExpandableNavLinkProps {
@@ -33,7 +34,7 @@ export function ExpandableNavLink({
   const { pathname } = useLocation();
 
   // Check if any sub-item is active (must be defined before useState uses it)
-  const isAnySubItemActive = subItems.some(item => pathname.startsWith(item.to));
+  const isAnySubItemActive = subItems.some(item => item.isActive ?? pathname.startsWith(item.to));
   // Check if we're on the default route or any route that starts with the base path (e.g., /messaging)
   const basePath = defaultTo.split('/').slice(0, 2).join('/'); // e.g., '/messaging' from '/messaging/overview'
   const isOnDefaultRoute = pathname === defaultTo || (pathname.startsWith(basePath + '/') && pathname !== basePath);
@@ -125,7 +126,7 @@ export function ExpandableNavLink({
       {!isCollapsed && isExpanded && (
         <div className="ml-6 mt-1 space-y-1 border-l-2 border-muted pl-3">
           {subItems.map((subItem) => {
-            const isSubItemActive = pathname === subItem.to || pathname.startsWith(subItem.to + '/');
+            const isSubItemActive = subItem.isActive ?? (pathname === subItem.to || pathname.startsWith(subItem.to + '/'));
             const subBadge = formatBadgeCount(subItem.badge);
             return (
               <Link

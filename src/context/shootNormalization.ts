@@ -16,6 +16,7 @@ import { normalizeShootFeaturedHomepage, normalizeShootFeaturedState } from './s
 import { normalizeShootUnits } from '@/features/shoot-units/shootUnitData';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { calendarDay } from '@/lib/date';
+import { normalizeShootActionRequests } from '@/utils/shootActionRequests';
 
 export type { ApiShoot } from './shootApiTypes';
 
@@ -340,6 +341,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
             : null,
           name: String(s.name || ''),
           duration_minutes: toOptionalNumber(s.pivot?.duration_minutes ?? s.duration_minutes),
+          shoot_duration_minutes: toOptionalNumber(s.shoot_duration_minutes),
           photographer_required: toOptionalBoolean(s.photographer_required),
           allow_multiple: toOptionalMultipleFlag(s.allow_multiple),
           requires_editing: toOptionalBoolean(s.requires_editing, s.requiresEditing),
@@ -433,6 +435,8 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
                     shoot.photographer_email ||
                     shoot.photographerEmail ||
                     undefined,
+                  phone: photographer.phone || photographer.phonenumber ||
+                    shoot.photographer_phone || shoot.photographerPhone || undefined,
                 };
               }
 
@@ -640,6 +644,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
           unit_label: item.unit_label,
           unit: item.unit,
           duration_minutes: toOptionalNumber(item.duration_minutes ?? service.duration_minutes),
+          shoot_duration_minutes: toOptionalNumber(item.shoot_duration_minutes ?? service.shoot_duration_minutes),
           photographer_required: toOptionalBoolean(item.photographer_required, service.photographer_required),
           allow_multiple: toOptionalMultipleFlag(item.allow_multiple, service.allow_multiple),
           requires_editing: toOptionalBoolean(item.requires_editing, item.requiresEditing, service.requires_editing, service.requiresEditing),
@@ -768,6 +773,11 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     normalizeServicePerson(shoot.rep) ||
     normalizeServicePerson(shoot.salesRep) ||
     normalizeServicePerson(shoot.sales_rep);
+  const assignedRepId = Object.prototype.hasOwnProperty.call(shoot, 'rep_id')
+    ? shoot.rep_id
+    : Object.prototype.hasOwnProperty.call(shoot, 'assignedRepId')
+      ? shoot.assignedRepId
+      : shoot.rep?.id;
   const compReshootFields = normalizeShootCompReshootFields(shoot);
 
   return {
@@ -793,6 +803,9 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       rep: resolvedRep,
     },
     rep: resolvedRep,
+    assignedRepId: typeof assignedRepId === 'string' || typeof assignedRepId === 'number'
+      ? String(assignedRepId)
+      : null,
     location: {
       address,
       address2: shoot.address2 || undefined,
@@ -954,11 +967,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     totalPhotographerPay: toNumber(shoot.totalPhotographerPay ?? shoot.total_photographer_pay ?? shoot.photographerPay ?? shoot.photographer_pay),
     photographerPaidAt: shoot.photographerPaidAt ?? shoot.photographer_paid_at ?? shoot.paid_at_photographer ?? undefined,
     propertyDetails: shoot.property_details || undefined,
-    cancellationRequestedAt: shoot.cancellationRequestedAt || shoot.cancellation_requested_at || undefined,
-    cancellationReason: shoot.cancellationReason || shoot.cancellation_reason || undefined,
-    holdRequestedAt: shoot.holdRequestedAt || shoot.hold_requested_at || undefined,
-    holdRequestedBy: shoot.holdRequestedBy || shoot.hold_requested_by || undefined,
-    holdReason: shoot.holdReason || shoot.hold_reason || undefined,
+    ...normalizeShootActionRequests(shoot),
     mmmStatus: shoot.mmm_status || undefined,
     mmmOrderNumber: shoot.mmm_order_number || undefined,
     mmmBuyerCookie: shoot.mmm_buyer_cookie || undefined,

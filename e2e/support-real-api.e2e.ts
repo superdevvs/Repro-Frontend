@@ -2,8 +2,8 @@ import { expect as baseExpect, test, type BrowserContext, type Page } from '@pla
 import fs from 'node:fs';
 import path from 'node:path';
 
-const output = path.resolve('..', 'output', 'calls-support-implementation');
-const accountFile = path.join(output, 'runtime-accounts.json');
+const output = process.env.SUPPORT_REVIEW_OUTPUT || path.resolve('..', 'output', 'calls-support-implementation');
+const accountFile = process.env.SUPPORT_QA_ACCOUNTS || path.join(output, 'runtime-accounts.json');
 type Account = { id: number; user: Record<string, unknown>; token: string };
 const api = process.env.SUPPORT_QA_API || 'http://127.0.0.1:8035';
 const expect = baseExpect.configure({ timeout: 30000 });
@@ -54,6 +54,8 @@ test('real support API: phone client submits, admin triages, private note stays 
   const subject = `Download recovery ${Date.now()}`;
   await client.goto(`${baseURL}/support`);
   await expect(client.getByRole('heading', { name: 'Your support requests' })).toBeVisible({ timeout: 60000 });
+  await expect(client).toHaveURL(/\/messaging\/email\/inbox\?tab=support$/);
+  await expect(client.getByRole('navigation', { name: 'Messaging navigation' }).getByRole('link', { name: 'Support', exact: true })).toHaveAttribute('aria-current', 'page');
   await client.getByRole('navigation', { name: 'Support request pages' }).getByRole('button', { name: 'Next' }).click();
   await expect(client.getByRole('navigation', { name: 'Support request pages' })).toContainText('2 /');
   await client.getByRole('button', { name: 'New request', exact: true }).click();
@@ -64,17 +66,18 @@ test('real support API: phone client submits, admin triages, private note stays 
   await expect(client.getByRole('heading', { name: subject, exact: true })).toBeVisible();
   const ticketId = new URL(client.url()).searchParams.get('ticket');
   expect(Number(ticketId)).toBeGreaterThan(0);
-  await admin.goto(`${baseURL}/support?ticket=${ticketId}`);
+  await admin.goto(`${baseURL}/messaging/email/inbox?tab=support&ticket=${ticketId}`);
   await expect(admin.getByRole('heading', { name: 'Support inbox' })).toBeVisible();
+  await admin.getByText('Manage request', { exact: true }).click();
   await admin.getByLabel('Request status', { exact: true }).selectOption('in_progress');
   await expect(admin.getByLabel('Request status', { exact: true })).toHaveValue('in_progress');
   await admin.getByLabel('Assigned administrator').selectOption({ label: 'QA Admin' });
   await expect(admin.getByRole('region', { name: 'Support conversation' })).toContainText('With QA Admin');
-  await admin.getByLabel('Internal note · admins only').check();
+  await admin.getByLabel('Internal note · staff only').check();
   await admin.getByLabel('Internal note', { exact: true }).fill('Private diagnosis: investigation only.');
   await admin.getByRole('button', { name: 'Save internal note' }).click();
   await expect(admin.getByText('Private diagnosis: investigation only.')).toBeVisible();
-  await admin.getByLabel('Internal note · admins only').uncheck();
+  await admin.getByLabel('Internal note · staff only').uncheck();
   await admin.getByLabel('Reply', { exact: true }).fill('Please open Download Center and retry the full-resolution archive.');
   await admin.getByRole('button', { name: 'Send reply' }).click();
   await expect(admin.getByText('Please open Download Center and retry the full-resolution archive.')).toBeVisible();
@@ -91,6 +94,7 @@ test('real support API: phone client submits, admin triages, private note stays 
   await client.getByRole('heading', { name: subject, exact: true }).scrollIntoViewIfNeeded();
   await client.screenshot({ path: path.join(output, 'support-client-phone.png'), fullPage: true });
   await admin.reload();
+  await admin.getByText('Manage request', { exact: true }).click();
   await expect(admin.getByLabel('Request status', { exact: true })).toHaveValue('open');
   await admin.screenshot({ path: path.join(output, 'support-admin-desktop-dark.png'), fullPage: true });
   for (const page of [client, admin]) expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
@@ -111,6 +115,8 @@ for (const scenario of [
     await page.goto(`${baseURL}/chat-with-reproai?tab=help&article=${scenario.article}`);
     await expect(page.getByRole('article').getByRole('heading', { name: scenario.title, exact: true })).toBeVisible({ timeout: 60000 });
     await page.getByRole('button', { name: 'Ask Robbie about this' }).click();
+    await expect(page.getByRole('textbox', { name: 'Message Robbie' })).toHaveValue(`Help me with: ${scenario.title}`);
+    await page.getByRole('button', { name: 'Send message', exact: true }).click();
     await expect(page.getByRole('navigation', { name: 'Guides used in this answer' }).getByRole('link', { name: scenario.title })).toBeVisible({ timeout: 60000 });
     await expect(page.getByRole('link', { name: 'Read this guide', exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

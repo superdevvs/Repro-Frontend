@@ -21,6 +21,7 @@ import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import { getApprovalNotes, getEditingNotes } from '@/components/shoots/history/shootHistoryUtils';
 import { ShootPaymentBadge } from '@/components/shoots/ShootPaymentBadge';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 
 interface SharedShootCardProps {
   shoot: ShootData;
@@ -288,6 +289,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
                 {shoot.location.city}, {getStateFullName(shoot.location.state)} {shoot.location.zip}
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <ShootActionRequestBadges shoot={shoot} />
                 {showScheduleStatusPill && (
                   <Badge
                     className={cn(

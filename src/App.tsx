@@ -10,10 +10,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/auth";
+import { LoginRedirect } from './components/auth/LoginRedirect';
 import { FirstLoginLegalAgreementPrompt } from '@/components/auth/FirstLoginLegalAgreementPrompt';
 import { PermissionsProvider } from './context/PermissionsContext';
 import { BrowserPhoneProvider } from './components/voice/BrowserPhoneProvider';
 import { usePermission } from './hooks/usePermission';
+import { StaffEmailRoute } from '@/pages/messaging/StaffEmailRoute';
+import { isSupportInbox, supportInboxRedirect } from '@/pages/messaging/messagingSupport';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { RequestManagerProvider, useRequestManager } from './context/RequestManagerContext';
 import { PhotographerAssignmentProvider, usePhotographerAssignment } from './context/PhotographerAssignmentContext';
@@ -63,7 +66,6 @@ const MlsPublishingQueue = lazy(() => import('./pages/MlsPublishingQueue'));
 const PrivateListingPortal = lazy(() => import('./pages/PrivateListingPortal'));
 const ExclusiveListingDetails = lazy(() => import('./pages/ExclusiveListingDetails'));
 const ChatWithReproAi = lazy(() => import('./pages/ChatWithReproAi'));
-const Support = lazy(() => import('./pages/Support'));
 const AiEditing = lazy(() => import('./pages/AiEditing'));
 const PermissionSettings = lazy(() => import('./pages/PermissionSettings'));
 const AddressLookupDemo = lazy(() => import('./components/AddressLookupDemo'));
@@ -206,7 +208,7 @@ const ProtectedRoute = ({
 
   // Silently redirect to login - no toast notification needed
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <LoginRedirect />;
   }
 
   return children;
@@ -252,7 +254,7 @@ const PermissionRoute = ({
   }
 
   if (!isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <LoginRedirect />;
   }
 
   if (!hasPermission) {
@@ -573,7 +575,7 @@ const AppRoutes = () => {
           <ChatWithReproAi />
         </PermissionRoute>
       } />
-      <Route path="/support" element={<PermissionRoute resource="support"><Support /></PermissionRoute>} />
+      <Route path="/support" element={<Navigate to={supportInboxRedirect(location.search, location.hash)} replace />} />
       <Route path="/ai-editing" element={
         <PermissionRoute resource="ai-editing">
           <AiEditing />
@@ -655,52 +657,51 @@ const AppRoutes = () => {
           <PermissionSettings />
         </PermissionRoute>
       } />
-      {/* Messaging routes - Inbox and Compose available to all authenticated users */}
+      {/* Support is available by permission; ordinary email is a staff workspace. */}
       <Route path="/messaging/email/inbox" element={
-        <PermissionRoute resource="messaging-email">
-          <EmailInbox />
-        </PermissionRoute>
+        isSupportInbox(location.search) ? <PermissionRoute resource="support"><EmailInbox /></PermissionRoute> :
+        <StaffEmailRoute><PermissionRoute resource="messaging-email"><EmailInbox /></PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/email/compose" element={
-        <PermissionRoute resource="messaging-compose" action="create">
+        <StaffEmailRoute compose><PermissionRoute resource="messaging-compose" action="create">
           <EmailCompose />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       {/* Messaging routes - Overview, Templates, Automations, SMS, Settings only for admins */}
       <Route path="/messaging" element={
-        <PermissionRoute resource="messaging-overview">
+        <StaffEmailRoute><PermissionRoute resource="messaging-overview">
           <MessagingOverview />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/overview" element={
-        <PermissionRoute resource="messaging-overview">
+        <StaffEmailRoute><PermissionRoute resource="messaging-overview">
           <MessagingOverview />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/email/templates" element={
-        <PermissionRoute resource="messaging-templates">
+        <StaffEmailRoute><PermissionRoute resource="messaging-templates">
           <Templates />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/email/automations" element={
-        <PermissionRoute resource="messaging-automations">
+        <StaffEmailRoute><PermissionRoute resource="messaging-automations">
           <Automations />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/email/automations/new" element={
-        <PermissionRoute resource="messaging-automations">
+        <StaffEmailRoute><PermissionRoute resource="messaging-automations">
           <AutomationWorkflowEditor />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/email/automations/:automationId" element={
-        <PermissionRoute resource="messaging-automations">
+        <StaffEmailRoute><PermissionRoute resource="messaging-automations">
           <AutomationWorkflowEditor />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/email/recovery" element={
-        <PermissionRoute resource="messaging-overview">
+        <StaffEmailRoute><PermissionRoute resource="messaging-overview">
           <EmailRecovery />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/sms" element={
         <PermissionRoute resource="messaging-sms">
@@ -713,9 +714,9 @@ const AppRoutes = () => {
         </PermissionRoute>
       } />
       <Route path="/messaging/settings" element={
-        <PermissionRoute resource="messaging-settings">
+        <StaffEmailRoute><PermissionRoute resource="messaging-settings">
           <MessagingSettings />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       {/* Address lookup testing routes */}
       <Route path="/address-lookup-demo" element={

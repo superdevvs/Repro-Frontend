@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, Upload, X } from 'lucide-react';
@@ -9,7 +9,7 @@ import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 
 interface ImageUploadProps {
-  onChange: (url: string) => void;
+  onChange: (url: string) => void | Promise<void>;
   initialImage?: string;
   className?: string;
 }
@@ -22,9 +22,11 @@ export function ImageUpload({ onChange, initialImage, className }: ImageUploadPr
   const { toast } = useToast();
   const { user } = useAuth();
 
+  useEffect(() => setPreview(initialImage || null), [initialImage]);
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (!file) return;
+    if (!file || uploading) return;
 
     // Check file type
     if (!file.type.startsWith('image/')) {
@@ -69,43 +71,51 @@ export function ImageUpload({ onChange, initialImage, className }: ImageUploadPr
         },
       );
 
+      await onChange(data.url);
       setPreview(data.url);
-      onChange(data.url);
       
       toast({
         title: "Image uploaded",
-        description: "Your profile photo has been updated",
+        description: "Your image is ready.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error uploading image:', error);
       
       toast({
         title: "Upload failed",
-        description: error?.response?.data?.message || error?.message || "Failed to upload image. Please try again.",
+        description: (axios.isAxiosError<{ message?: string }>(error) && error.response?.data?.message)
+          || (error instanceof Error ? error.message : "Failed to upload image. Please try again."),
         variant: "destructive",
       });
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
   const handleButtonClick = () => {
-    fileInputRef.current?.click();
+    if (!uploading) fileInputRef.current?.click();
   };
 
   const handleClearImage = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
-    setPreview(null);
-    onChange('');
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    if (uploading) return;
+    setUploading(true);
+    try {
+      await onChange('');
+      setPreview(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      toast({ title: "Image removed", description: "The selected image was removed." });
+    } catch (error: unknown) {
+      toast({
+        title: "Removal failed",
+        description: error instanceof Error ? error.message : "Failed to remove image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploading(false);
     }
-    
-    toast({
-      title: "Image removed",
-      description: "Your profile photo has been removed",
-    });
   };
 
   return (
@@ -119,7 +129,7 @@ export function ImageUpload({ onChange, initialImage, className }: ImageUploadPr
           className={`cursor-pointer ${className || 'h-24 w-24'}`}
           onClick={handleButtonClick}
         >
-          <AvatarImage src={preview || user?.avatar} />
+          <AvatarImage src={preview || undefined} />
           <AvatarFallback className="text-xl">
             {user?.name?.slice(0, 2) || 'U'}
           </AvatarFallback>
@@ -136,6 +146,9 @@ export function ImageUpload({ onChange, initialImage, className }: ImageUploadPr
         
         {preview && (
           <button 
+            type="button"
+            aria-label="Remove profile photo"
+            disabled={uploading}
             className="absolute -top-1 -right-1 h-6 w-6 bg-destructive text-white rounded-full flex items-center justify-center"
             onClick={handleClearImage}
           >
@@ -146,13 +159,16 @@ export function ImageUpload({ onChange, initialImage, className }: ImageUploadPr
       
       <input
         type="file"
+        aria-label="Profile photo"
         ref={fileInputRef}
         onChange={handleFileChange}
         accept="image/*"
         className="hidden"
+        disabled={uploading}
       />
       
       <Button 
+        type="button"
         variant="outline" 
         size="sm" 
         className="mt-2 text-xs sm:mt-3"

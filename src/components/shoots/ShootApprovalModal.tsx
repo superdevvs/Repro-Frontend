@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { ServiceDurationPicker } from './ServiceDurationPicker';
+import { resolveServiceShootDuration } from '@/utils/shootDuration';
 import { getBookedServiceQuantities, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { getApprovalServices, getApprovalPricing, type ApprovalService } from './shootApprovalServices';
 import { ShootApprovalServicesSection } from './ShootApprovalServicesSection';
@@ -38,6 +40,8 @@ import API_ROUTES from '@/lib/api';
 import axios from 'axios';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PhotographerAvailabilityTimeline } from '@/components/photographers/PhotographerAvailabilityTimeline';
+import type { BookingAvailabilitySlot } from '@/types/availability';
+import { normalizeBookingAvailabilitySlots as normalizeAvailabilitySlots } from '@/utils/bookingAvailabilitySlots';
 import { Input } from '@/components/ui/input';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
 import { ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
@@ -72,14 +76,15 @@ interface Photographer {
   shootsCountToday?: number;
 }
 
-type AvailabilitySlot = {
-  start_time: string;
-  end_time: string;
-};
+type AvailabilitySlot = BookingAvailabilitySlot;
 
 type PhotographerAvailabilityMap = Record<string, AvailabilitySlot[]>;
 
 interface ShootServiceDetails {
+  pricing_type?: string;
+  sqft_ranges?: Array<{ sqft_from: number; sqft_to: number; duration?: number | null }>;
+  duration_minutes?: number | null;
+  shoot_duration_minutes?: number | null;
   id: number;
   service_id?: number;
   serviceId?: number;
@@ -96,6 +101,9 @@ interface ShootServiceDetails {
 }
 
 interface ShootDetails {
+  sqft?: number;
+  property_details?: Record<string, unknown>;
+  propertyDetails?: Record<string, unknown>;
   id: number;
   address?: string;
   city?: string;
@@ -164,7 +172,7 @@ type PhotographerPickerContext = {
   categoryName?: string;
 } | null;
 
-type ServiceScheduleMap = Record<string, { date?: string; time?: string }>;
+type ServiceScheduleMap = Record<string, { date?: string; time?: string; duration_minutes?: number }>;
 
 const normalizeCategoryKey = (value?: string) =>
   (value || 'other').trim().toLowerCase().replace(/s$/, '') || 'other';
@@ -211,15 +219,6 @@ const getServiceCategoryKey = (value: unknown): string => {
 const resolveScheduledDate = (shoot?: ShootDetails | null): Date | null => {
   const schedule = getShootSchedule({ ...shoot, scheduled_at: shoot?.scheduled_at || shoot?.scheduledAt || shoot?.start_time });
   return schedule.date ? parseLocalYmd(schedule.date) : null;
-};
-
-const normalizeAvailabilitySlots = (value: unknown): AvailabilitySlot[] => {
-  if (!Array.isArray(value)) return [];
-  return value.flatMap((slotValue) => {
-    const slot = asRecord(slotValue);
-    if (typeof slot.start_time !== 'string' || typeof slot.end_time !== 'string') return [];
-    return [{ start_time: slot.start_time, end_time: slot.end_time }];
-  });
 };
 
 const EMPTY_PHOTOGRAPHERS: Photographer[] = [];
@@ -306,6 +305,8 @@ export function ShootApprovalModal({
   const [alternateDate, setAlternateDate] = useState<string>('');
   const [alternateTime, setAlternateTime] = useState<string>('');
   const [serviceSchedules, setServiceSchedules] = useState<ServiceScheduleMap>({});
+  const inheritedServiceScheduleIds = useRef(new Set<string>());
+  const orderScheduleRef = useRef({ date: '', time: '10:00' });
   const [serviceQuantities, setServiceQuantities] = useState<Record<string, number>>({});
   const [photographerAvailability, setPhotographerAvailability] = useState<PhotographerAvailabilityMap>({});
   const [isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability] = useState(false);
@@ -385,6 +386,8 @@ export function ShootApprovalModal({
     setAlternateDate('');
     setAlternateTime('');
     setServiceSchedules({});
+    inheritedServiceScheduleIds.current = new Set();
+    orderScheduleRef.current = { date: '', time: '10:00' };
     setServiceQuantities({});
     setPhotographerId('');
     setPerCategoryPhotographers({});
@@ -466,6 +469,11 @@ export function ShootApprovalModal({
             setScheduledTime(normalizedTime);
             setTimeOptions(buildTimeOptions(normalizedTime));
           }
+          const orderSchedule = {
+            date: resolvedDate ? format(resolvedDate, 'yyyy-MM-dd') : '',
+            time: normalizedTime || '10:00',
+          };
+          orderScheduleRef.current = orderSchedule;
 
           // Initialize the alternate (backup) schedule from the serialized resource.
           // Tolerate both snake_case (resource default) and camelCase aliases.
@@ -503,8 +511,12 @@ export function ShootApprovalModal({
               itemSchedule?.scheduled_at ??
               itemSchedule?.scheduledAt;
             const { date, time } = getShootSchedule({ scheduled_at: rawScheduledAt, timezone: shoot.timezone });
-            if (date || time) {
-              nextServiceSchedules[serviceId] = { date, time };
+            const schedule = { date: date || orderSchedule.date, time: time || orderSchedule.time,
+              duration_minutes: resolveServiceShootDuration(service, Number(shoot.sqft ?? shoot.property_details?.sqft ?? shoot.propertyDetails?.sqft) || null,
+                Number(itemSchedule?.duration_minutes) || undefined) };
+            nextServiceSchedules[serviceId] = schedule;
+            if (schedule.date === orderSchedule.date && schedule.time === orderSchedule.time) {
+              inheritedServiceScheduleIds.current.add(serviceId);
             }
           });
           setServiceSchedules(nextServiceSchedules);
@@ -605,6 +617,7 @@ export function ShootApprovalModal({
           items.push({
             service_id: serviceId,
             quantity: normalizeBookingQuantity(serviceQuantities[String(serviceId)]),
+            duration_minutes: resolveServiceShootDuration(service, Number(shootDetails.sqft ?? shootDetails.property_details?.sqft ?? shootDetails.propertyDetails?.sqft) || null, schedule.duration_minutes),
             scheduled_at: serviceScheduledAt,
             ...(selectedPhotographerId && selectedPhotographerId !== 'unassigned'
               ? { photographer_id: Number(selectedPhotographerId) }
@@ -925,6 +938,23 @@ export function ShootApprovalModal({
     () => (scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : ''),
     [scheduledDate]
   );
+  const updateOrderSchedule = (next: { date: string; time: string }) => {
+    orderScheduleRef.current = next;
+    // Keep separately scheduled visits independent even when a main edit makes
+    // their date and time temporarily coincide with the order appointment.
+    const inheritedIds = new Set(inheritedServiceScheduleIds.current);
+    setServiceSchedules(current => Object.fromEntries(Object.entries(current).map(([id, schedule]) => [
+      id, inheritedIds.has(id) ? { ...schedule, ...next } : schedule,
+    ])));
+  };
+  const changeScheduledDate = (value: Date | undefined) => {
+    updateOrderSchedule({ ...orderScheduleRef.current, date: value ? format(value, 'yyyy-MM-dd') : '' });
+    setScheduledDate(value);
+  };
+  const changeScheduledTime = (value: string) => {
+    updateOrderSchedule({ ...orderScheduleRef.current, time: value });
+    setScheduledTime(value);
+  };
   const serviceScheduleRows = useMemo(() => {
     const rows = Array.isArray(services)
       ? services.filter((service): service is ShootServiceDetails =>
@@ -945,7 +975,8 @@ export function ShootApprovalModal({
       return getServiceName(first).localeCompare(getServiceName(second));
     });
   }, [buildScheduledAtIso, services, serviceSchedules, scheduledDateInputValue, scheduledTime]);
-  const updateServiceSchedule = (serviceId: string, field: 'date' | 'time', value: string) => {
+  const updateServiceSchedule = (serviceId: string, field: 'date' | 'time' | 'duration_minutes', value: string | number) => {
+    if (field !== 'duration_minutes') inheritedServiceScheduleIds.current.delete(serviceId);
     setServiceSchedules((current) => ({
       ...current,
       [serviceId]: {
@@ -955,12 +986,14 @@ export function ShootApprovalModal({
     }));
   };
   const applyServiceScheduleToAll = (sourceServiceId: string) => {
+    serviceScheduleRows.forEach(service => inheritedServiceScheduleIds.current.delete(getServiceIdentifier(service)));
     setServiceSchedules((current) => {
       const source = current[sourceServiceId] || {};
       const next = { ...current };
       serviceScheduleRows.forEach((service) => {
         const id = getServiceIdentifier(service);
         next[id] = {
+          ...current[id],
           date: source.date || '',
           time: source.time || '',
         };
@@ -1200,7 +1233,7 @@ export function ShootApprovalModal({
                       minDate={minSelectableDate}
                       onChange={(value) => {
                         const nextDate = new Date(`${value}T12:00:00`);
-                        setScheduledDate(Number.isNaN(nextDate.getTime()) ? undefined : nextDate);
+                        changeScheduledDate(Number.isNaN(nextDate.getTime()) ? undefined : nextDate);
                       }}
                     />
                   </div>
@@ -1210,7 +1243,7 @@ export function ShootApprovalModal({
                     <ServiceTimePicker
                       value={scheduledTime}
                       options={timeOptions}
-                      onChange={setScheduledTime}
+                      onChange={changeScheduledTime}
                     />
                   </div>
                 </div>
@@ -1301,6 +1334,8 @@ export function ShootApprovalModal({
                                   />
                                 </div>
                               </div>
+                              <ServiceDurationPicker serviceName={getServiceName(service)} value={schedule.duration_minutes}
+                                onChange={value => updateServiceSchedule(serviceId, 'duration_minutes', value)} />
                             </div>
                           </div>
                         );

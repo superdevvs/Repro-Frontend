@@ -220,6 +220,7 @@ export interface ShootServicePresentation {
 
 export interface ShootServiceObject {
   duration_minutes?: number | null;
+  shoot_duration_minutes?: number | null;
   photographer_required?: boolean;
   allow_multiple?: boolean;
   shoot_unit_id?: string | number | null;
@@ -488,6 +489,8 @@ export interface ShootData {
     email?: string;
   };
   rep?: ShootUserSummary | null;
+  /** Explicit shoot assignment, separate from the client account rep shown in contact details. */
+  assignedRepId?: string | null;
   editorId?: string;
   services: string[];
   serviceObjects?: ShootServiceObject[];

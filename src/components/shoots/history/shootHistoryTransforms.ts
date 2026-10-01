@@ -1,4 +1,5 @@
 import { getStateFullName } from '@/utils/stateUtils'
+import { normalizeShootActionRequests } from '@/utils/shootActionRequests'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import {
   getShootInvoiceAdjustmentTotal,
@@ -661,6 +662,7 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     ghostUserIds: ghostUserIds.length ? ghostUserIds : undefined,
     isGhostVisibleForUser: toBooleanValue(item.is_ghost_visible_for_user ?? item.isGhostVisibleForUser),
     holdStatus: resolveHoldStatusValue(item),
+    ...normalizeShootActionRequests(item),
     primaryAction: primaryAction ?? undefined,
     files: toArrayValue<ShootFileData>(item.files),
     tourPurchased: toBooleanValue(item.tourPurchased ?? item.tour_purchased),

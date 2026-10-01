@@ -11,6 +11,7 @@ interface NavLinkProps {
   label: string;
   isCollapsed: boolean;
   isActive: boolean;
+  external?: boolean;
   onActivePreview?: (element: HTMLElement) => void;
   iconClassName?: string;
   activeIconClassName?: string;
@@ -25,6 +26,7 @@ export function NavLink({
   label,
   isCollapsed,
   isActive,
+  external = false,
   onActivePreview,
   iconClassName,
   activeIconClassName,
@@ -38,6 +40,9 @@ export function NavLink({
   return (
     <Link
       to={to}
+      reloadDocument={external}
+      target={external ? '_blank' : undefined}
+      rel={external ? 'noopener noreferrer' : undefined}
       aria-label={badgeLabel ? `${label}, ${badgeLabel} unread` : label}
       title={isCollapsed ? (badgeLabel ? `${label} (${badgeLabel})` : label) : undefined}
       data-sidebar-active={isActive ? 'true' : undefined}

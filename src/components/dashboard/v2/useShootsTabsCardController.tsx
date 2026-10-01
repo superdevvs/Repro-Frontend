@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { addDays, format, isSameDay, startOfDay } from 'date-fns';
+import { addDays, format, startOfDay } from 'date-fns';
 import type { DashboardShootServiceTag, DashboardShootSummary } from '@/types/dashboard';
 import { Avatar } from './SharedComponents';
 import { ServicePills } from './ServicePills';
@@ -12,11 +12,12 @@ import { getIconComponent } from '@/components/scheduling/IconPicker';
 import { getWeatherForLocation, type WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
 import { canShowShootPaymentStatusForRole } from '@/utils/shootPaymentVisibility';
 import { ClientPaymentPill } from '@/features/dashboard/components/ClientPaymentPill';
-import { classifyDashboardBookedDay, formatDashboardDayDistance, getDashboardShootDisplayTime, getDashboardShootStartInstantMs } from '@/utils/dashboardShootSchedule';
+import { classifyDashboardBookedDay, getDashboardShootDisplayTime, getDashboardShootStartInstantMs } from '@/utils/dashboardShootSchedule';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import {
   measureShootListPeekHeightPx,
@@ -43,6 +44,8 @@ import {
   type ShootsTabsCardProps,
   type TabType,
 } from './shootsTabsCardUtils';
+import { getRelativeGroupLabel } from './shootDayGroupLabel';
+import { useEarlierShoots } from './earlierUnfinishedShoots';
 const SHOOTS_COMPACT_PREF_KEY = 'dashboard-shoots-compact';
 
 export function useShootsTabsCardController({
@@ -305,42 +308,12 @@ export function useShootsTabsCardController({
       hasPastDays,
     };
   }, [activeTab, formatDate, isEditingManagerMode, showPastDays]);
-  const getRelativeGroupLabel = useCallback((group: { label: string; shoots: DashboardShootSummary[]; isToday?: boolean; dayTime?: number; dayOffset?: number | null }) => {
-    const count = group.shoots.length;
-    const suffix = count === 1 ? '1 shoot' : `${count} shoots`;
-    const today = startOfDay(new Date());
-    const tomorrow = addDays(today, 1);
-    if (group.isToday) return `Today \u2022 ${suffix}`;
-    if (group.dayOffset != null) {
-      const bookedDate = group.dayTime && Number.isFinite(group.dayTime) && group.dayTime !== Number.POSITIVE_INFINITY
-        ? new Date(group.dayTime)
-        : null;
-      return `${formatDashboardDayDistance(group.dayOffset, bookedDate)} \u2022 ${suffix}`;
-    }
-    if (group.dayTime && Number.isFinite(group.dayTime)) {
-      const groupDate = new Date(group.dayTime);
-      if (isSameDay(groupDate, tomorrow)) return `Tomorrow \u2022 ${suffix}`;
-      const diffMs = startOfDay(groupDate).getTime() - today.getTime();
-      const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
-      if (diffDays >= 2 && diffDays <= 6) {
-        return `${format(groupDate, 'EEEE')} \u2022 ${suffix}`;
-      }
-      if (diffDays === -1) return `Yesterday \u2022 ${suffix}`;
-      if (diffDays < -1) {
-        const absDays = Math.abs(diffDays);
-        return absDays > 10
-          ? `${Math.round(absDays / 7)} weeks ago \u2022 ${suffix}`
-          : `${absDays} days ago \u2022 ${suffix}`;
-      }
-      return diffDays > 10
-        ? `In ${Math.round(diffDays / 7)} weeks \u2022 ${suffix}`
-        : `In ${diffDays} days \u2022 ${suffix}`;
-    }
-    return `${group.label} \u2022 ${suffix}`;
-  }, []);
+  const { earlier: allEarlierShoots, remaining: remainingUpcomingShoots } = useEarlierShoots(filteredUpcomingShoots, role);
+  const earlierShoots = showPastDays ? [] : allEarlierShoots;
   const { groups: upcomingGroups, hasPastDays } = useMemo(
-    () => groupShootsByDay(filteredUpcomingShoots),
-    [groupShootsByDay, filteredUpcomingShoots]
+    // Previous restores the full date-grouped list; the collapsed view uses the stack.
+    () => groupShootsByDay([...allEarlierShoots, ...remainingUpcomingShoots]),
+    [groupShootsByDay, allEarlierShoots, remainingUpcomingShoots]
   );
   const requestedGroups = useMemo(() => {
     const groups: Record<string, DashboardShootSummary[]> = {};
@@ -363,9 +336,10 @@ export function useShootsTabsCardController({
     () => filterShoots(activeEditingManagerTab?.shoots ?? []),
     [activeEditingManagerTab, filterShoots],
   );
+  const { earlier: editingManagerEarlierShoots, remaining: remainingEditingManagerShoots } = useEarlierShoots(filteredEditingManagerShoots, role);
   const { groups: editingManagerGroups, hasPastDays: editingManagerHasPastDays } = useMemo(
-    () => groupShootsByDay(filteredEditingManagerShoots),
-    [filteredEditingManagerShoots, groupShootsByDay],
+    () => groupShootsByDay(remainingEditingManagerShoots),
+    [remainingEditingManagerShoots, groupShootsByDay],
   );
   // Reveal complete days so a partial card slice never becomes the day's count.
   const { paginatedGroups, totalShootsCount, hasMore } = useMemo(
@@ -592,6 +566,7 @@ export function useShootsTabsCardController({
         )}
       >
         {/* ── Compact layout (mobile compact toggle + desktop/tablet compact toggle) ── */}
+        <ShootActionRequestBadges shoot={shoot} className="mb-2" />
         {isCompactMobile && (
           <div className="grid grid-cols-[48px,1fr,auto] items-center gap-3 min-h-[62px] sm:grid-cols-[56px,1fr,auto] sm:gap-4 sm:min-h-[68px]">
             <div className="rounded-xl border border-border/80 bg-muted/40 dark:bg-muted/20 px-2 py-2 text-center shadow-sm">
@@ -868,7 +843,7 @@ export function useShootsTabsCardController({
       </div>
     );
   };
-  const upcomingCount = totalShootsCount;
+  const upcomingCount = totalShootsCount + earlierShoots.length;
   const requestedCount = requestedShoots.length;
   useEffect(() => {
     if (requestedCount === 0) {
@@ -890,6 +865,9 @@ export function useShootsTabsCardController({
     }
   }, [activeTab, hasUnreadRequests]);
   return {
+    earlierShoots,
+    editingManagerEarlierShoots,
+    isCompactDashboardViewport,
     upcomingShoots,
     requestedShoots,
     onSelect,

@@ -6,6 +6,8 @@ import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 import { formatCurrency } from '../shootHistoryUtils';
 import type { CalendarEntry } from './calendarModel';
 import { calendarAddress, calendarEventStyle, calendarInitials, calendarPhotographer, calendarServices, calendarStatus, calendarTimeLabel, calendarTimezone } from './calendarPresentation';
+import { ShootActionRequestBadges, ShootActionRequestBanner } from '@/components/shoots/ShootActionRequests';
+import { getPendingShootActionRequests } from '@/utils/shootActionRequests';
 
 interface ShootButtonProps {
   entry: CalendarEntry;
@@ -22,10 +24,10 @@ export function CalendarShootButton({ entry, onShootSelect, compact = false, sty
   const time = calendarTimeLabel(entry, formatTime);
   return <button type="button" className={`shc-event${compact ? ' shc-event-compact' : ''}${selected ? ' is-selected' : ''}`}
     style={{ ...calendarEventStyle(shoot), ...style }} data-shoot-id={shoot.id}
-    aria-label={`Open ${calendarAddress(shoot)}, ${time}, ${status.label}`}
-    title={`${time} · ${calendarAddress(shoot)} · ${status.label}${calendarTimezone(shoot) ? ` · ${calendarTimezone(shoot)}` : ''}`}
+    aria-label={`Open ${calendarAddress(shoot)}, ${time}, ${status.label}${getPendingShootActionRequests(shoot).map(request => `, ${request.label}`).join('')}`}
+    title={`${time} · ${calendarAddress(shoot)} · ${status.label}${getPendingShootActionRequests(shoot).map(request => ` · ${request.label}`).join('')}${calendarTimezone(shoot) ? ` · ${calendarTimezone(shoot)}` : ''}`}
     onClick={() => onShootSelect(shoot)}>
-    <time className="shc-event-time">{time}</time>
+    <span className="flex items-center gap-1"><time className="shc-event-time">{time}</time><ShootActionRequestBadges shoot={shoot} iconOnly /></span>
     <strong className="shc-event-address">{calendarAddress(shoot)}</strong>
     {!compact && <span className="shc-event-person"><span>{calendarInitials(shoot)}</span>{calendarPhotographer(shoot)}</span>}
   </button>;
@@ -42,7 +44,7 @@ export function CalendarAgenda({ entries, onShootSelect, empty = 'No shoots sche
     style={calendarEventStyle(entry.shoot)} data-shoot-id={entry.shoot.id} onClick={() => onShootSelect(entry.shoot)}
     aria-label={`Open ${calendarAddress(entry.shoot)}, ${calendarTimeLabel(entry, formatTime)}, ${calendarStatus(entry.shoot).label}`}>
     <time>{calendarTimeLabel(entry, formatTime)}</time>
-    <span><strong>{calendarAddress(entry.shoot)}</strong><small>{calendarPhotographer(entry.shoot)} · {calendarStatus(entry.shoot).label}</small></span>
+    <span><strong>{calendarAddress(entry.shoot)}</strong><small>{calendarPhotographer(entry.shoot)} · {calendarStatus(entry.shoot).label}</small><ShootActionRequestBadges shoot={entry.shoot} /></span>
     <ArrowUpRight aria-hidden="true" />
   </button>)}</div>;
 }
@@ -62,6 +64,7 @@ export function CalendarInspector({ entry, onShootSelect, hideClientDetails, can
     <h3>Shoot brief <ArrowUpRight aria-hidden="true" /></h3>
     <div className="shc-brief-body">
       <span className="shc-status"><i aria-hidden="true" />{status.label}</span>
+      <ShootActionRequestBanner shoot={shoot} />
       <h4>{calendarAddress(shoot)}</h4>
       <p className="shc-location"><MapPin aria-hidden="true" />{[shoot.location?.city, shoot.location?.state].filter(Boolean).join(', ') || 'Location not set'}</p>
       <div className="shc-brief-time"><strong>{entry.date ? formatDate(entry.date) : 'Date not set'}</strong><span>{calendarTimeLabel(entry, formatTime)}{calendarTimezone(shoot) && ` · ${calendarTimezone(shoot)}`}</span></div>

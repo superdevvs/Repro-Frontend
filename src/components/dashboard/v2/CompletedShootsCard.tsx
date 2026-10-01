@@ -8,6 +8,7 @@ import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboa
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { selectShootCardHeroUrls } from '@/utils/shootCardHero';
 import { ClientPaymentPill } from '@/features/dashboard/components/ClientPaymentPill';
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 
 import { resolveAdaptiveDeliveredVisibleCount } from './resolveAdaptiveDeliveredVisibleCount';
 
@@ -237,6 +238,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
                     }}
                   />
                   <div className="absolute left-3 sm:left-4 bottom-3 sm:bottom-4 right-14 sm:right-16 text-white space-y-1 z-10">
+                    <ShootActionRequestBadges shoot={shoot} />
                     <p className="select-text cursor-text text-xs sm:text-sm font-semibold truncate">{shoot.addressLine}</p>
                     <div className="text-[10px] sm:text-[11px] text-white/80 flex flex-col">
                       <span>{shoot.clientName || 'Client TBD'}</span>

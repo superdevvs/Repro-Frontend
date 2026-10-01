@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { useMobileMenu } from './useMobileMenu';
 import { 
   HomeIcon, 
@@ -31,6 +32,7 @@ export const MobileBottomNav = ({ toggleMenu, onBottomNavHeightChange }: MobileB
   const navRef = React.useRef<HTMLDivElement>(null);
   const { filteredItems, isLoading } = useMobileMenu();
   const { theme } = useTheme();
+  const { role } = useAuth();
   const isLightMode = theme === 'light';
 
   // Nothing to navigate to yet, or at all. Until permissions resolve every item
@@ -60,7 +62,7 @@ export const MobileBottomNav = ({ toggleMenu, onBottomNavHeightChange }: MobileB
     return null;
   }
 
-  const navItems = buildMobileBottomNavSlots(filteredItems);
+  const navItems = buildMobileBottomNavSlots(filteredItems, role);
   const hasBookShoot = navItems.some((item) => item.to === '/book-shoot');
   const columnCount = navItems.length + 1;
 
@@ -120,10 +122,8 @@ export const MobileBottomNav = ({ toggleMenu, onBottomNavHeightChange }: MobileB
           columnCount >= 5 ? 'grid-cols-5' : columnCount === 3 ? 'grid-cols-3' : 'grid-cols-4',
         )}
       >
-        {navItems.map((item, index) => {
-          // The center pill (only present when Book Shoot is available) sits at
-          // index 2 and is rendered as the prominent gradient circle.
-          const isCenter = hasBookShoot && index === 2;
+        {navItems.map((item) => {
+          const isBookShoot = item.to === '/book-shoot';
 
           return (
             <Link
@@ -143,11 +143,11 @@ export const MobileBottomNav = ({ toggleMenu, onBottomNavHeightChange }: MobileB
                   aria-hidden
                   className={cn(
                     "pointer-events-none absolute inset-x-3 h-0.5 bg-[linear-gradient(90deg,hsl(var(--primary)/0)_0%,hsl(var(--primary)/0.95)_18%,hsl(var(--primary)/0.95)_82%,hsl(var(--primary)/0)_100%)] shadow-[0_0_10px_hsl(var(--primary)/0.45)]",
-                    isCenter ? "bottom-[-5px]" : "top-[-4px]"
+                    isBookShoot ? "bottom-[-5px]" : "top-[-4px]"
                   )}
                 />
               )}
-              {isCenter ? (
+              {isBookShoot ? (
                 <span className="relative -mt-4 flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-primary/20 bg-[linear-gradient(135deg,hsl(var(--primary)/0.95)_0%,hsl(var(--primary)/0.78)_52%,hsl(var(--accent)/0.9)_100%)] text-primary-foreground shadow-lg shadow-primary/25 ring-1 ring-primary/20 backdrop-blur">
                   <span aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_80%_at_25%_10%,hsl(var(--primary-foreground)/0.24),hsl(var(--primary-foreground)/0)_58%)]" />
                   <Plus className="relative z-10 h-5 w-5" aria-hidden="true" />

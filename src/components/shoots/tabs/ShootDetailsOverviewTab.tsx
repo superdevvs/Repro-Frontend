@@ -51,7 +51,10 @@ import { getAdoptedShootSchedule } from '@/utils/shootSchedule';
 import { setNestedDraftValue } from './overview/draftUtils';
 import { MediaLinksSection } from './overview/MediaLinksSection';
 import { OverviewVideoEmbedsSection } from './overview/OverviewVideoEmbedsSection';
-import { canAccessOverviewVideoEmbedsOnShoot, isVideoOnlyEditorOnShoot } from '@/utils/shootEditorAssignments';
+import { isVideoOnlyEditorOnShoot } from '@/utils/shootEditorAssignments';
+import { canEditVideoTours } from './tours/videoTourAccess';
+import { useShootUnitScope } from '@/features/shoot-units/useShootUnitScope';
+import { projectUnitTour } from '@/features/shoot-units/unitTourData';
 import { OverviewAccessDescription, OverviewAccessSection } from './overview/OverviewAccessSection';
 import { OverviewClientSection } from './overview/OverviewClientSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
@@ -386,7 +389,9 @@ function ShootDetailsOverviewTabContent({
 }: ShootDetailsOverviewTabProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canAccessVideoTourEmbeds = canAccessOverviewVideoEmbedsOnShoot(shoot, user);
+  const tourScope = useShootUnitScope(shoot);
+  const canAccessVideoTourEmbeds = canEditVideoTours(shoot, { ...user, role }, tourScope.unit?.id);
+  const videoLinksShoot = tourScope.unit ? projectUnitTour(shoot, tourScope.unit) : shoot;
   const { toast } = useToast();
   const shootRecord = asRecord(shoot);
   const { formatTemperature, formatTime: formatTimePreference, formatDate: formatDatePreference } = useUserPreferences();
@@ -1055,7 +1060,8 @@ function ShootDetailsOverviewTabContent({
           editor assigned on this shoot). Hidden for admin/superadmin/EM/photo-only/etc. */}
       {canAccessVideoTourEmbeds && (
         <OverviewVideoEmbedsSection
-          shoot={shoot}
+          shoot={videoLinksShoot}
+          unitId={tourScope.unit?.id}
           role={role}
           isEditor={isEditor}
           canWrite={canAccessVideoTourEmbeds}

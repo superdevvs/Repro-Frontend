@@ -1,5 +1,7 @@
 import { Sparkles } from 'lucide-react';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { type MediaFile } from '@/hooks/useShootFiles';
+import { canViewAiEditStatus } from './mediaAiVisibility';
 
 interface MediaTileBadgesProps {
   file: MediaFile;
@@ -37,9 +39,10 @@ const TREATMENT_BADGES: Record<string, { label: string; className: string }> = {
  * treated frame can legitimately also be an extra or a hero.
  */
 export function MediaTileBadges({ file, variant = 'grid' }: MediaTileBadgesProps) {
+  const { role } = useAuth();
   const isExtra = Boolean(file.isExtra);
   const isHero = Boolean(file.is_cover) && !isExtra;
-  const isAiEdited = Boolean(file.is_ai_edited || file.isAiEdited);
+  const isAiEdited = canViewAiEditStatus(role) && Boolean(file.is_ai_edited || file.isAiEdited);
   const treatment = TREATMENT_BADGES[String(file.treatment ?? '')] ?? null;
 
   if (!isExtra && !isHero && !isAiEdited && !treatment) {

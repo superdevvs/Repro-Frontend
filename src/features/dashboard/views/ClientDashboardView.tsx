@@ -7,6 +7,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { RescheduleDialog } from "@/components/dashboard/RescheduleDialog";
 import { StripePaymentDialog } from "@/components/payments/StripePaymentDialog";
+import { ClientInvoiceDialog } from "@/components/invoices/ClientInvoiceDialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -31,7 +32,9 @@ import {
 import { API_BASE_URL } from "@/config/env";
 import { usePermission } from "@/hooks/usePermission";
 import { useClientBilling } from "@/hooks/useClientBilling";
-import { emptyClientBillingSummary } from "@/services/clientBillingService";
+import { emptyClientBillingSummary, toClientBillingInvoiceViewData } from "@/services/clientBillingService";
+import type { ClientBillingItem } from "@/types/clientBilling";
+import { toInvoiceViewDialogInvoice } from "@/pages/accountingPageUtils";
 import { getShootServiceItems } from "@/utils/shootServiceItems";
 import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
 import { formatTimeForDisplay } from "@/utils/availabilityUtils";
@@ -61,6 +64,10 @@ import { useClientDeliveryNotifications } from "../hooks/useClientDeliveryNotifi
 import type { MobileClientDashboardTab } from "../types";
 
 type ToastFn = ReturnType<typeof useToast>["toast"];
+
+const LazyInvoiceViewDialog = React.lazy(() =>
+  import('@/components/invoices/InvoiceViewDialog').then((module) => ({ default: module.InvoiceViewDialog })),
+);
 
 interface ClientDashboardViewProps {
   clientRequests: DashboardClientRequest[];
@@ -122,7 +129,8 @@ export const ClientDashboardView = ({
   const navigate = useNavigate();
   const { can } = usePermission();
   const canViewClientBillingWidget = can("dashboard-client-billing", "view");
-  const { data: clientBillingData } = useClientBilling();
+  const { data: clientBillingData, loading: clientBillingLoading } = useClientBilling();
+  const [selectedClientInvoice, setSelectedClientInvoice] = useState<ClientBillingItem | null>(null);
   const clientBillingSummary = canViewClientBillingWidget
     ? clientBillingData?.summary ?? emptyClientBillingSummary
     : emptyClientBillingSummary;
@@ -263,6 +271,7 @@ export const ClientDashboardView = ({
       {/* Account notices never sit next to each other - they stack and rotate. */}
       <DashboardNoticeStack
         label="Account notices"
+        className="shrink-0 [&_section]:bg-background"
         stackWidthClassName="w-full sm:w-[34rem]"
         equalizeLayerHeights
       >
@@ -324,6 +333,9 @@ export const ClientDashboardView = ({
     >
       <ClientInvoicesCard
         summary={clientBillingSummary}
+        items={canViewClientBillingWidget ? clientBillingData?.items : []}
+        loading={clientBillingLoading}
+        onViewInvoice={setSelectedClientInvoice}
         onViewAll={() => navigate("/accounting")}
         onPay={() => {
           setSelectedShootsForPayment([]);
@@ -334,7 +346,7 @@ export const ClientDashboardView = ({
   );
 
   const clientMetricsContent = (
-    <div data-onboarding-target="client-dashboard-metrics" className="shrink-0">
+    <div data-onboarding-target="client-dashboard-metrics" className="hidden shrink-0 sm:block">
       <RoleMetricTilesCard tiles={clientMetricTiles} />
     </div>
   );
@@ -423,7 +435,7 @@ export const ClientDashboardView = ({
   return (
     <>
       <DashboardLayout>
-        <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "-mt-3 flex flex-1 min-h-0 flex-col gap-3 overflow-hidden px-2 pb-3 pt-0 sm:gap-4 sm:px-6 sm:pb-6 max-lg:px-0")}>
+        <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "lg:-mt-3 flex flex-1 min-h-0 flex-col gap-3 overflow-hidden px-2 pb-3 pt-0 sm:gap-4 sm:px-6 sm:pb-6 max-lg:px-0")}>
           <PageHeader
             title={greetingTitle}
             description={DASHBOARD_DESCRIPTION}
@@ -455,6 +467,15 @@ export const ClientDashboardView = ({
         onHelpMessage={clientOnboarding.recordHelpMessage}
       />
       {shootDetailsModal}
+      {selectedClientInvoice && (
+        <React.Suspense fallback={null}>
+          <LazyInvoiceViewDialog
+            isOpen
+            onClose={() => setSelectedClientInvoice(null)}
+            invoice={toInvoiceViewDialogInvoice(toClientBillingInvoiceViewData(selectedClientInvoice))}
+          />
+        </React.Suspense>
+      )}
       <ClientAccessInfoDialog
         open={accessInfoOpen}
         onOpenChange={(open) => {
@@ -604,17 +625,18 @@ export const ClientDashboardView = ({
       )}
 
       {/* Payment Selection Modal */}
-      <Dialog open={paymentSelectionOpen} onOpenChange={setPaymentSelectionOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+      <ClientInvoiceDialog
+        open={paymentSelectionOpen}
+        onOpenChange={setPaymentSelectionOpen}
+        className="sm:max-w-lg"
+        title={
+          <span className="flex items-center gap-2">
               <CreditCard className="h-5 w-5 text-primary" />
               Select Shoots to Pay
-            </DialogTitle>
-            <DialogDescription>
-              Choose one or more shoots to pay. You can pay multiple at once.
-            </DialogDescription>
-          </DialogHeader>
+          </span>
+        }
+        description="Choose one or more shoots to pay. You can pay multiple at once."
+      >
 
           {(() => {
             // Get all unpaid shoots
@@ -651,9 +673,8 @@ export const ClientDashboardView = ({
             const renderShootItem = (record: ClientShootRecord) => {
               const balance = (record.data.payment?.totalQuote ?? 0) - (record.data.payment?.totalPaid ?? 0);
               return (
-                <div
+                <label
                   key={record.data.id}
-                  onClick={() => toggleSelection(record)}
                   className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                     isSelected(record)
                       ? "border-primary bg-primary/5"
@@ -664,6 +685,7 @@ export const ClientDashboardView = ({
                     type="checkbox"
                     checked={isSelected(record)}
                     onChange={() => toggleSelection(record)}
+                    aria-label={`Select ${record.summary.addressLine} for payment`}
                     className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                   />
                   <div className="flex-1 min-w-0">
@@ -676,7 +698,7 @@ export const ClientDashboardView = ({
                     </p>
                   </div>
                   <span className="font-bold text-green-600">${balance.toFixed(2)}</span>
-                </div>
+                </label>
               );
             };
 
@@ -742,8 +764,7 @@ export const ClientDashboardView = ({
               </div>
             );
           })()}
-        </DialogContent>
-      </Dialog>
+      </ClientInvoiceDialog>
 
       {/* Multi-Payment Dialog */}
       {selectedShootsForPayment.length > 1 && (

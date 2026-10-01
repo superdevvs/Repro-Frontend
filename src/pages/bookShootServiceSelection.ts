@@ -1,6 +1,7 @@
 import { getBookedServiceQuantities, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 import { asRecord, type ServicePackage } from './bookShootModel';
+import { resolveShootDuration } from '@/utils/shootDuration';
 
 export function restoreCachedServiceQuantities(services: ServicePackage[], quantityVersion: unknown): ServicePackage[] {
   // Older drafts copied catalog package counts; their bookings always used one.
@@ -22,9 +23,11 @@ export function hydrateBookedServiceSelection(catalog: ServicePackage[], value: 
     if (!service) continue;
     const booked = bookedRows.find(row => String(row.service_id ?? row.serviceId ?? row.id) === id);
     const savedPrice = booked?.price ?? asRecord(item.pivot).price;
+    const savedDuration = booked?.duration_minutes ?? asRecord(item.pivot).duration_minutes ?? item.duration_minutes;
     selected.set(id, {
       ...service,
       quantity: normalizeBookingQuantity(quantities[id]),
+      ...(Number(savedDuration) > 0 ? { duration_minutes: resolveShootDuration(savedDuration) } : {}),
       ...(savedPrice != null && Number.isFinite(Number(savedPrice))
         ? { price: Number(savedPrice), booked_price: Number(savedPrice) } : {}),
     });

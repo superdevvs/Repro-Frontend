@@ -21,6 +21,7 @@ import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import { ShootPaymentBadge } from '@/components/shoots/ShootPaymentBadge'
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests'
 import { HoverCopyValue } from '@/components/shoots/HoverCopyValue'
 import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import { getEditingNotes, formatCurrency, getShootPlaceholderSrc, resolveShootThumbnail } from './shootHistoryUtils'
@@ -218,6 +219,7 @@ export const HoldOnShootCard = ({
         <div className={cn('flex items-start justify-between gap-4', compact ? 'mb-2' : 'mb-4')}>
           <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-2 mb-2">
+              <ShootActionRequestBadges shoot={shoot} />
               <Badge className={cn(holdStatusConfig.bgColor, holdStatusConfig.color)}>
                 <HoldStatusIcon className="h-3.5 w-3.5 mr-1" />
                 {holdStatusLabel}

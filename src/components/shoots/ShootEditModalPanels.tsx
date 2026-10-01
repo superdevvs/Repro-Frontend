@@ -7,6 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { ServiceSelectionDialog } from '@/components/booking/ServiceSelectionDialog';
 import { ServiceDatePicker, ServiceTimePicker } from '@/components/shoots/ServiceSchedulePicker';
+import { ServiceDurationPicker } from './ServiceDurationPicker';
+import { resolveServiceShootDuration } from '@/utils/shootDuration';
 import { ApplyAllServiceScheduleButton } from '@/components/shoots/ApplyAllServiceScheduleButton';
 import AddressLookupField from '@/components/AddressLookupField';
 import { cn } from '@/lib/utils';
@@ -357,6 +359,9 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
                         />
                       </div>
                     </div>
+                    <ServiceDurationPicker serviceName={service.name}
+                      value={resolveServiceShootDuration(service, model.propertySqft, schedule.duration_minutes)}
+                      onChange={value => updateServiceSchedule(id, 'duration_minutes', value)} />
                   </div>
                 )}
               </div>

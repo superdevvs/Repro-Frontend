@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
+import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,7 +70,7 @@ export function MultiUnitApprovalDialog({ open, onClose, source, photographers, 
           <label className="space-y-1 text-xs">Date<Input aria-label={`${line.name} date`} type="date" value={schedule.date || ''} onChange={event => setSchedule(event.target.value, schedule.time || '09:00')} /></label>
           <label className="space-y-1 text-xs">Time<Input aria-label={`${line.name} time`} type="time" value={schedule.time || ''} onChange={event => setSchedule(schedule.date || '', event.target.value)} /></label>
           <label className="space-y-1 text-xs">Photographer<select aria-label={`${line.name} photographer`} className="h-10 w-full min-w-0 rounded-md border bg-background px-2 text-sm" value={String(line.photographer_id ?? '')} onChange={event => update(line, { photographer_id: event.target.value || null })}><option value="">Unassigned</option>{photographers.map(person => <option key={person.id} value={person.id}>{person.name}</option>)}</select></label>
-        </div></fieldset>;
+        </div><div className="mt-3"><ServiceDurationPicker serviceName={`${line.name || 'Service'} · ${unit?.label || ''}`} value={line.duration_minutes} onChange={duration_minutes => update(line, { duration_minutes })} /></div></fieldset>;
       })}{!selected.length && <p className="rounded-lg border p-4 text-sm">This unit has no booked services. Add services before approval.</p>}</div>
       {selected.length > 8 && <div className="flex items-center justify-between gap-2 text-xs"><span>{currentPage * 8 + 1}–{Math.min((currentPage + 1) * 8, selected.length)} of {selected.length} services</span><div className="flex gap-2"><Button variant="outline" size="sm" disabled={!currentPage} onClick={() => setPage(currentPage - 1)}>Previous</Button><Button variant="outline" size="sm" disabled={(currentPage + 1) * 8 >= selected.length} onClick={() => setPage(currentPage + 1)}>Next</Button></div></div>}
       <label className="block space-y-1 text-xs">Internal approval notes<Textarea value={notes} onChange={event => setNotes(event.target.value)} disabled={busy} /></label>

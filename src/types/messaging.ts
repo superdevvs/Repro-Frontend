@@ -56,6 +56,14 @@ export type AutomationTriggerType =
 export type AutomationRecipientRole = 'account' | 'client' | 'photographer' | 'previous_photographer' | 'new_photographer' | 'admin' | 'rep' | 'editor' | 'accounting';
 
 export interface AutomationScheduleJson {
+  client_email_schedule?: {
+    previous_day_time?: string;
+    day_of_time?: string;
+    morning_start?: string;
+    morning_end?: string;
+    morning_previous_evening_time?: string;
+    morning_lead_minutes?: number;
+  };
   type?: string;
   day_of_week?: number;
   time?: string;

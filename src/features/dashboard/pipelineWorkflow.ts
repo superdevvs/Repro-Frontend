@@ -107,9 +107,19 @@ const mergeById = (
     }
     // Overview workflow payloads omit paymentStatus; overlay from full shoot summaries
     // so Delivered/Ready cards can show Paid vs Unpaid correctly.
+    let merged = existing;
     if (existing.paymentStatus == null && shoot.paymentStatus != null) {
-      map.set(shoot.id, { ...existing, paymentStatus: shoot.paymentStatus });
+      merged = { ...merged, paymentStatus: shoot.paymentStatus };
     }
+    // Full shoot summaries refresh after a request is made or reviewed; the
+    // overview can remain cached briefly. Explicit nulls must clear its badges.
+    if (shoot.cancellationRequestedAt !== undefined) {
+      merged = { ...merged, cancellationRequestedAt: shoot.cancellationRequestedAt, cancellationReason: shoot.cancellationReason };
+    }
+    if (shoot.holdRequestedAt !== undefined) {
+      merged = { ...merged, holdRequestedAt: shoot.holdRequestedAt, holdRequestedBy: shoot.holdRequestedBy, holdReason: shoot.holdReason };
+    }
+    map.set(shoot.id, merged);
   });
   return Array.from(map.values());
 };

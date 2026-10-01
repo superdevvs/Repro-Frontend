@@ -46,6 +46,7 @@ function renderSchedule(requiresPhotographerAssignment: boolean) {
     updateSuggestedTimesScrollState: vi.fn(),
     scrollSuggestedTimesBy: vi.fn(),
     requiresPhotographerAssignment,
+    selectedServices: [],
   } as unknown as SchedulingFormController;
 
   return render(<SchedulingFormView controller={controller} />);

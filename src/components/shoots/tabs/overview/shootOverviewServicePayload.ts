@@ -1,5 +1,7 @@
 import type { ShootData } from '@/types/shoots';
 import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
+import { resolveServiceShootDuration } from '@/utils/shootDuration';
+import { getSavedServiceDuration } from './shootOverviewDurations';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import {
@@ -28,6 +30,7 @@ type ApplyOverviewServicePayloadArgs = {
   serviceQuantities?: Record<string, number>;
   perCategoryPhotographers: Record<string, string>;
   servicesList: ServiceOption[];
+  effectiveSqft?: number | null;
 };
 
 /** Keeps all standard-service request keys together so Comp Mode can omit them atomically. */
@@ -43,6 +46,7 @@ export function applyOverviewServicePayload({
   serviceQuantities = {},
   perCategoryPhotographers,
   servicesList,
+  effectiveSqft,
 }: ApplyOverviewServicePayloadArgs) {
   if (omitStandardServices) {
     delete updates.service_items;
@@ -57,6 +61,7 @@ export function applyOverviewServicePayload({
     time: formatTimeForInput(String(updates.time ?? shoot.time ?? '')) || '10:00',
   };
   const existingScheduleByServiceId = new Map<string, ServiceScheduleFields>();
+  const existingDurationByServiceId = new Map<string, number>();
   [
     ...((legacyShoot.serviceItems as LegacyServiceItemRecord[] | undefined) || []),
     ...((legacyShoot.service_items as LegacyServiceItemRecord[] | undefined) || []),
@@ -64,13 +69,17 @@ export function applyOverviewServicePayload({
   ].filter((item) => !isInvoiceAdjustmentServiceItem(item)).forEach((item) => {
     if (!item || typeof item !== 'object') return;
     const serviceId = item.service_id ?? item.serviceId ?? item.id;
+    const duration = getSavedServiceDuration(item);
+    if (serviceId != null && duration !== undefined && !existingDurationByServiceId.has(String(serviceId))) {
+      existingDurationByServiceId.set(String(serviceId), duration);
+    }
     const scheduledAt = item.scheduled_at ?? item.scheduledAt;
     if (serviceId === null || serviceId === undefined || !scheduledAt) return;
     existingScheduleByServiceId.set(String(serviceId), buildServiceScheduleFields(scheduledAt, shoot.timezone));
   });
 
   const serviceItems = selectedServiceIds.map((serviceId) => {
-    const savedSchedule = serviceSchedules[serviceId] || orderSchedule;
+    const savedSchedule: ServiceScheduleFields = serviceSchedules[serviceId] || orderSchedule;
     const existingSchedule = existingScheduleByServiceId.get(serviceId);
     const schedule = existingSchedule
       && savedSchedule.date === orderSchedule.date
@@ -79,6 +88,8 @@ export function applyOverviewServicePayload({
       : savedSchedule;
     const item: OverviewServiceItemPayload = {
       service_id: Number(serviceId),
+      duration_minutes: resolveServiceShootDuration(servicesList.find(service => service.id === serviceId) ?? {}, effectiveSqft,
+        savedSchedule.duration_minutes ?? existingDurationByServiceId.get(serviceId)),
       // An empty service date is intentionally kept unscheduled.
       scheduled_at: schedule.date ? buildShootScheduleTimestamp(schedule.date, schedule.time,
         shoot.timezone, findServiceScheduleTimestamp(shoot, serviceId)) : null,
@@ -101,6 +112,7 @@ export function applyOverviewServicePayload({
   // Schedule/pricing only on services[] — never photographer_id (see service_photographers).
   updates.services = serviceItems.map((item) => ({
     id: item.service_id,
+    duration_minutes: item.duration_minutes,
     ...(item.price !== undefined ? { price: item.price } : {}),
     ...(item.quantity !== undefined ? { quantity: item.quantity } : {}),
     scheduled_at: item.scheduled_at,

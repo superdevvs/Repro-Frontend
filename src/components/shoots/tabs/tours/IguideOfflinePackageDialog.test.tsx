@@ -96,6 +96,7 @@ describe('IguideOfflinePackageDialog', () => {
 
     expect(screen.getByText(/used on delivered branded and MLS tours/i)).toBeTruthy();
     expect(screen.getByText(/MLS-safe, unbranded export/i)).toBeTruthy();
+    expect(screen.getByText('One .zip file, up to 1.0 GB')).toBeTruthy();
   });
 
   it('shows resumable phases and returns the queued package after finalization', async () => {
@@ -116,7 +117,9 @@ describe('IguideOfflinePackageDialog', () => {
         shootId={9137}
       />,
     );
-    const file = selectFile(container);
+    const exportedFile = new File(['zip'], 'offline.zip', { type: 'application/zip' });
+    Object.defineProperty(exportedFile, 'size', { value: 868_999_851 });
+    const file = selectFile(container, exportedFile);
 
     fireEvent.click(screen.getByRole('button', { name: 'Upload package' }));
 

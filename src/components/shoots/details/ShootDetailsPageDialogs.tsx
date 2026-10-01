@@ -1,3 +1,5 @@
+import { HoldNotificationFields } from './HoldNotificationFields';
+import type { HoldNotificationOptions } from './useHoldNotifications';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -40,6 +42,7 @@ interface ShootDetailsPageDialogsProps {
   canClientDownloadWholeShoot?: boolean;
   canClientAccessTours?: boolean;
   onHoldReason: string;
+  holdNotifications: HoldNotificationOptions;
   holdDialogTitle: string;
   holdDialogDescription: string;
   holdSubmitLabel: string;
@@ -79,6 +82,7 @@ export function ShootDetailsPageDialogs({
   canClientDownloadWholeShoot = true,
   canClientAccessTours = true,
   onHoldReason,
+  holdNotifications,
   holdDialogTitle,
   holdDialogDescription,
   holdSubmitLabel,
@@ -167,8 +171,8 @@ export function ShootDetailsPageDialogs({
         onDownloadFile={onDownloadFile}
       />
 
-      <Dialog open={isOnHoldDialogOpen} onOpenChange={onOnHoldDialogChange}>
-        <DialogContent className="sm:max-w-[500px]">
+      <Dialog open={isOnHoldDialogOpen} onOpenChange={(open) => { if (!holdProcessing) onOnHoldDialogChange(open); }}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>{holdDialogTitle}</DialogTitle>
             <DialogDescription>{holdDialogDescription}</DialogDescription>
@@ -180,6 +184,7 @@ export function ShootDetailsPageDialogs({
               </Label>
               <Textarea
                 id="onHoldReason"
+                disabled={holdProcessing}
                 placeholder="Enter the reason for this hold..."
                 value={onHoldReason}
                 onChange={(e) => onOnHoldReasonChange(e.target.value)}
@@ -187,10 +192,12 @@ export function ShootDetailsPageDialogs({
                 className="resize-none"
               />
             </div>
+            {!isClient && <HoldNotificationFields options={holdNotifications} disabled={holdProcessing} />}
           </div>
           <div className="flex justify-end gap-2">
             <Button
               variant="outline"
+              disabled={holdProcessing}
               onClick={() => {
                 onOnHoldDialogChange(false);
                 onOnHoldReasonChange('');
@@ -200,7 +207,7 @@ export function ShootDetailsPageDialogs({
             </Button>
             <Button
               onClick={onSubmitHold}
-              disabled={!onHoldReason.trim()}
+              disabled={!onHoldReason.trim() || holdProcessing}
               className="bg-amber-600 hover:bg-amber-700"
             >
               <PauseCircle className="h-4 w-4 mr-2" />
@@ -210,7 +217,7 @@ export function ShootDetailsPageDialogs({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isHoldApprovalDialogOpen} onOpenChange={onHoldApprovalDialogChange}>
+      <Dialog open={isHoldApprovalDialogOpen} onOpenChange={(open) => { if (!holdProcessing) onHoldApprovalDialogChange(open); }}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Hold request</DialogTitle>
@@ -220,6 +227,7 @@ export function ShootDetailsPageDialogs({
                 : 'No reason was provided for this hold request.'}
             </DialogDescription>
           </DialogHeader>
+          <HoldNotificationFields options={holdNotifications} disabled={holdProcessing} />
           <div className="flex justify-end gap-2">
             <Button
               variant="outline"

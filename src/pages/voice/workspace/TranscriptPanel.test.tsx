@@ -43,4 +43,18 @@ describe('Transcript lifecycle and recovery',()=>{
     expect(screen.queryByRole('button',{name:'Refresh saved transcript'})).not.toBeInTheDocument();
     expect(mocks.recoverVoiceTranscript).not.toHaveBeenCalled();
   });
+  it('renders, searches and copies the server presentation while preserving customer markup',async()=>{
+    const user = userEvent.setup();
+    const display = 'assistant: Open Download Center.\ncustomer: I see <break time="0.3s" /> in the instructions.';
+    mocks.getVoiceTranscript.mockResolvedValue({...state, transcript:'assistant: Open <break time="0.3s" /> Download Center.\ncustomer: I see <break time="0.3s" /> in the instructions.', display_transcript:display});
+    const clipboard = vi.spyOn(navigator.clipboard,'writeText').mockResolvedValue();
+    renderPanel();
+    expect(await screen.findByText('assistant: Open Download Center.')).toBeInTheDocument();
+    expect(screen.getByText('customer: I see <break time="0.3s" /> in the instructions.')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Search saved transcript'),'Open Download');
+    expect(screen.getByText('assistant: Open Download Center.')).toBeInTheDocument();
+    await user.click(screen.getByRole('button',{name:'Copy'}));
+    expect(clipboard).toHaveBeenCalledWith(display);
+    clipboard.mockRestore();
+  });
 });

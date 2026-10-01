@@ -3,7 +3,8 @@ import { format } from 'date-fns';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { to12Hour, to24Hour, formatTimeForDisplay } from '@/utils/availabilityUtils';
 import { getDayAvailability } from '@/utils/availabilityProvider';
-import { buildTimeOptionsForRange as buildTimeOptionsForRangePure, isDisabledByWindowOrBlocked, nextAutoFilledBookingTime } from '@/utils/suggestedTimeSlots';
+import { buildTimeOptionsForRange as buildTimeOptionsForRangePure, nextAutoFilledBookingTime } from '@/utils/suggestedTimeSlots';
+import { isBookingIntervalDisabled } from '@/utils/bookingIntervalAvailability';
 import { derivePanelState } from '@/utils/availabilityPanelState';
 import { FRONTEND_FALLBACK_HOURS_DISPLAY_ONLY } from '@/config/availabilityDefaults';
 import API_ROUTES from '@/lib/api';
@@ -11,6 +12,7 @@ import { getCategorySpecialtyId, hasCategorySpecialty } from '@/utils/photograph
 import { buildAssignmentGroups, photographerRequiredServices, requiresPerServiceAssignment as computeRequiresPerServiceAssignment, resolveServicePhotographerId, selectedServicesRequirePhotographer } from '@/utils/photographerAssignment';
 import { buildServiceTimeOptions } from '@/components/shoots/ServiceSchedulePicker';
 import { useSchedulingBase } from './useSchedulingBase';
+import { useBookingIntervalAvailability } from './useBookingIntervalAvailability';
 import {
   isAbortError,
   isRecord,
@@ -60,6 +62,7 @@ export const useSchedulingFormController = ({
   const [bookingEligiblePhotographerIds, setBookingEligiblePhotographerIds] = useState<Set<string> | null>(null);
   const [bookingEligibilityError, setBookingEligibilityError] = useState<string | null>(null);
   const [bookingEligibilityRetry, setBookingEligibilityRetry] = useState(0);
+  const [availabilityDataDate, setAvailabilityDataDate] = useState('');
   const retryBookingEligibility = () => setBookingEligibilityRetry(value => value + 1);
   const {
     disabledDates, today, toast, isMobile, isLocationLoading, timeDialogOpen,
@@ -256,6 +259,11 @@ export const useSchedulingFormController = ({
     const requestId = ++latestRequestRef.current;
     setAvailabilityPanel(derivePanelState({ loading: true, aborted: false, error: null, result: null }));
     if (!canUseProtectedAvailability) {
+      if (availabilityDataDate !== defaultServiceDate) {
+        setDayAvailability(null);
+        setAvailabilityPanel(null);
+        return;
+      }
       const selected = photographerOptions.find((item) => String(item.id) === String(photographer));
       const bookable = selected?.availabilitySlots ?? [];
       const blocked = [...(selected?.bookedSlots ?? []), ...(selected?.unavailableSlots ?? [])]
@@ -299,29 +307,7 @@ export const useSchedulingFormController = ({
     return () => {
       controller.abort();
     };
-  }, [canUseProtectedAvailability, date, latestRequestRef, photographer, photographerOptions, setAvailabilityPanel, setDayAvailability]);
-  const isTimeWithinSlots = useCallback((value: string, slots: Array<{ start_time?: string; end_time?: string }> = []) => {
-    const minutes = timeToMinutes(value);
-    return slots.some((slot) => {
-      if (!slot.start_time || !slot.end_time) return false;
-      const start = timeToMinutes(slot.start_time);
-      const end = timeToMinutes(slot.end_time);
-      return minutes >= start && minutes < end;
-    });
-  }, [timeToMinutes]);
-  const isTimeWithinBlockedSlots = useCallback((
-    value: string,
-    slots: Array<{ start_time?: string; end_time?: string }> = [],
-    endBufferMinutes = 0,
-  ) => {
-    const minutes = timeToMinutes(value);
-    return slots.some((slot) => {
-      if (!slot.start_time || !slot.end_time) return false;
-      const start = timeToMinutes(slot.start_time);
-      const end = timeToMinutes(slot.end_time) + endBufferMinutes;
-      return minutes >= start && minutes < end;
-    });
-  }, [timeToMinutes]);
+  }, [availabilityDataDate, canUseProtectedAvailability, date, defaultServiceDate, latestRequestRef, photographer, photographerOptions, setAvailabilityPanel, setDayAvailability]);
   const getPhotographerScheduleData = useCallback((photographerId?: string | number) => {
     if (!photographerId) return null;
     return photographerOptions.find((item) => String(item.id) === String(photographerId)) ?? null;
@@ -335,6 +321,7 @@ export const useSchedulingFormController = ({
         return { start, end };
       }
     }
+    if (availabilityDataDate !== defaultServiceDate) return null;
     const collectSlots = (): Array<{ start_time?: string; end_time?: string }> => {
       if (photographer) {
         const selected = getPhotographerScheduleData(photographer);
@@ -361,7 +348,7 @@ export const useSchedulingFormController = ({
     }
     if (minStart < maxEnd) return { start: minStart, end: maxEnd };
     return null;
-  }, [dayAvailability, getPhotographerScheduleData, photographer, photographerOptions, timeToMinutes]);
+  }, [availabilityDataDate, dayAvailability, defaultServiceDate, getPhotographerScheduleData, photographer, photographerOptions, timeToMinutes]);
   const availabilityCardWindow = useMemo(() => {
     if (workingWindowMinutes) {
       return {
@@ -376,20 +363,11 @@ export const useSchedulingFormController = ({
       displayFallbackOnly: true,
     };
   }, [timeToMinutes, workingWindowMinutes]);
-  const isPhotographerTimeDisabled = useCallback((photographerId: string | number | undefined, value: string) => {
-    const dayBlocked = Array.isArray(dayAvailability?.blocked) ? dayAvailability!.blocked : [];
-    if (isDisabledByWindowOrBlocked(value, workingWindowMinutes, dayBlocked)) {
-      return true;
-    }
-    const photographerItem = getPhotographerScheduleData(photographerId);
-    if (!photographerItem) return false;
-    const bookedSlots = Array.isArray(photographerItem.bookedSlots) ? photographerItem.bookedSlots : [];
-    const unavailableSlots = Array.isArray(photographerItem.unavailableSlots) ? photographerItem.unavailableSlots : [];
-    if (isTimeWithinBlockedSlots(value, bookedSlots, 30) || isTimeWithinBlockedSlots(value, unavailableSlots)) return true;
-    const netSlots = Array.isArray(photographerItem.netAvailableSlots) ? photographerItem.netAvailableSlots : [];
-    if (netSlots.length > 0) return !isTimeWithinSlots(value, netSlots);
-    return false;
-  }, [dayAvailability, getPhotographerScheduleData, isTimeWithinBlockedSlots, isTimeWithinSlots, workingWindowMinutes]);
+  const { bookingAvailabilityDuration, isPhotographerTimeDisabled } = useBookingIntervalAvailability({
+    selectedServices, serviceSchedules, sqft, photographer, defaultServiceDate, defaultServiceTime,
+    pickerServiceId, bookingAvailabilityDate, bookingAvailabilityTime, availabilityDataDate,
+    dayAvailability, workingWindowMinutes, getPhotographerScheduleData,
+  });
   const availableTimesForSelectedPhotographer = useMemo(
     () => buildTimeOptionsForRangePure(
       5,
@@ -466,10 +444,10 @@ export const useSchedulingFormController = ({
     selectedButton?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
     window.requestAnimationFrame(updateSuggestedTimesScrollState);
   }, [suggestedTimes, suggestedTimesRailRef, time, updateSuggestedTimesScrollState]);
-  const buildConflictAwareServiceTimeOptions = (photographerId: string | number | undefined, ensure?: string | null) =>
+  const buildConflictAwareServiceTimeOptions = (photographerId: string | number | undefined, ensure?: string | null, serviceId?: string) =>
     buildServiceTimeOptions(ensure).map((option) => ({
       ...option,
-      disabled: isPhotographerTimeDisabled(photographerId, option.value),
+      disabled: isPhotographerTimeDisabled(photographerId, option.value, serviceId),
     }));
   const filteredPhotographersForService = useMemo(() => {
     if (!requiresPerServiceAssignment || activeServiceCapabilityForPicker.serviceIds.size === 0) return null; // null = no filtering
@@ -629,6 +607,7 @@ export const useSchedulingFormController = ({
           body: JSON.stringify({
             date: bookingAvailabilityDate,
             time: bookingAvailabilityTime || undefined,
+            duration_minutes: bookingAvailabilityDuration,
             shoot_address: address,
             shoot_city: city,
             shoot_state: state,
@@ -655,6 +634,7 @@ export const useSchedulingFormController = ({
         if (isCancelled) return;
         if (!isRecord(json) || !Array.isArray(json.data)) throw new Error('Invalid photographer eligibility response');
         const photographerData = readBookingPhotographers(json);
+        setAvailabilityDataDate(bookingAvailabilityDate);
         // The API applies service and radius eligibility. "Show all" may include
         // unavailable people, but must never restore people the API excluded.
         setBookingEligiblePhotographerIds(new Set(photographerData.map((p) => String(p.id))));
@@ -842,7 +822,7 @@ export const useSchedulingFormController = ({
     };
   }, [
     address, city, state, zip, photographers, date,
-    normalizeDayOfWeek, canUseProtectedAvailability, selectedServices, bookingEligibilityRetry, bookingAvailabilityDate, bookingAvailabilityTime,
+    normalizeDayOfWeek, canUseProtectedAvailability, selectedServices, bookingEligibilityRetry, bookingAvailabilityDate, bookingAvailabilityTime, bookingAvailabilityDuration,
     setIsCalculatingDistances, setIsLoadingAvailability, setPhotographerAvailability,
     setPhotographersWithDistance,
   ]);
@@ -875,12 +855,14 @@ export const useSchedulingFormController = ({
         || photographerAvailability.get(String(photographerItem.id))
         || photographerAvailability.get(Number(photographerItem.id));
       const availableAtSelectedTime = selectedTimeMinutes !== null
-        ? slots.some((slot) => slot.start <= selectedTimeMinutes && slot.end > selectedTimeMinutes)
+        ? slots.some((slot) => slot.start <= selectedTimeMinutes && slot.end >= selectedTimeMinutes + bookingAvailabilityDuration)
+          && !isBookingIntervalDisabled({ time: bookingAvailabilityTime, durationMinutes: bookingAvailabilityDuration,
+            bookedSlots: photographerItem.bookedSlots, unavailableSlots: photographerItem.unavailableSlots })
         : false;
       const firstStart = slots.length > 0 ? Math.min(...slots.map((slot) => slot.start)) : Number.POSITIVE_INFINITY;
       const totalMinutes = slots.reduce((total, slot) => total + (slot.end - slot.start), 0);
       const isAvailable = selectedTimeMinutes !== null
-        ? availableAtSelectedTime || Boolean(photographerItem.isAvailableAtTime)
+        ? (slots.length ? availableAtSelectedTime : Boolean(photographerItem.isAvailableAtTime))
         : slots.length > 0 || Boolean(availability?.isAvailable || photographerItem.hasAvailability);
       return {
         isAvailable,
@@ -936,7 +918,7 @@ export const useSchedulingFormController = ({
       return distanceCompare !== 0 ? distanceCompare : a.name.localeCompare(b.name);
     });
     return sorted;
-  }, [photographersWithDistance, photographerOptions, bookingEligiblePhotographerIds, searchQuery, sortBy, showAllPhotographers, photographerAvailability, date, time, bookingAvailabilityTime, requiresPerServiceAssignment, activeServiceForPicker, activeServiceCapabilityForPicker, filteredPhotographersForService, timeToMinutes, canUseProtectedAvailability]);
+  }, [photographersWithDistance, photographerOptions, bookingEligiblePhotographerIds, searchQuery, sortBy, showAllPhotographers, photographerAvailability, date, time, bookingAvailabilityTime, bookingAvailabilityDuration, requiresPerServiceAssignment, activeServiceForPicker, activeServiceCapabilityForPicker, filteredPhotographersForService, timeToMinutes, canUseProtectedAvailability]);
 
   const handleSchedulingSubmit = () => {
     if (enforceNewBookingEligibility && requiresPhotographerAssignment) {
@@ -977,7 +959,7 @@ export const useSchedulingFormController = ({
     handleGetCurrentLocation, selectedPhotographer, selectedPhotographerDetails,
     fullAddress, assignmentGroups, requiresPhotographerAssignment, requiresPerServiceAssignment, activeServiceForPicker,
     setActiveServiceForPicker, activeServiceNameForPicker, activeServiceCapabilityForPicker,
-    photographerOptions, isTimeWithinSlots, isTimeWithinBlockedSlots,
+    photographerOptions,
     getPhotographerScheduleData, workingWindowMinutes, availabilityCardWindow,
     isPhotographerTimeDisabled, availableTimesForSelectedPhotographer, suggestedTimes,
     updateSuggestedTimesScrollState, scrollSuggestedTimesBy,

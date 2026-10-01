@@ -1,7 +1,7 @@
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useState, useCallback, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 
 const LazyShootDetailsModal = lazy(() =>
@@ -37,6 +37,7 @@ import { getApiHeaders } from '@/services/api';
 import { isRobbieHelpOnlyRole, isSupportQuestion, roleHelpPrompts } from '@/services/supportKnowledge';
 
 import { ChatWithReproAiView } from './ChatWithReproAiView';
+import { useRobbieGuides } from '@/components/ai/useRobbieGuides';
 import {
   DEFAULT_PROMPTS,
   FULL_UPLOAD_ACCEPT,
@@ -82,7 +83,6 @@ const ChatWithReproAi = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   const helpOnly = isRobbieHelpOnlyRole(user?.role);
   const helpPrompts = roleHelpPrompts(user?.role);
   const { trackUpload } = useUpload();
@@ -96,23 +96,16 @@ const ChatWithReproAi = () => {
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
   const pendingUploadFilesRef = useRef<File[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('home');
-  const [tabMode, setTabModeState] = useState<TabMode>(() => searchParams.get('tab') === 'help' ? 'help' : 'chat');
-  const setTabMode = useCallback<React.Dispatch<React.SetStateAction<TabMode>>>((next) => {
-    const nextTab = typeof next === 'function' ? next(tabMode) : next;
-    setTabModeState(nextTab);
-    setSearchParams((current) => {
-      const updated = new URLSearchParams(current);
-      if (nextTab === 'help') updated.set('tab', 'help');
-      else { updated.delete('tab'); updated.delete('article'); }
-      return updated;
-    }, { replace: true });
-  }, [tabMode, setSearchParams]);
-  useEffect(() => {
-    setTabModeState((current) => searchParams.get('tab') === 'help' ? 'help' : current === 'help' ? 'chat' : current);
-  }, [searchParams]);
+  const [tabMode, setTabMode] = useState<TabMode>('chat');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [message, setMessage] = useState('');
+  const { guidesOpen, setGuidesOpen, prepareGuideQuestion, getGuideContext, clearGuideContext } = useRobbieGuides({ sessionId, setMessage, messageInputRef });
+  const handleAskGuide = useCallback((question: string, context: AiChatRequest['context']) => {
+    setTabMode('chat');
+    if (sessionId || messages.length > 0) setViewMode('chat');
+    prepareGuideQuestion(question, context);
+  }, [sessionId, messages.length, prepareGuideQuestion]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sessions, setSessions] = useState<AiChatSession[]>([]);
@@ -326,10 +319,12 @@ const ChatWithReproAi = () => {
     const messageToSend = msg || message.trim();
     if (!messageToSend || isSendingRef.current) return;
     if (/^view help guides$/i.test(messageToSend.trim())) {
-      setTabMode('help');
+      setGuidesOpen(true);
       return;
     }
 
+    const sendContext = context ?? (msg === undefined ? getGuideContext(messageToSend) : undefined);
+    clearGuideContext();
     isSendingRef.current = true;
     shouldAutoScrollRef.current = true;
     setIsLoading(true);
@@ -353,10 +348,10 @@ const ChatWithReproAi = () => {
     // Once inside a flow (sessionId exists), rely on the backend session state to keep the
     // correct intent — sending a re-detected intent on every follow-up message can reset the
     // flow and cause loops.
-    const intent = helpOnly ? 'support_faq' : context?.intent || (isSupportQuestion(messageToSend) ? 'support_faq' : !sessionId ? getIntentFromSuggestion(messageToSend) : undefined);
+    const intent = helpOnly ? 'support_faq' : sendContext?.intent || (isSupportQuestion(messageToSend) ? 'support_faq' : !sessionId ? getIntentFromSuggestion(messageToSend) : undefined);
     const finalContext = {
       ...pageContext,
-      ...context,
+      ...sendContext,
       ...(intent ? { intent } : {}),
       role: user?.role,
     };
@@ -434,7 +429,7 @@ const ChatWithReproAi = () => {
       setIsLoading(false);
       isSendingRef.current = false;
     }
-  }, [message, sessionId, viewMode, pageContext, user?.role, getIntentFromSuggestion, helpOnly, setTabMode]);
+  }, [message, sessionId, viewMode, pageContext, user?.role, getIntentFromSuggestion, helpOnly, setGuidesOpen, getGuideContext, clearGuideContext]);
 
   const startConfirmedRobbieUpload = useCallback((action: AiActionPayload) => {
     if (helpOnly) return;
@@ -828,6 +823,9 @@ const ChatWithReproAi = () => {
       {...{
         isRobbieHome,
         helpOnly,
+        guidesOpen,
+        setGuidesOpen,
+        handleAskGuide,
         tabMode,
         filteredSessions,
         searchTerm,

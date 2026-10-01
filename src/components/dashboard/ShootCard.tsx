@@ -27,6 +27,7 @@ import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { ShootData } from '@/types/shoots';
 import { useWeatherData } from '@/hooks/useWeatherData';
 import { formatWorkflowStatus } from '@/utils/status';
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { normalizeImageUrl } from '@/utils/imageUrl'
 import { selectShootCardHeroUrl, isUnsuitableShootCardHeroUrl } from '@/utils/shootCardHero';
@@ -244,6 +245,7 @@ export function ShootCard(props: ShootCardProps) {
         </CardHeader>
         
         <CardContent className="p-4 pt-2">
+          <ShootActionRequestBadges shoot={shoot} className="mb-2" />
           <div className="flex items-center text-sm mb-2">
             <UserIcon className="h-4 w-4 mr-2 text-muted-foreground" />
             <span className="font-medium">{shoot.services}</span>

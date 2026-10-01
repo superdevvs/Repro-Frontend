@@ -1,5 +1,5 @@
 import { EmptyState } from '@/components/ui/empty-state';
-import { lazy, Suspense, type ChangeEventHandler, type Dispatch, type MouseEvent, type MutableRefObject, type RefObject, type SetStateAction } from 'react';
+import { lazy, Suspense, useRef, type ChangeEventHandler, type Dispatch, type MouseEvent, type MutableRefObject, type RefObject, type SetStateAction } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { LucideIcon } from 'lucide-react';
 import { Archive, ArrowLeft, BookOpen, Clock, Code, FileIcon, FileText, Link as LinkIcon, MessageSquare, Mic, MoreVertical, Plus, Search, Send, Trash2, X } from 'lucide-react';
@@ -18,7 +18,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import type { AiChatRequest, AiChatSession, AiMessage } from '@/types/ai';
 import type { ShootModalTab, TabMode, ViewMode } from './chatWithReproAiModel';
-import RobbieKnowledgePanel from '@/components/ai/RobbieKnowledgePanel';
+import { RobbieGuideDrawer } from '@/components/ai/RobbieGuideDrawer';
 
 const LazyShootDetailsModal = lazy(() =>
   import('@/components/shoots/ShootDetailsModal').then((module) => ({
@@ -42,6 +42,9 @@ type SessionsStats = {
 export interface ChatWithReproAiViewProps {
   isRobbieHome: boolean;
   helpOnly: boolean;
+  guidesOpen: boolean;
+  setGuidesOpen: (open: boolean) => void;
+  handleAskGuide: (question: string, context: AiChatRequest['context']) => void;
   tabMode: TabMode;
   filteredSessions: AiChatSession[];
   searchTerm: string;
@@ -98,9 +101,13 @@ export interface ChatWithReproAiViewProps {
 }
 
 export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
+  const homeWasActive = useRef(false);
   const {
     isRobbieHome,
     helpOnly,
+    guidesOpen,
+    setGuidesOpen,
+    handleAskGuide,
     tabMode,
     filteredSessions,
     searchTerm,
@@ -159,7 +166,8 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
   return (
       <DashboardLayout hideNavbar={false} hideFooter className="!p-0 !pb-0 !min-h-0">
         {/* Let content grow naturally so <main> scrolls */}
-        <div className="flex flex-col flex-1">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+        <div className="flex min-w-0 flex-1 flex-col">
           {/* ── TOP AREA: sticky page header + controls (hidden on Robbie home) ── */}
           {!isRobbieHome && (
           <div className="sticky top-0 z-50 shrink-0 border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
@@ -224,12 +232,16 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                   >
                     <TabsTrigger 
                       value="chat"
+                      onPointerDownCapture={() => { homeWasActive.current = viewMode === 'chat' && tabMode === 'chat'; }}
+                      onKeyDownCapture={(event) => { if (event.key === 'Enter' || event.key === ' ') homeWasActive.current = viewMode === 'chat' && tabMode === 'chat'; }}
                       onClick={(e) => {
-                        // Handle click explicitly for navigation
-                        if (viewMode === 'chat' && tabMode === 'chat') {
+                        // Radix selects on pointer-down: retain the mode before that selection
+                        // so returning from History cannot clear the current chat and draft.
+                        if (homeWasActive.current) {
                           e.preventDefault();
                           handleBackToHome();
                         }
+                        homeWasActive.current = false;
                       }}
                       className={cn(
                         "h-full rounded-[50px]",
@@ -271,9 +283,9 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                     >
                       History
                     </TabsTrigger>
-                    <TabsTrigger value="help" className="h-full min-h-9 rounded-full px-3 text-xs font-semibold md:px-4 md:text-sm">Help & guides</TabsTrigger>
                   </TabsList>
                 </Tabs>
+                <Button variant="outline" size="sm" className="min-h-10 rounded-full px-3 text-xs md:text-sm" aria-expanded={guidesOpen} aria-controls="robbie-guides" onClick={() => setGuidesOpen(!guidesOpen)}><BookOpen aria-hidden className="mr-1.5 h-4 w-4" />Help & guides</Button>
                 </div>
               </div>
             </div>
@@ -293,7 +305,6 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
           >
           {/* Tabs Content */}
           <div className="flex flex-col">
-            {tabMode === 'help' && <RobbieKnowledgePanel onAsk={(question, context) => { setTabMode('chat'); void handleSendMessage(question, context); }} />}
             {tabMode === 'chat' && (
               <div className="mt-0 flex flex-col">
                 <AnimatePresence mode="sync">
@@ -324,7 +335,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                           <p className="text-muted-foreground text-sm md:text-base px-2 text-center">
                             {helpOnly ? 'Ask Robbie how to use your dashboard, solve common problems, or find the right next step.' : 'Use Robbie to book shoots, improve your listings, and get help with your dashboard.'}
                           </p>
-                          <Button variant="outline" className="mt-4 min-h-11 rounded-full px-5" onClick={() => setTabMode('help')}><BookOpen className="mr-2 h-4 w-4" />Help & guides</Button>
+                          <Button variant="outline" className="mt-4 min-h-11 rounded-full px-5" aria-expanded={guidesOpen} aria-controls="robbie-guides" onClick={() => setGuidesOpen(!guidesOpen)}><BookOpen className="mr-2 h-4 w-4" />Help & guides</Button>
                         </div>
                       </motion.div>
   
@@ -811,6 +822,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                     <textarea
                       ref={messageInputRef}
                       rows={1}
+                      aria-label="Message Robbie"
                       placeholder="Type your message..."
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
@@ -854,6 +866,7 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
                       <Button 
                         size="icon" 
                         className="h-8 w-8 md:h-9 md:w-9 p-0 rounded-full hover:scale-105 transition-transform"
+                        aria-label="Send message"
                         onClick={() => handleSendMessage()}
                         disabled={isLoading || !message.trim()}
                         style={{
@@ -908,6 +921,8 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
               </div>
             </div>
           )}
+        </div>
+        <RobbieGuideDrawer open={guidesOpen} onOpenChange={setGuidesOpen} onAsk={handleAskGuide} messageInputRef={messageInputRef} />
         </div>
         {overviewShootId && (
           <Suspense fallback={null}>

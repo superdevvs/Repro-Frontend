@@ -24,6 +24,8 @@ export type OnboardingStep = {
   target: string;
   /** Role-specific mobile tab id used for best-effort focus during the tour. */
   mobileTab?: string;
+  /** Optional action available on the photographer upload-guide step. */
+  guide?: "uploads";
 };
 
 export type OnboardingCopy = {
@@ -110,6 +112,13 @@ const photographerSteps: OnboardingStep[] = [
     description: "Browse completed shoots to revisit finished jobs and the delivered media that's ready for clients.",
     target: "photographer-completed",
     mobileTab: "completed",
+  },
+  {
+    title: "Upload photos and videos",
+    description: "Watch the upload guide to see how to add files to a shoot and check the results. You can reopen it here any time.",
+    target: "photographer-upload-guide",
+    mobileTab: "shoots",
+    guide: "uploads",
   },
 ];
 
@@ -227,11 +236,12 @@ export const dashboardOnboardingConfig: Record<RoleKey, RoleOnboardingConfig> = 
     copy: {
       welcomeTitle: "Welcome to your photographer dashboard",
       welcomeDescription:
-        "See where to find your upcoming shoots, requests, and completed work in under a minute.",
+        "Find your upcoming shoots, requests, and completed work, with a quick video guide to uploading files.",
       checklistItems: [
         "Review your upcoming shoots",
         "Stay on top of requests",
         "Find your completed shoots and delivered media",
+        "Learn how to upload photos and videos",
       ],
       replayLabel: "Take tour",
     },

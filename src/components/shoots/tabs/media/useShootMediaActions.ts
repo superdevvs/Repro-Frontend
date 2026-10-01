@@ -16,6 +16,8 @@ import {
 import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 import { mergeAcceptedShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { canAccessOverviewVideoEmbedsOnShoot } from '@/utils/shootEditorAssignments';
+import { canDeleteMediaSelection } from './mediaDeletePermissions';
 import {
   createUploadBatchId,
   ensureUploadAttemptIdentity,
@@ -673,6 +675,12 @@ export function useShootMediaActions({
       return;
     }
 
+    if (isEditorRole && canAccessOverviewVideoEmbedsOnShoot(shoot, user)
+      && (displayTab !== 'edited' || !canDeleteMediaSelection(selectedFiles, editedFiles, (file) => file.can_delete === true))) {
+      toast({ title: 'Cannot delete selected files', description: 'Select only edited files you can delete.', variant: 'destructive' });
+      return;
+    }
+
     if (!window.confirm(`Are you sure you want to delete ${selectedFiles.size} file(s)? This action cannot be undone.`)) {
       return;
     }
@@ -686,22 +694,33 @@ export function useShootMediaActions({
         headers,
         body: JSON.stringify({ ids: fileIds }),
       });
-
+      const data = await response.json().catch(() => null) as { message?: unknown; failed_ids?: unknown } | null;
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to delete files' }));
-        throw new Error(errorData.message || 'Failed to delete files');
+        throw new Error(typeof data?.message === 'string' ? data.message : 'Failed to delete files');
       }
 
-      toast({
-        title: 'Success',
-        description: `Deleted ${selectedFiles.size} file(s) successfully`,
-      });
-
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
-      setSelectedFiles(new Set());
+      // Even an unreadable success response may follow completed deletions.
+      for (const tab of ['raw', 'edited', 'all']) {
+        void queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, tab] });
+      }
       onShootUpdate();
+      const requestedIds = new Set(fileIds.map(String));
+      const failedIds = Array.isArray(data?.failed_ids) && data.failed_ids.every((id) =>
+        (typeof id === 'number' || typeof id === 'string') && requestedIds.has(String(id)))
+        ? new Set(data.failed_ids.map(String)) : null;
+      if (!failedIds || (response.status === 207 && failedIds.size === 0)) {
+        throw new Error('Deletion result could not be confirmed. Refresh the list before retrying.');
+      }
+      const deletedCount = requestedIds.size - failedIds.size;
+      setSelectedFiles((current) => new Set([...current].filter((id) => !requestedIds.has(id) || failedIds.has(id))));
+      toast(failedIds.size > 0 ? {
+        title: deletedCount > 0 ? 'Some files could not be deleted' : 'Deletion failed',
+        description: `Deleted ${deletedCount} of ${requestedIds.size} file(s). ${failedIds.size} failed and remain selected.`,
+        variant: 'destructive',
+      } : {
+        title: 'Success',
+        description: `Deleted ${deletedCount} file(s) successfully`,
+      });
     } catch (error: unknown) {
       toast({
         title: 'Error',

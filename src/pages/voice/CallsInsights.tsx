@@ -22,8 +22,8 @@ export default function CallsInsights() {
   const hasVolume = Boolean(data?.volume_by_day.some((day) => day.total > 0));
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div className="flex min-h-full flex-col gap-4">
+      <div className="flex shrink-0 flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-[28px] font-semibold leading-9">Call insights</h2>
           <p className="mt-1 text-sm text-[var(--calls-muted)]">
@@ -51,16 +51,16 @@ export default function CallsInsights() {
       {insights.isLoading && <p role="status" className="calls-panel p-5 text-sm text-[var(--calls-muted)]">Loading call insights…</p>}
       {data && <>
       <div className="calls-panel flex flex-wrap items-center justify-between gap-3 bg-[var(--calls-brand-soft)] p-4"><div><p className="font-medium">Service quality</p><p className="mt-1 text-sm text-[var(--calls-muted)]">{data.handoffs_needing_callback} handoffs need a callback. Review missed calls and transcript status from each conversation.</p></div><div className="flex flex-wrap gap-2"><Button asChild className="calls-secondary h-11"><Link to="/calls/inbox?filter=needs_attention">Review calls</Link></Button><Button asChild className="calls-secondary h-11"><Link to="/calls/follow-ups">Follow-ups</Link></Button></div></div>
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid shrink-0 grid-cols-2 gap-3 xl:grid-cols-4">
         <InsightCard icon={PhoneIncoming} label="Answered" value={data?.answered_rate == null ? '—' : `${data.answered_rate}%`} delta={data?.answered_rate_delta} unit=" pts" />
         <InsightCard icon={Clock3} label="Median answer" value={data?.median_answer_seconds == null ? '—' : `${data.median_answer_seconds}s`} delta={data?.median_answer_delta} unit="s" lowerIsBetter />
         <InsightCard icon={TrendingUp} label="Bookings from calls" value={data ? String(data.bookings_from_calls) : '—'} delta={data?.bookings_delta} />
         <InsightCard icon={Sparkles} label="Missed recovered" value={data?.missed_recovered_rate == null ? '—' : `${data.missed_recovered_rate}%`} delta={data?.missed_recovered_delta} unit=" pts" />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_360px]">
-        <section className="calls-panel p-5">
-          <div className="flex items-center justify-between">
+      <div className="grid flex-1 gap-4 xl:grid-cols-[minmax(0,1.4fr)_360px]">
+        <section className="calls-panel flex flex-col p-5">
+          <div className="flex shrink-0 items-center justify-between">
             <h3 className="text-lg font-semibold">Call volume</h3>
             <div className="flex gap-3 text-xs text-[var(--calls-muted)]">
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[var(--calls-brand)]" />Team</span>
@@ -69,11 +69,11 @@ export default function CallsInsights() {
             </div>
           </div>
           {!hasVolume ? (
-            <EmptyCalls title="No call volume in this window" />
+            <div className="flex flex-1 items-center justify-center"><EmptyCalls icon="reports" compact title="No call volume in this window" description="Choose another date range to review earlier calls." /></div>
           ) : (
-            <div className="mt-4 overflow-x-auto" aria-label="Daily call volume">
-              <div style={{ minWidth: Math.max(280, (data?.volume_by_day.length ?? 0) * 42) }}>
-              <div className="calls-bar-stack">
+            <div className="mt-4 flex flex-1 overflow-x-auto" aria-label="Daily call volume">
+              <div className="flex flex-1 flex-col" style={{ minWidth: Math.max(280, (data?.volume_by_day.length ?? 0) * 42) }}>
+              <div className="calls-bar-stack min-h-40 flex-1">
                 {data!.volume_by_day.map((day) => (
                   <div key={day.date} role="img" aria-label={`${day.date}: ${day.team} team, ${day.ai} Robbie, ${day.missed} missed, ${day.total} total`} title={`${day.date}: ${day.total} calls`}>
                     <span style={{ height: `${(day.missed / maxVolume) * 100}%`, background: 'var(--calls-warning)' }} />
@@ -82,7 +82,7 @@ export default function CallsInsights() {
                   </div>
                 ))}
               </div>
-              <div className="mt-2 flex gap-2 text-xs text-[var(--calls-muted)]">
+              <div className="mt-2 flex shrink-0 gap-2 text-xs text-[var(--calls-muted)]">
                 {data!.volume_by_day.map((day) => (
                   <span key={day.date} className="flex-1 text-center">
                     {range === '30d' ? new Date(`${day.date}T12:00:00`).toLocaleDateString([], { month: 'numeric', day: 'numeric' }) : day.label}
@@ -92,7 +92,7 @@ export default function CallsInsights() {
               </div>
             </div>
           )}
-          <p className="mt-4 text-sm text-[var(--calls-muted)]">{data ? `${data.inbound_total} inbound calls in this window.` : 'Loading…'}</p>
+          <p className="mt-4 shrink-0 text-sm text-[var(--calls-muted)]">{data ? `${data.inbound_total} inbound calls in this window.` : 'Loading…'}</p>
         </section>
 
         <div className="space-y-4">

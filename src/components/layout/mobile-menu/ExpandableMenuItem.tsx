@@ -8,6 +8,7 @@ import { ChevronDown, MessageSquareIcon, Mail, MessageCircle } from 'lucide-reac
 interface SubItem {
   to: string;
   label: string;
+  isActive?: boolean;
 }
 
 interface ExpandableMenuItemProps {
@@ -31,7 +32,7 @@ export const ExpandableMenuItem = ({
   const [isExpanded, setIsExpanded] = useState(false);
 
   // Check if any sub-item is active
-  const isAnySubItemActive = subItems.some(item => pathname.startsWith(item.to));
+  const isAnySubItemActive = subItems.some(item => item.isActive ?? pathname.startsWith(item.to));
   const basePath = to.split('/').slice(0, 2).join('/');
   const isOnDefaultRoute = pathname === to || (pathname.startsWith(basePath + '/') && pathname !== basePath);
   const shouldBeExpanded = isAnySubItemActive || isOnDefaultRoute;
@@ -111,7 +112,7 @@ export const ExpandableMenuItem = ({
             >
               <div className="space-y-1 p-2">
                 {subItems.map((subItem) => {
-                  const isSubItemActive = pathname === subItem.to || pathname.startsWith(subItem.to + '/');
+                  const isSubItemActive = subItem.isActive ?? (pathname === subItem.to || pathname.startsWith(subItem.to + '/'));
                   return (
                     <Link
                       key={subItem.to}
@@ -137,5 +138,4 @@ export const ExpandableMenuItem = ({
     </div>
   );
 };
-
 

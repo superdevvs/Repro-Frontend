@@ -1,17 +1,19 @@
-import React, { Suspense, lazy, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Camera, CheckCircle2, MessageCircle } from "lucide-react";
+import React, { Suspense, lazy, useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Camera, CheckCircle2, MessageCircle, PlayCircle } from "lucide-react";
 
 import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
 import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard";
 import { CompletedShootsCardSkeleton } from "@/components/dashboard/v2/CompletedShootsCardSkeleton";
 import { useAuth } from "@/components/auth";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { Button } from "@/components/ui/button";
 import type { WeatherInfo } from "@/services/weatherService";
 import type { DashboardClientRequest, DashboardShootSummary } from "@/types/dashboard";
 
 import { RoleDashboardLayout } from "../components/RoleDashboardLayout";
 import { DashboardOnboarding } from "../components/DashboardOnboarding";
+import { PhotographerUploadGuide } from "../components/PhotographerUploadGuide";
 import { dashboardOnboardingConfig } from "../config/dashboardOnboardingConfig";
 import { useDashboardOnboarding } from "../hooks/useDashboardOnboarding";
 
@@ -43,19 +45,51 @@ export const PhotographerDashboardView = ({
   onSelectShoot,
 }: PhotographerDashboardViewProps) => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   // Mirror RoleDashboardLayout's compact breakpoint so the tour and the
   // controlled mobile tabs stay in sync with the rendered layout.
   const isMobile = useMediaQuery("(max-width: 1024px)");
   const [mobileTab, setMobileTab] = useState<string>("shoots");
   const onboarding = useDashboardOnboarding(user, "photographer");
+  const requestedUploadGuide = searchParams.get("guide") === "uploads";
+  const [uploadGuideOpen, setUploadGuideOpen] = useState(requestedUploadGuide);
+
+  useEffect(() => {
+    if (requestedUploadGuide) setUploadGuideOpen(true);
+  }, [requestedUploadGuide]);
+
+  const handleGuideOpenChange = (open: boolean) => {
+    setUploadGuideOpen(open);
+    if (!open && requestedUploadGuide) {
+      setSearchParams((current) => {
+        const next = new URLSearchParams(current);
+        next.delete("guide");
+        return next;
+      }, { replace: true });
+    }
+  };
 
   const upcomingCard = (
-    <UpcomingShootsCard
-      shoots={photographerUpcoming}
-      onSelect={(shoot, weather) => onSelectShoot(shoot, weather)}
-      role="photographer"
-    />
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex justify-end">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2"
+          data-onboarding-target="photographer-upload-guide"
+          onClick={() => setUploadGuideOpen(true)}
+        >
+          <PlayCircle className="h-4 w-4" />
+          Upload guide
+        </Button>
+      </div>
+      <UpcomingShootsCard
+        shoots={photographerUpcoming}
+        onSelect={(shoot, weather) => onSelectShoot(shoot, weather)}
+        role="photographer"
+      />
+    </div>
   );
 
   const completedCard = (
@@ -125,6 +159,7 @@ export const PhotographerDashboardView = ({
           </div>,
         ]}
         upcomingShoots={photographerUpcoming}
+        upcomingCard={upcomingCard}
         upcomingOnboardingTarget="photographer-upcoming-shoots"
         pendingReviews={photographerPendingReviews}
         pendingCard={requestsCard}
@@ -140,6 +175,8 @@ export const PhotographerDashboardView = ({
         copy={dashboardOnboardingConfig.photographer.copy}
         welcomeOpen={onboarding.welcomeOpen}
         tourOpen={onboarding.tourOpen}
+        uploadGuideOpen={uploadGuideOpen}
+        onOpenUploadGuide={() => setUploadGuideOpen(true)}
         isMobile={isMobile}
         currentMobileTab={mobileTab}
         lastStep={onboarding.onboardingState.lastStep}
@@ -154,6 +191,7 @@ export const PhotographerDashboardView = ({
         onHelpOpened={onboarding.recordHelpOpened}
         onHelpMessage={onboarding.recordHelpMessage}
       />
+      <PhotographerUploadGuide open={uploadGuideOpen} onOpenChange={handleGuideOpenChange} />
       {shootDetailsModal}
     </>
   );

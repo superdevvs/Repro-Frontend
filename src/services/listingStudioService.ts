@@ -47,6 +47,47 @@ export interface ListingStudioRequestPage {
   meta: { current_page: number; last_page: number; total: number; per_page: number };
 }
 
+export interface ListingStudioSubscription {
+  id: number;
+  client_id: number | null;
+  client: Pick<ListingStudioContact, 'id' | 'name' | 'email'> | null;
+  customer: { name: string | null; email: string | null };
+  plan_code: 'starter' | 'pro' | 'studio' | null;
+  plan_name: string | null;
+  status: string;
+  sync_status: 'synced' | 'needs_attention' | 'awaiting_payment';
+  attention_reason: string | null;
+  amount_cents: number | null;
+  currency: string | null;
+  billing_interval: string | null;
+  billing_interval_count: number | null;
+  current_period_start: string | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
+  canceled_at: string | null;
+  latest_invoice_status: string | null;
+  last_paid_at: string | null;
+  account_created: boolean;
+  account_setup_status: 'pending' | 'sent' | 'needs_attention' | null;
+  account_setup_attention: string | null;
+  latest_refund: { status: string; amount_cents: number; currency: string; created_at: string } | null;
+  credits: {
+    currency: 'usd';
+    available_cents: number;
+    earned_cents: number;
+    used_cents: number;
+    expires_at: string | null;
+    monthly_allowance_cents: number;
+  } | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ListingStudioSubscriptionPage {
+  data: ListingStudioSubscription[];
+  meta: { current_page: number; last_page: number; total: number; per_page: number };
+}
+
 export const listingStudioService = {
   async catalog(): Promise<ListingStudioCatalog> {
     return (await apiClient.get('/listing-studio/catalog')).data.data;
@@ -56,6 +97,9 @@ export const listingStudioService = {
   },
   async requests(page = 1): Promise<ListingStudioRequestPage> {
     return (await apiClient.get('/listing-studio/requests', { params: { page } })).data;
+  },
+  async subscriptions(page = 1, q = '', status = ''): Promise<ListingStudioSubscriptionPage> {
+    return (await apiClient.get('/listing-studio/subscriptions', { params: { page, q, status } })).data;
   },
   async create(input: ListingStudioRequestInput): Promise<ListingStudioRequest> {
     return (await apiClient.post('/listing-studio/requests', input)).data.data;

@@ -12,7 +12,9 @@ import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { EmailVerificationNotice } from '@/components/auth/EmailVerificationNotice';
 import { AlertCircle, LogOut } from 'lucide-react';
-import { canUseListingStudio, LISTING_STUDIO_QUERY } from '@/utils/listingStudio';
+import { canUseListingStudioDashboard, listingStudioRole, LISTING_STUDIO_QUERY } from '@/utils/listingStudio';
+import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
+import { isSupportInbox } from '@/pages/messaging/messagingSupport';
 import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 
 const ListingStudioDialog = React.lazy(() => import('@/components/listing-studio/ListingStudioDialog'));
@@ -42,7 +44,16 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const navigate = useNavigate();
   const location = useLocation();
   const { isImpersonating, user, stopImpersonating, role } = useAuth();
-  const listingStudioOpen = canUseListingStudio(role, user?.secondary_roles) && new URLSearchParams(location.search).get(LISTING_STUDIO_QUERY) === '1';
+  const listingStudioRequested = new URLSearchParams(location.search).get(LISTING_STUDIO_QUERY) === '1';
+  const listingStudioTab = new URLSearchParams(location.search).get('listingStudioTab');
+  const isListingStudioClient = listingStudioRole(role, user?.secondary_roles) === 'client';
+  const listingStudioOpen = canUseListingStudioDashboard(role, user?.secondary_roles) && listingStudioRequested;
+  React.useEffect(() => {
+    // Existing bookmarks and notification links should follow the client's website flow too.
+    if (!isInsideDashboardLayout && isListingStudioClient && listingStudioRequested) {
+      window.location.replace(LISTING_STUDIO_WEBSITE_URL);
+    }
+  }, [isInsideDashboardLayout, isListingStudioClient, listingStudioRequested]);
   const closeListingStudio = () => {
     const params = new URLSearchParams(location.search);
     params.delete(LISTING_STUDIO_QUERY);
@@ -51,6 +62,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   };
   const [bottomNavHeight, setBottomNavHeight] = React.useState(0);
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/');
+  const isSupportWorkspace = location.pathname === '/messaging/email/inbox' && isSupportInbox(location.search);
   const isCallsWorkspace = location.pathname === '/calls' || location.pathname.startsWith('/calls/');
   const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
   const isStudioWorkspace = location.pathname === '/ai-editing' && new URLSearchParams(location.search).has('workspace');
@@ -74,11 +86,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
     && isDesktopCalendarViewport;
   // The compact shell keeps 12px at the sides (Availability's gutter) and 6px
   // above the page. Pages must not add extra horizontal padding on compact.
-  const compactBottomInset = useCompactShell && !isCallsWorkspace ? bottomNavHeight : 0;
+  const compactBottomInset = useCompactShell ? bottomNavHeight : 0;
   const lockCompactDashboard = useCompactShell && isDashboardRoute;
   const lockMainScroll =
-    isCallsWorkspace || lockCompactDashboard || isStudioWorkspace || fillSms || lockWorkflowEditor || fillDesktopCalendar;
-  const contentPadding = isCallsWorkspace ? 'p-0' : useCompactShell
+    isCallsWorkspace || isSupportWorkspace || lockCompactDashboard || isStudioWorkspace || fillSms || lockWorkflowEditor || fillDesktopCalendar;
+  const contentPadding = useCompactShell
     ? `${isStudioWorkspace || fillSms ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 || lockCompactDashboard ? '' : 'pb-20'}`
     : fillSms
       ? 'p-0'
@@ -92,7 +104,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
       }
     : undefined;
   const shouldHideFooter =
-    hideFooter || isCallsWorkspace || lockCompactDashboard || fillDesktopCalendar ||
+    hideFooter || isCallsWorkspace || isSupportWorkspace || lockCompactDashboard || fillDesktopCalendar ||
     location.pathname === '/ai-editing' ||
     location.pathname.startsWith('/chat-with-reproai') ||
     location.pathname === '/messaging/sms' ||
@@ -116,7 +128,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
       {/* The viewport rule keeps the dynamic height after its legacy fallback;
           combining h-screen and h-dvh lets Tailwind's h-screen rule win. */}
       <div className="dashboard-viewport flex overflow-hidden">
-        {!isCallsWorkspace && !useCompactShell && !isSimplifiedLayout && <Sidebar />}
+        {!useCompactShell && !isSimplifiedLayout && <Sidebar />}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {isImpersonating && user && (
             <div className="bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center justify-between">
@@ -135,14 +147,14 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
               </Button>
             </div>
           )}
-          {!isCallsWorkspace && !hideNavbar && <Navbar />}
+          {!hideNavbar && <Navbar />}
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
             <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`} bottomInset={compactBottomInset}>
             <main style={compactMainStyle} className={`flex-1 min-w-0 min-h-0 ${lockMainScroll ? 'flex flex-col overflow-hidden overflow-x-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
               <PageTransition className={lockMainScroll ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : 'flex flex-col min-h-full'}>
                 <EmailVerificationNotice>
-                  {isCallsWorkspace || lockCompactDashboard || fillSms || fillDesktopCalendar ? (
+                  {isCallsWorkspace || isSupportWorkspace || lockCompactDashboard || fillSms || fillDesktopCalendar ? (
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children || <Outlet />}</div>
                   ) : (
                     children || <Outlet />
@@ -170,12 +182,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             </main>
             </PageLoadingBoundary>
           </ErrorBoundary>
-          {!isCallsWorkspace && useCompactShell && <MobileMenu onBottomNavHeightChange={setBottomNavHeight} />}
+          {useCompactShell && <MobileMenu onBottomNavHeightChange={setBottomNavHeight} />}
         </div>
       </div>
       {listingStudioOpen && (
         <React.Suspense fallback={null}>
-          <ListingStudioDialog key={`${user?.id}:${role}:${user?.secondary_roles?.join(',')}:${location.search}`} initialTab={new URLSearchParams(location.search).get('listingStudioTab') === 'requests' ? 'requests' : undefined} onClose={closeListingStudio} />
+          <ListingStudioDialog key={`${user?.id}:${role}:${user?.secondary_roles?.join(',')}:${location.search}`} initialTab={listingStudioTab === 'requests' || listingStudioTab === 'subscriptions' ? listingStudioTab : undefined} onClose={closeListingStudio} />
         </React.Suspense>
       )}
     </DashboardLayoutContext.Provider>

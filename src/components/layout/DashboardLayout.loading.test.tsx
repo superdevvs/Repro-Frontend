@@ -5,10 +5,12 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardLayout } from './DashboardLayout';
 import { usePageLoading } from '@/hooks/use-page-loading';
+import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
 
 vi.mock('./Sidebar', () => ({ Sidebar: () => <nav><a href="/dashboard">Dashboard</a></nav> }));
 vi.mock('./Navbar', () => ({ Navbar: () => <header><button>Navigation</button></header> }));
 const viewport = vi.hoisted(() => ({ mobile: false, compact: false, tall: true, availabilityDesktop: false, bottomNavHeight: 62 }));
+const auth = vi.hoisted(() => ({ role: 'admin', user: { id: 1, secondary_roles: [] as string[] }, stopImpersonating: vi.fn() }));
 vi.mock('./MobileMenu', () => ({
   default: function MockMobileMenu({ onBottomNavHeightChange }: { onBottomNavHeightChange?: (height: number) => void }) {
     const bottomNavHeight = viewport.bottomNavHeight;
@@ -27,18 +29,59 @@ vi.mock('@/hooks/use-media-query', () => ({
     return viewport.compact;
   },
 }));
-vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ role: 'admin', user: { id: 1 }, stopImpersonating: vi.fn() }) }));
+vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => auth }));
 vi.mock('@/components/auth/EmailVerificationNotice', () => ({ EmailVerificationNotice: ({ children }: { children: React.ReactNode }) => <>{children}</> }));
+vi.mock('@/components/listing-studio/ListingStudioDialog', () => ({ default: ({ initialTab }: { initialTab?: string }) => <div role="dialog" aria-label="Listing Studio" data-initial-tab={initialTab}>Staff requests</div> }));
 
 function Page({ loading }: { loading: boolean }) {
   usePageLoading(loading);
   return <DashboardLayout><button>Page action</button></DashboardLayout>;
 }
 
-beforeEach(() => { viewport.mobile = false; viewport.compact = false; viewport.tall = true; viewport.availabilityDesktop = false; viewport.bottomNavHeight = 62; });
-afterEach(() => { cleanup(); vi.useRealTimers(); });
+beforeEach(() => { viewport.mobile = false; viewport.compact = false; viewport.tall = true; viewport.availabilityDesktop = false; viewport.bottomNavHeight = 62; auth.role = 'admin'; auth.user.secondary_roles = []; });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe('dashboard page loading integration', () => {
+  it.each([['desktop', '/calls/inbox'], ['phone', '/calls/inbox'], ['desktop', '/messaging/email/inbox?tab=support'], ['phone', '/messaging/email/inbox?tab=support']])('keeps the original dashboard navigation on %s %s', (surface, path) => {
+    viewport.mobile = surface === 'phone';
+    const { container } = render(<MemoryRouter initialEntries={[path]}><DashboardLayout><DashboardLayout hideFooter><button>Conversations</button></DashboardLayout></DashboardLayout></MemoryRouter>);
+    expect(screen.getByRole('button', { name: 'Navigation' })).toBeInTheDocument();
+    if (viewport.mobile) {
+      expect(screen.getByRole('navigation', { name: 'Mobile navigation' })).toBeInTheDocument();
+      expect(container.querySelector('main')).toHaveStyle({ paddingBottom: '62px' });
+    } else {
+      expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
+      expect(container.querySelector('main')).toHaveClass('p-3');
+    }
+    expect(container.querySelector('main')).toHaveClass('overflow-hidden');
+    expect(container.querySelector('footer')).toBeNull();
+  });
+
+  it.each(['/dashboard?listingStudio=1', '/dashboard?listingStudio=1&listingStudioTab=requests', '/dashboard?listingStudio=1&listingStudioTab=subscriptions'])('redirects a client legacy link to the website without opening a form: %s', path => {
+    auth.role = 'client';
+    const replace = vi.fn();
+    // Stub only this test's window reference; do not redefine jsdom's Location.
+    const actualWindow = window;
+    vi.stubGlobal('window', new Proxy(actualWindow, {
+      get: (target, property) => property === 'location' ? { replace } : Reflect.get(target, property, target),
+    }));
+    render(<MemoryRouter initialEntries={[path]}><DashboardLayout><button>Page action</button></DashboardLayout></MemoryRouter>);
+    expect(replace).toHaveBeenCalledWith(LISTING_STUDIO_WEBSITE_URL);
+    expect(screen.queryByRole('dialog', { name: 'Listing Studio' })).not.toBeInTheDocument();
+  });
+
+  it.each(['salesRep', 'admin', 'superadmin'])('preserves the staff request dialog and notification tab for %s', async role => {
+    auth.role = role;
+    render(<MemoryRouter initialEntries={['/dashboard?listingStudio=1&listingStudioTab=requests']}><DashboardLayout><button>Page action</button></DashboardLayout></MemoryRouter>);
+    expect(await screen.findByRole('dialog', { name: 'Listing Studio' })).toHaveAttribute('data-initial-tab', 'requests');
+  });
+
+  it.each(['salesRep', 'admin', 'superadmin'])('opens subscription notification links for %s', async role => {
+    auth.role = role;
+    render(<MemoryRouter initialEntries={['/dashboard?listingStudio=1&listingStudioTab=subscriptions']}><DashboardLayout><button>Page action</button></DashboardLayout></MemoryRouter>);
+    expect(await screen.findByRole('dialog', { name: 'Listing Studio' })).toHaveAttribute('data-initial-tab', 'subscriptions');
+  });
+
   it.each(['/messaging/email/automations/21', '/messaging/email/automations/new'])('contains workflow editor scroll at %s', (path) => {
     const { container } = render(<MemoryRouter initialEntries={[path]}><DashboardLayout><button>Editor</button></DashboardLayout></MemoryRouter>);
     expect(container.querySelector('main')).toHaveClass('overflow-hidden');

@@ -10,7 +10,7 @@ import { PendingReviewsCard } from './PendingReviewsCard';
 vi.mock('@/context/RequestManagerContext', () => ({ useRequestManager: () => ({ openModal: vi.fn() }) }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
 
-const request = { id: 104, location: { fullAddress: '108 Example Street' }, client: { name: 'Client' }, holdReason: 'Waiting for staging' };
+const request = { id: 104, location: { fullAddress: '108 Example Street' }, client: { name: 'Client', email: 'client@example.test' }, photographer: { id: 5, name: 'Photographer', email: 'photographer@example.test' }, holdReason: 'Waiting for staging' };
 const response = (data: unknown, ok = true) => ({ ok, json: async () => data }) as Response;
 function Queue() {
   const holds = useHoldRequests(true, 'admin:1');
@@ -39,7 +39,12 @@ describe('hold request dashboard queue', () => {
     expect(screen.getByText('108 Example Street')).toBeInTheDocument();
     expect(screen.getByText('Waiting for staging')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: decision === 'approve' ? 'Approve hold' : 'Reject hold' }));
+    if (decision === 'approve') fireEvent.click(screen.getByRole('button', { name: 'Confirm hold' }));
     await screen.findByText('No pending hold requests.');
+    if (decision === 'approve') {
+      const call = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/approve-hold'));
+      expect(JSON.parse(String(call?.[1]?.body))).toEqual({ notify_client: true, notify_photographer: true, notification_channels: ['email'] });
+    }
     expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining(`/shoots/104/${decision}-hold`), expect.objectContaining({ method: 'POST' }));
     client.clear();
   });
@@ -57,7 +62,9 @@ describe('hold request dashboard queue', () => {
     act(() => triggerDashboardOverviewRefresh());
     await screen.findByText('108 Example Street');
     fireEvent.click(screen.getByRole('button', { name: 'Approve hold' }));
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Approve hold' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm hold' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm hold' })).toBeEnabled());
+    fireEvent.click(screen.getByText('Close', { selector: 'button' }));
     expect(screen.getByText('108 Example Street')).toBeInTheDocument();
     client.clear();
   });

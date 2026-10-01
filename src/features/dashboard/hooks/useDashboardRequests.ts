@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { Location, NavigateFunction } from "react-router-dom";
 
 import { API_BASE_URL } from "@/config/env";
@@ -26,6 +26,7 @@ type RegisterShootOpenHandler = (
 
 interface UseDashboardRequestsParams {
   canViewDashboardClientRequests: boolean;
+  viewerScope: string;
   location: Location;
   navigate: NavigateFunction;
   openModal: OpenRequestManager;
@@ -37,6 +38,7 @@ interface UseDashboardRequestsParams {
 
 export const useDashboardRequests = ({
   canViewDashboardClientRequests,
+  viewerScope,
   location,
   navigate,
   openModal,
@@ -45,6 +47,8 @@ export const useDashboardRequests = ({
   removeRequest,
   toast,
 }: UseDashboardRequestsParams) => {
+  const requestController = useRef<AbortController | null>(null);
+  const [loadedScope, setLoadedScope] = useState(viewerScope);
   const dashboardNavigationState = location.state as DashboardShootModalNavigationState | null;
   const [specialRequestOpen, setSpecialRequestOpen] = useState(false);
   const [specialRequestInitialTab, setSpecialRequestInitialTab] =
@@ -54,35 +58,48 @@ export const useDashboardRequests = ({
   const [clientRequestsLoading, setClientRequestsLoading] = useState(false);
 
   const fetchClientRequests = useCallback(async () => {
-    if (!canViewDashboardClientRequests) return;
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
+    setLoadedScope(viewerScope);
+    setClientRequests([]);
+    if (!canViewDashboardClientRequests) {
+      setClientRequestsLoading(false);
+      return;
+    }
 
     setClientRequestsLoading(true);
     try {
       const token = localStorage.getItem("authToken") || localStorage.getItem("token");
       const res = await fetch(`${API_BASE_URL}/api/client-requests`, {
+        signal: controller.signal,
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",
         },
       });
 
+      if (controller.signal.aborted) return;
       if (res.ok) {
         const json = await res.json();
+        if (controller.signal.aborted) return;
         const data = Array.isArray(json.data) ? json.data : [];
         setClientRequests(data as DashboardClientRequest[]);
       } else {
         setClientRequests([]);
       }
     } catch (error) {
+      if (controller.signal.aborted) return;
       console.error("Error fetching client requests:", error);
       setClientRequests([]);
     } finally {
-      setClientRequestsLoading(false);
+      if (!controller.signal.aborted) setClientRequestsLoading(false);
     }
-  }, [canViewDashboardClientRequests]);
+  }, [canViewDashboardClientRequests, viewerScope]);
 
   useEffect(() => {
     void fetchClientRequests();
+    return () => requestController.current?.abort();
   }, [fetchClientRequests]);
 
   useEffect(() => {
@@ -202,6 +219,7 @@ export const useDashboardRequests = ({
     dashboardNavigationState,
     location.pathname,
     location.search,
+    location.state,
     navigate,
     openShootInModalById,
   ]);
@@ -217,7 +235,7 @@ export const useDashboardRequests = ({
 
     let handled = false;
 
-    if (state.openRequestManager && canViewDashboardClientRequests && !clientRequestsLoading) {
+    if (state.openRequestManager && canViewDashboardClientRequests && loadedScope === viewerScope && !clientRequestsLoading) {
       openModal(clientRequests, state.selectedRequestId ?? null);
       handled = true;
     }
@@ -235,6 +253,8 @@ export const useDashboardRequests = ({
     }
   }, [
     clientRequests,
+    loadedScope,
+    viewerScope,
     clientRequestsLoading,
     canViewDashboardClientRequests,
     location.state,
@@ -255,7 +275,7 @@ export const useDashboardRequests = ({
   }, []);
 
   return {
-    clientRequests,
+    clientRequests: loadedScope === viewerScope && canViewDashboardClientRequests ? clientRequests : [],
     clientRequestsLoading,
     specialRequestOpen,
     setSpecialRequestOpen,

@@ -28,7 +28,7 @@ interface MediaGridLayoutProps {
 }
 
 function SelectAllControl({ files, selectedFiles, onSelectAll }: Pick<MediaGridLayoutProps, 'files' | 'selectedFiles' | 'onSelectAll'>) {
-  const allSelected = selectedFiles.size === files.length;
+  const allSelected = files.length > 0 && files.every((file) => selectedFiles.has(file.id));
   return (
     <div className="cursor-pointer hover:text-foreground transition-colors text-muted-foreground" onClick={onSelectAll} title={allSelected ? 'Deselect All' : 'Select All'}>
       {allSelected ? <CheckCircle2 className="h-4 w-4 text-primary" /> : selectedFiles.size > 0 ? <MinusCircle className="h-4 w-4" /> : <Circle className="h-4 w-4" />}
@@ -82,7 +82,7 @@ export function MediaGridLayout(props: MediaGridLayoutProps) {
   return (
     <div className="space-y-2">
       <div className="hidden sm:flex items-center gap-3 px-2 py-1 text-[10px] text-muted-foreground font-medium border-b">
-        {canSelect && <div className="w-4 flex-shrink-0"><SelectAllControl files={files} selectedFiles={selectedFiles} onSelectAll={onSelectAll} /></div>}
+        {canSelect && files.length > 0 && <div className="w-4 flex-shrink-0"><SelectAllControl files={files} selectedFiles={selectedFiles} onSelectAll={onSelectAll} /></div>}
         <div className="w-28 flex-shrink-0">Preview</div>
         <div className="flex-1">Filename</div>
         {!isClient && <><div className="w-36 flex-shrink-0" aria-hidden="true" /><div className="w-20 flex-shrink-0" aria-hidden="true" /></>}

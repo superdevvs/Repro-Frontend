@@ -34,6 +34,7 @@ type ApiServiceRange = {
 
 export type ApiServiceRecord = {
   duration_minutes?: number | null;
+  shoot_duration_minutes?: number | null;
   photographer_required?: boolean;
   allow_multiple?: boolean | number | string | null;
   shoot_unit_id?: string | number | null;

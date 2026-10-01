@@ -197,13 +197,14 @@ const PhotographerAccount = () => {
     }
   };
 
-  // Handle profile image change — ImageUpload handles the actual upload to the
-  // backend; we just surface a confirmation toast here.
-  const handleProfileImageChange = (_url: string) => {
-    toast({
-      title: 'Profile photo updated',
-      description: 'Your profile photo has been updated successfully.',
-    });
+  const handleProfileImageChange = async (url: string) => {
+    const result = await saveProfile({ avatar: url || null });
+    if (!result.reauthRequired) {
+      toast({
+        title: url ? 'Profile photo updated' : 'Profile photo removed',
+        description: 'Your profile photo has been saved to your account.',
+      });
+    }
   };
 
   if (isWrongEquipmentVerificationAccount) {

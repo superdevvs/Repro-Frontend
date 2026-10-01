@@ -1,5 +1,6 @@
 import type { HoldRequestsState } from "@/features/dashboard/hooks/useHoldRequests";
 import type { RescheduleRequestsState } from "@/features/dashboard/hooks/useRescheduleRequests";
+import type { OverdueClientsState } from "@/features/dashboard/hooks/useOverdueClients";
 import React, { Suspense, lazy, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, CheckCircle2, MessageCircle, Users } from "lucide-react";
@@ -39,6 +40,7 @@ const LazyCompletedShootsCard = lazy(() =>
 );
 
 interface SalesDashboardViewProps {
+  overdueClients?: OverdueClientsState;
   availablePhotographerIds: number[];
   availabilityError: string | null;
   availabilityLoading: boolean;
@@ -71,7 +73,7 @@ interface SalesDashboardViewProps {
   salesMetricTiles: DashboardMetricTile[];
   shootDetailsModal: React.ReactNode;
   shouldLoadEditingRequests: boolean;
-  onApproveCancellation: (shootId: number) => Promise<void>;
+  onApproveCancellation: (shootId: number, decision?: 'charge_fee' | 'waive_fee') => Promise<void>;
   onRejectCancellation: (shootId: number) => Promise<void>;
   onSelectShoot: (shoot: DashboardShootSummary, weather?: WeatherInfo | null) => void;
   onSetAvailabilityWindow: (value: { date: string; start_time: string; end_time: string }) => void;
@@ -81,6 +83,7 @@ interface SalesDashboardViewProps {
 }
 
 export const SalesDashboardView = ({
+  overdueClients,
   availablePhotographerIds,
   availabilityError,
   availabilityLoading,
@@ -121,9 +124,15 @@ export const SalesDashboardView = ({
   const isCompactDashboardViewport = useMediaQuery("(max-width: 1024px)");
   const [mobileTab, setMobileTab] = useState("shoots");
   const salesOnboarding = useDashboardOnboarding(user, "salesRep");
+  const clientRequestCount = clientRequests.filter((request) =>
+    ['open', 'in-progress', 'in_progress'].includes(request.status),
+  ).length;
+  const pendingRequestCount = pendingReviews.length + clientRequestCount + cancellationShoots.length
+    + (holdRequests?.shoots.length ?? 0) + (rescheduleRequests?.pendingCount ?? 0) + (overdueClients?.total ?? 0);
   const salesRepRequestsCard = (
     <div id="requests-queue" data-onboarding-target="salesrep-requests">
       <PendingReviewsCard
+        overdueClients={overdueClients}
         reviews={pendingReviews}
         issues={[]}
         onSelect={(shoot) => onSelectShoot(shoot)}
@@ -255,7 +264,7 @@ export const SalesDashboardView = ({
         description="Assign coverage, monitor reviews, and close the loop."
         metricTiles={salesMetricTiles}
         collapsibleColumns
-        pendingIndicatorCount={pendingReviews.length + (holdRequests?.shoots.length ?? 0) + (rescheduleRequests?.pendingCount ?? 0)}
+        pendingIndicatorCount={pendingRequestCount}
         metricsOnboardingTarget="salesrep-metrics"
         upcomingOnboardingTarget="salesrep-upcoming"
         pendingOnboardingTarget="salesrep-requests"

@@ -1,4 +1,4 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import http from "node:http";
@@ -98,6 +98,27 @@ const manualChunkName = (id: string): string | undefined => {
 // proxied request makes local dev against it reliable.
 const noKeepAliveAgent = new http.Agent({ keepAlive: false, maxSockets: 20 });
 
+// Production serves .json as JSON but may not recognize .webmanifest. Keep one
+// canonical source while giving installation a correctly typed public URL.
+const dashboardManifest = (): Plugin => {
+  const readManifest = () => readFileSync(path.resolve(__dirname, 'public/manifest.webmanifest'));
+  return {
+    name: 'dashboard-manifest-json',
+    configureServer(server) {
+      server.middlewares.use((request, response, next) => {
+        if (request.url?.split('?')[0] !== '/manifest.json' || !['GET', 'HEAD'].includes(request.method ?? '')) return next();
+        const source = readManifest();
+        response.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+        response.setHeader('Content-Length', source.length);
+        response.end(request.method === 'HEAD' ? undefined : source);
+      });
+    },
+    generateBundle() {
+      this.emitFile({ type: 'asset', fileName: 'manifest.json', source: readManifest() });
+    },
+  };
+};
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   // The root service worker is not a fingerprinted Vite asset. Give each body
@@ -141,6 +162,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [
+    dashboardManifest(),
     mode === 'production' && {
       name: 'private-jspdf-diagnostics',
       enforce: 'pre' as const,

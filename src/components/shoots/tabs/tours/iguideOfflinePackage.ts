@@ -6,7 +6,7 @@ import { API_BASE_URL } from '@/config/env';
 import API_ROUTES from '@/lib/api';
 import { getApiHeaders } from '@/services/api';
 
-export const IGUIDE_OFFLINE_PACKAGE_MAX_BYTES = 256 * 1024 * 1024;
+export const IGUIDE_OFFLINE_PACKAGE_MAX_BYTES = 1024 * 1024 * 1024;
 
 const ACCEPTED_ZIP_MIME_TYPES = new Set([
   '',
@@ -22,7 +22,8 @@ export const formatFileSize = (bytes?: number | null) => {
   if (bytes === null || bytes === undefined || !Number.isFinite(bytes) || bytes < 0) return '';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 };
 
 export const validateIguideOfflineZip = (file: File): string | null => {
@@ -39,7 +40,7 @@ export const validateIguideOfflineZip = (file: File): string | null => {
   }
 
   if (file.size > IGUIDE_OFFLINE_PACKAGE_MAX_BYTES) {
-    return 'The ZIP is larger than the 256 MB upload limit.';
+    return `The ZIP is larger than the ${formatFileSize(IGUIDE_OFFLINE_PACKAGE_MAX_BYTES)} upload limit.`;
   }
 
   return null;

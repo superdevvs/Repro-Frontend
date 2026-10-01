@@ -31,7 +31,6 @@ import {
   type ManualNotificationRecipient,
   type ManualNotificationType,
   type NotificationRecipientPerson,
-  getNotificationRecipients,
   previewManualNotification,
   sendManualNotification,
 } from '@/services/messaging';
@@ -51,8 +50,14 @@ const RECIPIENT_OPTIONS: ReadonlyArray<{
   icon: ReactNode;
 }> = [
   { value: 'client', label: 'Client', icon: <User className="h-4 w-4" /> },
+  { value: 'rep', label: 'Sales rep', icon: <Users className="h-4 w-4" /> },
   { value: 'photographer', label: 'Photographer', icon: <Users className="h-4 w-4" /> },
 ];
+
+const isRecipientAllowed = (type: ManualNotificationType, recipient: ManualNotificationRecipient) =>
+  recipient === 'client'
+  || (recipient === 'rep' && (type === 'shoot_on_hold' || type === 'shoot_cancelled'))
+  || recipient === 'photographer';
 
 const CHANNEL_OPTIONS: ReadonlyArray<{
   value: ManualNotificationChannel;
@@ -82,7 +87,7 @@ function SegmentedControl<T extends string>({
   disabled?: boolean;
 }) {
   return (
-    <div className="inline-flex w-full rounded-lg border bg-muted/40 p-1">
+    <div className={cn('inline-flex w-full rounded-lg border bg-muted/40 p-1', options.length > 2 && 'flex-col')}>
       {options.map((option) => (
         <button
           key={option.value}
@@ -139,7 +144,7 @@ export interface ManualNotificationDialogProps {
  * Lets an admin manually send a shoot notification:
  *   1. Pick the notification type (shoot_scheduled / on_hold / cancelled / ready /
  *      payment_due / payment_receipt) — AC 12.2.
- *   2. Pick the recipient (client | photographer) — AC 12.6.
+ *   2. Pick the client or staff recipient (including assigned photographers for holds).
  *   3. Pick the channel (email | sms) — AC 12.7.
  *   4. Preview the rendered subject/body before sending — AC 12.5.
  *   5. If the backend reports `missing_variables`, show a warning banner before send — AC 12.8.
@@ -155,6 +160,9 @@ export function ManualNotificationDialog({
   const [type, setType] = useState<ManualNotificationType>('shoot_scheduled');
   const [recipientType, setRecipientType] = useState<ManualNotificationRecipient>('client');
   const [channel, setChannel] = useState<ManualNotificationChannel>('email');
+  const recipientOptions = RECIPIENT_OPTIONS.filter((option) =>
+    isRecipientAllowed(type, option.value),
+  );
 
   // Reset form whenever the dialog re-opens so a previous selection doesn't leak.
   useEffect(() => {
@@ -177,23 +185,18 @@ export function ManualNotificationDialog({
       }),
     enabled: open && Number.isFinite(shootId) && shootId > 0,
     refetchOnWindowFocus: false,
+    placeholderData: undefined,
   });
 
-  const recipientsQuery = useQuery({
-    queryKey: ['manual-notification', 'recipients', shootId, recipientType],
-    queryFn: () => getNotificationRecipients(shootId, recipientType),
-    enabled: open && Number.isFinite(shootId) && shootId > 0,
-    refetchOnWindowFocus: false,
-    retry: false,
-  });
-  const assignedPhotographers: NotificationRecipientPerson[] = useMemo(
-    () => (recipientsQuery.data?.recipients ?? []).filter((row) => row.recipient_type === 'photographer'),
-    [recipientsQuery.data],
-  );
+  // The preview uses the same type-specific routing as send. Do not substitute the
+  // generic assignment roster, which can include a superseded primary photographer.
   const listedRecipients: NotificationRecipientPerson[] = useMemo(
-    () => recipientsQuery.data?.recipients ?? [],
-    [recipientsQuery.data],
+    () => previewQuery.isFetching || previewQuery.isError
+      ? []
+      : (previewQuery.data?.recipients ?? []).filter((row) => row.recipient_type === recipientType),
+    [previewQuery.data, previewQuery.isFetching, previewQuery.isError, recipientType],
   );
+  const assignedPhotographers = listedRecipients.filter((row) => row.recipient_type === 'photographer');
 
   const sendMutation = useMutation({
     mutationFn: () =>
@@ -204,9 +207,19 @@ export function ManualNotificationDialog({
         channel,
       }),
     onSuccess: (result) => {
-      toast.success('Notification sent', {
-        description: `${TYPE_LABELS[type]} delivered to ${recipientType} via ${result.channel.toUpperCase()}.`,
-      });
+      const status = String(result.status || '').toUpperCase();
+      if (['BLOCKED', 'FAILED', 'PARTIAL'].includes(status)) {
+        toast.error(result.message || (status === 'PARTIAL' ? 'Some notifications were not sent.' : 'Notification was not sent.'));
+        return;
+      }
+      const description = `${TYPE_LABELS[type]} for ${recipientType} via ${(result.channel || channel).toUpperCase()}.`;
+      if (['QUEUED', 'PENDING'].includes(status)) {
+        toast.info('Notification queued', { description });
+      } else if (['SENT', 'DELIVERED'].includes(status)) {
+        toast.success('Notification sent', { description });
+      } else {
+        toast.info('Notification submitted', { description: `${description} Delivery has not been confirmed.` });
+      }
       onClose();
     },
     onError: (error: unknown) => {
@@ -273,7 +286,12 @@ export function ManualNotificationDialog({
               </Label>
               <Select
                 value={type}
-                onValueChange={(next) => setType(next as ManualNotificationType)}
+                onValueChange={(next) => {
+                  const nextType = next as ManualNotificationType;
+                  setType(nextType);
+                  // Reset an incompatible staff choice before fetching its preview.
+                  if (!isRecipientAllowed(nextType, recipientType)) setRecipientType('client');
+                }}
                 disabled={isSending}
               >
                 <SelectTrigger id="manual-notification-type">
@@ -294,7 +312,7 @@ export function ManualNotificationDialog({
                 Recipient
               </Label>
               <SegmentedControl
-                options={RECIPIENT_OPTIONS}
+                options={recipientOptions}
                 value={recipientType}
                 onChange={(next) => setRecipientType(next)}
                 disabled={isSending}
@@ -304,8 +322,7 @@ export function ManualNotificationDialog({
                   <p className="mb-1 font-medium text-foreground">
                     {recipientType === 'photographer'
                       ? (assignedPhotographers.length === 1 ? 'Assigned photographer' : 'Assigned photographers')
-                      : 'Recipient'}
-                    {recipientsQuery.isFetching ? '…' : ''}
+                      : recipientType === 'rep' ? 'Assigned sales rep' : 'Recipient'}
                   </p>
                   <ul className="space-y-0.5">
                     {listedRecipients.map((person) => (

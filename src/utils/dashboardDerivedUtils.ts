@@ -19,6 +19,7 @@ import { getDashboardBookedDayOffset } from "@/utils/dashboardShootSchedule";
 import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
 import { isFloorplanLikeHeroFile, isUnsuitableShootCardHeroUrl, selectShootCardHeroUrls } from "@/utils/shootCardHero";
 import { normalizeShootPaymentSummary } from "@/utils/shootPaymentSummary";
+import { normalizeDashboardRole } from "@/utils/dashboardFilterPermissions";
 
 type ClientWithLegacyPhoneNumber = ShootData["client"] & {
   phonenumber?: string | null;
@@ -69,6 +70,11 @@ export const DELIVERED_STATUS_KEYWORDS = [
   "ready", // Maps to delivered
   "workflow_completed", // Maps to delivered
 ];
+// Staff work queues distinguish final delivery from ready-for-review/finalization.
+const STAFF_DELIVERED_STATUSES = new Set([
+  "delivered", "finalized", "ready_for_client", "client_delivered", "delivered_to_client", "admin_verified", "workflow_completed",
+]);
+const STAFF_QUEUE_ROLES = new Set(["photographer", "editor", "salesrep"]);
 export const CLIENT_VISIBLE_DELIVERED_STATUS_KEYWORDS = [
   "delivered",
   "ready_for_client",
@@ -436,6 +442,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
 
   const summary: DashboardShootSummary = {
     id: toNumericId(shoot.id, `${location.address}-${shoot.scheduledDate}`),
+    completedAt: shoot.completedDate ?? null,
     dayLabel: getDayLabel(localDay ?? start),
     timeLabel: shoot.time || (start ? format(start, "h:mm a") : null),
     scheduledLocalDate,
@@ -470,6 +477,8 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     holdRequestedAt: shoot.holdRequestedAt ?? null,
     holdRequestedBy: shoot.holdRequestedBy ?? null,
     holdReason: shoot.holdReason ?? null,
+    cancellationRequestedAt: shoot.cancellationRequestedAt ?? null,
+    cancellationReason: shoot.cancellationReason ?? null,
     paymentStatus,
     heroImage: (() => {
       const selected = selectShootCardHeroUrls({
@@ -520,10 +529,18 @@ export const sortByStartDesc = (a: DashboardShootSummary, b: DashboardShootSumma
   -sortByStartAsc(a, b);
 
 export const filterUpcomingShoots = (shoots: DashboardShootSummary[], userRole?: string) => {
+  const normalizedRole = normalizeDashboardRole(userRole);
   return shoots
     .filter((shoot) => {
       const statusKey = getStatusKey(shoot);
       const isAdmin = userRole === "admin" || userRole === "superadmin" || userRole === "editing_manager";
+
+      if (STAFF_QUEUE_ROLES.has(normalizedRole)) {
+        if (statusKey === "archived" || matchesStatus(shoot, [...CANCELED_STATUS_KEYWORDS, ...DECLINED_STATUS_KEYWORDS, ...REQUESTED_STATUS_KEYWORDS])) return false;
+        const pendingEditorWork = normalizedRole === "editor" && STAFF_DELIVERED_STATUSES.has(statusKey)
+          && shoot.hasPendingEditorWork === true;
+        return pendingEditorWork || !STAFF_DELIVERED_STATUSES.has(statusKey);
+      }
 
       // Admins should see all shoots including delivered ones
       if (isAdmin) {
@@ -616,8 +633,10 @@ export const filterCompletedShoots = (shoots: DashboardShootSummary[]) =>
     })
     .sort(sortByStartDesc);
 
-export const filterDeliveredShoots = (shoots: DashboardShootSummary[]) =>
-  shoots.filter((shoot) => matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)).sort(sortByStartDesc);
+export const filterDeliveredShoots = (shoots: DashboardShootSummary[], userRole?: string) =>
+  shoots.filter((shoot) => STAFF_QUEUE_ROLES.has(normalizeDashboardRole(userRole))
+    ? STAFF_DELIVERED_STATUSES.has(getStatusKey(shoot)) && !(normalizeDashboardRole(userRole) === "editor" && shoot.hasPendingEditorWork)
+    : matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)).sort(sortByStartDesc);
 
 export const filterScheduledShoots = (shoots: DashboardShootSummary[]) =>
   shoots
@@ -665,8 +684,18 @@ const isDashboardShootTodayOrFuture = (shoot: DashboardShootSummary, now = new D
   return offset != null && offset >= 0;
 };
 
-export const filterEditingManagerUpcomingShoots = (shoots: DashboardShootSummary[]) =>
-  filterUpcomingShoots(shoots, "editing_manager").filter((shoot) => isDashboardShootTodayOrFuture(shoot));
+export const filterEditingManagerUpcomingShoots = (shoots: DashboardShootSummary[]) => {
+  const workflowBucketIds = new Set([
+    ...filterUploadedShoots(shoots), ...filterReadyToDeliverShoots(shoots),
+  ].map((shoot) => shoot.id));
+  return filterUpcomingShoots(shoots, "editing_manager").filter((shoot) => {
+    if (isDashboardShootTodayOrFuture(shoot)) return true;
+    const status = getStatusKey(shoot);
+    return (getDashboardBookedDayOffset(shoot) ?? 0) < 0
+      && !STAFF_DELIVERED_STATUSES.has(status) && status !== "archived"
+      && !workflowBucketIds.has(shoot.id);
+  });
+};
 
 export const filterPendingReviews = (shoots: DashboardShootSummary[]) =>
   []; // No pending reviews - review status removed

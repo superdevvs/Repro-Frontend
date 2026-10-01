@@ -59,6 +59,8 @@ interface ShootRequestManagerProps {
   onClose: () => void;
   shootId: string;
   isAdmin: boolean;
+  isRep?: boolean;
+  canCreateRequest?: boolean;
   isPhotographer: boolean;
   isEditor: boolean;
   isClient: boolean;
@@ -96,9 +98,11 @@ export function ShootRequestManager({
   onClose,
   shootId,
   isAdmin,
+  isRep = false,
   isPhotographer,
   isEditor,
   isClient,
+  canCreateRequest = isAdmin || isClient,
   onIssueUpdate,
   preselectedMediaIds = EMPTY_PRESELECTED_MEDIA_IDS,
   initialRequests = EMPTY_INITIAL_REQUESTS,
@@ -174,12 +178,12 @@ export function ShootRequestManager({
   }, [isOpen, shootId]);
 
   useEffect(() => {
-    if (!isOpen || !preselectedMediaIdsKey) return;
+    if (!isOpen || !preselectedMediaIdsKey || !canCreateRequest) return;
 
     // If preselected media IDs provided, auto-open create dialog and pre-select them
     setSelectedMediaIds(new Set(preselectedMediaIdsKey.split('|').filter(Boolean)));
     setCreateDialogOpen(true);
-  }, [isOpen, preselectedMediaIdsKey]);
+  }, [isOpen, preselectedMediaIdsKey, canCreateRequest]);
 
   // Staff can request changes to RAW or edited media; clients see released media only.
   useEffect(() => {
@@ -197,11 +201,11 @@ export function ShootRequestManager({
         const json = await res.json();
         const files = json.data ?? json;
         if (!Array.isArray(files)) throw new Error('Unable to load photos. You can still create a general request.');
-        const imageFiles = files.filter((f: any) => {
+        const imageFiles = files.filter((f: Record<string, string>) => {
           const fileType = (f.file_type || f.fileType || f.mime_type || '').toLowerCase();
           const filename = (f.filename || f.stored_filename || '').toLowerCase();
           return fileType.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif|nef|cr3|cr2|arw|dng)$/.test(filename);
-        }).map((f: any) => ({
+        }).map((f: Record<string, string>) => ({
           id: String(f.id), filename: f.filename || f.stored_filename || 'unknown',
           url: f.thumb_url || f.medium_url || f.thumbnail_path || f.web_path || null,
           thumbnail: f.thumb_url || f.thumbnail_path || f.placeholder_path || null,
@@ -240,7 +244,7 @@ export function ShootRequestManager({
   const visibleRequests = useMemo(() => {
     let filtered = requests.filter(request => {
       if (request.status === 'dismissed') return false;
-      if (isAdmin) return true;
+      if (isAdmin || isRep) return true;
       if (isClient) {
         const currentUserId = String(user?.id ?? localStorage.getItem('userId') ?? '');
         const currentUserName = String(user?.name ?? '');
@@ -297,10 +301,11 @@ export function ShootRequestManager({
     });
 
     return filtered;
-  }, [requests, searchQuery, statusFilter, severityFilter, sortOption, isAdmin, isClient, isEditor, isPhotographer, user?.id, user?.name]);
+  }, [requests, searchQuery, statusFilter, severityFilter, sortOption, isAdmin, isRep, isClient, isEditor, isPhotographer, user?.id, user?.name]);
 
   // Create request - send all selected photos in one request using mediaIds array
   const handleCreateRequest = async () => {
+    if (!canCreateRequest) return;
     if (!requestNote.trim()) {
       toast({
         title: 'Error',
@@ -314,7 +319,7 @@ export function ShootRequestManager({
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const mediaIdsArray = Array.from(selectedMediaIds);
       
-      const payload: any = {
+      const payload: { note: string; mediaIds?: string[]; assignedToRole?: 'editor' | 'photographer'; assignedToUserId?: string } = {
         note: requestNote,
       };
       
@@ -530,7 +535,7 @@ export function ShootRequestManager({
                   Manage and track all requests for this shoot
                 </DialogDescription>
               </div>
-              {(isAdmin || isClient) && (
+              {canCreateRequest && (
                 <Button 
                   type="button"
                   onClick={(e) => {
@@ -714,13 +719,14 @@ export function ShootRequestManager({
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
-                            {isAdmin && request.status !== 'resolved' && (
+                            {(isAdmin || isRep) && request.status !== 'resolved' && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
                                     size="sm"
                                     variant="ghost"
                                     className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
+                                    aria-label="Assign request"
                                   >
                                     <MoreVertical className="h-3 w-3" />
                                   </Button>
@@ -748,7 +754,7 @@ export function ShootRequestManager({
       </Dialog>
 
       {/* Create Request Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={(open) => {
+      <Dialog open={createDialogOpen && canCreateRequest} onOpenChange={(open) => {
         setCreateDialogOpen(open);
         if (!open) resetCreateForm();
       }}>

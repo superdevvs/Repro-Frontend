@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
+import { EmptyStateArtwork, type EmptyStateIcon } from '@/components/ui/empty-state';
 import { waveBars } from './callDisplay';
 
 export function CallsAvatar({ initials, size = 36, className }: { initials: string; size?: number; className?: string }) {
@@ -41,10 +42,20 @@ export function UnavailableHint({ children }: { children: ReactNode }) {
   return <p className="text-xs text-[var(--calls-muted)]">{children}</p>;
 }
 
-export function EmptyCalls({ title, description, action }: { title: ReactNode; description?: ReactNode; action?: ReactNode }) {
+export function EmptyCalls({ title, description, action, icon = 'calls', fill = false, compact = false }: {
+  title: ReactNode;
+  description?: ReactNode;
+  action?: ReactNode;
+  icon?: EmptyStateIcon;
+  fill?: boolean;
+  compact?: boolean;
+}) {
   return (
-    <div className="flex min-w-0 flex-col items-center justify-center gap-2 px-3 py-8 text-center">
-      <h3 className="max-w-sm text-sm font-semibold">{title}</h3>
+    <div className={cn('calls-empty', fill && 'calls-panel calls-empty-fill', compact && 'calls-empty-compact')}>
+      <div className="calls-empty-artwork" aria-hidden="true">
+        <EmptyStateArtwork icon={icon} className={compact ? 'h-16 w-16' : 'h-24 w-24'} />
+      </div>
+      <h3 className={cn('max-w-sm font-semibold', compact ? 'text-sm' : 'text-base')}>{title}</h3>
       {description ? <p className="max-w-sm text-sm text-[var(--calls-muted)]">{description}</p> : null}
       {action}
     </div>

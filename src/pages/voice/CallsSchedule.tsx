@@ -118,6 +118,7 @@ export default function CallsSchedule() {
         <p className="mt-1 text-sm text-[var(--calls-muted)]">Hours, holidays, quiet hours, and same-day overrides. Robbie follows what you save here.</p>
         {!permissionsLoading && !canManage && <p className="mt-2 text-sm text-[var(--calls-muted)]">You can review coverage. Manage Calls permission is required to change it.</p>}
       </div>
+      {overrides.isError && <CallsQueryError message="Could not load schedule overrides." retry={() => void overrides.refetch()} />}
       <fieldset disabled={!canManage || save.isPending} className="min-w-0 space-y-4">
       <Card className="calls-panel border-[var(--calls-border)] shadow-none">
         <CardHeader className="pb-2">
@@ -390,7 +391,8 @@ export default function CallsSchedule() {
                 </Button>
               </div>
             ))}
-            {(overrides.data ?? []).length === 0 && <EmptyCalls title="No active overrides." />}
+            {overrides.isLoading && <p role="status" className="p-3 text-sm text-[var(--calls-muted)]">Loading schedule overrides…</p>}
+            {overrides.isSuccess && (overrides.data ?? []).length === 0 && <EmptyCalls icon="availability" compact title="No active overrides" description="Your regular hours and holiday schedule apply." />}
           </div>
         </CardContent>
       </Card>

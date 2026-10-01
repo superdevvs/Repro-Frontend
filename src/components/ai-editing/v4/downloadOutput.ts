@@ -2,7 +2,7 @@ import { apiClient } from '@/services/api';
 import type { V4Output } from '@/components/studio/v4/types';
 
 /** Fetch the authorized attachment, then save a local object URL (cross-origin download attributes are ignored). */
-export async function downloadWorkspaceOutput(workspaceId: string, output: Pick<V4Output, 'id' | 'kind' | 'version'>, name: string): Promise<void> {
+export async function downloadWorkspaceOutput(workspaceId: string, output: Pick<V4Output, 'id' | 'kind' | 'version' | 'name'>, name: string): Promise<void> {
   let blob: Blob;
   try {
     const response = await apiClient.get<Blob>(`/studio/workspaces/${encodeURIComponent(workspaceId)}/outputs/${encodeURIComponent(output.id)}/download`, { responseType: 'blob' });
@@ -19,10 +19,11 @@ export async function downloadWorkspaceOutput(workspaceId: string, output: Pick<
   if (!blob.size) throw new Error('The downloaded file is empty. Please try again.');
   const extensions: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/avif': 'avif', 'video/mp4': 'mp4', 'video/webm': 'webm' };
   const extension = extensions[blob.type.split(';')[0]] || (output.kind === 'video' ? 'mp4' : 'jpg');
-  const baseName = [...name].filter(character => character.charCodeAt(0) >= 32).join('').replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[<>:"/\\|?*]/g, '-').trim().slice(0, 100) || 'studio-output';
+  const editedName = output.kind === 'image' && /_\d+(?:_edited)?\.jpg$/i.test(output.name || '') ? output.name : undefined;
+  const baseName = [...(editedName || name)].filter(character => character.charCodeAt(0) >= 32).join('').replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[<>:"/\\|?*]/g, '-').trim().slice(0, 120) || 'studio-output';
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
-  anchor.href = url; anchor.download = `${baseName}-v${output.version}.${extension}`; anchor.hidden = true;
+  anchor.href = url; anchor.download = `${baseName}${editedName ? '' : `-v${output.version}`}.${extension}`; anchor.hidden = true;
   document.body.appendChild(anchor);
   try { anchor.click(); }
   finally {

@@ -39,7 +39,7 @@ describe('shoot editing dispatch', () => {
   it('uses the complete server photo set when the media panel selects all', async () => {
     render(<ShootEditingDialog shootId={4} fileIds={[2, 1]} onClose={vi.fn()} />);
     await screen.findByText('Full Shoot · Fotello · all 2 photos');
-    expect(screen.getByText(/Full-shoot photos go to In Review for approval/)).toBeVisible();
+    expect(screen.getByText(/Fotello merges each HDR stack and edits all photos/)).toBeVisible();
     expect(screen.getByRole('button', { name: 'Send to AI editing' })).toBeDisabled();
     expect(screen.getByRole('checkbox', { name: 'Virtual staging: Living room' })).toBeVisible();
   });

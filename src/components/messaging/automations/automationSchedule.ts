@@ -3,7 +3,7 @@ import type { AutomationRule, AutomationScheduleJson, MessagingJsonObject, Workf
 export const isTimedShootReminder = (trigger: string) => ['SHOOT_REMINDER', 'PHOTOGRAPHER_SHOOT_REMINDER'].includes(trigger);
 
 export const defaultShootPaymentReminderSchedule: AutomationScheduleJson = {
-  reminder_days: [1, 3, 7],
+  reminder_days: [1, 2, 4, 7],
   repeat_after_day: 7,
   repeat_every_days: 7,
 };

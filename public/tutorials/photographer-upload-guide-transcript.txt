@@ -1,0 +1,26 @@
+Upload your shoot media
+Here's how to upload your photos and video to a shoot in REPro Dashboard, and send everything to the editing team.
+
+Open the right shoot
+From your photographer dashboard, open the assigned shoot. Check the property address, then find Raw Uploads. Choose Upload Files, or Upload More if files are already attached.
+
+Add photos and RAW files
+Drag in your images or RAW files, or select them from your computer. Match them to the correct booked service. Only services assigned to you are available.
+
+Check service, brackets and notes
+For bracketed photography, check the Bracket setting matches what you captured. Check the selected count, and add any instructions in Notes for Editor.
+
+Upload and wait for completion
+Choose Confirm and upload, or Upload all for a batch across services. Keep this browser tab open and wait for Upload complete.
+
+Add video and other booked media
+To add video, choose Upload More, select your video clips, and check the video service. Upload them and wait for completion. Use the matching service for drone and other booked media.
+
+Check every file arrived
+Review the uploaded files and counts. If a file failed, retry it and confirm it appears before continuing. If a file is rejected, read the upload result and fix the issue before retrying.
+
+Submit to the editing team
+When everything is attached, choose Submit Raw Files. Check the confirmation, then select Yes, submit. This sets the shoot status to Uploaded and notifies the editing team.
+
+Upload. Review. Submit.
+You're done. Upload first, review every file, then submit. You can replay this guide from Upload guide on your photographer dashboard.

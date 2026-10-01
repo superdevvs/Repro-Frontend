@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { DashboardShootSummary } from '@/types/dashboard';
 
-import { filterEditingManagerUpcomingShoots } from './dashboardDerivedUtils';
+import { filterEditingManagerUpcomingShoots, filterReadyToDeliverShoots, filterUploadedShoots } from './dashboardDerivedUtils';
 
 afterEach(() => {
   vi.useRealTimers();
@@ -22,7 +22,16 @@ const shoot = (overrides: Partial<DashboardShootSummary>): DashboardShootSummary
   }) as DashboardShootSummary;
 
 describe('filterEditingManagerUpcomingShoots', () => {
-  it('matches the superadmin upcoming list: today or future active shoots', () => {
+  it('carries earlier unbucketed work while leaving uploaded and ready work in their own workflow buckets', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-01T16:00:00Z'));
+    const items = ['scheduled', 'booked', 'confirmed', 'in_field', 'raw_upload_pending', 'uploaded', 'editing', 'ready', 'delivered', 'cancelled']
+      .map((status, index) => shoot({ id: index + 1, status, workflowStatus: status, scheduledLocalDate: '2026-09-30' }));
+    expect(filterEditingManagerUpcomingShoots(items).map((item) => item.workflowStatus))
+      .toEqual(['scheduled', 'booked', 'confirmed', 'in_field', 'raw_upload_pending', 'editing']);
+  });
+
+  it('keeps older open editing work alongside future shoots while excluding past delivery', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 8, 21, 12));
 
@@ -51,7 +60,24 @@ describe('filterEditingManagerUpcomingShoots', () => {
       }),
     ];
 
-    expect(filterEditingManagerUpcomingShoots(shoots).map((item) => item.id)).toEqual([91]);
+    expect(filterEditingManagerUpcomingShoots(shoots).map((item) => item.id)).toEqual([63, 91]);
+  });
+
+  it('keeps every earlier unfinished stage in exactly one of the three workflow buckets', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-01T16:00:00Z'));
+    const open = ['scheduled', 'booked', 'confirmed', 'in_field', 'raw_upload_pending', 'editing', 'review', 'qc', 'pending_review', 'awaiting_review', 'ready_for_review', 'on_hold', 'raw_issue', 'editing_issue', 'uploaded', 'photos_uploaded', 'raw_uploaded', 'completed', 'editing_complete', 'ready'];
+    const closed = ['delivered', 'finalized', 'ready_for_client', 'client_delivered', 'delivered_to_client', 'admin_verified', 'workflow_completed', 'archived', 'cancelled', 'canceled', 'declined', 'requested', 'no_show'];
+    const items = [...open, ...closed].map((status, index) => shoot({ id: index + 1, status, workflowStatus: status, scheduledLocalDate: '2026-09-30' }));
+    const upcoming = filterEditingManagerUpcomingShoots(items);
+    const uploaded = filterUploadedShoots(items);
+    const ready = filterReadyToDeliverShoots(items);
+    const union = [...upcoming, ...uploaded, ...ready];
+    expect(union.map((item) => item.workflowStatus).sort()).toEqual([...open].sort());
+    expect(new Set(union.map((item) => item.id)).size).toBe(union.length);
+    expect(upcoming.map((item) => item.workflowStatus)).toEqual(expect.arrayContaining(['editing', 'review', 'qc', 'pending_review', 'on_hold']));
+    expect(uploaded.map((item) => item.workflowStatus)).toEqual(['uploaded', 'photos_uploaded', 'raw_uploaded', 'completed', 'editing_complete']);
+    expect(ready.map((item) => item.workflowStatus)).toEqual(['ready']);
   });
 
   it('keeps a shoot booked for today', () => {

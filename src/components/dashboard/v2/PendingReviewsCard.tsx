@@ -1,5 +1,7 @@
 import { HoldRequestsPanel } from './HoldRequestsPanel';
 import { RescheduleRequestsPanel } from './RescheduleRequestsPanel';
+import { OverdueClientsPanel } from './OverdueClientsPanel';
+import type { OverdueClientsState } from '@/features/dashboard/hooks/useOverdueClients';
 import type { HoldRequestsState } from '@/features/dashboard/hooks/useHoldRequests';
 import type { RescheduleRequestsState } from '@/features/dashboard/hooks/useRescheduleRequests';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -18,11 +20,12 @@ import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
 import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 
-type RequestsTab = 'client' | 'editing' | 'cancellation' | 'hold' | 'reschedule';
+type RequestsTab = 'client' | 'editing' | 'cancellation' | 'hold' | 'reschedule' | 'overdue';
 
 export type CancellationShootItem = DashboardCancellationItem;
 
 interface PendingReviewsCardProps {
+  overdueClients?: OverdueClientsState;
   holdRequests?: HoldRequestsState;
   rescheduleRequests?: RescheduleRequestsState;
   reviews: DashboardShootSummary[];
@@ -117,6 +120,7 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(({
+  overdueClients,
   holdRequests,
   rescheduleRequests,
   reviews,
@@ -241,6 +245,10 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
     });
   }
 
+  if (overdueClients) {
+    tabs.push({ id: 'overdue', label: 'Overdue', count: overdueClients.total });
+  }
+
   const totalRequests = tabs.reduce((sum, t) => sum + t.count, 0);
   const isEmpty = totalRequests === 0;
   // All breakpoints: category list with counts → chevron drill-in → back
@@ -316,6 +324,8 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
 
         {showContent && (
           <>
+            {activeTab === 'overdue' && overdueClients && <OverdueClientsPanel overdue={overdueClients} />}
+
             {activeTab === 'hold' && holdRequests && <HoldRequestsPanel requests={holdRequests} />}
 
             {activeTab === 'reschedule' && rescheduleRequests && (

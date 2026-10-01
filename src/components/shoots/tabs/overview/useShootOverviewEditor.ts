@@ -1,4 +1,5 @@
 import { resolveServicePrice } from './shootOverviewServicePricing';
+import { withServiceDurationSnapshot } from './shootOverviewDurations';
 import { useUnitAssignmentPayload } from '@/features/shoot-units/useUnitAssignmentPayload';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
@@ -351,6 +352,7 @@ export function useShootOverviewEditor({
       return {
         ...serviceObject,
         ...item,
+        duration_minutes: item.duration_minutes ?? serviceObject.duration_minutes,
         scheduled_at: item.scheduled_at ?? item.scheduledAt ?? serviceObject.scheduled_at ?? serviceObject.scheduledAt,
         scheduledAt: item.scheduledAt ?? item.scheduled_at ?? serviceObject.scheduledAt ?? serviceObject.scheduled_at,
       };
@@ -369,7 +371,7 @@ export function useShootOverviewEditor({
       ids.push(serviceId);
       const scheduledAt = item.scheduled_at ?? item.scheduledAt;
       // Keep unscheduled services EMPTY instead of fabricating the order date.
-      schedules[serviceId] = buildServiceScheduleFields(scheduledAt, shoot.timezone);
+      schedules[serviceId] = withServiceDurationSnapshot(buildServiceScheduleFields(scheduledAt, shoot.timezone), item);
       const serviceName = item.name ?? item.service_name ?? item.serviceName;
       if (serviceName) {
         fallbackServices.push({
@@ -383,6 +385,8 @@ export function useShootOverviewEditor({
           description: typeof item.description === 'string' ? item.description : '',
           photographer_pay: item.photographer_pay != null ? Number(item.photographer_pay) : null,
           duration: item.duration != null ? Number(item.duration) : null,
+          duration_minutes: item.duration_minutes != null ? Number(item.duration_minutes) : null,
+          shoot_duration_minutes: item.shoot_duration_minutes != null ? Number(item.shoot_duration_minutes) : null,
         });
       }
     });
@@ -488,7 +492,7 @@ export function useShootOverviewEditor({
         servicePhotographerPays,
         serviceQuantities: serviceQuantityChanges,
         perCategoryPhotographers,
-        servicesList,
+        servicesList, effectiveSqft,
       });
     } catch (error) {
       toast({
@@ -512,6 +516,7 @@ export function useShootOverviewEditor({
     accessContactPhone,
     buildCompServicePayload,
     editedShoot,
+    effectiveSqft,
     lockboxCode,
     lockboxLocation,
     onSave,
@@ -543,7 +548,7 @@ export function useShootOverviewEditor({
   );
 
   useEffect(() => {
-    if (!isEditMode) return;
+    if (!isEditMode || (selectedServiceIds.length === 0 && !serviceSelectionTouchedRef.current)) return;
     setServiceSchedules((current) => {
       let changed = false;
       const next: Record<string, ServiceScheduleFields> = {};
@@ -558,7 +563,7 @@ export function useShootOverviewEditor({
     });
   }, [defaultServiceSchedule, isEditMode, selectedServiceIds]);
 
-  const updateServiceSchedule = useCallback((serviceId: string, field: keyof ServiceScheduleFields, value: string) => {
+  const updateServiceSchedule = useCallback((serviceId: string, field: keyof ServiceScheduleFields, value: string | number) => {
     markOrdinaryServiceMutationTouched();
     setServiceSchedules((current) => ({
       ...current,
@@ -575,7 +580,7 @@ export function useShootOverviewEditor({
       const source = current[sourceServiceId] || defaultServiceSchedule;
       const next = { ...current };
       selectedServiceIds.forEach((id) => {
-        next[id] = { date: source.date, time: source.time };
+        next[id] = { ...current[id], date: source.date, time: source.time };
       });
       return next;
     });

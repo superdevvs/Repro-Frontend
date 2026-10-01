@@ -11,6 +11,7 @@ import { CategorySelect } from '@/components/settings/CategorySelect';
 import { IconPicker } from './IconPicker';
 import { cn } from '@/lib/utils';
 import { HelpCircle, Plus, Save, Trash2 } from 'lucide-react';
+import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
 
 export type PhotographerPayType = 'fixed' | 'percent';
 
@@ -31,6 +32,7 @@ export interface ServiceDraft {
   pricing_type: 'fixed' | 'variable';
   allow_multiple: boolean;
   delivery_time: string;
+  shoot_duration_minutes?: number;
   category: string;
   icon: string;
   photographer_required: boolean;
@@ -246,6 +248,16 @@ export function ServiceCreateDialog({
                 </div>
               </div>
             )}
+
+            <div className="space-y-2">
+              <ServiceDurationPicker serviceName={newService.name || 'new service'}
+                value={newService.shoot_duration_minutes}
+                onChange={(minutes) => setNewService(prev => ({ ...prev, shoot_duration_minutes: minutes }))} />
+              <p className="text-xs text-muted-foreground">
+                Default time on site. Can be adjusted when scheduling.
+                {newService.pricing_type === 'variable' ? ' SQFT range durations take priority.' : ''}
+              </p>
+            </div>
 
             <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
               <div className="flex flex-col gap-1">

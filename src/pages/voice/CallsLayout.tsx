@@ -1,10 +1,9 @@
+import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ArrowLeft, BarChart3, BookOpen, Bot, CalendarClock, Clock3, Headphones, LifeBuoy, MoreHorizontal, PhoneCall, Plus, Radio, Settings2, Users, Workflow } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { useBrowserPhone } from '@/context/BrowserPhoneContext';
 import { getVoiceNumbers } from '@/services/voice';
 import { usePermissions } from '@/context/PermissionsContext';
 import NewCallDialog from './workspace/NewCallDialog';
@@ -21,48 +20,72 @@ import CallsPeople from './CallsPeople';
 import CallsFollowUps from './CallsFollowUps';
 import './workspace/callsTheme.css';
 
-const primary = [
-  { to: '/calls/inbox', label: 'Calls', icon: PhoneCall },
-  { to: '/calls/people', label: 'People', icon: Users },
-  { to: '/calls/follow-ups', label: 'Follow-ups', icon: CalendarClock },
+const tabs = [
+  { to: '/calls/inbox', label: 'Inbox' },
+  { to: '/calls/people', label: 'People' },
+  { to: '/calls/follow-ups', label: 'Follow-ups' },
+  { to: '/calls/live', label: 'Team queue' },
+  { to: '/calls/assistant', label: 'Robbie' },
+  { to: '/calls/insights', label: 'Insights' },
+  { to: '/calls/settings', label: 'Audio & alerts' },
+  { to: '/calls/settings?section=business', label: 'Business settings' },
+  { to: '/calls/schedule', label: 'Business hours' },
+  { to: '/calls/automations', label: 'Automations' },
+  { to: '/chat-with-reproai?tab=help', label: 'Help & guides' },
+  { to: '/messaging/email/inbox?tab=support', label: 'Support requests' },
 ];
-const manage = [
-  { to: '/calls/live', label: 'Team queue', icon: Radio },
-  { to: '/calls/assistant', label: 'Robbie', icon: Bot },
-  { to: '/calls/insights', label: 'Insights', icon: BarChart3 },
-  { to: '/calls/settings', label: 'Audio & alerts', icon: Headphones },
-  { to: '/calls/settings?section=business', label: 'Business settings', icon: Settings2 },
-  { to: '/calls/schedule', label: 'Business hours', icon: Clock3 },
-  { to: '/calls/automations', label: 'Automations', icon: Workflow },
-];
-const help = [
-  { to: '/chat-with-reproai?tab=help', label: 'Help & guides', icon: BookOpen },
-  { to: '/support', label: 'Support requests', icon: LifeBuoy },
-];
+
+function revealTab(navigation: HTMLElement, tab: HTMLElement) {
+  const viewport = navigation.getBoundingClientRect();
+  const bounds = tab.getBoundingClientRect();
+  if (bounds.left < viewport.left) navigation.scrollLeft += bounds.left - viewport.left;
+  else if (bounds.right > viewport.right) navigation.scrollLeft += bounds.right - viewport.right;
+}
 
 export default function CallsLayout() {
   const { pathname, search } = useLocation();
+  const navigationRef = useRef<HTMLElement>(null);
+  const [tabScroll, setTabScroll] = useState({ overflow: false, previous: false, next: false });
   const { can } = usePermissions();
-  const phone = useBrowserPhone();
   const numbers = useQuery({ queryKey: ['voice-numbers'], queryFn: getVoiceNumbers });
   const defaultNumber = numbers.data?.find((item) => item.is_default) ?? numbers.data?.[0];
   const active = (to: string) => to.includes('?') ? pathname === to.split('?')[0] && search.includes('section=business') : pathname.startsWith(to) && !(to === '/calls/settings' && search.includes('section=business'));
-  const moreActive = !primary.some((item) => active(item.to));
+  useEffect(() => {
+    const navigation = navigationRef.current;
+    const current = navigation?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!navigation || !current) return;
+    let disposed = false;
+    const updateOverflow = () => {
+      if (disposed) return;
+      const maximum = navigation.scrollWidth - navigation.clientWidth;
+      const next = { overflow: maximum > 1, previous: navigation.scrollLeft > 1, next: navigation.scrollLeft < maximum - 1 };
+      setTabScroll(previous => previous.overflow === next.overflow && previous.previous === next.previous && previous.next === next.next ? previous : next);
+    };
+    const revealCurrent = () => {
+      if (disposed) return;
+      revealTab(navigation, current);
+      updateOverflow();
+    };
+    revealCurrent();
+    const observer = new ResizeObserver(revealCurrent);
+    observer.observe(navigation);
+    observer.observe(current);
+    navigation.addEventListener('scroll', updateOverflow, { passive: true });
+    void document.fonts.ready.then(revealCurrent);
+    return () => { disposed = true; observer.disconnect(); navigation.removeEventListener('scroll', updateOverflow); };
+  }, [pathname, search]);
   return <DashboardLayout hideFooter>
     <div className="calls-workspace calls-shell">
-      <header className="calls-appbar">
-        <div className="flex min-w-0 items-center gap-2"><Button asChild variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-label="Back to dashboard"><Link to="/dashboard"><ArrowLeft className="h-4 w-4" /></Link></Button><h1 className="text-lg font-semibold">Calls</h1><span className="hidden truncate text-xs text-[var(--calls-muted)] sm:block">/ {defaultNumber?.label || 'Business calls'}</span></div>
-        <div className="flex shrink-0 items-center gap-2"><span className={`calls-chip hidden sm:inline-flex ${phone.status === 'ready' ? 'calls-chip-success' : 'calls-chip-neutral'}`}>{phone.active ? 'In call' : phone.status === 'ready' ? 'Browser ready' : phone.configLoading ? 'Checking calling…' : phone.config?.ready ? 'Ready when you call' : 'Calling setup needed'}</span><Button asChild variant="ghost" className="hidden h-11 sm:inline-flex"><Link to="/calls/settings"><Headphones className="h-4 w-4" />Audio & alerts</Link></Button><NewCallDialog initialFrom={defaultNumber?.phone_number} trigger={<Button disabled={!can('voice-calls', 'operate')} className="calls-primary h-11 rounded-xl px-4"><Plus className="h-4 w-4" />Call</Button>} /></div>
-      </header>
-      <div className="calls-shell-body">
-        <nav aria-label="Calls navigation" className="calls-sidebar">
-          <p className="calls-nav-caption">Workspace</p>
-          {[...primary, ...manage.slice(0, 1)].map((item) => <Link className="calls-route" aria-current={active(item.to) ? 'page' : undefined} key={item.to} to={item.to}><item.icon className="h-4 w-4" />{item.label}</Link>)}
-          <p className="calls-nav-caption mt-3">Manage</p>
-          {manage.slice(1).map((item) => <Link className="calls-route" aria-current={active(item.to) ? 'page' : undefined} key={item.to} to={item.to}><item.icon className="h-4 w-4" />{item.label}</Link>)}
-          <div className="mt-auto border-t border-[var(--calls-border)] pt-2">{help.map((item) => <Link className="calls-route" key={item.to} to={item.to}><item.icon className="h-4 w-4" />{item.label}</Link>)}</div>
+      <h1 className="sr-only">Calls</h1>
+      <div className="calls-toolbar">
+        {tabScroll.overflow && <Button variant="ghost" size="icon" className="h-10 w-7 shrink-0" aria-label="Earlier Calls tabs" title="Earlier Calls tabs" disabled={!tabScroll.previous} onClick={() => { const navigation = navigationRef.current; navigation?.scrollBy({ left: -navigation.clientWidth * 0.8 }); }}><ChevronLeft className="h-4 w-4" /></Button>}
+        <nav ref={navigationRef} aria-label="Calls navigation" className="calls-tabs">
+          {tabs.map((tab) => <Link key={tab.to} to={tab.to} aria-current={active(tab.to) ? 'page' : undefined} className="calls-nav-link" onFocus={(event) => { if (navigationRef.current) revealTab(navigationRef.current, event.currentTarget); }}>{tab.label}</Link>)}
         </nav>
-        <div className="calls-route-content">
+        {tabScroll.overflow && <Button variant="ghost" size="icon" className="h-10 w-7 shrink-0" aria-label="More Calls tabs" title="More Calls tabs" disabled={!tabScroll.next} onClick={() => { const navigation = navigationRef.current; navigation?.scrollBy({ left: navigation.clientWidth * 0.8 }); }}><ChevronRight className="h-4 w-4" /></Button>}
+        <NewCallDialog initialFrom={defaultNumber?.phone_number} trigger={<Button disabled={!can('voice-calls', 'operate')} className="calls-primary h-10 shrink-0 rounded-lg px-3 text-sm"><Plus className="h-4 w-4" />Call</Button>} />
+      </div>
+      <div className="calls-route-content">
           <Routes>
             <Route index element={<Navigate to={new URLSearchParams(search).has('offer') ? `live${search}` : 'inbox'} replace />} />
             <Route path="inbox" element={<CallsInbox />} /><Route path="inbox/:id" element={<CallsInbox />} /><Route path="inbox/:id/wrap-up" element={<CallsWrapUp />} />
@@ -71,9 +94,7 @@ export default function CallsLayout() {
             <Route path="schedule" element={<CallsSchedule />} /><Route path="assistant" element={<CallsAssistant />} /><Route path="automations" element={<CallsAutomations />} /><Route path="insights" element={<CallsInsights />} /><Route path="settings" element={<CallsSettings />} />
             <Route path="overview" element={<Navigate to="/calls/inbox" replace />} /><Route path="log" element={<Navigate to="/calls/inbox" replace />} /><Route path="numbers" element={<Navigate to="/calls/settings?section=business" replace />} />
           </Routes>
-        </div>
       </div>
-      <nav className="calls-mobile-nav" aria-label="Calls mobile navigation">{primary.map((item) => <Link className="calls-route" aria-current={active(item.to) ? 'page' : undefined} key={item.to} to={item.to}><item.icon className="h-4 w-4" />{item.label}</Link>)}<DropdownMenu><DropdownMenuTrigger asChild><button type="button" className="calls-route" data-active={moreActive} aria-label="More Calls pages"><MoreHorizontal className="h-4 w-4" />More</button></DropdownMenuTrigger><DropdownMenuContent align="end" side="top" className="calls-workspace mb-2 max-h-[70dvh] overflow-y-auto">{[...manage, ...help].map((item) => <DropdownMenuItem key={item.to} asChild><Link className="min-h-11" to={item.to}><item.icon className="mr-2 h-4 w-4" />{item.label}</Link></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu></nav>
     </div>
   </DashboardLayout>;
 }

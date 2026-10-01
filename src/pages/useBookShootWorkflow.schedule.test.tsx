@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BOOKING_FORM_CACHE_KEY } from '@/utils/bookingDraftReset';
 import { useBookShootWorkflow } from './useBookShootWorkflow';
 import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
+import { resolveServiceShootDuration } from '@/utils/shootDuration';
 
 const mocks = vi.hoisted(() => ({ get: vi.fn(), toast: vi.fn(), navigate: vi.fn(), shoots: [] }));
 vi.mock('axios', () => ({ default: { get: mocks.get } }));
@@ -21,11 +22,11 @@ describe('editing a shoot request keeps its stored schedule', () => {
   ])('initializes the order and service at 10 AM for $timezone', async (schedule) => {
     localStorage.setItem('authToken', 'test-token');
     mocks.get.mockImplementation(async (url: string) => {
-      if (url.endsWith('/services')) return { data: { data: [{ id: 19, name: 'Photography', price: 200 }] } };
+      if (url.endsWith('/services')) return { data: { data: [{ id: 19, name: 'Photography', price: 200, shoot_duration_minutes: 120 }] } };
       if (url.endsWith('/shoots/86')) return { data: { data: {
         id: 86, address: '7319 Golden Horseshoe Court', ...schedule,
         services: [{ id: 19, name: 'Photography' }],
-        service_items: [{ id: 126, service_id: 19, scheduled_at: schedule.scheduled_at }],
+        service_items: [{ id: 126, service_id: 19, scheduled_at: schedule.scheduled_at, duration_minutes: 30 }],
       } } };
       return { data: { data: [] } };
     });
@@ -37,12 +38,31 @@ describe('editing a shoot request keeps its stored schedule', () => {
     expect(result.current.date?.getFullYear()).toBe(2026);
     expect(result.current.date?.getMonth()).toBe(8);
     expect(result.current.date?.getDate()).toBe(9);
-    expect(result.current.serviceSchedules['19']).toEqual({ date: '2026-09-09', time: '10:00' });
+    expect(result.current.serviceSchedules['19']).toEqual({ date: '2026-09-09', time: '10:00', duration_minutes: 30 });
+    expect(result.current.selectedServices[0].duration_minutes).toBe(30);
+    expect(result.current.selectedServices[0].shoot_duration_minutes).toBe(120);
     const source = result.current.editingScheduleSource;
     const serviceSchedule = result.current.serviceSchedules['19'];
     expect(buildShootScheduleTimestamp(serviceSchedule.date, serviceSchedule.time, source?.timezone,
       findServiceScheduleTimestamp(source, '19'))).toBe(schedule.timezone
       ? '2026-09-09T14:00:00.000Z' : '2026-09-09T10:00:00');
+  });
+});
+
+describe('booking catalogue duration mapping', () => {
+  it('uses saved service defaults and matching tiers without interpreting delivery time as shoot length', async () => {
+    mocks.get.mockImplementation(async (url: string) => ({ data: { data: url.endsWith('/services') ? [
+      { id: 19, name: 'Photography', price: 200, delivery_time: 48, shoot_duration_minutes: 120 },
+      { id: 21, name: 'Video', price: 300, shoot_duration_minutes: 150, pricing_type: 'variable',
+        sqft_ranges: [{ sqft_from: 1, sqft_to: 2000, duration: 90 }] },
+    ] : [] } }));
+    const { result } = renderHook(() => useBookShootWorkflow({ user: null, isClientAccount: false,
+      clientIdFromUrl: null, clientNameFromUrl: null, clientCompanyFromUrl: null,
+      editShootId: null, canAdjustBookingAmount: false }));
+    await waitFor(() => expect(result.current.packages).toHaveLength(2));
+    expect(resolveServiceShootDuration(result.current.packages[0], 1000)).toBe(120);
+    expect(resolveServiceShootDuration(result.current.packages[1], 1000)).toBe(90);
+    expect(resolveServiceShootDuration(result.current.packages[1], 3000)).toBe(150);
   });
 });
 

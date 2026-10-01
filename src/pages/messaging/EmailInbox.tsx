@@ -13,9 +13,21 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Support from '@/pages/Support';
+import { StaffEmailRoute } from './StaffEmailRoute';
+import { isSupportInbox } from './messagingSupport';
+import { canUseEmailWorkspace } from '@/utils/messagingRoles';
 
 export default function EmailInbox() {
-  const { role } = useAuth();
+  const [params] = useSearchParams();
+  const { user, role } = useAuth();
+  if (isSupportInbox(params.toString())) return <DashboardLayout><div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden"><EmailNavigation /><Support /></div></DashboardLayout>;
+  if (!canUseEmailWorkspace(role)) return <StaffEmailRoute>{null}</StaffEmailRoute>;
+  return <EmailMessagesInbox key={`${user?.id}:${role}`} />;
+}
+
+function EmailMessagesInbox() {
+  const { role, user } = useAuth();
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -25,7 +37,7 @@ export default function EmailInbox() {
 
   // Fetch messages
   const { data: messagesData, isLoading, refetch } = useQuery({
-    queryKey: ['email-messages', statusFilter, searchQuery],
+    queryKey: ['email-messages', user?.id, role, statusFilter, searchQuery],
     queryFn: () =>
       getEmailMessages({
         status: statusFilter || undefined,
@@ -41,7 +53,7 @@ export default function EmailInbox() {
   }, [searchParams]);
 
   const { data: directMessage, isLoading: directMessageLoading } = useQuery({
-    queryKey: ['email-message', directMessageId],
+    queryKey: ['email-message', user?.id, role, directMessageId],
     queryFn: () => getEmailMessage(directMessageId!),
     enabled: directMessageId !== null,
   });

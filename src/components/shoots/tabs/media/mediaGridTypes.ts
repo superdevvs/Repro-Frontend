@@ -10,6 +10,7 @@ export interface MediaGridProps {
   onSelectionChange: (fileId: string) => void;
   onSelectAll?: () => void;
   canSelect: boolean;
+  canSelectFile?: (file: MediaFile) => boolean;
   sortOrder?: MediaSortOrder;
   /** Whether tiles accept drags. Manual order still applies when false. */
   manualSortActive?: boolean;

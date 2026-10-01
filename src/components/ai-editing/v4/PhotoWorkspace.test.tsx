@@ -22,6 +22,24 @@ describe('photo generation scope and selected versions', () => {
     expect(screen.getByRole('button', { name: 'Needs review 0' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Ready 1' })).toBeVisible();
   });
+  it('shows one result per HDR stack, refreshes its thumbnail, and keeps every exposure in generation scope', async () => {
+    const props = makeProps();
+    const media = Array.from({ length: 6 }, (_, i) => ({ id: `raw-${i}`, name: `Exposure ${i}.CR3`, kind: 'raw' as const, url: `https://media.test/raw-${i}.jpg`, thumbnailUrl: `https://media.test/raw-${i}.jpg` }));
+    props.preset = { ...props.preset, id: 'full-shoot', name: 'Full Shoot' };
+    props.workspace = { ...props.workspace, shootId: 42, presetId: 'full-shoot', status: 'draft', media, requiresReview: false,
+      photoGroups: [{ mediaId: 'raw-2', sourceMediaIds: media.slice(0, 5).map(item => item.id), sourceFileIds: [1, 2, 3, 4, 5], name: 'Living room-HDR.jpg' }, { mediaId: 'raw-5', sourceMediaIds: ['raw-5'], sourceFileIds: [6], name: 'Single.jpg' }] };
+    const { container, rerender } = render(<PhotoWorkspace {...props} />);
+    const strip = screen.getByRole('group', { name: 'Edited images · 6 original exposures' });
+    expect(within(strip).getAllByRole('button')).toHaveLength(2);
+    fireEvent.click(within(container.querySelector('.v4-editor-desktop-actions') as HTMLElement).getByRole('button', { name: 'Generate 2 photos' }));
+    await waitFor(() => expect(props.onGenerate).toHaveBeenCalledWith(expect.objectContaining({ frames: media.map(item => ({ mediaId: item.id, method: 'fit', duration: 5 })) })));
+    const outputs = props.workspace.photoGroups!.map((group, i) => ({ id: `out-${i}`, name: `2912-park-avenue_00${i + 1}.jpg`, mediaId: group.mediaId, sourceMediaIds: group.sourceMediaIds, url: `https://media.test/merged-${i}.jpg`, kind: 'image' as const, status: 'completed', version: 1 }));
+    rerender(<PhotoWorkspace {...props} workspace={{ ...props.workspace, status: 'completed', outputs }} />);
+    expect(within(strip).getByRole('button', { name: 'Select 2912-park-avenue_001.jpg' }).querySelector('img')).toHaveAttribute('src', 'https://media.test/merged-0.jpg');
+    fireEvent.click(screen.getByRole('button', { name: 'Gallery' }));
+    expect(screen.getByRole('button', { name: 'Ready 2' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Approve shoot edits' })).not.toBeInTheDocument();
+  });
   it('requires explicit full-shoot review and approval before delivery', async () => {
     const props = makeProps();
     props.preset = { ...props.preset, id: 'full-shoot', name: 'Full Shoot' };

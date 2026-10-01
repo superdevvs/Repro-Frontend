@@ -373,6 +373,7 @@ export function ShootMediaHeader({
                     className="h-7 w-7 relative bg-red-600 hover:bg-red-700 text-white"
                     onClick={handleDeleteFiles}
                     title={`Delete ${selectedFiles.size} file(s)`}
+                    aria-label={`Delete ${selectedFiles.size} selected file${selectedFiles.size === 1 ? '' : 's'}`}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     {selectedFiles.size > 0 && (
@@ -520,6 +521,7 @@ export function ShootMediaHeader({
                 className="h-7 w-7 relative flex-shrink-0 bg-red-600 hover:bg-red-700 text-white"
                 onClick={handleDeleteFiles}
                 title={`Delete ${selectedFiles.size} file(s)`}
+                aria-label={`Delete ${selectedFiles.size} selected file${selectedFiles.size === 1 ? '' : 's'}`}
               >
                 <Trash2 className="h-3.5 w-3.5" />
                 {selectedFiles.size > 0 && (

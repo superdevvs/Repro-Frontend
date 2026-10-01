@@ -1,5 +1,5 @@
 import { EmptyState } from '@/components/ui/empty-state';
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useCallback, useMemo, useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -27,6 +27,7 @@ import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { MediaViewer } from './media/MediaViewer';
 import { getMediaImageUrl, getMediaSrcSet } from './media/mediaPreviewUtils';
 import { getShootClientReleaseAccess } from '../details/shootClientReleaseAccess';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface ShootDetailsIssuesTabProps {
   shoot: ShootData;
@@ -76,6 +77,11 @@ export function ShootDetailsIssuesTab({
   onShootUpdate,
 }: ShootDetailsIssuesTabProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const isRep = ['salesrep', 'sales_rep', 'rep', 'representative'].includes(role.trim().toLowerCase());
+  const canReviewRequests = isAdmin || isRep;
+  const canCreateRequest = isAdmin || isClient || (isRep && user?.id != null
+    && String(shoot.assignedRepId ?? '') === String(user.id));
   const [requests, setRequests] = useState<Request[]>([]);
   const [requestManagerOpen, setRequestManagerOpen] = useState(false);
   const [markingResolved, setMarkingResolved] = useState(false);
@@ -137,7 +143,7 @@ export function ShootDetailsIssuesTab({
     }
   };
 
-  const loadRequests = async () => {
+  const loadRequests = useCallback(async () => {
     if (!shoot.id) return;
 
     try {
@@ -156,11 +162,11 @@ export function ShootDetailsIssuesTab({
     } catch (error) {
       console.error('Error loading requests:', error);
     }
-  };
+  }, [shoot.id]);
 
   useEffect(() => {
     void loadRequests();
-  }, [shoot.id]);
+  }, [loadRequests]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -177,12 +183,12 @@ export function ShootDetailsIssuesTab({
       window.removeEventListener('shoot-request-created', handleRequestSync);
       window.removeEventListener('shoot-request-updated', handleRequestSync);
     };
-  }, [shoot.id]);
+  }, [loadRequests, shoot.id]);
 
   // Filter requests based on role
   const visibleRequests = requests.filter(request => {
     if (request.status === 'dismissed') return false;
-    if (isAdmin) return true;
+    if (canReviewRequests) return true;
     if (isClient) {
       const currentUserId = localStorage.getItem('userId') || '';
       return request.raisedBy.id === currentUserId || request.raisedBy.role === 'client';
@@ -377,10 +383,10 @@ export function ShootDetailsIssuesTab({
               {markingResolved ? 'Submitting...' : 'Mark Resolved & Resubmit'}
             </Button>
           )}
-          {(isAdmin || isClient) && (
+          {(canReviewRequests || isClient) && (
             <Button onClick={() => setRequestManagerOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              {isClient ? 'Create request' : 'Add request'}
+              {isClient ? 'Create request' : canCreateRequest ? 'Add request' : 'Manage requests'}
             </Button>
           )}
         </div>
@@ -423,7 +429,7 @@ export function ShootDetailsIssuesTab({
                     </div>
                   </div>
                   {/* Admin: Assign to photographer or editor */}
-                  {request.status === 'resolved' && (isAdmin || isClient) && (
+                  {request.status === 'resolved' && (canReviewRequests || isClient) && (
                     <Button
                       variant="outline"
                       size="sm"
@@ -433,7 +439,7 @@ export function ShootDetailsIssuesTab({
                       Dismiss
                     </Button>
                   )}
-                  {isAdmin && request.status !== 'resolved' && (
+                  {canReviewRequests && request.status !== 'resolved' && (
                     request.assignedToRole ? (
                       <Button variant="outline" size="sm" className="gap-1.5" disabled>
                         <UserCog className="h-3.5 w-3.5" />
@@ -535,6 +541,8 @@ export function ShootDetailsIssuesTab({
         onClose={() => setRequestManagerOpen(false)}
         shootId={shoot.id}
         isAdmin={isAdmin}
+        isRep={isRep}
+        canCreateRequest={canCreateRequest}
         isPhotographer={isPhotographer}
         isEditor={isEditor}
         isClient={isClient}
@@ -561,6 +569,3 @@ export function ShootDetailsIssuesTab({
     </div>
   );
 }
-
-
-

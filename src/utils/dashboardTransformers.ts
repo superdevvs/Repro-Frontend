@@ -19,6 +19,7 @@ import { extractLocalYmd } from '@/utils/shootLocalDate';
 
 const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSummary => ({
   id: shoot.id,
+  completedAt: shoot.completed_at ?? null,
   dayLabel: shoot.day_label ?? 'Unscheduled',
   timeLabel: shoot.time_label ?? null,
   // The backend's start_time ISO carries the shoot's local date in its prefix;
@@ -29,6 +30,11 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
   addressLine: shoot.address_line ?? 'No address on file',
   cityStateZip: shoot.city_state_zip ?? '',
   status: shoot.status ?? null,
+  cancellationRequestedAt: shoot.cancellation_requested_at ?? null,
+  cancellationReason: shoot.cancellation_reason ?? null,
+  holdRequestedAt: shoot.hold_requested_at ?? null,
+  holdRequestedBy: shoot.hold_requested_by ?? null,
+  holdReason: shoot.hold_reason ?? null,
   workflowStatus: shoot.workflow_status ?? null,
   canViewInvoice: shoot.can_view_invoice,
   canSubmitRaw: Boolean(shoot.can_submit_raw ?? shoot.canSubmitRaw),
@@ -191,6 +197,9 @@ export const transformDashboardOverview = (
     return {
       stats: normalizeStats(response.stats),
       upcomingShoots,
+      latestDeliveries: Array.isArray(response.latest_deliveries)
+        ? response.latest_deliveries.map(normalizeShoot)
+        : undefined,
       photographers: Array.isArray(response.photographers) 
         ? response.photographers.map(normalizePhotographer)
         : [],

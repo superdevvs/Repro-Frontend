@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { resolveServiceShootDuration } from '@/utils/shootDuration';
 import { useMultiUnitBooking } from '@/features/shoot-units/useMultiUnitBooking';
 import { bookingSummaryInfo } from './bookingSummaryInfo';
 import { useLocation } from 'react-router-dom';
@@ -432,6 +433,7 @@ export const useBookShootController = () => {
         const servicePayload: Record<string, unknown> = {
           id: service.id,
           quantity: service.quantity ?? 1,
+          duration_minutes: resolveServiceShootDuration(service, sqft, serviceSchedules[service.id]?.duration_minutes),
           photographer_id: assignedPhotographerId,
           scheduled_at: buildBookShootServiceSchedule(service.id, serviceSchedules, orderDate, orderTime || time, { ...(scheduleSource || {}), timezone: bookingTimezone }),
           is_deliverable: true,
@@ -459,6 +461,7 @@ export const useBookShootController = () => {
       });
       const serviceItemsPayload = servicesPayload.map(service => ({
         service_id: service.id,
+        duration_minutes: service.duration_minutes,
         ...(service.price !== undefined ? { price: service.price } : {}),
         ...(service.quantity !== undefined ? { quantity: service.quantity } : {}),
         photographer_id: service.photographer_id,

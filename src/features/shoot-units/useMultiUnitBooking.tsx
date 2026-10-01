@@ -22,7 +22,7 @@ export function useMultiUnitBooking({ draft, setDraft, catalog, legacyServices, 
     const line = draft.lines.find(item => item.unit_client_key === activeUnit.client_key && item.service_id === service.id);
     return line ? [{ ...service, price: linePrice(line, activeUnit, catalog), quantity: normalizeBookingQuantity(line.quantity) }] : [];
   }) : [], [catalog, draft.lines, activeUnit]);
-  const scheduleDraft = React.useMemo(() => ({ ...draft, defaults: Object.fromEntries(catalog.map(service => [service.id, { date: serviceSchedules[service.id]?.date, time: serviceSchedules[service.id]?.time, photographer_id: servicePhotographers[service.id] }])) }), [draft, catalog, serviceSchedules, servicePhotographers]);
+  const scheduleDraft = React.useMemo(() => ({ ...draft, defaults: Object.fromEntries(catalog.map(service => [service.id, { date: serviceSchedules[service.id]?.date, time: serviceSchedules[service.id]?.time, duration_minutes: serviceSchedules[service.id]?.duration_minutes, photographer_id: servicePhotographers[service.id] }])) }), [draft, catalog, serviceSchedules, servicePhotographers]);
   const schedule = React.useMemo(() => resolveUnitSchedule(scheduleDraft, catalog, { date: date ? toDateInputValue(date) : '', time, photographer_id: photographer }), [scheduleDraft, catalog, date, time, photographer]);
   const enable = () => {
     const unit = makeUnitDraft({ label: String(propertyDetails?.aptSuite || '1'), sqft: propertySqft, beds: Number(propertyDetails?.bedrooms ?? propertyDetails?.bedRooms ?? 0), baths: Number(propertyDetails?.bathrooms ?? propertyDetails?.bathRooms ?? 0) });
