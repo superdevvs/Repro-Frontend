@@ -12,6 +12,8 @@ import { ChevronsDown, Filter, List, MoreVertical, X } from 'lucide-react';
 import { DATE_RANGE_OPTIONS, SERVICE_LABELS, STATUS_FILTERS } from './shootsTabsCardUtils';
 import type { useShootsTabsCardController } from './useShootsTabsCardController';
 import { DASHBOARD_MOBILE_LIST_SHELL_CLASS, DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
+import { EarlierShootsStack } from './EarlierShootsStack';
+import { isStaffShootStackRole } from './earlierUnfinishedShoots';
 
 export function EditingManagerShootsTabsView({ model }: { model: ReturnType<typeof useShootsTabsCardController> }) {
   const {
@@ -47,7 +49,13 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
     loadMoreShoots,
     listMaxHeight,
     renderShootCard,
+    role,
+    onSelect,
+    editingManagerEarlierShoots,
+    isCompactDashboardViewport,
   } = model;
+  const staffStack = isStaffShootStackRole(role);
+  const inlineCompactControl = staffStack && isCompactDashboardViewport;
 
   const renderCompactToggle = (opts?: { iconOnly?: boolean; className?: string }) => {
     const iconOnly = Boolean(opts?.iconOnly);
@@ -65,6 +73,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
           opts?.className,
         )}
         aria-label={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
+        aria-pressed={isCompactMobile}
         title={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
       >
         <List size={14} className={cn(!iconOnly && 'mr-1')} />
@@ -75,7 +84,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
 
     return (
       <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex flex-col h-full flex-1 relative min-h-0")}>
-        <div className="absolute right-2 top-2 z-10 flex items-center gap-1 sm:hidden">
+        {!staffStack && <div className="absolute right-2 top-2 z-10 flex items-center gap-1 sm:hidden">
           {renderCompactToggle({ iconOnly: true })}
           <button
             onClick={() => setIsMenuOpen((prev) => !prev)}
@@ -84,10 +93,10 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
           >
             {isMenuOpen ? <ChevronsDown size={16} /> : <MoreVertical size={16} />}
           </button>
-        </div>
+        </div>}
 
         {/* Sub-tabs denser than section pills: tight chips, no wrap, scroll at ~390px. */}
-        <div className="mb-1 flex min-w-0 flex-nowrap items-center justify-between gap-1.5 pr-14 sm:mb-2 sm:flex-wrap sm:gap-3 sm:pr-0">
+        <div className={cn('mb-1 flex min-w-0 flex-nowrap items-center justify-between gap-1.5 sm:mb-2 sm:flex-wrap sm:gap-3', !staffStack && 'pr-14 sm:pr-0')}>
           <div className="flex min-w-0 flex-1 items-center gap-4">
             <h2 className="hidden sm:block text-lg font-bold text-foreground">{title}</h2>
             <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain hidden-scrollbar">
@@ -121,7 +130,8 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
               </div>
             </div>
           </div>
-          <div className="hidden sm:flex items-center gap-2">
+          <div className={cn('items-center gap-2', staffStack ? 'flex' : 'hidden sm:flex')}>
+            {inlineCompactControl && renderCompactToggle({ iconOnly: true })}
             <Button
               variant="secondary"
               size="sm"
@@ -146,7 +156,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
           </div>
         </div>
 
-        {isMenuOpen && (
+        {!staffStack && isMenuOpen && (
           <div className="-mt-0.5 mb-2 flex items-center gap-2 sm:hidden">
             <Button
               variant="secondary"
@@ -440,7 +450,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
         <div ref={filterPanelHostRef} />
 
         <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', DASHBOARD_MOBILE_LIST_SHELL_CLASS)}>
-          {editingManagerPaginatedGroups.length === 0 ? (
+          {editingManagerPaginatedGroups.length === 0 && (!staffStack || editingManagerEarlierShoots.length === 0) ? (
             <div className="flex-1 w-full min-h-[120px] flex items-center justify-center text-center text-sm text-slate-500">
               {activeEditingManagerTab?.emptyStateText || 'No shoots found.'}
             </div>
@@ -448,15 +458,16 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
             <div
               ref={scrollContainerRef}
               onScroll={handleScroll}
-              className="flex-1 min-h-0 space-y-6 overflow-y-auto hidden-scrollbar"
+              className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden hidden-scrollbar"
               // Cap the EM upcoming-style list (~10 cards); keep inner scroll + sticky day pills.
               style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
             >
-              <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
+              {staffStack && editingManagerEarlierShoots.length > 0 && <EarlierShootsStack shoots={editingManagerEarlierShoots} role={role} onSelect={onSelect} className="mb-4" />}
+              {!inlineCompactControl && <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
                 {renderCompactToggle({ className: 'hidden sm:inline-flex' })}
-              </div>
-              {editingManagerPaginatedGroups.map((group) => (
-                <div key={group.label} className="space-y-3">
+              </div>}
+              {editingManagerPaginatedGroups.map((group, groupIndex) => (
+                <div key={group.label} className={cn('space-y-3', groupIndex > 0 && 'mt-6')}>
                   <div className="sticky top-0 z-10 bg-card py-0.5">
                     <div className="inline-flex w-fit items-center gap-2 rounded-full bg-gradient-to-r from-primary/20 to-transparent py-1 pl-2 pr-8">
                       <span className="h-2 w-2 rounded-full bg-primary" />
@@ -471,7 +482,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
               {editingManagerHasMore && (
                 <div
                   ref={loadMoreSentinelRef}
-                  className="flex justify-center py-2"
+                  className="flex justify-center py-2 mt-6"
                 >
                   <button
                     type="button"

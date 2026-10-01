@@ -7,14 +7,13 @@ import { DashboardShootSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
 import { cn } from '@/lib/utils';
 import { hasActiveTextSelection } from '@/lib/textSelection'
-import { MapPin, Sun, CloudRain, Cloud, Snowflake, Filter, Camera, Film, Map as MapIcon, Home, Sparkles, Check, X, Edit, Copy, Download } from 'lucide-react';
+import { MapPin, Sun, CloudRain, Cloud, Snowflake, Filter, Check, X, Edit, Copy, Download, List, LayoutGrid } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { ServicePills } from './ServicePills';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import { downloadShootRawFiles } from '@/utils/shootMediaDownload';
-import { DroneIcon3 } from '@/components/icons/DroneIcon3';
 
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -33,6 +32,8 @@ import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboa
 import { canShowShootPaymentStatusForRole } from '@/utils/shootPaymentVisibility';
 import { ClientPaymentPill } from '@/features/dashboard/components/ClientPaymentPill';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { EarlierShootsStack } from './EarlierShootsStack';
+import { isStaffShootStackRole, useEarlierShoots } from './earlierUnfinishedShoots';
 import {
   DASHBOARD_MOBILE_PANEL_CLASS,
   measureShootListPeekHeightPx,
@@ -157,14 +158,6 @@ const defaultFilters: FiltersState = {
   },
 };
 
-const groupShoots = (shoots: DashboardShootSummary[]) =>
-  shoots.reduce<Record<string, DashboardShootSummary[]>>((acc, shoot) => {
-    const label = shoot.dayLabel || 'Upcoming';
-    if (!acc[label]) acc[label] = [];
-    acc[label].push(shoot);
-    return acc;
-  }, {});
-
 const parseShootDate = getDashboardShootDisplayDate;
 
 // Local-day Date for DISPLAY (month/day/weekday tiles + day grouping). Sourced
@@ -205,33 +198,7 @@ const matchesDateRange = (shoot: DashboardShootSummary, filters: FiltersState) =
   }
 };
 
-const getWeatherIcon = (temperature?: string | null) => {
-  if (!temperature) return <Sun size={16} />;
-  const tempNum = parseInt(temperature, 10);
-  if (Number.isNaN(tempNum)) return <Sun size={16} />;
-  if (tempNum <= 32) return <Snowflake size={16} />;
-  if (tempNum <= 55) return <Cloud size={16} />;
-  if (tempNum >= 90) return <Sun size={16} />;
-  return <CloudRain size={16} />;
-};
-
 const getServiceKey = (label: string, type?: string) => type || label.toLowerCase().replace(/\s+/g, '_');
-
-const SERVICE_ICON_MAP: Record<string, React.ReactNode> = {
-  hdr: <Camera size={12} />,
-  hdr_photos: <Camera size={12} />,
-  hdr_photo: <Camera size={12} />,
-  drone: <DroneIcon3 className="w-3 h-3" />,
-  drone_shots: <DroneIcon3 className="w-3 h-3" />,
-  floorplan: <MapIcon size={12} />,
-  floor_plan: <MapIcon size={12} />,
-  hd_video: <Film size={12} />,
-  matterport: <Home size={12} />,
-  matterport_3d: <Home size={12} />,
-  virtual_tour: <Home size={12} />,
-  twilight: <Sparkles size={12} />,
-  social_media: <Film size={12} />,
-};
 
 const countActiveFilters = (filters: FiltersState) => {
   let count = 0;
@@ -273,6 +240,24 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   const hideWeather = role === 'editor';
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const isCompactDashboardViewport = useMediaQuery('(max-width: 1024px)');
+  const hasStaffStack = isStaffShootStackRole(role);
+  const [compactPreference, setCompactPreference] = useState(() => {
+    try {
+      return window.localStorage.getItem('dashboard-shoots-compact') === '1';
+    } catch {
+      return false;
+    }
+  });
+  const compactCards = hasStaffStack && compactPreference;
+  const toggleCompactCards = () => {
+    const next = !compactPreference;
+    setCompactPreference(next);
+    try {
+      window.localStorage.setItem('dashboard-shoots-compact', next ? '1' : '0');
+    } catch {
+      // The current view still works when local preferences cannot be saved.
+    }
+  };
   const [filters, setFilters] = useState<FiltersState>(defaultFilters);
   const [draftFilters, setDraftFilters] = useState<FiltersState>(defaultFilters);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -497,6 +482,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   }, [shoots, filters, showAssignmentFilters]);
 
   const activeFilterCount = countActiveFilters(filters);
+  const { earlier: earlierShoots, remaining: calendarShoots } = useEarlierShoots(filteredShoots, role);
 
   const { visibleGroups, hasPastDays, pastButtonLabel } = useMemo(() => {
     const today = startOfDay(new Date());
@@ -506,7 +492,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
       { label: string; shoots: DashboardShootSummary[]; isPast: boolean; isToday: boolean; dayTime: number; dayOffset: number | null }
     >();
 
-    filteredShoots.forEach((shoot) => {
+    calendarShoots.forEach((shoot) => {
       const normalizedLabel = (shoot.dayLabel || '').toLowerCase();
       const label =
         shoot.dayLabel ||
@@ -642,7 +628,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
       hasPastDays,
       pastButtonLabel: showPastDays ? 'Hide' : 'Previous shoots',
     };
-  }, [filteredShoots, showPastDays, showRequestsFirst]);
+  }, [calendarShoots, showPastDays, showRequestsFirst, isEditorRole, formatDate]);
 
   const getRelativeGroupLabel = useCallback((group: { label: string; shoots: DashboardShootSummary[]; isToday?: boolean; dayTime?: number; dayOffset?: number | null }) => {
     const count = group.shoots.length;
@@ -770,7 +756,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
       .querySelectorAll<HTMLElement>('[data-shoot-card="true"]')
       .forEach((card) => observer.observe(card));
     return () => observer.disconnect();
-  }, [paginatedGroups, weatherMap, isCompactDashboardViewport]);
+  }, [paginatedGroups, weatherMap, isCompactDashboardViewport, compactCards]);
 
   const listMaxHeight = useMemo(
     () =>
@@ -857,6 +843,21 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
               onClick={() => setShowRequestsFirst((prev) => !prev)}
             >
               Shoot requests +{requestedShootsCount}
+            </Button>
+          )}
+          {hasStaffStack && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              aria-label={compactCards ? 'Show full shoot cards' : 'Show compact shoot cards'}
+              aria-pressed={compactCards}
+              title={compactCards ? 'Show full shoot cards' : 'Show compact shoot cards'}
+              className={cn('text-xs rounded-full text-muted-foreground', isCompactDashboardViewport && 'h-9 w-9 p-0')}
+              onClick={toggleCompactCards}
+            >
+              {compactCards ? <LayoutGrid size={15} /> : <List size={15} />}
+              {!isCompactDashboardViewport && <span className="ml-1.5">{compactCards ? 'Full cards' : 'Compact'}</span>}
             </Button>
           )}
           {hasPastDays && (
@@ -1163,7 +1164,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
 
       <div ref={filterPanelHostRef} />
 
-      {paginatedGroups.length === 0 ? (
+      {paginatedGroups.length === 0 && earlierShoots.length === 0 ? (
         <ShootEmptyState title={emptyText} filtered={activeFilterCount > 0} onReset={resetFilters} allowBooking={displayTitle === 'Upcoming shoots' || displayTitle === 'Scheduled shoots'} className="flex-1" />
       ) : (
         <div 
@@ -1172,6 +1173,13 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
           className="flex-1 min-h-0 space-y-6 overflow-y-auto overflow-x-hidden hidden-scrollbar"
           style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
         >
+          {earlierShoots.length > 0 && (
+            <EarlierShootsStack
+              shoots={earlierShoots}
+              role={role}
+              onSelect={(shoot) => onSelect(shoot, weatherMap[shoot.id])}
+            />
+          )}
           {paginatedGroups.map((group) => (
             <div key={group.label} className="space-y-3">
               <div className="sticky top-0 z-10 bg-card py-0.5">
@@ -1212,13 +1220,42 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                     }}
                     className={cn(
                       "relative overflow-hidden border rounded-3xl px-5 pt-4 pb-3.5 sm:p-5 hover:shadow-lg transition-all cursor-pointer bg-card group",
+                      compactCards && 'rounded-2xl px-3 py-3 sm:px-4 sm:py-3',
                       isRequested 
                         ? "border-blue-400 bg-blue-50/30 dark:bg-blue-950/20 hover:border-blue-500" 
                         : "border-border hover:border-primary/40"
                     )}
                   >
+                    {compactCards && (
+                      <div className="flex min-w-0 items-start gap-3" data-compact-shoot="true">
+                        <div className="shrink-0 text-center text-[10px] text-muted-foreground">
+                          <p className="font-semibold text-foreground">{formatDate(getSummaryLocalDate(shoot))}</p>
+                          <p className="mt-1 text-primary">{formatTime(getDashboardShootDisplayTime(shoot) || '') || 'Time TBD'}</p>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate text-sm font-semibold text-foreground">{shoot.addressLine}</h3>
+                          <p className="mt-1 truncate text-[10px] text-muted-foreground">
+                            {hideClientInfo ? `Shoot #${shoot.id}` : `${shoot.clientName || 'Client TBD'} · #${shoot.id}`}
+                          </p>
+                          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', statusClass)}>
+                              {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                            </span>
+                            {canShowPaymentStatus && <ClientPaymentPill status={shoot.paymentStatus} />}
+                            {isEditorSubmittedUpload && <span className="text-[10px] text-emerald-500">Submitted for review</span>}
+                          </div>
+                        </div>
+                        {isEditorRole && (
+                          <button type="button" onClick={(event) => void handleEditorDownloadRaw(event, shoot.id)} disabled={downloadBusyId !== null}
+                            aria-label={`Download raw files for ${shoot.addressLine}`} aria-busy={downloadBusyId === shoot.id}
+                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground disabled:opacity-60">
+                            {downloadBusyId === shoot.id ? <Loader2 aria-hidden="true" size={13} /> : <Download size={13} />}
+                          </button>
+                        )}
+                      </div>
+                    )}
                     {/* ── Mobile layout ── */}
-                    <div className="sm:hidden space-y-2.5">
+                    <div className={cn('sm:hidden space-y-2.5', compactCards && 'hidden')}>
                       {/* Row 1: Date+time badge + Weather (right-aligned) */}
                       <div className="flex items-start gap-2">
                         <div className="rounded-xl border border-border bg-background px-2.5 py-1.5 shadow-sm flex-shrink-0 flex items-center gap-2">
@@ -1336,7 +1373,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                     </div>
 
                     {/* ── Desktop layout ── */}
-                    <div className="hidden sm:grid sm:grid-cols-[auto,1fr,auto] items-stretch gap-4">
+                    <div className={cn('hidden sm:grid sm:grid-cols-[auto,1fr,auto] items-stretch gap-4', compactCards && 'sm:hidden')}>
                       <div className="flex flex-col items-center gap-2">
                         {isRequested && (
                           <span
@@ -1562,21 +1599,5 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
         </div>
       )}
     </Card>
-  );
-}, (prevProps, nextProps) => {
-  // Custom comparison to prevent unnecessary re-renders
-  if (prevProps.shoots.length !== nextProps.shoots.length) return false;
-  if (prevProps.shoots !== nextProps.shoots) {
-    // Check if shoot IDs are the same (shallow comparison)
-    const prevIds = prevProps.shoots.map(s => s.id).join(',');
-    const nextIds = nextProps.shoots.map(s => s.id).join(',');
-    if (prevIds !== nextIds) return false;
-  }
-  return (
-    prevProps.onSelect === nextProps.onSelect &&
-    prevProps.onApprove === nextProps.onApprove &&
-    prevProps.onDecline === nextProps.onDecline &&
-    prevProps.onModify === nextProps.onModify &&
-    prevProps.onViewInvoice === nextProps.onViewInvoice
   );
 });

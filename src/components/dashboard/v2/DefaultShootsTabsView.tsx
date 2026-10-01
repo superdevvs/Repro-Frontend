@@ -13,6 +13,8 @@ import { ChevronsDown, Filter, List, MoreVertical } from 'lucide-react';
 import { DATE_RANGE_OPTIONS, SERVICE_LABELS, STATUS_FILTERS } from './shootsTabsCardUtils';
 import type { useShootsTabsCardController } from './useShootsTabsCardController';
 import { DASHBOARD_MOBILE_LIST_SHELL_CLASS, DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
+import { EarlierShootsStack } from './EarlierShootsStack';
+import { isStaffShootStackRole } from './earlierUnfinishedShoots';
 
 export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useShootsTabsCardController> }) {
   const {
@@ -58,7 +60,13 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
     renderShootCard,
     upcomingCount,
     requestedCount,
+    role,
+    onSelect,
+    earlierShoots,
+    isCompactDashboardViewport,
   } = model;
+  const staffStack = isStaffShootStackRole(role);
+  const inlineCompactControl = staffStack && isCompactDashboardViewport;
 
   const renderCompactToggle = (opts?: { iconOnly?: boolean; className?: string }) => {
     const iconOnly = Boolean(opts?.iconOnly);
@@ -76,6 +84,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
           opts?.className,
         )}
         aria-label={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
+        aria-pressed={isCompactMobile}
         title={isCompactMobile ? 'Show full shoot cards' : 'Show compact shoot cards'}
       >
         <List size={14} className={cn(!iconOnly && 'mr-1')} />
@@ -91,7 +100,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
       activeTab === 'requested' ? 'h-full flex-1 lg:h-auto lg:flex-none' : 'h-full flex-1',
     )}>
       {/* Compact + 3-dot menu — always visible on mobile chrome */}
-      <div className="sm:hidden absolute top-3 right-3 z-10 flex items-center gap-1">
+      {!staffStack && <div className="sm:hidden absolute top-3 right-3 z-10 flex items-center gap-1">
         {renderCompactToggle({ iconOnly: true })}
         <button
           onClick={() => setIsMenuOpen((prev) => !prev)}
@@ -100,10 +109,10 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
         >
           {isMenuOpen ? <ChevronsDown size={16} /> : <MoreVertical size={16} />}
         </button>
-      </div>
+      </div>}
 
       {/* Header with static "Shoots" title and inline tabs */}
-      <div className="flex flex-wrap items-center justify-between mb-2 gap-3 pr-16 sm:pr-0">
+      <div className={cn('flex flex-wrap items-center justify-between mb-2 gap-3', !staffStack && 'pr-16 sm:pr-0')}>
         <div className="flex items-center gap-4">
           <h2 className="hidden sm:block text-lg font-bold text-foreground">Shoots</h2>
           <div className="flex items-center gap-1 border-b border-transparent pl-1 sm:pl-0">
@@ -149,7 +158,8 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
           </div>
         </div>
         {/* Desktop: inline filter/previous buttons */}
-        <div className="hidden sm:flex items-center gap-2">
+        <div className={cn('items-center gap-2', staffStack ? 'flex' : 'hidden sm:flex')}>
+          {inlineCompactControl && renderCompactToggle({ iconOnly: true })}
           {activeTab === 'upcoming' && (
             <Button
               variant="outline"
@@ -208,7 +218,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
       </div>
 
       {/* Mobile: expandable menu row (shown when 3-dot is tapped) */}
-      {isMenuOpen && (
+      {!staffStack && isMenuOpen && (
         <div className="sm:hidden flex items-center gap-2 mb-3 -mt-1">
           {activeTab === 'upcoming' && (
             <Button
@@ -527,7 +537,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
 
       <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', DASHBOARD_MOBILE_LIST_SHELL_CLASS)}>
         {activeTab === 'upcoming' ? (
-          paginatedGroups.length === 0 ? (
+          paginatedGroups.length === 0 && (!staffStack || earlierShoots.length === 0) ? (
             <ShootEmptyState title="No upcoming shoots" filtered={activeFilterCount > 0} onReset={resetFilters} allowBooking onViewRequested={() => setActiveTab('requested')} className="flex-1" />
           ) : (
             <div 
@@ -539,9 +549,10 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
               // / delivered still use their own adaptive fill elsewhere.
               style={listMaxHeight ? { maxHeight: listMaxHeight, minHeight: isCompactMobile ? '100%' : undefined } : undefined}
             >
-              <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
+              {staffStack && earlierShoots.length > 0 && <EarlierShootsStack shoots={earlierShoots} role={role} onSelect={onSelect} className="mb-4" />}
+              {!inlineCompactControl && <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
                 {renderCompactToggle({ className: 'hidden sm:inline-flex' })}
-              </div>
+              </div>}
               {paginatedGroups.map((group, groupIndex) => (
                 <div key={group.label} className={cn('space-y-3', groupIndex > 0 && 'mt-6')}>
                   <div className="flex items-center justify-between gap-2 sticky top-0 z-10 bg-card py-0.5">
@@ -579,9 +590,9 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
               className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden hidden-scrollbar"
               style={listMaxHeight ? { maxHeight: listMaxHeight, minHeight: isCompactMobile ? '100%' : undefined } : undefined}
             >
-              <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
+              {!inlineCompactControl && <div className="pointer-events-none sticky top-0 z-20 flex h-0 justify-end">
                 {renderCompactToggle({ className: 'hidden sm:inline-flex' })}
-              </div>
+              </div>}
               {requestedGroups.map((group, groupIndex) => (
                 <div key={group.label} className={cn('space-y-3', groupIndex > 0 && 'mt-6')}>
                   <div className="flex items-center justify-between gap-2 sticky top-0 z-10 bg-card py-0.5">

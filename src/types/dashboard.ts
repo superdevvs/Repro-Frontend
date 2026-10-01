@@ -205,6 +205,8 @@ export interface DashboardClientRequest {
 }
 
 export interface DashboardShootSummary {
+  /** Current editor still has an unfinished assigned media lane after other media was delivered. */
+  hasPendingEditorWork?: boolean;
   id: number;
   completedAt?: string | null;
   dayLabel: string;
