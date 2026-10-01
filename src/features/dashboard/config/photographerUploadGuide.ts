@@ -1,9 +1,9 @@
 /** Shared tutorial assets and transcript used by the photographer dashboard. */
 export const photographerUploadGuide = {
   title: "Upload photos and videos to a shoot",
-  video: "/tutorials/photographer-upload-guide.mp4?v=20261001-cursor-2",
-  captions: "/tutorials/photographer-upload-guide.vtt?v=20261001-cursor-2",
-  poster: "/tutorials/photographer-upload-guide.jpg?v=20261001-cursor-2",
+  video: "/tutorials/photographer-upload-guide.mp4?v=20261001-robbie-3",
+  captions: "/tutorials/photographer-upload-guide.vtt?v=20261001-robbie-3",
+  poster: "/tutorials/photographer-upload-guide.jpg?v=20261001-robbie-3",
   transcript: [
     { title: "Upload your shoot media", text: "Here's how to upload your photos and video to a shoot in RE Pro Dashboard, and send everything to the editing team." },
     { title: "Open the right shoot", text: "From your photographer dashboard, open the assigned shoot. Check the property address, then find Raw Uploads. Choose Upload Files, or Upload More if files are already attached." },
