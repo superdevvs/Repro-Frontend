@@ -10,7 +10,7 @@
   } as const;
 
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/components/auth';
@@ -40,6 +40,7 @@ import RegisterForm from './RegisterForm';
 import type { RegisterSuccessPayload } from './registerFormModel';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
+import { getLoginReturnPath } from './loginReturn';
 
 
 const loginSchema = z.object({
@@ -56,6 +57,8 @@ interface LoginFormProps {
 export function LoginForm({ onTabChange }: LoginFormProps = {}) {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const loginReturnPath = getLoginReturnPath(location.search);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('login');
@@ -139,7 +142,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
           ? 'You have successfully registered. Check your email to verify your address.'
           : 'You have successfully registered and logged in!',
     });
-    navigate('/dashboard');
+    navigate(loginReturnPath, { replace: true });
   };
 
   // Example after login API response
@@ -178,11 +181,8 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
         description: 'You have successfully logged in!',
       });
 
-      login(normalizedUser, token); // your auth context method
-      // Navigation is handled by useEffect in Index.tsx based on auth state
-      // or inside the login function if needed, but typically we let the
-      // protected route or the index page redirect authenticated users.
-      navigate('/dashboard');
+      login(normalizedUser, token);
+      navigate(loginReturnPath, { replace: true });
     } catch (error: unknown) {
       console.error("Login error:", error);
       const message =

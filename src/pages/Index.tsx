@@ -3,7 +3,8 @@ import { LoginForm } from '@/components/auth/LoginForm';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { getLoginReturnPath } from '@/components/auth/loginReturn';
 
 const LOGIN_SLIDES = [
   '/login-slides/slide (1).jpg',
@@ -49,6 +50,8 @@ const Index = () => {
   const isMobile = useIsMobile();
   const { isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const loginReturnPath = getLoginReturnPath(location.search);
   const [activeTab, setActiveTab] = useState<string>('login');
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
   const [displayIndex, setDisplayIndex] = useState(0);
@@ -57,9 +60,9 @@ const Index = () => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/dashboard');
+      navigate(loginReturnPath, { replace: true });
     }
-  }, [isAuthenticated, navigate]);
+  }, [isAuthenticated, loginReturnPath, navigate]);
 
   useEffect(() => {
     const html = document.documentElement;
