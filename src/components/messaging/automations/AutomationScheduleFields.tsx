@@ -17,6 +17,34 @@ export function AutomationScheduleFields({ trigger, value = {}, onChange, disabl
   const savedDays = (shootPayment ? value.reminder_days ?? [1, 3, 7] : value.overdue_days ?? [1, 3, 7, 14, 30]).join(', ');
   const [daysText, setDaysText] = useState(savedDays);
   useEffect(() => setDaysText(savedDays), [savedDays]);
+  if (trigger === 'SHOOT_REMINDER' && value.client_email_schedule) {
+    const schedule = value.client_email_schedule;
+    const setTime = (key: keyof NonNullable<AutomationScheduleJson['client_email_schedule']>, next: string | number) =>
+      onChange({ client_email_schedule: { ...schedule, [key]: next } });
+    const timeFields = [
+      ['previous_day_time', 'Day before shoot', '07:00'],
+      ['day_of_time', 'Day of shoot', '07:00'],
+      ['morning_start', 'Morning appointments from', '07:00'],
+      ['morning_end', 'Morning appointments through', '12:00'],
+      ['morning_previous_evening_time', 'Morning appointments: evening before', '19:00'],
+    ] as const;
+    return <div className="space-y-3 rounded-xl border p-4">
+      <p className="text-sm font-medium">Client email reminders</p>
+      <p className="text-xs text-muted-foreground">Times use the appointment timezone. Morning shoots receive the day-before reminder, an evening reminder, and a reminder before the shoot. Their day-of email is skipped.</p>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {timeFields.map(([key, label, fallback]) => <div key={key}>
+          <Label htmlFor={`client-reminder-${key}`}>{label}</Label>
+          <Input id={`client-reminder-${key}`} type="time" value={schedule[key] ?? fallback} disabled={disabled}
+            onChange={(event) => setTime(key, event.target.value)} />
+        </div>)}
+        <div>
+          <Label htmlFor="client-reminder-lead">Morning appointments: minutes before</Label>
+          <Input id="client-reminder-lead" type="number" min="1" max="1440" value={schedule.morning_lead_minutes ?? 120} disabled={disabled}
+            onChange={(event) => setTime('morning_lead_minutes', Math.min(1440, Math.max(1, Number(event.target.value))))} />
+        </div>
+      </div>
+    </div>;
+  }
   if (isTimedShootReminder(trigger)) {
     const offset = value.offset?.match(/^-(\d+)([mhd])$/);
     const minutes = offset ? Number(offset[1]) * (offset[2] === 'd' ? 1440 : offset[2] === 'h' ? 60 : 1) : trigger === 'PHOTOGRAPHER_SHOOT_REMINDER' ? 120 : 1440;

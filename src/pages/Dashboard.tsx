@@ -40,6 +40,7 @@ import { useDashboardSections } from "@/features/dashboard/components/DashboardS
 import { resolveDashboardRoleState } from "@/features/dashboard/roleState";
 import { useAvailabilityWindow } from "@/features/dashboard/hooks/useAvailabilityWindow";
 import { useHoldRequests } from "@/features/dashboard/hooks/useHoldRequests";
+import { canViewOverdueClients, useOverdueClients } from "@/features/dashboard/hooks/useOverdueClients";
 import { useRescheduleRequests } from "@/features/dashboard/hooks/useRescheduleRequests";
 import { canReviewRescheduleRequests } from "@/utils/rescheduleRequests";
 import { useSchedulingPhotographers } from "@/features/dashboard/hooks/useSchedulingPhotographers";
@@ -436,6 +437,9 @@ const Dashboard = () => {
     `${role}:${user?.id ?? "guest"}`,
   );
   const rescheduleRequestsForUi = canReviewReschedules ? rescheduleRequests : undefined;
+  const showOverdueClients = canViewOverdueClients(role);
+  const overdueClients = useOverdueClients(showOverdueClients, `${role}:${user?.id ?? "guest"}`);
+  const overdueClientsForUi = showOverdueClients ? overdueClients : undefined;
   const schedulingPhotographers = useSchedulingPhotographers(role === "salesRep", `${role}:${user?.id ?? "guest"}`);
 
   const openSupportEmail = useCallback(
@@ -566,7 +570,7 @@ const Dashboard = () => {
   const adminRequestIndicatorCount =
     clientRequests.filter((request) => String(request.status ?? '').toLowerCase() !== 'dismissed').length +
     editingRequests.filter((request) => request.status !== 'completed').length +
-    cancellationShoots.length + holdRequests.shoots.length + rescheduleRequests.pendingCount;
+    cancellationShoots.length + holdRequests.shoots.length + rescheduleRequests.pendingCount + overdueClients.total;
 
   const [approvalModalShoot, setApprovalModalShoot] = useState<DashboardShootSummary | null>(null);
   const [declineModalShoot, setDeclineModalShoot] = useState<DashboardShootSummary | null>(null);
@@ -583,6 +587,7 @@ const Dashboard = () => {
   } = useDashboardSections({
     holdRequests,
     rescheduleRequests: rescheduleRequestsForUi,
+    overdueClients: overdueClientsForUi,
     assignPhotographers,
     availablePhotographerIds,
     availabilityError,
@@ -776,6 +781,7 @@ const Dashboard = () => {
             availabilityWindow={availabilityWindow}
             holdRequests={holdRequests}
             rescheduleRequests={rescheduleRequestsForUi}
+            overdueClients={overdueClientsForUi}
             cancellationShoots={cancellationShoots}
             clientRequests={clientRequests}
             clientRequestsLoading={clientRequestsLoading}

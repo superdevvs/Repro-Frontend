@@ -1,5 +1,6 @@
 import type { HoldRequestsState } from "@/features/dashboard/hooks/useHoldRequests";
 import type { RescheduleRequestsState } from "@/features/dashboard/hooks/useRescheduleRequests";
+import type { OverdueClientsState } from "@/features/dashboard/hooks/useOverdueClients";
 import React, { Suspense, lazy } from "react";
 
 import { cn } from "@/lib/utils";
@@ -52,6 +53,7 @@ const LazyEditingRequestsCard = lazy(() =>
 type PipelineFilter = "today" | "this_week" | "month";
 
 interface DashboardSectionsParams {
+  overdueClients?: OverdueClientsState;
   assignPhotographers: DashboardPhotographerSummary[];
   availablePhotographerIds: number[];
   availabilityError: string | null;
@@ -102,6 +104,7 @@ interface DashboardSectionsParams {
 }
 
 export const useDashboardSections = ({
+  overdueClients,
   assignPhotographers,
   availablePhotographerIds,
   availabilityError,
@@ -188,6 +191,7 @@ export const useDashboardSections = ({
     ) : (
       <div id="requests-queue">
         <PendingReviewsCard
+          overdueClients={overdueClients}
           reviews={pendingReviews}
           issues={[]}
           onSelect={(shoot) => handleSelectShoot(shoot)}

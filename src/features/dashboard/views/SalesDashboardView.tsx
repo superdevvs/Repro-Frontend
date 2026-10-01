@@ -1,5 +1,6 @@
 import type { HoldRequestsState } from "@/features/dashboard/hooks/useHoldRequests";
 import type { RescheduleRequestsState } from "@/features/dashboard/hooks/useRescheduleRequests";
+import type { OverdueClientsState } from "@/features/dashboard/hooks/useOverdueClients";
 import React, { Suspense, lazy, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, CheckCircle2, MessageCircle, Users } from "lucide-react";
@@ -39,6 +40,7 @@ const LazyCompletedShootsCard = lazy(() =>
 );
 
 interface SalesDashboardViewProps {
+  overdueClients?: OverdueClientsState;
   availablePhotographerIds: number[];
   availabilityError: string | null;
   availabilityLoading: boolean;
@@ -81,6 +83,7 @@ interface SalesDashboardViewProps {
 }
 
 export const SalesDashboardView = ({
+  overdueClients,
   availablePhotographerIds,
   availabilityError,
   availabilityLoading,
@@ -125,10 +128,11 @@ export const SalesDashboardView = ({
     ['open', 'in-progress', 'in_progress'].includes(request.status),
   ).length;
   const pendingRequestCount = pendingReviews.length + clientRequestCount + cancellationShoots.length
-    + (holdRequests?.shoots.length ?? 0) + (rescheduleRequests?.pendingCount ?? 0);
+    + (holdRequests?.shoots.length ?? 0) + (rescheduleRequests?.pendingCount ?? 0) + (overdueClients?.total ?? 0);
   const salesRepRequestsCard = (
     <div id="requests-queue" data-onboarding-target="salesrep-requests">
       <PendingReviewsCard
+        overdueClients={overdueClients}
         reviews={pendingReviews}
         issues={[]}
         onSelect={(shoot) => onSelectShoot(shoot)}
