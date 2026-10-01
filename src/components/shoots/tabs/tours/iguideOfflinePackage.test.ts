@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { getNormalizedIguideSync } from '@/utils/shootTourData';
 import {
   downloadIguideOfflinePackage,
+  formatFileSize,
   IGUIDE_OFFLINE_PACKAGE_MAX_BYTES,
   parseIguideOfflinePackageResponse,
   validateIguideOfflineZip,
@@ -20,14 +21,26 @@ afterEach(() => {
 });
 
 describe('iGUIDE offline package helpers', () => {
-  it('accepts browser ZIP MIME variants and enforces the 256 MB limit', () => {
+  it('accepts browser ZIP MIME variants and rejects non-ZIP files', () => {
     expect(validateIguideOfflineZip(makeFile('tour.zip', 'application/octet-stream'))).toBeNull();
     expect(validateIguideOfflineZip(makeFile('tour.ZIP', ''))).toBeNull();
     expect(validateIguideOfflineZip(makeFile('tour.txt'))).toMatch(/ending in \.zip/i);
     expect(validateIguideOfflineZip(makeFile('tour.zip', 'text/plain'))).toMatch(/not recognized/i);
-    expect(validateIguideOfflineZip(
-      makeFile('tour.zip', 'application/zip', IGUIDE_OFFLINE_PACKAGE_MAX_BYTES + 1),
-    )).toMatch(/256 MB/i);
+  });
+
+  it('accepts the reported 868,999,851-byte export and ZIPs through exactly 1 GiB', () => {
+    expect(validateIguideOfflineZip(makeFile('tour.zip', 'application/zip', 868_999_851))).toBeNull();
+    expect(validateIguideOfflineZip(makeFile('tour.zip', 'application/zip', 1_073_741_824))).toBeNull();
+    expect(IGUIDE_OFFLINE_PACKAGE_MAX_BYTES).toBe(1_073_741_824);
+    expect(validateIguideOfflineZip(makeFile('tour.zip', 'application/zip', 1_073_741_825)))
+      .toBe('The ZIP is larger than the 1.0 GB upload limit.');
+    expect(validateIguideOfflineZip(makeFile('tour.zip', 'application/zip', 0)))
+      .toBe('The selected ZIP is empty.');
+  });
+
+  it('formats the reported export and upload limit in readable units', () => {
+    expect(formatFileSize(868_999_851)).toBe('828.7 MB');
+    expect(formatFileSize(IGUIDE_OFFLINE_PACKAGE_MAX_BYTES)).toBe('1.0 GB');
   });
 
   it('keeps the package lifecycle UUID separate from the numeric media file id', () => {

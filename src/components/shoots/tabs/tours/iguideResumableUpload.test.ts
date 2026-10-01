@@ -185,8 +185,10 @@ afterEach(() => {
 });
 
 describe('resumable iGUIDE upload', () => {
-  it('uploads the 144,018,253-byte sample shape in 28 exact 5 MiB ranges with authenticated headers', async () => {
-    const size = 144_018_253;
+  it.each([
+    { size: 144_018_253, chunks: 28, finalStart: 141_557_760 },
+    { size: 868_999_851, chunks: 166, finalStart: 865_075_200 },
+  ])('uploads a $size-byte ZIP in $chunks exact 5 MiB ranges with authenticated headers', async ({ size, chunks, finalStart }) => {
     const file = virtualFile(size);
     window.localStorage.setItem('authToken', 'token-123');
     window.localStorage.setItem('originalUser', JSON.stringify({ id: 1 }));
@@ -226,12 +228,12 @@ describe('resumable iGUIDE upload', () => {
       onProgress: (value) => progress.push(value.percent),
     });
 
-    expect(MockChunkXMLHttpRequest.instances).toHaveLength(28);
+    expect(MockChunkXMLHttpRequest.instances).toHaveLength(chunks);
     expect(MockChunkXMLHttpRequest.instances[0].headers['Content-Range'])
-      .toBe('bytes 0-5242879/144018253');
-    expect(MockChunkXMLHttpRequest.instances[27].headers['Content-Range'])
-      .toBe('bytes 141557760-144018252/144018253');
-    expect(MockChunkXMLHttpRequest.instances[27].headers['X-Chunk-SHA256']).toHaveLength(64);
+      .toBe(`bytes 0-5242879/${size}`);
+    expect(MockChunkXMLHttpRequest.instances[chunks - 1].headers['Content-Range'])
+      .toBe(`bytes ${finalStart}-${size - 1}/${size}`);
+    expect(MockChunkXMLHttpRequest.instances[chunks - 1].headers['X-Chunk-SHA256']).toHaveLength(64);
     expect(MockChunkXMLHttpRequest.instances[0].headers.Authorization).toBe('Bearer token-123');
     expect(MockChunkXMLHttpRequest.instances[0].headers['X-Impersonate-User-Id']).toBe('9');
     const createHeaders = fetchMock.mock.calls[0][1]?.headers as Record<string, string>;
