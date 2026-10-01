@@ -1,4 +1,7 @@
 export interface ShootActionRequestFields {
+  status?: string | null;
+  workflowStatus?: string | null;
+  workflow_status?: string | null;
   cancellationRequestedAt?: string | null;
   cancellationReason?: string | null;
   holdRequestedAt?: string | null;
@@ -26,10 +29,14 @@ const optionalText = (value: unknown): string | undefined =>
 const field = (camel: unknown, snake: unknown) => camel !== undefined ? camel : snake;
 
 export function normalizeShootActionRequests(source: ShootActionRequestFields | Record<string, unknown>) {
+  // Cancel/decline can retain request timestamps for history, but those requests
+  // are no longer actionable and are excluded from the review queues.
+  const terminal = [source.status, field(source.workflowStatus, source.workflow_status)]
+    .some((status) => ['cancelled', 'canceled', 'declined'].includes(optionalText(status)?.toLowerCase() ?? ''));
   return {
-    cancellationRequestedAt: optionalText(field(source.cancellationRequestedAt, source.cancellation_requested_at)),
+    cancellationRequestedAt: terminal ? undefined : optionalText(field(source.cancellationRequestedAt, source.cancellation_requested_at)),
     cancellationReason: optionalText(field(source.cancellationReason, source.cancellation_reason)),
-    holdRequestedAt: optionalText(field(source.holdRequestedAt, source.hold_requested_at)),
+    holdRequestedAt: terminal ? undefined : optionalText(field(source.holdRequestedAt, source.hold_requested_at)),
     holdRequestedBy: (field(source.holdRequestedBy, source.hold_requested_by) ?? undefined) as string | number | undefined,
     holdReason: optionalText(field(source.holdReason, source.hold_reason)),
   };

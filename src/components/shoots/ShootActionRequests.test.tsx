@@ -59,6 +59,28 @@ describe('requested action visibility', () => {
     expect(getPendingShootActionRequests(transformShootFromApi(cleared as Parameters<typeof transformShootFromApi>[0]))).toEqual([]);
   });
 
+  it.each(['cancelled', 'canceled', 'declined'])('hides retained request timestamps on %s shoots across normalization flows', (status) => {
+    const terminal = { ...request, status, workflow_status: 'scheduled' };
+    const detail = transformShootFromApi(terminal as Parameters<typeof transformShootFromApi>[0]);
+    const history = mapShootApiToShootData(terminal);
+    const overview = transformDashboardOverview({
+      stats: { total_shoots: 1, scheduled_today: 0, flagged_shoots: 0, pending_reviews: 0 },
+      upcoming_shoots: [{ ...terminal, services: [], is_flagged: false }], photographers: [],
+      pending_reviews: [], activity_log: [], issues: [], workflow: { columns: [] },
+    }).upcomingShoots[0];
+    for (const source of [terminal, normalizeShootActionRequests(terminal), detail, history, shootDataToSummary(history), overview]) {
+      expect(getPendingShootActionRequests(source)).toEqual([]);
+    }
+    const { container } = render(<><ShootActionRequestBadges shoot={overview} /><ShootActionRequestBanner shoot={detail} /></>);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it('honors terminal workflow status aliases without using a stale snake_case alias', () => {
+    expect(getPendingShootActionRequests({ ...request, status: 'scheduled', workflow_status: 'declined' })).toEqual([]);
+    expect(getPendingShootActionRequests({ ...request, workflowStatus: ' CANCELED ' })).toEqual([]);
+    expect(getPendingShootActionRequests({ ...request, workflowStatus: 'on_hold', workflow_status: 'cancelled', hold_requested_at: null }).map(action => action.type)).toEqual(['cancellation']);
+  });
+
   it('keeps a cancellation request visible when a hold request alone is resolved', () => {
     expect(getPendingShootActionRequests({ ...request, hold_requested_at: null }).map(action => action.type)).toEqual(['cancellation']);
   });
