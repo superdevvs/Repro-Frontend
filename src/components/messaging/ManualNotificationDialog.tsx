@@ -31,7 +31,6 @@ import {
   type ManualNotificationRecipient,
   type ManualNotificationType,
   type NotificationRecipientPerson,
-  getNotificationRecipients,
   previewManualNotification,
   sendManualNotification,
 } from '@/services/messaging';
@@ -145,7 +144,7 @@ export interface ManualNotificationDialogProps {
  * Lets an admin manually send a shoot notification:
  *   1. Pick the notification type (shoot_scheduled / on_hold / cancelled / ready /
  *      payment_due / payment_receipt) — AC 12.2.
- *   2. Pick the client or staff recipient (holds use reps; cancellations also include photographers).
+ *   2. Pick the client or staff recipient (including assigned photographers for holds).
  *   3. Pick the channel (email | sms) — AC 12.7.
  *   4. Preview the rendered subject/body before sending — AC 12.5.
  *   5. If the backend reports `missing_variables`, show a warning banner before send — AC 12.8.
@@ -186,23 +185,18 @@ export function ManualNotificationDialog({
       }),
     enabled: open && Number.isFinite(shootId) && shootId > 0,
     refetchOnWindowFocus: false,
+    placeholderData: undefined,
   });
 
-  const recipientsQuery = useQuery({
-    queryKey: ['manual-notification', 'recipients', shootId, recipientType],
-    queryFn: () => getNotificationRecipients(shootId, recipientType),
-    enabled: open && Number.isFinite(shootId) && shootId > 0,
-    refetchOnWindowFocus: false,
-    retry: false,
-  });
-  const assignedPhotographers: NotificationRecipientPerson[] = useMemo(
-    () => (recipientsQuery.data?.recipients ?? []).filter((row) => row.recipient_type === 'photographer'),
-    [recipientsQuery.data],
-  );
+  // The preview uses the same type-specific routing as send. Do not substitute the
+  // generic assignment roster, which can include a superseded primary photographer.
   const listedRecipients: NotificationRecipientPerson[] = useMemo(
-    () => recipientsQuery.data?.recipients ?? [],
-    [recipientsQuery.data],
+    () => previewQuery.isFetching || previewQuery.isError
+      ? []
+      : (previewQuery.data?.recipients ?? []).filter((row) => row.recipient_type === recipientType),
+    [previewQuery.data, previewQuery.isFetching, previewQuery.isError, recipientType],
   );
+  const assignedPhotographers = listedRecipients.filter((row) => row.recipient_type === 'photographer');
 
   const sendMutation = useMutation({
     mutationFn: () =>
@@ -213,9 +207,19 @@ export function ManualNotificationDialog({
         channel,
       }),
     onSuccess: (result) => {
-      toast.success('Notification sent', {
-        description: `${TYPE_LABELS[type]} delivered to ${recipientType} via ${result.channel.toUpperCase()}.`,
-      });
+      const status = String(result.status || '').toUpperCase();
+      if (['BLOCKED', 'FAILED', 'PARTIAL'].includes(status)) {
+        toast.error(result.message || (status === 'PARTIAL' ? 'Some notifications were not sent.' : 'Notification was not sent.'));
+        return;
+      }
+      const description = `${TYPE_LABELS[type]} for ${recipientType} via ${(result.channel || channel).toUpperCase()}.`;
+      if (['QUEUED', 'PENDING'].includes(status)) {
+        toast.info('Notification queued', { description });
+      } else if (['SENT', 'DELIVERED'].includes(status)) {
+        toast.success('Notification sent', { description });
+      } else {
+        toast.info('Notification submitted', { description: `${description} Delivery has not been confirmed.` });
+      }
       onClose();
     },
     onError: (error: unknown) => {
@@ -319,7 +323,6 @@ export function ManualNotificationDialog({
                     {recipientType === 'photographer'
                       ? (assignedPhotographers.length === 1 ? 'Assigned photographer' : 'Assigned photographers')
                       : recipientType === 'rep' ? 'Assigned sales rep' : 'Recipient'}
-                    {recipientsQuery.isFetching ? '…' : ''}
                   </p>
                   <ul className="space-y-0.5">
                     {listedRecipients.map((person) => (

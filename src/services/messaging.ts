@@ -166,10 +166,12 @@ export interface ManualNotificationPreviewResult {
   body_html: string | null;
   body_text: string | null;
   missing_variables: string[];
+  recipients?: NotificationRecipientPerson[];
 }
 
 export interface ManualNotificationSendResult {
   status: string;
+  message?: string;
   message_id: number | null;
   channel: ManualNotificationChannel;
   recipient_type: ManualNotificationRecipient;
