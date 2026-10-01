@@ -61,7 +61,7 @@ export default function CallsInsights() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_360px]">
         <section className="calls-panel p-5">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Inbound call volume</h3>
+            <h3 className="text-lg font-semibold">Call volume</h3>
             <div className="flex gap-3 text-xs text-[var(--calls-muted)]">
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[var(--calls-brand)]" />Team</span>
               <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-[var(--calls-ai)]" />Robbie</span>

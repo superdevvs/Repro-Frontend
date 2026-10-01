@@ -134,7 +134,7 @@ export default function CallLiveCockpit() {
           <div>
             <p className="text-lg font-semibold">{callerName(call.data)}</p>
             <p className="text-xs text-[var(--calls-muted)]">
-              {call.data?.status?.replace(/_/g, ' ') || 'Connecting'} · {ended ? 'Call ended' : live.connected ? 'Transcript connected' : 'Reconnecting transcript'}
+              {call.data?.status?.replace(/_/g, ' ') || 'Connecting'} · {ended ? 'Call ended' : live.connected ? 'Live updates connected' : 'Reconnecting live updates'}
             </p>
           </div>
         </div>
@@ -155,7 +155,7 @@ export default function CallLiveCockpit() {
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-[22px] font-semibold">Transcript</h2>
             <div className="flex gap-2">
-              <span className="calls-chip calls-chip-success">{ended ? 'Ended' : live.connected ? 'Live transcript' : 'Connecting'}</span>
+              <span className="calls-chip calls-chip-success">{ended ? 'Ended' : live.connected ? 'Live updates connected' : 'Connecting updates'}</span>
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-[var(--calls-muted)]" />
                 <Input value={search} aria-label="Search live transcript" onChange={(event) => setSearch(event.target.value)} className="h-11 w-40 pl-7 text-xs" placeholder="Search" />
