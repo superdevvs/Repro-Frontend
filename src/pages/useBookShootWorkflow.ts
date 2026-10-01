@@ -32,6 +32,7 @@ import { getShootSchedule } from '@/utils/shootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
 import { emptyMultiUnitDraft, hydrateUnitDraft, type MultiUnitDraft } from '@/features/shoot-units/model';
+import { format } from 'date-fns';
 
 type BookShootWorkflowOptions = {
   user: ReturnType<typeof useAuth>['user'];
@@ -569,11 +570,8 @@ export const useBookShootWorkflow = ({
       const hh = String(Math.floor(bookingStartMinutes / 60)).padStart(2, '0');
       const mm = String(bookingStartMinutes % 60).padStart(2, '0');
       const start_time = `${hh}:${mm}`;
-      const d = new Date(date);
-      const y = d.getFullYear();
-      const m = String(d.getMonth()+1).padStart(2,'0');
-      const day = String(d.getDate()).padStart(2,'0');
-      const fmtDate = `${y}-${m}-${day}`;
+      // Local civil date (date-fns format) — avoid UTC day-shift from toISOString()/Date-only parsing.
+      const fmtDate = format(date instanceof Date ? date : new Date(date), 'yyyy-MM-dd');
       console.debug('[Availability] Checking within-window coverage', { fmtDate, start_time, totalPhotographers: photographers?.length || 0 });
       try {
         if (!photographers || photographers.length === 0) { setAvailablePhotographerIds([]); return; }

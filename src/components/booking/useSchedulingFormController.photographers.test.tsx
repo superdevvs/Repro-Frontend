@@ -19,6 +19,20 @@ const eligibilityProps = (): SchedulingFormProps => ({
 });
 
 describe('per-service booking photographer availability', () => {
+  it.each([
+    { topLevel: {}, expected: { travel_range: 80, travel_range_unit: 'km' } },
+    { topLevel: { travel_range: 25, travel_range_unit: 'miles' }, expected: { travel_range: 25, travel_range_unit: 'miles' } },
+  ])('uses metadata travel range only when top-level settings are absent: $topLevel', async ({ topLevel, expected }) => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ data: [{ id: 9, name: 'Pat' }] }) })));
+    const props: SchedulingFormProps = {
+      ...eligibilityProps(),
+      photographers: [{ id: '9', name: 'Pat', metadata: { travel_range: 80, travel_range_unit: 'km' }, ...topLevel }],
+    };
+    const { result } = renderHook(() => useSchedulingFormController(props));
+    await waitFor(() => expect(result.current.photographersWithDistance).toHaveLength(1));
+    expect(result.current.photographersWithDistance[0]).toMatchObject(expected);
+  });
+
   it('preserves existing edit and comp scheduling when retaining a now-excluded assignment', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ data: [] }) })));
     const props = { ...eligibilityProps(), enforceNewBookingEligibility: false };

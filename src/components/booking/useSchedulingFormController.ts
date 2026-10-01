@@ -685,8 +685,8 @@ export const useSchedulingFormController = ({
             shootsCountToday: p.shoots_count_today,
             distanceFrom: p.distance_from,
             previousShootId: canUseProtectedAvailability ? p.previous_shoot_id : undefined,
-            travel_range: photographer?.travel_range,
-            travel_range_unit: photographer?.travel_range_unit ?? 'miles',
+            travel_range: photographer?.travel_range ?? photographer?.metadata?.travel_range,
+            travel_range_unit: photographer?.travel_range_unit ?? photographer?.metadata?.travel_range_unit ?? 'miles',
           };
         });
         let rawAvailabilityByPhotographer: AvailabilityByPhotographer = {};

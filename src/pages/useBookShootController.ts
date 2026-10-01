@@ -28,6 +28,7 @@ import { useBookShootDuplicateWarnings } from './useBookShootDuplicateWarnings';
 import { submitShootServiceMutation } from '@/utils/shootServiceMutation';
 import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { buildBookShootServiceSchedule } from './bookShootServiceSchedule';
+import { resolveBookingTimezone } from './bookShootTimezone';
 import { submitNewShootWithEligibility } from './bookShootEligibility';
 import { createComplimentaryReshoot } from '@/features/complimentary-reshoots/api';
 import { useCompReshootBooking } from '@/features/complimentary-reshoots/useCompReshootBooking';
@@ -417,6 +418,11 @@ export const useBookShootController = () => {
       const orderTime = time24Hour || toBackendTime(time);
       try {
       const scheduleSource = isEditMode ? editingScheduleSource : null;
+      const bookingTimezone = resolveBookingTimezone({
+        isEditMode,
+        storedTimezone: scheduleSource?.timezone,
+        browserTimezone: typeof Intl !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : null,
+      });
       const servicesPayload = selectedServices.map(service => {
         const assignedPhotographerId = resolveServicePhotographerId(service, servicePhotographers, photographer);
         const compMapping = isCompReshootMode ? compReshoot.serviceMappings[service.id] : undefined;
@@ -427,7 +433,7 @@ export const useBookShootController = () => {
           id: service.id,
           quantity: service.quantity ?? 1,
           photographer_id: assignedPhotographerId,
-          scheduled_at: buildBookShootServiceSchedule(service.id, serviceSchedules, orderDate, orderTime || time, scheduleSource),
+          scheduled_at: buildBookShootServiceSchedule(service.id, serviceSchedules, orderDate, orderTime || time, { ...(scheduleSource || {}), timezone: bookingTimezone }),
           is_deliverable: true,
         };
         // Keep the stored unit price on existing lines; the picker controls the
@@ -481,7 +487,7 @@ export const useBookShootController = () => {
             : 'has_product';
       const isNoChargeShoot = totalQuote <= 0.01 || effectiveShootType !== 'standard';
       const scheduledAt = date && time24Hour 
-        ? buildShootScheduleTimestamp(orderDate, time24Hour, scheduleSource?.timezone,
+        ? buildShootScheduleTimestamp(orderDate, time24Hour, bookingTimezone,
             scheduleSource?.scheduled_at || scheduleSource?.scheduledAt || scheduleSource?.start_time)
         : null;
       const effectiveClientId = isClientAccount ? user?.id : client;
@@ -494,9 +500,10 @@ export const useBookShootController = () => {
         scheduled_at: scheduledAt, // Full datetime in format: "YYYY-MM-DD HH:MM:SS"
         scheduled_date: orderDate, // YYYY-MM-DD format (legacy support)
         time: time24Hour, // 24-hour format for backend
+        timezone: bookingTimezone,
         photographer_id: selectedServicesRequirePhotographer(selectedServices) ? photographer || null : null,
         ...(!unitBooking.enabled ? { service_photographers: buildServicePhotographerAssignments(selectedServices, servicePhotographers), service_id: primaryServiceId } : {}),
-        ...(unitBooking.enabled ? { ...unitBooking.payload(scheduleSource?.timezone), ...(isEditMode ? { expected_units_revision: editingScheduleSource?.units_revision } : {}) } : { services: servicesPayload, service_items: serviceItemsPayload }),
+        ...(unitBooking.enabled ? { ...unitBooking.payload(bookingTimezone), ...(isEditMode ? { expected_units_revision: editingScheduleSource?.units_revision } : {}) } : { services: servicesPayload, service_items: serviceItemsPayload }),
         service_category: selectedServices[0]?.category?.name || undefined,
         shoot_type: effectiveShootType,
         ...(isCompReshootMode ? {
