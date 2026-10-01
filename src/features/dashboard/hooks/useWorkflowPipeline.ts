@@ -7,12 +7,14 @@ import { getAuthToken } from "@/utils/authToken";
 
 import { buildPipelineWorkflow, type PipelineFilter } from "../pipelineWorkflow";
 import { WORKFLOW_SEQUENCE } from "../constants";
+import { selectLatestDeliveries } from "../latestDeliveries";
 
 type ToastFn = ReturnType<typeof useToast>["toast"];
 
 interface UseWorkflowPipelineParams {
   accessToken?: string | null;
   allSummaries?: DashboardShootSummary[];
+  latestDeliveries?: DashboardShootSummary[];
   refresh: () => void | Promise<void>;
   toast: ToastFn;
   workflow?: DashboardWorkflow | null;
@@ -21,6 +23,7 @@ interface UseWorkflowPipelineParams {
 export const useWorkflowPipeline = ({
   accessToken,
   allSummaries = [],
+  latestDeliveries,
   refresh,
   toast,
   workflow,
@@ -32,22 +35,15 @@ export const useWorkflowPipeline = ({
     [allSummaries, workflow],
   );
 
-  // Latest ready/delivered jobs for the side card — not constrained by the pipeline date chips.
+  // The server selects by original completion date before limiting the results.
+  // Workflow records are selected by operational updates and can be old imports.
   const deliveredShoots = useMemo(() => {
-    if (!filteredWorkflow || !Array.isArray(filteredWorkflow.columns)) return [];
-    return filteredWorkflow.columns
-      .filter((column) => {
-        const key = column.key.toLowerCase();
-        return key.includes("ready") || key.includes("deliver") || key.includes("verified");
-      })
-      .flatMap((column) => (Array.isArray(column.shoots) ? column.shoots : []))
-      .sort((a, b) => {
-        const aTime = a.startTime ? new Date(a.startTime).getTime() : 0;
-        const bTime = b.startTime ? new Date(b.startTime).getTime() : 0;
-        return bTime - aTime;
-      })
-      .slice(0, 6);
-  }, [filteredWorkflow]);
+    if (latestDeliveries !== undefined) return selectLatestDeliveries(latestDeliveries);
+    return selectLatestDeliveries([
+      ...allSummaries,
+      ...(filteredWorkflow?.columns.flatMap((column) => column.shoots) ?? []),
+    ]);
+  }, [allSummaries, filteredWorkflow, latestDeliveries]);
 
   const handleAdvanceStage = useCallback(
     async (shoot: DashboardShootSummary) => {

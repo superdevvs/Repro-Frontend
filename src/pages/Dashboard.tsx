@@ -534,6 +534,7 @@ const Dashboard = () => {
   } = useWorkflowPipeline({
     accessToken: session?.accessToken,
     allSummaries,
+    latestDeliveries: data?.latestDeliveries,
     refresh,
     toast,
     workflow: data?.workflow,

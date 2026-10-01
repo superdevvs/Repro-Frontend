@@ -436,6 +436,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
 
   const summary: DashboardShootSummary = {
     id: toNumericId(shoot.id, `${location.address}-${shoot.scheduledDate}`),
+    completedAt: shoot.completedDate ?? null,
     dayLabel: getDayLabel(localDay ?? start),
     timeLabel: shoot.time || (start ? format(start, "h:mm a") : null),
     scheduledLocalDate,

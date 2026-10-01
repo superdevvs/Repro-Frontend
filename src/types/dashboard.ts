@@ -54,6 +54,7 @@ export interface DashboardIssueResponse {
 
 export interface DashboardShootSummaryResponse {
   id: number;
+  completed_at?: string | null;
   day_label?: string | null;
   time_label?: string | null;
   start_time?: string | null;
@@ -116,6 +117,7 @@ export interface DashboardWorkflowResponse {
 export interface DashboardOverviewResponse {
   stats: DashboardStatsResponse;
   upcoming_shoots: DashboardShootSummaryResponse[];
+  latest_deliveries?: DashboardShootSummaryResponse[];
   photographers: DashboardPhotographerResponse[];
   pending_reviews: DashboardShootSummaryResponse[];
   activity_log: DashboardActivityResponse[];
@@ -204,6 +206,7 @@ export interface DashboardClientRequest {
 
 export interface DashboardShootSummary {
   id: number;
+  completedAt?: string | null;
   dayLabel: string;
   timeLabel: string | null;
   /**
@@ -293,6 +296,7 @@ export interface DashboardCancellationItem {
 export interface DashboardOverview {
   stats: DashboardStats;
   upcomingShoots: DashboardShootSummary[];
+  latestDeliveries?: DashboardShootSummary[];
   photographers: DashboardPhotographerSummary[];
   pendingReviews: DashboardShootSummary[];
   activityLog: DashboardActivityItem[];
