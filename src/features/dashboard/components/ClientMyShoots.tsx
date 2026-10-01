@@ -140,10 +140,8 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
   return (
     <DevProfiler id="ClientMyShoots">
       <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex h-full flex-1 min-h-0 flex-col overflow-hidden")}>
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4 sm:mb-6">
-          <div className="flex items-center gap-4">
-            <h2 className="text-base sm:text-lg font-bold text-foreground">My shoots</h2>
-            <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-start justify-between gap-2 mb-4 sm:mb-6">
+            <div aria-label="Shoot status" className="hidden-scrollbar flex min-w-0 items-center gap-1 overflow-x-auto">
               {tabs.map((tab) => (
                 <button
                   key={tab.key}
@@ -176,14 +174,14 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                 </button>
               ))}
             </div>
-          </div>
-          <div className="flex items-center gap-2" data-onboarding-target="client-dashboard-requests">
+          <div className="flex shrink-0 flex-col items-end gap-2" data-onboarding-target="client-dashboard-requests">
             {onOpenRequests && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
                 className="h-8 gap-2 rounded-full px-3 text-xs"
+                aria-label={`Requests (${requestsLoading ? 'loading' : `${activeRequestCount} active`})`}
                 onClick={onOpenRequests}
               >
                 <Inbox className="h-3.5 w-3.5" />
@@ -216,7 +214,8 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
 
         <div className="flex flex-1 min-h-0 flex-col">
           {list.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center px-4 py-12 text-center">
+            <div className="hidden-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-6 text-center">
+              <div className="my-auto flex shrink-0 flex-col items-center">
               <div className="rounded-full bg-muted p-4 mb-4">
                 <CalendarDays className="h-8 w-8 text-muted-foreground" />
               </div>
@@ -236,6 +235,7 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                   Book New Shoot
                 </Button>
               )}
+              </div>
             </div>
           ) : (
             <div className="hidden-scrollbar flex-1 min-h-0 overflow-y-auto pr-1">

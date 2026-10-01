@@ -263,6 +263,7 @@ export const ClientDashboardView = ({
       {/* Account notices never sit next to each other - they stack and rotate. */}
       <DashboardNoticeStack
         label="Account notices"
+        className="shrink-0 [&_section]:bg-background"
         stackWidthClassName="w-full sm:w-[34rem]"
         equalizeLayerHeights
       >
@@ -334,7 +335,7 @@ export const ClientDashboardView = ({
   );
 
   const clientMetricsContent = (
-    <div data-onboarding-target="client-dashboard-metrics" className="shrink-0">
+    <div data-onboarding-target="client-dashboard-metrics" className="hidden shrink-0 sm:block">
       <RoleMetricTilesCard tiles={clientMetricTiles} />
     </div>
   );
@@ -423,7 +424,7 @@ export const ClientDashboardView = ({
   return (
     <>
       <DashboardLayout>
-        <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "-mt-3 flex flex-1 min-h-0 flex-col gap-3 overflow-hidden px-2 pb-3 pt-0 sm:gap-4 sm:px-6 sm:pb-6 max-lg:px-0")}>
+        <div className={cn(DASHBOARD_MOBILE_PAGE_CLASS, "lg:-mt-3 flex flex-1 min-h-0 flex-col gap-3 overflow-hidden px-2 pb-3 pt-0 sm:gap-4 sm:px-6 sm:pb-6 max-lg:px-0")}>
           <PageHeader
             title={greetingTitle}
             description={DASHBOARD_DESCRIPTION}
