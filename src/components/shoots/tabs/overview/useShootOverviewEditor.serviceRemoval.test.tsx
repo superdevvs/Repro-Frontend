@@ -57,6 +57,33 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootOverviewEditor service mutation payload', () => {
+  it('hydrates stored duration, edits one service and preserves both durations when applying date/time to all', async () => {
+    const onSave = vi.fn();
+    const durationShoot = { ...shoot, serviceItems: [
+      { service_id: 10, name: 'Photography', price: 100, quantity: 2, duration_minutes: 30 },
+      { service_id: 11, name: 'Video', price: 50, quantity: 1, duration_minutes: 85 },
+    ] } as unknown as ShootData;
+    const { result } = renderHook(() => useShootOverviewEditor({
+      shoot: durationShoot, isAdmin: true, role: 'admin', isEditMode: true,
+      onSave, onShootUpdate: vi.fn(), toast: vi.fn(),
+    }));
+    await waitFor(() => expect(result.current.state.selectedServiceIds).toEqual(['10', '11']));
+    expect(result.current.state.serviceSchedules['10']).toEqual({ date: '', time: '', duration_minutes: 30 });
+    expect(result.current.state.serviceSchedules['11'].duration_minutes).toBe(85);
+    act(() => result.current.actions.updateServiceSchedule('11', 'duration_minutes', 120));
+    act(() => result.current.actions.updateServiceSchedule('10', 'date', '2026-10-08'));
+    act(() => result.current.actions.updateServiceSchedule('10', 'time', '12:00'));
+    act(() => result.current.actions.applyServiceScheduleToAll('10'));
+    act(() => result.current.actions.handleSave());
+    const payload = onSave.mock.calls.at(-1)?.[0];
+    expect(payload.service_items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ service_id: 10, duration_minutes: 30, scheduled_at: '2026-10-08T12:00:00' }),
+      expect.objectContaining({ service_id: 11, duration_minutes: 120, scheduled_at: '2026-10-08T12:00:00' }),
+    ]));
+    expect(payload.services).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: 10, duration_minutes: 30 }), expect.objectContaining({ id: 11, duration_minutes: 120 }),
+    ]));
+  });
   it('updates quantity, totals and save payload without changing the unit price', async () => {
     const onSave = vi.fn();
     const { result } = renderHook(() => useShootOverviewEditor({

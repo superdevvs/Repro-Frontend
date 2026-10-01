@@ -39,6 +39,7 @@ export type LegacyServiceItemRecord = {
 
 export type OverviewServiceItemPayload = {
   service_id: number;
+  duration_minutes?: number;
   price?: number;
   quantity?: number;
   scheduled_at: string | null;

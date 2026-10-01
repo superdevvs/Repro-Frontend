@@ -15,6 +15,9 @@ import {
   ServiceTimePicker,
 } from '@/components/shoots/ServiceSchedulePicker';
 import { ApplyAllServiceScheduleButton } from '@/components/shoots/ApplyAllServiceScheduleButton';
+import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
+import { resolveServiceShootDuration } from '@/utils/shootDuration';
+import type { ServiceScheduleFields } from './shootOverviewEditorSupport';
 import type { ShootData } from '@/types/shoots';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 import { normalizeShootServiceCategoryKey } from '@/utils/shootPhotographerAssignments';
@@ -51,7 +54,7 @@ export type OverviewServicesTableSectionProps = {
   serviceQuantities?: Record<string, number>;
   servicePrices?: Record<string, string>;
   updateServiceQuantity?: (serviceId: string, quantity: number) => void;
-  serviceSchedules: Record<string, { date: string; time: string }>;
+  serviceSchedules: Record<string, ServiceScheduleFields>;
   effectiveSqft: number | null;
 
   // Per-row photographer assignment (edit mode)
@@ -68,7 +71,7 @@ export type OverviewServicesTableSectionProps = {
 
   // Actions (all from useShootOverviewEditor)
   toggleServiceSelection: (serviceId: string) => void;
-  updateServiceSchedule: (serviceId: string, field: 'date' | 'time', value: string) => void;
+  updateServiceSchedule: (serviceId: string, field: keyof ServiceScheduleFields, value: string | number) => void;
   applyServiceScheduleToAll?: (serviceId: string) => void;
   openEditPhotographerPicker: (context: {
     source: 'edit';
@@ -537,7 +540,7 @@ function renderEditRows(
       );
       if (!service) return null;
 
-      const schedule = serviceSchedules[serviceId] ?? DEFAULT_ROW_SCHEDULE;
+      const schedule: ServiceScheduleFields = serviceSchedules[serviceId] ?? DEFAULT_ROW_SCHEDULE;
       const categoryName = deriveServiceCategoryName(service);
       const categoryKey = normalizeShootServiceCategoryKey(categoryName);
       const photographer = resolvePhotographerDetails(
@@ -586,6 +589,9 @@ function renderEditRows(
                 onChange={(value) => updateServiceSchedule(serviceId, 'time', value)}
                 triggerClassName="h-8 w-full rounded-lg min-w-0"
               />
+              <ServiceDurationPicker serviceName={service.name}
+                value={resolveServiceShootDuration(service, props.effectiveSqft, schedule.duration_minutes)}
+                onChange={value => updateServiceSchedule(serviceId, 'duration_minutes', value)} />
               <ApplyAllServiceScheduleButton
                 visible={selectedServiceIds.length > 1}
                 onApply={() => applyServiceScheduleToAll?.(serviceId)}

@@ -13,6 +13,7 @@ import { to12Hour } from '@/utils/availabilityUtils';
 import { buildNormalizedPropertyDetails } from '@/utils/addressLookup';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 import { getShootSchedule } from '@/utils/shootSchedule';
+import { withServiceDurationSnapshot } from './shootOverviewDurations';
 import {
   buildWallClockIso,
   formatDateForWallClockInput,
@@ -22,6 +23,8 @@ import {
 export type PresenceOption = 'self' | 'other' | 'lockbox';
 
 export type ServiceOption = {
+  duration_minutes?: number | null;
+  shoot_duration_minutes?: number | null;
   id: string;
   name: string;
   price?: number;
@@ -44,6 +47,7 @@ export type ServiceCategoryOption = {
 export type ServiceScheduleFields = {
   date: string;
   time: string;
+  duration_minutes?: number;
 };
 
 export type PhotographerPickerContext = {
@@ -397,6 +401,8 @@ const normalizeServiceOption = (value: unknown): ServiceOption | null => {
     description: optionalString(service.description) || '',
     photographer_pay: optionalNumber(service.photographer_pay) ?? null,
     duration: optionalNumber(service.duration) ?? null,
+    duration_minutes: optionalNumber(service.duration_minutes) ?? null,
+    shoot_duration_minutes: optionalNumber(service.shoot_duration_minutes) ?? null,
   };
 };
 
@@ -406,6 +412,7 @@ const mergeServiceItemRecords = (itemValue: unknown, serviceObjectValue?: unknow
   return {
     ...serviceObject,
     ...item,
+    duration_minutes: item.duration_minutes ?? serviceObject.duration_minutes,
     scheduled_at: item.scheduled_at ?? item.scheduledAt
       ?? serviceObject.scheduled_at ?? serviceObject.scheduledAt,
     scheduledAt: item.scheduledAt ?? item.scheduled_at
@@ -558,7 +565,7 @@ export function useOverviewLookupData(
           const serviceId = item.service_id ?? item.serviceId;
           if (serviceId === null || serviceId === undefined) return;
           const scheduledAt = item.scheduled_at ?? item.scheduledAt;
-          scheduleByServiceId.set(String(serviceId), buildServiceScheduleFields(optionalString(scheduledAt), shoot.timezone));
+          scheduleByServiceId.set(String(serviceId), withServiceDurationSnapshot(buildServiceScheduleFields(optionalString(scheduledAt), shoot.timezone), item));
         });
         serviceSource.forEach((value) => {
           if (!value || typeof value !== 'object') return;
@@ -567,7 +574,7 @@ export function useOverviewLookupData(
           if (!serviceId || !currentServiceIds.includes(serviceId)) return;
           const serviceScheduledAt = service.scheduled_at ?? service.scheduledAt;
           nextServiceSchedules[serviceId] =
-            scheduleByServiceId.get(serviceId) || buildServiceScheduleFields(optionalString(serviceScheduledAt), shoot.timezone);
+            withServiceDurationSnapshot(scheduleByServiceId.get(serviceId) || buildServiceScheduleFields(optionalString(serviceScheduledAt), shoot.timezone), service);
           const serviceRecord = mergedServices.find((serviceOption: ServiceOption) => serviceOption.id === serviceId);
           const basePrice = serviceRecord
             ? resolveServicePrice(serviceRecord, effectiveSqft).basePrice
