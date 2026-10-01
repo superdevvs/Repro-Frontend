@@ -37,6 +37,9 @@ interface DashboardOnboardingProps {
   copy: OnboardingCopy;
   welcomeOpen: boolean;
   tourOpen: boolean;
+  /** Pause the tour while the photographer watches the upload guide. */
+  uploadGuideOpen?: boolean;
+  onOpenUploadGuide?: () => void;
   isMobile: boolean;
   currentMobileTab?: string;
   lastStep?: number;
@@ -174,6 +177,8 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
   copy,
   welcomeOpen,
   tourOpen,
+  uploadGuideOpen = false,
+  onOpenUploadGuide,
   isMobile,
   currentMobileTab,
   lastStep,
@@ -205,6 +210,8 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
   const wasTourOpenRef = useRef(false);
   const cardRef = useRef<HTMLDivElement | null>(null);
   const currentStep = steps[activeStep];
+  const showUploadGuideAction = roleKey === "photographer" && !!onOpenUploadGuide;
+  const tourVisible = tourOpen && !uploadGuideOpen;
   const progress = useMemo(() => ((activeStep + 1) / steps.length) * 100, [activeStep, steps.length]);
   const prefersReducedMotion = useMemo(
     () =>
@@ -223,16 +230,16 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
   }, [lastStep, tourOpen]);
 
   useEffect(() => {
-    if (!tourOpen) return;
+    if (!tourVisible) return;
 
     const mobileTab = currentStep.mobileTab;
     if (isMobile && mobileTab && mobileTab !== currentMobileTab) {
       onSetMobileTab?.(mobileTab);
     }
-  }, [currentMobileTab, currentStep.mobileTab, isMobile, onSetMobileTab, tourOpen]);
+  }, [currentMobileTab, currentStep.mobileTab, isMobile, onSetMobileTab, tourVisible]);
 
   useEffect(() => {
-    if (!tourOpen) return;
+    if (!tourVisible) return;
 
     let cancelled = false;
     let frame = 0;
@@ -295,7 +302,7 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
       window.removeEventListener("resize", updateRect);
       window.removeEventListener("scroll", updateRect, true);
     };
-  }, [currentStep.target, tourOpen, activeStep, steps.length, steps, onProgress, onStepView, prefersReducedMotion]);
+  }, [currentStep.target, tourVisible, activeStep, steps.length, steps, onProgress, onStepView, prefersReducedMotion]);
 
   const handleNext = () => {
     if (activeStep >= steps.length - 1) {
@@ -386,7 +393,7 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
 
   // Keyboard navigation for the tour: Escape closes, arrows move between steps.
   useEffect(() => {
-    if (!tourOpen) return;
+    if (!tourVisible) return;
 
     const handleKeyDown = (event: KeyboardEvent) => {
       // Don't hijack typing inside the Robbie help input.
@@ -422,21 +429,21 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [tourOpen, activeStep, steps.length, steps, onComplete, onProgress, onStepView, onStepBack]);
+  }, [tourVisible, activeStep, steps.length, steps, onComplete, onProgress, onStepView, onStepBack]);
 
   // Move focus to the step card when the tour opens / advances so keyboard and
   // screen-reader users land on the active instruction.
   useEffect(() => {
-    if (!tourOpen) return;
+    if (!tourVisible) return;
     const node = cardRef.current;
     if (!node) return;
     const frame = window.requestAnimationFrame(() => node.focus({ preventScroll: true }));
     return () => window.cancelAnimationFrame(frame);
-  }, [tourOpen, activeStep]);
+  }, [tourVisible, activeStep]);
 
   return (
     <>
-      <Dialog open={welcomeOpen} onOpenChange={(open) => { if (!open) onDismiss(); }}>
+      <Dialog open={welcomeOpen && !uploadGuideOpen} onOpenChange={(open) => { if (!open) onDismiss(); }}>
         <DialogContent className="w-[calc(100vw-1rem)] max-w-xl rounded-2xl p-0 overflow-hidden">
           <div className="bg-gradient-to-br from-primary/15 via-background to-background p-5 sm:p-6">
             <DialogHeader className="text-left space-y-3">
@@ -467,11 +474,17 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
               </Button>
               <Button variant="outline" onClick={onDismiss}>Skip for now</Button>
             </div>
+            {showUploadGuideAction && (
+              <Button variant="ghost" className="mt-2 w-full gap-2" onClick={onOpenUploadGuide}>
+                <PlayCircle className="h-4 w-4" />
+                Watch upload guide
+              </Button>
+            )}
           </div>
         </DialogContent>
       </Dialog>
 
-      {tourOpen && typeof document !== "undefined"
+      {tourVisible && typeof document !== "undefined"
         ? createPortal(
         <div className="fixed inset-0 z-[75] pointer-events-none">
           {/*
@@ -526,6 +539,12 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
               </Button>
             </div>
             <p id="onboarding-step-description" className="mt-2 text-sm leading-relaxed text-muted-foreground">{currentStep.description}</p>
+            {showUploadGuideAction && currentStep.guide === "uploads" && (
+              <Button variant="outline" size="sm" className="mt-3 gap-2" onClick={onOpenUploadGuide}>
+                <PlayCircle className="h-4 w-4" />
+                Watch upload guide
+              </Button>
+            )}
             <Progress value={progress} className="mt-4 h-2" />
             <div className="mt-4 flex items-center justify-between gap-2">
               <Button variant="outline" size="sm" className="gap-2" onClick={handleBack} disabled={activeStep === 0}>
@@ -539,7 +558,12 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
             </div>
           </div>
 
-          <div className="pointer-events-auto fixed bottom-4 right-4 z-[80] flex flex-col items-end gap-2">
+          <div className={cn(
+            "pointer-events-auto fixed right-4 z-[80] flex items-end gap-2",
+            isMobile
+              ? "top-[calc(1rem+env(safe-area-inset-top))] flex-col-reverse"
+              : "bottom-4 flex-col",
+          )}>
             {helpOpen && (
               <div className="w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
                 <div className="flex items-center justify-between border-b border-border px-3 py-2">
