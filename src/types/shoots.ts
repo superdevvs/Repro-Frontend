@@ -488,6 +488,8 @@ export interface ShootData {
     email?: string;
   };
   rep?: ShootUserSummary | null;
+  /** Explicit shoot assignment, separate from the client account rep shown in contact details. */
+  assignedRepId?: string | null;
   editorId?: string;
   services: string[];
   serviceObjects?: ShootServiceObject[];

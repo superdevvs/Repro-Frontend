@@ -768,6 +768,11 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     normalizeServicePerson(shoot.rep) ||
     normalizeServicePerson(shoot.salesRep) ||
     normalizeServicePerson(shoot.sales_rep);
+  const assignedRepId = Object.prototype.hasOwnProperty.call(shoot, 'rep_id')
+    ? shoot.rep_id
+    : Object.prototype.hasOwnProperty.call(shoot, 'assignedRepId')
+      ? shoot.assignedRepId
+      : shoot.rep?.id;
   const compReshootFields = normalizeShootCompReshootFields(shoot);
 
   return {
@@ -793,6 +798,9 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
       rep: resolvedRep,
     },
     rep: resolvedRep,
+    assignedRepId: typeof assignedRepId === 'string' || typeof assignedRepId === 'number'
+      ? String(assignedRepId)
+      : null,
     location: {
       address,
       address2: shoot.address2 || undefined,

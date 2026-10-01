@@ -27,6 +27,7 @@ import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { MediaViewer } from './media/MediaViewer';
 import { getMediaImageUrl, getMediaSrcSet } from './media/mediaPreviewUtils';
 import { getShootClientReleaseAccess } from '../details/shootClientReleaseAccess';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface ShootDetailsIssuesTabProps {
   shoot: ShootData;
@@ -76,8 +77,11 @@ export function ShootDetailsIssuesTab({
   onShootUpdate,
 }: ShootDetailsIssuesTabProps) {
   const { toast } = useToast();
+  const { user } = useAuth();
   const isRep = ['salesrep', 'sales_rep', 'rep', 'representative'].includes(role.trim().toLowerCase());
   const canReviewRequests = isAdmin || isRep;
+  const canCreateRequest = isAdmin || isClient || (isRep && user?.id != null
+    && String(shoot.assignedRepId ?? '') === String(user.id));
   const [requests, setRequests] = useState<Request[]>([]);
   const [requestManagerOpen, setRequestManagerOpen] = useState(false);
   const [markingResolved, setMarkingResolved] = useState(false);
@@ -382,7 +386,7 @@ export function ShootDetailsIssuesTab({
           {(canReviewRequests || isClient) && (
             <Button onClick={() => setRequestManagerOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
-              {isClient ? 'Create request' : 'Add request'}
+              {isClient ? 'Create request' : canCreateRequest ? 'Add request' : 'Manage requests'}
             </Button>
           )}
         </div>
@@ -435,7 +439,7 @@ export function ShootDetailsIssuesTab({
                       Dismiss
                     </Button>
                   )}
-                  {isAdmin && request.status !== 'resolved' && (
+                  {canReviewRequests && request.status !== 'resolved' && (
                     request.assignedToRole ? (
                       <Button variant="outline" size="sm" className="gap-1.5" disabled>
                         <UserCog className="h-3.5 w-3.5" />
@@ -538,6 +542,7 @@ export function ShootDetailsIssuesTab({
         shootId={shoot.id}
         isAdmin={isAdmin}
         isRep={isRep}
+        canCreateRequest={canCreateRequest}
         isPhotographer={isPhotographer}
         isEditor={isEditor}
         isClient={isClient}
@@ -564,4 +569,3 @@ export function ShootDetailsIssuesTab({
     </div>
   );
 }
-

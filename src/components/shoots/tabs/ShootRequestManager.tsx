@@ -60,6 +60,7 @@ interface ShootRequestManagerProps {
   shootId: string;
   isAdmin: boolean;
   isRep?: boolean;
+  canCreateRequest?: boolean;
   isPhotographer: boolean;
   isEditor: boolean;
   isClient: boolean;
@@ -101,6 +102,7 @@ export function ShootRequestManager({
   isPhotographer,
   isEditor,
   isClient,
+  canCreateRequest = isAdmin || isClient,
   onIssueUpdate,
   preselectedMediaIds = EMPTY_PRESELECTED_MEDIA_IDS,
   initialRequests = EMPTY_INITIAL_REQUESTS,
@@ -176,12 +178,12 @@ export function ShootRequestManager({
   }, [isOpen, shootId]);
 
   useEffect(() => {
-    if (!isOpen || !preselectedMediaIdsKey) return;
+    if (!isOpen || !preselectedMediaIdsKey || !canCreateRequest) return;
 
     // If preselected media IDs provided, auto-open create dialog and pre-select them
     setSelectedMediaIds(new Set(preselectedMediaIdsKey.split('|').filter(Boolean)));
     setCreateDialogOpen(true);
-  }, [isOpen, preselectedMediaIdsKey]);
+  }, [isOpen, preselectedMediaIdsKey, canCreateRequest]);
 
   // Staff can request changes to RAW or edited media; clients see released media only.
   useEffect(() => {
@@ -303,6 +305,7 @@ export function ShootRequestManager({
 
   // Create request - send all selected photos in one request using mediaIds array
   const handleCreateRequest = async () => {
+    if (!canCreateRequest) return;
     if (!requestNote.trim()) {
       toast({
         title: 'Error',
@@ -532,7 +535,7 @@ export function ShootRequestManager({
                   Manage and track all requests for this shoot
                 </DialogDescription>
               </div>
-              {(isAdmin || isRep || isClient) && (
+              {canCreateRequest && (
                 <Button 
                   type="button"
                   onClick={(e) => {
@@ -716,13 +719,14 @@ export function ShootRequestManager({
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
-                            {isAdmin && request.status !== 'resolved' && (
+                            {(isAdmin || isRep) && request.status !== 'resolved' && (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button
                                     size="sm"
                                     variant="ghost"
                                     className="h-7 text-xs px-2 hover:bg-primary/10 hover:text-primary flex-shrink-0"
+                                    aria-label="Assign request"
                                   >
                                     <MoreVertical className="h-3 w-3" />
                                   </Button>
@@ -750,7 +754,7 @@ export function ShootRequestManager({
       </Dialog>
 
       {/* Create Request Dialog */}
-      <Dialog open={createDialogOpen} onOpenChange={(open) => {
+      <Dialog open={createDialogOpen && canCreateRequest} onOpenChange={(open) => {
         setCreateDialogOpen(open);
         if (!open) resetCreateForm();
       }}>

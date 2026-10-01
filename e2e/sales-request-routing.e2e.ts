@@ -11,11 +11,19 @@ const shoot = {
   base_quote: 250, total_quote: 250, total_paid: 250, payment_status: 'paid', files: [], is_flagged: false, can_view_invoice: true,
 };
 
-async function fixtures(page: Page, baseURL: string | undefined, role: 'admin' | 'salesRep') {
+async function fixtures(page: Page, baseURL: string | undefined, role: 'admin' | 'salesRep', repId: number | null = 900043) {
   const state = await installDashboardMobileFixtures(page, baseURL, role, true);
   const previews: Record<string, string>[] = [];
   const sends: Record<string, string>[] = [];
   const writes: string[] = [];
+  const assignments: { assignedToRole: string }[] = [];
+  let currentIssue = { ...issue };
+  const scopedShoot = {
+    ...shoot,
+    client: { ...shoot.client, rep: { id: 900043, name: 'Client Account Rep' } },
+    rep_id: repId,
+    rep: repId ? { id: repId, name: 'Assigned Sales Rep' } : null,
+  };
   await page.route('**/api/voice/browser/config', route => route.fulfill({ json: { enabled: false, ready: false, blockers: [], presence_verification: 'provider' } }));
   await page.route('**/api/system-telemetry/events', route => route.fulfill({ json: { accepted: true } }));
   await page.route('**/api/client-requests', route => route.fulfill({ json: { data: [issue] } }));
@@ -27,8 +35,14 @@ async function fixtures(page: Page, baseURL: string | undefined, role: 'admin' |
     if (path.endsWith('/pending-cancellations')) return route.fulfill({ json: { data: [{ id: shootId, address: 'Cancellation for sales rep', client: { name: 'Fixture Client' }, cancellation_reason: 'Client changed plans' }] } });
     if (path.endsWith('/pending-holds')) return route.fulfill({ json: { data: [{ id: shootId, address: 'Hold for sales rep', client: { name: 'Fixture Client' }, hold_reason: 'Waiting for access' }] } });
     if (path.endsWith('/pending-reschedules')) return route.fulfill({ json: { data: [{ id: 7, shoot_id: shootId, status: 'pending', address: 'Reschedule for sales rep', original_date: now.slice(0, 10), requested_date: '2026-10-12', reason: 'Client needs another day' }] } });
-    if (path === `/api/shoots/${shootId}`) return route.fulfill({ json: { data: shoot } });
-    if (path.endsWith('/issues')) return route.fulfill({ json: { data: [issue] } });
+    if (path === `/api/shoots/${shootId}`) return route.fulfill({ json: { data: scopedShoot } });
+    if (path === `/api/shoots/${shootId}/issues/${issue.id}/assign` && request.method() === 'POST') {
+      const payload = request.postDataJSON();
+      assignments.push(payload);
+      currentIssue = { ...currentIssue, ...payload };
+      return route.fulfill({ json: { data: currentIssue } });
+    }
+    if (path.endsWith('/issues')) return route.fulfill({ json: { data: [currentIssue] } });
     if (path.endsWith('/files')) return route.fulfill({ json: { data: [] } });
     if (path === '/api/shoots' && url.searchParams.get('scheduled_status') === 'requested') return route.fulfill({ json: { data: [{ ...shoot, id: 920099, address: 'Scheduling request for sales rep', status: 'requested', workflow_status: 'requested' }], meta: { last_page: 1, current_page: 1, total: 1 } } });
     return route.fallback();
@@ -51,7 +65,7 @@ async function fixtures(page: Page, baseURL: string | undefined, role: 'admin' |
     }
     return route.fulfill({ status: 501, json: { message: 'Unmocked notification operation' } });
   });
-  return { ...state, previews, sends, writes };
+  return { ...state, previews, sends, writes, assignments };
 }
 
 test.use({ video: 'off' });
@@ -119,7 +133,7 @@ test('manual hold and cancellation previews use reps and reset incompatible sele
   expect(errors).toEqual([]);
 });
 
-test('sales request creation does not expose staff assignment controls', async ({ page, baseURL }, testInfo) => {
+test('assigned sales rep can create requests without staff assignment controls', async ({ page, baseURL }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -134,3 +148,33 @@ test('sales request creation does not expose staff assignment controls', async (
   expect(state.writes).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+for (const repId of [900099, null]) {
+  test(`sales rep can triage existing requests but cannot create for ${repId ? 'another rep' : 'an unassigned shoot'}`, async ({ page, baseURL }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const state = await fixtures(page, baseURL, 'salesRep', repId);
+    await page.goto(`/shoots/${shootId}#requests`);
+    await expect(page.getByText(issue.note, { exact: true }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Add request', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Create Request', exact: true })).toHaveCount(0);
+    const manager = page.getByRole('dialog', { name: 'Request Manager', exact: true });
+    await page.getByRole('button', { name: 'Manage requests', exact: true }).click();
+    await expect(manager.getByRole('button', { name: 'Create Request', exact: true })).toHaveCount(0);
+    if (repId) {
+      await manager.getByRole('button', { name: 'Close', exact: true }).click();
+      await page.getByRole('button', { name: 'Assign', exact: true }).click();
+    } else {
+      await manager.getByRole('button', { name: 'Assign request', exact: true }).click();
+    }
+    await page.getByRole('menuitem', { name: 'Assign to Editor', exact: true }).click();
+    await expect.poll(() => state.assignments).toEqual([{ assignedToRole: 'editor' }]);
+    if (!repId) await manager.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(page.getByRole('button', { name: 'Assigned', exact: true })).toBeDisabled();
+    await page.screenshot({ path: testInfo.outputPath('sales-existing-request-triage.png'), animations: 'disabled' });
+    expect(state.writes).toEqual([`/api/shoots/${shootId}/issues/${issue.id}/assign`]);
+    expect(state.requests.some(request => request.path === '/admin/users')).toBe(false);
+    expect(errors).toEqual([]);
+  });
+}
