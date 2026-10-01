@@ -3,7 +3,7 @@ import type React from "react";
 import type { DashboardMetricTile } from "@/components/dashboard/v2/RoleMetricTilesCard";
 import type { WeatherInfo } from "@/services/weatherService";
 import type { UserRole } from "@/types/auth";
-import type { ClientBillingSummary } from "@/types/clientBilling";
+import type { ClientBillingItem, ClientBillingSummary } from "@/types/clientBilling";
 import type { DashboardShootModalTab, DashboardShootSummary } from "@/types/dashboard";
 import type { ClientShootRecord } from "@/utils/dashboardDerivedUtils";
 
@@ -116,6 +116,9 @@ export interface ClientShootTileProps {
 
 export interface ClientInvoicesCardProps {
   summary: ClientBillingSummary;
+  items?: ClientBillingItem[];
+  loading?: boolean;
+  onViewInvoice?: (item: ClientBillingItem) => void;
   onViewAll: () => void;
   onPay: () => void;
 }

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { StripePaymentForm, type StripePaymentSuccessPayload } from '@/components/payments/StripePaymentForm';
 import { MarkAsPaidDialog, MarkAsPaidPayload } from '@/components/payments/MarkAsPaidDialog';
 import { formatPaymentMethod, type PaymentDetails } from '@/utils/paymentUtils';
+import { ClientInvoiceDialog } from './ClientInvoiceDialog';
 
 export interface InvoicePaymentCompletePayload {
   invoiceId: string;
@@ -160,14 +161,13 @@ export function PaymentDialog({
 
   return (
     <>
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className={`${hasContextDetails ? 'sm:max-w-[800px]' : 'sm:max-w-[500px]'}`}>
-          <DialogHeader>
-            <DialogTitle>Process Payment</DialogTitle>
-            <DialogDescription>
-              Complete payment for invoice #{invoice.id} totaling ${invoice.amount.toFixed(2)}
-            </DialogDescription>
-          </DialogHeader>
+      <ClientInvoiceDialog
+        open={isOpen}
+        onOpenChange={(open) => { if (!open) onClose(); }}
+        title="Process Payment"
+        description={`Complete payment for invoice #${invoice.id} totaling $${invoice.amount.toFixed(2)}`}
+        className={hasContextDetails ? 'sm:max-w-[800px]' : 'sm:max-w-[500px]'}
+      >
           
           <Tabs value={paymentMethod} onValueChange={setPaymentMethod} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
@@ -424,8 +424,7 @@ export function PaymentDialog({
               </div>
             </TabsContent>
           </Tabs>
-        </DialogContent>
-      </Dialog>
+      </ClientInvoiceDialog>
       <MarkAsPaidDialog
         isOpen={isMarkPaidDialogOpen}
         onClose={() => setIsMarkPaidDialogOpen(false)}
