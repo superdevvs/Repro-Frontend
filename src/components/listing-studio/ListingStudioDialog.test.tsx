@@ -81,6 +81,24 @@ describe('Listing Studio requests', () => {
     expect(screen.getByRole('tab', { name: 'Request history' })).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('keeps Previous and retry available when a later request page fails', async () => {
+    auth.role = 'admin';
+    vi.mocked(listingStudioService.requests).mockImplementation(async (currentPage = 1) => {
+      if (currentPage === 2) throw new Error('Page unavailable');
+      return { ...requestPage([request]), meta: { current_page: 1, last_page: 2, total: 21, per_page: 20 } };
+    });
+    mount('requests');
+    fireEvent.click(await screen.findByRole('button', { name: 'Next' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load requests.');
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
+    expect(await screen.findByText('Awaiting review')).toBeInTheDocument();
+    expect(await screen.findByText('Page 1 of 2')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('uses assisted signup for a primary client with a secondary rep role', async () => {
     auth.user.secondary_roles = ['sales_rep'];
     mount();

@@ -187,6 +187,23 @@ describe('Listing Studio synced subscriptions', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
+  it('keeps Previous and retry available when a later subscription page fails', async () => {
+    vi.mocked(listingStudioService.subscriptions).mockImplementation(async (currentPage = 1) => {
+      if (currentPage === 2) throw new Error('Page unavailable');
+      return page([subscription], { last_page: 2, total: 26 });
+    });
+    mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Next' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to load subscriptions.');
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Previous' }));
+    expect(await screen.findByRole('article', { name: 'Subscription for Jordan Client' })).toBeInTheDocument();
+    expect(await screen.findByText('Page 1 of 2')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
   it('distinguishes an empty rep scope from a search with no matches', async () => {
     vi.mocked(listingStudioService.subscriptions).mockResolvedValue(page([]));
     mount(false);

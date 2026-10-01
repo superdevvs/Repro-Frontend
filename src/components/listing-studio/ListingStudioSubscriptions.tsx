@@ -92,6 +92,7 @@ export function ListingStudioSubscriptions({ identity, canReview }: { identity: 
     staleTime: 15_000,
     refetchInterval: 30_000,
   });
+  const lastPage = subscriptions.data?.meta.last_page;
   const submitSearch = (event: FormEvent) => {
     event.preventDefault();
     setPage(1);
@@ -112,6 +113,6 @@ export function ListingStudioSubscriptions({ identity, canReview }: { identity: 
     {subscriptions.data && <p className="text-xs text-muted-foreground" role="status">{subscriptions.data.meta.total} {subscriptions.data.meta.total === 1 ? 'subscription' : 'subscriptions'}{filtered ? ' matching your filters' : ''}</p>}
     {subscriptions.data?.data.length === 0 && <div className="rounded-xl border border-dashed p-8 text-center"><CreditCard className="mx-auto mb-3 h-7 w-7 text-muted-foreground" /><h3 className="text-sm font-medium">{filtered ? 'No matching subscriptions' : 'No subscriptions yet'}</h3><p className="mt-1 text-sm text-muted-foreground">{filtered ? 'Try another search or status.' : canReview ? 'Subscriptions will appear after the website sends a payment or subscription update.' : 'Subscriptions will appear here when they are linked to one of your assigned clients.'}</p></div>}
     {subscriptions.data?.data.map(subscription => <SubscriptionCard key={subscription.id} subscription={subscription} />)}
-    {subscriptions.data && subscriptions.data.meta.last_page > 1 && <div className="flex items-center justify-between gap-2 border-t pt-3"><Button variant="outline" size="sm" disabled={page === 1 || subscriptions.isFetching} onClick={() => setPage(page - 1)}><ChevronLeft className="mr-1 h-4 w-4" />Previous</Button><span className="text-center text-xs text-muted-foreground">Page {subscriptions.data.meta.current_page} of {subscriptions.data.meta.last_page}</span><Button variant="outline" size="sm" disabled={page >= subscriptions.data.meta.last_page || subscriptions.isFetching} onClick={() => setPage(page + 1)}>Next<ChevronRight className="ml-1 h-4 w-4" /></Button></div>}
+    {(page > 1 || (lastPage ?? 1) > 1) && <div className="flex items-center justify-between gap-2 border-t pt-3"><Button variant="outline" size="sm" disabled={page === 1 || subscriptions.isFetching} onClick={() => setPage(page - 1)}><ChevronLeft className="mr-1 h-4 w-4" />Previous</Button><span className="text-center text-xs text-muted-foreground">Page {page}{lastPage ? ` of ${lastPage}` : ''}</span><Button variant="outline" size="sm" disabled={!lastPage || page >= lastPage || subscriptions.isFetching || subscriptions.isError} onClick={() => setPage(page + 1)}>Next<ChevronRight className="ml-1 h-4 w-4" /></Button></div>}
   </div>;
 }
