@@ -59,6 +59,18 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
   previewImages: Array.isArray(shoot.preview_images)
     ? shoot.preview_images.filter((image): image is string => Boolean(image))
     : [],
+  paymentStatus: (() => {
+    const raw =
+      (shoot as { payment_status?: string | null; paymentStatus?: string | null }).payment_status ??
+      (shoot as { paymentStatus?: string | null }).paymentStatus ??
+      null;
+    if (!raw) return null;
+    const normalized = String(raw).trim().toLowerCase();
+    if (normalized === 'paid') return 'paid' as const;
+    if (['partial', 'partial_paid', 'partially_paid'].includes(normalized)) return 'partial' as const;
+    if (normalized === 'unpaid') return 'unpaid' as const;
+    return null;
+  })(),
   // Notes fields
   shootNotes: shoot.shoot_notes ?? null,
   companyNotes: shoot.company_notes ?? null,

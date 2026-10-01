@@ -100,7 +100,16 @@ const mergeById = (
   const map = new Map<number, DashboardShootSummary>();
   primary.forEach((shoot) => map.set(shoot.id, shoot));
   extra.forEach((shoot) => {
-    if (!map.has(shoot.id)) map.set(shoot.id, shoot);
+    const existing = map.get(shoot.id);
+    if (!existing) {
+      map.set(shoot.id, shoot);
+      return;
+    }
+    // Overview workflow payloads omit paymentStatus; overlay from full shoot summaries
+    // so Delivered/Ready cards can show Paid vs Unpaid correctly.
+    if (existing.paymentStatus == null && shoot.paymentStatus != null) {
+      map.set(shoot.id, { ...existing, paymentStatus: shoot.paymentStatus });
+    }
   });
   return Array.from(map.values());
 };

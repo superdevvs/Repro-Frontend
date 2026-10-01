@@ -18,6 +18,7 @@ import { getShootServiceItems } from "@/utils/shootServiceItems";
 import { getDashboardBookedDayOffset } from "@/utils/dashboardShootSchedule";
 import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
 import { isFloorplanLikeHeroFile, isUnsuitableShootCardHeroUrl, selectShootCardHeroUrls } from "@/utils/shootCardHero";
+import { normalizeShootPaymentSummary } from "@/utils/shootPaymentSummary";
 
 type ClientWithLegacyPhoneNumber = ShootData["client"] & {
   phonenumber?: string | null;
@@ -325,24 +326,29 @@ export const currencyFormatter = new Intl.NumberFormat("en-US", {
 });
 
 export const getDashboardPaymentStatus = (
-  payment?: ShootData['payment'] | null,
+  paymentOrShoot?: ShootData['payment'] | ShootData | null,
 ): DashboardShootSummary['paymentStatus'] => {
-  const totalPaid = payment?.totalPaid ?? 0;
-  const totalQuote = payment?.totalQuote ?? 0;
+  if (!paymentOrShoot) {
+    return normalizeShootPaymentSummary({ payment: null }).paymentStatus;
+  }
 
-  if (payment?.paymentStatus === 'paid') {
-    return 'paid';
-  }
-  if (totalQuote <= 0.01) {
-    return 'paid';
-  }
-  if (totalPaid <= 0) {
-    return 'unpaid';
-  }
-  if (totalPaid >= totalQuote) {
-    return 'paid';
-  }
-  return 'partial';
+  const record = paymentOrShoot as Record<string, unknown>;
+  const looksLikeShoot =
+    'id' in record ||
+    'client' in record ||
+    'location' in record ||
+    'workflowStatus' in record ||
+    'scheduledDate' in record ||
+    'payments' in record ||
+    'total_paid' in record ||
+    'total_quote' in record;
+
+  const summary = normalizeShootPaymentSummary(
+    looksLikeShoot
+      ? (paymentOrShoot as ShootData)
+      : { payment: paymentOrShoot as ShootData['payment'] },
+  );
+  return summary.paymentStatus;
 };
 
 export const buildClientInvoiceSummary = (shoots: ShootData[]) => {
@@ -420,7 +426,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
   const start = parseShootDateTime(shoot);
   const location = shoot.location || { address: "No address", city: "", state: "", zip: "" };
 
-  const paymentStatus = getDashboardPaymentStatus(shoot.payment);
+  const paymentStatus = getDashboardPaymentStatus(shoot);
 
   // The intended LOCAL calendar day drives all date display so it never drifts
   // across browser timezones. `start` (the absolute instant) is kept only for
