@@ -5,12 +5,17 @@
 // particular that the HERO badge appears for the cover file and that EXTRA and
 // HERO are mutually exclusive — so the hero marking is visible everywhere.
 
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen } from '@testing-library/react'
 import '@testing-library/jest-dom/vitest'
 
 import { MediaTileBadges } from './MediaTileBadges'
 import { type MediaFile } from '@/hooks/useShootFiles'
+
+const auth = vi.hoisted(() => ({ role: 'client' as string | undefined }))
+vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => auth }))
+
+beforeEach(() => { auth.role = 'client' })
 
 afterEach(() => {
   cleanup()
@@ -34,7 +39,8 @@ describe('MediaTileBadges', () => {
     expect(screen.queryByText('HERO')).not.toBeInTheDocument()
   })
 
-  it('shows the AI badge for an AI-edited file', () => {
+  it.each(['superadmin', 'editing_manager', 'super_admin', 'editingmanager'])('shows the AI badge for %s', (role) => {
+    auth.role = role
     render(<MediaTileBadges file={makeFile({ is_ai_edited: true })} />)
 
     expect(screen.getByText('AI')).toBeInTheDocument()
