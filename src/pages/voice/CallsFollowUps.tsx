@@ -39,7 +39,7 @@ export default function CallsFollowUps() {
           {editable && <Button variant="ghost" className="h-11 text-[var(--calls-muted)]" disabled={!canOperate || action.isPending} onClick={() => action.mutate({ id: item.id, mode: 'cancel' })}>Cancel callback</Button>}
         </div></section>;
       })}
-      {!list.isLoading && !list.isError && !rows.length && <EmptyCalls title={filter === 'due' ? 'You’re caught up' : 'No callbacks here'} description={filter === 'due' ? 'No callbacks are due right now. Scheduled follow-ups have their own list.' : 'Choose another filter or schedule a callback.'} />}
+      {!list.isLoading && !list.isError && !rows.length && <EmptyCalls icon={filter === 'due' ? 'clear' : 'availability'} fill title={filter === 'due' ? 'You’re caught up' : 'No callbacks here'} description={filter === 'due' ? 'No callbacks are due right now. Scheduled follow-ups have their own list.' : 'Choose another filter or schedule a callback.'} />}
     </div>
     <CallsPagination label="Follow-ups" page={page} pages={list.data?.last_page} total={list.data?.total} count={rows.length} pending={list.isFetching} error={list.isError} onChange={setPage} />
   </div>;

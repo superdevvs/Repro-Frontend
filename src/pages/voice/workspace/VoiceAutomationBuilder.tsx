@@ -12,6 +12,7 @@ import {
 import { VoiceAutomationEditor } from './VoiceAutomationEditor';
 import { automationTriggers } from './voiceAutomationCatalog';
 import { formatWhen } from './callDisplay';
+import { EmptyCalls } from './bits';
 
 export function VoiceAutomationBuilder() {
   const { can } = usePermissions();
@@ -49,7 +50,7 @@ export function VoiceAutomationBuilder() {
           <p className="mt-3 flex items-center gap-2 text-xs text-[var(--calls-muted)]"><Clock3 className="h-3.5 w-3.5 shrink-0" />{rule.delay_minutes} minute delay{rule.action_type === 'ai_callback' ? ` · up to ${rule.max_attempts} attempts · ${rule.retry_delay_minutes} minutes between retries` : ''}</p>
           <div className="mt-3 flex flex-wrap gap-1"><Button variant="ghost" onClick={() => { setRuleFilter(rule.id); setPage(1); }}><History className="h-4 w-4" />History</Button><Button variant="ghost" disabled={!manage || rules.isError} onClick={() => setEditing(rule)}><Pencil className="h-4 w-4" />Edit</Button><Button variant="ghost" disabled={!manage || archive.isPending || toggle.isPending || rules.isError} onClick={() => archive.mutate(rule.id)}><Archive className="h-4 w-4" />Archive</Button></div>
         </article>)}
-        {rules.data && rules.data.rules.length === 0 && <div className="py-6 text-center"><Workflow className="mx-auto mb-3 h-7 w-7 text-[var(--calls-muted)]" /><p className="font-medium">Make the follow-up fit your team.</p><p className="mx-auto mt-2 max-w-lg text-sm text-[var(--calls-muted)]">Build a callback with conditions and a retry budget, or turn a missed call, shoot, delivery or invoice into an internal task.</p></div>}
+        {rules.data && rules.data.rules.length === 0 && <EmptyCalls compact icon="automations" title="Make the follow-up fit your team." description="Build a callback with conditions and a retry budget, or turn a missed call, shoot, delivery or invoice into an internal task." />}
         {(rules.data?.managed_triggers.length ?? 0) > 0 && <p className="text-xs text-[var(--calls-muted)]">Custom rules own their triggers, including after disabling or archiving. The matching standard toggle stays suppressed. Multiple enabled rules can create separate actions for the same event.</p>}
       </div>
     </div>
@@ -67,7 +68,7 @@ export function VoiceAutomationBuilder() {
           {!run.reason && run.scheduled_call?.last_error && <p className="mt-2 text-sm text-[var(--calls-danger)]">{run.scheduled_call.last_error}</p>}
           {run.task && <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--calls-border)] p-3"><div><p className="flex items-center gap-2 font-medium"><ListTodo className="h-4 w-4" />{run.task.title}</p><p className="mt-1 text-xs text-[var(--calls-muted)]">Due {formatWhen(run.task.due_at)} · {rules.data?.assignees.find((user) => user.id === run.task?.assigned_to_user_id)?.name || 'Unassigned'}</p></div><Button variant="outline" className="calls-secondary" disabled={!operate || task.isPending || runs.isError} onClick={() => task.mutate({ id: run.task!.id, status: run.task!.status === 'open' ? 'completed' : 'open' })}>{run.task.status === 'open' ? <Check className="h-4 w-4" /> : <RotateCcw className="h-4 w-4" />}{run.task.status === 'open' ? 'Complete task' : 'Reopen task'}</Button></div>}
         </article>)}
-        {runs.data && runs.data.data.length === 0 && <p className="py-6 text-center text-sm text-[var(--calls-muted)]">No workflow runs yet. Saved rules wait for eligible events; previews do not appear here.</p>}
+        {runs.data && runs.data.data.length === 0 && <EmptyCalls compact icon="activity" title="No workflow runs yet" description="Saved rules wait for eligible events; previews do not appear here." />}
       </div>
       {runs.data && runs.data.last_page > 1 && <div className="mt-4 flex flex-wrap items-center justify-between gap-2"><p className="text-xs text-[var(--calls-muted)]">Page {runs.data.current_page} of {runs.data.last_page} · {runs.data.total} runs</p><div className="flex gap-2"><Button variant="outline" className="calls-secondary" disabled={page <= 1} onClick={() => setPage((current) => current - 1)}>Previous</Button><Button variant="outline" className="calls-secondary" disabled={page >= runs.data.last_page} onClick={() => setPage((current) => current + 1)}>Next</Button></div></div>}
     </div>

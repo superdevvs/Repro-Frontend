@@ -166,7 +166,7 @@ export default function CallLiveCockpit() {
             <span>{call.data?.recording_consent_given ? (call.data.metadata?.recording_started_at ? 'Recording started · Consent received' : 'Consent received · Recording is not active') : 'Recording consent not received'}</span>
           </div>
           <div className="mt-4 h-[42dvh] min-h-48 space-y-4 overflow-y-auto pr-2" aria-label="Live transcript text" tabIndex={0}>
-            {transcript.length === 0 && (call.data && !search ? <TranscriptPanel call={call.data} compact /> : <EmptyCalls title={search ? 'No matching transcript' : 'Waiting for transcript…'} />)}
+            {transcript.length === 0 && (call.data && !search ? <TranscriptPanel call={call.data} compact /> : <EmptyCalls compact icon={search ? 'search' : 'conversations'} title={search ? 'No matching transcript' : 'Waiting for transcript…'} />)}
             {transcript.map((chunk) => (
               <div key={chunk.seq}>
                 <p className="text-xs uppercase tracking-wide text-[var(--calls-muted)]">

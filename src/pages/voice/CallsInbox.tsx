@@ -157,7 +157,7 @@ export default function CallsInbox() {
         </div>
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
+      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
         <div className={selectedId ? 'hidden min-h-0 lg:flex lg:flex-col lg:gap-3' : 'flex min-h-0 flex-col gap-3'}>
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-[var(--calls-muted)]" />
@@ -202,7 +202,7 @@ export default function CallsInbox() {
               </div>
             )}
             {!list.isLoading && !list.isError && rows.length === 0 && (
-              <EmptyCalls title={debounced || filter !== 'all' ? 'No conversations match' : 'No calls yet'} />
+              <EmptyCalls fill icon={debounced || filter !== 'all' ? 'search' : 'calls'} title={debounced || filter !== 'all' ? 'No conversations match' : 'No calls yet'} description={debounced || filter !== 'all' ? 'Try another search or filter.' : 'Your incoming and outgoing conversations will appear here.'} />
             )}
           </div>
           <CallsPagination label="Conversations" page={page} pages={list.data?.last_page} total={list.data?.total} count={rows.length} pending={list.isFetching} error={list.isError} onChange={setPage} />
@@ -228,12 +228,10 @@ export default function CallsInbox() {
             </div>
           )}
           {!call && !selected.isLoading && !selected.isError && (
-            <div className="calls-panel flex min-h-[420px] items-center justify-center p-8">
-              <EmptyCalls title="Select a conversation" description="Needs attention, voicemail, and completed calls open here." />
-            </div>
+            <EmptyCalls fill icon="conversations" title="Select a conversation" description="Choose a call to see its recap, transcript and next steps." />
           )}
           {call && (
-            <div className="calls-panel overflow-hidden">
+            <div className="calls-panel min-h-full overflow-hidden">
               <div className="flex flex-col gap-4 border-b border-[var(--calls-border)] p-5">
                 <div className="lg:hidden">
                   <Button variant="ghost" className="h-11 px-2" onClick={() => navigate(`/calls/inbox?${searchParams.toString()}`)}>
