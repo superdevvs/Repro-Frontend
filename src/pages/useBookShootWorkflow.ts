@@ -610,6 +610,9 @@ export const useBookShootWorkflow = ({
               if (norm) allTimesSet.add(norm);
             }
           });
+          // No configured hours for the day → keep photographer (Backend_Fallback_Hours /
+          // fail-open). Only drop when there are windows and none cover the booking start.
+          if (relevant.length === 0) return true;
           return relevant.some((r) => slotCoversBookingTime(r, bookingStartMinutes));
         }).map((p) => String(p.id));
         setAvailablePhotographerIds(ids);
