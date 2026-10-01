@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
-import { ChevronsDown, Filter, List, MoreVertical } from 'lucide-react';
+import { ChevronsDown, Filter, History, List, MoreVertical } from 'lucide-react';
 import { DATE_RANGE_OPTIONS, SERVICE_LABELS, STATUS_FILTERS } from './shootsTabsCardUtils';
 import type { useShootsTabsCardController } from './useShootsTabsCardController';
 import { DASHBOARD_MOBILE_LIST_SHELL_CLASS, DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
@@ -164,14 +164,18 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
             <Button
               variant="outline"
               size="sm"
-              className="text-xs rounded-full border-dashed"
+              className={cn('text-xs rounded-full border-dashed', staffStack && 'max-sm:h-9 max-sm:w-9 max-sm:p-0', staffStack && showPastDays && 'bg-primary/10 text-primary')}
               onClick={() => setShowPastDays((prev) => !prev)}
               disabled={!hasPastDays}
+              aria-label={staffStack ? (showPastDays ? 'Hide previous shoots' : 'Previous shoots') : undefined}
+              aria-pressed={showPastDays}
+              title={showPastDays ? 'Hide previous shoots' : 'Previous shoots'}
             >
+              {staffStack && <History size={16} className="sm:hidden" aria-hidden="true" />}
               <span className="max-[1550px]:hidden">
                 {hasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
               </span>
-              <span className="hidden max-[1550px]:inline">
+              <span className={cn('hidden max-[1550px]:inline', staffStack && 'max-sm:!hidden')}>
                 {hasPastDays && showPastDays ? 'Hide' : 'Previous'}
               </span>
             </Button>

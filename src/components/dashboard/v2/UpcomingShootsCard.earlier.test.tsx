@@ -53,7 +53,7 @@ afterEach(() => {
 });
 
 describe('UpcomingShootsCard earlier unfinished work', () => {
-  it('keeps uploaded photographer work visible before today without duplicating it in Previous', () => {
+  it('expands the stack into the original previous-day cards and restores it when closed', () => {
     const onSelect = vi.fn();
     const records = [shoot(1, '2026-09-30', 'uploaded'), shoot(2, '2026-09-29', 'delivered'), shoot(3, '2026-10-01')];
     const { container } = render(<UpcomingShootsCard shoots={records} role="photographer" onSelect={onSelect} />);
@@ -65,9 +65,26 @@ describe('UpcomingShootsCard earlier unfinished work', () => {
     fireEvent.click(within(stack).getByText('Property 1'));
     expect(onSelect).toHaveBeenCalledWith(records[0], undefined);
     fireEvent.click(screen.getByRole('button', { name: 'Previous shoots' }));
-    expect(screen.getAllByText('Property 1')).toHaveLength(1);
-    expect(within(stack).queryByText('Property 2')).toBeNull();
-    expect(container.querySelectorAll('[data-shoot-card="true"]')).toHaveLength(2);
+    expect(screen.queryByRole('region', { name: 'Earlier unfinished shoots' })).toBeNull();
+    expect(Array.from(container.querySelectorAll('[data-shoot-card="true"]')).map(card => card.querySelector('h3')?.textContent)).toEqual(['Property 1', 'Property 2', 'Property 3']);
+    fireEvent.click(screen.getByRole('button', { name: 'Hide previous shoots' }));
+    expect(screen.getByRole('region', { name: 'Earlier unfinished shoots' })).toBeVisible();
+    expect(container.querySelectorAll('[data-shoot-card="true"]')).toHaveLength(1);
+    expect(screen.queryByText('Property 2')).toBeNull();
+  });
+
+  it('keeps Previous available when every earlier shoot is unfinished', () => {
+    viewport.compact = true;
+    const { container } = render(<UpcomingShootsCard shoots={[shoot(1, '2026-09-30', 'uploaded')]} role="photographer" onSelect={vi.fn()} />);
+    const previous = screen.getByRole('button', { name: 'Previous shoots' });
+    expect(previous).toBeEnabled();
+    expect(previous.querySelector('.lucide-history')).not.toBeNull();
+    expect(previous).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(previous);
+    expect(screen.getByText('Yesterday • 1 shoot')).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Earlier unfinished shoots' })).toBeNull();
+    expect(container.querySelectorAll('[data-shoot-card="true"]')).toHaveLength(1);
+    expect(screen.getByRole('button', { name: 'Hide previous shoots' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('does not consume the five-card agenda page with earlier stack items', () => {

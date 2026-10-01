@@ -63,6 +63,12 @@ describe('staff stacked shoot views', () => {
     const compact = screen.getByRole('button', { name: 'Show compact shoot cards' });
     expect(compact.textContent).toBe('');
     expect(compact.nextElementSibling?.textContent).toMatch(/Previous/);
+    const previous = screen.getByRole('button', { name: 'Previous shoots' });
+    expect(previous).toBeEnabled();
+    expect(previous.querySelector('.lucide-history')).not.toBeNull();
+    expect(previous).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(previous);
+    expect(state.setShowPastDays).toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Toggle menu' })).toBeNull();
     expect(container.querySelector('.h-0')).toBeNull();
     fireEvent.click(compact);

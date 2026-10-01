@@ -7,7 +7,7 @@ import { DashboardShootSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
 import { cn } from '@/lib/utils';
 import { hasActiveTextSelection } from '@/lib/textSelection'
-import { MapPin, Sun, CloudRain, Cloud, Snowflake, Filter, Check, X, Edit, Copy, Download, List, LayoutGrid } from 'lucide-react';
+import { MapPin, Sun, CloudRain, Cloud, Snowflake, Filter, History, Check, X, Edit, Copy, Download, List, LayoutGrid } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { ServicePills } from './ServicePills';
@@ -482,7 +482,9 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   }, [shoots, filters, showAssignmentFilters]);
 
   const activeFilterCount = countActiveFilters(filters);
-  const { earlier: earlierShoots, remaining: calendarShoots } = useEarlierShoots(filteredShoots, role);
+  const { earlier: earlierCandidates, remaining: remainingShoots } = useEarlierShoots(filteredShoots, role);
+  const earlierShoots = showPastDays && !isEditorRole ? [] : earlierCandidates;
+  const calendarShoots = showPastDays && !isEditorRole ? filteredShoots : remainingShoots;
 
   const { visibleGroups, hasPastDays, pastButtonLabel } = useMemo(() => {
     const today = startOfDay(new Date());
@@ -560,7 +562,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
     }
 
     const visiblePastGroups = showPastDays ? pastGroups.slice(0, 3) : [];
-    const hasPastDays = pastGroups.length > 0;
+    const hasPastDays = pastGroups.length > 0 || earlierCandidates.length > 0;
 
     // Include all groups: past (if shown), today, future
     // Also include any groups with requested shoots regardless of date
@@ -628,7 +630,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
       hasPastDays,
       pastButtonLabel: showPastDays ? 'Hide' : 'Previous shoots',
     };
-  }, [calendarShoots, showPastDays, showRequestsFirst, isEditorRole, formatDate]);
+  }, [calendarShoots, earlierCandidates, showPastDays, showRequestsFirst, isEditorRole, formatDate]);
 
   const getRelativeGroupLabel = useCallback((group: { label: string; shoots: DashboardShootSummary[]; isToday?: boolean; dayTime?: number; dayOffset?: number | null }) => {
     const count = group.shoots.length;
@@ -864,10 +866,14 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
             <Button
               variant="outline"
               size="sm"
-              className="text-xs rounded-full border-dashed"
+              className={cn('text-xs rounded-full border-dashed', hasStaffStack && 'max-sm:h-9 max-sm:w-9 max-sm:p-0', hasStaffStack && showPastDays && 'bg-primary/10 text-primary')}
               onClick={() => setShowPastDays((prev) => !prev)}
+              aria-label={hasStaffStack ? (showPastDays ? 'Hide previous shoots' : 'Previous shoots') : undefined}
+              aria-pressed={showPastDays}
+              title={showPastDays ? 'Hide previous shoots' : 'Previous shoots'}
             >
-              {pastButtonLabel}
+              {hasStaffStack && <History size={16} className="sm:hidden" aria-hidden="true" />}
+              <span className={hasStaffStack ? 'hidden sm:inline' : undefined}>{pastButtonLabel}</span>
             </Button>
           )}
           <>

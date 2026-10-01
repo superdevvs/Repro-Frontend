@@ -307,10 +307,12 @@ export function useShootsTabsCardController({
       hasPastDays,
     };
   }, [activeTab, formatDate, isEditingManagerMode, showPastDays]);
-  const { earlier: earlierShoots, remaining: remainingUpcomingShoots } = useEarlierShoots(filteredUpcomingShoots, role);
+  const { earlier: allEarlierShoots, remaining: remainingUpcomingShoots } = useEarlierShoots(filteredUpcomingShoots, role);
+  const earlierShoots = showPastDays ? [] : allEarlierShoots;
   const { groups: upcomingGroups, hasPastDays } = useMemo(
-    () => groupShootsByDay(remainingUpcomingShoots),
-    [groupShootsByDay, remainingUpcomingShoots]
+    // Previous restores the full date-grouped list; the collapsed view uses the stack.
+    () => groupShootsByDay([...allEarlierShoots, ...remainingUpcomingShoots]),
+    [groupShootsByDay, allEarlierShoots, remainingUpcomingShoots]
   );
   const requestedGroups = useMemo(() => {
     const groups: Record<string, DashboardShootSummary[]> = {};
