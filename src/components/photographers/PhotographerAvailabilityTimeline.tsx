@@ -1,19 +1,13 @@
 import React from 'react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { AvailabilityTimelineSlot } from '@/components/booking/AvailabilityTimelineSlot';
+import { BookedAppointmentDetails } from '@/components/booking/BookedAppointmentDetails';
+import type { BookingAvailabilitySlot } from '@/types/availability';
 import { cn } from '@/lib/utils';
 import { formatTimeForDisplay, to12Hour, to24Hour } from '@/utils/availabilityUtils';
 
-export type PhotographerTimelineSlot = {
-  start_time: string;
-  end_time: string;
-  status?: string;
-  shoot_id?: number;
-  address?: string;
-  city?: string;
-  state?: string;
-  zip?: string;
-};
+export type PhotographerTimelineSlot = BookingAvailabilitySlot;
+type TimelineSegment = PhotographerTimelineSlot & { visibleStart: number; visibleEnd: number };
 
 export const PHOTOGRAPHER_TIMELINE_START_MINUTES = 8 * 60;
 export const PHOTOGRAPHER_TIMELINE_END_MINUTES = 20 * 60;
@@ -58,17 +52,6 @@ const minutesToTime = (minutes: number) => {
   return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 };
 
-const clampTimelineSlot = <T extends PhotographerTimelineSlot>(slot: T): T | null => {
-  const startMinutes = Math.max(PHOTOGRAPHER_TIMELINE_START_MINUTES, timeToMinutes(slot.start_time));
-  const endMinutes = Math.min(PHOTOGRAPHER_TIMELINE_END_MINUTES, timeToMinutes(slot.end_time));
-  if (endMinutes <= startMinutes) return null;
-  return {
-    ...slot,
-    start_time: minutesToTime(startMinutes),
-    end_time: minutesToTime(endMinutes),
-  };
-};
-
 const prepareSlots = (slots?: PhotographerTimelineSlot[] | null): PhotographerTimelineSlot[] =>
   (slots || [])
     .map((slot) => ({
@@ -76,9 +59,7 @@ const prepareSlots = (slots?: PhotographerTimelineSlot[] | null): PhotographerTi
       start_time: normalizeSlotTime(slot.start_time),
       end_time: normalizeSlotTime(slot.end_time),
     }))
-    .filter((slot) => slot.start_time && slot.end_time)
-    .map(clampTimelineSlot)
-    .filter((slot): slot is PhotographerTimelineSlot => Boolean(slot));
+    .filter((slot) => slot.start_time && slot.end_time);
 
 const getLocationInitials = (slot: PhotographerTimelineSlot) => {
   const parts = [slot.address, slot.city, slot.state]
@@ -112,30 +93,30 @@ export function PhotographerAvailabilityTimeline({
   const scaleTotal = Math.max(1, scaleEnd - scaleStart);
   const scaleTicks = tickCount > 0 ? tickCount : PHOTOGRAPHER_TIMELINE_TICK_COUNT;
 
-  const clampForWindow = (slot: PhotographerTimelineSlot): PhotographerTimelineSlot | null => {
+  const clampForWindow = (slot: PhotographerTimelineSlot): TimelineSegment | null => {
     const slotStart = Math.max(scaleStart, timeToMinutes(slot.start_time));
     const slotEnd = Math.min(scaleEnd, timeToMinutes(slot.end_time));
     if (slotEnd <= slotStart) return null;
     return {
       ...slot,
-      start_time: minutesToTime(slotStart),
-      end_time: minutesToTime(slotEnd),
+      visibleStart: slotStart,
+      visibleEnd: slotEnd,
     };
   };
 
-  const availability = prepareSlots(availableSlots).map(clampForWindow).filter(Boolean) as PhotographerTimelineSlot[];
-  const booked = prepareSlots(bookedSlots).map(clampForWindow).filter(Boolean) as PhotographerTimelineSlot[];
-  const unavailable = prepareSlots(unavailableSlots).map(clampForWindow).filter(Boolean) as PhotographerTimelineSlot[];
+  const availability = prepareSlots(availableSlots).map(clampForWindow).filter(Boolean) as TimelineSegment[];
+  const booked = prepareSlots(bookedSlots).map(clampForWindow).filter(Boolean) as TimelineSegment[];
+  const unavailable = prepareSlots(unavailableSlots).map(clampForWindow).filter(Boolean) as TimelineSegment[];
   const hasSegments = availability.length > 0 || booked.length > 0 || unavailable.length > 0;
 
   const renderTimelineSlot = (
-    slot: PhotographerTimelineSlot,
+    slot: TimelineSegment,
     key: string,
     classNameForSlot: string,
     label: string,
   ) => {
-    const startMins = timeToMinutes(slot.start_time);
-    const endMins = timeToMinutes(slot.end_time);
+    const startMins = slot.visibleStart;
+    const endMins = slot.visibleEnd;
     if (endMins <= startMins) return null;
     const leftPercent = ((startMins - scaleStart) / scaleTotal) * 100;
     const widthPercent = ((endMins - startMins) / scaleTotal) * 100;
@@ -157,7 +138,9 @@ export function PhotographerAvailabilityTimeline({
         className={classNameForSlot}
         style={{ left: `${clampedLeft}%`, width: `${clampedWidth}%` }}
         label={`${label} ${to12Hour(slot.start_time)}-${to12Hour(slot.end_time)}`}
-        content={content}
+        content={label === 'Booked' ? <BookedAppointmentDetails slot={slot} /> : content}
+        interaction={label === 'Booked' ? 'popover' : 'adaptive'}
+        contentClassName={label === 'Booked' ? 'w-72 p-3' : undefined}
       >
         {showPillLabel ? (
           <span className="pointer-events-none truncate px-1 text-[9px] font-semibold leading-none tracking-wide text-white">

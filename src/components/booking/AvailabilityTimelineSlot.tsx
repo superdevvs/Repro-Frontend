@@ -12,10 +12,13 @@ type AvailabilityTimelineSlotProps = {
   label: string;
   content: React.ReactNode;
   children?: React.ReactNode;
+  interaction?: 'adaptive' | 'popover';
+  contentClassName?: string;
 };
 
 /**
- * Desktop (fine pointer + hover): Radix Tooltip on hover.
+ * Adaptive mode uses a tooltip for fine pointers with hover.
+ * Booked details request a persistent popover on every device.
  * Touch / coarse / no-hover (iPad, phones): Popover toggled by tap;
  * outside tap dismisses. Parent click (photographer select) is stopped.
  */
@@ -25,13 +28,16 @@ export function AvailabilityTimelineSlot({
   label,
   content,
   children,
+  interaction = 'adaptive',
+  contentClassName,
 }: AvailabilityTimelineSlotProps) {
   const canHover = useMediaQuery(HOVER_CAPABLE_QUERY);
+  const usePopover = interaction === 'popover' || !canHover;
   const [open, setOpen] = React.useState(false);
 
   const barClassName = cn(
     'inline-flex items-center justify-center overflow-hidden',
-    !canHover && 'cursor-pointer touch-manipulation',
+    usePopover && 'cursor-pointer touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white',
     className,
   );
 
@@ -41,7 +47,7 @@ export function AvailabilityTimelineSlot({
     event.stopPropagation();
   };
 
-  if (canHover) {
+  if (!usePopover) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
@@ -67,6 +73,14 @@ export function AvailabilityTimelineSlot({
           style={style}
           onClick={stopParentSelect}
           onPointerDown={stopParentSelect}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              setOpen(current => !current);
+            }
+          }}
+          onKeyUp={stopParentSelect}
         >
           {children}
         </span>
@@ -74,9 +88,12 @@ export function AvailabilityTimelineSlot({
       <PopoverContent
         side="top"
         align="center"
-        className="z-[200] w-auto max-w-[260px] whitespace-nowrap px-2 py-1 text-xs"
+        className={cn('z-[200] w-auto max-w-[calc(100vw-2rem)] whitespace-normal px-2 py-1 text-xs', contentClassName)}
+        collisionPadding={16}
+        aria-label={label}
         onClick={stopParentSelect}
         onPointerDown={stopParentSelect}
+        onKeyDown={stopParentSelect}
       >
         {content}
       </PopoverContent>

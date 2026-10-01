@@ -132,20 +132,24 @@ export const useSchedulingBase = ({
     [normalizeSlotTime, time],
   );
   const getServiceSchedule = (serviceId: string) => ({
+    duration_minutes: serviceSchedules[serviceId]?.duration_minutes,
     date: serviceSchedules[serviceId]?.date || defaultServiceDate,
     time: serviceSchedules[serviceId]?.time || defaultServiceTime,
   });
   const updateServiceSchedules = (
     serviceIds: string[],
-    patch: Partial<{ date: string; time: string }>
+    patch: Partial<{ date: string; time: string; duration_minutes: number }>
   ) => {
     if (!setServiceSchedules) return;
     setServiceSchedules(prev => {
       const next = { ...prev };
       for (const serviceId of serviceIds) {
         next[serviceId] = {
-          date: prev[serviceId]?.date || defaultServiceDate,
-          time: prev[serviceId]?.time || defaultServiceTime,
+          ...prev[serviceId],
+          ...(patch.date !== undefined || patch.time !== undefined ? {
+            date: prev[serviceId]?.date || defaultServiceDate,
+            time: prev[serviceId]?.time || defaultServiceTime,
+          } : {}),
           ...patch,
         };
       }

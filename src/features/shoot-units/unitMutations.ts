@@ -18,6 +18,7 @@ export function unitLinePayload(value: ShootServiceObject | Record<string, unkno
     ...(lineId(line) != null ? { shoot_service_id: lineId(line) } : {}),
     ...(line.client_key ? { client_key: line.client_key } : {}),
     shoot_unit_id: getServiceUnitId(line), service_id: serviceId(line), quantity: normalizeBookingQuantity(line.quantity),
+    ...(Number(line.duration_minutes) > 0 ? { duration_minutes: Number(line.duration_minutes) } : {}),
     scheduled_at: line.scheduled_at ?? line.scheduledAt ?? null,
     photographer_id: line.photographer_id ?? line.photographerId ?? record(line.photographer).id ?? null,
   };

@@ -1,5 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
+import { buildRescheduleDurationPayload, getRescheduleDurationEntries } from '@/utils/rescheduleDurations';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -39,6 +41,9 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
     schedule.time ? formatTimeForDisplay(schedule.time) : "10:00 AM"
   );
   const [reason, setReason] = useState("");
+  const [durationChanges, setDurationChanges] = useState<Record<string, number>>({});
+  useEffect(() => { setDurationChanges({}); }, [isOpen, shoot.id]);
+  const durationEntries = getRescheduleDurationEntries(shoot);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const { user, role } = useAuth();
@@ -76,6 +81,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
           requested_date: format(date, 'yyyy-MM-dd'),
           requested_time: time,
           reason: reason || undefined,
+          ...(appliesImmediately ? buildRescheduleDurationPayload(shoot, durationChanges) : {}),
           ...(units.length ? { expected_units_revision: shoot.units_revision } : {}),
         },
         {
@@ -238,6 +244,16 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
                 rows={3}
               />
             </div>
+            {appliesImmediately && durationEntries.length > 0 && (
+              <div className="space-y-3 rounded-lg border p-3">
+                <p className="text-sm font-medium">Service duration</p>
+                {durationEntries.map(entry => <div key={entry.id} className="space-y-1">
+                  <p className="text-xs font-medium">{entry.name}</p>
+                  <ServiceDurationPicker serviceName={entry.name} value={durationChanges[entry.id] ?? entry.duration}
+                    disabled={isSubmitting} onChange={minutes => setDurationChanges(current => ({ ...current, [entry.id]: minutes }))} />
+                </div>)}
+              </div>
+            )}
           </div>
         </div>
         

@@ -30,7 +30,7 @@ export function useInheritedServiceSchedule({
     // Only the membership decided at load/add time controls inheritance.
     const linkedIds = new Set(inheritedIds.current);
     setServiceSchedules(current => Object.fromEntries(Object.entries(current).map(([id, schedule]) => [
-      id, linkedIds.has(id) ? next : schedule,
+      id, linkedIds.has(id) ? { ...schedule, ...next } : schedule,
     ])));
   };
   const changeScheduledDate = (value: Date | undefined) => {

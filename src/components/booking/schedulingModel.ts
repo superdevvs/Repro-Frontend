@@ -25,6 +25,8 @@ export interface SchedulingSlot {
   end_time: string;
   status?: string;
   shoot_id?: number;
+  client_name?: string;
+  services?: Array<{ id: number; name: string }>;
   address?: string;
   city?: string;
   state?: string;
@@ -120,13 +122,17 @@ export interface SchedulingFormProps {
   setPhotographer?: React.Dispatch<React.SetStateAction<string>>;
   servicePhotographers?: Record<string, string>;
   setServicePhotographers?: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  serviceSchedules?: Record<string, { date?: string; time?: string }>;
-  setServiceSchedules?: React.Dispatch<React.SetStateAction<Record<string, { date?: string; time?: string }>>>;
+  serviceSchedules?: Record<string, { date?: string; time?: string; duration_minutes?: number }>;
+  setServiceSchedules?: React.Dispatch<React.SetStateAction<Record<string, { date?: string; time?: string; duration_minutes?: number }>>>;
   selectedServices?: Array<{
     id: string;
     name: string;
     description?: string;
     price: number;
+    duration_minutes?: number | null;
+    shoot_duration_minutes?: number | null;
+    pricing_type?: string;
+    sqft_ranges?: Array<{ sqft_from: number; sqft_to: number; duration?: number | null }>;
     photographer_required?: boolean;
     category?: { id: string; name: string };
   }>;

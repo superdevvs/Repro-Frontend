@@ -19,6 +19,71 @@ const eligibilityProps = (): SchedulingFormProps => ({
 });
 
 describe('per-service booking photographer availability', () => {
+  it('updates suggested times and the API check when the duration changes within a one-hour opening', async () => {
+    const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => ({ ok: true, json: async () => ({ data: [{
+      id: 9, name: 'Pat', availability_slots: [{ start_time: '12:00', end_time: '13:00' }],
+      net_available_slots: [{ start_time: '12:00', end_time: '13:00' }],
+    }] }) }));
+    vi.stubGlobal('fetch', fetchMock);
+    const props: SchedulingFormProps = { ...eligibilityProps(), time: '12:00',
+      serviceSchedules: { '1': { duration_minutes: 90 } } };
+    const { result, rerender } = renderHook(p => useSchedulingFormController(p), { initialProps: props });
+    await waitFor(() => expect(result.current.photographersWithDistance).toHaveLength(1));
+    expect(result.current.suggestedTimes).not.toContain('12:00 PM');
+    expect(result.current.isPhotographerTimeDisabled('9', '12:00', '1')).toBe(true);
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toMatchObject({ duration_minutes: 90 });
+    rerender({ ...props, serviceSchedules: { '1': { duration_minutes: 30 } } });
+    await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
+    expect(result.current.suggestedTimes).toContain('12:00 PM');
+    expect(result.current.suggestedTimes).toContain('12:30 PM');
+    rerender({ ...props, serviceSchedules: { '1': { duration_minutes: 60 } } });
+    await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
+    expect(result.current.suggestedTimes).toContain('12:00 PM');
+    expect(result.current.suggestedTimes).not.toContain('12:15 PM');
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toMatchObject({ duration_minutes: 60 });
+  });
+
+  it('checks independent services with their own duration and their own selected date and time', async () => {
+    const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => ({ ok: true, json: async () => ({ data: [{
+      id: 9, name: 'Pat', availability_slots: [{ start_time: '12:00', end_time: '13:00' }],
+      net_available_slots: [{ start_time: '12:00', end_time: '13:00' }],
+    }] }) }));
+    vi.stubGlobal('fetch', fetchMock);
+    const props: SchedulingFormProps = { ...eligibilityProps(), time: '12:00',
+      selectedServices: [{ id: '1', name: 'Photos', price: 100 }, { id: '2', name: 'Video', price: 100 }],
+      serviceSchedules: { '1': { duration_minutes: 30 }, '2': { date: '2026-10-06', time: '12:15', duration_minutes: 90 } },
+    };
+    const { result } = renderHook(() => useSchedulingFormController(props));
+    await waitFor(() => expect(result.current.photographersWithDistance).toHaveLength(1));
+    expect(result.current.suggestedTimes).toContain('12:00 PM'); // Tomorrow's long visit does not lengthen today's work.
+    act(() => result.current.setActiveServiceForPicker('2'));
+    await waitFor(() => expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toMatchObject({
+      date: '2026-10-06', time: '12:15', duration_minutes: 90,
+    }));
+    await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
+    expect(result.current.isPhotographerTimeDisabled('9', '12:00', '2')).toBe(true);
+  });
+
+  it('uses the longest same-slot service and does not trust a stale available flag over a short free range', async () => {
+    const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => ({ ok: true, json: async () => ({ data: [{
+      id: 9, name: 'Pat', is_available_at_time: true,
+      availability_slots: [{ start_time: '12:00', end_time: '13:00' }],
+      net_available_slots: [{ start_time: '12:00', end_time: '13:00' }],
+    }] }) }));
+    vi.stubGlobal('fetch', fetchMock);
+    const props: SchedulingFormProps = { ...eligibilityProps(), time: '12:00',
+      selectedServices: [{ id: '1', name: 'Photos', price: 100 }, { id: '2', name: 'Video', price: 100 }],
+      serviceSchedules: { '1': { duration_minutes: 30 }, '2': { duration_minutes: 90 } },
+    };
+    const { result } = renderHook(() => useSchedulingFormController(props));
+    await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toMatchObject({ duration_minutes: 90 });
+    expect(result.current.suggestedTimes).not.toContain('12:00 PM');
+    expect(result.current.isPhotographerTimeDisabled('9', '12:00', '1')).toBe(false);
+    act(() => result.current.setShowAllPhotographers(false));
+    expect(result.current.filteredAndSortedPhotographers).toHaveLength(0);
+  });
+
   it.each([
     { topLevel: {}, expected: { travel_range: 80, travel_range_unit: 'km' } },
     { topLevel: { travel_range: 25, travel_range_unit: 'miles' }, expected: { travel_range: 25, travel_range_unit: 'miles' } },

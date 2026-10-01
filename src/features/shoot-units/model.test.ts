@@ -11,6 +11,15 @@ function draft(count = 2): MultiUnitDraft {
   return value;
 }
 describe('multi-unit booking identity, pricing and occupied time', () => {
+  it('uses explicit per-line durations for sequential blocks and the saved payload', () => {
+    const value = copyMissingServices(draft(), 'u0', ['u1']);
+    value.defaults['1'] = { duration_minutes: 120 };
+    value.lines[0].duration_minutes = 30;
+    const result = resolveUnitSchedule(value, catalog, { date: '2026-10-06', time: '09:00', photographer_id: '7' });
+    expect(result.lines.map(line => [line.start_time, line.end_time])).toEqual([['09:00', '09:30'], ['09:30', '11:30']]);
+    expect(buildUnitPayload(value, result.lines).service_lines.map(line => line.duration_minutes)).toEqual([30, 120]);
+    expect(result.errors).toEqual([]);
+  });
   it('changes quantities only in the active unit and prices each item without multiplying aggregate totals twice', () => {
     const original = setUnitServices(draft(), 'u0', [{ id: '1', quantity: 3 }]);
     const copied = copyMissingServices(original, 'u0', ['u1']);
@@ -79,8 +88,8 @@ describe('multi-unit booking identity, pricing and occupied time', () => {
     expect(result.errors).toEqual([]);
   });
   it('matches backend duration precedence and configuration bounds, ignoring delivery time', () => {
-    expect(unitServiceDuration({ ...catalog[0], shoot_duration_minutes: 40, delivery_time: 3 }, draft().units[1])).toBe(60);
-    expect(unitServiceDuration({ ...catalog[1], delivery_time: 48 }, draft().units[0])).toBe(120);
+    expect(unitServiceDuration({ ...catalog[0], shoot_duration_minutes: 40, delivery_time: 3 }, draft().units[1])).toBe(40);
+    expect(unitServiceDuration({ ...catalog[1], delivery_time: 48 }, draft().units[0])).toBe(60);
     expect(unitServiceDuration({ ...catalog[0], shoot_duration_minutes: 400 }, draft().units[0])).toBe(240);
   });
   it('hydrates repeated persisted catalog services without collapsing unit ownership or snapshot prices', () => {

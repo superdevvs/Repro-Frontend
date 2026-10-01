@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { format, isValid, parse } from 'date-fns';
 import axios from 'axios';
 import type { ShootData } from '@/types/shoots';
+import type { BookingAvailabilitySlot } from '@/types/availability';
+import { normalizeBookingAvailabilitySlots as normalizeSlots } from '@/utils/bookingAvailabilitySlots';
 import { API_BASE_URL } from '@/config/env';
 import API_ROUTES from '@/lib/api';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
@@ -85,7 +87,7 @@ export type PhotographerPickerOption = {
   };
   availabilitySlots?: Array<{ start_time: string; end_time: string; status?: string }>;
   netAvailableSlots?: Array<{ start_time: string; end_time: string; status?: string }>;
-  bookedSlots?: Array<{ start_time: string; end_time: string; status?: string }>;
+  bookedSlots?: BookingAvailabilitySlot[];
   unavailableSlots?: Array<{ start_time: string; end_time: string; status?: string }>;
   hasAvailability?: boolean;
   shootsCountToday?: number;
@@ -119,18 +121,6 @@ const responseItems = (value: unknown): unknown[] => {
   const payload = asRecord(value).data ?? value;
   return Array.isArray(payload) ? payload : [];
 };
-
-const normalizeSlots = (value: unknown): NonNullable<PhotographerPickerOption['availabilitySlots']> =>
-  asRecordArray(value).flatMap((slot) => {
-    const startTime = optionalString(slot.start_time);
-    const endTime = optionalString(slot.end_time);
-    if (!startTime || !endTime) return [];
-    return [{
-      start_time: startTime,
-      end_time: endTime,
-      status: optionalString(slot.status),
-    }];
-  });
 
 export type UseShootOverviewEditorArgs = {
   shoot: ShootData;

@@ -29,6 +29,45 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe('editing the main shoot appointment', () => {
+  it('hydrates unscheduled saved durations and tier defaults independently of timestamps', async () => {
+    vi.mocked(axios.get).mockResolvedValue({ data: { data: [
+      { id: 10, name: 'Photos', price: 100, photographer_required: true },
+      { id: 11, name: 'Floorplan', price: 50, photographer_required: true, pricing_type: 'variable',
+        sqft_ranges: [{ sqft_from: 1, sqft_to: 2000, price: 50, duration: 90 }] },
+    ] } });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: {
+      id: 42, address: '42 Service Lane', scheduled_at: '2026-10-06T10:30:00', sqft: 1000,
+      services: [{ id: 10, name: 'Photos' }, { id: 11, name: 'Floorplan' }],
+      service_items: [{ service_id: 10, name: 'Photos', duration_minutes: 30 }, { service_id: 11, name: 'Floorplan' }],
+    } }) }));
+    const { result } = renderHook(() => useShootEditModalController({ isOpen: true, onClose: vi.fn(), shootId: '42' }));
+    await waitFor(() => expect(result.current.selectedServiceIds.size).toBe(2));
+    expect(result.current.serviceSchedules['10'].duration_minutes).toBe(30);
+    expect(result.current.serviceSchedules['11'].duration_minutes).toBe(90);
+    expect(result.current.buildApprovalPayload()?.service_items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ service_id: 10, duration_minutes: 30 }),
+      expect.objectContaining({ service_id: 11, duration_minutes: 90 }),
+    ]));
+  });
+  it('preserves booked30, edits duration independently, and sends it through both update aliases', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: {
+      id: 42, address: '42 Service Lane', scheduled_at: '2026-10-06T10:30:00',
+      service_items: [{ service_id: 10, name: 'Photos', scheduled_at: '2026-10-06T10:30:00', duration_minutes: 30 },
+        { service_id: 11, name: 'Floorplan', scheduled_at: '2026-10-06T10:30:00', duration_minutes: 85 }],
+    } }) }));
+    const { result } = renderHook(() => useShootEditModalController({ isOpen: true, onClose: vi.fn(), shootId: '42' }));
+    await waitFor(() => expect(result.current.selectedServiceIds.size).toBe(2));
+    expect(result.current.serviceSchedules['10'].duration_minutes).toBe(30);
+    act(() => result.current.updateServiceSchedule('11', 'duration_minutes', 120));
+    act(() => result.current.setScheduledTime('12:00'));
+    act(() => result.current.applyServiceScheduleToAll('10'));
+    const payload = result.current.buildApprovalPayload();
+    expect(payload?.service_items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ service_id: 10, duration_minutes: 30, scheduled_at: '2026-10-06T12:00:00' }),
+      expect.objectContaining({ service_id: 11, duration_minutes: 120, scheduled_at: '2026-10-06T12:00:00' }),
+    ]));
+    expect(payload?.services).toEqual(expect.arrayContaining([expect.objectContaining({ id: 11, duration_minutes: 120 })]));
+  });
   it('reclassifies reused service IDs when switching units and reopening', async () => {
     const firstUnit = {
       id: 42, address: '42 Service Lane', scheduled_at: '2026-10-06T10:30:00', timezone: null,

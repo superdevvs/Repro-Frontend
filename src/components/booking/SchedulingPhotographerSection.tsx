@@ -511,10 +511,10 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                           </div>
                           <ServiceTimePicker
                             value={getServiceSchedule(serviceId).time}
-                            options={buildConflictAwareServiceTimeOptions(getPhotographerForService(serviceId), getServiceSchedule(serviceId).time)}
+                            options={buildConflictAwareServiceTimeOptions(getPhotographerForService(serviceId), getServiceSchedule(serviceId).time, serviceId)}
                             onChange={(value) => updateServiceSchedules([serviceId], { time: value })}
                             triggerClassName="h-9"
-                            isTimeDisabled={(value) => isPhotographerTimeDisabled(getPhotographerForService(serviceId), value)}
+                            isTimeDisabled={(value) => isPhotographerTimeDisabled(getPhotographerForService(serviceId), value, serviceId)}
                           />
                         </div>
                       </div>
@@ -556,10 +556,10 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                       </div>
                       <ServiceTimePicker
                         value={getServiceSchedule(primaryAssignment.serviceId).time}
-                        options={buildConflictAwareServiceTimeOptions(photographer, getServiceSchedule(primaryAssignment.serviceId).time)}
+                        options={buildConflictAwareServiceTimeOptions(photographer, getServiceSchedule(primaryAssignment.serviceId).time, primaryAssignment.serviceId)}
                         onChange={(value) => updateServiceSchedules([primaryAssignment.serviceId], { time: value })}
                         triggerClassName="h-9"
-                        isTimeDisabled={(value) => isPhotographerTimeDisabled(photographer, value)}
+                        isTimeDisabled={(value) => isPhotographerTimeDisabled(photographer, value, primaryAssignment.serviceId)}
                       />
                     </div>
                   </div>

@@ -51,6 +51,33 @@ const approve = async () => {
 };
 
 describe('approval schedule inheritance', () => {
+  it('shows catalogue tier duration for a null snapshot and preserves a stored30-minute visit', async () => {
+    Object.assign(fetchedShoot, { sqft: 1000 });
+    Object.assign(fetchedShoot.service_items[0], { duration_minutes: null, pricing_type: 'variable',
+      sqft_ranges: [{ sqft_from: 1, sqft_to: 2000, duration: 90 }] });
+    Object.assign(fetchedShoot.service_items[1], { duration_minutes: 30 });
+    await loadModal();
+    expect(screen.getByLabelText('Shoot duration for Photos')).toHaveValue('90');
+    expect(screen.getByLabelText('Shoot duration for Floorplan')).toHaveValue('30');
+    const payload = await approve();
+    expect(payload.service_items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ service_id: 10, duration_minutes: 90 }),
+      expect.objectContaining({ service_id: 11, duration_minutes: 30 }),
+    ]));
+  });
+  it('preserves individual duration changes through main time edits and Apply all', async () => {
+    await loadModal();
+    expect(screen.getByLabelText('Shoot duration for Photos')).toHaveValue('60');
+    fireEvent.change(screen.getByLabelText('Shoot duration for Photos'), { target: { value: '30' } });
+    fireEvent.change(screen.getByLabelText('Shoot duration for Floorplan'), { target: { value: '120' } });
+    changeMainTime('13:00');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Apply this date and time to all services' })[0]);
+    const payload = await approve();
+    expect(payload.service_items).toEqual(expect.arrayContaining([
+      expect.objectContaining({ service_id: 10, duration_minutes: 30, scheduled_at: '2026-10-06T13:00:00' }),
+      expect.objectContaining({ service_id: 11, duration_minutes: 120, scheduled_at: '2026-10-06T13:00:00' }),
+    ]));
+  });
   it.each([null, 'America/New_York'])('moves inherited services while keeping a coinciding separate visit in %s', async timezone => {
     fetchedShoot = buildShoot(timezone);
     await loadModal();

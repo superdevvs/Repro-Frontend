@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { resolveShootDuration } from '@/utils/shootDuration';
 import { useToast } from '@/hooks/use-toast';
 import { useShoots } from '@/context/shootsContextState';
 import { useNavigate } from 'react-router-dom';
@@ -695,6 +696,9 @@ export const useBookShootWorkflow = ({
                 svcPhotographers[svcId] = svcPhotographerId;
               }
               const scheduledValue = svc.scheduled_at || svc.scheduledAt;
+              if (svcId && Number(svc.duration_minutes) > 0) {
+                svcSchedules[svcId] = { duration_minutes: resolveShootDuration(svc.duration_minutes) };
+              }
               if (svcId && scheduledValue) {
                 const serviceSchedule = getShootSchedule({
                   scheduled_at: scheduledValue,
@@ -702,6 +706,7 @@ export const useBookShootWorkflow = ({
                 });
                 if (serviceSchedule.date && serviceSchedule.time) {
                   svcSchedules[svcId] = {
+                    ...svcSchedules[svcId],
                     date: serviceSchedule.date,
                     time: serviceSchedule.time,
                   };

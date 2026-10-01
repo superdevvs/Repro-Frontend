@@ -25,7 +25,7 @@ describe('editing a shoot request keeps its stored schedule', () => {
       if (url.endsWith('/shoots/86')) return { data: { data: {
         id: 86, address: '7319 Golden Horseshoe Court', ...schedule,
         services: [{ id: 19, name: 'Photography' }],
-        service_items: [{ id: 126, service_id: 19, scheduled_at: schedule.scheduled_at }],
+        service_items: [{ id: 126, service_id: 19, scheduled_at: schedule.scheduled_at, duration_minutes: 30 }],
       } } };
       return { data: { data: [] } };
     });
@@ -37,7 +37,8 @@ describe('editing a shoot request keeps its stored schedule', () => {
     expect(result.current.date?.getFullYear()).toBe(2026);
     expect(result.current.date?.getMonth()).toBe(8);
     expect(result.current.date?.getDate()).toBe(9);
-    expect(result.current.serviceSchedules['19']).toEqual({ date: '2026-09-09', time: '10:00' });
+    expect(result.current.serviceSchedules['19']).toEqual({ date: '2026-09-09', time: '10:00', duration_minutes: 30 });
+    expect(result.current.selectedServices[0].duration_minutes).toBe(30);
     const source = result.current.editingScheduleSource;
     const serviceSchedule = result.current.serviceSchedules['19'];
     expect(buildShootScheduleTimestamp(serviceSchedule.date, serviceSchedule.time, source?.timezone,

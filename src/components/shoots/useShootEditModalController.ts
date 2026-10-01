@@ -25,6 +25,7 @@ import { addInvoiceAdjustmentToCatalogTotal, getShootEditCatalogServiceEntries, 
 import { buildTimeOptions, normalizeTimeValue } from './shootEditTimeHelpers';
 import { applyServiceScheduleToAllIds } from '@/utils/applyServiceScheduleToAll';
 import { syncInheritedServiceScheduleIds, useInheritedServiceSchedule } from './useInheritedServiceSchedule';
+import { resolveServiceShootDuration, resolveShootDuration } from '@/utils/shootDuration';
 import {
   ShootServiceMutationError,
   submitShootServiceMutation,
@@ -133,6 +134,8 @@ export function useShootEditModalController({
         const mappedServices = servicesData.map((s: ServiceApiRecord) => ({
           id: s.id?.toString() || s.id,
           name: s.name,
+          duration_minutes: s.duration_minutes,
+          shoot_duration_minutes: s.shoot_duration_minutes,
           price: Number(s.price || 0),
           pricing_type: s.pricing_type || 'fixed',
           photographer_required: Boolean(s.photographer_required),
@@ -143,6 +146,7 @@ export function useShootEditModalController({
             sqft_from: Number(r.sqft_from) || 0,
             sqft_to: Number(r.sqft_to) || 0,
             price: Number(r.price) || 0,
+            duration: r.duration == null ? null : Number(r.duration),
             photographer_pay: r.photographer_pay != null ? Number(r.photographer_pay) : null,
           })),
         }));
@@ -213,13 +217,15 @@ export function useShootEditModalController({
                 ? shoot.service_items
                 : [];
             const scheduleByServiceId = new Map<string, ServiceScheduleFields>();
+            const durationByServiceId = new Map<string, number>();
             rawServiceItems.forEach((item: Record<string, unknown>) => {
               const serviceId = getShootEditCatalogServiceId(item);
               if (!serviceId) return;
+              if (Number(item.duration_minutes) > 0) durationByServiceId.set(String(serviceId), resolveShootDuration(item.duration_minutes));
               const scheduledAt = item.scheduled_at ?? item.scheduledAt;
               const { date, time } = getShootSchedule({ scheduled_at: scheduledAt, timezone: shoot.timezone });
               if (date || time) {
-                scheduleByServiceId.set(String(serviceId), { date, time });
+                scheduleByServiceId.set(String(serviceId), { date, time, ...(Number(item.duration_minutes) > 0 ? { duration_minutes: resolveShootDuration(item.duration_minutes) } : {}) });
               }
             });
             const fallbackSchedule = {
@@ -237,7 +243,11 @@ export function useShootEditModalController({
                 scheduleByServiceId.get(normalizedServiceId) || {
                   date: directSchedule.date || fallbackSchedule.date,
                   time: directSchedule.time || fallbackSchedule.time,
+                  duration_minutes: resolveServiceShootDuration(mappedServices.find((item: Service) => String(item.id) === normalizedServiceId) ?? {}, Number(sqft) || null),
                 };
+              if (durationByServiceId.has(normalizedServiceId)) {
+                nextServiceSchedules[normalizedServiceId].duration_minutes = durationByServiceId.get(normalizedServiceId);
+              }
             });
             setServiceSchedules(nextServiceSchedules);
             inheritedServiceScheduleIds.current = new Set(Object.entries(nextServiceSchedules)
@@ -637,6 +647,7 @@ export function useShootEditModalController({
       return {
         service_id: Number(id),
         quantity: normalizeBookingQuantity(serviceQuantities[id]),
+        duration_minutes: resolveServiceShootDuration(service ?? {}, propertySqft, serviceSchedule.duration_minutes),
         scheduled_at: serviceScheduledAt,
         photographer_id: serviceRequiresPhotographer
           ? (
@@ -661,6 +672,7 @@ export function useShootEditModalController({
       services: serviceItemsPayload.map((item) => ({
         id: item.service_id,
         quantity: item.quantity,
+        duration_minutes: item.duration_minutes,
         scheduled_at: item.scheduled_at,
       })),
       service_items: serviceItemsPayload,
@@ -880,9 +892,9 @@ export function useShootEditModalController({
   const updateServiceSchedule = (
     serviceId: string,
     field: keyof ServiceScheduleFields,
-    value: string,
+    value: string | number,
   ) => {
-    inheritedServiceScheduleIds.current.delete(serviceId);
+    if (field !== 'duration_minutes') inheritedServiceScheduleIds.current.delete(serviceId);
     setServiceSchedules((current) => ({
       ...current,
       [serviceId]: {

@@ -2,9 +2,11 @@ import axios from 'axios';
 import API_ROUTES from '@/lib/api';
 import type { AddressDetails } from '@/utils/addressLookup';
 import type { PricingDiscountType } from '@/utils/pricing';
+import type { BookingAvailabilitySlot } from '@/types/availability';
 import { formatDateForWallClockInput, formatTimeForWallClockInput } from '@/utils/wallClockDateTime';
 
 export interface SqftRange {
+  duration?: number | null;
   id?: number;
   sqft_from: number;
   sqft_to: number;
@@ -15,6 +17,8 @@ export interface SqftRange {
 export interface Service {
   id: number | string;
   name: string;
+  duration_minutes?: number | null;
+  shoot_duration_minutes?: number | null;
   price?: number;
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: SqftRange[];
@@ -48,10 +52,7 @@ export interface Photographer {
   shootsCountToday?: number;
 }
 
-export type AvailabilitySlot = {
-  start_time: string;
-  end_time: string;
-};
+export type AvailabilitySlot = BookingAvailabilitySlot;
 
 export type PhotographerAvailabilityMap = Record<string, AvailabilitySlot[]>;
 
@@ -140,6 +141,7 @@ export type SelectedServiceSource =
     };
 
 export type ServiceApiRange = {
+  duration?: number | string | null;
   id?: number;
   sqft_from?: number | string;
   sqft_to?: number | string;
@@ -148,6 +150,8 @@ export type ServiceApiRange = {
 };
 
 export type ServiceApiRecord = {
+  duration_minutes?: number | null;
+  shoot_duration_minutes?: number | null;
   id?: string | number;
   name?: string;
   price?: number | string;
@@ -238,6 +242,7 @@ export type MobileEditPanel = 'details' | 'schedule' | 'services';
 export type ServiceScheduleFields = {
   date: string;
   time: string;
+  duration_minutes?: number;
 };
 
 export const normalizeCategoryKey = (value?: string) =>
