@@ -293,7 +293,7 @@ const fetchShootFiles = async (
 export const useShootFiles = (
   shootId: string | number | null | undefined,
   type: 'raw' | 'edited' | 'all' = 'all',
-  options?: { enabled?: boolean; cacheKey?: string | number | null }
+  options?: { enabled?: boolean; cacheKey?: string | number | null; refetchInterval?: number | false }
 ) => {
   const { session, user, isImpersonating } = useAuth();
   
@@ -304,6 +304,7 @@ export const useShootFiles = (
     queryKey: ['shootFiles', shootId, type, impersonatedUserId, isImpersonating ? user?.id : null, options?.cacheKey ?? null],
     queryFn: () => fetchShootFiles(shootId!, type, getToken(session?.accessToken)),
     enabled: Boolean(shootId) && (options?.enabled !== false),
+    refetchInterval: options?.refetchInterval ?? false,
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000, // 5 minutes
   });

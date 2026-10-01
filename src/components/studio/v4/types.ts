@@ -10,9 +10,11 @@ export interface V4Config {
   adjustments: Record<string, string | number | boolean>; frames: V4Frame[];
   reviewedOutputIds?: string[]; reviewedFrameIds?: string[];
 }
-export interface V4Output { id: string; mediaId: string; url: string; thumbnailUrl?: string; kind: 'image' | 'video'; version: number; status: string; label?: string }
+export interface V4Output { sourceMediaIds?: string[]; sourceFileIds?: number[]; id: string; mediaId: string; url: string; thumbnailUrl?: string; kind: 'image' | 'video'; version: number; status: string; label?: string }
 export interface V4PreparedFrame { mediaId: string; url: string; method: 'extend' | 'crop' | 'fit'; ratio?: StudioRatio; status: string; version: number }
 export interface V4Workspace {
+  photoGroups?: { mediaId: string; sourceMediaIds: string[]; sourceFileIds: number[]; name: string }[] | null;
+  requiresReview?: boolean;
   shootId?: number | null;
   parentWorkspaceId?: string | null;
   version?: number;

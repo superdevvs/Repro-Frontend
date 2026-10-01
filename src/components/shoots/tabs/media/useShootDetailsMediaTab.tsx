@@ -534,6 +534,7 @@ export function useShootDetailsMediaTab({
     cacheKey: shootFilesCacheKey,
   });
   const { data: editedFilesData = [], isLoading: editedLoading } = useScopedShootFiles(fullShoot, activeUnitId, 'edited', {
+    refetchInterval: ['editing', 'review'].includes(String(fullShoot.status)) ? 5000 : false,
     enabled: Boolean(shoot.id),
     cacheKey: shootFilesCacheKey,
   });
