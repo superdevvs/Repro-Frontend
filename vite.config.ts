@@ -2,6 +2,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import http from "node:http";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { componentTagger } from "lovable-tagger";
 
 const normalizeModuleId = (id: string) => id.replaceAll("\\", "/");
@@ -98,6 +100,12 @@ const noKeepAliveAgent = new http.Agent({ keepAlive: false, maxSockets: 20 });
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // The root service worker is not a fingerprinted Vite asset. Give each body
+  // its own URL even when the origin applies immutable caching to all JS.
+  define: {
+    __VOICE_PUSH_WORKER_REVISION__: JSON.stringify(createHash('sha256')
+      .update(readFileSync(path.resolve(__dirname, 'public/voice-push-worker.js'))).digest('hex')),
+  },
   // Axios errors retain headers/body for callers. Never let legacy console
   // statements serialize those objects into production browser diagnostics.
   esbuild: {
