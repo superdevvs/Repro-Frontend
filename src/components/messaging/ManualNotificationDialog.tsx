@@ -52,7 +52,11 @@ const RECIPIENT_OPTIONS: ReadonlyArray<{
 }> = [
   { value: 'client', label: 'Client', icon: <User className="h-4 w-4" /> },
   { value: 'photographer', label: 'Photographer', icon: <Users className="h-4 w-4" /> },
+  { value: 'rep', label: 'Sales rep', icon: <Users className="h-4 w-4" /> },
 ];
+
+const usesSalesRep = (type: ManualNotificationType) =>
+  type === 'shoot_on_hold' || type === 'shoot_cancelled';
 
 const CHANNEL_OPTIONS: ReadonlyArray<{
   value: ManualNotificationChannel;
@@ -139,7 +143,7 @@ export interface ManualNotificationDialogProps {
  * Lets an admin manually send a shoot notification:
  *   1. Pick the notification type (shoot_scheduled / on_hold / cancelled / ready /
  *      payment_due / payment_receipt) — AC 12.2.
- *   2. Pick the recipient (client | photographer) — AC 12.6.
+ *   2. Pick the client or staff recipient (sales rep for holds and cancellations).
  *   3. Pick the channel (email | sms) — AC 12.7.
  *   4. Preview the rendered subject/body before sending — AC 12.5.
  *   5. If the backend reports `missing_variables`, show a warning banner before send — AC 12.8.
@@ -155,6 +159,9 @@ export function ManualNotificationDialog({
   const [type, setType] = useState<ManualNotificationType>('shoot_scheduled');
   const [recipientType, setRecipientType] = useState<ManualNotificationRecipient>('client');
   const [channel, setChannel] = useState<ManualNotificationChannel>('email');
+  const recipientOptions = RECIPIENT_OPTIONS.filter((option) =>
+    option.value === 'client' || option.value === (usesSalesRep(type) ? 'rep' : 'photographer'),
+  );
 
   // Reset form whenever the dialog re-opens so a previous selection doesn't leak.
   useEffect(() => {
@@ -273,7 +280,12 @@ export function ManualNotificationDialog({
               </Label>
               <Select
                 value={type}
-                onValueChange={(next) => setType(next as ManualNotificationType)}
+                onValueChange={(next) => {
+                  const nextType = next as ManualNotificationType;
+                  setType(nextType);
+                  // Reset an incompatible staff choice before fetching its preview.
+                  if (usesSalesRep(nextType) !== usesSalesRep(type)) setRecipientType('client');
+                }}
                 disabled={isSending}
               >
                 <SelectTrigger id="manual-notification-type">
@@ -294,7 +306,7 @@ export function ManualNotificationDialog({
                 Recipient
               </Label>
               <SegmentedControl
-                options={RECIPIENT_OPTIONS}
+                options={recipientOptions}
                 value={recipientType}
                 onChange={(next) => setRecipientType(next)}
                 disabled={isSending}
@@ -304,7 +316,7 @@ export function ManualNotificationDialog({
                   <p className="mb-1 font-medium text-foreground">
                     {recipientType === 'photographer'
                       ? (assignedPhotographers.length === 1 ? 'Assigned photographer' : 'Assigned photographers')
-                      : 'Recipient'}
+                      : recipientType === 'rep' ? 'Assigned sales rep' : 'Recipient'}
                     {recipientsQuery.isFetching ? '…' : ''}
                   </p>
                   <ul className="space-y-0.5">

@@ -35,7 +35,8 @@ const localDate = (date: Date) => [
 export async function installDashboardMobileFixtures(
   page: Page,
   baseURL: string | undefined,
-  role: 'admin' | 'superadmin' = 'admin',
+  role: 'admin' | 'superadmin' | 'salesRep' = 'admin',
+  completeProfile = false,
 ): Promise<DashboardMobileFixtures> {
   if (!baseURL || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(baseURL).hostname)) {
     throw new Error('Dashboard fixtures require a loopback E2E_BASE_URL; they must never target a deployed app.');
@@ -44,6 +45,7 @@ export async function installDashboardMobileFixtures(
   const user = {
     id: '900043', name: 'Mobile Test Admin', email: 'mobile-admin@example.test', role,
     account_status: 'active', email_verified_at: completedAt,
+    ...(completeProfile ? { avatar: '/studio-assets/hero-after.webp', phone: '+15125550100', company: 'Fixture Company' } : {}),
     metadata: {
       terms_accepted_at: completedAt,
       preferences: Object.fromEntries([
@@ -123,7 +125,7 @@ export async function installDashboardMobileFixtures(
   });
   const data = (route: Route, value: unknown) => reply(route, { success: true, data: value });
   const permissionResources = [
-    'dashboard', 'dashboard-admin', 'dashboard-availability', 'dashboard-editing-requests',
+    'dashboard', role === 'salesRep' ? 'dashboard-sales' : 'dashboard-admin', 'dashboard-availability', 'dashboard-editing-requests',
     'dashboard-contact-actions', 'shoots', 'shoot-history', 'availability', 'book-shoot',
     'accounting', 'invoices', 'accounts', 'ai-editing',
   ];

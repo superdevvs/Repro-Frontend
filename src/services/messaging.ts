@@ -146,7 +146,7 @@ export const MANUAL_NOTIFICATION_TYPES = [
 
 export type ManualNotificationType = (typeof MANUAL_NOTIFICATION_TYPES)[number];
 
-export type ManualNotificationRecipient = 'client' | 'photographer';
+export type ManualNotificationRecipient = 'client' | 'photographer' | 'rep';
 
 export type ManualNotificationChannel = 'email' | 'sms';
 
@@ -210,7 +210,7 @@ export interface NotificationRecipientsResult {
   recipients: NotificationRecipientPerson[];
 }
 
-/** Union of client + every service-assigned photographer for a shoot. */
+/** The shoot's client, assigned sales rep, and service-assigned photographers. */
 export const getNotificationRecipients = async (
   shootId: number,
   recipientType?: ManualNotificationRecipient,
@@ -232,7 +232,7 @@ export const getNotificationRecipients = async (
         email: typeof row.email === 'string' ? row.email : null,
         phone: typeof row.phone === 'string' ? row.phone : null,
         role: typeof row.role === 'string' ? row.role : null,
-        recipient_type: (row.recipient_type === 'photographer' ? 'photographer' : 'client') as ManualNotificationRecipient,
+        recipient_type: (row.recipient_type === 'photographer' || row.recipient_type === 'rep' ? row.recipient_type : 'client') as ManualNotificationRecipient,
       })).filter((row: NotificationRecipientPerson) => Number.isFinite(row.id) && row.id > 0),
     };
   } catch (error) {

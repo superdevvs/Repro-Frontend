@@ -13,6 +13,13 @@ describe('getNotificationRecipients', () => {
     getMock.mockReset();
   });
 
+  it('requests and preserves the assigned sales rep recipient type', async () => {
+    getMock.mockResolvedValue({ data: { shoot_id: 149, recipients: [{ id: 9, name: 'Alex Sales', recipient_type: 'rep' }] } });
+    const result = await getNotificationRecipients(149, 'rep');
+    expect(getMock).toHaveBeenCalledWith('/messaging/notifications/recipients', { params: { shoot_id: 149, recipient_type: 'rep' } });
+    expect(result.recipients).toEqual([expect.objectContaining({ id: 9, name: 'Alex Sales', recipient_type: 'rep' })]);
+  });
+
   it('returns mapped recipients on success', async () => {
     getMock.mockResolvedValue({
       data: {

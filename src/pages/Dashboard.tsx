@@ -164,7 +164,8 @@ const Dashboard = () => {
   const isEditingManager = role === "editing_manager";
   const isAdminExperience = ["admin", "superadmin", "editing_manager"].includes(role);
   const canViewAdminDashboard = can("dashboard-admin", "view");
-  const canViewDashboardClientRequests = canViewAdminDashboard || ["client", "editor", "photographer"].includes(role);
+  const canReviewClientRequests = canViewAdminDashboard || (role === "salesRep" && can("dashboard-sales", "view"));
+  const canViewDashboardClientRequests = canReviewClientRequests || ["client", "editor", "photographer"].includes(role);
   const canLoadAvailability = !isEditingManager && can("dashboard-availability", "view");
   const canViewDashboardEditingRequests = can("dashboard-editing-requests", "view");
   const canViewContactActions = can("dashboard-contact-actions", "view");
@@ -386,6 +387,7 @@ const Dashboard = () => {
     openShootOverviewFromEditingRequest,
   } = useDashboardRequests({
     canViewDashboardClientRequests,
+    viewerScope: `${role}:${user?.id ?? "guest"}`,
     location,
     navigate,
     openModal,
@@ -413,7 +415,8 @@ const Dashboard = () => {
     handleApproveCancellation,
     handleRejectCancellation,
   } = useCancellationRequests({
-    canViewAdminDashboard,
+    canReviewCancellationRequests: canReviewClientRequests,
+    viewerScope: `${role}:${user?.id ?? "guest"}`,
     fetchShoots,
     pendingCancellations: data?.pendingCancellations,
     refresh,

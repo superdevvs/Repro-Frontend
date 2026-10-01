@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { API_BASE_URL } from "@/config/env";
 import type { useToast } from "@/hooks/use-toast";
@@ -6,8 +6,20 @@ import type { DashboardCancellationItem } from "@/types/dashboard";
 
 type ToastFn = ReturnType<typeof useToast>["toast"];
 
+interface CancellationResponseItem {
+  id: number | string;
+  location?: { fullAddress?: string; address?: string };
+  address?: string;
+  address_line?: string;
+  client?: { name?: string };
+  client_name?: string;
+  cancellationReason?: string;
+  cancellation_reason?: string;
+}
+
 interface UseCancellationRequestsParams {
-  canViewAdminDashboard: boolean;
+  canReviewCancellationRequests: boolean;
+  viewerScope: string;
   fetchShoots?: () => Promise<unknown>;
   pendingCancellations?: DashboardCancellationItem[];
   refresh: () => void | Promise<void>;
@@ -15,19 +27,28 @@ interface UseCancellationRequestsParams {
 }
 
 export const useCancellationRequests = ({
-  canViewAdminDashboard,
+  canReviewCancellationRequests,
+  viewerScope,
   fetchShoots,
   pendingCancellations,
   refresh,
   toast,
 }: UseCancellationRequestsParams) => {
+  const requestController = useRef<AbortController | null>(null);
+  const [loadedScope, setLoadedScope] = useState(viewerScope);
   const [liveCancellationShoots, setLiveCancellationShoots] = useState<DashboardCancellationItem[]>([]);
   const [liveCancellationLoading, setLiveCancellationLoading] = useState(false);
   const [liveCancellationLoaded, setLiveCancellationLoaded] = useState(false);
 
   const fetchPendingCancellationShoots = useCallback(async () => {
-    if (!canViewAdminDashboard) {
+    requestController.current?.abort();
+    const controller = new AbortController();
+    requestController.current = controller;
+    setLoadedScope(viewerScope);
+    setLiveCancellationShoots([]);
+    if (!canReviewCancellationRequests) {
       setLiveCancellationShoots([]);
+      setLiveCancellationLoading(false);
       return;
     }
 
@@ -35,21 +56,24 @@ export const useCancellationRequests = ({
     try {
       const token = localStorage.getItem("authToken") || localStorage.getItem("token");
       const res = await fetch(`${API_BASE_URL}/api/shoots/pending-cancellations`, {
+        signal: controller.signal,
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",
         },
       });
 
+      if (controller.signal.aborted) return;
       if (!res.ok) {
         setLiveCancellationShoots([]);
         return;
       }
 
       const json = await res.json();
+      if (controller.signal.aborted) return;
       const items = Array.isArray(json.data) ? json.data : [];
       setLiveCancellationShoots(
-        items.map((item: any) => ({
+        items.map((item: CancellationResponseItem) => ({
           id: Number(item.id),
           address:
             item.location?.fullAddress ||
@@ -63,27 +87,33 @@ export const useCancellationRequests = ({
         })),
       );
     } catch (error) {
+      if (controller.signal.aborted) return;
       console.error("Error fetching pending cancellations:", error);
       setLiveCancellationShoots([]);
     } finally {
-      setLiveCancellationLoaded(true);
-      setLiveCancellationLoading(false);
+      if (!controller.signal.aborted) {
+        setLiveCancellationLoaded(true);
+        setLiveCancellationLoading(false);
+      }
     }
-  }, [canViewAdminDashboard]);
+  }, [canReviewCancellationRequests, viewerScope]);
 
   useEffect(() => {
     void fetchPendingCancellationShoots();
+    return () => requestController.current?.abort();
   }, [fetchPendingCancellationShoots]);
 
   // Cancellation shoots come from the dashboard overview response (already fetched)
   const cancellationShoots: DashboardCancellationItem[] = useMemo(() => {
-    if (!canViewAdminDashboard) return [];
+    if (!canReviewCancellationRequests || loadedScope !== viewerScope) return [];
     if (liveCancellationLoaded || liveCancellationLoading) {
       return liveCancellationShoots;
     }
     return pendingCancellations ?? [];
   }, [
-    canViewAdminDashboard,
+    canReviewCancellationRequests,
+    loadedScope,
+    viewerScope,
     liveCancellationLoaded,
     liveCancellationLoading,
     liveCancellationShoots,

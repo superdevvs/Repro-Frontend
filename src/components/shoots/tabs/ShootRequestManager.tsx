@@ -59,6 +59,7 @@ interface ShootRequestManagerProps {
   onClose: () => void;
   shootId: string;
   isAdmin: boolean;
+  isRep?: boolean;
   isPhotographer: boolean;
   isEditor: boolean;
   isClient: boolean;
@@ -96,6 +97,7 @@ export function ShootRequestManager({
   onClose,
   shootId,
   isAdmin,
+  isRep = false,
   isPhotographer,
   isEditor,
   isClient,
@@ -197,11 +199,11 @@ export function ShootRequestManager({
         const json = await res.json();
         const files = json.data ?? json;
         if (!Array.isArray(files)) throw new Error('Unable to load photos. You can still create a general request.');
-        const imageFiles = files.filter((f: any) => {
+        const imageFiles = files.filter((f: Record<string, string>) => {
           const fileType = (f.file_type || f.fileType || f.mime_type || '').toLowerCase();
           const filename = (f.filename || f.stored_filename || '').toLowerCase();
           return fileType.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|tiff|tif|heic|heif|nef|cr3|cr2|arw|dng)$/.test(filename);
-        }).map((f: any) => ({
+        }).map((f: Record<string, string>) => ({
           id: String(f.id), filename: f.filename || f.stored_filename || 'unknown',
           url: f.thumb_url || f.medium_url || f.thumbnail_path || f.web_path || null,
           thumbnail: f.thumb_url || f.thumbnail_path || f.placeholder_path || null,
@@ -240,7 +242,7 @@ export function ShootRequestManager({
   const visibleRequests = useMemo(() => {
     let filtered = requests.filter(request => {
       if (request.status === 'dismissed') return false;
-      if (isAdmin) return true;
+      if (isAdmin || isRep) return true;
       if (isClient) {
         const currentUserId = String(user?.id ?? localStorage.getItem('userId') ?? '');
         const currentUserName = String(user?.name ?? '');
@@ -297,7 +299,7 @@ export function ShootRequestManager({
     });
 
     return filtered;
-  }, [requests, searchQuery, statusFilter, severityFilter, sortOption, isAdmin, isClient, isEditor, isPhotographer, user?.id, user?.name]);
+  }, [requests, searchQuery, statusFilter, severityFilter, sortOption, isAdmin, isRep, isClient, isEditor, isPhotographer, user?.id, user?.name]);
 
   // Create request - send all selected photos in one request using mediaIds array
   const handleCreateRequest = async () => {
@@ -314,7 +316,7 @@ export function ShootRequestManager({
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const mediaIdsArray = Array.from(selectedMediaIds);
       
-      const payload: any = {
+      const payload: { note: string; mediaIds?: string[]; assignedToRole?: 'editor' | 'photographer'; assignedToUserId?: string } = {
         note: requestNote,
       };
       
@@ -530,7 +532,7 @@ export function ShootRequestManager({
                   Manage and track all requests for this shoot
                 </DialogDescription>
               </div>
-              {(isAdmin || isClient) && (
+              {(isAdmin || isRep || isClient) && (
                 <Button 
                   type="button"
                   onClick={(e) => {
