@@ -27,10 +27,11 @@ export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, o
   const sourceMedia = workspace.media.filter(item => item.kind !== 'video');
   const fullShoot = preset.id === 'full-shoot';
   const groups = fullShoot ? workspace.photoGroups : null;
-  const media = groups?.length ? groups.flatMap(group => {
+  const outputNames = new Map([...workspace.outputs].sort((a, b) => a.version - b.version).filter(output => output.name).map(output => [output.mediaId, output.name]));
+  const media = (groups?.length ? groups.flatMap(group => {
     const source = sourceMedia.find(item => item.id === group.mediaId);
     return source ? [{ ...source, name: group.name }] : [];
-  }) : sourceMedia;
+  }) : sourceMedia).map(item => ({ ...item, name: outputNames.get(item.id) || item.name }));
   const requiresReview = fullShoot && workspace.requiresReview !== false;
   const { config, setConfig, dirty } = useWorkspaceDraft(workspace);
   const [activeId, setActiveId] = useState(media[0]?.id || '');

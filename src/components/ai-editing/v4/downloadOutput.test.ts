@@ -11,6 +11,15 @@ beforeEach(() => {
 afterEach(() => { vi.runAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe('authorized workspace attachment downloads', () => {
+  it('preserves the short edited name without appending a version or source filename', async () => {
+    vi.mocked(apiClient.get).mockResolvedValue({ data: new Blob(['image bytes'], { type: 'image/jpeg' }) });
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      expect(this.download).toBe('2912-park-avenue_001_edited.jpg');
+    });
+    await downloadWorkspaceOutput('shoot', { id: 'result-2', kind: 'image', version: 2, name: '2912-park-avenue_001_edited.jpg' }, 'source-full-shoot-long-hash.CR3');
+    expect(click).toHaveBeenCalledTimes(1);
+  });
+
   it('requests the exact output through apiClient, saves a versioned filename and releases the object URL', async () => {
     const blob = new Blob(['image bytes'], { type: 'image/png' });
     vi.mocked(apiClient.get).mockResolvedValue({ data: blob });
