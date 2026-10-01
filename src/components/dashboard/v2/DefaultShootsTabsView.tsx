@@ -112,14 +112,15 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
       </div>}
 
       {/* Header with static "Shoots" title and inline tabs */}
-      <div className={cn('flex flex-wrap items-center justify-between mb-2 gap-3', !staffStack && 'pr-16 sm:pr-0')}>
-        <div className="flex items-center gap-4">
-          <h2 className="hidden sm:block text-lg font-bold text-foreground">Shoots</h2>
-          <div className="flex items-center gap-1 border-b border-transparent pl-1 sm:pl-0">
+      <div className={cn('flex flex-wrap items-center justify-between mb-2 gap-3', staffStack ? 'max-[1024px]:grid max-[1024px]:grid-cols-[minmax(0,1fr)_auto] max-[1024px]:items-start max-[1024px]:gap-2' : 'pr-16 sm:pr-0')}>
+        <div className={cn('flex items-center gap-4', staffStack && 'min-w-0')}>
+          <h2 className={cn('hidden sm:block text-lg font-bold text-foreground', staffStack && 'shrink-0')}>Shoots</h2>
+          <div className={cn('flex items-center gap-1 border-b border-transparent pl-1 sm:pl-0', staffStack && 'min-w-0 max-[1024px]:overflow-x-auto max-[1024px]:overscroll-x-contain hidden-scrollbar')}>
             <button
               onClick={() => setActiveTab('upcoming')}
               className={cn(
                 'px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-all border-b-2 whitespace-nowrap',
+                staffStack && 'shrink-0',
                 activeTab === 'upcoming'
                   ? 'text-foreground border-primary'
                   : 'text-muted-foreground border-transparent hover:text-foreground'
@@ -132,6 +133,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
               disabled={requestedCount === 0}
               className={cn(
                 'px-2 sm:px-3 py-1 sm:py-1.5 text-xs sm:text-sm font-medium transition-all border-b-2 whitespace-nowrap',
+                staffStack && 'shrink-0',
                 requestedCount === 0
                   ? 'text-muted-foreground/35 border-transparent cursor-not-allowed'
                   : activeTab === 'requested'
@@ -158,24 +160,24 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
           </div>
         </div>
         {/* Desktop: inline filter/previous buttons */}
-        <div className={cn('items-center gap-2', staffStack ? 'flex' : 'hidden sm:flex')}>
+        <div className={cn('items-center gap-2', staffStack ? 'flex flex-nowrap shrink-0 max-[1024px]:justify-self-end max-[1024px]:self-start' : 'hidden sm:flex')}>
           {inlineCompactControl && renderCompactToggle({ iconOnly: true })}
           {activeTab === 'upcoming' && (
             <Button
               variant="outline"
               size="sm"
-              className={cn('text-xs rounded-full border-dashed', staffStack && 'max-sm:h-9 max-sm:w-9 max-sm:p-0', staffStack && showPastDays && 'bg-primary/10 text-primary')}
+              className={cn('text-xs rounded-full border-dashed', staffStack && 'max-[1024px]:h-9 max-[1024px]:w-9 max-[1024px]:p-0', staffStack && showPastDays && 'bg-primary/10 text-primary')}
               onClick={() => setShowPastDays((prev) => !prev)}
               disabled={!hasPastDays}
               aria-label={staffStack ? (showPastDays ? 'Hide previous shoots' : 'Previous shoots') : undefined}
               aria-pressed={showPastDays}
               title={showPastDays ? 'Hide previous shoots' : 'Previous shoots'}
             >
-              {staffStack && <History size={16} className="sm:hidden" aria-hidden="true" />}
+              {staffStack && <History size={16} className="hidden max-[1024px]:block" aria-hidden="true" />}
               <span className="max-[1550px]:hidden">
                 {hasPastDays ? (showPastDays ? 'Hide past' : 'Previous shoots') : 'Previous shoots'}
               </span>
-              <span className={cn('hidden max-[1550px]:inline', staffStack && 'max-sm:!hidden')}>
+              <span className={cn('hidden max-[1550px]:inline', staffStack && 'max-[1024px]:!hidden')}>
                 {hasPastDays && showPastDays ? 'Hide' : 'Previous'}
               </span>
             </Button>
@@ -184,16 +186,20 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
             <Button
               variant="outline"
               size="sm"
-              className="text-xs rounded-full border-dashed"
+              className={cn('text-xs rounded-full border-dashed', staffStack && 'max-[1024px]:h-9 max-[1024px]:w-9 max-[1024px]:p-0')}
               onClick={() => setShowPastRequests((prev) => !prev)}
               disabled={!hasPastRequests}
+              aria-label={staffStack ? (showPastRequests ? 'Hide previous requests' : 'Previous requests') : undefined}
+              aria-pressed={showPastRequests}
+              title={showPastRequests ? 'Hide previous requests' : 'Previous requests'}
             >
+              {staffStack && <History size={16} className="hidden max-[1024px]:block" aria-hidden="true" />}
               <span className="max-[1550px]:hidden">
                 {hasPastRequests
                   ? (showPastRequests ? 'Hide past' : `Previous requests (${pastRequests.length})`)
                   : 'Previous requests'}
               </span>
-              <span className="hidden max-[1550px]:inline">
+              <span className={cn('hidden max-[1550px]:inline', staffStack && 'max-[1024px]:!hidden')}>
                 {hasPastRequests && showPastRequests ? 'Hide' : 'Previous'}
               </span>
             </Button>
@@ -202,7 +208,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
             <Button
               variant="secondary"
               size="sm"
-              className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900 max-[1550px]:px-2"
+              className={cn('relative rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900 max-[1550px]:px-2', staffStack && 'max-[1024px]:h-9 max-[1024px]:w-9 max-[1024px]:!p-0')}
               onClick={() => { setDraftFilters(filters); setIsFilterOpen((open) => !open); }}
               aria-label="Filters"
               aria-expanded={isFilterOpen}
@@ -212,8 +218,8 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
                 Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
               </span>
               {activeFilterCount > 0 && (
-                <span className="hidden max-[1550px]:inline ml-1 text-[10px] font-semibold">
-                  ({activeFilterCount})
+                <span className={cn('hidden max-[1550px]:inline ml-1 text-[10px] font-semibold', inlineCompactControl && 'absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-primary px-1 text-center text-primary-foreground')}>
+                  {inlineCompactControl ? activeFilterCount : `(${activeFilterCount})`}
                 </span>
               )}
             </Button>

@@ -829,24 +829,27 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
     }
   };
 
+  const compactHeader = hasStaffStack && isCompactDashboardViewport;
+  const requestToggle = requestedShootsCount > 0 ? (
+    <Button
+      variant={showRequestsFirst ? "default" : "outline"}
+      size="sm"
+      className={cn('text-xs rounded-full', compactHeader && 'max-w-full px-2', showRequestsFirst ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950')}
+      onClick={() => setShowRequestsFirst((prev) => !prev)}
+    >
+      <span className={compactHeader ? 'truncate' : undefined}>Shoot requests +{requestedShootsCount}</span>
+    </Button>
+  ) : null;
   return (
     <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, 'flex flex-col h-full min-h-0')}>
-      <div className="flex flex-wrap items-start justify-between mb-4 gap-3">
-        <div>
+      <div className={cn('flex flex-wrap items-start justify-between mb-4 gap-3', hasStaffStack && 'max-[1024px]:grid max-[1024px]:grid-cols-[minmax(0,1fr)_auto] max-[1024px]:items-start max-[1024px]:gap-2')}>
+        <div className={hasStaffStack ? 'max-[1024px]:min-w-0' : undefined}>
           <h2 className="hidden text-lg font-bold text-foreground sm:block">{displayTitle}</h2>
           {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+          {compactHeader && requestToggle}
         </div>
-        <div className="flex items-center gap-2">
-          {requestedShootsCount > 0 && (
-            <Button
-              variant={showRequestsFirst ? "default" : "outline"}
-              size="sm"
-              className={`text-xs rounded-full ${showRequestsFirst ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950'}`}
-              onClick={() => setShowRequestsFirst((prev) => !prev)}
-            >
-              Shoot requests +{requestedShootsCount}
-            </Button>
-          )}
+        <div className={cn('flex items-center gap-2', hasStaffStack && 'max-[1024px]:flex-nowrap max-[1024px]:shrink-0 max-[1024px]:justify-self-end max-[1024px]:self-start')}>
+          {!compactHeader && requestToggle}
           {hasStaffStack && (
             <Button
               type="button"
@@ -855,7 +858,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
               aria-label={compactCards ? 'Show full shoot cards' : 'Show compact shoot cards'}
               aria-pressed={compactCards}
               title={compactCards ? 'Show full shoot cards' : 'Show compact shoot cards'}
-              className={cn('text-xs rounded-full text-muted-foreground', isCompactDashboardViewport && 'h-9 w-9 p-0')}
+              className={cn('text-xs rounded-full text-muted-foreground', isCompactDashboardViewport && 'h-9 w-9 shrink-0 p-0')}
               onClick={toggleCompactCards}
             >
               {compactCards ? <LayoutGrid size={15} /> : <List size={15} />}
@@ -866,29 +869,32 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
             <Button
               variant="outline"
               size="sm"
-              className={cn('text-xs rounded-full border-dashed', hasStaffStack && 'max-sm:h-9 max-sm:w-9 max-sm:p-0', hasStaffStack && showPastDays && 'bg-primary/10 text-primary')}
+              className={cn('text-xs rounded-full border-dashed', compactHeader && 'h-9 w-9 shrink-0 p-0', hasStaffStack && showPastDays && 'bg-primary/10 text-primary')}
               onClick={() => setShowPastDays((prev) => !prev)}
               aria-label={hasStaffStack ? (showPastDays ? 'Hide previous shoots' : 'Previous shoots') : undefined}
               aria-pressed={showPastDays}
               title={showPastDays ? 'Hide previous shoots' : 'Previous shoots'}
             >
-              {hasStaffStack && <History size={16} className="sm:hidden" aria-hidden="true" />}
-              <span className={hasStaffStack ? 'hidden sm:inline' : undefined}>{pastButtonLabel}</span>
+              {compactHeader && <History size={16} aria-hidden="true" />}
+              <span className={compactHeader ? 'hidden' : undefined}>{pastButtonLabel}</span>
             </Button>
           )}
           <>
               <Button
                 variant="secondary"
                 size="sm"
-                className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900"
+                className={cn('rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900', compactHeader && 'relative h-9 w-9 shrink-0 p-0')}
+                aria-label={compactHeader ? `Filters${activeFilterCount > 0 ? ` (${activeFilterCount} active)` : ''}` : undefined}
+                title={compactHeader ? 'Filters' : undefined}
                 aria-expanded={isFilterOpen}
                 onClick={() => {
                   setDraftFilters(filters);
                   setIsFilterOpen((open) => !open);
                 }}
               >
-                <Filter size={14} className="mr-1.5" />
-                Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+                <Filter size={14} className={compactHeader ? undefined : 'mr-1.5'} />
+                {!compactHeader && <>Filters {activeFilterCount > 0 && `(${activeFilterCount})`}</>}
+                {compactHeader && activeFilterCount > 0 && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-primary px-1 text-[9px] leading-4 text-primary-foreground" aria-hidden="true">{activeFilterCount}</span>}
               </Button>
             {filterPanelHostRef.current && createPortal(
               <div className={cn(

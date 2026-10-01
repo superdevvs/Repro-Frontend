@@ -96,9 +96,9 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
         </div>}
 
         {/* Sub-tabs denser than section pills: tight chips, no wrap, scroll at ~390px. */}
-        <div className={cn('mb-1 flex min-w-0 flex-nowrap items-center justify-between gap-1.5 sm:mb-2 sm:flex-wrap sm:gap-3', !staffStack && 'pr-14 sm:pr-0')}>
+        <div className={cn('mb-1 flex min-w-0 flex-nowrap items-center justify-between gap-1.5 sm:mb-2 sm:flex-wrap sm:gap-3', staffStack ? 'max-[1024px]:grid max-[1024px]:grid-cols-[minmax(0,1fr)_auto] max-[1024px]:items-start max-[1024px]:gap-2' : 'pr-14 sm:pr-0')}>
           <div className="flex min-w-0 flex-1 items-center gap-4">
-            <h2 className="hidden sm:block text-lg font-bold text-foreground">{title}</h2>
+            <h2 className={cn('hidden sm:block text-lg font-bold text-foreground', staffStack && 'shrink-0')}>{title}</h2>
             <div className="min-w-0 max-w-full overflow-x-auto overscroll-x-contain hidden-scrollbar">
               <div className="inline-flex w-max max-w-none items-center gap-0.5 rounded-full border border-border/40 bg-muted/25 p-0.5 sm:gap-1 sm:rounded-none sm:border-0 sm:border-b sm:border-transparent sm:bg-transparent sm:p-0 sm:pl-0">
               {editingManagerTabs.map((tab) => (
@@ -130,12 +130,12 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
               </div>
             </div>
           </div>
-          <div className={cn('items-center gap-2', staffStack ? 'flex' : 'hidden sm:flex')}>
+          <div className={cn('items-center gap-2', staffStack ? 'flex flex-nowrap shrink-0 max-[1024px]:justify-self-end max-[1024px]:self-start' : 'hidden sm:flex')}>
             {inlineCompactControl && renderCompactToggle({ iconOnly: true })}
             <Button
               variant="secondary"
               size="sm"
-              className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900 max-[1550px]:px-2"
+              className={cn('relative rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900 max-[1550px]:px-2', staffStack && 'max-[1024px]:h-9 max-[1024px]:w-9 max-[1024px]:!p-0')}
               onClick={() => {
                 setDraftFilters(filters);
                 setIsFilterOpen((open) => !open);
@@ -148,8 +148,8 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
                 Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
               </span>
               {activeFilterCount > 0 && (
-                <span className="hidden max-[1550px]:inline ml-1 text-[10px] font-semibold">
-                  ({activeFilterCount})
+                <span className={cn('hidden max-[1550px]:inline ml-1 text-[10px] font-semibold', inlineCompactControl && 'absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-primary px-1 text-center text-primary-foreground')}>
+                  {inlineCompactControl ? activeFilterCount : `(${activeFilterCount})`}
                 </span>
               )}
             </Button>
