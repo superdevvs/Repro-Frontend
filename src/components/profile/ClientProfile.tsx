@@ -22,6 +22,7 @@ import { EmailHealthInlineHint } from "@/components/email/EmailHealthInlineHint"
 import { analyzeEmailInput, normalizeEmailHealth } from "@/utils/emailHealth";
 import { useResendVerificationEmail } from "@/hooks/useResendVerificationEmail";
 import { API_ROUTES } from "@/lib/api";
+import { NotificationSettingsLink } from '@/components/profile/NotificationSettingsLink';
 
 type PhotographerOption = {
   id: string;
@@ -56,9 +57,6 @@ export function ClientProfile() {
     linkedinUrl: user?.linkedinUrl || "",
     pinterestUrl: user?.pinterestUrl || "",
     preferredPhotographer: String(savedPreferences.preferredPhotographer || "any"),
-    notificationEmail: typeof savedPreferences.notificationEmail === 'boolean'
-      ? savedPreferences.notificationEmail
-      : true,
     billingAddress: user?.address || "",
     billingCity: user?.city || "",
     billingState: user?.state || "",
@@ -142,10 +140,6 @@ export function ClientProfile() {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSwitchChange = (name: string, checked: boolean) => {
-    setFormData(prev => ({ ...prev, [name]: checked }));
-  };
-
   const handleAvatarChange = (url: string) => {
     setFormData(prev => ({ ...prev, avatar: url }));
   };
@@ -195,7 +189,6 @@ export function ClientProfile() {
           zip: formData.billingZip,
           preferences: {
             preferredPhotographer: formData.preferredPhotographer,
-            notificationEmail: formData.notificationEmail,
           },
       });
       if (!result.reauthRequired) {
@@ -460,22 +453,7 @@ export function ClientProfile() {
                 <p className="text-sm text-muted-foreground">No photographers are currently available.</p>
               )}
             </div>
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium">Notification Preferences</h4>
-              <div className="grid grid-cols-1 gap-4">
-                <div className="flex items-center justify-between border p-4 rounded-lg">
-                  <div className="space-y-0.5">
-                    <Label htmlFor="notificationEmail">Email Notifications</Label>
-                    <p className="text-sm text-muted-foreground">Email me when I receive a new internal dashboard message</p>
-                  </div>
-                  <Switch
-                    id="notificationEmail"
-                    checked={formData.notificationEmail}
-                    onCheckedChange={(checked) => handleSwitchChange("notificationEmail", checked)}
-                  />
-                </div>
-              </div>
-            </div>
+            <NotificationSettingsLink />
             <div className="space-y-4">
               <h4 className="text-sm font-medium">Display Preferences</h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

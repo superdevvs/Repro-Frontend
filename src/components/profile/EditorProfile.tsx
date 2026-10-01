@@ -15,6 +15,7 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { useSelfProfileSave } from "@/hooks/useSelfProfileSave";
 import { useEditorDashboardQueue } from "@/hooks/useEditorDashboardQueue";
+import { NotificationSettingsLink } from '@/components/profile/NotificationSettingsLink';
 
 export function EditorProfile() {
   const { user } = useAuth();
@@ -33,7 +34,6 @@ export function EditorProfile() {
     phone: user?.phone || "",
     avatar: user?.avatar || "",
     showEditingNotes: typeof savedPreferences.showEditingNotes === 'boolean' ? savedPreferences.showEditingNotes : true,
-    emailNotifications: typeof savedPreferences.notificationEmail === 'boolean' ? savedPreferences.notificationEmail : true,
     currentPassword: "",
   });
 
@@ -67,7 +67,6 @@ export function EditorProfile() {
           avatar: formData.avatar || null,
           preferences: {
             showEditingNotes: formData.showEditingNotes,
-            notificationEmail: formData.emailNotifications,
           },
       });
       if (!result.reauthRequired) {
@@ -184,17 +183,7 @@ export function EditorProfile() {
                       onCheckedChange={(checked) => handleSwitchChange("showEditingNotes", checked)}
                     />
                   </div>
-                  <div className="flex items-center justify-between border p-4 rounded-lg">
-                    <div className="space-y-0.5">
-                      <Label htmlFor="emailNotifications">Email Notifications</Label>
-                      <p className="text-sm text-muted-foreground">Email me when I receive a new internal dashboard message</p>
-                    </div>
-                    <Switch
-                      id="emailNotifications"
-                      checked={formData.emailNotifications}
-                      onCheckedChange={(checked) => handleSwitchChange("emailNotifications", checked)}
-                    />
-                  </div>
+                  <NotificationSettingsLink />
                   <div className="flex items-center justify-between border p-4 rounded-lg">
                     <div className="space-y-0.5">
                       <Label htmlFor="temperatureUnit">Temperature Unit</Label>
