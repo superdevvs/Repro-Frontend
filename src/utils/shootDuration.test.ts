@@ -11,10 +11,14 @@ describe('duration defaults and preservation', () => {
     expect(resolveShootDuration(300)).toBe(240);
   });
   it('uses a booked override before catalogue and tier durations', () => {
-    const service = { pricing_type: 'variable', sqft_ranges: [{ sqft_from: 1, sqft_to: 2000, duration: 90 }] };
+    const service = { pricing_type: 'variable', shoot_duration_minutes: 120, sqft_ranges: [{ sqft_from: 1, sqft_to: 2000, duration: 90 }] };
     expect(resolveServiceShootDuration(service, 1000)).toBe(90);
     expect(resolveServiceShootDuration(service, 1000, 30)).toBe(30);
     expect(resolveServiceShootDuration({ ...service, duration_minutes: 85 }, 1000)).toBe(85);
+    expect(resolveServiceShootDuration(service, 3000)).toBe(120);
+    expect(resolveServiceShootDuration(service, null)).toBe(120);
+    expect(resolveServiceShootDuration({ ...service, pricing_type: 'fixed' }, 1000)).toBe(120);
+    expect(resolveServiceShootDuration({ ...service, sqft_ranges: [{ sqft_from: 1, sqft_to: 2000, duration: null }] }, 1000)).toBe(120);
     expect(resolveServiceShootDuration({}, 1000)).toBe(60);
   });
   it('copies date and time while retaining different per-service duration snapshots', () => {

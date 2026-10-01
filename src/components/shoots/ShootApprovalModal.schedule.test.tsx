@@ -53,16 +53,19 @@ const approve = async () => {
 describe('approval schedule inheritance', () => {
   it('shows catalogue tier duration for a null snapshot and preserves a stored30-minute visit', async () => {
     Object.assign(fetchedShoot, { sqft: 1000 });
-    Object.assign(fetchedShoot.service_items[0], { duration_minutes: null, pricing_type: 'variable',
+    Object.assign(fetchedShoot.service_items[0], { duration_minutes: null, shoot_duration_minutes: 120, pricing_type: 'variable',
       sqft_ranges: [{ sqft_from: 1, sqft_to: 2000, duration: 90 }] });
-    Object.assign(fetchedShoot.service_items[1], { duration_minutes: 30 });
+    Object.assign(fetchedShoot.service_items[1], { duration_minutes: 30, shoot_duration_minutes: 120 });
+    Object.assign(fetchedShoot.service_items[2], { shoot_duration_minutes: 150 });
     await loadModal();
     expect(screen.getByLabelText('Shoot duration for Photos')).toHaveValue('90');
     expect(screen.getByLabelText('Shoot duration for Floorplan')).toHaveValue('30');
+    expect(screen.getByLabelText('Shoot duration for Video')).toHaveValue('150');
     const payload = await approve();
     expect(payload.service_items).toEqual(expect.arrayContaining([
       expect.objectContaining({ service_id: 10, duration_minutes: 90 }),
       expect.objectContaining({ service_id: 11, duration_minutes: 30 }),
+      expect.objectContaining({ service_id: 12, duration_minutes: 150 }),
     ]));
   });
   it('preserves individual duration changes through main time edits and Apply all', async () => {

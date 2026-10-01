@@ -46,9 +46,10 @@ export function hydrateShootEditServiceSchedules({ shoot, serviceSource, catalog
     schedules[serviceId] = scheduleByServiceId.get(serviceId) || {
       date: directSchedule.date || fallbackSchedule.date,
       time: directSchedule.time || fallbackSchedule.time,
-      duration_minutes: resolveServiceShootDuration(catalog.find(item => String(item.id) === serviceId) ?? {}, sqft),
     };
-    if (durationByServiceId.has(serviceId)) schedules[serviceId].duration_minutes = durationByServiceId.get(serviceId);
+    schedules[serviceId].duration_minutes = resolveServiceShootDuration(
+      catalog.find(item => String(item.id) === serviceId) ?? {}, sqft, durationByServiceId.get(serviceId),
+    );
   });
 
   const inheritedIds = new Set(Object.entries(schedules)

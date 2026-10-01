@@ -88,9 +88,11 @@ describe('multi-unit booking identity, pricing and occupied time', () => {
     expect(result.errors).toEqual([]);
   });
   it('matches backend duration precedence and configuration bounds, ignoring delivery time', () => {
-    expect(unitServiceDuration({ ...catalog[0], shoot_duration_minutes: 40, delivery_time: 3 }, draft().units[1])).toBe(40);
+    expect(unitServiceDuration({ ...catalog[0], shoot_duration_minutes: 40, delivery_time: 3 }, draft().units[1])).toBe(90);
+    expect(unitServiceDuration({ ...catalog[0], shoot_duration_minutes: 120, duration_minutes: 30 }, draft().units[1])).toBe(30);
     expect(unitServiceDuration({ ...catalog[1], delivery_time: 48 }, draft().units[0])).toBe(60);
-    expect(unitServiceDuration({ ...catalog[0], shoot_duration_minutes: 400 }, draft().units[0])).toBe(240);
+    expect(unitServiceDuration({ ...catalog[1], shoot_duration_minutes: 400 }, draft().units[0])).toBe(240);
+    expect(unitServiceDuration({ ...catalog[0], shoot_duration_minutes: 120 }, { ...draft().units[0], sqft: null })).toBe(120);
   });
   it('hydrates repeated persisted catalog services without collapsing unit ownership or snapshot prices', () => {
     const hydrated = hydrateUnitDraft({ units: [{ id: 8, label: '101', kind: 'unit', sqft: 900 }, { id: 9, label: 'Lobby', kind: 'common_area', sqft: 400 }], service_items: [{ shoot_service_id: 50, service_id: 1, shoot_unit_id: 8, price: 111, scheduled_at: '2026-10-06 09:00:00' }, { shoot_service_id: 51, service_id: 1, shoot_unit_id: 9, price: 222, scheduled_at: '2026-10-06 11:00:00' }] });

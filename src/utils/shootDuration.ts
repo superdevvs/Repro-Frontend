@@ -15,5 +15,5 @@ export function resolveServiceShootDuration(service: {
 }, sqft?: number | null, override?: number | null): number {
   const tier = service.pricing_type === 'variable' && sqft
     ? service.sqft_ranges?.find(range => sqft >= range.sqft_from && sqft <= range.sqft_to) : undefined;
-  return resolveShootDuration(override, service.duration_minutes, service.shoot_duration_minutes, tier?.duration);
+  return resolveShootDuration(override, service.duration_minutes, tier?.duration, service.shoot_duration_minutes);
 }

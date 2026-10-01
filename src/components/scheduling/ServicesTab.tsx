@@ -19,6 +19,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ServiceCreateDialog } from './ServiceCreateDialog';
 import { serviceMatchesSearch } from './catalogSearch';
 import type { PhotographerPayType, ServiceDraft, SqftRange } from './ServiceCreateDialog';
+import { resolveShootDuration } from '@/utils/shootDuration';
 
 type Service = {
   id: string;
@@ -28,6 +29,7 @@ type Service = {
   pricing_type?: 'fixed' | 'variable';
   allow_multiple?: boolean;
   delivery_time?: string;
+  shoot_duration_minutes?: number;
   photographer_required?: boolean;
   photographer_pay?: string | number;
   photographer_pay_type?: PhotographerPayType;
@@ -130,6 +132,7 @@ const normalizeService = (value: unknown): Service | null => {
     price: String(item.price ?? '0'),
     pricing_type: item.pricing_type === 'variable' ? 'variable' : 'fixed',
     allow_multiple: Boolean(item.allow_multiple),
+    shoot_duration_minutes: resolveShootDuration(item.shoot_duration_minutes),
     delivery_time: item.delivery_time === null || item.delivery_time === undefined
       ? undefined
       : String(item.delivery_time),
@@ -183,6 +186,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
     pricing_type: 'fixed',
     allow_multiple: false,
     delivery_time: '',
+    shoot_duration_minutes: 60,
     category: '',
     icon: '',
     photographer_required: false,
@@ -290,6 +294,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       pricing_type: 'fixed',
       allow_multiple: false,
       delivery_time: '',
+      shoot_duration_minutes: 60,
       category: defaultCategoryId ? String(defaultCategoryId) : '',
       icon: '',
       photographer_required: false,
@@ -340,6 +345,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       pricing_type: newService.pricing_type || 'fixed',
       allow_multiple: newService.allow_multiple || false,
       delivery_time: Number.isFinite(parsedDeliveryTime) ? parsedDeliveryTime : 0,
+      shoot_duration_minutes: resolveShootDuration(newService.shoot_duration_minutes),
       category_id: Number(newService.category),
       icon: newService.icon || null,
       photographer_required: newService.photographer_required || false,

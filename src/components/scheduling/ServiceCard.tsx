@@ -18,6 +18,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { IconPicker, getIconComponent } from './IconPicker';
 import { MultiSelectChecklist } from '@/components/ui/multi-select-checklist';
 import type { ServiceGroupDetail } from '@/types/serviceGroups';
+import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
+import { resolveShootDuration } from '@/utils/shootDuration';
 
 type SqftRange = {
   id?: number;
@@ -38,6 +40,7 @@ type ServiceProps = {
     pricing_type?: 'fixed' | 'variable';
     allow_multiple?: boolean;
     delivery_time?: string;
+    shoot_duration_minutes?: number | null;
     photographer_required?: boolean;
     photographer_pay?: string | number;
     /** Whether pay is a flat amount or a percentage of this service's price. */
@@ -156,6 +159,7 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
       pricing_type: editedService.pricing_type || 'fixed',
       allow_multiple: editedService.allow_multiple || false,
       delivery_time: parseInt(String(editedService.delivery_time), 10),
+      shoot_duration_minutes: resolveShootDuration(editedService.shoot_duration_minutes),
       icon: editedService.icon,
       photographer_required: editedService.photographer_required || false,
       exclude_from_sales_commission: editedService.exclude_from_sales_commission || false,
@@ -325,6 +329,10 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
                 <span>{service.delivery_time} hours</span>
               </div>
             )}
+            <div className="flex justify-between">
+              <span className="text-sm font-medium">Default shoot duration:</span>
+              <span>{resolveShootDuration(service.shoot_duration_minutes)} minutes</span>
+            </div>
             
             <div className="flex justify-between">
               <span className="text-sm font-medium">Photographer Required:</span>
@@ -513,6 +521,16 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
                   </div>
                 </div>
               )}
+
+              <div className="space-y-2">
+                <ServiceDurationPicker serviceName={editedService.name}
+                  value={editedService.shoot_duration_minutes}
+                  onChange={(minutes) => setEditedService({ ...editedService, shoot_duration_minutes: minutes })} />
+                <p className="text-xs text-muted-foreground">
+                  Default time on site. Can be adjusted when scheduling.
+                  {editedService.pricing_type === 'variable' ? ' SQFT range durations take priority.' : ''}
+                </p>
+              </div>
 
               <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
                 <div className="flex flex-col gap-1">
@@ -833,4 +851,3 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
     </>
   );
 }
-

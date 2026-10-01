@@ -69,9 +69,8 @@ export function summarizeUnitServices(draft: MultiUnitDraft, catalog: ServicePac
 }
 export type ResolvedUnitLine = UnitLineDraft & { scheduled_date: string; start_time: string; photographer_id: string; duration: number; end_time: string };
 export function unitServiceDuration(service: ServicePackage, unit: ShootUnit): number {
-  const explicit = Number(service.shoot_duration_minutes ?? service.duration_minutes);
   const tier = service.pricing_type === 'variable' && unit.sqft ? service.sqft_ranges?.find(range => unit.sqft! >= range.sqft_from && unit.sqft! <= range.sqft_to) : undefined;
-  return resolveShootDuration(explicit, tier?.duration, service.booking_duration_defaults?.default_minutes, service.booking_duration_default_minutes);
+  return resolveShootDuration(service.duration_minutes, tier?.duration, service.shoot_duration_minutes, service.booking_duration_defaults?.default_minutes, service.booking_duration_default_minutes);
 }
 /** Each photographer gets sequential occupied blocks, never N units at the same instant. */
 export function resolveUnitSchedule(draft: MultiUnitDraft, catalog: ServicePackage[], fallback: UnitScheduleDefault): { lines: ResolvedUnitLine[]; errors: string[]; totalMinutes: number } {
