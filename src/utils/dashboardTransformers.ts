@@ -60,15 +60,27 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
     ? shoot.preview_images.filter((image): image is string => Boolean(image))
     : [],
   paymentStatus: (() => {
-    const raw =
-      (shoot as { payment_status?: string | null; paymentStatus?: string | null }).payment_status ??
-      (shoot as { paymentStatus?: string | null }).paymentStatus ??
-      null;
-    if (!raw) return null;
-    const normalized = String(raw).trim().toLowerCase();
-    if (normalized === 'paid') return 'paid' as const;
-    if (['partial', 'partial_paid', 'partially_paid'].includes(normalized)) return 'partial' as const;
-    if (normalized === 'unpaid') return 'unpaid' as const;
+    const typed = shoot as {
+      payment_status?: string | null;
+      paymentStatus?: string | null;
+      total_paid?: number | string | null;
+      total_quote?: number | string | null;
+    };
+    const raw = typed.payment_status ?? typed.paymentStatus ?? null;
+    if (raw) {
+      const normalized = String(raw).trim().toLowerCase();
+      if (normalized === 'paid' || normalized === 'no_payment_required') return 'paid' as const;
+      if (['partial', 'partial_paid', 'partially_paid'].includes(normalized)) return 'partial' as const;
+      if (normalized === 'unpaid') return 'unpaid' as const;
+    }
+    // Fallback when overview select historically omitted payment_status but totals are present.
+    const paid = Number(typed.total_paid ?? NaN);
+    const quote = Number(typed.total_quote ?? NaN);
+    if (Number.isFinite(paid) && Number.isFinite(quote) && quote > 0.01) {
+      if (paid <= 0) return 'unpaid' as const;
+      if (paid >= quote) return 'paid' as const;
+      return 'partial' as const;
+    }
     return null;
   })(),
   // Notes fields

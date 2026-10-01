@@ -236,12 +236,7 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
                       background: 'linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.8) 15%, rgba(0, 0, 0, 0.6) 30%, rgba(0, 0, 0, 0.3) 45%, rgba(0, 0, 0, 0) 55%)'
                     }}
                   />
-                  {showPaymentStatus ? (
-                    <div className="absolute top-2.5 right-2.5 sm:top-3 sm:right-3 z-20 pointer-events-none">
-                      <ClientPaymentPill status={shoot.paymentStatus} overlay />
-                    </div>
-                  ) : null}
-                  <div className="absolute left-3 sm:left-4 bottom-3 sm:bottom-4 right-3 sm:right-4 text-white space-y-1 z-10">
+                  <div className="absolute left-3 sm:left-4 bottom-3 sm:bottom-4 right-14 sm:right-16 text-white space-y-1 z-10">
                     <p className="select-text cursor-text text-xs sm:text-sm font-semibold truncate">{shoot.addressLine}</p>
                     <div className="text-[10px] sm:text-[11px] text-white/80 flex flex-col">
                       <span>{shoot.clientName || 'Client TBD'}</span>
@@ -252,6 +247,11 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
                       )}
                     </div>
                   </div>
+                  {showPaymentStatus ? (
+                    <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-20 pointer-events-none">
+                      <ClientPaymentPill status={shoot.paymentStatus} overlay />
+                    </div>
+                  ) : null}
                 </div>
               </div>
             );
