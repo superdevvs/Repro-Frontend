@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Check, X, Eye, Edit, Clock, MapPin, User, Calendar } from 'lucide-react';
 import { DashboardShootSummary } from '@/types/dashboard';
 import { formatWorkflowStatus } from '@/utils/status';
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 import { ShootApprovalModal } from '@/components/shoots/ShootApprovalModal';
 import { ShootDeclineModal } from '@/components/shoots/ShootDeclineModal';
 import { cn } from '@/lib/utils';
@@ -89,6 +90,7 @@ export function RequestedShootsCard({
                 </div>
 
                 {/* Client and Date */}
+                <ShootActionRequestBadges shoot={shoot} />
                 <div className="flex items-center gap-4 text-xs text-muted-foreground">
                   {shoot.clientName && (
                     <div className="flex items-center gap-1">

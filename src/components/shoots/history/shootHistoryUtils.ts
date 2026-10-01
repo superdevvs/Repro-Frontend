@@ -1,4 +1,5 @@
 import { format } from 'date-fns'
+import type { ShootActionRequestFields } from '@/utils/shootActionRequests'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import { getStateFullName } from '@/utils/stateUtils'
 import { getImageUrl, isPlaceholderImageUrl, normalizeImageUrl } from '@/utils/imageUrl'
@@ -72,6 +73,7 @@ export type MapMarker = {
   coords: { lat: number; lng: number }
   imageUrl?: string | null
   status?: string
+  actionRequests?: ShootActionRequestFields
   onOpen?: () => void
 }
 

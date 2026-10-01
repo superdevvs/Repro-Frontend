@@ -12,6 +12,7 @@ import { getIconComponent } from '@/components/scheduling/IconPicker';
 import { getWeatherForLocation, type WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
 import { canShowShootPaymentStatusForRole } from '@/utils/shootPaymentVisibility';
@@ -565,6 +566,7 @@ export function useShootsTabsCardController({
         )}
       >
         {/* ── Compact layout (mobile compact toggle + desktop/tablet compact toggle) ── */}
+        <ShootActionRequestBadges shoot={shoot} className="mb-2" />
         {isCompactMobile && (
           <div className="grid grid-cols-[48px,1fr,auto] items-center gap-3 min-h-[62px] sm:grid-cols-[56px,1fr,auto] sm:gap-4 sm:min-h-[68px]">
             <div className="rounded-xl border border-border/80 bg-muted/40 dark:bg-muted/20 px-2 py-2 text-center shadow-sm">

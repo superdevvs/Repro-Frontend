@@ -1,3 +1,7 @@
+import { transformShootFromApi } from '@/context/shootNormalization';
+import type { ApiShoot } from '@/context/shootApiTypes';
+import type { ShootData } from '@/types/shoots';
+import { describeHoldNotifications, type HoldNotificationOptions } from '@/components/shoots/details/useHoldNotifications';
 import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { API_BASE_URL } from '@/config/env';
@@ -11,9 +15,10 @@ export interface HoldRequest {
   address: string;
   clientName?: string;
   reason?: string;
+  notificationShoot?: Partial<ShootData>;
 }
 
-type HoldRequestResponse = {
+type HoldRequestResponse = ApiShoot & {
   id: string | number;
   location?: { fullAddress?: string; address?: string };
   address?: string;
@@ -22,7 +27,7 @@ type HoldRequestResponse = {
   hold_reason?: string;
 };
 
-const headers = () => ({ Authorization: `Bearer ${getAuthToken()}`, Accept: 'application/json' });
+const headers = () => ({ Authorization: `Bearer ${getAuthToken()}`, Accept: 'application/json', 'Content-Type': 'application/json' });
 
 export function useHoldRequests(enabled: boolean, viewerScope: string) {
   const queryClient = useQueryClient();
@@ -41,6 +46,7 @@ export function useHoldRequests(enabled: boolean, viewerScope: string) {
         address: item.location?.fullAddress || item.location?.address || item.address || `Shoot #${item.id}`,
         clientName: item.client?.name,
         reason: item.holdReason || item.hold_reason,
+        notificationShoot: transformShootFromApi(item),
       }));
     },
     refetchInterval: 30_000,
@@ -54,20 +60,24 @@ export function useHoldRequests(enabled: boolean, viewerScope: string) {
   }, [enabled, queryClient, viewerScope]);
 
   const mutation = useMutation({
-    mutationFn: async ({ id, decision }: { id: number; decision: 'approve' | 'reject' }) => {
+    mutationFn: async ({ id, decision, notifications }: { id: number; decision: 'approve' | 'reject'; notifications?: HoldNotificationOptions['payload'] }) => {
       const response = await fetch(`${API_BASE_URL}/api/shoots/${id}/${decision}-hold`, {
         method: 'POST', headers: headers(),
+        ...(decision === 'approve' && notifications ? { body: JSON.stringify(notifications) } : {}),
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({}));
         throw new Error(error.message || 'Unable to update the hold request.');
       }
+      return response.json();
     },
-    onSuccess: (_, { id, decision }) => {
+    onSuccess: (result, { id, decision }) => {
       queryClient.setQueryData<HoldRequest[]>(queryKey, (items) => items?.filter((item) => item.id !== id));
       void queryClient.invalidateQueries({ queryKey: ['pendingHoldRequests'] });
       refreshShoot(id);
-      toast({ title: decision === 'approve' ? 'Shoot placed on hold' : 'Hold request rejected' });
+      toast({ title: decision === 'approve' ? 'Shoot placed on hold' : 'Hold request rejected',
+        ...(decision === 'approve' ? { description: describeHoldNotifications(result) } : {}),
+      });
     },
     onError: (error) => toast({ title: 'Unable to update hold request', description: error.message, variant: 'destructive' }),
   });
@@ -77,7 +87,7 @@ export function useHoldRequests(enabled: boolean, viewerScope: string) {
     loading: enabled && query.isLoading,
     error: enabled && query.error ? query.error.message : null,
     refresh: () => { void query.refetch(); },
-    decide: (id: number, decision: 'approve' | 'reject') => mutation.mutate({ id, decision }),
+    decide: (id: number, decision: 'approve' | 'reject', notifications?: HoldNotificationOptions['payload'], onSuccess?: () => void) => mutation.mutate({ id, decision, notifications }, { onSuccess }),
     actioning: mutation.isPending ? mutation.variables.id : null,
   };
 }

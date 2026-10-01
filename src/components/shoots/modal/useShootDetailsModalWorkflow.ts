@@ -1,3 +1,4 @@
+import { useHoldNotifications, describeHoldNotifications } from '../details/useHoldNotifications';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { Dispatch, SetStateAction, useState } from 'react';
 import { ShootData } from '@/types/shoots';
@@ -54,6 +55,8 @@ export function useShootDetailsModalWorkflow({
 
   const [isOnHoldDialogOpen, setIsOnHoldDialogOpen] = useState(false);
   const [onHoldReason, setOnHoldReason] = useState('');
+  const [isPuttingOnHold, setIsPuttingOnHold] = useState(false);
+  const holdNotifications = useHoldNotifications(shoot, isOnHoldDialogOpen);
   const [isCancellationFeeDialogOpen, setIsCancellationFeeDialogOpen] = useState(false);
   const [shouldAddCancellationFee, setShouldAddCancellationFee] = useState(false);
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
@@ -149,6 +152,7 @@ export function useShootDetailsModalWorkflow({
   };
 
   const handleMarkOnHold = async () => {
+    if (isPuttingOnHold) return;
     if (!shoot || !onHoldReason.trim()) {
       toast({
         title: 'Reason required',
@@ -169,7 +173,11 @@ export function useShootDetailsModalWorkflow({
 
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const payload: Record<string, unknown> = { reason: onHoldReason.trim() };
+      setIsPuttingOnHold(true);
+      const payload: Record<string, unknown> = {
+        reason: onHoldReason.trim(),
+        ...(!isHoldRequest ? holdNotifications.payload : {}),
+      };
       const shouldApplyCancellationFee =
         !isHoldRequest && isWithinCancellationFeeWindow && shouldAddCancellationFee;
 
@@ -195,6 +203,7 @@ export function useShootDetailsModalWorkflow({
         );
       }
 
+      const result = await response.json();
       await refreshShoot();
       refreshShootMutations(shoot.id);
 
@@ -202,9 +211,7 @@ export function useShootDetailsModalWorkflow({
         title: isHoldRequest ? 'Hold request submitted' : 'Shoot put on hold',
         description: isHoldRequest
           ? 'Your hold request is pending admin approval.'
-          : shouldApplyCancellationFee
-            ? 'The shoot has been marked on hold. $60 cancellation fee has been added.'
-            : 'The shoot has been successfully marked on hold.',
+          : `${shouldApplyCancellationFee ? 'The shoot has been marked on hold. $60 cancellation fee has been added.' : 'The shoot has been successfully marked on hold.'} ${describeHoldNotifications(result)}`,
       });
 
       setIsOnHoldDialogOpen(false);
@@ -226,6 +233,8 @@ export function useShootDetailsModalWorkflow({
               : 'Failed to put shoot on hold. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setIsPuttingOnHold(false);
     }
   };
 
@@ -530,6 +539,8 @@ export function useShootDetailsModalWorkflow({
   };
 
   return {
+    holdNotifications,
+    isPuttingOnHold,
     isOnHoldDialogOpen,
     setIsOnHoldDialogOpen,
     onHoldReason,

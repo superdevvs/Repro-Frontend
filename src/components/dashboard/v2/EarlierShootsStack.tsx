@@ -12,6 +12,7 @@ import {
   getDashboardShootDisplayDate,
 } from '@/utils/dashboardShootSchedule';
 import { formatWorkflowStatus } from '@/utils/status';
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 import { isStaffShootStackRole } from './earlierUnfinishedShoots';
 import './EarlierShootsStack.css';
 
@@ -219,6 +220,7 @@ function EarlierShootsCarousel({ shoots, role, onSelect, className }: EarlierSho
           <div className="earlier-shoots-stack__meta">
             <span className="earlier-shoots-stack__date" title={schedule || dateLabel}><strong>{age}</strong><span>· {schedule || dateLabel}</span></span>
             <span className={`earlier-shoots-stack__status earlier-shoots-stack__status--${status.tone}`} title={status.label}>{status.label}</span>
+            <ShootActionRequestBadges shoot={active} />
           </div>
           <div className="earlier-shoots-stack__body">
             <div className="earlier-shoots-stack__property"><h4 title={active.addressLine}>{active.addressLine}</h4><p title={person}>{person} <span>· #{active.id}</span></p></div>

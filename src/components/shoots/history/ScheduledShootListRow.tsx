@@ -26,6 +26,7 @@ import { formatWorkflowStatus } from '@/utils/status'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
 import { ShootPaymentBadge } from '@/components/shoots/ShootPaymentBadge'
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests'
 import { getApprovalNotes, getEditingNotes, formatCurrency, getShootPlaceholderSrc, getShootStatusBadgeClass, resolveShootThumbnail } from './shootHistoryUtils'
 import { AlertCircle, Calendar as CalendarIcon, Camera, Check, CheckCircle2, Clock, CloudSun, CreditCard, DollarSign, Download, Edit, FileText, Image, Layers, MoreHorizontal, PauseCircle, Send, Trash2, User, X, XCircle } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -340,6 +341,7 @@ export const ScheduledShootListRow = ({
               )}
             </div>
             <div data-mobile-shoot-pills className="flex max-w-[48%] flex-col items-end gap-1.5">
+              <ShootActionRequestBadges shoot={shoot} className="justify-end" />
               <Badge variant="outline" className={cn('max-w-full capitalize font-medium', statusBadgeClass)}>
                 <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
                 {statusLabel}
@@ -466,11 +468,12 @@ export const ScheduledShootListRow = ({
           // Always show services section, even if empty
           return (
             <div className="flex items-start gap-4 mt-2 pt-2 border-t border-border/30">
-              <div className="hidden md:flex min-w-[140px] flex-shrink-0 items-start">
+              <div className="hidden md:flex min-w-[140px] flex-shrink-0 flex-col items-start gap-1.5">
                 <Badge variant="outline" className={cn('capitalize font-medium', statusBadgeClass)}>
                   <StatusIcon className="h-3.5 w-3.5 mr-1.5" />
                   {statusLabel}
                 </Badge>
+                <ShootActionRequestBadges shoot={shoot} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
@@ -606,6 +609,4 @@ export const ScheduledShootListRow = ({
     </Card>
   )
 }
-
-
 

@@ -34,6 +34,7 @@ import {
 import { AlertCircle, Calendar as CalendarIcon, Camera, Check, CheckCircle2, Clock, CreditCard, DollarSign, Download, Edit, FileText, Image, Layers, PauseCircle, Send, Star, Trash2, User, X, XCircle } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots'
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests'
 
 const getServiceLabel = (service: unknown): string => {
   if (typeof service === 'string') return service
@@ -375,6 +376,7 @@ export const CompletedAlbumCard = ({
       {compact && <div className="shoot-glass-blur" aria-hidden="true" />}
       {/* Card Content */}
       <div className={compact ? 'p-3 space-y-1.5' : 'p-5 xl:p-6 space-y-5'}>
+        <ShootActionRequestBadges shoot={shoot} />
         <div className="flex flex-col gap-3 min-[1180px]:flex-row min-[1180px]:items-start min-[1180px]:justify-between min-[1180px]:gap-4">
           <div className="flex-1 min-w-0">
             <HoverCopyValue

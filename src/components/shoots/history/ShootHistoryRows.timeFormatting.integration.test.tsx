@@ -59,6 +59,20 @@ const renderWithPreferences = (ui: React.ReactElement) =>
   render(<UserPreferencesProvider>{ui}</UserPreferencesProvider>)
 
 describe('Shoot History row time-formatting wiring (task 2.3)', () => {
+  it.each([HoldOnShootCard, ScheduledShootListRow, ShootListRow, CompletedAlbumCard, CompletedShootListRow])(
+    'shows a pending cancellation on operational cards and rows, and removes it once reviewed',
+    (Component) => {
+      const pending = buildShoot({
+        cancellationRequestedAt: '2026-10-01T12:00:00Z',
+        cancellationReason: 'Client requested cancellation',
+      })
+      const { container, rerender } = renderWithPreferences(<Component shoot={pending} onSelect={() => undefined} />)
+      expect(container.textContent).toContain('Cancellation requested')
+      rerender(<UserPreferencesProvider><Component shoot={{ ...pending, cancellationRequestedAt: undefined }} onSelect={() => undefined} /></UserPreferencesProvider>)
+      expect(container.textContent).not.toContain('Cancellation requested')
+    },
+  )
+
   it.each([HoldOnShootCard, CompletedAlbumCard, CompletedShootListRow])(
     'preserves the scheduled day and 10 AM when the API serializes the day at UTC midnight',
     (Component) => {

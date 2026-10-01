@@ -477,6 +477,8 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     holdRequestedAt: shoot.holdRequestedAt ?? null,
     holdRequestedBy: shoot.holdRequestedBy ?? null,
     holdReason: shoot.holdReason ?? null,
+    cancellationRequestedAt: shoot.cancellationRequestedAt ?? null,
+    cancellationReason: shoot.cancellationReason ?? null,
     paymentStatus,
     heroImage: (() => {
       const selected = selectShootCardHeroUrls({

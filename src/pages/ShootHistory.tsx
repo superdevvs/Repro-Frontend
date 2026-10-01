@@ -362,6 +362,7 @@ const ShootHistory: React.FC = () => {
           coords,
           imageUrl: resolveShootThumbnail(shoot, 'thumb'),
           status: shoot.workflowStatus || shoot.status,
+          actionRequests: shoot,
           onOpen: () => handleShootSelect(shoot),
         }
       })

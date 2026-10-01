@@ -6,6 +6,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } f
 import { ShootData } from '@/types/shoots';
 import { ArrowLeft, Camera, CheckCircle, Cloud, Copy, DollarSign, Download, ExternalLink, PanelTopOpen, PauseCircle, Send, Share2, ChevronRight, FileText, Images, MessageCircle, MoreVertical, Settings, SlidersHorizontal } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
+import { ShootActionRequestBanner } from '@/components/shoots/ShootActionRequests';
 
 interface ShootDetailsPageHeaderProps {
   shoot: ShootData;
@@ -123,6 +124,7 @@ export function ShootDetailsPageHeader({
 
   return (
     <div className="sticky top-0 z-50 bg-background border-b">
+      <ShootActionRequestBanner shoot={shoot} className="mx-2 my-1.5 sm:mx-6" />
       <div className="px-2 sm:px-6 py-1 sm:py-1.5 border-b bg-muted/30">
         <div className="flex flex-row items-center justify-between gap-2 sm:gap-0">
           <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2 text-sm text-muted-foreground">

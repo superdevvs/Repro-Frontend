@@ -31,14 +31,13 @@ import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
 import { canShowShootPaymentStatusForRole } from '@/utils/shootPaymentVisibility';
 import { ClientPaymentPill } from '@/features/dashboard/components/ClientPaymentPill';
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { EarlierShootsStack } from './EarlierShootsStack';
 import { isStaffShootStackRole, useEarlierShoots } from './earlierUnfinishedShoots';
 import {
-  DASHBOARD_MOBILE_PANEL_CLASS,
-  measureShootListPeekHeightPx,
-  resolveDashboardListMaxHeight,
-  UPCOMING_SHOOT_CARD_MIN_HEIGHT_PX,
+  DASHBOARD_MOBILE_PANEL_CLASS, measureShootListPeekHeightPx,
+  resolveDashboardListMaxHeight, UPCOMING_SHOOT_CARD_MIN_HEIGHT_PX,
 } from '@/features/dashboard/utils/dashboardMobilePanel';
 
 interface UpcomingShootsCardProps {
@@ -1250,6 +1249,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             {hideClientInfo ? `Shoot #${shoot.id}` : `${shoot.clientName || 'Client TBD'} · #${shoot.id}`}
                           </p>
                           <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                            <ShootActionRequestBadges shoot={shoot} />
                             <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', statusClass)}>
                               {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
                             </span>
@@ -1341,6 +1341,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                         <span>Shoot ID <span className="font-semibold text-foreground">• #{shoot.id}</span></span>
                       </div>
                       {/* Row 4: Service tags */}
+                      <ShootActionRequestBadges shoot={shoot} />
                       <ServicePills shootId={shoot.id} items={serviceList} variant="compact" />
                       {/* Row 5: Status left + Photographer/Client right */}
                       <hr className="border-border" />
@@ -1427,6 +1428,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                       </div>
 
                       <div className="space-y-1.5 min-w-0">
+                        <ShootActionRequestBadges shoot={shoot} />
                         <div>
                           <h3 className="select-text cursor-text text-base font-semibold text-foreground truncate">{shoot.addressLine}</h3>
                           <p className="text-xs text-muted-foreground flex items-center gap-1 truncate">

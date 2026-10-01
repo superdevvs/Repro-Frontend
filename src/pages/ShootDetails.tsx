@@ -1,3 +1,4 @@
+import { useHoldNotifications, describeHoldNotifications } from '@/components/shoots/details/useHoldNotifications';
 import { PrivateImportReview } from '@/components/shoots/details/PrivateImportReview';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { usePageLoading } from '@/hooks/use-page-loading';
@@ -116,6 +117,7 @@ const ShootDetails: React.FC = () => {
     editorUser: user,
   });
   usePageLoading(loading);
+  const holdNotifications = useHoldNotifications(shoot, isOnHoldDialogOpen || isHoldApprovalDialogOpen);
 
   const normalizedRole = role.toLowerCase();
   const isSuperAdmin = normalizedRole === 'superadmin';
@@ -287,6 +289,7 @@ const ShootDetails: React.FC = () => {
     loadShoot(); // Reload shoot data to update payment status
   };
   const handleMarkOnHold = async () => {
+    if (holdProcessing) return;
     if (!shoot || !onHoldReason.trim()) {
       toast({
         title: 'Reason required',
@@ -304,13 +307,14 @@ const ShootDetails: React.FC = () => {
       return;
     }
 
+    setHoldProcessing(true);
     try {
       const headers = getApiHeaders();
       const endpoint = isHoldRequest ? 'request-hold' : 'put-on-hold';
       const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/${endpoint}`, {
         method: 'POST',
         headers,
-        body: JSON.stringify({ reason: onHoldReason.trim() }),
+        body: JSON.stringify({ reason: onHoldReason.trim(), ...(!isHoldRequest ? holdNotifications.payload : {}) }),
       });
 
       if (!response.ok) {
@@ -320,11 +324,12 @@ const ShootDetails: React.FC = () => {
         );
       }
 
+      const result = await response.json();
       toast({
         title: isHoldRequest ? 'Hold request submitted' : 'Shoot put on hold',
         description: isHoldRequest
           ? 'Your hold request is pending admin approval.'
-          : 'The shoot has been successfully marked on hold.',
+          : `The shoot has been successfully marked on hold. ${describeHoldNotifications(result)}`,
       });
 
       setIsOnHoldDialogOpen(false);
@@ -341,6 +346,8 @@ const ShootDetails: React.FC = () => {
             : 'Failed to put shoot on hold. Please try again.',
         variant: 'destructive',
       });
+    } finally {
+      setHoldProcessing(false);
     }
   };
 
@@ -352,6 +359,7 @@ const ShootDetails: React.FC = () => {
       const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/approve-hold`, {
         method: 'POST',
         headers,
+        body: JSON.stringify(holdNotifications.payload),
       });
 
       if (!response.ok) {
@@ -359,9 +367,10 @@ const ShootDetails: React.FC = () => {
         throw new Error(error.message || 'Failed to approve hold request');
       }
 
+      const result = await response.json();
       toast({
         title: 'Hold approved',
-        description: 'The shoot has been placed on hold.',
+        description: `The shoot has been placed on hold. ${describeHoldNotifications(result)}`,
       });
       setIsHoldApprovalDialogOpen(false);
       loadShoot();
@@ -918,6 +927,7 @@ const ShootDetails: React.FC = () => {
           canClientDownloadWholeShoot={clientReleaseAccess.canClientDownloadWholeShoot}
           canClientAccessTours={clientReleaseAccess.canClientAccessTours}
           onHoldReason={onHoldReason}
+          holdNotifications={holdNotifications}
           holdDialogTitle={holdDialogTitle}
           holdDialogDescription={holdDialogDescription}
           holdSubmitLabel={holdSubmitLabel}

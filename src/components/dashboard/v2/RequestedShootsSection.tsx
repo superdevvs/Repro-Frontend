@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { formatWorkflowStatus } from '@/utils/status';
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { getDashboardBookedDayOffset, getDashboardShootDisplayTime } from '@/utils/dashboardShootSchedule';
 import { formatServiceCount, groupServiceItems } from '@/utils/groupServiceItems';
@@ -303,6 +304,7 @@ export const RequestedShootsSection: React.FC<RequestedShootsSectionProps> = ({
                     </div>
 
                     <div className="space-y-2 sm:space-y-3 min-w-0">
+                      <ShootActionRequestBadges shoot={shoot} />
                       <div>
                         <h3 className="select-text cursor-text text-sm sm:text-base font-semibold text-foreground break-words">{shoot.addressLine}</h3>
                         <p className="text-[10px] sm:text-xs text-muted-foreground flex items-center gap-1">

@@ -58,7 +58,7 @@ const RECIPIENT_OPTIONS: ReadonlyArray<{
 const isRecipientAllowed = (type: ManualNotificationType, recipient: ManualNotificationRecipient) =>
   recipient === 'client'
   || (recipient === 'rep' && (type === 'shoot_on_hold' || type === 'shoot_cancelled'))
-  || (recipient === 'photographer' && type !== 'shoot_on_hold');
+  || recipient === 'photographer';
 
 const CHANNEL_OPTIONS: ReadonlyArray<{
   value: ManualNotificationChannel;

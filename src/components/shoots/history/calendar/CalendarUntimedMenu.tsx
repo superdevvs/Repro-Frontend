@@ -5,6 +5,7 @@ import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import type { ShootData } from '@/types/shoots';
 import type { CalendarEntry } from './calendarModel';
 import { calendarAddress, calendarPhotographer, calendarStatus } from './calendarPresentation';
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 
 export function CalendarUntimedMenu({ entries, theme, onShootSelect }: {
   entries: CalendarEntry[]; theme: string; onShootSelect: (shoot: ShootData) => void;
@@ -33,6 +34,7 @@ export function CalendarUntimedMenu({ entries, theme, onShootSelect }: {
         <strong>{calendarAddress(entry.shoot)}</strong>
         <span>{formatDate(entry.date)} · {calendarStatus(entry.shoot).label}</span>
         <small>{calendarPhotographer(entry.shoot)}</small>
+        <ShootActionRequestBadges shoot={entry.shoot} />
       </button>)}</div>
     </PopoverContent>
   </Popover>;

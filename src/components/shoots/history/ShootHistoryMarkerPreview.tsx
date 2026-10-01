@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import type { MapMarker } from './shootHistoryUtils'
 import { getShootPlaceholderSrc } from './shootHistoryUtils'
+import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests'
 
 interface ShootHistoryMarkerPreviewProps {
   marker: MapMarker
@@ -75,6 +76,7 @@ export function ShootHistoryMarkerPreview({
       </div>
 
       <div className="space-y-2.5 p-3">
+        {marker.actionRequests && <ShootActionRequestBadges shoot={marker.actionRequests} />}
         <div className="min-w-0">
           <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             {marker.title}

@@ -16,6 +16,7 @@ import { normalizeShootFeaturedHomepage, normalizeShootFeaturedState } from './s
 import { normalizeShootUnits } from '@/features/shoot-units/shootUnitData';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { calendarDay } from '@/lib/date';
+import { normalizeShootActionRequests } from '@/utils/shootActionRequests';
 
 export type { ApiShoot } from './shootApiTypes';
 
@@ -434,6 +435,8 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
                     shoot.photographer_email ||
                     shoot.photographerEmail ||
                     undefined,
+                  phone: photographer.phone || photographer.phonenumber ||
+                    shoot.photographer_phone || shoot.photographerPhone || undefined,
                 };
               }
 
@@ -964,11 +967,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     totalPhotographerPay: toNumber(shoot.totalPhotographerPay ?? shoot.total_photographer_pay ?? shoot.photographerPay ?? shoot.photographer_pay),
     photographerPaidAt: shoot.photographerPaidAt ?? shoot.photographer_paid_at ?? shoot.paid_at_photographer ?? undefined,
     propertyDetails: shoot.property_details || undefined,
-    cancellationRequestedAt: shoot.cancellationRequestedAt || shoot.cancellation_requested_at || undefined,
-    cancellationReason: shoot.cancellationReason || shoot.cancellation_reason || undefined,
-    holdRequestedAt: shoot.holdRequestedAt || shoot.hold_requested_at || undefined,
-    holdRequestedBy: shoot.holdRequestedBy || shoot.hold_requested_by || undefined,
-    holdReason: shoot.holdReason || shoot.hold_reason || undefined,
+    ...normalizeShootActionRequests(shoot),
     mmmStatus: shoot.mmm_status || undefined,
     mmmOrderNumber: shoot.mmm_order_number || undefined,
     mmmBuyerCookie: shoot.mmm_buyer_cookie || undefined,

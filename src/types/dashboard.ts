@@ -70,6 +70,10 @@ export interface DashboardShootSummaryResponse {
   client_id?: number | null;
   client_phone?: string | null;
   cancellation_reason?: string | null;
+  cancellation_requested_at?: string | null;
+  hold_requested_at?: string | null;
+  hold_requested_by?: string | number | null;
+  hold_reason?: string | null;
   temperature?: string | null;
   services: DashboardShootServiceTagResponse[];
   photographer?: {
@@ -244,6 +248,8 @@ export interface DashboardShootSummary {
   holdRequestedAt?: string | null;
   holdRequestedBy?: string | number | null;
   holdReason?: string | null;
+  cancellationRequestedAt?: string | null;
+  cancellationReason?: string | null;
   createdBy?: string | null;
   heroImage?: string | null;
   previewImages?: string[];

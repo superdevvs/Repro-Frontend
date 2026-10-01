@@ -1,3 +1,5 @@
+import { HoldNotificationFields } from './HoldNotificationFields';
+import type { HoldNotificationOptions } from './useHoldNotifications';
 import React, { lazy, Suspense, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getNotificationRecipients } from '@/services/messaging';
@@ -51,6 +53,8 @@ interface ShootDetailsModalDialogsProps {
   pendingAction: 'hold' | 'cancel' | null;
   isOnHoldDialogOpen: boolean;
   onHoldReason: string;
+  holdNotifications: HoldNotificationOptions;
+  isPuttingOnHold: boolean;
   holdDialogTitle: string;
   holdDialogDescription: string;
   holdSubmitLabel: string;
@@ -136,6 +140,8 @@ export function ShootDetailsModalDialogs({
   pendingAction,
   isOnHoldDialogOpen,
   onHoldReason,
+  holdNotifications,
+  isPuttingOnHold,
   holdDialogTitle,
   holdDialogDescription,
   holdSubmitLabel,
@@ -483,8 +489,8 @@ export function ShootDetailsModalDialogs({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isOnHoldDialogOpen} onOpenChange={setIsOnHoldDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+      <Dialog open={isOnHoldDialogOpen} onOpenChange={(open) => { if (!isPuttingOnHold) setIsOnHoldDialogOpen(open); }}>
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>{holdDialogTitle}</DialogTitle>
             <DialogDescription>{holdDialogDescription}</DialogDescription>
@@ -494,6 +500,7 @@ export function ShootDetailsModalDialogs({
               <Label htmlFor="onHoldReason">Reason <span className="text-destructive">*</span></Label>
               <Textarea
                 id="onHoldReason"
+                disabled={isPuttingOnHold}
                 placeholder="Enter the reason for putting this shoot on hold..."
                 value={onHoldReason}
                 onChange={(e) => setOnHoldReason(e.target.value)}
@@ -501,10 +508,12 @@ export function ShootDetailsModalDialogs({
                 className="resize-none"
               />
             </div>
+            {!isClient && <HoldNotificationFields options={holdNotifications} disabled={isPuttingOnHold} />}
           </div>
           <div className="flex justify-end gap-2">
             <Button
               variant="outline"
+              disabled={isPuttingOnHold}
               onClick={() => {
                 setIsOnHoldDialogOpen(false);
                 setOnHoldReason('');
@@ -512,7 +521,7 @@ export function ShootDetailsModalDialogs({
             >
               Cancel
             </Button>
-            <Button onClick={handleMarkOnHold} disabled={!onHoldReason.trim()} className="bg-amber-600 hover:bg-amber-700">
+            <Button onClick={handleMarkOnHold} disabled={!onHoldReason.trim() || isPuttingOnHold} className="bg-amber-600 hover:bg-amber-700">
               <PauseCircle className="h-4 w-4 mr-2" />
               {holdSubmitLabel}
             </Button>
