@@ -19,7 +19,7 @@ export async function downloadWorkspaceOutput(workspaceId: string, output: Pick<
   if (!blob.size) throw new Error('The downloaded file is empty. Please try again.');
   const extensions: Record<string, string> = { 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/avif': 'avif', 'video/mp4': 'mp4', 'video/webm': 'webm' };
   const extension = extensions[blob.type.split(';')[0]] || (output.kind === 'video' ? 'mp4' : 'jpg');
-  const editedName = output.kind === 'image' && /_\d+_edited\.jpg$/i.test(output.name || '') ? output.name : undefined;
+  const editedName = output.kind === 'image' && /_\d+(?:_edited)?\.jpg$/i.test(output.name || '') ? output.name : undefined;
   const baseName = [...(editedName || name)].filter(character => character.charCodeAt(0) >= 32).join('').replace(/\.[a-z0-9]{2,5}$/i, '').replace(/[<>:"/\\|?*]/g, '-').trim().slice(0, 120) || 'studio-output';
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');

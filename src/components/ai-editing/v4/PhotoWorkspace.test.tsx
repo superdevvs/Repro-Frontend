@@ -33,9 +33,9 @@ describe('photo generation scope and selected versions', () => {
     expect(within(strip).getAllByRole('button')).toHaveLength(2);
     fireEvent.click(within(container.querySelector('.v4-editor-desktop-actions') as HTMLElement).getByRole('button', { name: 'Generate 2 photos' }));
     await waitFor(() => expect(props.onGenerate).toHaveBeenCalledWith(expect.objectContaining({ frames: media.map(item => ({ mediaId: item.id, method: 'fit', duration: 5 })) })));
-    const outputs = props.workspace.photoGroups!.map((group, i) => ({ id: `out-${i}`, name: `2912-park-avenue_00${i + 1}_edited.jpg`, mediaId: group.mediaId, sourceMediaIds: group.sourceMediaIds, url: `https://media.test/merged-${i}.jpg`, kind: 'image' as const, status: 'completed', version: 1 }));
+    const outputs = props.workspace.photoGroups!.map((group, i) => ({ id: `out-${i}`, name: `2912-park-avenue_00${i + 1}.jpg`, mediaId: group.mediaId, sourceMediaIds: group.sourceMediaIds, url: `https://media.test/merged-${i}.jpg`, kind: 'image' as const, status: 'completed', version: 1 }));
     rerender(<PhotoWorkspace {...props} workspace={{ ...props.workspace, status: 'completed', outputs }} />);
-    expect(within(strip).getByRole('button', { name: 'Select 2912-park-avenue_001_edited.jpg' }).querySelector('img')).toHaveAttribute('src', 'https://media.test/merged-0.jpg');
+    expect(within(strip).getByRole('button', { name: 'Select 2912-park-avenue_001.jpg' }).querySelector('img')).toHaveAttribute('src', 'https://media.test/merged-0.jpg');
     fireEvent.click(screen.getByRole('button', { name: 'Gallery' }));
     expect(screen.getByRole('button', { name: 'Ready 2' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Approve shoot edits' })).not.toBeInTheDocument();

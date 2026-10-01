@@ -11,12 +11,12 @@ beforeEach(() => {
 afterEach(() => { vi.runAllTimers(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.clearAllMocks(); });
 
 describe('authorized workspace attachment downloads', () => {
-  it('preserves the short edited name without appending a version or source filename', async () => {
+  it.each(['2912-park-avenue_001.jpg', '2912-park-avenue_001_edited.jpg'])('preserves %s without appending a version or source filename', async filename => {
     vi.mocked(apiClient.get).mockResolvedValue({ data: new Blob(['image bytes'], { type: 'image/jpeg' }) });
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
-      expect(this.download).toBe('2912-park-avenue_001_edited.jpg');
+      expect(this.download).toBe(filename);
     });
-    await downloadWorkspaceOutput('shoot', { id: 'result-2', kind: 'image', version: 2, name: '2912-park-avenue_001_edited.jpg' }, 'source-full-shoot-long-hash.CR3');
+    await downloadWorkspaceOutput('shoot', { id: 'result-2', kind: 'image', version: 2, name: filename }, 'source-full-shoot-long-hash.CR3');
     expect(click).toHaveBeenCalledTimes(1);
   });
 
