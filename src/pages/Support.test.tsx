@@ -26,7 +26,7 @@ describe('Support permission revocation', () => {
     const list: TicketList = { data: [ticket], meta: { can_manage: true, categories: [], statuses: [], pagination: { current_page: 1, last_page: 1, total: 1, per_page: 20 } } };
     api.list.mockResolvedValue(list); api.detail.mockResolvedValue(detail); api.assignees.mockResolvedValue([]);
     const query = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={query}><MemoryRouter initialEntries={['/support?ticket=9']}><Support /></MemoryRouter></QueryClientProvider>);
+    render(<QueryClientProvider client={query}><MemoryRouter initialEntries={['/messaging/email/inbox?tab=support&ticket=9']}><Support /><Location /></MemoryRouter></QueryClientProvider>);
     expect(await screen.findByText('Private internal investigation')).toBeInTheDocument();
     api.detail.mockRejectedValue({ response: { status: 404 } });
     api.list.mockRejectedValue({ response: { status: 403 } });
@@ -35,6 +35,8 @@ describe('Support permission revocation', () => {
     expect(screen.queryAllByText('Confidential customer issue')).toHaveLength(0);
     expect(screen.queryAllByText('Private customer')).toHaveLength(0);
     expect(screen.getByRole('heading', { name: 'Request unavailable' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'All requests' }));
+    expect(screen.getByTestId('location')).toHaveTextContent('/messaging/email/inbox?tab=support');
     query.clear();
   });
 

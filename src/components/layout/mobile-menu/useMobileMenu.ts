@@ -5,6 +5,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
 import { OLD_DASHBOARD_URL, canViewOldDashboard } from '@/config/oldDashboard';
 import { usePermission } from '@/hooks/usePermission';
+import { isSupportInbox, MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
 import { canUseListingStudio, listingStudioHref } from '@/utils/listingStudio';
 
@@ -15,7 +16,7 @@ export interface MobileMenuItem {
   isActive: boolean;
   visible: boolean;
   external?: boolean;
-  subItems?: Array<{ to: string; label: string }>;
+  subItems?: Array<{ to: string; label: string; isActive?: boolean }>;
 }
 
 export const useMobileMenu = () => {
@@ -24,6 +25,7 @@ export const useMobileMenu = () => {
   const { pathname } = location;
   const { role, user, logout } = useAuth();
   const permission = usePermission();
+  const supportActive = pathname === '/messaging/email/inbox' && isSupportInbox(location.search);
   const linkedSharedVisibility = useLinkedSharedVisibility();
   const canViewShared = linkedSharedVisibility.data.hasLinkedAccounts;
 
@@ -91,10 +93,6 @@ export const useMobileMenu = () => {
       visible: permission.can('robbie', 'view'),
     },
     {
-      to: '/support', icon: 'MessageSquare', label: 'Support',
-      isActive: pathname === '/support', visible: permission.can('support', 'view'),
-    },
-    {
       to: "/accounts",
       icon: "Building",
       label: "Accounts",
@@ -141,15 +139,16 @@ export const useMobileMenu = () => {
         !permission.can('voice-calls', 'view'),
     },
     {
-      to: "/messaging/overview",
+      to: permission.can('messaging-overview', 'view') ? '/messaging/overview' : permission.can('messaging-sms', 'view') ? '/messaging/sms' : permission.can('voice-calls', 'view') ? '/calls' : MESSAGING_SUPPORT_URL,
       icon: "MessageSquare",
       label: "Messaging",
       isActive: pathname.startsWith('/messaging') || pathname.startsWith('/calls'),
-      visible: permission.can('messaging-overview', 'view') || permission.can('messaging-sms', 'view') || permission.can('voice-calls', 'view'),
+      visible: permission.can('messaging-overview', 'view') || permission.can('messaging-sms', 'view') || permission.can('voice-calls', 'view') || (!permission.can('messaging-email', 'view') && permission.can('support', 'view')),
       subItems: [
-        ...(permission.can('messaging-email', 'view') ? [{ to: '/messaging/email/inbox', label: 'Emails' }] : []),
+        ...(permission.can('messaging-email', 'view') ? [{ to: '/messaging/email/inbox', label: 'Emails', isActive: pathname.startsWith('/messaging/email') && !supportActive }] : []),
         ...(permission.can('messaging-sms', 'view') ? [{ to: '/messaging/sms', label: 'SMS' }] : []),
         ...(permission.can('voice-calls', 'view') ? [{ to: '/calls', label: 'Calls' }] : []),
+        ...(permission.can('support', 'view') ? [{ to: MESSAGING_SUPPORT_URL, label: 'Support', isActive: supportActive }] : []),
       ]
     },
     {

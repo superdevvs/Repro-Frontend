@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { NavLink } from './NavLink';
 import { ExpandableNavLink } from './ExpandableNavLink';
 import { usePermission } from '@/hooks/usePermission';
+import { isSupportInbox, MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -97,6 +98,8 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const canViewMessagingOverview = permission.can('messaging-overview', 'view');
   const canViewSms = permission.can('messaging-sms', 'view');
   const canViewCalls = permission.can('voice-calls', 'view');
+  const canViewSupport = permission.can('support', 'view');
+  const supportActive = pathname === '/messaging/email/inbox' && isSupportInbox(location.search);
   const canViewAiEditing = permission.can('ai-editing', 'view');
   const canViewRobbie = permission.can('robbie', 'view');
   const messagingBadges = useMessagingBadgeCounts();
@@ -147,7 +150,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
     window.addEventListener('resize', measureActiveIndicator);
 
     return () => window.removeEventListener('resize', measureActiveIndicator);
-  }, [pathname, role, canViewShared, canBookShoot, canViewScheduling, canViewPortal, canViewAccounting, canViewEmailInbox, canViewMessagingOverview, canViewSms, canViewCalls, canViewAiEditing, canViewRobbie, measureActiveIndicator]);
+  }, [pathname, role, canViewShared, canBookShoot, canViewScheduling, canViewPortal, canViewAccounting, canViewEmailInbox, canViewMessagingOverview, canViewSms, canViewCalls, canViewSupport, canViewAiEditing, canViewRobbie, measureActiveIndicator]);
 
   React.useLayoutEffect(() => {
     setActiveIndicator(null);
@@ -292,8 +295,6 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
 
-      {permission.can('support', 'view') && <NavLink to="/support" icon={<MessageSquare className="h-5 w-5" />} label="Support" isCollapsed={isCollapsed} isActive={pathname === '/support'} onActivePreview={previewActiveIndicator} />}
-
       {/* Chat with Robbie - Special styled link - Above separator */}
       {/* Only visible to client, admin, superadmin */}
       {canViewRobbie && (
@@ -353,7 +354,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       )}
 
       {/* Messaging - Simple link for clients, expandable for admins */}
-      {canViewEmailInbox && !canViewMessagingOverview && !canViewSms && (
+      {canViewEmailInbox && !canViewMessagingOverview && !canViewSms && !canViewCalls && (
         <NavLink
           to="/messaging/email/inbox"
           icon={<Mail className="h-5 w-5" />}
@@ -365,18 +366,19 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
       {/* Messaging - Expandable with Emails, SMS, Calls + unread badges */}
-      {(canViewMessagingOverview || canViewSms || canViewCalls) && (
+      {(canViewMessagingOverview || canViewSms || canViewCalls || (!canViewEmailInbox && canViewSupport)) && (
         <ExpandableNavLink
           icon={<MessageSquare className="h-5 w-5" />}
           label="Messaging"
           isCollapsed={isCollapsed}
-          defaultTo={canViewMessagingOverview ? "/messaging/overview" : canViewSms ? "/messaging/sms" : "/calls"}
+          defaultTo={canViewMessagingOverview ? "/messaging/overview" : canViewSms ? "/messaging/sms" : canViewCalls ? "/calls" : MESSAGING_SUPPORT_URL}
           onActivePreview={previewActiveIndicator}
           badge={messagingBadges.total}
           subItems={[
-            ...(canViewEmailInbox ? [{ to: '/messaging/email/inbox', label: 'Emails', badge: messagingBadges.email }] : []),
+            ...(canViewEmailInbox ? [{ to: '/messaging/email/inbox', label: 'Emails', badge: messagingBadges.email, isActive: pathname.startsWith('/messaging/email') && !supportActive }] : []),
             ...(canViewSms ? [{ to: '/messaging/sms', label: 'SMS', badge: messagingBadges.sms }] : []),
             ...(canViewCalls ? [{ to: '/calls', label: 'Calls', badge: messagingBadges.call }] : []),
+            ...(canViewSupport ? [{ to: MESSAGING_SUPPORT_URL, label: 'Support', isActive: supportActive }] : []),
           ]}
         />
       )}

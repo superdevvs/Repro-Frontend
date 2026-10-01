@@ -13,8 +13,16 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import Support from '@/pages/Support';
+import { isSupportInbox } from './messagingSupport';
 
 export default function EmailInbox() {
+  const [params] = useSearchParams();
+  if (isSupportInbox(params.toString())) return <DashboardLayout><div className="min-w-0"><EmailNavigation /><Support /></div></DashboardLayout>;
+  return <EmailMessagesInbox />;
+}
+
+function EmailMessagesInbox() {
   const { role } = useAuth();
   const isMobile = useIsMobile();
   const navigate = useNavigate();

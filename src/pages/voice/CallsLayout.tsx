@@ -32,7 +32,7 @@ const tabs = [
   { to: '/calls/schedule', label: 'Business hours' },
   { to: '/calls/automations', label: 'Automations' },
   { to: '/chat-with-reproai?tab=help', label: 'Help & guides' },
-  { to: '/support', label: 'Support requests' },
+  { to: '/messaging/email/inbox?tab=support', label: 'Support requests' },
 ];
 
 function revealTab(navigation: HTMLElement, tab: HTMLElement) {

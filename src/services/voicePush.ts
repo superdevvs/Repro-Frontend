@@ -87,7 +87,16 @@ export async function enableVoicePush(userId: string, publicKey: string, label: 
   if (subscription && (!previousKey || new Uint8Array(previousKey).some((value, index) => value !== bytes[index]) || previousKey.byteLength !== bytes.byteLength)) {
     await subscription.unsubscribe(); subscription = null;
   }
-  subscription ??= await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+  if (!subscription) {
+    try {
+      subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes });
+    } catch (cause) {
+      if ((cause instanceof Error || cause instanceof DOMException) && /push service error/i.test(cause.message)) {
+        throw new Error('This browser could not register for call alerts. This device is not enabled. Fully close and reopen the browser, check for browser updates, then try Enable this device again. You can use the verified phone option below while browser alerts are unavailable.', { cause });
+      }
+      throw cause;
+    }
+  }
   let identity: VoicePushIdentity | undefined;
   try {
     identity = { ...(await apiClient.post('/voice/push/subscriptions', { ...subscription.toJSON(), label })).data, user_id: userId };

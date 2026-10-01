@@ -3,7 +3,6 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, BookOpen, LifeBuoy, Plus, Search } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -52,7 +51,13 @@ function SupportWorkspace() {
   const ticket = detail.isError ? undefined : detail.data?.data;
   const assignees = useQuery({ queryKey: ['support-assignees', ...identity], queryFn: listSupportAssignees, enabled: Boolean(user && !list.isError && listData?.meta.can_manage) });
   const refresh = async () => { await Promise.all([client.invalidateQueries({ queryKey: ['support-tickets'] }), client.invalidateQueries({ queryKey: ['support-ticket'] }), client.invalidateQueries({ queryKey: ['notifications'] })]); };
-  const select = (id?: number) => setParams(id ? { ticket: String(id) } : {});
+  const select = (id?: number) => setParams(current => {
+    const next = new URLSearchParams(current);
+    next.set('tab', 'support');
+    next.delete('new');
+    if (id) next.set('ticket', String(id)); else next.delete('ticket');
+    return next;
+  });
   const cacheTicket = (result: SupportTicket) => client.setQueriesData<TicketDetail>(
     { queryKey: ['support-ticket', ...identity, result.id] },
     current => current ? { ...current, data: result } : current,
@@ -64,8 +69,8 @@ function SupportWorkspace() {
   const pagination = listData?.meta.pagination;
   const fail = send.error || update.error;
 
-  return <DashboardLayout><div className="mx-auto w-full max-w-7xl space-y-5 px-1 py-4 pb-28 md:px-4 md:pb-8">
-    <header className="flex flex-wrap items-start justify-between gap-3"><div><div className="mb-2 flex items-center gap-2 text-sm text-primary"><LifeBuoy className="h-4 w-4" />Support</div><h1 className="text-2xl font-semibold tracking-tight">{listData?.meta.can_manage ? 'Support inbox' : 'Your support requests'}</h1><p className="mt-2 max-w-xl text-sm text-muted-foreground">Get help, keep the conversation together and follow its progress.</p></div><div className="flex flex-wrap gap-2"><Button asChild variant="outline" className="min-h-11"><Link to="/chat-with-reproai?tab=help"><BookOpen className="mr-2 h-4 w-4" />Help & guides</Link></Button><Button className="min-h-11" onClick={() => { create.reset(); setCreating(true); }}><Plus className="mr-2 h-4 w-4" />New request</Button></div></header>
+  return <div className="mx-auto w-full max-w-7xl space-y-4 px-1 py-4 pb-8 md:px-4">
+    <header className="flex flex-wrap items-start justify-between gap-3"><div><h1 className="text-xl font-semibold tracking-tight">{listData?.meta.can_manage ? 'Support inbox' : 'Your support requests'}</h1><p className="mt-1 max-w-xl text-sm text-muted-foreground">Get help, keep the conversation together and follow its progress.</p></div><div className="flex flex-wrap gap-2"><Button asChild variant="outline" className="min-h-11"><Link to="/chat-with-reproai?tab=help"><BookOpen className="mr-2 h-4 w-4" />Help & guides</Link></Button><Button className="min-h-11" onClick={() => { create.reset(); setCreating(true); }}><Plus className="mr-2 h-4 w-4" />New request</Button></div></header>
     <div className="grid min-w-0 items-start gap-5 lg:grid-cols-[minmax(280px,350px)_minmax(0,1fr)]">
       <section aria-label="Support request list" className={`min-w-0 space-y-3 ${ticketId ? 'hidden lg:block' : ''}`}>
         <div className="relative"><Search aria-hidden className="absolute left-3 top-3.5 h-4 w-4 text-muted-foreground" /><Input aria-label="Search support requests" placeholder="Search subject or request number" value={search} onChange={e => setSearch(e.target.value)} className="h-11 pl-9" /></div>
@@ -93,5 +98,5 @@ function SupportWorkspace() {
       </section>
     </div>
     <Dialog open={creating} onOpenChange={value => { if (!create.isPending) setCreating(value); }}><DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"><DialogHeader><DialogTitle>New support request</DialogTitle><DialogDescription>Tell the team what you need. You can follow replies here.</DialogDescription></DialogHeader><form className="space-y-4" onSubmit={e => { e.preventDefault(); create.mutate({ ...draft, subject: draft.subject.trim(), body: draft.body.trim() }); }}><label className="block space-y-2 text-sm">Subject<Input aria-label="Request subject" disabled={create.isPending} value={draft.subject} onChange={e => setDraft({ ...draft, subject: e.target.value })} minLength={3} maxLength={180} required /></label><label className="block space-y-2 text-sm">Topic<select aria-label="Request topic" disabled={create.isPending} className={`${selectClass} w-full capitalize`} value={draft.category} onChange={e => setDraft({ ...draft, category: e.target.value })}>{categories.map(item => <option key={item} value={item}>{item}</option>)}</select></label><label className="block space-y-2 text-sm">What happened?<Textarea aria-label="Request details" disabled={create.isPending} value={draft.body} onChange={e => setDraft({ ...draft, body: e.target.value })} rows={5} minLength={10} maxLength={8000} required placeholder="What were you trying to do? Which page? What did you see?" /></label><p className="text-xs text-muted-foreground">Do not include passwords, payment card details or property access codes. This sends a dashboard request; it does not place a call or send an email.</p>{create.isError && <p role="alert" className="text-sm text-destructive">{errorText(create.error)}</p>}<div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={create.isPending} onClick={() => setCreating(false)}>Cancel</Button><Button type="submit" className="min-h-11" disabled={create.isPending || draft.subject.trim().length < 3 || draft.body.trim().length < 10}>{create.isPending ? 'Saving…' : 'Submit request'}</Button></div></form></DialogContent></Dialog>
-  </div></DashboardLayout>;
+  </div>;
 }

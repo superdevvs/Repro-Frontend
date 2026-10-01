@@ -2,8 +2,8 @@ import { expect as baseExpect, test, type BrowserContext, type Page } from '@pla
 import fs from 'node:fs';
 import path from 'node:path';
 
-const output = path.resolve('..', 'output', 'calls-support-implementation');
-const accountFile = path.join(output, 'runtime-accounts.json');
+const output = process.env.SUPPORT_REVIEW_OUTPUT || path.resolve('..', 'output', 'calls-support-implementation');
+const accountFile = process.env.SUPPORT_QA_ACCOUNTS || path.join(output, 'runtime-accounts.json');
 type Account = { id: number; user: Record<string, unknown>; token: string };
 const api = process.env.SUPPORT_QA_API || 'http://127.0.0.1:8035';
 const expect = baseExpect.configure({ timeout: 30000 });
@@ -54,6 +54,8 @@ test('real support API: phone client submits, admin triages, private note stays 
   const subject = `Download recovery ${Date.now()}`;
   await client.goto(`${baseURL}/support`);
   await expect(client.getByRole('heading', { name: 'Your support requests' })).toBeVisible({ timeout: 60000 });
+  await expect(client).toHaveURL(/\/messaging\/email\/inbox\?tab=support$/);
+  await expect(client.getByRole('navigation', { name: 'Messaging navigation' }).getByRole('link', { name: 'Support', exact: true })).toHaveAttribute('aria-current', 'page');
   await client.getByRole('navigation', { name: 'Support request pages' }).getByRole('button', { name: 'Next' }).click();
   await expect(client.getByRole('navigation', { name: 'Support request pages' })).toContainText('2 /');
   await client.getByRole('button', { name: 'New request', exact: true }).click();
@@ -64,7 +66,7 @@ test('real support API: phone client submits, admin triages, private note stays 
   await expect(client.getByRole('heading', { name: subject, exact: true })).toBeVisible();
   const ticketId = new URL(client.url()).searchParams.get('ticket');
   expect(Number(ticketId)).toBeGreaterThan(0);
-  await admin.goto(`${baseURL}/support?ticket=${ticketId}`);
+  await admin.goto(`${baseURL}/messaging/email/inbox?tab=support&ticket=${ticketId}`);
   await expect(admin.getByRole('heading', { name: 'Support inbox' })).toBeVisible();
   await admin.getByLabel('Request status', { exact: true }).selectOption('in_progress');
   await expect(admin.getByLabel('Request status', { exact: true })).toHaveValue('in_progress');

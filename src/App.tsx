@@ -14,6 +14,7 @@ import { FirstLoginLegalAgreementPrompt } from '@/components/auth/FirstLoginLega
 import { PermissionsProvider } from './context/PermissionsContext';
 import { BrowserPhoneProvider } from './components/voice/BrowserPhoneProvider';
 import { usePermission } from './hooks/usePermission';
+import { isSupportInbox, supportInboxRedirect } from '@/pages/messaging/messagingSupport';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { RequestManagerProvider, useRequestManager } from './context/RequestManagerContext';
 import { PhotographerAssignmentProvider, usePhotographerAssignment } from './context/PhotographerAssignmentContext';
@@ -63,7 +64,6 @@ const MlsPublishingQueue = lazy(() => import('./pages/MlsPublishingQueue'));
 const PrivateListingPortal = lazy(() => import('./pages/PrivateListingPortal'));
 const ExclusiveListingDetails = lazy(() => import('./pages/ExclusiveListingDetails'));
 const ChatWithReproAi = lazy(() => import('./pages/ChatWithReproAi'));
-const Support = lazy(() => import('./pages/Support'));
 const AiEditing = lazy(() => import('./pages/AiEditing'));
 const PermissionSettings = lazy(() => import('./pages/PermissionSettings'));
 const AddressLookupDemo = lazy(() => import('./components/AddressLookupDemo'));
@@ -573,7 +573,7 @@ const AppRoutes = () => {
           <ChatWithReproAi />
         </PermissionRoute>
       } />
-      <Route path="/support" element={<PermissionRoute resource="support"><Support /></PermissionRoute>} />
+      <Route path="/support" element={<Navigate to={supportInboxRedirect(location.search, location.hash)} replace />} />
       <Route path="/ai-editing" element={
         <PermissionRoute resource="ai-editing">
           <AiEditing />
@@ -657,7 +657,7 @@ const AppRoutes = () => {
       } />
       {/* Messaging routes - Inbox and Compose available to all authenticated users */}
       <Route path="/messaging/email/inbox" element={
-        <PermissionRoute resource="messaging-email">
+        <PermissionRoute resource={isSupportInbox(location.search) ? 'support' : 'messaging-email'}>
           <EmailInbox />
         </PermissionRoute>
       } />

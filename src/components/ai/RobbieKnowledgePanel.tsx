@@ -45,7 +45,7 @@ export default function RobbieKnowledgePanel({ onAsk }: RobbieKnowledgePanelProp
   return <section aria-label="Help and guides" className="mx-auto w-full max-w-6xl space-y-5 px-4 pt-6 pb-[calc(112px+env(safe-area-inset-bottom))] md:px-6 md:pb-6">
     <header className="flex flex-wrap items-start justify-between gap-3">
       <div className="min-w-0 flex-1"><p className="mb-1 text-xs font-semibold uppercase tracking-wide text-primary">{roleHelpLabel(user?.role)} support</p><h1 className="text-2xl font-semibold tracking-tight">Help & guides</h1><p className={`mt-2 max-w-2xl text-sm text-muted-foreground ${articleId ? 'hidden lg:block' : ''}`}>Clear steps for using your dashboard. Ask Robbie to help with the guide, or find what to send the team when you need more help.</p></div>
-      <Button asChild variant="outline" className="min-h-11"><Link to="/support">Support requests</Link></Button>
+      <Button asChild variant="outline" className="min-h-11"><Link to="/messaging/email/inbox?tab=support">Support requests</Link></Button>
     </header>
     <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(260px,340px)_minmax(0,1fr)]">
       <div className={`min-w-0 space-y-3 ${articleId ? 'hidden lg:block' : ''}`}>

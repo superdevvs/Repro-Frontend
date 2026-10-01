@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { resolveIpLocation } from '@/utils/ipLocationClient';
-import { SearchIcon, SunIcon, MoonIcon, CloudIcon, HomeIcon, HistoryIcon, CalendarIcon, BarChart3Icon, Settings2Icon, Sparkles } from 'lucide-react';
+import { SearchIcon, SunIcon, MoonIcon, CloudIcon, HomeIcon, HistoryIcon, CalendarIcon, BarChart3Icon, Settings2Icon, Sparkles, MessageSquare } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -26,6 +26,7 @@ import { GlobalCommandBar } from '@/components/search/GlobalCommandBar';
 import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
 import { usesSettingsOnlyAccount } from '@/pages/profileNavigation';
+import { MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
 import { canUseListingStudio, listingStudioHref } from '@/utils/listingStudio';
 
 const DEFAULT_WEATHER_COORDS = { lat: 23.3026, lon: 85.3219 };
@@ -388,6 +389,9 @@ export function Navbar() {
       ? [{ to: '/availability', icon: CalendarIcon, label: 'Availability' }]
       : []),
     { to: '/settings', icon: Settings2Icon, label: 'Settings' },
+    ...(isSimplifiedLayout && can('support', 'view')
+      ? [{ to: MESSAGING_SUPPORT_URL, icon: MessageSquare, label: 'Messaging' }]
+      : []),
     ...(isSimplifiedLayout && canUseListingStudio(role, user?.secondary_roles)
       ? [{ to: listingStudioHref(location), icon: Sparkles, label: 'Listing Studio' }]
       : []),
@@ -429,7 +433,7 @@ export function Navbar() {
                   aria-label={item.label}
                   className={cn(
                     'h-9 shrink-0 px-2 text-sm font-medium xl:px-3',
-                    pathname === item.to || pathname.startsWith(item.to + '/') || (role === 'photographer' && item.to === '/settings' && pathname === '/photographer-account')
+                    pathname === item.to || pathname.startsWith(item.to + '/') || (item.to === MESSAGING_SUPPORT_URL && pathname.startsWith('/messaging/')) || (role === 'photographer' && item.to === '/settings' && pathname === '/photographer-account')
                       ? 'bg-secondary text-foreground'
                       : 'text-muted-foreground hover:text-foreground'
                   )}
@@ -547,6 +551,11 @@ export function Navbar() {
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>My Account</DropdownMenuLabel>
             <DropdownMenuSeparator />
+            {isSimplifiedLayout && can('support', 'view') && (
+              <DropdownMenuItem className="lg:hidden" onClick={() => navigate(MESSAGING_SUPPORT_URL)}>
+                Messaging
+              </DropdownMenuItem>
+            )}
             {!usesSettingsOnlyAccount(role) && (
               <DropdownMenuItem onClick={() => navigate('/profile')}>
                 Profile

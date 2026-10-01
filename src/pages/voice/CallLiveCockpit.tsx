@@ -204,7 +204,7 @@ export default function CallLiveCockpit() {
         </section>
 
         <aside className="space-y-4">
-          <section className="calls-panel bg-[var(--calls-brand-soft)] p-5"><h3 className="font-semibold">Help during this call</h3><p className="mt-2 text-sm text-[var(--calls-muted)]">Search verified guides or record an issue for the support team.</p><div className="mt-3 flex flex-wrap gap-2"><Button asChild className="calls-secondary h-11"><Link to="/chat-with-reproai?tab=help" target="_blank" rel="noopener noreferrer">Open guides</Link></Button><Button asChild className="calls-secondary h-11"><Link to="/support" target="_blank" rel="noopener noreferrer">Support request</Link></Button></div></section>
+          <section className="calls-panel bg-[var(--calls-brand-soft)] p-5"><h3 className="font-semibold">Help during this call</h3><p className="mt-2 text-sm text-[var(--calls-muted)]">Search verified guides or record an issue for the support team.</p><div className="mt-3 flex flex-wrap gap-2"><Button asChild className="calls-secondary h-11"><Link to="/chat-with-reproai?tab=help" target="_blank" rel="noopener noreferrer">Open guides</Link></Button><Button asChild className="calls-secondary h-11"><Link to="/messaging/email/inbox?tab=support" target="_blank" rel="noopener noreferrer">Support request</Link></Button></div></section>
           <section className="calls-panel bg-[var(--calls-ai-soft)] p-5">
             <p className="flex items-center gap-2 text-sm font-medium text-[var(--calls-ai)]">
               <Sparkles className="h-4 w-4" />

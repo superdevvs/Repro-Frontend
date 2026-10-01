@@ -52,6 +52,22 @@ it('preserves status, closing, and logout revocation for a worker with a version
   expect(register).not.toHaveBeenCalled();
 });
 
+it('explains native push registration failure without saving a device or reporting enablement', async () => {
+  const cause = new DOMException('Registration failed - push service error', 'AbortError');
+  vi.mocked(registration.pushManager.subscribe).mockRejectedValue(cause);
+  await expect(enableVoicePush('9', btoa(String.fromCharCode(...new Uint8Array(65))), 'Desktop'))
+    .rejects.toMatchObject({ message: expect.stringContaining('This device is not enabled'), cause });
+  expect(api.post).not.toHaveBeenCalled();
+  expect(messages.some(message => message.type === 'VOICE_PUSH_SAVE')).toBe(false);
+});
+
+it('preserves other native enrollment errors', async () => {
+  const cause = new DOMException('Application server key is invalid', 'InvalidAccessError');
+  vi.mocked(registration.pushManager.subscribe).mockRejectedValue(cause);
+  await expect(enableVoicePush('9', btoa(String.fromCharCode(...new Uint8Array(65))), 'Desktop')).rejects.toBe(cause);
+  expect(api.post).not.toHaveBeenCalled();
+});
+
 it.each(['https://foreign.example/voice-push-worker.js?v=old', `${location.origin}/another-app-worker.js`])('never reads or replaces the foreign worker %s', async (scriptURL) => {
   Object.assign(registration, { active: worker(scriptURL) });
   await syncVoicePushIdentity('9', true);
