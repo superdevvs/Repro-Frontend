@@ -73,10 +73,10 @@ describe('EarlierShootsStack', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next unfinished shoot' }));
     advance(2000);
     expect(activeAddress()).toBe('2 Cedar Grove Lane');
-    fireEvent.click(screen.getByRole('button', { name: 'Pause automatic switching' }));
+    fireEvent.keyDown(screen.getByRole('region'), { key: ' ' });
     advance(20000);
     expect(activeAddress()).toBe('2 Cedar Grove Lane');
-    fireEvent.click(screen.getByRole('button', { name: 'Start automatic switching' }));
+    fireEvent.keyDown(screen.getByRole('region'), { key: ' ' });
     advance();
     expect(activeAddress()).toBe('3 Cedar Grove Lane');
   });
@@ -156,7 +156,8 @@ describe('EarlierShootsStack', () => {
     fireEvent.keyDown(region, { key: 'ArrowRight' });
     expect(activeAddress()).toBe('1 Cedar Grove Lane');
     fireEvent.keyDown(region, { key: ' ' });
-    expect(screen.getByRole('button', { name: 'Start automatic switching' })).toBeInTheDocument();
+    expect(region).toHaveAttribute('data-running', 'false');
+    expect(region).toHaveAccessibleDescription(/^Automatic switching off\./);
     advance();
     expect(activeAddress()).toBe('1 Cedar Grove Lane');
   });
@@ -166,10 +167,10 @@ describe('EarlierShootsStack', () => {
     const { rerender } = render(<EarlierShootsStack shoots={[shoot(1), shoot(2)]} role="admin" onSelect={vi.fn()} />);
     advance(15000);
     expect(activeAddress()).toBe('1 Cedar Grove Lane');
-    expect(screen.getByRole('button', { name: 'Start automatic switching' })).toBeInTheDocument();
+    expect(screen.getByRole('region')).toHaveAttribute('data-running', 'false');
     rerender(<EarlierShootsStack shoots={[shoot(1)]} role="admin" onSelect={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Next unfinished shoot' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Start automatic switching' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Previous unfinished shoot' })).toBeDisabled();
     expect(vi.getTimerCount()).toBe(0);
   });
 

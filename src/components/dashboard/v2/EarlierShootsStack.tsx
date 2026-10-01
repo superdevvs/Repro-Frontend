@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Pause, Play } from 'lucide-react';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
 import type { DashboardShootSummary } from '@/types/dashboard';
 import { cn } from '@/lib/utils';
@@ -151,8 +151,6 @@ function EarlierShootsCarousel({ shoots, role, onSelect, className }: EarlierSho
   const person = editor ? active.services.map((service) => service.label).filter(Boolean).join(' · ') || 'Assigned media'
     : active.photographer?.name || 'Photographer unassigned';
   const firstDot = Math.max(0, Math.min(index - 2, shoots.length - 5));
-  const helper = shoots.length < 2 ? 'One unfinished shoot'
-    : !playing ? 'Auto switching off' : running ? 'Switches every 5s' : 'Paused while reading';
 
   return (
     <section
@@ -189,19 +187,15 @@ function EarlierShootsCarousel({ shoots, role, onSelect, className }: EarlierSho
         }
       }}
     >
-      <span id={instructionId} className="sr-only">Swipe or use left and right arrow keys to change shoots. Space pauses or resumes automatic switching.</span>
+      <span id={instructionId} className="sr-only" aria-live="polite" aria-atomic="true">
+        {playing ? 'Automatic switching on. ' : 'Automatic switching off. '}
+        Swipe or use left and right arrow keys to change shoots. Space pauses or resumes automatic switching.
+      </span>
       <div className="earlier-shoots-stack__heading">
         <div className="earlier-shoots-stack__label">
           <h3 id={headingId}>{editor ? 'Earlier assignments' : 'Earlier, still open'} <span>{shoots.length}</span></h3>
-          <span className="earlier-shoots-stack__helper">{helper}</span>
         </div>
         <div className="earlier-shoots-stack__controls" aria-label="Earlier shoot controls">
-          <button type="button" className="earlier-shoots-stack__icon" disabled={shoots.length < 2}
-            aria-label={playing ? 'Pause automatic switching' : 'Start automatic switching'}
-            title={playing ? 'Pause automatic switching' : 'Start automatic switching'}
-            aria-pressed={playing} onClick={() => setPlaying((value) => !value)}>
-            {playing ? <Pause aria-hidden="true" /> : <Play aria-hidden="true" />}
-          </button>
           <div className="earlier-shoots-stack__dots" aria-label="Choose an earlier shoot">
             {shoots.slice(firstDot, firstDot + 5).map((shoot, windowIndex) => (
               <button type="button" key={shoot.id}
