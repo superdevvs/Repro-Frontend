@@ -113,22 +113,46 @@ test('manual hold and cancellation previews use reps and reset incompatible sele
   await overview.getByRole('button', { name: 'Close', exact: true }).click();
   await page.getByRole('button', { name: 'Notify', exact: true }).click();
   const dialog = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Notify', exact: true }) });
-  await dialog.getByRole('button', { name: 'Photographer', exact: true }).click();
-  for (const [label, type] of [['Shoot on hold', 'shoot_on_hold'], ['Shoot cancelled', 'shoot_cancelled']]) {
+  const selectType = async (label: string) => {
     await dialog.getByRole('combobox', { name: 'Notification', exact: true }).click();
     await page.getByRole('option', { name: label, exact: true }).click();
-    await expect(dialog.getByRole('button', { name: 'Photographer', exact: true })).toHaveCount(0);
-    await dialog.getByRole('button', { name: 'Sales rep', exact: true }).click();
-    await expect(dialog.getByText('Alex Sales Representative', { exact: false })).toBeVisible();
-    await expect(dialog.getByText(`${type} notification for rep`, { exact: true })).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath(`${type}-rep-preview.png`) });
-  }
-  await dialog.getByRole('combobox', { name: 'Notification', exact: true }).click();
-  await page.getByRole('option', { name: 'Shoot scheduled', exact: true }).click();
+  };
+  await dialog.getByRole('button', { name: 'Photographer', exact: true }).click();
+  await selectType('Shoot cancelled');
+  await expect(dialog.getByRole('button', { name: 'Photographer', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(await dialog.getByRole('button', { name: 'Photographer', exact: true }).evaluate(button => {
+    const bounds = button.getBoundingClientRect();
+    const control = button.parentElement!.getBoundingClientRect();
+    const dialogBounds = button.closest('[role="dialog"]')!.getBoundingClientRect();
+    return button.scrollWidth <= button.clientWidth && bounds.left >= control.left && bounds.right <= control.right
+      && bounds.left >= dialogBounds.left && bounds.right <= dialogBounds.right;
+  })).toBe(true);
+  await expect(dialog.getByText('shoot_cancelled notification for photographer', { exact: true })).toBeVisible();
+  await expect(dialog.getByTestId('manual-notification-recipients').getByRole('listitem')).toContainText('Assigned Photographer');
+  await page.screenshot({ path: testInfo.outputPath('shoot_cancelled-photographer-preview.png') });
+  await dialog.getByRole('button', { name: 'Sales rep', exact: true }).click();
+  await expect(dialog.getByText('Alex Sales Representative', { exact: false })).toBeVisible();
+  await expect(dialog.getByText('shoot_cancelled notification for rep', { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('shoot_cancelled-rep-preview.png') });
+  await selectType('Shoot on hold');
+  await expect(dialog.getByRole('button', { name: 'Photographer', exact: true })).toHaveCount(0);
+  await expect(dialog.getByRole('button', { name: 'Sales rep', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.getByText('shoot_on_hold notification for rep', { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath('shoot_on_hold-rep-preview.png') });
+  await selectType('Shoot cancelled');
+  await expect(dialog.getByRole('button', { name: 'Sales rep', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await dialog.getByRole('button', { name: 'Photographer', exact: true }).click();
+  await selectType('Shoot on hold');
+  await expect(dialog.getByRole('button', { name: 'Client', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.getByRole('button', { name: 'Photographer', exact: true })).toHaveCount(0);
+  await selectType('Shoot cancelled');
+  await dialog.getByRole('button', { name: 'Sales rep', exact: true }).click();
+  await selectType('Shoot scheduled');
   await expect(dialog.getByRole('button', { name: 'Client', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(dialog.getByRole('button', { name: 'Photographer', exact: true })).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Sales rep', exact: true })).toHaveCount(0);
-  expect(state.previews.some(payload => ['shoot_on_hold', 'shoot_cancelled'].includes(payload.type) && payload.recipient_type === 'photographer')).toBe(false);
+  expect(state.previews.some(payload => payload.type === 'shoot_on_hold' && payload.recipient_type === 'photographer')).toBe(false);
+  expect(state.previews.some(payload => payload.type === 'shoot_scheduled' && payload.recipient_type === 'rep')).toBe(false);
   expect(state.sends).toEqual([]);
   expect(errors).toEqual([]);
 });

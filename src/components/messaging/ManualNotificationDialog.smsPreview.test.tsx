@@ -18,7 +18,7 @@ beforeAll(() => { HTMLElement.prototype.scrollIntoView = vi.fn(); });
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('Manual notification channel preview', () => {
-  it.each(['Shoot on hold', 'Shoot cancelled'])('routes %s to the sales rep and never previews a stale photographer selection', async (label) => {
+  it.each(['Shoot on hold', 'Shoot cancelled'])('can preview and send %s to the sales rep', async (label) => {
     mocks.preview.mockResolvedValue({ subject: 'Notification', body_text: 'Preview message', body_html: null, missing_variables: [] });
     mocks.send.mockResolvedValue({ channel: 'email' });
     mocks.recipients.mockImplementation(async (_shootId, recipientType) => ({ recipients: recipientType === 'rep' ? [{ id: 9, name: 'Alex Sales', recipient_type: 'rep' }] : [] }));
@@ -29,15 +29,62 @@ describe('Manual notification channel preview', () => {
     await waitFor(() => expect(mocks.preview).toHaveBeenLastCalledWith(expect.objectContaining({ recipient_type: 'photographer' })));
     fireEvent.click(screen.getByRole('combobox', { name: 'Notification' }));
     fireEvent.click(await screen.findByRole('option', { name: label }));
-    expect(screen.queryByRole('button', { name: 'Photographer' })).not.toBeInTheDocument();
+    if (label === 'Shoot on hold') {
+      expect(screen.queryByRole('button', { name: 'Photographer' })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Client' })).toHaveAttribute('aria-pressed', 'true');
+    } else {
+      expect(screen.getByRole('button', { name: 'Photographer' })).toHaveAttribute('aria-pressed', 'true');
+    }
     fireEvent.click(screen.getByRole('button', { name: 'Sales rep' }));
     expect(await screen.findByText('Alex Sales')).toBeVisible();
     const type = label === 'Shoot on hold' ? 'shoot_on_hold' : 'shoot_cancelled';
     await waitFor(() => expect(mocks.preview).toHaveBeenLastCalledWith({ shoot_id: 104, type, recipient_type: 'rep', channel: 'email' }));
-    expect(mocks.preview.mock.calls.some(([payload]) => payload.type === type && payload.recipient_type === 'photographer')).toBe(false);
+    expect(mocks.preview.mock.calls.some(([payload]) => payload.type === 'shoot_on_hold' && payload.recipient_type === 'photographer')).toBe(false);
     await waitFor(() => expect(screen.getByRole('button', { name: /^Notify$/ })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: /^Notify$/ }));
     await waitFor(() => expect(mocks.send).toHaveBeenCalledWith({ shoot_id: 104, type, recipient_type: 'rep', channel: 'email' }));
+  });
+
+  it('previews and sends a completed cancellation to the assigned photographer', async () => {
+    mocks.preview.mockResolvedValue({ subject: 'Cancelled', body_text: 'Cancellation message', body_html: null, missing_variables: [] });
+    mocks.send.mockResolvedValue({ channel: 'email' });
+    mocks.recipients.mockResolvedValue({ recipients: [{ id: 8, name: 'Assigned Photographer', recipient_type: 'photographer' }] });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><ManualNotificationDialog shootId={104} open onClose={vi.fn()} /></QueryClientProvider>);
+    await screen.findByText('Cancellation message');
+    fireEvent.click(screen.getByRole('button', { name: 'Photographer' }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Notification' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'Shoot cancelled' }));
+    expect(screen.getByRole('button', { name: 'Photographer' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Sales rep' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Client' })).toBeVisible();
+    await waitFor(() => expect(mocks.preview).toHaveBeenLastCalledWith({ shoot_id: 104, type: 'shoot_cancelled', recipient_type: 'photographer', channel: 'email' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /^Notify$/ })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: /^Notify$/ }));
+    await waitFor(() => expect(mocks.send).toHaveBeenCalledWith({ shoot_id: 104, type: 'shoot_cancelled', recipient_type: 'photographer', channel: 'email' }));
+  });
+
+  it.each([
+    ['Shoot cancelled', 'Photographer', 'Shoot on hold', 'Client', 'shoot_on_hold', 'client'],
+    ['Shoot cancelled', 'Sales rep', 'Shoot scheduled', 'Client', 'shoot_scheduled', 'client'],
+    ['Shoot cancelled', 'Sales rep', 'Shoot on hold', 'Sales rep', 'shoot_on_hold', 'rep'],
+    ['Shoot on hold', 'Sales rep', 'Shoot cancelled', 'Sales rep', 'shoot_cancelled', 'rep'],
+    ['Shoot cancelled', 'Photographer', 'Shoot scheduled', 'Photographer', 'shoot_scheduled', 'photographer'],
+  ])('switches %s / %s to %s with %s selected', async (initialLabel, recipient, nextLabel, selected, type, recipientType) => {
+    mocks.preview.mockResolvedValue({ subject: 'Notification', body_text: 'Preview message', body_html: null, missing_variables: [] });
+    mocks.recipients.mockResolvedValue({ recipients: [] });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={queryClient}><ManualNotificationDialog shootId={104} open onClose={vi.fn()} /></QueryClientProvider>);
+    await screen.findByText('Preview message');
+    fireEvent.click(screen.getByRole('combobox', { name: 'Notification' }));
+    fireEvent.click(await screen.findByRole('option', { name: initialLabel }));
+    fireEvent.click(screen.getByRole('button', { name: recipient }));
+    fireEvent.click(screen.getByRole('combobox', { name: 'Notification' }));
+    fireEvent.click(await screen.findByRole('option', { name: nextLabel }));
+    expect(screen.getByRole('button', { name: selected })).toHaveAttribute('aria-pressed', 'true');
+    await waitFor(() => expect(mocks.preview).toHaveBeenLastCalledWith({ shoot_id: 104, type, recipient_type: recipientType, channel: 'email' }));
+    expect(mocks.preview.mock.calls.some(([payload]) => payload.type === 'shoot_on_hold' && payload.recipient_type === 'photographer')).toBe(false);
+    expect(mocks.preview.mock.calls.some(([payload]) => payload.type === 'shoot_scheduled' && payload.recipient_type === 'rep')).toBe(false);
   });
 
   it('fetches the SMS template on channel change and uses that channel when sending', async () => {

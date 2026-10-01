@@ -51,12 +51,14 @@ const RECIPIENT_OPTIONS: ReadonlyArray<{
   icon: ReactNode;
 }> = [
   { value: 'client', label: 'Client', icon: <User className="h-4 w-4" /> },
-  { value: 'photographer', label: 'Photographer', icon: <Users className="h-4 w-4" /> },
   { value: 'rep', label: 'Sales rep', icon: <Users className="h-4 w-4" /> },
+  { value: 'photographer', label: 'Photographer', icon: <Users className="h-4 w-4" /> },
 ];
 
-const usesSalesRep = (type: ManualNotificationType) =>
-  type === 'shoot_on_hold' || type === 'shoot_cancelled';
+const isRecipientAllowed = (type: ManualNotificationType, recipient: ManualNotificationRecipient) =>
+  recipient === 'client'
+  || (recipient === 'rep' && (type === 'shoot_on_hold' || type === 'shoot_cancelled'))
+  || (recipient === 'photographer' && type !== 'shoot_on_hold');
 
 const CHANNEL_OPTIONS: ReadonlyArray<{
   value: ManualNotificationChannel;
@@ -86,7 +88,7 @@ function SegmentedControl<T extends string>({
   disabled?: boolean;
 }) {
   return (
-    <div className="inline-flex w-full rounded-lg border bg-muted/40 p-1">
+    <div className={cn('inline-flex w-full rounded-lg border bg-muted/40 p-1', options.length > 2 && 'flex-col')}>
       {options.map((option) => (
         <button
           key={option.value}
@@ -143,7 +145,7 @@ export interface ManualNotificationDialogProps {
  * Lets an admin manually send a shoot notification:
  *   1. Pick the notification type (shoot_scheduled / on_hold / cancelled / ready /
  *      payment_due / payment_receipt) — AC 12.2.
- *   2. Pick the client or staff recipient (sales rep for holds and cancellations).
+ *   2. Pick the client or staff recipient (holds use reps; cancellations also include photographers).
  *   3. Pick the channel (email | sms) — AC 12.7.
  *   4. Preview the rendered subject/body before sending — AC 12.5.
  *   5. If the backend reports `missing_variables`, show a warning banner before send — AC 12.8.
@@ -160,7 +162,7 @@ export function ManualNotificationDialog({
   const [recipientType, setRecipientType] = useState<ManualNotificationRecipient>('client');
   const [channel, setChannel] = useState<ManualNotificationChannel>('email');
   const recipientOptions = RECIPIENT_OPTIONS.filter((option) =>
-    option.value === 'client' || option.value === (usesSalesRep(type) ? 'rep' : 'photographer'),
+    isRecipientAllowed(type, option.value),
   );
 
   // Reset form whenever the dialog re-opens so a previous selection doesn't leak.
@@ -284,7 +286,7 @@ export function ManualNotificationDialog({
                   const nextType = next as ManualNotificationType;
                   setType(nextType);
                   // Reset an incompatible staff choice before fetching its preview.
-                  if (usesSalesRep(nextType) !== usesSalesRep(type)) setRecipientType('client');
+                  if (!isRecipientAllowed(nextType, recipientType)) setRecipientType('client');
                 }}
                 disabled={isSending}
               >
