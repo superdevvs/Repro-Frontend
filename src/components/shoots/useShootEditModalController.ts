@@ -21,17 +21,18 @@ import { getShootSchedule } from '@/utils/shootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { getShootInvoiceAdjustmentTotal } from '@/utils/shootServiceItems';
-import { addInvoiceAdjustmentToCatalogTotal, getShootEditCatalogServiceEntries, getShootEditCatalogServiceId } from './shootEditInvoiceAdjustments';
+import { addInvoiceAdjustmentToCatalogTotal, getShootEditCatalogServiceEntries } from './shootEditInvoiceAdjustments';
+import { hydrateShootEditServiceSchedules } from './shootEditServiceSchedules';
 import { buildTimeOptions, normalizeTimeValue } from './shootEditTimeHelpers';
 import { applyServiceScheduleToAllIds } from '@/utils/applyServiceScheduleToAll';
 import { syncInheritedServiceScheduleIds, useInheritedServiceSchedule } from './useInheritedServiceSchedule';
-import { resolveServiceShootDuration, resolveShootDuration } from '@/utils/shootDuration';
+import { resolveServiceShootDuration } from '@/utils/shootDuration';
 import {
   ShootServiceMutationError,
   submitShootServiceMutation,
   type ServiceDetachConfirmation,
 } from '@/utils/shootServiceMutation';
-import { extractLookupPropertyDetails, loadPhotographerOptions, mapPhotographerOption, normalizeCategoryKey, resolveSelectedServiceIds, type Photographer, type AvailabilitySlot, type MobileEditPanel, type PhotographerAvailabilityMap, type PhotographerPickerContext, type PropertyDetails, type SelectedServiceSource, type Service, type ServiceApiRange, type ServiceApiRecord, type ServiceScheduleFields, type ShootDetails, type ShootEditModalProps } from './shootEditModalTypes';
+import { extractLookupPropertyDetails, loadPhotographerOptions, mapPhotographerOption, normalizeCategoryKey, resolveSelectedServiceIds, type Photographer, type AvailabilitySlot, type MobileEditPanel, type PhotographerAvailabilityMap, type PhotographerPickerContext, type PropertyDetails, type Service, type ServiceApiRange, type ServiceApiRecord, type ServiceScheduleFields, type ShootDetails, type ShootEditModalProps } from './shootEditModalTypes';
 export function useShootEditModalController({
   isOpen,
   onClose,
@@ -211,48 +212,15 @@ export function useShootEditModalController({
           if (serviceSource.length > 0) {
             const ids = resolveSelectedServiceIds(serviceSource, mappedServices);
             setSelectedServiceIds(ids);
-            const rawServiceItems = Array.isArray(shoot.serviceItems)
-              ? shoot.serviceItems
-              : Array.isArray(shoot.service_items)
-                ? shoot.service_items
-                : [];
-            const scheduleByServiceId = new Map<string, ServiceScheduleFields>();
-            const durationByServiceId = new Map<string, number>();
-            rawServiceItems.forEach((item: Record<string, unknown>) => {
-              const serviceId = getShootEditCatalogServiceId(item);
-              if (!serviceId) return;
-              if (Number(item.duration_minutes) > 0) durationByServiceId.set(String(serviceId), resolveShootDuration(item.duration_minutes));
-              const scheduledAt = item.scheduled_at ?? item.scheduledAt;
-              const { date, time } = getShootSchedule({ scheduled_at: scheduledAt, timezone: shoot.timezone });
-              if (date || time) {
-                scheduleByServiceId.set(String(serviceId), { date, time, ...(Number(item.duration_minutes) > 0 ? { duration_minutes: resolveShootDuration(item.duration_minutes) } : {}) });
-              }
-            });
             const fallbackSchedule = {
               date: orderSchedule.date,
               time: normalizedTime || orderSchedule.time || '10:00',
             };
-            const nextServiceSchedules: Record<string, ServiceScheduleFields> = {};
-            serviceSource.forEach((service: SelectedServiceSource & Record<string, unknown>) => {
-              if (!service || typeof service !== 'object') return;
-              const normalizedServiceId = getShootEditCatalogServiceId(service);
-              if (!normalizedServiceId) return;
-              const directScheduledAt = service.scheduled_at ?? service.scheduledAt;
-              const directSchedule = getShootSchedule({ scheduled_at: directScheduledAt, timezone: shoot.timezone });
-              nextServiceSchedules[normalizedServiceId] =
-                scheduleByServiceId.get(normalizedServiceId) || {
-                  date: directSchedule.date || fallbackSchedule.date,
-                  time: directSchedule.time || fallbackSchedule.time,
-                  duration_minutes: resolveServiceShootDuration(mappedServices.find((item: Service) => String(item.id) === normalizedServiceId) ?? {}, Number(sqft) || null),
-                };
-              if (durationByServiceId.has(normalizedServiceId)) {
-                nextServiceSchedules[normalizedServiceId].duration_minutes = durationByServiceId.get(normalizedServiceId);
-              }
+            const hydratedSchedules = hydrateShootEditServiceSchedules({
+              shoot, serviceSource, catalog: mappedServices, fallbackSchedule, sqft: Number(sqft) || null,
             });
-            setServiceSchedules(nextServiceSchedules);
-            inheritedServiceScheduleIds.current = new Set(Object.entries(nextServiceSchedules)
-              .filter(([, schedule]) => schedule.date === fallbackSchedule.date && schedule.time === fallbackSchedule.time)
-              .map(([id]) => id));
+            setServiceSchedules(hydratedSchedules.schedules);
+            inheritedServiceScheduleIds.current = hydratedSchedules.inheritedIds;
             const catPhotogMap: Record<string, string> = {};
             const assignmentGroups = getShootPhotographerAssignmentGroups({
               serviceObjects: Array.isArray(shoot.serviceObjects) ? shoot.serviceObjects : undefined,

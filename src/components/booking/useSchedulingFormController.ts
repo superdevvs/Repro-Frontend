@@ -5,7 +5,6 @@ import { to12Hour, to24Hour, formatTimeForDisplay } from '@/utils/availabilityUt
 import { getDayAvailability } from '@/utils/availabilityProvider';
 import { buildTimeOptionsForRange as buildTimeOptionsForRangePure, nextAutoFilledBookingTime } from '@/utils/suggestedTimeSlots';
 import { isBookingIntervalDisabled } from '@/utils/bookingIntervalAvailability';
-import { DEFAULT_SHOOT_DURATION_MINUTES, resolveServiceShootDuration } from '@/utils/shootDuration';
 import { derivePanelState } from '@/utils/availabilityPanelState';
 import { FRONTEND_FALLBACK_HOURS_DISPLAY_ONLY } from '@/config/availabilityDefaults';
 import API_ROUTES from '@/lib/api';
@@ -13,6 +12,7 @@ import { getCategorySpecialtyId, hasCategorySpecialty } from '@/utils/photograph
 import { buildAssignmentGroups, photographerRequiredServices, requiresPerServiceAssignment as computeRequiresPerServiceAssignment, resolveServicePhotographerId, selectedServicesRequirePhotographer } from '@/utils/photographerAssignment';
 import { buildServiceTimeOptions } from '@/components/shoots/ServiceSchedulePicker';
 import { useSchedulingBase } from './useSchedulingBase';
+import { useBookingIntervalAvailability } from './useBookingIntervalAvailability';
 import {
   isAbortError,
   isRecord,
@@ -198,18 +198,6 @@ export const useSchedulingFormController = ({
   const pickerSchedule = pickerServiceId ? getServiceSchedule(pickerServiceId) : null;
   const bookingAvailabilityDate = pickerSchedule?.date || (date ? format(date, 'yyyy-MM-dd') : '');
   const bookingAvailabilityTime = pickerSchedule?.time || time;
-  const durationForSelection = useCallback((serviceId?: string | null, scheduleDate = defaultServiceDate, scheduleTime = defaultServiceTime) => {
-    const services = photographerRequiredServices(selectedServices).filter(service => {
-      if (serviceId) return service.id === serviceId;
-      const schedule = serviceSchedules[service.id];
-      return (schedule?.date || defaultServiceDate) === scheduleDate
-        && normalizeSlotTime(schedule?.time || defaultServiceTime) === normalizeSlotTime(scheduleTime);
-    });
-    return services.length ? Math.max(...services.map(service => resolveServiceShootDuration(
-      service, sqft === '' ? null : sqft, serviceSchedules[service.id]?.duration_minutes,
-    ))) : DEFAULT_SHOOT_DURATION_MINUTES;
-  }, [defaultServiceDate, defaultServiceTime, normalizeSlotTime, selectedServices, serviceSchedules, sqft]);
-  const bookingAvailabilityDuration = durationForSelection(pickerServiceId, bookingAvailabilityDate, bookingAvailabilityTime);
   const activeServiceNameForPicker = activeServiceForPicker
     ? (selectedServices.find(s => s.id === activeServiceForPicker)?.name || '')
     : '';
@@ -320,28 +308,6 @@ export const useSchedulingFormController = ({
       controller.abort();
     };
   }, [availabilityDataDate, canUseProtectedAvailability, date, defaultServiceDate, latestRequestRef, photographer, photographerOptions, setAvailabilityPanel, setDayAvailability]);
-  const isTimeWithinSlots = useCallback((value: string, slots: Array<{ start_time?: string; end_time?: string }> = []) => {
-    const minutes = timeToMinutes(value);
-    return slots.some((slot) => {
-      if (!slot.start_time || !slot.end_time) return false;
-      const start = timeToMinutes(slot.start_time);
-      const end = timeToMinutes(slot.end_time);
-      return minutes >= start && minutes < end;
-    });
-  }, [timeToMinutes]);
-  const isTimeWithinBlockedSlots = useCallback((
-    value: string,
-    slots: Array<{ start_time?: string; end_time?: string }> = [],
-    endBufferMinutes = 0,
-  ) => {
-    const minutes = timeToMinutes(value);
-    return slots.some((slot) => {
-      if (!slot.start_time || !slot.end_time) return false;
-      const start = timeToMinutes(slot.start_time);
-      const end = timeToMinutes(slot.end_time) + endBufferMinutes;
-      return minutes >= start && minutes < end;
-    });
-  }, [timeToMinutes]);
   const getPhotographerScheduleData = useCallback((photographerId?: string | number) => {
     if (!photographerId) return null;
     return photographerOptions.find((item) => String(item.id) === String(photographerId)) ?? null;
@@ -397,22 +363,11 @@ export const useSchedulingFormController = ({
       displayFallbackOnly: true,
     };
   }, [timeToMinutes, workingWindowMinutes]);
-  const isPhotographerTimeDisabled = useCallback((photographerId: string | number | undefined, value: string, serviceId?: string) => {
-    const requestedDate = (serviceId ? serviceSchedules[serviceId]?.date : undefined) || defaultServiceDate;
-    // Never apply another service visit's day, or another photographer's blocked times.
-    const usesMainDay = requestedDate === defaultServiceDate && String(photographerId || '') === String(photographer || '');
-    const photographerItem = requestedDate === availabilityDataDate ? getPhotographerScheduleData(photographerId) : null;
-    const netSlots = photographerItem?.netAvailableSlots ?? [];
-    return isBookingIntervalDisabled({
-      time: value,
-      durationMinutes: durationForSelection(serviceId),
-      workingWindow: usesMainDay ? workingWindowMinutes : null,
-      blocked: usesMainDay ? dayAvailability?.blocked ?? [] : [],
-      bookedSlots: photographerItem?.bookedSlots ?? [],
-      unavailableSlots: photographerItem?.unavailableSlots ?? [],
-      availableSlots: netSlots.length ? netSlots : photographerItem?.availabilitySlots ?? [],
-    });
-  }, [availabilityDataDate, dayAvailability, defaultServiceDate, durationForSelection, getPhotographerScheduleData, photographer, serviceSchedules, workingWindowMinutes]);
+  const { bookingAvailabilityDuration, isPhotographerTimeDisabled } = useBookingIntervalAvailability({
+    selectedServices, serviceSchedules, sqft, photographer, defaultServiceDate, defaultServiceTime,
+    pickerServiceId, bookingAvailabilityDate, bookingAvailabilityTime, availabilityDataDate,
+    dayAvailability, workingWindowMinutes, getPhotographerScheduleData,
+  });
   const availableTimesForSelectedPhotographer = useMemo(
     () => buildTimeOptionsForRangePure(
       5,
@@ -1004,7 +959,7 @@ export const useSchedulingFormController = ({
     handleGetCurrentLocation, selectedPhotographer, selectedPhotographerDetails,
     fullAddress, assignmentGroups, requiresPhotographerAssignment, requiresPerServiceAssignment, activeServiceForPicker,
     setActiveServiceForPicker, activeServiceNameForPicker, activeServiceCapabilityForPicker,
-    photographerOptions, isTimeWithinSlots, isTimeWithinBlockedSlots,
+    photographerOptions,
     getPhotographerScheduleData, workingWindowMinutes, availabilityCardWindow,
     isPhotographerTimeDisabled, availableTimesForSelectedPhotographer, suggestedTimes,
     updateSuggestedTimesScrollState, scrollSuggestedTimesBy,
