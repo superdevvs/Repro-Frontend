@@ -14,7 +14,7 @@ export function AutomationScheduleFields({ trigger, value = {}, onChange, disabl
 }) {
   const shootPayment = trigger === 'SHOOT_PAYMENT_REMINDER';
   const legacyMonthly = shootPayment && hasLegacyMonthlyShootCadence(value);
-  const savedDays = (shootPayment ? value.reminder_days ?? [1, 3, 7] : value.overdue_days ?? [1, 3, 7, 14, 30]).join(', ');
+  const savedDays = (shootPayment ? value.reminder_days ?? [1, 2, 4, 7] : value.overdue_days ?? [1, 3, 7, 14, 30]).join(', ');
   const [daysText, setDaysText] = useState(savedDays);
   useEffect(() => setDaysText(savedDays), [savedDays]);
   if (trigger === 'SHOOT_REMINDER' && value.client_email_schedule) {
@@ -91,7 +91,7 @@ export function AutomationScheduleFields({ trigger, value = {}, onChange, disabl
         <>
           <div>
             <Label htmlFor="reminder-overdue-days">{shootPayment ? 'Days after photos ready' : 'Days after due date'}</Label>
-            <Input id="reminder-overdue-days" value={daysText} placeholder={shootPayment ? '1, 3, 7' : '1, 3, 7, 14, 30'} disabled={disabled}
+            <Input id="reminder-overdue-days" value={daysText} placeholder={shootPayment ? '1, 2, 4, 7' : '1, 3, 7, 14, 30'} disabled={disabled}
               onChange={(event) => setDaysText(event.target.value)}
               onBlur={() => {
                 const days = daysText.split(',').map((day) => Number(day.trim()));

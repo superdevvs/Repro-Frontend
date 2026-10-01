@@ -95,6 +95,12 @@ export const whenSummary = (automation: AutomationRule) => {
   const schedule = automation.workflow_definition_json?.nodes.length
     ? scheduleFromWorkflow(automation.workflow_definition_json, storedReminderSchedule(automation))
     : storedReminderSchedule(automation);
+  if (automation.trigger_type === 'SHOOT_REMINDER' && schedule?.client_email_schedule) {
+    const client = schedule.client_email_schedule;
+    return `Client email: day before ${client.previous_day_time ?? '07:00'}; `
+      + `${client.morning_start ?? '07:00'}–${client.morning_end ?? '12:00'} shoots: evening ${client.morning_previous_evening_time ?? '19:00'} + ${client.morning_lead_minutes ?? 120} min before; `
+      + `others: day-of ${client.day_of_time ?? '07:00'} (local time)`;
+  }
   if (schedule?.offset) {
     return formatOffset(schedule.offset);
   }
@@ -105,7 +111,7 @@ export const whenSummary = (automation: AutomationRule) => {
   }
 
   if (automation.trigger_type === 'SHOOT_PAYMENT_REMINDER') {
-    const firstDays = (schedule?.reminder_days ?? [1, 3, 7]).join(', ');
+    const firstDays = (schedule?.reminder_days ?? [1, 2, 4, 7]).join(', ');
     if (hasLegacyMonthlyShootCadence(schedule)) {
       return `Days ${firstDays} after photos ready; then last ${weekdays[schedule?.monthly_day_of_week ?? 0]} monthly at ${schedule?.time ?? '09:00'}`;
     }
