@@ -68,4 +68,30 @@ describe('editor dashboard operational pagination', () => {
     expect(result.current.upcomingShoots).toEqual([]);
     expect(mocks.get).not.toHaveBeenCalled();
   });
+
+  it.each(['cancelled', 'canceled', 'declined', 'no_show', 'no-show'])(
+    'does not revive %s work from a stale delivered status and unfinished assignment', async (workflowStatus) => {
+      mocks.get.mockResolvedValue({ data: { data: [{
+        ...record(42, 'delivered'), workflow_status: workflowStatus,
+        editor_assignments: [{ lane: 'video', editor_id: 7, ready: false }],
+      }], meta: { last_page: 1 } } });
+      const { result } = renderHook(() => useEditorDashboardQueue(7, true), { wrapper });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(result.current.upcomingShoots).toEqual([]);
+      expect(result.current.deliveredShoots).toEqual([]);
+      expect(result.current.sourceShoots).toEqual([]);
+    },
+  );
+
+  it.each(['delivered', 'ready_for_client', 'admin_verified', 'client_delivered', 'workflow_completed', 'delivered_to_client', 'finalized'])(
+    'keeps the unfinished assigned lane for the delivery alias %s', async (status) => {
+      mocks.get.mockResolvedValue({ data: { data: [{
+        ...record(42, status), editor_assignments: [{ lane: 'video', editor_id: 7, ready: false }],
+      }], meta: { last_page: 1 } } });
+      const { result } = renderHook(() => useEditorDashboardQueue(7, true), { wrapper });
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(result.current.upcomingShoots.map(shoot => shoot.id)).toEqual(['42']);
+      expect(result.current.deliveredShoots).toEqual([]);
+    },
+  );
 });

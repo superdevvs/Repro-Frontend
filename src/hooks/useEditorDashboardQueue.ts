@@ -7,6 +7,7 @@ import type { DashboardShootSummary } from '@/types/dashboard'
 import {
   isEditorActiveOperationalShoot,
   filterEditorDeliveredOperationalShoots,
+  getOperationalStatusKey,
 } from '@/components/shoots/history/shootHistoryUtils'
 import { shootDataToSummary } from '@/utils/dashboardDerivedUtils'
 import { readShootListPages } from '@/utils/readShootListPages'
@@ -20,6 +21,10 @@ type EditorDashboardQueueData = {
 }
 
 const DEDICATED_EDITOR_QUEUE_PER_PAGE = 200
+const DELIVERED_EDITOR_LANE_STATUSES = new Set([
+  'delivered', 'ready_for_client', 'admin_verified', 'client_delivered',
+  'workflow_completed', 'delivered_to_client', 'finalized',
+])
 
 const dedupeShoots = (shoots: ShootData[]) =>
   Array.from(new Map(shoots.map((shoot) => [String(shoot.id), shoot])).values())
@@ -68,12 +73,14 @@ export const useEditorDashboardQueue = (
       const hasPendingEditorWork = (shoot: ShootData) => shoot.editorAssignments?.some(
         assignment => String(assignment.editorId ?? assignment.editor?.id) === String(editorId) && assignment.ready === false,
       ) ?? false
+      const hasPendingDeliveredEditorWork = (shoot: ShootData) =>
+        DELIVERED_EDITOR_LANE_STATUSES.has(getOperationalStatusKey(shoot)) && hasPendingEditorWork(shoot)
       const upcomingShoots = dedupeShoots(completedShoots.filter(
-        shoot => isEditorActiveOperationalShoot(shoot) || hasPendingEditorWork(shoot),
+        shoot => isEditorActiveOperationalShoot(shoot) || hasPendingDeliveredEditorWork(shoot),
       ))
       const upcomingIds = new Set(upcomingShoots.map(shoot => String(shoot.id)))
       const resolvedDeliveredShoots = dedupeShoots(
-        filterEditorDeliveredOperationalShoots(deliveredShoots).filter(shoot => !upcomingIds.has(String(shoot.id)) && !hasPendingEditorWork(shoot)),
+        filterEditorDeliveredOperationalShoots(deliveredShoots).filter(shoot => !upcomingIds.has(String(shoot.id)) && !hasPendingDeliveredEditorWork(shoot)),
       )
       const sourceShoots = dedupeShoots([...upcomingShoots, ...resolvedDeliveredShoots])
 
