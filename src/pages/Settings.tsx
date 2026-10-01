@@ -340,9 +340,6 @@ const Settings = () => {
   };
 
   const handleAvatarChange = async (url: string) => {
-    setAvatar(url);
-    localStorage.setItem(storageKey('avatar'), url);
-    
     // Don't save blob URLs to the backend - they're only valid locally
     if (url.startsWith('blob:')) {
       console.log('Skipping backend save for blob URL');
@@ -353,6 +350,8 @@ const Settings = () => {
     // Empty string means user is removing their avatar - send null to clear it
     try {
       const result = await saveProfile({ avatar: url || null });
+      setAvatar(url);
+      localStorage.setItem(storageKey('avatar'), url);
       if (!result.reauthRequired) {
         toast({
           title: url ? "Avatar saved" : "Avatar removed",
@@ -361,11 +360,7 @@ const Settings = () => {
       }
     } catch (error) {
       console.error('Error saving avatar:', error);
-      toast({
-        title: "Avatar save failed",
-        description: "Could not save avatar to your profile. Please try again.",
-        variant: "destructive",
-      });
+      throw error;
     }
   };
 
@@ -535,7 +530,7 @@ const Settings = () => {
                               </DrawerDescription>
                             </DrawerHeader>
                             <div className="px-4 pb-6 flex justify-center">
-                              <ImageUpload onChange={(url) => { handleAvatarChange(url); setAvatarDrawerOpen(false); }} initialImage={avatar || user?.avatar} />
+                              <ImageUpload onChange={async (url) => { await handleAvatarChange(url); setAvatarDrawerOpen(false); }} initialImage={avatar} />
                             </div>
                           </DrawerContent>
                         </Drawer>

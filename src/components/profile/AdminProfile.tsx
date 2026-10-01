@@ -102,19 +102,18 @@ export function AdminProfile() {
   };
 
   const handleAvatarChange = async (url: string) => {
-    setFormData(prev => ({ ...prev, avatar: url }));
-
     // Don't save blob URLs to the backend
     if (url.startsWith('blob:')) return;
 
     try {
       const result = await saveProfile({ avatar: url || null });
+      setFormData(prev => ({ ...prev, avatar: url }));
       if (!result.reauthRequired) {
         toast.success(url ? "Avatar saved" : "Avatar removed");
       }
     } catch (error) {
       console.error('Error saving avatar:', error);
-      toast.error("Could not save avatar. Please try again.");
+      throw error;
     }
   };
 
