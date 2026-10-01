@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { NavLink } from './NavLink';
 import { ExpandableNavLink } from './ExpandableNavLink';
 import { usePermission } from '@/hooks/usePermission';
+import { canUseEmailWorkspace } from '@/utils/messagingRoles';
 import { isSupportInbox, MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -94,8 +95,8 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const canViewScheduling = permission.can('scheduling-settings', 'view');
   const canViewPortal = permission.can('portal', 'view');
   const canViewAccounting = permission.can('accounting', 'view');
-  const canViewEmailInbox = permission.can('messaging-email', 'view');
-  const canViewMessagingOverview = permission.can('messaging-overview', 'view');
+  const canViewEmailInbox = canUseEmailWorkspace(role) && permission.can('messaging-email', 'view');
+  const canViewMessagingOverview = canUseEmailWorkspace(role) && permission.can('messaging-overview', 'view');
   const canViewSms = permission.can('messaging-sms', 'view');
   const canViewCalls = permission.can('voice-calls', 'view');
   const canViewSupport = permission.can('support', 'view');
@@ -372,7 +373,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           icon={<MessageSquare className="h-5 w-5" />}
           label="Messaging"
           isCollapsed={isCollapsed}
-          defaultTo={canViewMessagingOverview ? "/messaging/overview" : canViewSms ? "/messaging/sms" : canViewCalls ? "/calls" : MESSAGING_SUPPORT_URL}
+          defaultTo={!canUseEmailWorkspace(role) && canViewSupport ? MESSAGING_SUPPORT_URL : canViewMessagingOverview ? "/messaging/overview" : canViewSms ? "/messaging/sms" : canViewCalls ? "/calls" : MESSAGING_SUPPORT_URL}
           onActivePreview={previewActiveIndicator}
           badge={messagingBadges.total}
           subItems={[

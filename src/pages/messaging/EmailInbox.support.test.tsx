@@ -43,12 +43,18 @@ it.each(['photographer', 'editor', 'salesRep'])('does not mount email or reveal 
   expect(state.email).not.toHaveBeenCalled();
 });
 
-it('retains Contact and New Contact semantics for clients while adding Support', () => {
-  state.role = 'client'; view('/messaging/email/inbox');
-  expect(screen.getByRole('link', { name: 'Contact' })).toHaveAttribute('aria-current', 'page');
-  expect(screen.getByRole('link', { name: 'New Contact' })).toBeVisible();
-  expect(screen.getByRole('link', { name: 'Support' })).toBeVisible();
-  expect(screen.queryByRole('link', { name: 'Templates' })).not.toBeInTheDocument();
+it.each(['client', 'photographer', 'editor', 'salesRep'])('routes %s legacy email access into Support even when email permissions remain', async role => {
+  state.role = role; view('/messaging/email/inbox');
+  expect(await screen.findByRole('heading', { name: 'Support requests' })).toBeVisible();
+  expect(screen.getAllByRole('link').map(link => link.textContent)).toEqual(['Support']);
+  expect(state.email).not.toHaveBeenCalled();
+});
+
+it('retains permitted email tools for an editing manager', async () => {
+  state.role = 'editing_manager'; view('/messaging/email/inbox');
+  expect(await screen.findByRole('link', { name: 'Compose' })).toBeVisible();
+  expect(screen.getByRole('link', { name: 'Templates' })).toBeVisible();
+  await waitFor(() => expect(state.email).toHaveBeenCalledOnce());
 });
 
 it('does not offer Support when the permission is denied', () => {

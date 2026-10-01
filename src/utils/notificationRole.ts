@@ -1,3 +1,5 @@
+import { canUseEmailWorkspace } from './messagingRoles';
+
 const SALES_ROLE_ALIASES = new Set([
   'salesrep',
   'sales_rep',
@@ -30,21 +32,10 @@ export const canAccessNotificationSms = (role?: string | null): boolean =>
   isAdminNotificationRole(role);
 
 export const canReceiveEmailInboxNotifications = (role?: string | null): boolean =>
-  isAdminNotificationRole(role);
+  canUseEmailWorkspace(role);
 
-export const canReceivePersonalEmailNotifications = (role?: string | null): boolean => {
-  const normalized = normalizeNotificationRole(role);
-
-  return [
-    'client',
-    'photographer',
-    'editor',
-    'admin',
-    'superadmin',
-    'editing_manager',
-    'salesrep',
-  ].includes(normalized);
-};
+export const canReceivePersonalEmailNotifications = (role?: string | null): boolean =>
+  canUseEmailWorkspace(role);
 
 export const getNotificationChannelForRole = (
   role?: string | null,

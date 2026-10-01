@@ -15,6 +15,7 @@ import { FirstLoginLegalAgreementPrompt } from '@/components/auth/FirstLoginLega
 import { PermissionsProvider } from './context/PermissionsContext';
 import { BrowserPhoneProvider } from './components/voice/BrowserPhoneProvider';
 import { usePermission } from './hooks/usePermission';
+import { StaffEmailRoute } from '@/pages/messaging/StaffEmailRoute';
 import { isSupportInbox, supportInboxRedirect } from '@/pages/messaging/messagingSupport';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { RequestManagerProvider, useRequestManager } from './context/RequestManagerContext';
@@ -656,52 +657,51 @@ const AppRoutes = () => {
           <PermissionSettings />
         </PermissionRoute>
       } />
-      {/* Messaging routes - Inbox and Compose available to all authenticated users */}
+      {/* Support is available by permission; ordinary email is a staff workspace. */}
       <Route path="/messaging/email/inbox" element={
-        <PermissionRoute resource={isSupportInbox(location.search) ? 'support' : 'messaging-email'}>
-          <EmailInbox />
-        </PermissionRoute>
+        isSupportInbox(location.search) ? <PermissionRoute resource="support"><EmailInbox /></PermissionRoute> :
+        <StaffEmailRoute><PermissionRoute resource="messaging-email"><EmailInbox /></PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/email/compose" element={
-        <PermissionRoute resource="messaging-compose" action="create">
+        <StaffEmailRoute compose><PermissionRoute resource="messaging-compose" action="create">
           <EmailCompose />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       {/* Messaging routes - Overview, Templates, Automations, SMS, Settings only for admins */}
       <Route path="/messaging" element={
-        <PermissionRoute resource="messaging-overview">
+        <StaffEmailRoute><PermissionRoute resource="messaging-overview">
           <MessagingOverview />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/overview" element={
-        <PermissionRoute resource="messaging-overview">
+        <StaffEmailRoute><PermissionRoute resource="messaging-overview">
           <MessagingOverview />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/email/templates" element={
-        <PermissionRoute resource="messaging-templates">
+        <StaffEmailRoute><PermissionRoute resource="messaging-templates">
           <Templates />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/email/automations" element={
-        <PermissionRoute resource="messaging-automations">
+        <StaffEmailRoute><PermissionRoute resource="messaging-automations">
           <Automations />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/email/automations/new" element={
-        <PermissionRoute resource="messaging-automations">
+        <StaffEmailRoute><PermissionRoute resource="messaging-automations">
           <AutomationWorkflowEditor />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/email/automations/:automationId" element={
-        <PermissionRoute resource="messaging-automations">
+        <StaffEmailRoute><PermissionRoute resource="messaging-automations">
           <AutomationWorkflowEditor />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/email/recovery" element={
-        <PermissionRoute resource="messaging-overview">
+        <StaffEmailRoute><PermissionRoute resource="messaging-overview">
           <EmailRecovery />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       <Route path="/messaging/sms" element={
         <PermissionRoute resource="messaging-sms">
@@ -714,9 +714,9 @@ const AppRoutes = () => {
         </PermissionRoute>
       } />
       <Route path="/messaging/settings" element={
-        <PermissionRoute resource="messaging-settings">
+        <StaffEmailRoute><PermissionRoute resource="messaging-settings">
           <MessagingSettings />
-        </PermissionRoute>
+        </PermissionRoute></StaffEmailRoute>
       } />
       {/* Address lookup testing routes */}
       <Route path="/address-lookup-demo" element={

@@ -14,6 +14,7 @@ import { EmailVerificationNotice } from '@/components/auth/EmailVerificationNoti
 import { AlertCircle, LogOut } from 'lucide-react';
 import { canUseListingStudioDashboard, listingStudioRole, LISTING_STUDIO_QUERY } from '@/utils/listingStudio';
 import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
+import { isSupportInbox } from '@/pages/messaging/messagingSupport';
 import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 
 const ListingStudioDialog = React.lazy(() => import('@/components/listing-studio/ListingStudioDialog'));
@@ -61,6 +62,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   };
   const [bottomNavHeight, setBottomNavHeight] = React.useState(0);
   const isDashboardRoute = location.pathname === '/dashboard' || location.pathname.startsWith('/dashboard/');
+  const isSupportWorkspace = location.pathname === '/messaging/email/inbox' && isSupportInbox(location.search);
   const isCallsWorkspace = location.pathname === '/calls' || location.pathname.startsWith('/calls/');
   const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
   const isStudioWorkspace = location.pathname === '/ai-editing' && new URLSearchParams(location.search).has('workspace');
@@ -87,7 +89,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const compactBottomInset = useCompactShell ? bottomNavHeight : 0;
   const lockCompactDashboard = useCompactShell && isDashboardRoute;
   const lockMainScroll =
-    isCallsWorkspace || lockCompactDashboard || isStudioWorkspace || fillSms || lockWorkflowEditor || fillDesktopCalendar;
+    isCallsWorkspace || isSupportWorkspace || lockCompactDashboard || isStudioWorkspace || fillSms || lockWorkflowEditor || fillDesktopCalendar;
   const contentPadding = useCompactShell
     ? `${isStudioWorkspace || fillSms ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 || lockCompactDashboard ? '' : 'pb-20'}`
     : fillSms
@@ -102,7 +104,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
       }
     : undefined;
   const shouldHideFooter =
-    hideFooter || isCallsWorkspace || lockCompactDashboard || fillDesktopCalendar ||
+    hideFooter || isCallsWorkspace || isSupportWorkspace || lockCompactDashboard || fillDesktopCalendar ||
     location.pathname === '/ai-editing' ||
     location.pathname.startsWith('/chat-with-reproai') ||
     location.pathname === '/messaging/sms' ||
@@ -152,7 +154,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             <main style={compactMainStyle} className={`flex-1 min-w-0 min-h-0 ${lockMainScroll ? 'flex flex-col overflow-hidden overflow-x-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
               <PageTransition className={lockMainScroll ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : 'flex flex-col min-h-full'}>
                 <EmailVerificationNotice>
-                  {isCallsWorkspace || lockCompactDashboard || fillSms || fillDesktopCalendar ? (
+                  {isCallsWorkspace || isSupportWorkspace || lockCompactDashboard || fillSms || fillDesktopCalendar ? (
                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children || <Outlet />}</div>
                   ) : (
                     children || <Outlet />

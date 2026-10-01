@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { canUseEmailWorkspace } from '@/utils/messagingRoles';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { usePermissions } from '@/context/PermissionsContext';
 import { getMessagingBadgeCounts } from '@/services/messaging';
@@ -17,7 +18,7 @@ export const useMessagingBadgeCounts = () => {
   const { user } = useAuth();
   const { can, isLoading: permissionsLoading } = usePermissions();
 
-  const canEmail = can('messaging-email', 'view') || can('messaging-overview', 'view');
+  const canEmail = canUseEmailWorkspace(user?.role) && (can('messaging-email', 'view') || can('messaging-overview', 'view'));
   const canSms = can('messaging-sms', 'view');
   const canCalls = can('voice-calls', 'view');
   const enabled = Boolean(user?.id) && !permissionsLoading && (canEmail || canSms || canCalls);
@@ -47,6 +48,6 @@ export const useMessagingBadgeCounts = () => {
       (canSms ? counts.sms : 0) +
       (canCalls ? counts.call : 0),
     loading: query.isLoading,
-    refresh: query.refetch,
+    refresh: () => enabled ? query.refetch() : Promise.resolve(undefined),
   };
 };

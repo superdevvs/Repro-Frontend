@@ -68,15 +68,16 @@ test('real support API: phone client submits, admin triages, private note stays 
   expect(Number(ticketId)).toBeGreaterThan(0);
   await admin.goto(`${baseURL}/messaging/email/inbox?tab=support&ticket=${ticketId}`);
   await expect(admin.getByRole('heading', { name: 'Support inbox' })).toBeVisible();
+  await admin.getByText('Manage request', { exact: true }).click();
   await admin.getByLabel('Request status', { exact: true }).selectOption('in_progress');
   await expect(admin.getByLabel('Request status', { exact: true })).toHaveValue('in_progress');
   await admin.getByLabel('Assigned administrator').selectOption({ label: 'QA Admin' });
   await expect(admin.getByRole('region', { name: 'Support conversation' })).toContainText('With QA Admin');
-  await admin.getByLabel('Internal note · admins only').check();
+  await admin.getByLabel('Internal note · staff only').check();
   await admin.getByLabel('Internal note', { exact: true }).fill('Private diagnosis: investigation only.');
   await admin.getByRole('button', { name: 'Save internal note' }).click();
   await expect(admin.getByText('Private diagnosis: investigation only.')).toBeVisible();
-  await admin.getByLabel('Internal note · admins only').uncheck();
+  await admin.getByLabel('Internal note · staff only').uncheck();
   await admin.getByLabel('Reply', { exact: true }).fill('Please open Download Center and retry the full-resolution archive.');
   await admin.getByRole('button', { name: 'Send reply' }).click();
   await expect(admin.getByText('Please open Download Center and retry the full-resolution archive.')).toBeVisible();
@@ -93,6 +94,7 @@ test('real support API: phone client submits, admin triages, private note stays 
   await client.getByRole('heading', { name: subject, exact: true }).scrollIntoViewIfNeeded();
   await client.screenshot({ path: path.join(output, 'support-client-phone.png'), fullPage: true });
   await admin.reload();
+  await admin.getByText('Manage request', { exact: true }).click();
   await expect(admin.getByLabel('Request status', { exact: true })).toHaveValue('open');
   await admin.screenshot({ path: path.join(output, 'support-admin-desktop-dark.png'), fullPage: true });
   for (const page of [client, admin]) expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

@@ -3,7 +3,7 @@ import { Mail, FileText, Zap, Settings, Pencil, RotateCcw, LifeBuoy } from 'luci
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { canSendExternalEmail } from '@/utils/messagingRoles';
+import { canUseEmailWorkspace } from '@/utils/messagingRoles';
 import { usePermission } from '@/hooks/usePermission';
 import { isSupportInbox, MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
 
@@ -11,18 +11,16 @@ export function EmailNavigation() {
   const { pathname, search } = useLocation();
   const { role } = useAuth();
   const permission = usePermission();
-  const isClient = role === 'client';
-  const isAdmin = role === 'admin' || role === 'superadmin';
-  const canManageMessaging = canSendExternalEmail(role);
+  const canManageMessaging = canUseEmailWorkspace(role);
   const supportSelected = pathname === '/messaging/email/inbox' && isSupportInbox(search);
-  const canViewEmail = permission.can('messaging-email', 'view');
+  const canViewEmail = canManageMessaging && permission.can('messaging-email', 'view');
   const showComposeButton = pathname !== '/messaging/email/compose' && !supportSelected && canViewEmail && permission.can('messaging-compose', 'create');
 
   const allTabs = [
     {
       to: '/messaging/email/inbox',
       icon: Mail,
-      label: isAdmin ? 'Inbox' : isClient ? 'Contact' : 'Inbox',
+      label: 'Inbox',
       isActive: pathname.startsWith('/messaging/email/inbox') && !supportSelected,
       resource: 'messaging-email',
     },
@@ -72,13 +70,13 @@ export function EmailNavigation() {
     if (!permission.can(tab.resource, 'view')) return false;
     if (tab.resource === 'support') return true;
     if (!canViewEmail) return false;
-    return isClient ? !tab.hideForClient : canManageMessaging || tab.resource === 'messaging-email';
+    return canManageMessaging;
   });
 
-  const composeLabel = isAdmin ? 'Compose' : isClient ? 'New Contact' : 'Compose';
+  const composeLabel = 'Compose';
 
   return (
-    <div className="border-b border-border bg-background">
+    <div className="shrink-0 border-b border-border bg-background">
       <div className="flex items-center justify-between px-3 sm:px-4 py-1.5 sm:py-2">
         <nav aria-label="Messaging navigation" className="flex min-w-0 items-center gap-1 sm:gap-2 overflow-x-auto">
           {tabs.map((tab) => {

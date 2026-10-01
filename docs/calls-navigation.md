@@ -8,7 +8,7 @@ Calls routes belong in one compact horizontal navigation row inside the dashboar
 
 ## Support belongs in Messaging
 
-The user explicitly requires support requests inside the existing Messaging area, not a separate page or top-level sidebar item. The canonical destination is `/messaging/email/inbox?tab=support`, beside the existing Inbox/Contact tab. Keep existing Contact conversations and email actions available under their original permissions. Support-only access must not render or fetch email content or staff administration tabs.
+The user explicitly requires support requests inside the existing Messaging area, not a separate page or top-level sidebar item. The canonical destination is `/messaging/email/inbox?tab=support`, beside the staff Inbox tab. Only primary admins, superadmins and editing managers keep ordinary email tools, still subject to their existing resource permissions. Every other role uses Support for dashboard messages, even if an old email permission remains. Legacy email/compose links route into Support before email queries mount; preserve authored draft text and resolve imported conversation links through the authenticated Support lookup. Support-only access must not render or fetch email content or staff administration tabs.
 
 Legacy `/support` links redirect to that tab while preserving request parameters and hashes. New links use `MESSAGING_SUPPORT_URL` or the same canonical URL, adding `&ticket=<id>` or `&new=1` as needed. Support is discoverable through the existing Messaging navigation, including the simplified header and mobile menu for roles without the desktop sidebar. Do not move it to a standalone workspace without explicit user instruction.
 

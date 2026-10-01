@@ -42,9 +42,9 @@ beforeEach(() => { viewport.mobile = false; viewport.compact = false; viewport.t
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe('dashboard page loading integration', () => {
-  it.each(['desktop', 'phone'])('keeps the original dashboard navigation on Calls for %s', (surface) => {
+  it.each([['desktop', '/calls/inbox'], ['phone', '/calls/inbox'], ['desktop', '/messaging/email/inbox?tab=support'], ['phone', '/messaging/email/inbox?tab=support']])('keeps the original dashboard navigation on %s %s', (surface, path) => {
     viewport.mobile = surface === 'phone';
-    const { container } = render(<MemoryRouter initialEntries={['/calls/inbox']}><DashboardLayout><DashboardLayout hideFooter><button>Conversations</button></DashboardLayout></DashboardLayout></MemoryRouter>);
+    const { container } = render(<MemoryRouter initialEntries={[path]}><DashboardLayout><DashboardLayout hideFooter><button>Conversations</button></DashboardLayout></DashboardLayout></MemoryRouter>);
     expect(screen.getByRole('button', { name: 'Navigation' })).toBeInTheDocument();
     if (viewport.mobile) {
       expect(screen.getByRole('navigation', { name: 'Mobile navigation' })).toBeInTheDocument();
