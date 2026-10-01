@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '@/config/env';
 
+/** Soft ceiling for legacy in-memory ZIP buffering only. Ready/redirect archives never use this path. */
 export const MAX_BUFFERED_ARCHIVE_BYTES = 256 * 1024 * 1024;
 export const DOWNLOAD_URL_REVOKE_DELAY_MS = 60_000;
 
@@ -42,7 +43,35 @@ export class ArchiveTooLargeForBuffer extends Error {
   constructor() { super('This archive is too large to prepare in this tab. Please try the download again.'); }
 }
 
-/** Bound only cacheable archives, whose existing URL supports a native fallback. */
+type SaveFilePickerWindow = Window & {
+  showSaveFilePicker?: (options?: {
+    suggestedName?: string;
+    types?: Array<{ description?: string; accept: Record<string, string[]> }>;
+  }) => Promise<{ createWritable: () => Promise<WritableStream> }>;
+};
+
+export const canStreamArchiveToDisk = (): boolean =>
+  typeof window !== 'undefined'
+  && typeof (window as SaveFilePickerWindow).showSaveFilePicker === 'function';
+
+/** Stream an authenticated ZIP body to disk without building a multi-hundred-MB Blob. */
+export const streamArchiveResponseToDisk = async (
+  response: Response,
+  suggestedFilename: string,
+): Promise<string> => {
+  if (!response.body) throw new Error('Archive stream unavailable.');
+  const picker = (window as SaveFilePickerWindow).showSaveFilePicker;
+  if (!picker) throw new Error('Streaming save is not available in this browser.');
+  const handle = await picker({
+    suggestedName: suggestedFilename,
+    types: [{ description: 'ZIP archive', accept: { 'application/zip': ['.zip'] } }],
+  });
+  const writable = await handle.createWritable();
+  await response.body.pipeTo(writable);
+  return suggestedFilename;
+};
+
+/** Bound only cacheable archives when a native/stream handoff is unavailable. */
 export const readArchiveBlob = async (response: Response, maxBytes = MAX_BUFFERED_ARCHIVE_BYTES): Promise<Blob> => {
   const advertisedBytes = Number(response.headers.get('Content-Length'));
   if (advertisedBytes > maxBytes) {

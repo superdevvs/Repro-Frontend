@@ -1,9 +1,25 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { ArchiveTooLargeForBuffer, DOWNLOAD_URL_REVOKE_DELAY_MS, fetchApiDownload, readArchiveBlob, saveDownloadBlob, validateApiDownloadUrl, validateDownloadUrl, waitForArchive } from './shootDownloadTransfer';
+import {
+  ArchiveTooLargeForBuffer,
+  canStreamArchiveToDisk,
+  DOWNLOAD_URL_REVOKE_DELAY_MS,
+  fetchApiDownload,
+  readArchiveBlob,
+  saveDownloadBlob,
+  streamArchiveResponseToDisk,
+  validateApiDownloadUrl,
+  validateDownloadUrl,
+  waitForArchive,
+} from './shootDownloadTransfer';
 
 vi.mock('@/config/env', () => ({ API_BASE_URL: 'https://api.example.test' }));
 
-afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+  vi.useRealTimers();
+  Reflect.deleteProperty(window, 'showSaveFilePicker');
+});
 
 describe('download transfer lifecycle', () => {
   it('waits for the response body to finish, not just its headers', async () => {
@@ -69,5 +85,21 @@ describe('download transfer lifecycle', () => {
     controller.abort();
     await expect(pending).rejects.toMatchObject({ name: 'AbortError' });
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it('streams archive bodies to disk through the File System Access picker', async () => {
+    const written: Uint8Array[] = [];
+    const writable = new WritableStream<Uint8Array>({
+      write(chunk) { written.push(chunk); },
+    });
+    Object.defineProperty(window, 'showSaveFilePicker', {
+      configurable: true,
+      value: vi.fn().mockResolvedValue({ createWritable: async () => writable }),
+    });
+    expect(canStreamArchiveToDisk()).toBe(true);
+    const response = new Response(new Uint8Array([80, 75, 3, 4]), { headers: { 'Content-Type': 'application/zip' } });
+    await expect(streamArchiveResponseToDisk(response, 'archive.zip')).resolves.toBe('archive.zip');
+    expect(written[0]?.[0]).toBe(80);
+    expect(window.showSaveFilePicker).toHaveBeenCalledOnce();
   });
 });

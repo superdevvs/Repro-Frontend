@@ -3,9 +3,12 @@ import { getApiHeaders } from '@/services/api';
 import { buildShootZipFilename, parseDownloadFilename } from './shootDownloadFilename';
 import {
   ArchiveTooLargeForBuffer,
+  canStreamArchiveToDisk,
   fetchApiDownload,
+  MAX_BUFFERED_ARCHIVE_BYTES,
   readArchiveBlob,
   saveDownloadBlob as downloadBlob,
+  streamArchiveResponseToDisk,
   validateApiDownloadUrl,
   validateDownloadUrl,
   waitForArchive,
@@ -143,40 +146,45 @@ export const buildShootDownloadFilename = (
   return buildShootZipFilename(address, `${type}-${size ?? 'original'}`);
 };
 
-/** Legacy ready links use no API credentials; the new API streams archives directly. */
-const downloadReadyAsset = async (url: string, fallbackFilename: string, signal?: AbortSignal) => {
+/**
+ * Ready/redirect asset URLs are signed or public storage links. Always hand them
+ * to the browser so Content-Disposition attachment streams to disk — never
+ * fetch→Blob→createObjectURL (that OOMs Full-size ~256MB ZIPs).
+ */
+const downloadReadyAsset = async (url: string, _fallbackFilename?: string, _signal?: AbortSignal) => {
   const safeUrl = validateDownloadUrl(url);
-  let sameApiOrigin = false;
-  try { validateApiDownloadUrl(safeUrl); sameApiOrigin = true; } catch { /* Provider link: native handoff. */ }
-  if (!sameApiOrigin) {
-    startSameWindowDownload(safeUrl);
-    return { mode: 'redirect' as const, url: safeUrl };
+  startSameWindowDownload(safeUrl);
+  return { mode: 'redirect' as const, url: safeUrl };
+};
+
+const deliverAuthenticatedArchiveBody = async (
+  response: Response,
+  suggestedFilename: string,
+): Promise<{ mode: 'redirect'; url: string } | { mode: 'blob'; filename: string }> => {
+  const nativeUrl = response.headers.get('X-Archive-Download-Url');
+  if (nativeUrl) {
+    await response.body?.cancel();
+    const url = validateDownloadUrl(nativeUrl);
+    startSameWindowDownload(url);
+    return { mode: 'redirect', url };
   }
-  let response: Response;
-  try {
-    response = await fetch(safeUrl, { credentials: 'omit', redirect: 'error', signal });
-  } catch (error) {
-    // Older static-storage links may not expose CORS. The canonical ready URL
-    // can still be handled by the browser, without forwarding API credentials.
-    if (!(error instanceof TypeError) || signal?.aborted) throw error;
-    startSameWindowDownload(safeUrl);
-    return { mode: 'redirect' as const, url: safeUrl };
+
+  const advertisedBytes = Number(response.headers.get('Content-Length'));
+  const tooLargeToBuffer = Number.isFinite(advertisedBytes) && advertisedBytes > MAX_BUFFERED_ARCHIVE_BYTES;
+  const lengthUnknown = !Number.isFinite(advertisedBytes) || advertisedBytes <= 0;
+
+  if ((tooLargeToBuffer || lengthUnknown) && canStreamArchiveToDisk()) {
+    const filename = await streamArchiveResponseToDisk(response, suggestedFilename);
+    return { mode: 'blob', filename };
   }
-  if (!response.ok || /application\/json|text\/html/i.test(response.headers.get('Content-Type') || '')) {
-    throw new Error('The file could not be downloaded. Please try again.');
-  }
+
   try {
     const blob = await readArchiveBlob(response);
-    const urlName = new URL(safeUrl).pathname.split('/').pop();
-    const filename = parseDownloadFilename(response.headers.get('Content-Disposition'))
-      || (urlName ? parseDownloadFilename(`attachment; filename*=UTF-8''${urlName}`) : null)
-      || fallbackFilename;
-    downloadBlob(blob, filename);
-    return { mode: 'blob' as const, filename };
+    downloadBlob(blob, suggestedFilename);
+    return { mode: 'blob', filename: suggestedFilename };
   } catch (error) {
     if (!(error instanceof ArchiveTooLargeForBuffer)) throw error;
-    startSameWindowDownload(safeUrl);
-    return { mode: 'redirect' as const, url: safeUrl };
+    throw new Error('This archive is too large to prepare in this tab. Please try the download again.');
   }
 };
 
@@ -243,19 +251,9 @@ export const resolveShootMediaArchiveRequest = async ({
       getFilenameFromDisposition(response.headers.get('content-disposition')) ||
       buildShootDownloadFilename(address, type, size);
 
-    try {
-      const blob = await readArchiveBlob(response);
-      downloadBlob(blob, suggestedFilename);
-    } catch (error) {
-      const nativeUrl = response.headers.get('X-Archive-Download-Url');
-      if (!(error instanceof ArchiveTooLargeForBuffer) || !nativeUrl) throw error;
-      const url = validateDownloadUrl(nativeUrl);
-      startSameWindowDownload(url);
-      emitShootMediaDownloadStarted({ shootId, type, size });
-      return { mode: 'redirect', url, waited };
-    }
+    const result = await deliverAuthenticatedArchiveBody(response, suggestedFilename);
     emitShootMediaDownloadStarted({ shootId, type, size });
-    return { mode: 'blob', filename: suggestedFilename, waited };
+    return { ...result, waited };
   }
 };
 
@@ -402,19 +400,14 @@ export const downloadShootRawFiles = async ({
 
     if (/text\/html/i.test(contentType)) throw new Error('The ZIP could not be downloaded. Please try again.');
     onDownloading?.();
-    const blob = await response.blob();
     const filename = buildRawDownloadFilename(
       shootId,
       response.headers.get('content-disposition'),
       address,
     );
-    downloadBlob(blob, filename);
+    const result = await deliverAuthenticatedArchiveBody(response, filename);
     emitShootMediaDownloadStarted({ shootId, type: 'raw', size: 'original' });
-
-    return {
-      mode: 'blob',
-      filename,
-    };
+    return result;
   }
 };
 
