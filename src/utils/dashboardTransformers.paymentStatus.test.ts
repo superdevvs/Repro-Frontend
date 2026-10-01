@@ -42,7 +42,7 @@ describe('dashboard overview payment_status → Delivered pill', () => {
           },
         ],
       },
-    } as any);
+    });
 
     const shoot = overview.workflow?.columns?.[0]?.shoots?.[0];
     expect(shoot?.addressLine).toBe('12000 Market Street, 222');
@@ -81,7 +81,7 @@ describe('dashboard overview payment_status → Delivered pill', () => {
           },
         ],
       },
-    } as any);
+    });
 
     const shoot = overview.workflow?.columns?.[0]?.shoots?.[0];
     expect(shoot?.paymentStatus).toBe('unpaid');

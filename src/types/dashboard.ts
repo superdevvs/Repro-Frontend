@@ -85,6 +85,8 @@ export interface DashboardShootSummaryResponse {
   preview_images?: string[];
   payment_status?: 'paid' | 'unpaid' | 'partial' | 'partially_paid' | string | null;
   paymentStatus?: 'paid' | 'unpaid' | 'partial' | 'partially_paid' | string | null;
+  total_paid?: number | string | null;
+  total_quote?: number | string | null;
   // Notes fields
   shoot_notes?: string | null;
   company_notes?: string | null;

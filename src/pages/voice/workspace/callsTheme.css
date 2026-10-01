@@ -127,18 +127,20 @@
   position: relative;
   display: inline-flex;
   align-items: center;
+  flex-shrink: 0;
   min-height: 44px;
-  padding: 10px 0 14px;
+  padding: 0 10px;
   font-size: 13px;
   font-weight: 500;
   color: var(--calls-muted);
+  white-space: nowrap;
 }
 
-.calls-nav-link[data-active='true'] {
+.calls-nav-link[aria-current='page'] {
   color: var(--calls-brand);
 }
 
-.calls-nav-link[data-active='true']::after {
+.calls-nav-link[aria-current='page']::after {
   content: '';
   position: absolute;
   left: 0;
@@ -153,15 +155,12 @@
   border-color: var(--calls-brand);
 }
 
-.calls-shell { display: flex; flex: 1; flex-direction: column; min-height: 0; overflow: hidden; }
-.calls-appbar { display: flex; flex: none; min-height: 64px; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 16px; background: var(--calls-surface); border-bottom: 1px solid var(--calls-border); }
-.calls-shell-body { display: flex; flex: 1; min-height: 0; min-width: 0; overflow: hidden; }
-.calls-sidebar { display: flex; flex: 0 0 184px; flex-direction: column; gap: 3px; padding: 12px; background: var(--calls-surface); border-right: 1px solid var(--calls-border); overflow-y: auto; }
-.calls-route { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px; min-height: 44px; font-size: 13px; font-weight: 500; color: var(--calls-muted); }
-.calls-route:hover { background: var(--calls-subtle); color: var(--calls-text); }
-.calls-route[aria-current='page'], .calls-route[data-active='true'] { color: var(--calls-brand); background: var(--calls-brand-soft); }
-.calls-nav-caption { padding: 8px 12px 4px; font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: var(--calls-muted); }
-.calls-route-content { flex: 1; min-width: 0; min-height: 0; padding: 24px; overflow-y: auto; overscroll-behavior: contain; }
+.calls-shell { display: flex; flex: 1; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
+.calls-toolbar { display: flex; flex-shrink: 0; align-items: center; gap: 8px; min-width: 0; border-bottom: 1px solid var(--calls-border); }
+.calls-tabs { display: flex; flex: 1; min-width: 0; gap: 2px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+.calls-tabs::-webkit-scrollbar { display: none; }
+.calls-nav-link:hover { color: var(--calls-text); background: var(--calls-subtle); }
+.calls-route-content { flex: 1; min-width: 0; min-height: 0; padding: 12px 0 0; overflow-y: auto; overscroll-behavior: contain; }
 .calls-fill-page { display: flex; height: 100%; min-height: 0; min-width: 0; flex-direction: column; gap: 12px; }
 .calls-page-heading { flex-shrink: 0; }
 .calls-page-heading h2, .calls-route-content h2.text-\[28px\] { font-size: 24px; line-height: 32px; font-weight: 600; letter-spacing: -.025em; }
@@ -173,18 +172,11 @@
 .calls-search { height: 48px; border-radius: 12px; background: var(--calls-subtle); border-color: transparent; }
 .calls-call { background: #147d50; color: #fff; }
 .calls-call:hover { background: #0d6842; color: #fff; }
-.calls-mobile-nav { display: none; }
 .calls-avatar { background: var(--calls-brand-soft); color: var(--calls-brand); }
 .calls-cockpit-grid { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr) 340px; }
 .calls-sticky-controls { position: sticky; bottom: 0; z-index: 10; background: var(--calls-surface); border-radius: 16px; box-shadow: 0 -8px 20px hsl(var(--background) / .8); }
-@media(max-width: 1100px) { .calls-sidebar { flex-basis: 170px; padding: 8px; } .calls-route-content { padding: 16px; } .calls-cockpit-grid { grid-template-columns: minmax(0, 1fr); } }
+@media(max-width: 1100px) { .calls-cockpit-grid { grid-template-columns: minmax(0, 1fr); } }
 @media(max-width: 767px) {
-  .calls-appbar .calls-chip { display: none; }
-  .calls-appbar { padding: 4px 12px; min-height: 56px; }
-  .calls-sidebar { display: none; }
-  .calls-route-content { padding: 14px 14px 10px; }
-  .calls-mobile-nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; flex-shrink: 0; padding: 6px 8px calc(6px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--calls-border); background: var(--calls-surface); }
-  .calls-mobile-nav .calls-route { justify-content: center; flex-direction: column; gap: 4px; font-size: 11px; padding: 7px 2px; }
   .calls-page-heading h2, .calls-route-content h2.text-\[28px\] { font-size: 22px; line-height: 28px; }
   .calls-pagination { min-height: 52px; }
 }

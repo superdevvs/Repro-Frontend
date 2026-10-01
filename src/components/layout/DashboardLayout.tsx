@@ -74,11 +74,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
     && isDesktopCalendarViewport;
   // The compact shell keeps 12px at the sides (Availability's gutter) and 6px
   // above the page. Pages must not add extra horizontal padding on compact.
-  const compactBottomInset = useCompactShell && !isCallsWorkspace ? bottomNavHeight : 0;
+  const compactBottomInset = useCompactShell ? bottomNavHeight : 0;
   const lockCompactDashboard = useCompactShell && isDashboardRoute;
   const lockMainScroll =
     isCallsWorkspace || lockCompactDashboard || isStudioWorkspace || fillSms || lockWorkflowEditor || fillDesktopCalendar;
-  const contentPadding = isCallsWorkspace ? 'p-0' : useCompactShell
+  const contentPadding = useCompactShell
     ? `${isStudioWorkspace || fillSms ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 || lockCompactDashboard ? '' : 'pb-20'}`
     : fillSms
       ? 'p-0'
@@ -116,7 +116,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
       {/* The viewport rule keeps the dynamic height after its legacy fallback;
           combining h-screen and h-dvh lets Tailwind's h-screen rule win. */}
       <div className="dashboard-viewport flex overflow-hidden">
-        {!isCallsWorkspace && !useCompactShell && !isSimplifiedLayout && <Sidebar />}
+        {!useCompactShell && !isSimplifiedLayout && <Sidebar />}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {isImpersonating && user && (
             <div className="bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center justify-between">
@@ -135,7 +135,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
               </Button>
             </div>
           )}
-          {!isCallsWorkspace && !hideNavbar && <Navbar />}
+          {!hideNavbar && <Navbar />}
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
             <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`} bottomInset={compactBottomInset}>
@@ -170,7 +170,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             </main>
             </PageLoadingBoundary>
           </ErrorBoundary>
-          {!isCallsWorkspace && useCompactShell && <MobileMenu onBottomNavHeightChange={setBottomNavHeight} />}
+          {useCompactShell && <MobileMenu onBottomNavHeightChange={setBottomNavHeight} />}
         </div>
       </div>
       {listingStudioOpen && (

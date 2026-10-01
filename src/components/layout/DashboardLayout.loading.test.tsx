@@ -39,6 +39,21 @@ beforeEach(() => { viewport.mobile = false; viewport.compact = false; viewport.t
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('dashboard page loading integration', () => {
+  it.each(['desktop', 'phone'])('keeps the original dashboard navigation on Calls for %s', (surface) => {
+    viewport.mobile = surface === 'phone';
+    const { container } = render(<MemoryRouter initialEntries={['/calls/inbox']}><DashboardLayout><DashboardLayout hideFooter><button>Conversations</button></DashboardLayout></DashboardLayout></MemoryRouter>);
+    expect(screen.getByRole('button', { name: 'Navigation' })).toBeInTheDocument();
+    if (viewport.mobile) {
+      expect(screen.getByRole('navigation', { name: 'Mobile navigation' })).toBeInTheDocument();
+      expect(container.querySelector('main')).toHaveStyle({ paddingBottom: '62px' });
+    } else {
+      expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
+      expect(container.querySelector('main')).toHaveClass('p-3');
+    }
+    expect(container.querySelector('main')).toHaveClass('overflow-hidden');
+    expect(container.querySelector('footer')).toBeNull();
+  });
+
   it.each(['/messaging/email/automations/21', '/messaging/email/automations/new'])('contains workflow editor scroll at %s', (path) => {
     const { container } = render(<MemoryRouter initialEntries={[path]}><DashboardLayout><button>Editor</button></DashboardLayout></MemoryRouter>);
     expect(container.querySelector('main')).toHaveClass('overflow-hidden');

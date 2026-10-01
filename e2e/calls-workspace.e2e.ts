@@ -1,7 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 import path from 'node:path';
 
-const output = path.resolve('..', 'output', 'calls-support-implementation', 'calls-browser');
+const output = process.env.CALLS_REVIEW_OUTPUT || path.resolve('..', 'output', 'calls-support-implementation', 'calls-browser');
 const people = Array.from({ length: 45 }, (_, i) => ({ id: `user:${i + 1}`, user_id: i + 1, name: `Review Person ${String(i + 1).padStart(2, '0')}`, role: i % 3 === 0 ? 'photographer' : i % 3 === 1 ? 'salesRep' : 'client', phone: `+1202555${String(i + 100).padStart(4, '0')}`, callable: true, company_name: 'Review Account' }));
 const calls = people.map((person, i) => ({ id: i + 1, provider: 'telnyx', direction: 'INBOUND', status: i === 0 ? 'in_progress' : 'completed', handled_by: i === 0 ? 'ai' : 'human', from_phone: person.phone, to_phone: '+12025550100', caller_user: person, summary: 'The caller needs help with delivered photo downloads.', transcript: Array.from({ length: 80 }, (_, j) => `Caller segment ${j + 1}: I need help with downloading my shoot photos.\nStaff: Open your shoot and use Download Center.`).join('\n'), duration_seconds: 132, recording_consent_given: true, answered_at: '2026-10-01T09:00:00Z', ended_at: i === 0 ? null : '2026-10-01T09:02:12Z', created_at: '2026-10-01T09:00:00Z', needs_follow_up: i % 2 === 0, metadata: {} }));
 const settings = { enabled: true, outbound_mode: 'none', recording_enabled: true, allow_unverified_transfer: false, provider: 'telnyx', support_handoff_number: '+12025550100', quiet_hours: { enabled: true, start: '20:00', end: '08:00', timezone: 'America/New_York' }, business_hours: { timezone: 'America/New_York', weekly: Object.fromEntries(['monday','tuesday','wednesday','thursday','friday'].map(day => [day, [['09:00','17:00']]])) }, holidays: [], greeting_text: 'Thanks for calling REPro. How can I help?', disclosure_text: 'With your permission, this call may be recorded.', automation_toggles: { missed_call_callback: true }, tool_allowlist: ['verify_caller', 'get_shoot_details'], confirmation_gated_tools: ['book_shoot'] };
@@ -18,7 +18,10 @@ async function fixture(page: Page, baseURL: string | undefined, theme: string) {
     const request = route.request(); const url = new URL(request.url()); const p = url.pathname.replace(/^\/api/, '');
     requests.push({ path: p, method: request.method(), query: url.search });
     if (p === '/user') return reply(route, user);
-    if (p === '/me/permissions') return reply(route, { permissions: ['view','operate','manage','supervise'].map(action => ({ resource: 'voice-calls', action })).concat([{ resource: 'messaging-sms', action: 'view' }, { resource: 'robbie', action: 'view' }]), permissionIds: ['voice-calls:view','voice-calls:operate','voice-calls:manage','voice-calls:supervise','robbie:view'] });
+    if (p === '/me/permissions') {
+      const permissions = ['view','operate','manage','supervise'].map(action => ({ resource: 'voice-calls', action })).concat(['dashboard','shoots','accounts','availability','accounting','settings','support','messaging-email','messaging-overview','messaging-sms','robbie'].map(resource => ({ resource, action: 'view' })), [{ resource: 'book-shoot', action: 'create' }]);
+      return reply(route, { permissions, permissionIds: permissions.map(({ resource, action }) => `${resource}:${action}`) });
+    }
     if (p === '/voice/browser/config') return reply(route, { enabled: false, ready: false, blockers: ['Carrier connectivity is disabled in local review.'], capabilities: { human_outbound: false, receive_calls: false } });
     if (p === '/voice/numbers') return reply(route, { numbers: [{ id: 1, phone_number: '+12025550100', label: 'Main business line', is_default: true, voice_ai_enabled: true, sms_ai_enabled: false }] });
     if (p === '/voice/health') return reply(route, { can_place_calls: false, readiness_blockers: ['Carrier connectivity is disabled in local review.'], outbound_mode: 'none', assistant_sync: { status: 'current', policy_instructions_current: true, missing_tools: [] } });
@@ -54,13 +57,50 @@ for (const width of [1440,390]) for (const theme of ['light','dark']) {
     const errors: string[] = []; page.on('pageerror', e => errors.push(e.message)); const state = await fixture(page, baseURL, theme);
     for (const [name, url, heading] of screens) {
       await page.goto(url); await expect(page.getByRole('heading', { name: heading, exact: true }).first()).toBeVisible({ timeout: 30000 });
+      await expect(page.locator('[data-page-loading="ready"]')).toBeVisible();
       await expect(page.locator('.calls-shell')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Open account menu' })).toBeVisible();
+      if (width === 1440) await expect(page.getByTestId('application-sidebar')).toBeVisible();
+      else await expect(page.locator('[data-mobile-bottom-nav]')).toBeVisible();
+      await expect(page.locator('.calls-sidebar, .calls-mobile-nav')).toHaveCount(0);
+      await expect(page.locator('main footer')).toHaveCount(0);
+      const navigation = page.getByRole('navigation', { name: 'Calls navigation' });
+      expect((await navigation.boundingBox())!.height).toBeLessThanOrEqual(48);
+      const current = navigation.locator('[aria-current="page"]');
+      await expect(current).toHaveCount(1);
+      await expect.poll(async () => {
+        const navBounds = (await navigation.boundingBox())!;
+        const currentBounds = (await current.boundingBox())!;
+        return currentBounds.x >= navBounds.x - 1 && currentBounds.x + currentBounds.width <= navBounds.x + navBounds.width + 1;
+      }).toBe(true);
       await expect(page.getByText('This view could not load')).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       await page.screenshot({ path: path.join(output, `${width}-${theme}-${name}.png`) });
     }
     await page.goto('/calls/inbox');
+    const tabs = page.getByRole('navigation', { name: 'Calls navigation' });
+    await expect(tabs).toBeVisible();
+    if (await tabs.evaluate(node => node.scrollWidth > node.clientWidth + 1)) {
+      await page.getByRole('button', { name: 'More Calls tabs' }).click();
+      await expect.poll(() => tabs.evaluate(node => node.scrollLeft)).toBeGreaterThan(0);
+      await expect(page.getByRole('button', { name: 'Earlier Calls tabs' })).toBeEnabled();
+    }
+    const tabLinks = tabs.getByRole('link');
+    await tabLinks.first().focus();
+    for (let index = 1; index < await tabLinks.count(); index++) {
+      await page.keyboard.press('Tab');
+      await expect(tabLinks.nth(index)).toBeFocused();
+      const navBounds = (await tabs.boundingBox())!;
+      const focusedBounds = (await tabLinks.nth(index).boundingBox())!;
+      expect(focusedBounds.x).toBeGreaterThanOrEqual(navBounds.x - 1);
+      expect(focusedBounds.x + focusedBounds.width).toBeLessThanOrEqual(navBounds.x + navBounds.width + 1);
+    }
     await expect(page.getByRole('button', { name: 'Next conversations' })).toBeEnabled();
+    if (width === 390) {
+      const nextPage = (await page.getByRole('button', { name: 'Next conversations' }).boundingBox())!;
+      const mobileNavigation = (await page.locator('[data-mobile-bottom-nav]').boundingBox())!;
+      expect(nextPage.y + nextPage.height).toBeLessThanOrEqual(mobileNavigation.y);
+    }
     const scroll = page.getByLabel('Conversation results');
     expect(await scroll.evaluate(node => node.scrollHeight > node.clientHeight)).toBe(true);
     await page.getByRole('button', { name: 'Next conversations' }).click();
@@ -78,7 +118,7 @@ for (const width of [1440,390]) for (const theme of ['light','dark']) {
     await page.getByRole('textbox', { name: 'Search everyone or enter a number' }).fill('Person 07');
     await page.getByRole('button', { name: /Review Person 07/ }).click(); await expect(page.getByLabel('Review Person 07')).toHaveValue(people[6].phone);
     await page.screenshot({ path: path.join(output, `${width}-${theme}-new-call.png`) }); await page.keyboard.press('Escape');
-    expect(state.requests.some(request => request.path.includes('/sms'))).toBe(false);
+    expect(state.requests.some(request => request.path.includes('/sms') && request.method !== 'GET')).toBe(false);
     expect(state.requests.filter(request => request.path === '/voice/calls/human' || request.path === '/voice/calls/outbound')).toEqual([]);
     expect(errors).toEqual([]);
   });
