@@ -16,7 +16,7 @@ const makeShoot = (): ShootData => ({ id: `video-${++nextId}`, status: 'editing'
   serviceItems: [{ id: '5', name: 'Video', price: 100, quantity: 1, video_editor_id: '22', upload_intake_type: 'photo_video' }],
   tourLinks: { property_description: 'Private property copy', matterport_branded: 'https://my.matterport.com/show/?m=abc', video_link: 'https://vimeo.com/123' },
   location: { address: '1 Test Lane' }, client: {}, photographer: {}, payment: {},
-} as ShootData);
+} as unknown as ShootData);
 let request: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   request = vi.fn(async (_url: string, options: RequestInit) => ({ ok: true, json: async () => ({ data: JSON.parse(String(options.body)) }) }));
