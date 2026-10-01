@@ -14,6 +14,7 @@ import { ShootDetailsNotesTab } from '../tabs/ShootDetailsNotesTab';
 import { ShootDetailsIssuesTab } from '../tabs/ShootDetailsIssuesTab';
 import { ShootDetailsSettingsTab } from '../tabs/ShootDetailsSettingsTab';
 import { ShootDetailsActivityLogTab } from '../tabs/ShootDetailsActivityLogTab';
+import type { VideoTourEditor } from '../tabs/tours/videoTourAccess';
 
 const LazyShootDetailsTourTab = React.lazy(() =>
   import('../tabs/ShootDetailsTourTab').then((module) => ({
@@ -42,6 +43,7 @@ interface ShootDetailsModalBodyProps {
   activeMediaDisplayTab: 'uploaded' | 'edited';
   visibleTabs: Array<{ id: string; label: string; disabled?: boolean }>;
   currentUserRole: string;
+  editorUser?: VideoTourEditor;
   weather: WeatherInfo | null;
   initialFocus?: 'schedule_assignments';
   isAdmin: boolean;
@@ -171,6 +173,7 @@ export function ShootDetailsModalBody({
   activeMediaDisplayTab,
   visibleTabs,
   currentUserRole,
+  editorUser,
   weather,
   initialFocus,
   isAdmin,
@@ -342,18 +345,19 @@ export function ShootDetailsModalBody({
                 />
               </TabsContent>
 
-              {(isAdmin || isRep || isClient) && activeTab === 'tours' && (
+              {visibleTabs.some(tab => tab.id === 'tours' && !tab.disabled) && activeTab === 'tours' && (
                 <TabsContent value="tours" className="mt-0">
                   <React.Suspense fallback={null}>
                     <LazyShootDetailsTourTab
                       isUnitSwitchDisabled={isEditMode || hasInflightUploads}
                       shoot={shoot}
+                      editorUser={editorUser}
                       isAdmin={isAdmin}
                       isRep={isRep}
                       isClient={isClient}
                       isClientReleaseLocked={isClientReleaseLocked}
                       onShootUpdate={refreshShootAndParent}
-                      onShowAnalytics={() => setShowTourAnalytics(true)}
+                      onShowAnalytics={isEditor ? undefined : () => setShowTourAnalytics(true)}
                     />
                   </React.Suspense>
                 </TabsContent>

@@ -34,6 +34,7 @@ export function MediaGrid({
   onSelectionChange,
   onSelectAll,
   canSelect,
+  canSelectFile,
   sortOrder = 'time',
   manualSortActive = false,
   manualOrder = [],
@@ -388,12 +389,13 @@ export function MediaGrid({
           </div>
         )}
 
-        {canSelect && (
+        {canSelect && (!canSelectFile || canSelectFile(file)) && (
           <div 
             className={`absolute z-[3] ${file.isExtra ? 'top-5' : 'top-1'} left-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity`}
             onClick={(e) => e.stopPropagation()}
           >
             <Checkbox
+              aria-label={`Select ${displayFilename}`}
               checked={isSelected}
               onCheckedChange={() => onSelectionChange(file.id)}
               className="bg-background/80"
@@ -536,7 +538,7 @@ export function MediaGrid({
               </div>
             </div>
 
-            {canSelect && (
+            {canSelect && (!canSelectFile || canSelectFile(file)) && (
               <div
                 className={`absolute z-[3] ${file.isExtra ? 'top-5' : 'top-1'} left-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity`}
                 onClick={(e) => e.stopPropagation()}
@@ -617,9 +619,16 @@ export function MediaGrid({
         }}
       >
         {/* Selection indicator - moved to left */}
-        {canSelect && (
+        {canSelect && (!canSelectFile || canSelectFile(file)) && (
           <div 
             className="flex-shrink-0 cursor-pointer"
+            role="checkbox"
+            aria-label={`Select ${displayFilename}`}
+            aria-checked={isSelected}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); onSelectionChange(file.id); }
+            }}
             onClick={(e) => {
               e.stopPropagation();
               onSelectionChange(file.id);
@@ -780,9 +789,16 @@ export function MediaGrid({
             } ${isDragging ? 'opacity-60 shadow-lg bg-muted/50' : ''}`}
             onClick={() => onFileClick(actualIndex, sortedFiles)}
           >
-            {canSelect && (
+            {canSelect && (!canSelectFile || canSelectFile(file)) && (
               <div
                 className="flex-shrink-0 cursor-pointer"
+                role="checkbox"
+                aria-label={`Select ${displayFilename}`}
+                aria-checked={isSelected}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); onSelectionChange(file.id); }
+                }}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSelectionChange(file.id);
@@ -913,7 +929,7 @@ export function MediaGrid({
       viewMode={viewMode}
       canSelect={canSelect}
       isClient={isClient}
-      files={files}
+      files={canSelectFile ? files.filter(canSelectFile) : files}
       selectedFiles={selectedFiles}
       onSelectAll={onSelectAll}
       showMultiSortHint={showMultiSortHint}

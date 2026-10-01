@@ -33,6 +33,7 @@ import {
 } from '@/components/tourLinks/tourMediaEmbedUrl';
 
 type OverviewVideoEmbedsSectionProps = {
+  unitId?: string | number;
   shoot: ShootData;
   role: string;
   isEditor?: boolean;
@@ -44,6 +45,7 @@ const cloneEmbeds = (embeds: OverviewVideoEmbed[]) =>
   embeds.map((embed) => ({ ...embed }));
 
 export function OverviewVideoEmbedsSection({
+  unitId,
   shoot,
   role,
   canWrite: canWriteProp,
@@ -194,7 +196,7 @@ export function OverviewVideoEmbedsSection({
         video_link: payload.video_link,
         featured_embed_id: nextFeatured,
       });
-      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}${unitId ? `/units/${unitId}/tour` : ''}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -209,11 +211,11 @@ export function OverviewVideoEmbedsSection({
         if (res.status === 403) {
           throw new Error(
             (errorData as { message?: string }).message
-              || 'You do not have permission to update video embeds on this shoot yet.',
+              || 'You do not have permission to update video links on this shoot yet.',
           );
         }
         throw new Error(
-          (errorData as { message?: string }).message || 'Failed to save video embeds',
+          (errorData as { message?: string }).message || 'Failed to save video links',
         );
       }
 
@@ -221,8 +223,8 @@ export function OverviewVideoEmbedsSection({
       toast({
         title: 'Saved',
         description: trimmed.length
-          ? 'Video embeds updated for the video tour.'
-          : 'Video embeds cleared from the video tour.',
+          ? 'Video links updated for the video tour.'
+          : 'Video links cleared from the video tour.',
       });
       await Promise.resolve(onShootUpdate());
     } catch (error) {
@@ -232,7 +234,7 @@ export function OverviewVideoEmbedsSection({
         description:
           error instanceof Error && error.message
             ? error.message
-            : 'Failed to save video embeds. Please try again.',
+            : 'Failed to save video links. Please try again.',
         variant: 'destructive',
       });
     } finally {
@@ -245,19 +247,19 @@ export function OverviewVideoEmbedsSection({
       <div className="flex items-center gap-1.5 mb-1.5">
         <Film className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-[11px] font-semibold text-muted-foreground uppercase">
-          Video Tour Embeds
+          Video links
         </span>
       </div>
       <p className="text-[11px] text-muted-foreground mb-2">
         {canWrite
-          ? 'Add YouTube/Vimeo links that appear as embeds in the video tour. The first link stays the primary video_link.'
+          ? 'Add YouTube or Vimeo links for the video tour. The first link is the primary video.'
           : 'Video links attached to this shoot’s tour.'}
       </p>
 
       <div className="space-y-2">
         {embeds.length === 0 ? (
           <div className="text-[11px] text-muted-foreground border-t pt-2">
-            No video embeds yet.
+            No video links yet.
           </div>
         ) : (
           embeds.map((embed, index) => (
@@ -331,7 +333,7 @@ export function OverviewVideoEmbedsSection({
                 Saving...
               </>
             ) : (
-              'Save embeds'
+              'Save links'
             )}
           </Button>
         </div>

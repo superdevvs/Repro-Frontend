@@ -59,7 +59,7 @@ const ShootDetails: React.FC = () => {
   const { id, slug } = useParams<{ id: string; slug?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, role: authRole } = useAuth();
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const [activeTab, setActiveTab] = useState('media');
   const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
@@ -111,8 +111,9 @@ const ShootDetails: React.FC = () => {
   } = useShootDetailsScreen({
     shootId: id,
     enabled: Boolean(id),
-    authRole: user?.role,
+    authRole: authRole || user?.role,
     userId: user?.id,
+    editorUser: user,
   });
   usePageLoading(loading);
 
@@ -815,6 +816,7 @@ const ShootDetails: React.FC = () => {
                         <React.Suspense fallback={null}>
                           <LazyShootDetailsTourTab
                             shoot={shoot}
+                            editorUser={{ ...user, role }}
                             isAdmin={isAdmin}
                             isRep={isRep}
                             isClient={isClient}

@@ -26,7 +26,11 @@ import {
 } from '@/components/shoots/tabs/shootDetailsTourTabUtils';
 import { resolvePublicTourPalette } from '@/components/tourLinks/landor/landorPalettes';
 import { resolvePublicTourStyle } from '@/components/tourLinks/publicTourStyle';
+import type { VideoTourEditor } from './tours/videoTourAccess';
 export interface ShootDetailsTourTabProps {
+  editorUser?: VideoTourEditor;
+  videoOnly?: boolean;
+  canEditVideoLinks?: boolean;
   unitId?: string | number;
   iguideLineId?: string;
   cubicasaLineId?: string;
@@ -89,10 +93,13 @@ export function ShootDetailsTourContent({
   isRep = false,
   isClient = false,
   isClientReleaseLocked = false,
+  videoOnly = false,
+  canEditVideoLinks = false,
   onShootUpdate,
   onShowAnalytics,
 }: ShootDetailsTourTabProps) {
   const { toast } = useToast();
+  const canManageVideoLinks = isAdmin || canEditVideoLinks;
   const updateUrl = `${API_BASE_URL}/api/shoots/${shoot.id}${unitId ? `/units/${unitId}/tour` : ''}`;
   const providerUrl = (provider: string, operation: string) => unitId ? `${API_BASE_URL}/api/shoots/${shoot.id}/units/${unitId}/${provider}/${operation}?shoot_service_id=${provider === 'iguide' ? iguideLineId || '' : cubicasaLineId || ''}` : `${API_BASE_URL}/api/integrations/shoots/${shoot.id}/${provider}/${operation}`;
   const shootTourData = shoot as ShootTourCompat;
@@ -372,14 +379,14 @@ export function ShootDetailsTourContent({
   const hasZillow3dLink = Boolean(tourLinks.zillow_3d);
   // Sales reps need the same read-only visibility into video links/embeds that admins have.
   // Editing/deleting remains admin-only (gated per-button by isAdmin inside the view).
-  const showVideoLinksSection = Boolean(isAdmin || isRep || isClientView || hasPublicVideoLinks);
-  const showVideoEmbedSection = Boolean(isAdmin || isRep || hasVideoEmbedLink);
+  const showVideoLinksSection = Boolean(videoOnly || isAdmin || isRep || isClientView || hasPublicVideoLinks);
+  const showVideoEmbedSection = Boolean(videoOnly || isAdmin || isRep || hasVideoEmbedLink);
   // Clients get the settings card too, reduced to the one control that is theirs
   // to make: which linked account's branding fronts the tour.
   const canManageRealtor = isAdmin || isRep || isClient;
-  const showTourSettings = !isClientView || canManageRealtor;
+  const showTourSettings = !videoOnly && (!isClientView || canManageRealtor);
   const tourSettingsRealtorOnly = isClientView;
-  const showPropertyInfo = Boolean(isAdmin || isClientView);
+  const showPropertyInfo = !videoOnly && Boolean(isAdmin || isClientView);
   const show3dTours = !isClientView || hasMatterportLinks || hasIguideLinks || hasZillow3dLink;
   const matterportKeys = ['matterport_branded', 'matterport_mls'] as const;
   const iguideKeys = ['iguide_branded', 'iguide_mls'] as const;
@@ -799,6 +806,7 @@ export function ShootDetailsTourContent({
   };
   // Video link management functions
   const startEditVideoLink = (key: ManagedVideoLinkKey) => {
+    if (!canManageVideoLinks) return;
     setEditingVideoLinkKey(key);
     setVideoLinkValue(tourLinks[key] || '');
   };
@@ -807,7 +815,7 @@ export function ShootDetailsTourContent({
     setVideoLinkValue('');
   };
   const saveVideoLink = async () => {
-    if (!editingVideoLinkKey) return;
+    if (!canManageVideoLinks || !editingVideoLinkKey) return;
     const value = videoLinkValue.trim();
     if (value && !/^https?:\/\//i.test(value)) {
       toast({
@@ -822,7 +830,7 @@ export function ShootDetailsTourContent({
     try {
       const linkKey = editingVideoLinkKey;
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const nextTourLinks = {
+      const nextTourLinks = videoOnly ? { [linkKey]: value || null } : {
         ...sourceTourLinks,
         ...tourLinks,
         [linkKey]: value || null,
@@ -869,7 +877,7 @@ export function ShootDetailsTourContent({
     }
   };
   const deleteVideoLink = async (key: ManagedVideoLinkKey) => {
-    if (!isAdmin) {
+    if (!canManageVideoLinks) {
       toast({
         title: 'Permission denied',
         description: "You don't have permission to remove links",
@@ -882,7 +890,7 @@ export function ShootDetailsTourContent({
     setIsDeletingVideoLinkKey(key);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const nextTourLinks = {
+      const nextTourLinks = videoOnly ? { [key]: null } : {
         ...sourceTourLinks,
         ...tourLinks,
         [key]: null,
@@ -1305,6 +1313,8 @@ export function ShootDetailsTourContent({
       shareLink={shareLink}
       getQrCode={getQrCode}
       showVideoLinksSection={showVideoLinksSection}
+      videoOnly={videoOnly}
+      canEditVideoLinks={canManageVideoLinks}
       showVideoEmbedSection={showVideoEmbedSection}
       showTourSettings={showTourSettings}
       tourSettingsRealtorOnly={tourSettingsRealtorOnly}

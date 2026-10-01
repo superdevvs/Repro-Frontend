@@ -161,6 +161,7 @@ export function ShootDetailsModal({
     currentRole,
     authRole,
     userId: user?.id,
+    editorUser: user,
     shouldHideClientDetailsProp,
   });
   const createdByLabel = useMemo(
@@ -810,6 +811,7 @@ export function ShootDetailsModal({
           activeMediaDisplayTab={activeMediaDisplayTab}
           visibleTabs={visibleTabs}
           currentUserRole={currentUserRole}
+          editorUser={{ ...user, role: currentUserRole }}
           weather={weather || null}
           initialFocus={initialFocus}
           isAdmin={isAdmin}

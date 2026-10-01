@@ -3,12 +3,14 @@ import { ShootData } from '@/types/shoots';
 import { getShootClientReleaseAccess } from '../details/shootClientReleaseAccess';
 import { getShootDetailsCapabilities } from './shootDetailsCapabilities';
 import { getShootDetailsVisibleTabs } from './shootDetailsTabRegistry';
+import { canEditVideoTours, type VideoTourEditor } from '../tabs/tours/videoTourAccess';
 
 interface UseShootDetailsControllerInput {
   currentRole?: string;
   authRole?: string;
   shoot: ShootData | null;
   userId?: string | number | null;
+  editorUser?: VideoTourEditor;
   shouldHideClientDetailsProp?: boolean;
 }
 
@@ -17,6 +19,7 @@ export function useShootDetailsController({
   authRole,
   shoot,
   userId,
+  editorUser,
   shouldHideClientDetailsProp = false,
 }: UseShootDetailsControllerInput) {
   const currentUserRole = currentRole || authRole || '';
@@ -78,6 +81,7 @@ export function useShootDetailsController({
         isAdmin: roleFlags.isAdmin,
         isRep: roleFlags.isRep,
         isClient: roleFlags.isClient,
+        canEditVideoTours: canEditVideoTours(shoot, { ...editorUser, id: userId ?? undefined, role: currentUserRole }),
         isRequestedStatus,
         isClientReleaseLocked: releaseAccess.isClientReleaseLocked,
         shoot,
@@ -89,6 +93,9 @@ export function useShootDetailsController({
       roleFlags.isClient,
       roleFlags.isRep,
       shoot,
+      editorUser,
+      userId,
+      currentUserRole,
     ],
   );
 

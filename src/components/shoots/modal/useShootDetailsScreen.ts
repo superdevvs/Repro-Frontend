@@ -4,6 +4,7 @@ import { useShoot } from '@/hooks/useShoot';
 import { useShootDetailsController } from './useShootDetailsController';
 import { useShootRawFileCount } from './useShootRawFileCount';
 import { registerShootDetailRefresh } from '@/realtime/realtimeRefreshBus';
+import type { VideoTourEditor } from '../tabs/tours/videoTourAccess';
 
 interface UseShootDetailsScreenInput {
   shootId: string | number | null | undefined;
@@ -11,6 +12,7 @@ interface UseShootDetailsScreenInput {
   currentRole?: string;
   authRole?: string;
   userId?: string | number | null;
+  editorUser?: VideoTourEditor;
   shouldHideClientDetailsProp?: boolean;
 }
 
@@ -20,6 +22,7 @@ export function useShootDetailsScreen({
   currentRole,
   authRole,
   userId,
+  editorUser,
   shouldHideClientDetailsProp = false,
 }: UseShootDetailsScreenInput) {
   const [shoot, setShoot] = useState<ShootData | null>(null);
@@ -41,6 +44,7 @@ export function useShootDetailsScreen({
     authRole,
     shoot,
     userId,
+    editorUser,
     shouldHideClientDetailsProp,
   });
 

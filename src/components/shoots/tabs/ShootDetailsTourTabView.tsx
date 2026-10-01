@@ -24,6 +24,8 @@ export function ShootDetailsTourTabView(props: any) {
     shareLink,
     getQrCode,
     showVideoLinksSection,
+    videoOnly = false,
+    canEditVideoLinks = false,
     showVideoEmbedSection,
     showTourSettings,
     tourSettingsRealtorOnly = false,
@@ -167,7 +169,7 @@ export function ShootDetailsTourTabView(props: any) {
     { key: 'share', label: 'Share link', icon: Share2, onSelect: () => shareLink(key), disabled: !hasUrl },
     { key: 'qr', label: 'Get QR code', icon: QrCode, onSelect: () => getQrCode(key), disabled: !hasUrl },
   ];
-  const manageActions = (key: string, label: string): TourLinkAction[] => (isAdmin
+  const manageActions = (key: string, label: string): TourLinkAction[] => (isAdmin || canEditVideoLinks
     ? [
       { key: 'edit', label: `Edit ${label}`, icon: Edit, onSelect: () => startEditVideoLink(key) },
       ...(tourLinks[key]
@@ -179,7 +181,7 @@ export function ShootDetailsTourTabView(props: any) {
   return (
     <div className="w-full space-y-4">
       {/* Tour Links Section */}
-      <section className="overflow-hidden rounded-lg border bg-card" aria-labelledby="tour-links-title">
+      {!videoOnly && <section className="overflow-hidden rounded-lg border bg-card" aria-labelledby="tour-links-title">
         <div className="flex items-center justify-between gap-2 border-b px-3 py-2.5">
           <div className="min-w-0">
             <h3 id="tour-links-title" className="text-sm font-semibold">Tour Links</h3>
@@ -240,7 +242,7 @@ export function ShootDetailsTourTabView(props: any) {
             <TourLinkRow label="Generic MLS Link" value={getTourUrl('genericMls')} actions={shareActions('genericMls')} />
           </div>
         </div>
-      </section>
+      </section>}
       {(showVideoLinksSection || showVideoEmbedSection) && (
         <section className="overflow-hidden rounded-lg border bg-card" aria-labelledby="tour-video-links-title">
           <div className="border-b px-3 py-2.5">
@@ -250,7 +252,7 @@ export function ShootDetailsTourTabView(props: any) {
           <div className="space-y-4 px-3 py-3">
             {showVideoLinksSection && (
               <div className="space-y-3">
-                {isAdmin && (
+                {(isAdmin || canEditVideoLinks) && (
                   <p className="text-[11px] text-muted-foreground">
                     These links stay fixed. Editing a row changes the video that the public page plays.
                   </p>
@@ -270,7 +272,7 @@ export function ShootDetailsTourTabView(props: any) {
                             placeholder={placeholder}
                             actions={[...shareActions(key, Boolean(url)), ...manageActions(key, label)]}
                           />
-                          {isAdmin && (
+                          {(isAdmin || canEditVideoLinks) && (
                             <p className="truncate text-xs text-muted-foreground">
                               Destination: {destinationUrl || placeholder}
                             </p>
@@ -341,7 +343,7 @@ export function ShootDetailsTourTabView(props: any) {
       )}
       {/* 3D tours and floor plans sit with the other shareable links, directly
           under Video Links, rather than after the settings and property forms. */}
-      {providerSection}
+      {!videoOnly && providerSection}
       {/* Tour Settings Section */}
       {showTourSettings && (
         <ShootTourSettingsSection

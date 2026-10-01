@@ -21,6 +21,8 @@ export interface MediaFile {
   path?: string;
   fileType?: string;
   workflowStage?: string;
+  /** File-level deletion permission, evaluated by the server for the current user. */
+  can_delete?: boolean;
   isExtra?: boolean;
   // Image size URLs from backend
   thumb?: string;
@@ -164,6 +166,7 @@ export const normalizeShootMediaFile = (payload: Record<string, unknown>): Media
   path: value.path,
   fileType: value.file_type || value.fileType,
   workflowStage: value.workflow_stage || value.workflowStage,
+  can_delete: typeof value.can_delete === 'boolean' ? value.can_delete : undefined,
   isExtra: Boolean(value.is_extra ?? value.isExtra),
   thumb: value.thumb_url || value.thumb,
   thumb_url: value.thumb_url,
@@ -309,4 +312,3 @@ export const useShootFiles = (
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
 };
-
