@@ -1,7 +1,7 @@
 import type { AiChatRequest, AiChatSession } from '@/types/ai';
 
 export type ViewMode = 'home' | 'chat';
-export type TabMode = 'chat' | 'history' | 'help';
+export type TabMode = 'chat' | 'history';
 export type ShootModalTab = 'overview' | 'notes' | 'issues' | 'tours' | 'settings' | 'activity' | 'media';
 
 export type InsightNavigationState = {

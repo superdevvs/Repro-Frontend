@@ -113,6 +113,8 @@ for (const scenario of [
     await page.goto(`${baseURL}/chat-with-reproai?tab=help&article=${scenario.article}`);
     await expect(page.getByRole('article').getByRole('heading', { name: scenario.title, exact: true })).toBeVisible({ timeout: 60000 });
     await page.getByRole('button', { name: 'Ask Robbie about this' }).click();
+    await expect(page.getByRole('textbox', { name: 'Message Robbie' })).toHaveValue(`Help me with: ${scenario.title}`);
+    await page.getByRole('button', { name: 'Send message', exact: true }).click();
     await expect(page.getByRole('navigation', { name: 'Guides used in this answer' }).getByRole('link', { name: scenario.title })).toBeVisible({ timeout: 60000 });
     await expect(page.getByRole('link', { name: 'Read this guide', exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

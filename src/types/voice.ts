@@ -43,6 +43,7 @@ export interface VoicePhoneSettings {
 
 export interface VoiceTranscriptState {
   transcript: string;
+  display_transcript?: string;
   state: 'off' | 'starting' | 'live' | 'delayed' | 'finalizing' | 'ready' | 'partial' | 'unavailable';
   last_chunk_at: string | null;
   segment_count: number;
