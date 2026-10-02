@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 export type Scenario = 'available' | 'same-building' | 'incoming' | 'outgoing' | 'overlap' | 'unknown' | 'disabled';
-export async function bookingScheduleFixture(page: Page, baseURL: string | undefined, scenario: Scenario, role = 'admin') {
+export async function bookingScheduleFixture(page: Page, baseURL: string | undefined, scenario: Scenario, role = 'admin', draftOptions: { legacyDuration?: number; overrideDuration?: number } = {}) {
   if (!baseURL || !['localhost', '127.0.0.1'].includes(new URL(baseURL).hostname)) throw new Error('Booking fixtures must run locally.');
   await page.clock.setFixedTime(new Date('2026-10-02T12:00:00Z'));
   const user = { id: 900503, name: 'Scheduling QA', email: 'schedule@example.test', role, account_status: 'active', email_verified_at: '2026-10-01T09:00:00Z', metadata: { terms_accepted_at: '2026-10-01T09:00:00Z' } };
@@ -11,11 +11,12 @@ export async function bookingScheduleFixture(page: Page, baseURL: string | undef
   const requests: { path: string; method: string; body: Record<string, unknown> | null }[] = [];
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
-  await page.addInitScript(({ user, service }) => {
+  await page.addInitScript(({ user, service, draftOptions }) => {
     localStorage.clear(); sessionStorage.clear();
     localStorage.setItem('authToken', 'local-schedule-fixture'); localStorage.setItem('user', JSON.stringify(user)); localStorage.setItem('theme', 'light');
-    localStorage.setItem('bookShoot_form_cache', JSON.stringify({ client: '101', address: '615 North Highland Avenue', city: 'Baltimore', state: 'MD', zip: '21205', date: '2026-10-05T12:00:00-04:00', time: '8:30 AM', photographer: '201', selectedServices: [service], bookingQuantityVersion: 1, servicePhotographers: { '501': '201' }, serviceSchedules: {}, propertySqft: 1500, propertyDetails: { sqft: 1500, bedrooms: 3, bathrooms: 2, listingType: 'for_sale', presenceOption: 'lockbox', lockboxCode: 'QA', lockboxLocation: 'front door' }, notes: '', bypassPayment: true, sendNotification: false }));
-  }, { user, service });
+    const cachedService = draftOptions.legacyDuration ? { ...service, shoot_duration_minutes: draftOptions.legacyDuration, booking_duration_default_minutes: undefined } : service;
+    localStorage.setItem('bookShoot_form_cache', JSON.stringify({ client: '101', address: '615 North Highland Avenue', city: 'Baltimore', state: 'MD', zip: '21205', date: '2026-10-05T12:00:00-04:00', time: '8:30 AM', photographer: '201', selectedServices: [cachedService], bookingQuantityVersion: 1, servicePhotographers: { '501': '201' }, serviceSchedules: draftOptions.overrideDuration ? { '501': { duration_minutes: draftOptions.overrideDuration } } : {}, propertySqft: 1500, propertyDetails: { sqft: 1500, bedrooms: 3, bathrooms: 2, listingType: 'for_sale', presenceOption: 'lockbox', lockboxCode: 'QA', lockboxLocation: 'front door' }, notes: '', bypassPayment: true, sendNotification: false }));
+  }, { user, service, draftOptions });
   await page.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url()), p = url.pathname.replace(/^\/api/, '');
     if (!url.pathname.startsWith('/api/')) return ['localhost', '127.0.0.1'].includes(url.hostname) ? route.continue() : route.abort();

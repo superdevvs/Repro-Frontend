@@ -3,6 +3,18 @@ import { bookingScheduleFixture, reviewBooking, type Scenario } from './helpers/
 
 test.use({ timezoneId: 'America/New_York' });
 
+for (const override of [undefined, 37]) {
+  test(`Book Shoot Schedule: restored old default respects ${override ? 'manual duration' : 'current catalog'}`, async ({ page, baseURL }) => {
+    const qa = await bookingScheduleFixture(page, baseURL, 'available', 'admin', { legacyDuration: 60, overrideDuration: override });
+    const duration = override ?? 15;
+    await expect(page.getByRole('slider', { name: 'Shoot duration for 10 Exterior HDR' })).toHaveAttribute('aria-valuetext', `${duration} minutes`);
+    await reviewBooking(page);
+    await expect.poll(() => qa.saves().length).toBe(1);
+    expect((qa.saves()[0].body?.services as { duration_minutes: number }[])[0].duration_minutes).toBe(duration);
+    expect(qa.errors).toEqual([]);
+  });
+}
+
 test.describe('browser timezone alias', () => {
   test.use({ timezoneId: 'Asia/Kolkata' });
   test('Book Shoot Schedule: India browser uses canonical timezone and matching preview/save clocks', async ({ page, baseURL }) => {

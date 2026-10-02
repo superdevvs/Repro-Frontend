@@ -13,13 +13,22 @@ const shoot = { id: '42', scheduled_at: '2026-10-08T10:00:00', serviceObjects: [
   { id: '10', name: 'Photos', duration_minutes: 30 }, { id: '11', name: 'Video', duration_minutes: 90 },
 ] } as unknown as ShootData;
 beforeEach(() => { mocks.role = 'superadmin'; mocks.post.mockResolvedValue({ data: { applied: true } }); localStorage.setItem('authToken', 'test'); });
-afterEach(() => { cleanup(); vi.clearAllMocks(); localStorage.clear(); });
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    if (!String(input).endsWith('/photographer/availability/feasibility')) throw new Error(`Unexpected fetch: ${String(input)}`);
+    return new Response(JSON.stringify({ data: { enabled: false, status: 'available', available: true,
+      reason_codes: [], transitions: [], alternatives: [], can_override: false, policy_version: '1', schedule_version: '1' } }));
+  }));
+});
+
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
 describe('rescheduling service duration', () => {
   it('submits only changed duration and resets it on reopen', async () => {
     const props = { shoot, isOpen: true, onClose: vi.fn() };
     const view = render(<RescheduleDialog {...props} />);
     expect(screen.getByLabelText('Shoot duration for Photos')).toHaveValue('30');
     fireEvent.change(screen.getByLabelText('Shoot duration for Photos'), { target: { value: '120' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reschedule Shoot' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Reschedule Shoot' }));
     await waitFor(() => expect(mocks.post).toHaveBeenCalledOnce());
     expect(mocks.post.mock.calls[0][1]).toMatchObject({ services: [{ id: 10, duration_minutes: 120 }] });
@@ -43,6 +52,7 @@ describe('rescheduling service duration', () => {
         { id: '10', shoot_service_id: '52', service_id: '10', name: 'Photos', unit_label: '102', duration_minutes: 90 }],
     } as ShootData} isOpen onClose={vi.fn()} />);
     fireEvent.change(screen.getByLabelText('Shoot duration for Photos · 102'), { target: { value: '60' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Reschedule Shoot' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Reschedule Shoot' }));
     await waitFor(() => expect(mocks.post).toHaveBeenCalledOnce());
     expect(mocks.post.mock.calls[0][1]).toMatchObject({ expected_units_revision: 4, service_lines: [{ shoot_service_id: 52, duration_minutes: 60 }] });

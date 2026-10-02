@@ -69,6 +69,33 @@ describe('editing a shoot request keeps its stored schedule', () => {
 });
 
 describe('booking catalogue duration mapping', () => {
+  it.each([
+    { label: 'stale catalogue default and tier', cached: { shoot_duration_minutes: 60, pricing_type: 'variable', sqft_ranges: [{ sqft_from: 1, sqft_to: 5000, duration: 60, price: 90 }] }, schedule: {}, expected: 15 },
+    { label: 'missing cached duration fields', cached: {}, schedule: {}, expected: 15 },
+    { label: 'explicit schedule override', cached: { shoot_duration_minutes: 60 }, schedule: { duration_minutes: 83 }, expected: 83 },
+    { label: 'explicit selected service snapshot', cached: { duration_minutes: 45, shoot_duration_minutes: 60 }, schedule: {}, expected: 45 },
+  ])('refreshes new draft defaults while preserving $label', async ({ cached, schedule, expected }) => {
+    localStorage.setItem('authToken', 'test-token');
+    localStorage.setItem(BOOKING_FORM_CACHE_KEY, JSON.stringify({ bookingQuantityVersion: 1,
+      selectedServices: [{ id: '6', name: '10 Exterior HDR Photos', description: 'Saved draft', price: 90, quantity: 2, ...cached }],
+      serviceSchedules: { '6': { date: '2026-10-02', time: '09:00', ...schedule } }, propertySqft: 2467,
+    }));
+    mocks.get.mockImplementation(async (url: string) => ({ data: { data: url.endsWith('/services') ? [
+      { id: 6, name: '10 Exterior HDR Photos', price: 100, shoot_duration_minutes: 15, pricing_type: 'variable',
+        sqft_ranges: [{ sqft_from: 1, sqft_to: 5000, duration: 15, price: 110 }], photographer_required: true },
+    ] : [] } }));
+    const { result } = renderHook(() => useBookShootWorkflow({ user: { id: '1', role: 'admin' } as never, isClientAccount: false,
+      clientIdFromUrl: null, clientNameFromUrl: null, clientCompanyFromUrl: null, editShootId: null, canAdjustBookingAmount: false }));
+    await waitFor(() => expect(result.current.packages).toHaveLength(1));
+    await waitFor(() => expect(result.current.selectedServices[0]?.shoot_duration_minutes).toBe(15));
+    for (const sqft of [1000, 2467]) {
+      expect(resolveServiceShootDuration(result.current.selectedServices[0], sqft,
+        result.current.serviceSchedules['6'].duration_minutes)).toBe(expected);
+    }
+    expect(result.current.selectedServices[0]).toMatchObject({ price: 90, quantity: 2, description: 'Saved draft' });
+    expect(result.current.serviceSchedules['6']).toEqual({ date: '2026-10-02', time: '09:00', ...schedule });
+  });
+
   it('uses saved service defaults and matching tiers without interpreting delivery time as shoot length', async () => {
     mocks.get.mockImplementation(async (url: string) => ({ data: { data: url.endsWith('/services') ? [
       { id: 19, name: 'Photography', price: 200, delivery_time: 48, shoot_duration_minutes: 120 },

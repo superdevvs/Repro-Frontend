@@ -34,6 +34,7 @@ export type ServicePackage = {
   booking_duration_min_minutes?: number | null;
   booking_duration_max_minutes?: number | null;
   booking_duration_defaults?: { default_minutes: number; min_minutes: number; max_minutes: number };
+  booking_duration_tiers?: Array<Pick<SqftRange, 'sqft_from' | 'sqft_to' | 'duration'>>;
   category?: {
     id: string;
     name: string;

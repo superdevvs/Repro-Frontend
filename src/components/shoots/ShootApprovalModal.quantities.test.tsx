@@ -20,7 +20,10 @@ const shoot = {
 let fetchMock: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   fetchMock = vi.fn(async (url: RequestInfo | URL) => ({
-    ok: true, json: async () => String(url).includes('/api/shoots/') ? { data: shoot } : { data: [] },
+    ok: true, status: 200, json: async () => String(url).endsWith('/feasibility')
+      ? { data: { enabled: false, status: 'available', available: true, reason_codes: [], transitions: [], visits: [], alternatives: [], can_override: false,
+        can_confirm_location: false, policy_version: 'hybrid-travel-v1', schedule_version: null } }
+      : String(url).includes('/api/shoots/') ? { data: shoot } : { data: [] },
   }));
   vi.stubGlobal('fetch', fetchMock);
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
@@ -40,6 +43,7 @@ describe('actual shoot approval service quantities', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Increase Photos quantity' }));
     expect(screen.getByLabelText('Photos quantity')).toHaveTextContent('3');
     expect(screen.getByText('$759.00')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Approve Shoot' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Approve Shoot' }));
     await waitFor(() => expect(approved).toHaveBeenCalled());
     const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/42/approve'));

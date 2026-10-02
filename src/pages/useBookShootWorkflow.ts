@@ -26,7 +26,7 @@ import type {
   ServiceScheduleMap,
 } from './bookShootModel';
 import { asRecord } from './bookShootModel';
-import { hydrateBookedServiceSelection, restoreCachedServiceQuantities } from './bookShootServiceSelection';
+import { hydrateBookedServiceSelection, restoreCachedServiceQuantities, syncDraftServiceDurations } from './bookShootServiceSelection';
 import { serviceRequiresPhotographer, syncPhotographerRequiredFromCatalog } from '@/utils/photographerAssignment';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
@@ -92,7 +92,8 @@ export const useBookShootWorkflow = ({
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetailsData | null>(null);
   const [propertySqft, setPropertySqft] = useState<number | null>(null);
   const handleSelectedServicesChange = React.useCallback((services: ServicePackage[]) => {
-    setSelectedServices(syncPhotographerRequiredFromCatalog(services, packages));
+    const synced = syncPhotographerRequiredFromCatalog(services, packages);
+    setSelectedServices(editShootId ? synced : syncDraftServiceDurations(synced, packages));
     setServicePhotographers(prev => {
       const currentServiceIds = new Set(services.map(s => s.id));
       const next: Record<string, string> = {};
@@ -113,16 +114,17 @@ export const useBookShootWorkflow = ({
       }
       return next;
     });
-  }, [packages]);
+  }, [editShootId, packages]);
   React.useEffect(() => {
     if (packages.length === 0 || selectedServices.length === 0) {
       return;
     }
-    const synced = syncPhotographerRequiredFromCatalog(selectedServices, packages);
-    if (synced.some((service, index) => service.photographer_required !== selectedServices[index].photographer_required)) {
+    const assigned = syncPhotographerRequiredFromCatalog(selectedServices, packages);
+    const synced = editShootId ? assigned : syncDraftServiceDurations(assigned, packages);
+    if (synced.some((service, index) => service !== selectedServices[index])) {
       setSelectedServices(synced);
     }
-  }, [packages, selectedServices]);
+  }, [editShootId, packages, selectedServices]);
   const handleShootTypeChange = (nextType: InternalShootType) => {
     setShootType(nextType);
     if (nextType !== 'standard') {

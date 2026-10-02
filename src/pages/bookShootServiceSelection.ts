@@ -8,6 +8,27 @@ export function restoreCachedServiceQuantities(services: ServicePackage[], quant
   return services.map(service => ({ ...service, quantity: quantityVersion === 1 ? normalizeBookingQuantity(service.quantity) : 1 }));
 }
 
+/** Refresh new-draft timing without changing prices, quantities, or explicit snapshots. */
+export function syncDraftServiceDurations(services: ServicePackage[], catalog: ServicePackage[]): ServicePackage[] {
+  const byId = new Map(catalog.map(service => [service.id, service]));
+  return services.map(service => {
+    const current = byId.get(service.id);
+    if (!current) return service;
+    const timing = {
+      shoot_duration_minutes: current.shoot_duration_minutes,
+      booking_duration_default_minutes: current.booking_duration_default_minutes,
+      booking_duration_min_minutes: current.booking_duration_min_minutes,
+      booking_duration_max_minutes: current.booking_duration_max_minutes,
+      booking_duration_defaults: current.booking_duration_defaults,
+      booking_duration_tiers: current.pricing_type === 'variable'
+        ? (current.sqft_ranges ?? []).map(({ sqft_from, sqft_to, duration }) => ({ sqft_from, sqft_to, duration })) : [],
+    };
+    const unchanged = Object.entries(timing).every(([key, value]) =>
+      JSON.stringify(service[key as keyof ServicePackage]) === JSON.stringify(value));
+    return unchanged ? service : { ...service, ...timing };
+  });
+}
+
 export function hydrateBookedServiceSelection(catalog: ServicePackage[], value: unknown): ServicePackage[] {
   const shoot = asRecord(value);
   const bookedRows = (Array.isArray(shoot.serviceItems) ? shoot.serviceItems

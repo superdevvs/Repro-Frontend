@@ -1,5 +1,5 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ShootData } from '@/types/shoots';
 import { useShootOverviewEditor } from './useShootOverviewEditor';
@@ -19,9 +19,17 @@ vi.mock('./shootOverviewEditorSupport', async (importOriginal) => {
   };
 });
 
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    if (!String(input).endsWith('/photographer/availability/feasibility')) throw new Error(`Unexpected fetch: ${String(input)}`);
+    return new Response(JSON.stringify({ data: { enabled: false, status: 'available', available: true,
+      reason_codes: [], transitions: [], alternatives: [], can_override: false, policy_version: '1', schedule_version: '1' } }));
+  }));
+});
+
 afterEach(() => {
   cleanup();
-  vi.clearAllMocks();
+  vi.clearAllMocks(); vi.unstubAllGlobals();
 });
 
 const shoot = {
@@ -74,6 +82,7 @@ describe('useShootOverviewEditor service mutation payload', () => {
     act(() => result.current.actions.updateServiceSchedule('10', 'date', '2026-10-08'));
     act(() => result.current.actions.updateServiceSchedule('10', 'time', '12:00'));
     act(() => result.current.actions.applyServiceScheduleToAll('10'));
+    await waitFor(() => expect(result.current.travel.result?.enabled).toBe(false));
     await act(async () => { await result.current.actions.handleSave(); });
     const payload = onSave.mock.calls.at(-1)?.[0];
     expect(payload.service_items).toEqual(expect.arrayContaining([
@@ -94,6 +103,7 @@ describe('useShootOverviewEditor service mutation payload', () => {
     expect(result.current.state.serviceQuantities['10']).toBe(2);
     act(() => result.current.actions.updateServiceQuantity('10', 3));
     await waitFor(() => expect(result.current.state.editedShoot.payment?.serviceSubtotal).toBe(350));
+    await waitFor(() => expect(result.current.travel.result?.enabled).toBe(false));
     await act(async () => { await result.current.actions.handleSave(); });
     const payload = onSave.mock.calls.at(-1)?.[0];
     expect(payload.service_items[0]).toEqual(expect.objectContaining({ service_id: 10, quantity: 3 }));
@@ -173,6 +183,7 @@ describe('useShootOverviewEditor service mutation payload', () => {
       expect(result.current.state.editedShoot.payment?.serviceSubtotal).toBe(250);
     });
 
+    await waitFor(() => expect(result.current.travel.result?.enabled).toBe(false));
     await act(async () => { await result.current.actions.handleSave(); });
     const retainedPayload = onSave.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(retainedPayload.services).toEqual([
@@ -190,6 +201,7 @@ describe('useShootOverviewEditor service mutation payload', () => {
     });
     expect(result.current.state.selectedServiceIds).toEqual([]);
 
+    await waitFor(() => expect(result.current.travel.result?.enabled).toBe(false));
     await act(async () => { await result.current.actions.handleSave(); });
     const emptyPayload = onSave.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(emptyPayload.services).toEqual([]);

@@ -1,12 +1,20 @@
 import React from 'react';
 import '@testing-library/jest-dom/vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MultiUnitApprovalDialog } from './MultiUnitApprovalDialog';
 
 const { post } = vi.hoisted(() => ({ post: vi.fn().mockResolvedValue({ data: {} }) }));
 vi.mock('@/services/api', () => ({ apiClient: { post } }));
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    if (!String(input).endsWith('/photographer/availability/feasibility')) throw new Error(`Unexpected fetch: ${String(input)}`);
+    return new Response(JSON.stringify({ data: { enabled: false, status: 'available', available: true,
+      reason_codes: [], transitions: [], alternatives: [], can_override: false, policy_version: '1', schedule_version: '1' } }));
+  }));
+});
+
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe('large property approval', () => {
   it('reviews one of 100 units while preserving every booked line and the revision in approval', async () => {
@@ -24,6 +32,7 @@ describe('large property approval', () => {
     fireEvent.click(screen.getByRole('button', { name: /Unit 100.*900 sqft/ }));
     expect(screen.getAllByRole('group')).toHaveLength(1);
     fireEvent.change(screen.getByLabelText('Photos time'), { target: { value: '07:30' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Approve 100 units / areas' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Approve 100 units / areas' }));
     await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
     const [url, payload] = post.mock.calls[0];
@@ -62,6 +71,7 @@ describe('large property approval', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next unit' }));
     expect(screen.getByText('Quantity: 4')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Floor plan quantity/ })).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Approve 2 units / areas' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Approve 2 units / areas' }));
     await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
     expect(post.mock.calls[0][1]).toMatchObject({ expected_units_revision: 3, service_lines: [

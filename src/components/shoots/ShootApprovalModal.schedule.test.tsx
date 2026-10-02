@@ -27,7 +27,10 @@ let fetchedShoot: ReturnType<typeof buildShoot>;
 beforeEach(() => {
   fetchedShoot = buildShoot();
   fetchMock = vi.fn(async (url: RequestInfo | URL) => ({
-    ok: true, json: async () => String(url).includes('/api/shoots/') ? { data: fetchedShoot } : { data: [] },
+    ok: true, status: 200, json: async () => String(url).endsWith('/feasibility')
+      ? { data: { enabled: false, status: 'available', available: true, reason_codes: [], transitions: [], visits: [], alternatives: [], can_override: false,
+        can_confirm_location: false, policy_version: 'hybrid-travel-v1', schedule_version: null } }
+      : String(url).includes('/api/shoots/') ? { data: fetchedShoot } : { data: [] },
   }));
   vi.stubGlobal('fetch', fetchMock);
   vi.stubGlobal('ResizeObserver', class { observe() {} unobserve() {} disconnect() {} });
@@ -44,6 +47,7 @@ const loadModal = async () => {
   return { ...view, props };
 };
 const approve = async () => {
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Approve Shoot' })).toBeEnabled());
   fireEvent.click(screen.getByRole('button', { name: 'Approve Shoot' }));
   await waitFor(() => expect(fetchMock.mock.calls.some(([url]) => String(url).endsWith('/42/approve'))).toBe(true));
   const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith('/42/approve'));

@@ -1,5 +1,5 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ShootData } from '@/types/shoots';
 import { useShootOverviewEditor } from './useShootOverviewEditor';
@@ -18,9 +18,17 @@ vi.mock('./shootOverviewEditorSupport', async (importOriginal) => {
   };
 });
 
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    if (!String(input).endsWith('/photographer/availability/feasibility')) throw new Error(`Unexpected fetch: ${String(input)}`);
+    return new Response(JSON.stringify({ data: { enabled: false, status: 'available', available: true,
+      reason_codes: [], transitions: [], alternatives: [], can_override: false, policy_version: '1', schedule_version: '1' } }));
+  }));
+});
+
 afterEach(() => {
   cleanup();
-  vi.clearAllMocks();
+  vi.clearAllMocks(); vi.unstubAllGlobals();
 });
 
 const buildShoot = (withPhotographer = true) => ({
@@ -112,6 +120,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
     await waitFor(() => expect(result.current.state.selectedServiceIds).toEqual(['10']));
 
     act(() => result.current.actions.toggleCompServiceSelection('501'));
+    await waitFor(() => expect(result.current.travel.result?.enabled).toBe(false));
     await act(async () => { await result.current.actions.handleSave(); });
     expect(onSave).not.toHaveBeenCalled();
     expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Choose a return-visit reason' }));
@@ -121,6 +130,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
       result.current.actions.updateCompServiceSchedule('501', 'date', '2026-09-12');
       result.current.actions.updateCompServiceSchedule('501', 'time', '11:30');
     });
+    await waitFor(() => expect(result.current.travel.result?.enabled).toBe(false));
     await act(async () => { await result.current.actions.handleSave(); });
 
     expect(onSave).not.toHaveBeenCalled();
@@ -140,6 +150,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
       result.current.actions.updateCompServiceSchedule('501', 'date', '2026-09-12');
       result.current.actions.updateCompServiceSchedule('501', 'time', '11:30');
     });
+    await waitFor(() => expect(result.current.travel.result?.enabled).toBe(false));
     await act(async () => { await result.current.actions.handleSave(); });
 
     const payload = onSave.mock.calls[0][0] as Record<string, unknown>;
@@ -169,6 +180,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
       result.current.actions.toggleCompServiceSelection('501');
       result.current.actions.toggleServiceSelection('10');
     });
+    await waitFor(() => expect(result.current.travel.result?.enabled).toBe(false));
     await act(async () => { await result.current.actions.handleSave(); });
 
     expect(onSave).not.toHaveBeenCalled();
