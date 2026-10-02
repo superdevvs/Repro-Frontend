@@ -1,13 +1,14 @@
 import { useEffect, useId, useState } from 'react';
 import { resolveShootDuration, serviceDurationLimits, type ServiceDurationSource } from '@/utils/shootDuration';
 
-export function ServiceDurationPicker({ serviceName, value, onChange, disabled = false,
+export function ServiceDurationPicker({ serviceName, value, onChange, disabled = false, showSlider = true,
   durationSource = {}, minMinutes = serviceDurationLimits(durationSource).minMinutes, maxMinutes = serviceDurationLimits(durationSource).maxMinutes,
 }: {
   serviceName: string;
   value?: number | null;
   onChange: (minutes: number) => void;
   disabled?: boolean;
+  showSlider?: boolean;
   minMinutes?: number;
   maxMinutes?: number;
   durationSource?: ServiceDurationSource;
@@ -23,16 +24,18 @@ export function ServiceDurationPicker({ serviceName, value, onChange, disabled =
   return (
     <div className="min-w-0 space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <label htmlFor={id} className="text-xs font-medium text-muted-foreground">Shoot duration</label>
-        <output htmlFor={id} className="whitespace-nowrap text-sm font-medium tabular-nums">{minutes} min</output>
+        {showSlider ? <label htmlFor={id} className="text-xs font-medium text-muted-foreground">Shoot duration</label>
+          : <span className="text-xs font-medium text-muted-foreground">Shoot duration</span>}
+        <output htmlFor={showSlider ? id : custom ? `${id}-custom` : undefined} aria-label={`Selected duration for ${serviceName}`}
+          className="whitespace-nowrap text-sm font-medium tabular-nums">{minutes} min</output>
       </div>
-      <div className="flex items-center gap-3">
-        <input id={id} type="range" aria-label={`Shoot duration for ${serviceName}`}
+      <div className="flex items-center justify-end gap-3">
+        {showSlider && <input id={id} type="range" aria-label={`Shoot duration for ${serviceName}`}
           aria-valuetext={`${minutes} minutes`} min={minMinutes} max={maxMinutes} step={5}
           value={Math.max(minMinutes, Math.min(maxMinutes, minutes))} disabled={disabled}
           onChange={event => { setCustom(false); onChange(Math.max(minMinutes, Math.min(maxMinutes, Math.round(Number(event.target.value) / 5) * 5))); }}
-          className="h-9 min-w-0 flex-1 cursor-pointer accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" />
-        <button type="button" disabled={disabled} aria-pressed={custom} aria-label={`Set custom duration for ${serviceName}`}
+          className="h-9 min-w-0 flex-1 cursor-pointer accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" />}
+        <button id={`${id}-custom-toggle`} type="button" disabled={disabled} aria-pressed={custom} aria-label={`Set custom duration for ${serviceName}`}
           onClick={() => { setCustom(current => !current); setDraft(String(minutes)); }}
           className="rounded-md border border-input px-2 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">Custom</button>
       </div>
