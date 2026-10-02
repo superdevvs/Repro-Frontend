@@ -744,6 +744,12 @@ export const useSchedulingFormController = ({
             travel_range_unit: photographer?.travel_range_unit ?? photographer?.metadata?.travel_range_unit ?? 'miles',
           };
         });
+        // Unblock Confirm as soon as for-booking eligibility is known. bulkIndex only
+        // enriches configured hours and must not gate "Please wait for eligibility…".
+        setPhotographersWithDistance(initialPhotographers);
+        setIsCalculatingDistances(false);
+        setIsLoadingAvailability(false);
+        clearEligibilityTimeout();
         let rawAvailabilityByPhotographer: AvailabilityByPhotographer = {};
         if (canUseProtectedAvailability) try {
           const bulkResponse = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
