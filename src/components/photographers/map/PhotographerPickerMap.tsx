@@ -3,7 +3,10 @@ import { AlertTriangle } from 'lucide-react'
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner'
 import { useOptionalTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
-import { buildPhotographerMapMarkers } from './buildPhotographerMapMarkers'
+import {
+  buildPhotographerMapMarkers,
+  type PhotographerListEntry,
+} from './buildPhotographerMapMarkers'
 import { PhotographerPickerGoogleMap } from './PhotographerPickerGoogleMap'
 import {
   readPhotographerMapFields,
@@ -21,7 +24,9 @@ export type PhotographerPickerMapProps = {
   photographer?: unknown
   photographerName?: string | null
   photographerId?: string | null
+  photographers?: ReadonlyArray<PhotographerListEntry | Record<string, unknown> | unknown> | null
   jobCoords?: ShootMapCoordinates | null
+  onSelectPhotographer?: (photographerId: string | null) => void
   className?: string
 }
 
@@ -69,7 +74,9 @@ export function PhotographerPickerMap({
   photographer,
   photographerName,
   photographerId,
+  photographers = [],
   jobCoords = null,
+  onSelectPhotographer,
   className,
 }: PhotographerPickerMapProps) {
   const themeContext = useOptionalTheme()
@@ -92,8 +99,10 @@ export function PhotographerPickerMap({
         fields,
         photographerName,
         photographerId,
+        photographers,
+        jobCoords,
       }),
-    [fields, photographerName, photographerId],
+    [fields, photographerName, photographerId, photographers, jobCoords],
   )
 
   const useGoogle = Boolean(apiKey) && !googleError
@@ -121,16 +130,20 @@ export function PhotographerPickerMap({
               theme={resolvedTheme}
               markers={markers}
               selectedName={photographerName}
+              selectedId={photographerId}
               fields={fields}
               onLoadError={(error) => setGoogleError(error)}
+              onSelectPhotographer={onSelectPhotographer}
             />
           </GoogleMapBoundary>
         ) : (
           <LazyLeafletMap
             markers={markers}
             selectedName={photographerName}
+            selectedId={photographerId}
             fields={fields}
             theme={resolvedTheme}
+            onSelectPhotographer={onSelectPhotographer}
           />
         )}
       </Suspense>

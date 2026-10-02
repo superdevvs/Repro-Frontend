@@ -341,7 +341,9 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
             photographer={selectedPhotographerDetails}
             photographerName={selectedPhotographerDetails?.name}
             photographerId={selectedPhotographerDetails?.id}
+            photographers={filteredAndSortedPhotographers}
             jobCoords={bookingJobCoords}
+            onSelectPhotographer={(id) => setPhotographer?.(id ?? '')}
             list={
               <>
                 {renderPhotographerFilters(true)}
@@ -379,7 +381,9 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
               photographer={selectedPhotographerDetails}
               photographerName={selectedPhotographerDetails?.name}
               photographerId={selectedPhotographerDetails?.id}
+              photographers={filteredAndSortedPhotographers}
               jobCoords={bookingJobCoords}
+              onSelectPhotographer={(id) => setPhotographer?.(id ?? '')}
               className="min-h-0"
               list={
                 <>
@@ -614,7 +618,9 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                         photographer={selectedPhotographerDetails}
                         photographerName={selectedPhotographerDetails?.name}
                         photographerId={selectedPhotographerDetails?.id}
+                        photographers={filteredAndSortedPhotographers}
                         jobCoords={bookingJobCoords}
+                        onSelectPhotographer={(id) => setPhotographer?.(id ?? '')}
                         list={
                           <>
                             {renderPhotographerFilters(true)}
@@ -658,7 +664,9 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                           photographer={selectedPhotographerDetails}
                           photographerName={selectedPhotographerDetails?.name}
                           photographerId={selectedPhotographerDetails?.id}
+                          photographers={filteredAndSortedPhotographers}
                           jobCoords={bookingJobCoords}
+                          onSelectPhotographer={(id) => setPhotographer?.(id ?? '')}
                           className="min-h-0"
                           list={
                             <>

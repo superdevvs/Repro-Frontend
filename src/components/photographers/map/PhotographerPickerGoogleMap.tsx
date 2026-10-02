@@ -3,10 +3,12 @@ import { Info, Minus, Plus } from 'lucide-react'
 import {
   loadGoogleMaps,
   type GoogleInfoWindowInstance,
+  type GoogleLatLngLiteral,
   type GoogleMapInstance,
   type GoogleMapsApi,
   type GoogleMapsListener,
   type GoogleMarkerInstance,
+  type GooglePolylineInstance,
 } from '@/components/shoots/history/googleMapsLoader'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -16,50 +18,162 @@ import {
   type PhotographerMapFields,
   type PhotographerMapPinKind,
 } from './photographerMapFields'
+import {
+  type PhotographerMapMarker,
+} from './buildPhotographerMapMarkers'
+import {
+  jobHomePinIcon,
+  PIN_COLORS,
+  profilePinHtml,
+  routePinIcon,
+} from './photographerMapPinIcons'
 import { photographerMapOptions } from './photographerMapStyles'
 
-export type PhotographerMapMarker = {
-  id: string
-  kind: PhotographerMapPinKind
-  coords: { lat: number; lng: number }
-  label: string
-  detail?: string | null
-}
+export type { PhotographerMapMarker }
 
 export type PhotographerPickerGoogleMapProps = {
   apiKey?: string
   theme?: 'light' | 'dark'
   markers: PhotographerMapMarker[]
   selectedName?: string | null
+  selectedId?: string | null
   fields: PhotographerMapFields
   className?: string
   onLoadError?: (error: Error) => void
+  onSelectPhotographer?: (photographerId: string | null) => void
 }
 
-const PIN_COLORS: Record<PhotographerMapPinKind, string> = {
-  photographer: '#3b82f6',
-  last: '#94a3b8',
-  job: '#22c55e',
-  next: '#a855f7',
-}
-
-const pinIcon = (kind: PhotographerMapPinKind, selected = false) => {
-  const fill = PIN_COLORS[kind]
-  const size = selected ? 36 : 30
-  const height = selected ? 46 : 40
-  return (
-    'data:image/svg+xml;charset=UTF-8,' +
-    encodeURIComponent(
-      `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${height}" viewBox="0 0 32 42"><path fill="${fill}" stroke="#fff" stroke-width="2" d="M16 1C7.7 1 1 7.7 1 16c0 11 15 25 15 25s15-14 15-25C31 7.7 24.3 1 16 1Z"/><circle cx="16" cy="16" r="5.5" fill="#fff"/></svg>`,
-    )
-  )
-}
-
-const KIND_LABEL: Record<PhotographerMapPinKind, string> = {
+const KIND_LABEL: Record<PhotographerMapPinKind | 'home', string> = {
   photographer: 'Photographer',
   last: 'Last stop',
   job: 'Job',
   next: 'Next stop',
+  home: 'Photographer',
+}
+
+type OverlayHandle = { setMap: (map: GoogleMapInstance | null) => void }
+
+const dimmedDotIcon = (maps: GoogleMapsApi) => ({
+  path: maps.SymbolPath?.CIRCLE ?? 0,
+  scale: 7,
+  fillColor: PIN_COLORS.homeDot,
+  fillOpacity: 0.45,
+  strokeColor: '#ffffff',
+  strokeWeight: 1.5,
+})
+
+function resolveMarkerIcon(maps: GoogleMapsApi, entry: PhotographerMapMarker) {
+  if (entry.kind === 'job' || entry.appearance === 'home') {
+    return jobHomePinIcon(true)
+  }
+  if (entry.appearance === 'dot' || entry.dimmed) {
+    return dimmedDotIcon(maps)
+  }
+  if (entry.kind === 'last' || entry.kind === 'next' || entry.kind === 'photographer') {
+    return routePinIcon(
+      entry.kind === 'photographer' ? 'photographer' : entry.kind,
+      entry.kind === 'photographer' || Boolean(entry.selected),
+    )
+  }
+  return routePinIcon('photographer', false)
+}
+
+function createAvatarOverlay(args: {
+  maps: GoogleMapsApi
+  map: GoogleMapInstance
+  entry: PhotographerMapMarker
+  onSelect?: (id: string) => void
+  onInfo: (anchor: HTMLElement, entry: PhotographerMapMarker) => void
+}): OverlayHandle {
+  const { maps, map, entry, onSelect, onInfo } = args
+  const overlay = new maps.OverlayView()
+  const element = document.createElement('div')
+  element.style.cssText = `position:absolute;transform:translate(-50%,-100%);padding-bottom:6px;z-index:${entry.selected ? 40 : 12};cursor:pointer`
+  element.innerHTML = profilePinHtml({
+    avatarUrl: entry.avatarUrl,
+    initials: entry.initials || '?',
+    selected: Boolean(entry.selected),
+    size: entry.selected ? 44 : 40,
+  })
+  element.setAttribute('role', 'button')
+  element.setAttribute('aria-label', `Select ${entry.label}`)
+  element.tabIndex = 0
+
+  const stop = (event: Event) => event.stopPropagation()
+  for (const eventName of ['pointerdown', 'mousedown', 'touchstart', 'dblclick']) {
+    element.addEventListener(eventName, stop)
+  }
+  const activate = (event: Event) => {
+    event.stopPropagation()
+    if (entry.photographerId && onSelect) onSelect(entry.photographerId)
+    onInfo(element, entry)
+  }
+  element.addEventListener('click', activate)
+  element.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      activate(event)
+    }
+  })
+
+  overlay.onAdd = () => {
+    overlay.getPanes()?.overlayMouseTarget.appendChild(element)
+  }
+  overlay.draw = () => {
+    const point = overlay.getProjection().fromLatLngToDivPixel(
+      new maps.LatLng(entry.coords.lat, entry.coords.lng),
+    )
+    if (point) {
+      element.style.left = `${point.x}px`
+      element.style.top = `${point.y}px`
+    }
+  }
+  overlay.onRemove = () => {
+    element.remove()
+  }
+  overlay.setMap(map)
+  return overlay
+}
+
+function collectRouteWaypoints(markers: PhotographerMapMarker[]): GoogleLatLngLiteral[] {
+  const last = markers.find((m) => m.kind === 'last')
+  const home = markers.find((m) => m.kind === 'photographer')
+  const job = markers.find((m) => m.kind === 'job')
+  const next = markers.find((m) => m.kind === 'next')
+  const points: GoogleLatLngLiteral[] = []
+  if (last) points.push(last.coords)
+  else if (home) points.push(home.coords)
+  if (job) points.push(job.coords)
+  if (next) points.push(next.coords)
+  return points
+}
+
+function pathEquals(a: GoogleLatLngLiteral[], b: GoogleLatLngLiteral[]) {
+  if (a.length !== b.length) return false
+  return a.every((point, index) => point.lat === b[index].lat && point.lng === b[index].lng)
+}
+
+function flattenDirectionsPath(result: { routes: Array<{ overview_path?: GoogleLatLngLiteral[]; legs?: Array<{ steps?: Array<{ path?: GoogleLatLngLiteral[] }> }> }> }): GoogleLatLngLiteral[] {
+  const route = result.routes[0]
+  if (!route) return []
+  if (route.overview_path && route.overview_path.length > 1) {
+    return route.overview_path.map((point) => ({
+      lat: typeof point.lat === 'function' ? (point as unknown as { lat: () => number }).lat() : Number(point.lat),
+      lng: typeof point.lng === 'function' ? (point as unknown as { lng: () => number }).lng() : Number(point.lng),
+    }))
+  }
+  const path: GoogleLatLngLiteral[] = []
+  for (const leg of route.legs ?? []) {
+    for (const step of leg.steps ?? []) {
+      for (const point of step.path ?? []) {
+        path.push({
+          lat: typeof point.lat === 'function' ? (point as unknown as { lat: () => number }).lat() : Number(point.lat),
+          lng: typeof point.lng === 'function' ? (point as unknown as { lng: () => number }).lng() : Number(point.lng),
+        })
+      }
+    }
+  }
+  return path
 }
 
 export function PhotographerPickerGoogleMap({
@@ -67,17 +181,26 @@ export function PhotographerPickerGoogleMap({
   theme = 'dark',
   markers,
   selectedName,
+  selectedId,
   fields,
   className,
   onLoadError,
+  onSelectPhotographer,
 }: PhotographerPickerGoogleMapProps) {
   const canvasRef = React.useRef<HTMLDivElement | null>(null)
   const mapRef = React.useRef<GoogleMapInstance | null>(null)
   const mapsApiRef = React.useRef<GoogleMapsApi | null>(null)
   const markersRef = React.useRef<Array<{ marker: GoogleMarkerInstance; listeners: GoogleMapsListener[] }>>([])
+  const overlaysRef = React.useRef<OverlayHandle[]>([])
   const mapListenersRef = React.useRef<GoogleMapsListener[]>([])
   const infoWindowRef = React.useRef<GoogleInfoWindowInstance | null>(null)
+  const routeLineRef = React.useRef<GooglePolylineInstance | null>(null)
+  const pulseLineRef = React.useRef<GooglePolylineInstance | null>(null)
+  const routeAnimRef = React.useRef<number | null>(null)
+  const routeRequestIdRef = React.useRef(0)
+  const lastWaypointsRef = React.useRef<GoogleLatLngLiteral[]>([])
   const onLoadErrorRef = React.useRef(onLoadError)
+  const onSelectRef = React.useRef(onSelectPhotographer)
   const [ready, setReady] = React.useState(false)
   const [legendOpen, setLegendOpen] = React.useState(false)
   const stripPad = selectedName ? 72 : 16
@@ -85,6 +208,167 @@ export function PhotographerPickerGoogleMap({
   React.useEffect(() => {
     onLoadErrorRef.current = onLoadError
   }, [onLoadError])
+  React.useEffect(() => {
+    onSelectRef.current = onSelectPhotographer
+  }, [onSelectPhotographer])
+
+  const openInfo = React.useCallback((anchor: GoogleMarkerInstance | null, entry: PhotographerMapMarker) => {
+    const maps = mapsApiRef.current
+    const map = mapRef.current
+    const info = infoWindowRef.current
+    if (!maps || !map || !info) return
+    const detail = entry.detail?.trim()
+    const html = document.createElement('div')
+    html.className = 'px-1 py-0.5'
+    const kind = document.createElement('p')
+    kind.className = 'text-[10px] uppercase tracking-wide text-slate-500'
+    kind.textContent = KIND_LABEL[entry.kind]
+    const title = document.createElement('p')
+    title.className = 'text-sm font-semibold text-slate-900'
+    title.textContent = entry.label
+    html.append(kind, title)
+    if (detail) {
+      const body = document.createElement('p')
+      body.className = 'mt-0.5 text-xs text-slate-600'
+      body.textContent = detail
+      html.append(body)
+    }
+    info.setContent(html)
+    if (anchor) {
+      info.open({ anchor, map, shouldFocus: false })
+      return
+    }
+    const ghost = new maps.Marker({
+      map,
+      position: entry.coords,
+      opacity: 0,
+      clickable: false,
+    })
+    info.open({ anchor: ghost, map, shouldFocus: false })
+    window.setTimeout(() => ghost.setMap(null), 0)
+  }, [])
+
+  const clearRouteAnimation = React.useCallback(() => {
+    if (routeAnimRef.current != null) {
+      window.cancelAnimationFrame(routeAnimRef.current)
+      routeAnimRef.current = null
+    }
+    routeLineRef.current?.setMap(null)
+    routeLineRef.current = null
+    pulseLineRef.current?.setMap(null)
+    pulseLineRef.current = null
+    lastWaypointsRef.current = []
+  }, [])
+
+  const animatePath = React.useCallback((maps: GoogleMapsApi, map: GoogleMapInstance, fullPath: GoogleLatLngLiteral[]) => {
+    if (routeAnimRef.current != null) {
+      window.cancelAnimationFrame(routeAnimRef.current)
+      routeAnimRef.current = null
+    }
+    routeLineRef.current?.setMap(null)
+    pulseLineRef.current?.setMap(null)
+
+    const base = new maps.Polyline({
+      map,
+      path: [],
+      geodesic: true,
+      strokeColor: '#60a5fa',
+      strokeOpacity: 0.35,
+      strokeWeight: 5,
+      zIndex: 5,
+    })
+    const pulse = new maps.Polyline({
+      map,
+      path: [],
+      geodesic: true,
+      strokeColor: '#93c5fd',
+      strokeOpacity: 1,
+      strokeWeight: 4,
+      zIndex: 6,
+      icons: [
+        {
+          icon: {
+            path: maps.SymbolPath?.CIRCLE ?? 0,
+            scale: 4,
+            fillColor: '#ffffff',
+            fillOpacity: 1,
+            strokeColor: '#3b82f6',
+            strokeWeight: 2,
+          },
+          offset: '100%',
+        },
+      ],
+    })
+    routeLineRef.current = base
+    pulseLineRef.current = pulse
+
+    // Show full faint path immediately, then draw pulse along it.
+    base.setPath(fullPath)
+    const total = Math.max(fullPath.length, 2)
+    const durationMs = Math.min(2200, Math.max(900, total * 12))
+    const started = performance.now()
+
+    const tick = (now: number) => {
+      const t = Math.min(1, (now - started) / durationMs)
+      const count = Math.max(2, Math.floor(t * total))
+      pulse.setPath(fullPath.slice(0, count))
+      if (t < 1) {
+        routeAnimRef.current = window.requestAnimationFrame(tick)
+      } else {
+        pulse.setPath(fullPath)
+        routeAnimRef.current = null
+      }
+    }
+    routeAnimRef.current = window.requestAnimationFrame(tick)
+  }, [])
+
+  const drawRoute = React.useCallback((waypoints: GoogleLatLngLiteral[]) => {
+    const maps = mapsApiRef.current
+    const map = mapRef.current
+    if (!maps || !map) return
+    if (waypoints.length < 2) {
+      clearRouteAnimation()
+      return
+    }
+    if (pathEquals(waypoints, lastWaypointsRef.current) && routeLineRef.current) {
+      return
+    }
+    lastWaypointsRef.current = waypoints
+    const requestId = ++routeRequestIdRef.current
+
+    const fallbackStraight = () => {
+      if (requestId !== routeRequestIdRef.current) return
+      animatePath(maps, map, waypoints)
+    }
+
+    try {
+      const service = new maps.DirectionsService()
+      const origin = waypoints[0]
+      const destination = waypoints[waypoints.length - 1]
+      const middle = waypoints.slice(1, -1).map((location) => ({ location, stopover: true }))
+      service.route(
+        {
+          origin,
+          destination,
+          waypoints: middle,
+          travelMode: maps.TravelMode?.DRIVING ?? 'DRIVING',
+        },
+        (result, status) => {
+          if (requestId !== routeRequestIdRef.current) return
+          if (status === 'OK' && result?.routes?.length) {
+            const path = flattenDirectionsPath(result)
+            if (path.length > 1) {
+              animatePath(maps, map, path)
+              return
+            }
+          }
+          fallbackStraight()
+        },
+      )
+    } catch {
+      fallbackStraight()
+    }
+  }, [animatePath, clearRouteAnimation])
 
   React.useEffect(() => {
     let cancelled = false
@@ -110,7 +394,10 @@ export function PhotographerPickerGoogleMap({
           maxWidth: 240,
         })
         mapListenersRef.current.push(
-          maps.event.addListenerOnce(map, 'idle', () => undefined),
+          maps.event.addListener(map, 'click', () => {
+            infoWindowRef.current?.close()
+            onSelectRef.current?.(null)
+          }),
         )
         setReady(true)
       })
@@ -128,8 +415,11 @@ export function PhotographerPickerGoogleMap({
         marker.setMap(null)
       })
       markersRef.current = []
+      overlaysRef.current.forEach((overlay) => overlay.setMap(null))
+      overlaysRef.current = []
       mapListenersRef.current.forEach((listener) => listener.remove())
       mapListenersRef.current = []
+      clearRouteAnimation()
       if (mapsApiRef.current && mapRef.current) {
         mapsApiRef.current.event.clearInstanceListeners(mapRef.current)
       }
@@ -153,54 +443,67 @@ export function PhotographerPickerGoogleMap({
       marker.setMap(null)
     })
     markersRef.current = []
+    overlaysRef.current.forEach((overlay) => overlay.setMap(null))
+    overlaysRef.current = []
     infoWindowRef.current?.close()
 
+    const hasSelection = Boolean(String(selectedId ?? '').trim())
+
     markers.forEach((entry) => {
+      if (entry.appearance === 'avatar') {
+        overlaysRef.current.push(
+          createAvatarOverlay({
+            maps,
+            map,
+            entry,
+            onSelect: (id) => onSelectRef.current?.(id),
+            onInfo: (_el, markerEntry) => openInfo(null, markerEntry),
+          }),
+        )
+        return
+      }
+
       const marker = new maps.Marker({
         map,
         position: entry.coords,
         title: entry.label,
-        icon: pinIcon(entry.kind, entry.kind === 'photographer'),
+        icon: resolveMarkerIcon(maps, entry),
+        zIndex: entry.kind === 'job' ? 30 : entry.dimmed ? 2 : entry.selected ? 20 : 10,
+        opacity: entry.dimmed ? 0.75 : 1,
       })
       const listener = marker.addListener('click', () => {
-        const info = infoWindowRef.current
-        if (!info) return
-        const detail = entry.detail?.trim()
-        const html = document.createElement('div')
-        html.className = 'px-1 py-0.5'
-        const kind = document.createElement('p')
-        kind.className = 'text-[10px] uppercase tracking-wide text-slate-500'
-        kind.textContent = KIND_LABEL[entry.kind]
-        const title = document.createElement('p')
-        title.className = 'text-sm font-semibold text-slate-900'
-        title.textContent = entry.label
-        html.append(kind, title)
-        if (detail) {
-          const body = document.createElement('p')
-          body.className = 'mt-0.5 text-xs text-slate-600'
-          body.textContent = detail
-          html.append(body)
+        if (entry.photographerId && (entry.appearance === 'dot' || entry.kind === 'home' || entry.kind === 'photographer')) {
+          onSelectRef.current?.(entry.photographerId)
         }
-        info.setContent(html)
-        info.open({ anchor: marker, map, shouldFocus: false })
+        openInfo(marker, entry)
       })
       markersRef.current.push({ marker, listeners: [listener] })
     })
 
-    if (markers.length === 0) {
+    if (hasSelection) {
+      drawRoute(collectRouteWaypoints(markers))
+    } else {
+      clearRouteAnimation()
+    }
+
+    const fitMarkers = hasSelection
+      ? markers.filter((marker) => !marker.dimmed)
+      : markers
+
+    if (fitMarkers.length === 0) {
       map.setCenter({ lat: 39.8283, lng: -98.5795 })
       map.setZoom(4)
       return
     }
-    if (markers.length === 1) {
-      map.setCenter(markers[0].coords)
+    if (fitMarkers.length === 1) {
+      map.setCenter(fitMarkers[0].coords)
       map.setZoom(12)
       return
     }
     const bounds = new maps.LatLngBounds()
-    markers.forEach((marker) => bounds.extend(marker.coords))
+    fitMarkers.forEach((marker) => bounds.extend(marker.coords))
     map.fitBounds(bounds, 56)
-  }, [markers, ready])
+  }, [markers, ready, selectedId, openInfo, drawRoute, clearRouteAnimation])
 
   React.useEffect(() => {
     const map = mapRef.current
@@ -248,11 +551,16 @@ export function PhotographerPickerGoogleMap({
           <Info className="h-3.5 w-3.5" />
         </Button>
         {legendOpen ? (
-          <div className="mt-1 w-40 rounded-xl border border-slate-200/80 bg-white/95 p-2 text-[11px] shadow-lg dark:border-white/10 dark:bg-slate-950/95">
-            {(['photographer', 'job', 'last', 'next'] as PhotographerMapPinKind[]).map((kind) => (
+          <div className="mt-1 w-44 rounded-xl border border-slate-200/80 bg-white/95 p-2 text-[11px] shadow-lg dark:border-white/10 dark:bg-slate-950/95">
+            {([
+              ['photographer', 'Photographer'],
+              ['job', 'Job (home)'],
+              ['last', 'Last stop'],
+              ['next', 'Next stop'],
+            ] as const).map(([kind, label]) => (
               <div key={kind} className="flex items-center gap-2 py-0.5 text-slate-700 dark:text-slate-200">
                 <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: PIN_COLORS[kind] }} />
-                {KIND_LABEL[kind]}
+                {label}
               </div>
             ))}
           </div>

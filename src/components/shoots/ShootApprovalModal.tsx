@@ -1492,7 +1492,9 @@ export function ShootApprovalModal({
                   photographer={selectedPickerPhotographer}
                   photographerName={selectedPickerPhotographer?.name}
                   photographerId={selectedPickerPhotographer?.id != null ? String(selectedPickerPhotographer.id) : null}
+                  photographers={filteredPhotographers}
                   jobCoords={resolvedPickerJobCoords}
+                  onSelectPhotographer={(id) => setPickerPhotographerId(id ?? '')}
                   className="min-h-0"
                   list={
                     <>

@@ -55,14 +55,79 @@ export interface GoogleInfoWindowOptions {
   zIndex?: number
 }
 
+export type GoogleMarkerIcon =
+  | string
+  | {
+      url?: string
+      path?: unknown
+      scale?: number
+      fillColor?: string
+      fillOpacity?: number
+      strokeColor?: string
+      strokeWeight?: number
+      scaledSize?: unknown
+      anchor?: unknown
+      size?: unknown
+    }
+
 interface GoogleMarkerOptions {
   clickable?: boolean
   visible?: boolean
-  icon?: string
+  icon?: GoogleMarkerIcon
   map: GoogleMapInstance
   optimized?: boolean
   position: { lat: number; lng: number }
   title?: string
+  zIndex?: number
+  opacity?: number
+}
+
+
+export interface GoogleLatLngLiteral {
+  lat: number
+  lng: number
+}
+
+export interface GooglePolylineInstance {
+  setMap: (map: GoogleMapInstance | null) => void
+  setPath: (path: GoogleLatLngLiteral[]) => void
+  setOptions: (options: Record<string, unknown>) => void
+}
+
+export interface GoogleDirectionsLeg {
+  steps?: Array<{ path?: GoogleLatLngLiteral[] }>
+}
+
+export interface GoogleDirectionsRoute {
+  overview_path?: GoogleLatLngLiteral[]
+  legs?: GoogleDirectionsLeg[]
+}
+
+export interface GoogleDirectionsResult {
+  routes: GoogleDirectionsRoute[]
+}
+
+export type GoogleDirectionsStatus =
+  | 'OK'
+  | 'NOT_FOUND'
+  | 'ZERO_RESULTS'
+  | 'MAX_WAYPOINTS_EXCEEDED'
+  | 'INVALID_REQUEST'
+  | 'OVER_QUERY_LIMIT'
+  | 'REQUEST_DENIED'
+  | 'UNKNOWN_ERROR'
+
+export interface GoogleDirectionsServiceInstance {
+  route: (
+    request: {
+      origin: GoogleLatLngLiteral
+      destination: GoogleLatLngLiteral
+      waypoints?: Array<{ location: GoogleLatLngLiteral; stopover?: boolean }>
+      travelMode: string
+      optimizeWaypoints?: boolean
+    },
+    callback: (result: GoogleDirectionsResult | null, status: GoogleDirectionsStatus | string) => void,
+  ) => void
 }
 
 export interface GoogleMapsApi {
@@ -80,7 +145,16 @@ export interface GoogleMapsApi {
   Map: new (element: HTMLElement, options: GoogleMapOptions) => GoogleMapInstance
   Marker: new (options: GoogleMarkerOptions) => GoogleMarkerInstance
   Size?: new (width: number, height: number) => unknown
+  SymbolPath?: { CIRCLE: unknown }
+  TravelMode?: { DRIVING: string; WALKING: string; BICYCLING: string; TRANSIT: string }
+  Polyline: new (options?: Record<string, unknown>) => GooglePolylineInstance
+  DirectionsService: new () => GoogleDirectionsServiceInstance
   event: {
+    addListener: (
+      instance: object,
+      eventName: string,
+      handler: (...args: unknown[]) => void,
+    ) => GoogleMapsListener
     addListenerOnce: (
       instance: object,
       eventName: string,

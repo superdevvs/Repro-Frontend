@@ -120,7 +120,9 @@ export function OverviewPhotographerPickerDialog({
               photographer={selectedPhotographerDetails}
               photographerName={selectedPhotographerDetails?.name}
               photographerId={selectedPhotographerDetails?.id}
+              photographers={filteredAndSortedPhotographers}
               jobCoords={resolvedJobCoords}
+              onSelectPhotographer={(id) => setSelectedPhotographerId(id ?? '')}
               className="min-h-0"
               list={
                 <>
