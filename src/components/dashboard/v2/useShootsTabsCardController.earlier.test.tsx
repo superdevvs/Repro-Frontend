@@ -24,6 +24,12 @@ beforeEach(() => { vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-01T15:0
 afterEach(() => { cleanup();vi.useRealTimers(); });
 
 describe('shoot tabs earlier partition integration', () => {
+  it.each(['editor', 'photographer'])('shows yesterday, today and future cards for %s with older work stacked once', role => {
+    const { result } = renderHook(() => useShootsTabsCardController({ ...props, role, upcomingShoots: [...records.slice(0, 3), shoot(5, '2026-10-02')] }));
+    expect(result.current.earlierShoots.map(s => s.id)).toEqual([2]);
+    expect(result.current.paginatedGroups.flatMap(g => g.shoots).map(s => s.id)).toEqual([1, 3, 5]);
+    expect(result.current.upcomingCount).toBe(4);
+  });
   it('restores the date-grouped earlier list on Previous and counts each shoot once', () => {
     const { result } = renderHook(() => useShootsTabsCardController(props));
     expect(result.current.earlierShoots.map(s => s.id)).toEqual([1, 2]);

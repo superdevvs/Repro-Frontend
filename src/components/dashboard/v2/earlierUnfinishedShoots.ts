@@ -9,6 +9,7 @@ const CLOSED_STATUSES = new Set([...DELIVERED_STATUSES, 'cancelled', 'canceled',
 const UNBOOKED_STATUSES = new Set(['requested', 'draft', 'pending', 'new']);
 
 export const isStaffShootStackRole = (role?: string): boolean => STAFF_ROLES.has(normalizeDashboardRole(role));
+export const showsYesterdayAgenda = (role?: string): boolean => ['editor', 'photographer'].includes(normalizeDashboardRole(role));
 
 /** The booked day and workflow determine visibility; legacy completedAt can mean editing finished. */
 export const isEarlierUnfinishedShoot = (
@@ -16,7 +17,8 @@ export const isEarlierUnfinishedShoot = (
   role?: string,
   now = new Date(),
 ): boolean => {
-  if (!isStaffShootStackRole(role) || !classifyDashboardBookedDay(shoot, now).isPast) return false;
+  const day = classifyDashboardBookedDay(shoot, now);
+  if (!isStaffShootStackRole(role) || !day.isPast || (showsYesterdayAgenda(role) && day.offset === -1)) return false;
   const status = (shoot.workflowStatus || shoot.status || '').trim().toLowerCase();
   if (UNBOOKED_STATUSES.has(status)) return false;
   if (!CLOSED_STATUSES.has(status)) return true;

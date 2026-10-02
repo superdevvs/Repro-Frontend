@@ -34,7 +34,7 @@ import { ClientPaymentPill } from '@/features/dashboard/components/ClientPayment
 import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { EarlierShootsStack } from './EarlierShootsStack';
-import { isStaffShootStackRole, useEarlierShoots } from './earlierUnfinishedShoots';
+import { isStaffShootStackRole, showsYesterdayAgenda, useEarlierShoots } from './earlierUnfinishedShoots';
 import {
   DASHBOARD_MOBILE_PANEL_CLASS, measureShootListPeekHeightPx,
   resolveDashboardListMaxHeight, UPCOMING_SHOOT_CARD_MIN_HEIGHT_PX,
@@ -560,7 +560,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
       };
     }
 
-    const visiblePastGroups = showPastDays ? pastGroups.slice(0, 3) : [];
+    const visiblePastGroups = showPastDays ? pastGroups.slice(0, 3) : showsYesterdayAgenda(role) ? pastGroups.filter(group => group.dayOffset === -1) : [];
     const hasPastDays = pastGroups.length > 0 || earlierCandidates.length > 0;
 
     // Include all groups: past (if shown), today, future
@@ -629,7 +629,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
       hasPastDays,
       pastButtonLabel: showPastDays ? 'Hide' : 'Previous shoots',
     };
-  }, [calendarShoots, earlierCandidates, showPastDays, showRequestsFirst, isEditorRole, formatDate]);
+  }, [calendarShoots, earlierCandidates, showPastDays, showRequestsFirst, isEditorRole, formatDate, role]);
 
   const getRelativeGroupLabel = useCallback((group: { label: string; shoots: DashboardShootSummary[]; isToday?: boolean; dayTime?: number; dayOffset?: number | null }) => {
     const count = group.shoots.length;

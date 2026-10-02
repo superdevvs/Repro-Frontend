@@ -45,7 +45,7 @@ import {
   type TabType,
 } from './shootsTabsCardUtils';
 import { getRelativeGroupLabel } from './shootDayGroupLabel';
-import { useEarlierShoots } from './earlierUnfinishedShoots';
+import { showsYesterdayAgenda, useEarlierShoots } from './earlierUnfinishedShoots';
 const SHOOTS_COMPACT_PREF_KEY = 'dashboard-shoots-compact';
 
 export function useShootsTabsCardController({
@@ -297,7 +297,7 @@ export function useShootsTabsCardController({
     const futureGroups = allGroups
       .filter((group) => !group.isPast && !group.isToday)
       .sort((a, b) => (a.dayTime || Number.POSITIVE_INFINITY) - (b.dayTime || Number.POSITIVE_INFINITY));
-    const visiblePastGroups = visiblePastDayGroups(pastGroups, {
+    const visiblePastGroups = !showPastDays && showsYesterdayAgenda(role) ? pastGroups.filter(group => group.dayOffset === -1) : visiblePastDayGroups(pastGroups, {
       mode: isEditingManagerMode ? 'editing_manager' : 'default',
       tabId: activeTab,
       showPastDays,
@@ -307,7 +307,7 @@ export function useShootsTabsCardController({
       groups: [...visiblePastGroups, ...todayGroups, ...futureGroups],
       hasPastDays,
     };
-  }, [activeTab, formatDate, isEditingManagerMode, showPastDays]);
+  }, [activeTab, formatDate, isEditingManagerMode, showPastDays, role]);
   const { earlier: allEarlierShoots, remaining: remainingUpcomingShoots } = useEarlierShoots(filteredUpcomingShoots, role);
   const earlierShoots = showPastDays ? [] : allEarlierShoots;
   const { groups: upcomingGroups, hasPastDays } = useMemo(

@@ -50,6 +50,8 @@ export function ShootDetailsModalTransientDialogs({
           kind={submitConfirm.kind}
           submittingRole={submittingRole}
           fileCount={getShootSubmitFileCount(shoot, submitConfirm.kind)}
+          keepsDeliveryStatus={['delivered', 'ready_for_client', 'admin_verified', 'client_delivered', 'workflow_completed', 'finalized'].includes(String(shoot.workflowStatus || shoot.status).toLowerCase())}
+          allowLinkSubmission={submitConfirm.kind === 'edited' && submittingRole === 'editor' && Boolean(shoot.canSubmitEdits ?? shoot.can_submit_edits)}
           isSubmitting={submitConfirm.kind === 'raw' ? isSubmittingRaw : isSubmittingEdits}
           hasInflightUploads={hasInflightUploads}
           onCancel={onCancelSubmit}

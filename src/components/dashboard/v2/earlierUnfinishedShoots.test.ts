@@ -13,9 +13,10 @@ afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('earlier unfinished dashboard work', () => {
   it.each(['admin', 'super_admin', 'editing_manager', 'salesRep', 'photographer', 'editor'])('retains past work for %s until finalized', role => {
-    expect(isEarlierUnfinishedShoot(shoot(), role, now)).toBe(true);
-    expect(isEarlierUnfinishedShoot(shoot({ workflowStatus: 'completed' }), role, now)).toBe(true);
-    expect(isEarlierUnfinishedShoot(shoot({ workflowStatus: 'ready', completedAt: '2026-09-30T19:00:00Z' }), role, now)).toBe(true);
+    const stacked = !['photographer', 'editor'].includes(role);
+    expect(isEarlierUnfinishedShoot(shoot(), role, now)).toBe(stacked);
+    expect(isEarlierUnfinishedShoot(shoot({ workflowStatus: 'completed' }), role, now)).toBe(stacked);
+    expect(isEarlierUnfinishedShoot(shoot({ workflowStatus: 'ready', completedAt: '2026-09-30T19:00:00Z' }), role, now)).toBe(stacked);
     expect(isEarlierUnfinishedShoot(shoot({ scheduledLocalDate: '2025-01-01' }), role, now)).toBe(true);
   });
   it.each(['client', undefined, 'unknown'])('does not change %s visibility', role => {
@@ -26,7 +27,7 @@ describe('earlier unfinished dashboard work', () => {
     expect(isEarlierUnfinishedShoot(shoot({ workflowStatus }), 'admin', now)).toBe(false);
   });
   it('keeps only the assigned unfinished editor lane after partial delivery', () => {
-    const partial = shoot({ workflowStatus: 'delivered', hasPendingEditorWork: true });
+    const partial = shoot({ scheduledLocalDate: '2026-09-29', workflowStatus: 'delivered', hasPendingEditorWork: true });
     expect(isEarlierUnfinishedShoot(partial, 'editor', now)).toBe(true);
     expect(isEarlierUnfinishedShoot(partial, 'admin', now)).toBe(false);
     expect(isEarlierUnfinishedShoot({ ...partial, hasPendingEditorWork: false }, 'editor', now)).toBe(false);
@@ -45,6 +46,17 @@ describe('earlier unfinished dashboard work', () => {
     expect(result.earlier.map(item => item.id)).toEqual([1, 2]);
     expect(result.remaining.map(item => item.id)).toEqual([3]);
     expect(items.map(item => item.id)).toEqual([2, 1, 3]);
+  });
+  it.each(['editor', 'photographer'])('keeps yesterday on the %s agenda and moves it to the stack after market midnight', role => {
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    const items = [shoot({ id: 2, scheduledLocalDate: '2026-09-29' }), shoot(), shoot({ id: 3, scheduledLocalDate: '2026-10-01' })];
+    const { result } = renderHook(() => useEarlierShoots(items, role));
+    expect(result.current.earlier.map(item => item.id)).toEqual([2]);
+    expect(result.current.remaining.map(item => item.id)).toEqual([1, 3]);
+    act(() => { vi.setSystemTime(new Date('2026-10-02T04:01:00Z')); vi.advanceTimersByTime(60_000); });
+    expect(result.current.earlier.map(item => item.id)).toEqual([1, 2]);
+    expect(result.current.remaining.map(item => item.id)).toEqual([3]);
   });
   it('moves yesterday work automatically at market midnight without a new API response', () => {
     vi.useFakeTimers();

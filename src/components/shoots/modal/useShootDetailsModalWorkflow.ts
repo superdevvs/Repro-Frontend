@@ -472,7 +472,7 @@ export function useShootDetailsModalWorkflow({
       const res = kind === 'raw'
         ? await finalizeRawUploadQueue(shoot.id, headers)
         : await finalizeEditedUploadQueue(shoot.id, headers);
-      const changed = Boolean(res.workflow_status_changed);
+      const changed = Boolean(res.workflow_status_changed || (res as { editing_submission_changed?: boolean }).editing_submission_changed);
       const submittedStatus = String(res.shoot_status || '').toLowerCase();
       const submittedDescription = submittedStatus === 'ready'
         ? 'Shoot moved to Ready for finalization.'

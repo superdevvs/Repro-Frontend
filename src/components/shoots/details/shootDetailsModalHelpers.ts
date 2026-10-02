@@ -167,7 +167,8 @@ export const canSubmitEditsFromDetails = ({
   editedMediaCount,
 }: EditsSubmitCapabilityInput): boolean => {
   if (!shoot) return false;
-  if (shoot.canSubmitEdits ?? shoot.can_submit_edits) return true;
+  const serverCapability = shoot.canSubmitEdits ?? shoot.can_submit_edits;
+  if (serverCapability !== undefined) return serverCapability;
   const role = (currentUserRole || '').toLowerCase();
   const allowedRole = isAdmin || isEditingManager || isEditor
     || ['admin', 'superadmin', 'super_admin', 'editing_manager', 'editor'].includes(role);

@@ -22,6 +22,8 @@ interface ConfirmSubmitDialogProps {
   hasInflightUploads: boolean;
   onCancel: () => void;
   onConfirm: () => void;
+  keepsDeliveryStatus?: boolean;
+  allowLinkSubmission?: boolean;
 }
 
 export function ConfirmSubmitDialog({
@@ -33,6 +35,8 @@ export function ConfirmSubmitDialog({
   hasInflightUploads,
   onCancel,
   onConfirm,
+  keepsDeliveryStatus = false,
+  allowLinkSubmission = false,
 }: ConfirmSubmitDialogProps) {
   const isRaw = kind === 'raw';
   const title = isRaw ? 'Submit raw files?' : 'Submit edited files?';
@@ -47,14 +51,16 @@ export function ConfirmSubmitDialog({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription asChild>
             <div className="space-y-2 text-sm text-muted-foreground">
-              <p>
+              {!isRaw && keepsDeliveryStatus ? <p>This submits your assigned edits while keeping the shoot delivered.</p>
+                : !isRaw && submittingRole.trim().toLowerCase() === 'editor' ? <p>This submits your assigned edits. Once all editing assignments are submitted, the shoot moves to <strong>In Review</strong> for the review team.</p> : <p>
                 This will move the shoot to <strong>{newStatusLabel}</strong> and notify the {roleContext}.
                 Make sure <strong>all</strong> files have finished uploading before continuing.
-              </p>
+              </p>}
+              {allowLinkSubmission && fileCount === 0 ? <p>Your saved video links will be submitted for review.</p> :
               <p>
                 <strong>{fileCount}</strong>{' '}
                 {isRaw ? 'raw' : 'edited'} file{fileCount === 1 ? '' : 's'} currently attached to this shoot.
-              </p>
+              </p>}
               {hasInflightUploads && (
                 <p className="text-amber-600 dark:text-amber-400">
                   An upload is still in progress. Please wait for it to finish before submitting.
@@ -70,7 +76,7 @@ export function ConfirmSubmitDialog({
               event.preventDefault();
               onConfirm();
             }}
-            disabled={isSubmitting || hasInflightUploads || fileCount <= 0}
+            disabled={isSubmitting || hasInflightUploads || (fileCount <= 0 && !allowLinkSubmission)}
             className="bg-green-600 hover:bg-green-700 text-white"
           >
             {isSubmitting ? (

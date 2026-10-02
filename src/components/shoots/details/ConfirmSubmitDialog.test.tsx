@@ -28,4 +28,11 @@ describe('shoot submission confirmation', () => {
       hasInflightUploads onCancel={vi.fn()} onConfirm={vi.fn()} />);
     expect(screen.getByRole('button', { name: 'Yes, submit' })).toBeDisabled();
   });
+  it('allows saved video links to finish an assignment without changing delivery', () => {
+    render(<ConfirmSubmitDialog open kind="edited" submittingRole="editor" fileCount={0} isSubmitting={false}
+      hasInflightUploads={false} keepsDeliveryStatus allowLinkSubmission onCancel={vi.fn()} onConfirm={vi.fn()} />);
+    expect(screen.getByText(/keeping the shoot delivered/)).toBeInTheDocument();
+    expect(screen.getByText(/saved video links/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Yes, submit' })).toBeEnabled();
+  });
 });

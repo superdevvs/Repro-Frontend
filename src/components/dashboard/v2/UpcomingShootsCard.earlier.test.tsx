@@ -53,9 +53,17 @@ afterEach(() => {
 });
 
 describe('UpcomingShootsCard earlier unfinished work', () => {
+  it.each(['editor', 'photographer'])('renders yesterday, today and next cards for %s and stacks older work', role => {
+    const { container } = render(<UpcomingShootsCard shoots={[shoot(1, '2026-09-29'), shoot(2, '2026-09-30'), shoot(3, '2026-10-01'), shoot(4, '2026-10-02')]} role={role} onSelect={vi.fn()} />);
+    expect(within(screen.getByRole('region', { name: 'Earlier unfinished shoots' })).getByText('Property 1')).toBeVisible();
+    expect(screen.getByText('Yesterday • 1 shoot')).toBeVisible();
+    expect(screen.getByText('Today • 1 shoot')).toBeVisible();
+    expect(screen.getByText('Tomorrow • 1 shoot')).toBeVisible();
+    expect(Array.from(container.querySelectorAll('[data-shoot-card="true"]')).map(card => card.querySelector('h3')?.textContent)).toEqual(['Property 2', 'Property 3', 'Property 4']);
+  });
   it('expands the stack into the original previous-day cards and restores it when closed', () => {
     const onSelect = vi.fn();
-    const records = [shoot(1, '2026-09-30', 'uploaded'), shoot(2, '2026-09-29', 'delivered'), shoot(3, '2026-10-01')];
+    const records = [shoot(1, '2026-09-29', 'uploaded'), shoot(2, '2026-09-29', 'delivered'), shoot(3, '2026-10-01')];
     const { container } = render(<UpcomingShootsCard shoots={records} role="photographer" onSelect={onSelect} />);
     const stack = screen.getByRole('region', { name: 'Earlier unfinished shoots' });
     expect(within(stack).getByText('Property 1')).toBeVisible();
@@ -88,7 +96,7 @@ describe('UpcomingShootsCard earlier unfinished work', () => {
   });
 
   it('does not consume the five-card agenda page with earlier stack items', () => {
-    const records = [shoot(1, '2026-09-30', 'editing'), ...Array.from({ length: 6 }, (_, i) => shoot(10 + i, '2026-10-01'))];
+    const records = [shoot(1, '2026-09-29', 'editing'), ...Array.from({ length: 6 }, (_, i) => shoot(10 + i, '2026-10-01'))];
     const { container } = render(<UpcomingShootsCard shoots={records} role="editor" onSelect={vi.fn()} />);
     expect(screen.getByRole('region', { name: 'Earlier unfinished shoots' })).toBeVisible();
     expect(container.querySelectorAll('[data-shoot-card="true"]')).toHaveLength(5);
@@ -107,8 +115,8 @@ describe('UpcomingShootsCard earlier unfinished work', () => {
   });
 
   it('retains a delivered shoot only when the current editor still has unfinished assigned media', () => {
-    const pendingVideo = { ...shoot(1, '2026-09-30', 'delivered'), hasPendingEditorWork: true };
-    render(<UpcomingShootsCard shoots={[pendingVideo, shoot(2, '2026-09-30', 'delivered')]} role="editor" onSelect={vi.fn()} />);
+    const pendingVideo = { ...shoot(1, '2026-09-29', 'delivered'), hasPendingEditorWork: true };
+    render(<UpcomingShootsCard shoots={[pendingVideo, shoot(2, '2026-09-29', 'delivered')]} role="editor" onSelect={vi.fn()} />);
     const stack = screen.getByRole('region', { name: 'Earlier unfinished shoots' });
     expect(within(stack).getByText('Property 1')).toBeVisible();
     expect(within(stack).queryByText('Property 2')).toBeNull();
@@ -116,11 +124,11 @@ describe('UpcomingShootsCard earlier unfinished work', () => {
 
   it('updates when the same shoot IDs finalize or the role changes', () => {
     const onSelect = vi.fn();
-    const { rerender } = render(<UpcomingShootsCard shoots={[shoot(1, '2026-09-30', 'ready')]} role="photographer" onSelect={onSelect} />);
+    const { rerender } = render(<UpcomingShootsCard shoots={[shoot(1, '2026-09-29', 'ready')]} role="photographer" onSelect={onSelect} />);
     expect(screen.getByRole('region', { name: 'Earlier unfinished shoots' })).toBeVisible();
-    rerender(<UpcomingShootsCard shoots={[shoot(1, '2026-09-30', 'delivered')]} role="photographer" onSelect={onSelect} />);
+    rerender(<UpcomingShootsCard shoots={[shoot(1, '2026-09-29', 'delivered')]} role="photographer" onSelect={onSelect} />);
     expect(screen.queryByRole('region', { name: 'Earlier unfinished shoots' })).toBeNull();
-    rerender(<UpcomingShootsCard shoots={[shoot(1, '2026-09-30', 'ready')]} role="client" onSelect={onSelect} />);
+    rerender(<UpcomingShootsCard shoots={[shoot(1, '2026-09-29', 'ready')]} role="client" onSelect={onSelect} />);
     expect(screen.queryByRole('region', { name: 'Earlier unfinished shoots' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Show compact shoot cards' })).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Previous shoots' }));
