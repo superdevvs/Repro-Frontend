@@ -38,7 +38,7 @@ export function PhotographerMapBottomStrip({
     <div
       data-testid="photographer-map-bottom-strip"
       className={cn(
-        'pointer-events-auto absolute inset-x-2 bottom-2 z-20 rounded-xl border border-slate-200/80 bg-white/95 px-3 py-2 shadow-lg backdrop-blur dark:border-white/10 dark:bg-slate-950/90',
+        'pointer-events-auto absolute inset-x-2 bottom-2 z-20 rounded-xl border border-slate-200/80 bg-white px-3 py-2 shadow-lg dark:border-white/10 dark:bg-slate-950',
         className,
       )}
     >

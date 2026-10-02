@@ -24,8 +24,8 @@ export type PhotographerPickerMapShellProps = {
  * - lg–xl (1024–1279): stacked map above list — iPad landscape / ~1180 laptops
  * - xl+ (≥1280): equal-width 50/50 — 1366 / 1440 / 1920 desktops
  *
- * Locked chrome: Exclusive Listing Google map, profile icons overview,
- * selected route + home-icon job pin, tap popups, bottom strip, right-list content.
+ * Map fills the pane via h-full/min-h-0 (no hard 560px min) so stacked tablet
+ * dialogs keep list + specialist footer inside the modal.
  */
 export function PhotographerPickerMapShell({
   isMobile,
@@ -49,13 +49,13 @@ export function PhotographerPickerMapShell({
       photographers={photographers}
       jobCoords={jobCoords}
       onSelectPhotographer={onSelectPhotographer}
-      className="h-full min-h-[560px]"
+      className="h-full min-h-0 w-full"
     />
   )
 
   return (
     <div
-      className={cn('flex min-h-0 flex-1 flex-col', className)}
+      className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', className)}
       data-testid="photographer-picker-map-shell"
       data-layout={useTabs ? 'tabs' : 'responsive'}
     >
@@ -96,30 +96,43 @@ export function PhotographerPickerMapShell({
 
       <div
         className={cn(
-          'grid min-h-0 flex-1 gap-3',
-          'grid-cols-1',
-          'lg:grid-cols-1 lg:grid-rows-[minmax(320px,46%)_minmax(0,1fr)]',
-          'xl:grid-cols-2 xl:grid-rows-1 xl:items-stretch xl:gap-4',
+          'relative min-h-0 flex-1',
+          useTabs
+            ? 'flex flex-col'
+            : cn(
+                // lg–xl: stacked map then list (iPad landscape height budget)
+                'lg:grid lg:gap-3',
+                'lg:grid-cols-1 lg:grid-rows-[minmax(220px,38%)_minmax(0,1fr)]',
+                // ≥1280: equal-width side-by-side
+                'xl:grid-cols-2 xl:grid-rows-1 xl:items-stretch xl:gap-4',
+              ),
         )}
       >
         <div
           className={cn(
-            'min-h-0 min-w-0 h-full min-h-[560px] max-lg:min-h-[280px] lg:min-h-[320px] xl:min-h-[560px]',
-            compactTab !== 'map' && 'max-lg:hidden',
-            useTabs && compactTab !== 'map' && 'hidden',
-            useTabs && compactTab === 'map' && 'block h-full min-h-[280px]',
-            'lg:block',
+            'min-h-0 min-w-0',
+            useTabs
+              ? cn('min-h-0 flex-1', compactTab !== 'map' && 'hidden')
+              : cn(
+                  // Fill dialog below lg via absolute; grid cell at lg+
+                  'absolute inset-0 lg:static lg:h-full',
+                  compactTab !== 'map' && 'max-lg:hidden',
+                  'lg:block',
+                ),
           )}
         >
           {map}
         </div>
         <div
           className={cn(
-            'flex min-h-0 min-w-0 flex-col gap-3',
-            compactTab !== 'list' && 'max-lg:hidden',
-            useTabs && compactTab !== 'list' && 'hidden',
-            useTabs && compactTab === 'list' && 'flex h-full',
-            'lg:flex',
+            'flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden',
+            useTabs
+              ? cn('min-h-0 flex-1', compactTab !== 'list' && 'hidden')
+              : cn(
+                  'absolute inset-0 lg:static',
+                  compactTab !== 'list' && 'max-lg:hidden',
+                  'lg:flex',
+                ),
           )}
         >
           {list}

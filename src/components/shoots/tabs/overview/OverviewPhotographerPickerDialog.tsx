@@ -94,12 +94,12 @@ export function OverviewPhotographerPickerDialog({
         className={cn(
           'overflow-hidden border-slate-800/80 bg-background p-0',
           isMobile
-            ? 'z-[190] flex max-h-[92dvh] flex-col rounded-t-3xl'
-            : 'flex h-[min(88vh,48rem)] w-[96vw] max-h-[92vh] flex-col sm:max-w-6xl',
+            ? 'z-[190] flex h-[min(92dvh,52rem)] max-h-[92dvh] flex-col rounded-t-3xl'
+            : 'flex h-[min(88dvh,48rem)] w-[96vw] max-h-[92dvh] flex-col overflow-hidden sm:max-w-6xl',
         )}
       >
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col gap-2 px-2.5 pb-0 pt-1.5 sm:gap-3 sm:px-6 sm:pt-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden px-2.5 pb-0 pt-1.5 sm:gap-3 sm:px-6 sm:pt-3">
             {isMobile ? (
               <div className="relative shrink-0">
                 <Button
@@ -312,7 +312,7 @@ export function OverviewPhotographerPickerDialog({
                               )}
                             </div>
                 
-            <div className="shrink-0 border-t border-slate-200/70 bg-white/95 pt-1.5 backdrop-blur [padding-bottom:calc(0.15rem+env(safe-area-inset-bottom))] sm:pt-4 sm:pb-2 dark:border-slate-800/70 dark:bg-slate-950/95">
+            <div className="shrink-0 border-t border-slate-200/70 bg-white pt-1.5 [padding-bottom:calc(0.15rem+env(safe-area-inset-bottom))] sm:pt-4 sm:pb-2 dark:border-slate-800/70 dark:bg-slate-950">
               <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                   <Avatar

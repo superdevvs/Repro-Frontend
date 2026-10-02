@@ -328,7 +328,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
   const singlePhotographerPicker = isMobile ? (
     <Drawer open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
       <DrawerTrigger asChild>{photographerTrigger}</DrawerTrigger>
-      <DrawerContent className="h-[88dvh] max-h-[88dvh]">
+      <DrawerContent className="flex h-[88dvh] max-h-[88dvh] flex-col overflow-hidden">
         <DrawerHeader className="gap-0.5 px-3 pb-1.5 pt-1.5 text-left">
           <DrawerTitle className="text-base text-slate-900 dark:text-slate-100">Select Photographer</DrawerTitle>
           <DrawerDescription className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">
@@ -354,7 +354,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
             }
           />
         </div>
-        <DrawerFooter className="gap-1.5 border-t border-slate-200/70 bg-white/90 px-3 pt-2 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/60 [padding-bottom:calc(0.35rem+env(safe-area-inset-bottom))]">
+        <DrawerFooter className="gap-1.5 border-t border-slate-200/70 bg-white px-3 pt-2 dark:border-slate-800/70 dark:bg-slate-950 [padding-bottom:calc(0.35rem+env(safe-area-inset-bottom))]">
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
               {selectedPhotographerDetails?.name || 'None selected'}
@@ -373,9 +373,9 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
   ) : (
     <Dialog open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
       <DialogTrigger asChild>{photographerTrigger}</DialogTrigger>
-      <DialogContent className="sm:max-w-6xl w-[96vw] max-h-[92vh] p-0 overflow-hidden">
-        <div className="flex flex-col h-full sm:h-[min(88vh,52rem)]">
-          <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 sm:p-6">
+      <DialogContent className="flex h-[min(88dvh,52rem)] max-h-[92dvh] w-[96vw] flex-col overflow-hidden p-0 sm:max-w-6xl">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6">
             <PhotographerPickerMapShell
               isMobile={false}
               photographer={selectedPhotographerDetails}
@@ -397,7 +397,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                   <div className="min-h-0 flex-1 overflow-y-auto pr-2">
                     {renderPhotographerResults(false)}
                   </div>
-                  <div className="shrink-0 border-t border-slate-200/70 bg-white/80 pt-4 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/50">
+                  <div className="shrink-0 border-t border-slate-200/70 bg-white pt-4 dark:border-slate-800/70 dark:bg-slate-950">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex min-w-0 items-center gap-3">
                         <Avatar className={cn(
@@ -603,7 +603,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                   setPhotographerDialogOpen(open);
                   if (!open) setActiveServiceForPicker(null);
                 }}>
-                  <DrawerContent className="h-[88dvh] max-h-[88dvh]">
+                  <DrawerContent className="flex h-[88dvh] max-h-[88dvh] flex-col overflow-hidden">
                     <DrawerHeader className="gap-0.5 px-3 pb-1.5 pt-1.5 text-left">
                       <DrawerTitle className="text-base text-slate-900 dark:text-slate-100">
                         Select Photographer{activeServiceNameForPicker ? ` for ${activeServiceNameForPicker}` : ''}
@@ -631,7 +631,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                         }
                       />
                     </div>
-                    <DrawerFooter className="gap-1.5 border-t border-slate-200/70 bg-white/90 px-3 pt-2 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/60 [padding-bottom:calc(0.35rem+env(safe-area-inset-bottom))]">
+                    <DrawerFooter className="gap-1.5 border-t border-slate-200/70 bg-white px-3 pt-2 dark:border-slate-800/70 dark:bg-slate-950 [padding-bottom:calc(0.35rem+env(safe-area-inset-bottom))]">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
                           {selectedPhotographerDetails?.name
@@ -656,9 +656,9 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                   setPhotographerDialogOpen(open);
                   if (!open) setActiveServiceForPicker(null);
                 }}>
-                  <DialogContent className="sm:max-w-6xl w-[96vw] max-h-[92vh] p-0 overflow-hidden">
-                    <div className="flex flex-col h-full sm:h-[min(88vh,52rem)]">
-                      <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 sm:p-6">
+                  <DialogContent className="flex h-[min(88dvh,52rem)] max-h-[92dvh] w-[96vw] flex-col overflow-hidden p-0 sm:max-w-6xl">
+                    <div className="flex min-h-0 flex-1 flex-col">
+                      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6">
                         <PhotographerPickerMapShell
                           isMobile={false}
                           photographer={selectedPhotographerDetails}
@@ -682,7 +682,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                               <div className="min-h-0 flex-1 overflow-y-auto pr-2">
                                 {renderPhotographerResults(false)}
                               </div>
-                              <div className="shrink-0 border-t border-slate-200/70 bg-white/80 pt-4 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/50">
+                              <div className="shrink-0 border-t border-slate-200/70 bg-white pt-4 dark:border-slate-800/70 dark:bg-slate-950">
                                 <div className="flex items-center justify-between gap-3">
                                   <div className="flex min-w-0 items-center gap-3">
                                     <Avatar className={cn(
