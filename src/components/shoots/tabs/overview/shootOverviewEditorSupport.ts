@@ -100,6 +100,9 @@ export type PhotographerPickerOption = TravelAvailabilityMetadata & {
   unavailableSlots?: Array<{ start_time: string; end_time: string; status?: string }>;
   hasAvailability?: boolean;
   shootsCountToday?: number;
+  miles_to_job?: number | null;
+  map?: Record<string, unknown> | null;
+  job?: Record<string, unknown> | null;
 };
 
 export type ClientOption = {
@@ -293,6 +296,15 @@ export const mapPhotographerPickerOption = (value: unknown): PhotographerPickerO
     unavailableSlots: normalizeSlots(photographer.unavailableSlots ?? photographer.unavailable_slots),
     hasAvailability: Boolean(photographer.hasAvailability ?? photographer.has_availability),
     shootsCountToday: optionalNumber(photographer.shootsCountToday ?? photographer.shoots_count_today),
+    miles_to_job: optionalNumber(
+      photographer.miles_to_job ?? photographer.milesToJob ?? photographer.distance,
+    ) ?? null,
+    map: photographer.map === null
+      ? null
+      : (photographer.map !== undefined ? asRecord(photographer.map) : null),
+    job: photographer.job === null
+      ? null
+      : (photographer.job !== undefined ? asRecord(photographer.job) : null),
   };
 };
 
@@ -687,7 +699,7 @@ export function usePhotographerDistanceAvailability(
   assignPhotographerOpen: boolean,
   photographers: PhotographerPickerOption[],
   isAdminOrRep: boolean,
-  getShootLocation: () => { address: string; city: string; state: string; zip: string },
+  getShootLocation: () => { address: string; city: string; state: string; zip: string; latitude?: number; longitude?: number },
   scheduleDate: string,
   scheduleTime: string,
   setPhotographers: Dispatch<SetStateAction<PhotographerPickerOption[]>>,
@@ -846,6 +858,8 @@ export function usePhotographerDistanceAvailability(
               shoot_city: shootLocation.city,
               shoot_state: shootLocation.state,
               shoot_zip: shootLocation.zip || '',
+              shoot_latitude: shootLocation.latitude ?? undefined,
+              shoot_longitude: shootLocation.longitude ?? undefined,
               photographer_ids: photographers.map((photographer) => Number(photographer.id)),
             }),
           }, JSON.parse(durationGroupsKey));
@@ -926,6 +940,11 @@ export function usePhotographerDistanceAvailability(
           const matchNetSlots = match.net_available_slots ?? photographer.netAvailableSlots;
           const nextAvailableSlots = rawAvailableSlots.length > 0 ? rawAvailableSlots : (match.availability_slots ?? photographer.availabilitySlots);
           const nextNetSlots = rawAvailableSlots.length > 0 ? rawAvailableSlots : matchNetSlots;
+          const matchMiles = typeof match.miles_to_job === 'number'
+            ? match.miles_to_job
+            : typeof match.milesToJob === 'number'
+              ? match.milesToJob
+              : Number.isFinite(parsedDistance) ? parsedDistance : undefined;
           return {
             ...photographer,
             name: match.name || photographer.name,
@@ -934,7 +953,10 @@ export function usePhotographerDistanceAvailability(
             city: match.city || photographer.city,
             state: match.state || photographer.state,
             zip: match.zip || photographer.zip,
-            distance: Number.isFinite(parsedDistance) ? parsedDistance : photographer.distance,
+            distance: matchMiles ?? photographer.distance,
+            miles_to_job: matchMiles ?? photographer.miles_to_job ?? null,
+            map: match.map === null ? null : (match.map ? asRecord(match.map) : photographer.map ?? null),
+            job: match.job === null ? null : (match.job ? asRecord(match.job) : photographer.job ?? null),
             distanceFrom: match.distance_from ?? match.distanceFrom ?? photographer.distanceFrom,
             previousShootId: match.previous_shoot_id ?? match.previousShootId ?? photographer.previousShootId,
             availabilitySlots: nextAvailableSlots,

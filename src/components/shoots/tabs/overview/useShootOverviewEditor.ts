@@ -741,7 +741,13 @@ export function useShootOverviewEditor({
       || shoot.location?.zip
       || legacyShoot.zip
       || '';
-    return { address, city, state, zip };
+    const latitudeRaw = editedLocation?.latitude ?? shoot.location?.latitude
+      ?? (legacyShoot as { latitude?: number }).latitude;
+    const longitudeRaw = editedLocation?.longitude ?? shoot.location?.longitude
+      ?? (legacyShoot as { longitude?: number }).longitude;
+    const latitude = typeof latitudeRaw === 'number' && Number.isFinite(latitudeRaw) ? latitudeRaw : undefined;
+    const longitude = typeof longitudeRaw === 'number' && Number.isFinite(longitudeRaw) ? longitudeRaw : undefined;
+    return { address, city, state, zip, latitude, longitude };
   }, [editedShoot.location, isEditMode, shoot]);
 
   usePhotographerAssignmentOptions(

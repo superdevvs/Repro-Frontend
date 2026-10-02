@@ -60,6 +60,7 @@ import { OverviewAccessDescription, OverviewAccessSection } from './overview/Ove
 import { OverviewClientSection } from './overview/OverviewClientSection';
 import { OverviewPaymentSummarySection } from './overview/OverviewPaymentSummarySection';
 import { OverviewPhotographerPickerDialog } from './overview/OverviewPhotographerPickerDialog';
+import { toValidMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 import { OverviewPropertyLocationSection } from './overview/OverviewPropertyLocationSection';
 import { OverviewServicesTableSection } from './overview/OverviewServicesTableSection';
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog';
@@ -1161,6 +1162,10 @@ function ShootDetailsOverviewTabContent({
         formatLocationLabel={formatLocationLabel}
         formatAvailabilitySummary={formatAvailabilitySummary}
         handleAssignPhotographer={handleAssignPhotographer}
+        jobCoords={toValidMapCoordinates(
+          shoot.location?.latitude ?? (shoot as { latitude?: number }).latitude,
+          shoot.location?.longitude ?? (shoot as { longitude?: number }).longitude,
+        )}
       />
     </div>
   );

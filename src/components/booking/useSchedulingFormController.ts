@@ -26,6 +26,8 @@ import {
   type SchedulingFormProps,
   type SchedulingPhotographerView,
 } from './schedulingModel';
+import { readBookingJobCoords } from '@/components/photographers/map/photographerMapFields';
+import type { ShootMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 import { useAuth } from '@/components/auth';
 import { CANONICAL_TIMEZONE } from '@/utils/timezone';
 
@@ -62,6 +64,7 @@ export const useSchedulingFormController = ({
 }: SchedulingFormProps) => {
   const { user } = useAuth();
   const canUseProtectedAvailability = canUseProtectedAvailabilityRoutes(user);
+    const [bookingJobCoords, setBookingJobCoords] = useState<ShootMapCoordinates | null>(null);
   const [bookingEligiblePhotographerIds, setBookingEligiblePhotographerIds] = useState<Set<string> | null>(null);
   const [bookingEligibilityError, setBookingEligibilityError] = useState<string | null>(null);
   const [bookingEligibilityRetry, setBookingEligibilityRetry] = useState(0);
@@ -633,6 +636,7 @@ export const useSchedulingFormController = ({
         if (!isRecord(json) || !Array.isArray(json.data)) throw new Error('Invalid photographer eligibility response');
         setHybridEnabledByApi(json.hybrid_travel_enabled === true);
         const photographerData = readBookingPhotographers(json);
+        setBookingJobCoords(readBookingJobCoords(json));
         setAvailabilityDataDate(bookingAvailabilityDate);
         // The API applies service and radius eligibility. "Show all" may include
         // unavailable people, but must never restore people the API excluded.
@@ -640,7 +644,14 @@ export const useSchedulingFormController = ({
         hasLoadedEligibility = true;
         const initialPhotographers: SchedulingPhotographerView[] = photographerData.map((p) => {
           const photographer = photographers.find(ph => String(ph.id) === String(p.id));
-          const parsedDistance = typeof p.distance === 'number'
+          const milesToJob = typeof p.miles_to_job === 'number'
+            ? p.miles_to_job
+            : typeof p.milesToJob === 'number'
+              ? p.milesToJob
+              : undefined;
+          const parsedDistance = typeof milesToJob === 'number'
+            ? milesToJob
+            : typeof p.distance === 'number'
             ? p.distance
             : p.distance
             ? Number.parseFloat(String(p.distance))
@@ -651,6 +662,9 @@ export const useSchedulingFormController = ({
             name: p.name || photographer?.name || '',
             avatar: p.avatar || p.profile_image || p.photo || photographer?.avatar,
             distance: Number.isFinite(parsedDistance as number) ? parsedDistance : undefined,
+            miles_to_job: Number.isFinite(parsedDistance as number) ? (parsedDistance as number) : (p.miles_to_job ?? null),
+            map: (p.map ?? null) as Record<string, unknown> | null,
+            job: (p.job ?? (isRecord(json) ? (json.job as Record<string, unknown> | null) : null) ?? null),
             address: canUseProtectedAvailability ? photographer?.address : undefined,
             city: canUseProtectedAvailability ? photographer?.city : undefined,
             state: canUseProtectedAvailability ? photographer?.state : undefined,
@@ -961,6 +975,7 @@ export const useSchedulingFormController = ({
     showPhotographerAddress: canUseProtectedAvailability,
     canConfirmPhotographer,
     bookingEligibilityError, retryBookingEligibility,
+    bookingJobCoords,
   };
 };
 

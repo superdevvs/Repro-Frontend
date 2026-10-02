@@ -15,6 +15,7 @@ import { serviceRequiresPhotographer } from '@/utils/photographerAssignment';
 import { ServiceDatePicker, ServiceTimePicker, buildServiceTimeOptions } from '@/components/shoots/ServiceSchedulePicker';
 import { ApplyAllServiceScheduleButton } from '@/components/shoots/ApplyAllServiceScheduleButton';
 import type { SchedulingFormController } from './useSchedulingFormController';
+import { PhotographerPickerMapShell } from '@/components/photographers/map/PhotographerPickerMapShell';
 
 export function SchedulingPhotographerSection({ controller }: { controller: SchedulingFormController }) {
   const {
@@ -31,6 +32,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
     formatScheduleLine, handlePhotographerDialogOpen, handleConfirmServicePhotographer,
     formatLocationLabel, availabilityCardWindow,
     formErrors, showPhotographerAddress, bookingEligibilityError, retryBookingEligibility, canConfirmPhotographer,
+    bookingJobCoords,
   } = controller;
   const canSeePhotographerAddress = showPhotographerAddress === true;
   const photographerHeadingId = React.useId();
@@ -334,10 +336,21 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
           </DrawerDescription>
         </DrawerHeader>
         <div className="flex min-h-0 flex-1 flex-col px-3 pb-2">
-          {renderPhotographerFilters(true)}
-          <div className="mt-1.5 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1 [scrollbar-gutter:stable_both-edges]">
-            {renderPhotographerResults(true)}
-          </div>
+          <PhotographerPickerMapShell
+            isMobile
+            photographer={selectedPhotographerDetails}
+            photographerName={selectedPhotographerDetails?.name}
+            photographerId={selectedPhotographerDetails?.id}
+            jobCoords={bookingJobCoords}
+            list={
+              <>
+                {renderPhotographerFilters(true)}
+                <div className="mt-1.5 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1 [scrollbar-gutter:stable_both-edges]">
+                  {renderPhotographerResults(true)}
+                </div>
+              </>
+            }
+          />
         </div>
         <DrawerFooter className="gap-1.5 border-t border-slate-200/70 bg-white/90 px-3 pt-2 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/60 [padding-bottom:calc(0.35rem+env(safe-area-inset-bottom))]">
           <div className="min-w-0">
@@ -358,8 +371,8 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
   ) : (
     <Dialog open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
       <DialogTrigger asChild>{photographerTrigger}</DialogTrigger>
-      <DialogContent className="sm:max-w-2xl w-[92vw] max-h-[90vh] p-0 overflow-hidden">
-        <div className="flex flex-col h-full sm:h-[70vh]">
+      <DialogContent className="sm:max-w-6xl w-[96vw] max-h-[92vh] p-0 overflow-hidden">
+        <div className="flex flex-col h-full sm:h-[min(80vh,52rem)]">
           <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
             <DialogHeader className="space-y-1 text-left items-start">
               <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
@@ -367,10 +380,22 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                 {filteredAndSortedPhotographers.length} photographers shown
               </DialogDescription>
             </DialogHeader>
-            {renderPhotographerFilters(false)}
-            <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-              {renderPhotographerResults(false)}
-            </div>
+            <PhotographerPickerMapShell
+              isMobile={false}
+              photographer={selectedPhotographerDetails}
+              photographerName={selectedPhotographerDetails?.name}
+              photographerId={selectedPhotographerDetails?.id}
+              jobCoords={bookingJobCoords}
+              className="min-h-0"
+              list={
+                <>
+                  {renderPhotographerFilters(false)}
+                  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                    {renderPhotographerResults(false)}
+                  </div>
+                </>
+              }
+            />
             <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-950/50 backdrop-blur flex-shrink-0">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
@@ -584,10 +609,21 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                       </DrawerDescription>
                     </DrawerHeader>
                     <div className="flex min-h-0 flex-1 flex-col px-3 pb-2">
-                      {renderPhotographerFilters(true)}
-                      <div className="mt-1.5 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1 [scrollbar-gutter:stable_both-edges]">
-                        {renderPhotographerResults(true)}
-                      </div>
+                      <PhotographerPickerMapShell
+                        isMobile
+                        photographer={selectedPhotographerDetails}
+                        photographerName={selectedPhotographerDetails?.name}
+                        photographerId={selectedPhotographerDetails?.id}
+                        jobCoords={bookingJobCoords}
+                        list={
+                          <>
+                            {renderPhotographerFilters(true)}
+                            <div className="mt-1.5 min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-1 [scrollbar-gutter:stable_both-edges]">
+                              {renderPhotographerResults(true)}
+                            </div>
+                          </>
+                        }
+                      />
                     </div>
                     <DrawerFooter className="gap-1.5 border-t border-slate-200/70 bg-white/90 px-3 pt-2 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/60 [padding-bottom:calc(0.35rem+env(safe-area-inset-bottom))]">
                       <div className="min-w-0">
@@ -614,8 +650,8 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                   setPhotographerDialogOpen(open);
                   if (!open) setActiveServiceForPicker(null);
                 }}>
-                  <DialogContent className="sm:max-w-2xl w-[92vw] max-h-[90vh] p-0 overflow-hidden">
-                    <div className="flex flex-col h-full sm:h-[70vh]">
+                  <DialogContent className="sm:max-w-6xl w-[96vw] max-h-[92vh] p-0 overflow-hidden">
+                    <div className="flex flex-col h-full sm:h-[min(80vh,52rem)]">
                       <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
                         <DialogHeader className="space-y-1 text-left items-start">
                           <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">
@@ -625,10 +661,22 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                             {filteredAndSortedPhotographers.length} photographers shown
                           </DialogDescription>
                         </DialogHeader>
-                        {renderPhotographerFilters(false)}
-                        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-                          {renderPhotographerResults(false)}
-                        </div>
+                        <PhotographerPickerMapShell
+                          isMobile={false}
+                          photographer={selectedPhotographerDetails}
+                          photographerName={selectedPhotographerDetails?.name}
+                          photographerId={selectedPhotographerDetails?.id}
+                          jobCoords={bookingJobCoords}
+                          className="min-h-0"
+                          list={
+                            <>
+                              {renderPhotographerFilters(false)}
+                              <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                                {renderPhotographerResults(false)}
+                              </div>
+                            </>
+                          }
+                        />
                         <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-950/50 backdrop-blur flex-shrink-0">
                           <div className="flex items-center justify-between gap-3">
                             <div className="flex items-center gap-3 min-w-0">

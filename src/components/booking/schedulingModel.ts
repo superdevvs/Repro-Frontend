@@ -46,6 +46,10 @@ export interface SchedulingPhotographerView extends SchedulingPhotographer, Trav
   isAvailableAtTime?: boolean;
   hasAvailability?: boolean;
   shootsCountToday?: number;
+  /** for-booking map enrichments (staff); null/absent for client fail-open */
+  miles_to_job?: number | null;
+  map?: Record<string, unknown> | null;
+  job?: Record<string, unknown> | null;
 }
 
 export type AvailabilityByPhotographer = Record<string, SchedulingSlot[]>;
@@ -66,6 +70,10 @@ export type BookingPhotographerPayload = Omit<SchedulingPhotographerView, 'id' |
   distance_from?: 'home' | 'previous_shoot';
   previous_shoot_id?: number;
   service_area_label?: string;
+  miles_to_job?: number | null;
+  milesToJob?: number | null;
+  map?: Record<string, unknown> | null;
+  job?: Record<string, unknown> | null;
 };
 
 export const isRecord = (value: unknown): value is Record<string, unknown> =>
