@@ -847,6 +847,7 @@ export function useShootDetailsMediaTab({
     handleEditorDownloadRaw,
     handleGenerateShareLink,
     handleDeleteFiles,
+    handleDeleteSingleFile,
     handleReclassify,
     toggleFileHidden,
     handleToggleFavorite,
@@ -1404,6 +1405,7 @@ export function useShootDetailsMediaTab({
         onToggleHidden={toggleFileHidden}
         onDownloadSingle={canDownloadViewerSingleMedia ? handleDownloadSingleFile : undefined}
         onRenameFilename={canRenameFilename ? handleRenameFilenameWithPrompt : undefined}
+        onDeleteFile={handleDeleteSingleFile}
         downloadingFileIds={downloadingFileIds}
         showAiEditDialog={showAiEditDialog}
         setShowAiEditDialog={setShowAiEditDialog}

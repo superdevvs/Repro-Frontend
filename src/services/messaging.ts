@@ -127,29 +127,50 @@ export type TemplateDraft = Pick<MessageTemplate,
   'channel' | 'name' | 'description' | 'category' | 'subject' | 'body_html' | 'body_text'
 > & Partial<Pick<MessageTemplate, 'scope' | 'email_type' | 'override_enabled' | 'variables_json' | 'content_blocks_json'>>;
 
-// Manual shoot notifications (Req 12.1, 12.5, 12.6, 12.7, 12.8)
+// Manual shoot notifications — catalogue-driven (EM Media + Notify Slice 1).
 //
-// Backend endpoints (see MessageTemplateController::manualSend / manualPreview):
-//   POST /api/messaging/notifications/manual-send
-//     body: { shoot_id, type, recipient_type, channel }
-//   POST /api/messaging/notifications/manual-preview
-//     body: { shoot_id, type, recipient_type } (channel optional)
-//     returns: { subject, body_html, body_text, missing_variables }
+ // GET  /api/messaging/notifications/catalogue?shoot_id=
+ // POST /api/messaging/notifications/manual-preview
+ // POST /api/messaging/notifications/manual-send
+ // Auth: admin/superadmin/editing_manager (assigned sales_rep catalogue list-only).
 
+/** @deprecated Prefer catalogue endpoint; kept as offline fallback labels only. */
 export const MANUAL_NOTIFICATION_TYPES = [
   'shoot_scheduled',
   'shoot_on_hold',
   'shoot_cancelled',
   'shoot_ready',
+  'shoot_updated',
+  'shoot_delivered',
   'payment_due',
   'payment_receipt',
 ] as const;
 
-export type ManualNotificationType = (typeof MANUAL_NOTIFICATION_TYPES)[number];
+export type ManualNotificationType = string;
 
 export type ManualNotificationRecipient = 'client' | 'photographer' | 'rep';
 
 export type ManualNotificationChannel = 'email' | 'sms';
+
+export interface NotificationCatalogueItem {
+  type: string;
+  label: string;
+  category?: string | null;
+  slug?: string | null;
+  recipients: ManualNotificationRecipient[];
+  channels: ManualNotificationChannel[];
+  available: boolean;
+  block_reason?: string | null;
+  requires?: string[];
+  optional_missing_ok?: string[];
+  aliases?: string[];
+}
+
+export interface NotificationCatalogueResult {
+  shoot_id: number;
+  dashboard_link?: string | null;
+  notifications: NotificationCatalogueItem[];
+}
 
 export interface ManualNotificationPreviewPayload {
   shoot_id: number;
@@ -167,6 +188,10 @@ export interface ManualNotificationPreviewResult {
   body_html: string | null;
   body_text: string | null;
   missing_variables: string[];
+  missing_required?: string[];
+  can_send?: boolean;
+  block_reason?: string | null;
+  dashboard_link?: string | null;
   recipients?: NotificationRecipientPerson[];
 }
 
@@ -177,6 +202,16 @@ export interface ManualNotificationSendResult {
   channel: ManualNotificationChannel;
   recipient_type: ManualNotificationRecipient;
 }
+
+
+export const getNotificationCatalogue = async (
+  shootId: number,
+): Promise<NotificationCatalogueResult> => {
+  const response = await apiClient.get('/messaging/notifications/catalogue', {
+    params: { shoot_id: shootId },
+  });
+  return response.data;
+};
 
 export const previewManualNotification = async (
   payload: ManualNotificationPreviewPayload,

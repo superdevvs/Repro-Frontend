@@ -35,21 +35,21 @@ export const UploadStatusDialog: React.FC<UploadStatusDialogProps> = ({
         return (
           <Badge variant="outline" className="text-[10px] gap-1">
             <UploadCloud className="h-3 w-3" />
-            Queued
+            Uploading
           </Badge>
         );
       case 'uploading':
         return (
           <Badge variant="outline" className="text-[10px] border-blue-200 text-blue-600 dark:border-blue-800 dark:text-blue-400 gap-1">
             <InlineSpinner className="h-3 w-3" aria-hidden="true" />
-            {formatUploadPercent(upload.progress)}%
+            Uploading {formatUploadPercent(upload.progress)}%
           </Badge>
         );
       case 'succeeded':
         return (
           <Badge variant="outline" className="text-[10px] border-green-200 text-green-600 dark:border-green-800 dark:text-green-400 gap-1">
             <CheckCircle className="h-3 w-3" />
-            Done
+            Saved
           </Badge>
         );
       case 'failed':

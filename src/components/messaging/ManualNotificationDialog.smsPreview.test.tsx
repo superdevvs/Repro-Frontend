@@ -4,12 +4,34 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ManualNotificationDialog } from './ManualNotificationDialog';
 
-const mocks = vi.hoisted(() => ({ preview: vi.fn(), send: vi.fn(), recipients: vi.fn().mockResolvedValue({ recipients: [] }), success: vi.fn(), error: vi.fn(), info: vi.fn() }));
+const mocks = vi.hoisted(() => {
+  const catalogueNotifications = [
+    { type: 'shoot_scheduled', label: 'Shoot scheduled', recipients: ['client', 'photographer'], channels: ['email', 'sms'], available: true },
+    { type: 'shoot_on_hold', label: 'Shoot on hold', recipients: ['client', 'photographer', 'rep'], channels: ['email', 'sms'], available: true },
+    { type: 'shoot_cancelled', label: 'Shoot cancelled', recipients: ['client', 'photographer', 'rep'], channels: ['email', 'sms'], available: true },
+    { type: 'shoot_ready', label: 'Shoot ready', recipients: ['client', 'photographer'], channels: ['email', 'sms'], available: true },
+    { type: 'shoot_updated', label: 'Shoot Updated', recipients: ['client', 'photographer'], channels: ['email', 'sms'], available: true },
+    { type: 'shoot_delivered', label: 'Shoot Delivered', recipients: ['client', 'photographer'], channels: ['email', 'sms'], available: true, aliases: ['shoot_ready'] },
+    { type: 'payment_due', label: 'Payment due', recipients: ['client'], channels: ['email', 'sms'], available: true },
+    { type: 'payment_receipt', label: 'Payment receipt', recipients: ['client'], channels: ['email', 'sms'], available: true },
+  ];
+  return {
+    catalogueNotifications,
+    preview: vi.fn(),
+    send: vi.fn(),
+    recipients: vi.fn().mockResolvedValue({ recipients: [] }),
+    catalogue: vi.fn(async () => ({ shoot_id: 104, dashboard_link: 'https://reprodashboard.com/shoots/104', notifications: catalogueNotifications })),
+    success: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+  };
+});
 vi.mock('@/services/messaging', () => ({
   MANUAL_NOTIFICATION_TYPES: ['shoot_scheduled', 'shoot_on_hold', 'shoot_cancelled', 'shoot_ready', 'payment_due', 'payment_receipt'],
   previewManualNotification: mocks.preview,
   sendManualNotification: mocks.send,
   getNotificationRecipients: mocks.recipients,
+  getNotificationCatalogue: mocks.catalogue,
 }));
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false }));
 vi.mock('@/lib/sonner-toast', () => ({ toast: { success: mocks.success, error: mocks.error, info: mocks.info } }));
@@ -19,7 +41,7 @@ afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('Manual notification channel preview', () => {
   it.each(['Shoot on hold', 'Shoot cancelled'])('can preview and send %s to the sales rep', async (label) => {
-    mocks.preview.mockImplementation(async ({ recipient_type }) => ({ subject: 'Notification', body_text: 'Preview message', body_html: null, missing_variables: [], recipients: recipient_type === 'rep' ? [{ id: 9, name: 'Alex Sales', recipient_type: 'rep' }] : [] }));
+    mocks.preview.mockImplementation(async ({ recipient_type }) => ({ subject: 'Notification', body_text: 'Preview message', body_html: null, missing_variables: [], can_send: true, recipients: recipient_type === 'rep' ? [{ id: 9, name: 'Alex Sales', recipient_type: 'rep' }] : [] }));
     mocks.send.mockResolvedValue({ channel: 'email', status: 'sent' });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={queryClient}><ManualNotificationDialog shootId={104} open onClose={vi.fn()} /></QueryClientProvider>);
@@ -39,7 +61,7 @@ describe('Manual notification channel preview', () => {
   });
 
   it.each([['Shoot cancelled', 'shoot_cancelled'], ['Shoot on hold', 'shoot_on_hold']])('previews and sends %s to the assigned photographer', async (label, type) => {
-    mocks.preview.mockResolvedValue({ subject: 'Cancelled', body_text: 'Cancellation message', body_html: null, missing_variables: [] });
+    mocks.preview.mockResolvedValue({ subject: 'Cancelled', body_text: 'Cancellation message', body_html: null, missing_variables: [], can_send: true });
     mocks.send.mockResolvedValue({ channel: 'email', status: 'sent' });
     mocks.recipients.mockResolvedValue({ recipients: [{ id: 8, name: 'Assigned Photographer', recipient_type: 'photographer' }] });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -64,7 +86,7 @@ describe('Manual notification channel preview', () => {
     ['Shoot on hold', 'Sales rep', 'Shoot cancelled', 'Sales rep', 'shoot_cancelled', 'rep'],
     ['Shoot cancelled', 'Photographer', 'Shoot scheduled', 'Photographer', 'shoot_scheduled', 'photographer'],
   ])('switches %s / %s to %s with %s selected', async (initialLabel, recipient, nextLabel, selected, type, recipientType) => {
-    mocks.preview.mockResolvedValue({ subject: 'Notification', body_text: 'Preview message', body_html: null, missing_variables: [] });
+    mocks.preview.mockResolvedValue({ subject: 'Notification', body_text: 'Preview message', body_html: null, missing_variables: [], can_send: true });
     mocks.recipients.mockResolvedValue({ recipients: [] });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={queryClient}><ManualNotificationDialog shootId={104} open onClose={vi.fn()} /></QueryClientProvider>);
@@ -87,7 +109,7 @@ describe('Manual notification channel preview', () => {
     mocks.recipients.mockResolvedValue({ recipients: [previous, current] });
     mocks.preview.mockImplementation(async ({ type, recipient_type }) => type === 'shoot_on_hold'
       ? holdPreview
-      : { subject: 'Scheduled', body_text: 'Scheduled preview', missing_variables: [], recipients: recipient_type === 'photographer' ? [previous, current] : [] });
+      : { subject: 'Scheduled', body_text: 'Scheduled preview', missing_variables: [], can_send: true, recipients: recipient_type === 'photographer' ? [previous, current] : [] });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(<QueryClientProvider client={queryClient}><ManualNotificationDialog shootId={104} open onClose={vi.fn()} /></QueryClientProvider>);
     await screen.findByText('Scheduled preview');
@@ -98,14 +120,14 @@ describe('Manual notification channel preview', () => {
     expect(screen.queryByText('Superseded primary')).not.toBeInTheDocument();
     expect(screen.queryByTestId('manual-notification-recipients')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Notify$/ })).toBeDisabled();
-    await act(async () => { resolveHold({ subject: 'Hold', body_text: 'Hold preview', missing_variables: [], recipients: [current] }); });
+    await act(async () => { resolveHold({ subject: 'Hold', body_text: 'Hold preview', missing_variables: [], can_send: true, recipients: [current] }); });
     expect(await screen.findByText('Current assignee')).toBeVisible();
     expect(screen.queryByText('Superseded primary')).not.toBeInTheDocument();
     expect(mocks.recipients).not.toHaveBeenCalled();
   });
 
   it.each(['BLOCKED', 'QUEUED', 'PENDING', 'SENT'])('reports the actual %s send status', async (status) => {
-    mocks.preview.mockResolvedValue({ subject: 'Hold', body_text: 'Message preview', missing_variables: [], recipients: [] });
+    mocks.preview.mockResolvedValue({ subject: 'Hold', body_text: 'Message preview', missing_variables: [], can_send: true, recipients: [] });
     mocks.send.mockResolvedValue({ status, channel: 'email', message: status === 'BLOCKED' ? 'Blocked by notification settings.' : undefined });
     const onClose = vi.fn();
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -129,7 +151,7 @@ describe('Manual notification channel preview', () => {
       subject: channel === 'sms' ? '' : 'Detailed email',
       body_html: channel === 'sms' ? null : '<p>Full email information</p>',
       body_text: channel === 'sms' ? 'Shoot: 104 Test Lane. Details: /shoots/104' : 'Full email information',
-      missing_variables: [],
+      missing_variables: [], can_send: true,
     }));
     mocks.send.mockResolvedValue({ channel: 'sms', status: 'sent' });
     const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

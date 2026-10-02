@@ -390,6 +390,84 @@ export function EditedUploadSection({
                 return { success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits, acceptedFiles: [] };
               }
 
+              // Ambiguous same-name replace: BE returns 422 with replace_file_id — confirm and retry.
+              let replaceFileId: string | null = null;
+              try {
+                const payload = responseText ? JSON.parse(responseText) as Record<string, unknown> : null;
+                const rawId = payload?.replace_file_id ?? (payload?.data as Record<string, unknown> | undefined)?.replace_file_id;
+                if (rawId != null && String(rawId).trim() !== '') {
+                  replaceFileId = String(rawId);
+                }
+              } catch {
+                replaceFileId = null;
+              }
+
+              if (status === 422 && replaceFileId) {
+                const shouldReplace = typeof window !== 'undefined'
+                  && window.confirm(
+                    `A saved file named "${file.name}" already exists on this shoot. Replace it with this upload?`,
+                  );
+                if (shouldReplace) {
+                  const retryForm = new FormData();
+                  formData.forEach((value, key) => {
+                    retryForm.append(key, value);
+                  });
+                  retryForm.append('replace_file_id', replaceFileId);
+                  const retryRequest = await uploadMediaRequest({
+                    url: `${API_BASE_URL}/api/shoots/${shoot.id}/upload`,
+                    body: retryForm,
+                    signal,
+                    headers: {
+                      Accept: 'application/json',
+                      Authorization: authHeader,
+                      'X-Impersonate-User-Id': impersonateHeader,
+                    },
+                    onProgress: ({ phase, loaded, total }) => {
+                      const fraction = phase === 'processing'
+                        ? 1
+                        : total > 0
+                          ? Math.min(loaded / total, 1)
+                          : Math.min(loaded / Math.max(file.size, 1), 1);
+                      fileProgresses[index] = Math.min(100, fraction * 100);
+                      emitTransferProgress(index, phase);
+                    },
+                  });
+                  if (retryRequest.ok !== false) {
+                    const retryText = retryRequest.responseText;
+                    const retryStatus = retryRequest.status;
+                    const retryResult = parseCanonicalUploadResponse(retryText);
+                    if (retryStatus >= 200 && retryStatus < 300 && retryResult.successCount > 0) {
+                      mergeAcceptedShootFiles(queryClient, shoot.id, 'edited', retryResult.uploadedFiles);
+                      fileProgresses[index] = 100;
+                      if (!completedIndexes.includes(index)) completedIndexes.push(index);
+                      emitTransferProgress(index, 'processing', true);
+                      return {
+                        success: true,
+                        issues: [],
+                        file,
+                        originalIndex: index,
+                        uploadLimits: retryResult.uploadLimits,
+                        acceptedFiles: retryResult.uploadedFiles,
+                      };
+                    }
+                  }
+                }
+                const parsedReplace = parseUploadIssues(
+                  file,
+                  index,
+                  responseText,
+                  shouldReplace ? 'Replace upload failed' : 'Replace cancelled — pass replace_file_id to overwrite the existing file.',
+                );
+                return {
+                  success: false,
+                  issues: parsedReplace.issues.map((issue) => ({ ...issue, retryable: true })),
+                  file,
+                  originalIndex: index,
+                  uploadLimits: parsedReplace.uploadLimits,
+                  acceptedFiles: [],
+                };
+              }
+
               const parsed = parseUploadIssues(file, index, responseText, 'Upload failed');
               return { success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits: parsed.uploadLimits, acceptedFiles: [] };
           };

@@ -578,10 +578,10 @@ export function ShootDetailsModal({
   }, [shoot, isEditor, isPhotographer, user?.id]);
   const addressTitle = getShootDetailsAddressTitle(shoot);
 
-  // Admins/superadmins only (backend gates role:superadmin,admin). `isAdmin` here also
-  // includes editing_manager, so exclude it along with the non-admin roles.
+  // Admins/superadmins and editing managers (BE enforces manage-able shoots).
+  // Manual send does not mutate workflow status.
   const canSendManualNotification =
-    isAdmin && !isEditingManager && !isEditor && !isPhotographer && !isClient;
+    (isAdmin || isEditingManager) && !isEditor && !isPhotographer && !isClient;
 
   if (loading) {
     return (

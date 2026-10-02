@@ -417,6 +417,7 @@ export interface RenameMediaFileData {
 export interface RenameMediaFileResponse {
   data: RenameMediaFileData;
   message?: string;
+  media_revision?: number;
 }
 
 /**
@@ -473,6 +474,7 @@ export interface BatchRenameMediaResponse {
     failed: BatchRenameFailedItem[];
   };
   message?: string;
+  media_revision?: number;
 }
 
 /**
@@ -487,6 +489,35 @@ export const batchRenameShootMediaFiles = async (
   const response = await axios.post<BatchRenameMediaResponse>(
     `${API_BASE_URL}/api/shoots/${shootId}/media/batch-rename`,
     payload,
+    headers ? { headers } : undefined,
+  );
+  return response.data;
+};
+
+
+export interface DeleteShootMediaResponse {
+  message?: string;
+  deleted_id?: string | number;
+  deleted_ids?: Array<string | number>;
+  failed_ids?: Array<string | number>;
+  counts?: {
+    raw_photo_count?: number;
+    edited_photo_count?: number;
+    extra_photo_count?: number;
+    raw_missing_count?: number;
+    edited_missing_count?: number;
+  };
+  media_revision?: number;
+}
+
+/** DELETE /api/shoots/{shootId}/media/{fileId} */
+export const deleteShootMediaFile = async (
+  shootId: string | number,
+  fileId: string | number,
+  headers?: Record<string, string>,
+): Promise<DeleteShootMediaResponse> => {
+  const response = await axios.delete<DeleteShootMediaResponse>(
+    `${API_BASE_URL}/api/shoots/${shootId}/media/${fileId}`,
     headers ? { headers } : undefined,
   );
   return response.data;

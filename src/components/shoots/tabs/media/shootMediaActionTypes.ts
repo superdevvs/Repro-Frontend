@@ -6,6 +6,9 @@ import type { useToast } from '@/hooks/use-toast';
 import type { useUpload } from '@/context/UploadContext';
 
 export type ReclassifyMediaType =
+  | 'photos'
+  | 'main'
+  | 'main_photos'
   | 'floorplan'
   | 'raw'
   | 'edited'
@@ -16,6 +19,7 @@ export type ReclassifyMediaType =
   | 'drone';
 
 export const markMenuOptions: Array<{ label: string; value: ReclassifyMediaType }> = [
+  { label: 'Main photos', value: 'photos' },
   { label: 'Floorplan', value: 'floorplan' },
   { label: 'Extra', value: 'extra' },
   { label: 'Virtual Staging', value: 'virtual_staging' },

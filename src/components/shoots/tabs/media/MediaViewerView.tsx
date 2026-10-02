@@ -11,7 +11,7 @@ import VideoThumbnail from '../../VideoThumbnail';
 import { getMediaVideoPreviewUrl, getMediaVideoUrl } from './mediaPreviewUtils';
 import { isRawFile } from '@/services/rawPreviewService';
 import { blurActiveElement } from '../../dialogFocusUtils';
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, MoreHorizontal, Pencil, Play, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, MoreHorizontal, Pencil, Play, Trash2, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { getRequestStatusClassName, formatViewerDateTime, formatViewerFileSize } from './mediaViewerTypes';
 import type { useMediaViewerController } from './useMediaViewerController';
@@ -30,6 +30,9 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
     canInteractSingleMedia,
     canDownloadSingleMedia,
     canShowRenameFilename,
+    canDeleteCurrentFile,
+    deletingFile,
+    handleDeleteCurrentFile,
     renameApiEnabled,
     onToggleFavorite,
     onAddComment,
@@ -179,6 +182,19 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                   >
                     <Pencil className="h-4 w-4" />
                     Rename filename
+                  </DropdownMenuItem>
+                )}
+                {canDeleteCurrentFile && (
+                  <DropdownMenuItem
+                    className={mobileActionMenuItemClassName}
+                    disabled={deletingFile}
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      void handleDeleteCurrentFile();
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    {deletingFile ? 'Deleting…' : 'Delete'}
                   </DropdownMenuItem>
                 )}
                 {slideshowAvailable && (
@@ -560,6 +576,18 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                             <Pencil className="h-4 w-4" />
                           </Button>
                         )}
+                        {canDeleteCurrentFile && (
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 shrink-0 rounded-lg !border-rose-400/30 !bg-rose-500/15 !text-rose-50 hover:!bg-rose-500/25 disabled:opacity-50"
+                            disabled={deletingFile}
+                            onClick={() => { void handleDeleteCurrentFile(); }}
+                            title="Delete file"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                         {canRequestModification && (
                           <Button
                             variant="outline"
@@ -679,6 +707,18 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                         >
                           <Pencil className="mr-2 h-4 w-4" />
                           Rename filename
+                        </Button>
+                      )}
+                      {canDeleteCurrentFile && (
+                        <Button
+                          variant="outline"
+                          className={sidebarActionButtonClassName}
+                          disabled={deletingFile}
+                          onClick={() => { void handleDeleteCurrentFile(); }}
+                          title="Delete file"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {deletingFile ? 'Deleting…' : 'Delete'}
                         </Button>
                       )}
                       {(slideshowAvailable || canRequestModification) && (

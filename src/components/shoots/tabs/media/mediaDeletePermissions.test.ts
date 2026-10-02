@@ -25,14 +25,18 @@ describe('edited video deletion permissions', () => {
     expect(canDeleteMediaFile(file('raw', true), { ...context, displayTab: 'uploaded' })).toBe(false);
   });
 
-  it('preserves photo editor review restrictions and other role behavior', () => {
-    expect(canDeleteMediaFile(file('photo', true), { ...context, isVideoEditor: false })).toBe(false);
+  it('trusts server can_delete for editors and staff, including post-delivery', () => {
+    // Explicit server allow wins even when the shoot is in review/delivered.
+    expect(canDeleteMediaFile(file('photo', true), { ...context, isVideoEditor: false })).toBe(true);
+    expect(canDeleteMediaFile(file('photo', true), { ...context, isVideoEditor: false, isDelivered: true })).toBe(true);
+    // Legacy payloads without can_delete keep client heuristics.
     expect(canDeleteMediaFile(file('photo'), { ...context, isVideoEditor: false, isSubmittedForReview: false })).toBe(true);
     const staff = { ...context, isEditor: false, isVideoEditor: false, isDelivered: true };
     expect(canDeleteMediaFile(file('video'), { ...staff, role: 'superadmin', isAdmin: true })).toBe(true);
     expect(canDeleteMediaFile(file('video'), { ...staff, role: 'admin', isAdmin: true })).toBe(false);
-    expect(canDeleteMediaFile(file('video', true), { ...staff, role: 'client' })).toBe(false);
-    expect(canDeleteMediaFile(file('video', true), { ...staff, role: 'salesRep' })).toBe(false);
+    expect(canDeleteMediaFile(file('video', true), { ...staff, role: 'admin', isAdmin: true })).toBe(true);
+    expect(canDeleteMediaFile(file('video', true), { ...staff, role: 'client' })).toBe(true);
+    expect(canDeleteMediaFile(file('video', false), { ...staff, role: 'client' })).toBe(false);
   });
 
   it('rejects mixed, stale and empty selections rather than authorizing the whole batch', () => {

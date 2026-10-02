@@ -28,6 +28,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     onToggleHidden,
     onDownloadSingle,
     onRenameFilename,
+    onDeleteFile,
     downloadingFileIds,
     showAiEditDialog,
     setShowAiEditDialog,
@@ -67,6 +68,7 @@ export function ShootDetailsMediaTabDialogs(props: any) {
         onToggleHidden={onToggleHidden}
         onDownloadSingle={onDownloadSingle}
         onRenameFilename={onRenameFilename}
+        onDeleteFile={onDeleteFile}
         downloadingFileIds={downloadingFileIds}
       />
 

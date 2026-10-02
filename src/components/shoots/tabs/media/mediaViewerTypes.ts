@@ -24,6 +24,8 @@ export interface MediaViewerProps {
   onToggleHidden?: (fileId: string, hidden: boolean) => void;
   onDownloadSingle?: (fileId: string) => void | Promise<void>;
   onRenameFilename?: (fileId: string, filename: string) => void | Promise<void>;
+  /** Returns true when the file was deleted so the viewer can advance. */
+  onDeleteFile?: (fileId: string) => void | Promise<boolean>;
   downloadingFileIds?: ReadonlySet<string>;
   onShootUpdate?: () => void;
 }

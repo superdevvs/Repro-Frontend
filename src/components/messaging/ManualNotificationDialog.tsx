@@ -25,24 +25,16 @@ import { toast } from '@/lib/sonner-toast';
 import { cn } from '@/lib/utils';
 
 import {
-  MANUAL_NOTIFICATION_TYPES,
+  getNotificationCatalogue,
   type ManualNotificationChannel,
   type ManualNotificationPreviewResult,
   type ManualNotificationRecipient,
   type ManualNotificationType,
+  type NotificationCatalogueItem,
   type NotificationRecipientPerson,
   previewManualNotification,
   sendManualNotification,
 } from '@/services/messaging';
-
-const TYPE_LABELS: Record<ManualNotificationType, string> = {
-  shoot_scheduled: 'Shoot scheduled',
-  shoot_on_hold: 'Shoot on hold',
-  shoot_cancelled: 'Shoot cancelled',
-  shoot_ready: 'Shoot ready',
-  payment_due: 'Payment due',
-  payment_receipt: 'Payment receipt',
-};
 
 const RECIPIENT_OPTIONS: ReadonlyArray<{
   value: ManualNotificationRecipient;
@@ -54,10 +46,16 @@ const RECIPIENT_OPTIONS: ReadonlyArray<{
   { value: 'photographer', label: 'Photographer', icon: <Users className="h-4 w-4" /> },
 ];
 
-const isRecipientAllowed = (type: ManualNotificationType, recipient: ManualNotificationRecipient) =>
-  recipient === 'client'
-  || (recipient === 'rep' && (type === 'shoot_on_hold' || type === 'shoot_cancelled'))
-  || recipient === 'photographer';
+const FALLBACK_TYPE_LABELS: Record<string, string> = {
+  shoot_scheduled: 'Shoot scheduled',
+  shoot_on_hold: 'Shoot on hold',
+  shoot_cancelled: 'Shoot cancelled',
+  shoot_ready: 'Shoot ready',
+  shoot_updated: 'Shoot Updated',
+  shoot_delivered: 'Shoot Delivered',
+  payment_due: 'Payment due',
+  payment_receipt: 'Payment receipt',
+};
 
 const CHANNEL_OPTIONS: ReadonlyArray<{
   value: ManualNotificationChannel;
@@ -160,18 +158,53 @@ export function ManualNotificationDialog({
   const [type, setType] = useState<ManualNotificationType>('shoot_scheduled');
   const [recipientType, setRecipientType] = useState<ManualNotificationRecipient>('client');
   const [channel, setChannel] = useState<ManualNotificationChannel>('email');
+
+  const catalogueQuery = useQuery({
+    queryKey: ['manual-notification', 'catalogue', shootId],
+    queryFn: () => getNotificationCatalogue(shootId),
+    enabled: open && Number.isFinite(shootId) && shootId > 0,
+    staleTime: 30_000,
+  });
+
+  const catalogueItems: NotificationCatalogueItem[] = catalogueQuery.data?.notifications ?? [];
+  const selectedCatalogueItem = catalogueItems.find((item) => item.type === type)
+    ?? catalogueItems.find((item) => (item.aliases ?? []).includes(type));
+
   const recipientOptions = RECIPIENT_OPTIONS.filter((option) =>
-    isRecipientAllowed(type, option.value),
+    (selectedCatalogueItem?.recipients ?? ['client', 'photographer', 'rep']).includes(option.value),
+  );
+  const channelOptions = CHANNEL_OPTIONS.filter((option) =>
+    (selectedCatalogueItem?.channels ?? ['email', 'sms']).includes(option.value),
   );
 
-  // Reset form whenever the dialog re-opens so a previous selection doesn't leak.
+  const typeLabel = selectedCatalogueItem?.label
+    ?? FALLBACK_TYPE_LABELS[type]
+    ?? type.replace(/_/g, ' ');
+
+  // Seed selection from catalogue when the dialog opens / catalogue loads.
   useEffect(() => {
-    if (open) {
-      setType('shoot_scheduled');
-      setRecipientType('client');
-      setChannel('email');
+    if (!open) return;
+    const items = catalogueQuery.data?.notifications ?? [];
+    if (items.length === 0) return;
+    const preferred = items.find((item) => item.available) ?? items[0];
+    setType((current) => (
+      items.some((item) => item.type === current || (item.aliases ?? []).includes(current))
+        ? current
+        : preferred.type
+    ));
+  }, [open, catalogueQuery.data]);
+
+  useEffect(() => {
+    if (!selectedCatalogueItem) return;
+    if (!selectedCatalogueItem.recipients.includes(recipientType)) {
+      setRecipientType(selectedCatalogueItem.recipients[0] ?? 'client');
     }
-  }, [open]);
+    if (!selectedCatalogueItem.channels.includes(channel)) {
+      setChannel(selectedCatalogueItem.channels[0] ?? 'email');
+    }
+  }, [selectedCatalogueItem, recipientType, channel]);
+
+  const catalogueBlocksType = Boolean(selectedCatalogueItem && selectedCatalogueItem.available === false);
 
   // Each channel uses its own template, so changing channels must refresh the preview.
   const previewQuery = useQuery<ManualNotificationPreviewResult>({
@@ -183,7 +216,7 @@ export function ManualNotificationDialog({
         recipient_type: recipientType,
         channel,
       }),
-    enabled: open && Number.isFinite(shootId) && shootId > 0,
+    enabled: open && Number.isFinite(shootId) && shootId > 0 && !catalogueBlocksType,
     refetchOnWindowFocus: false,
     placeholderData: undefined,
   });
@@ -212,7 +245,7 @@ export function ManualNotificationDialog({
         toast.error(result.message || (status === 'PARTIAL' ? 'Some notifications were not sent.' : 'Notification was not sent.'));
         return;
       }
-      const description = `${TYPE_LABELS[type]} for ${recipientType} via ${(result.channel || channel).toUpperCase()}.`;
+      const description = `${typeLabel} for ${recipientType} via ${(result.channel || channel).toUpperCase()}.`;
       if (['QUEUED', 'PENDING'].includes(status)) {
         toast.info('Notification queued', { description });
       } else if (['SENT', 'DELIVERED'].includes(status)) {
@@ -231,12 +264,29 @@ export function ManualNotificationDialog({
     () => previewQuery.data?.missing_variables ?? [],
     [previewQuery.data],
   );
+  const missingRequired = useMemo(
+    () => previewQuery.data?.missing_required ?? [],
+    [previewQuery.data],
+  );
   const hasMissingVariables = missingVariables.length > 0;
+  const hasMissingRequired = missingRequired.length > 0;
+  const previewBlocksSend = previewQuery.data?.can_send === false
+    || Boolean(previewQuery.data?.block_reason)
+    || hasMissingRequired;
+  const catalogueBlockReason = selectedCatalogueItem?.block_reason ?? null;
+  const previewBlockReason = previewQuery.data?.block_reason ?? null;
+  const dashboardLink = previewQuery.data?.dashboard_link
+    ?? catalogueQuery.data?.dashboard_link
+    ?? null;
 
-  const isPreviewLoading = previewQuery.isFetching;
-  const isPreviewError = previewQuery.isError;
+  const isPreviewLoading = previewQuery.isFetching || catalogueQuery.isFetching;
+  const isPreviewError = previewQuery.isError || catalogueQuery.isError;
   const isSending = sendMutation.isPending;
-  const canSend = !isPreviewLoading && !isPreviewError && !isSending;
+  const canSend = !isPreviewLoading
+    && !isPreviewError
+    && !isSending
+    && !catalogueBlocksType
+    && !previewBlocksSend;
 
   const previewSubject = previewQuery.data?.subject ?? '';
   const previewBodyText = previewQuery.data?.body_text ?? '';
@@ -287,10 +337,17 @@ export function ManualNotificationDialog({
               <Select
                 value={type}
                 onValueChange={(next) => {
-                  const nextType = next as ManualNotificationType;
-                  setType(nextType);
-                  // Reset an incompatible staff choice before fetching its preview.
-                  if (!isRecipientAllowed(nextType, recipientType)) setRecipientType('client');
+                  const nextItem = catalogueItems.find((item) => item.type === next)
+                    ?? catalogueItems.find((item) => (item.aliases ?? []).includes(next));
+                  const allowed = nextItem?.recipients ?? ['client', 'photographer', 'rep'];
+                  setType(next);
+                  // Sync reset so preview never fires with a disallowed pair (e.g. scheduled+rep).
+                  if (!allowed.includes(recipientType)) {
+                    setRecipientType(allowed[0] ?? 'client');
+                  }
+                  if (nextItem && !nextItem.channels.includes(channel)) {
+                    setChannel(nextItem.channels[0] ?? 'email');
+                  }
                 }}
                 disabled={isSending}
               >
@@ -298,9 +355,15 @@ export function ManualNotificationDialog({
                   <SelectValue placeholder="Select type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {MANUAL_NOTIFICATION_TYPES.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {TYPE_LABELS[option]}
+                  {(catalogueItems.length > 0 ? catalogueItems : Object.keys(FALLBACK_TYPE_LABELS).map((typeName) => ({
+                    type: typeName,
+                    label: FALLBACK_TYPE_LABELS[typeName],
+                    recipients: ['client', 'photographer', 'rep'] as ManualNotificationRecipient[],
+                    channels: ['email', 'sms'] as ManualNotificationChannel[],
+                    available: true,
+                  }))).map((option) => (
+                    <SelectItem key={option.type} value={option.type} disabled={option.available === false}>
+                      {option.label}{option.available === false ? ' (unavailable)' : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -342,12 +405,39 @@ export function ManualNotificationDialog({
                 Channel
               </Label>
               <SegmentedControl
-                options={CHANNEL_OPTIONS}
+                options={channelOptions.length > 0 ? channelOptions : CHANNEL_OPTIONS}
                 value={channel}
                 onChange={(next) => setChannel(next)}
                 disabled={isSending}
               />
             </div>
+
+            {(catalogueBlockReason || previewBlockReason || hasMissingRequired) && (
+              <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3" data-testid="manual-notification-block">
+                <div className="flex items-center gap-1.5 text-sm font-medium text-destructive">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  Cannot send this notification
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {previewBlockReason || catalogueBlockReason || 'Required shoot context is missing.'}
+                </p>
+                {hasMissingRequired && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {missingRequired.map((variable) => (
+                      <Badge key={variable} variant="outline" className="border-destructive/40 text-destructive">
+                        {prettyVariable(variable)}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {dashboardLink && (
+              <div className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground" data-testid="manual-notification-dashboard-link">
+                Dashboard link: <span className="break-all text-foreground">{dashboardLink}</span>
+              </div>
+            )}
 
             {hasMissingVariables && !isPreviewLoading && !isPreviewError && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
@@ -385,7 +475,7 @@ export function ManualNotificationDialog({
                 {channel === 'sms' ? 'SMS preview' : 'Email preview'}
               </div>
               <Badge variant="secondary" className="font-normal">
-                {TYPE_LABELS[type]} · {recipientLabel}
+                {typeLabel} · {recipientLabel}
               </Badge>
             </div>
 

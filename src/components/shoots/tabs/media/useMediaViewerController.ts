@@ -57,6 +57,7 @@ export function useMediaViewerController({
   onToggleHidden,
   onDownloadSingle,
   onRenameFilename,
+  onDeleteFile,
   downloadingFileIds,
   onShootUpdate,
 }: MediaViewerProps) {
@@ -100,6 +101,7 @@ export function useMediaViewerController({
   const [showRenameComposer, setShowRenameComposer] = useState(false);
   const [renameDraft, setRenameDraft] = useState('');
   const [renamingFilename, setRenamingFilename] = useState(false);
+  const [deletingFile, setDeletingFile] = useState(false);
   const [showFileDetails, setShowFileDetails] = useState(true);
   const [viewerRequests, setViewerRequests] = useState<MediaIssueRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
@@ -756,6 +758,28 @@ export function useMediaViewerController({
     }
   }, [currentFile, onRenameFilename, renameApiEnabled, renameDraft, renamingFilename]);
 
+  const canDeleteCurrentFile = Boolean(onDeleteFile && currentFile?.can_delete === true);
+  const handleDeleteCurrentFile = useCallback(async () => {
+    if (!currentFile || !onDeleteFile || deletingFile || currentFile.can_delete !== true) return;
+    const deletedId = String(currentFile.id);
+    const previousIndex = currentIndex;
+    setDeletingFile(true);
+    try {
+      const deleted = await onDeleteFile(deletedId);
+      if (!deleted) return;
+      const remaining = files.filter((file) => String(file.id) !== deletedId);
+      if (remaining.length === 0) {
+        onClose();
+        return;
+      }
+      const nextIndex = Math.min(previousIndex, remaining.length - 1);
+      onViewerContextChange?.(nextIndex, remaining);
+      onIndexChange(nextIndex);
+    } finally {
+      setDeletingFile(false);
+    }
+  }, [currentFile, currentIndex, deletingFile, files, onClose, onDeleteFile, onIndexChange, onViewerContextChange]);
+
   if (!isOpen || !currentFile) return null;
   const previewImageUrl = getMediaViewerImageUrl(currentFile);
   const fullSizeImageUrl = getMediaFullSizeImageUrl(currentFile);
@@ -807,6 +831,7 @@ export function useMediaViewerController({
     (canDownloadSingleMedia && Boolean(onDownloadSingle)) ||
     Boolean(onToggleHidden) ||
     canShowRenameFilename ||
+    canDeleteCurrentFile ||
     canRequestModification ||
     slideshowAvailable;
   const fitMediaClassName =
@@ -828,6 +853,9 @@ export function useMediaViewerController({
     canDownloadSingleMedia,
     canRenameFilename,
     canShowRenameFilename,
+    canDeleteCurrentFile,
+    deletingFile,
+    handleDeleteCurrentFile,
     renameApiEnabled,
     slideshowFiles,
     onViewerContextChange,
@@ -836,6 +864,7 @@ export function useMediaViewerController({
     onToggleHidden,
     onDownloadSingle,
     onRenameFilename,
+    onDeleteFile,
     downloadingFileIds: activeDownloadingFileIds,
     showRenameComposer,
     setShowRenameComposer,

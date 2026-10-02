@@ -16,8 +16,9 @@ import {
 import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 import { mergeAcceptedShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { canAccessOverviewVideoEmbedsOnShoot } from '@/utils/shootEditorAssignments';
 import { canDeleteMediaSelection } from './mediaDeletePermissions';
+import { deleteShootMediaFile } from '@/services/shootMediaService';
+import { invalidateShootMediaQueries } from './mediaMutationResult';
 import {
   createUploadBatchId,
   ensureUploadAttemptIdentity,
@@ -675,9 +676,13 @@ export function useShootMediaActions({
       return;
     }
 
-    if (isEditorRole && canAccessOverviewVideoEmbedsOnShoot(shoot, user)
-      && (displayTab !== 'edited' || !canDeleteMediaSelection(selectedFiles, editedFiles, (file) => file.can_delete === true))) {
-      toast({ title: 'Cannot delete selected files', description: 'Select only edited files you can delete.', variant: 'destructive' });
+    if (isEditorRole && displayTab !== 'edited') {
+      toast({ title: 'Cannot delete selected files', description: 'Editors can only delete from Edited Media.', variant: 'destructive' });
+      return;
+    }
+    const deletablePool = displayTab === 'edited' ? editedFiles : [...rawFiles, ...editedFiles];
+    if (isEditorRole && !canDeleteMediaSelection(selectedFiles, deletablePool, (file) => file.can_delete === true)) {
+      toast({ title: 'Cannot delete selected files', description: 'Select only files you can delete.', variant: 'destructive' });
       return;
     }
 
@@ -694,15 +699,17 @@ export function useShootMediaActions({
         headers,
         body: JSON.stringify({ ids: fileIds }),
       });
-      const data = await response.json().catch(() => null) as { message?: unknown; failed_ids?: unknown } | null;
+      const data = await response.json().catch(() => null) as {
+        message?: unknown;
+        failed_ids?: unknown;
+        counts?: unknown;
+        media_revision?: unknown;
+      } | null;
       if (!response.ok) {
         throw new Error(typeof data?.message === 'string' ? data.message : 'Failed to delete files');
       }
 
-      // Even an unreadable success response may follow completed deletions.
-      for (const tab of ['raw', 'edited', 'all']) {
-        void queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, tab] });
-      }
+      await invalidateShootMediaQueries(queryClient, shoot.id);
       onShootUpdate();
       const requestedIds = new Set(fileIds.map(String));
       const failedIds = Array.isArray(data?.failed_ids) && data.failed_ids.every((id) =>
@@ -730,6 +737,42 @@ export function useShootMediaActions({
     }
   };
 
+  const handleDeleteSingleFile = async (fileId: string): Promise<boolean> => {
+    const pool = [...rawFiles, ...editedFiles];
+    const target = pool.find((file) => String(file.id) === String(fileId));
+    if (!target || target.can_delete !== true) {
+      toast({ title: 'Cannot delete', description: 'You do not have permission to delete this file.', variant: 'destructive' });
+      return false;
+    }
+    if (!window.confirm('Delete this file? This action cannot be undone.')) {
+      return false;
+    }
+    try {
+      const headers = getApiHeaders();
+      await deleteShootMediaFile(shoot.id, fileId, headers);
+      await invalidateShootMediaQueries(queryClient, shoot.id);
+      onShootUpdate();
+      setSelectedFiles((current) => {
+        const next = new Set(current);
+        next.delete(String(fileId));
+        return next;
+      });
+      toast({ title: 'Deleted', description: target.filename || 'File removed.' });
+      return true;
+    } catch (error: unknown) {
+      const axiosMessage =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined;
+      toast({
+        title: 'Delete failed',
+        description: axiosMessage || (error instanceof Error ? error.message : 'Failed to delete file'),
+        variant: 'destructive',
+      });
+      return false;
+    }
+  };
+
   const handleReclassify = async (mediaType: ReclassifyMediaType) => {
     if (selectedFiles.size === 0) return;
 
@@ -749,7 +792,7 @@ export function useShootMediaActions({
 
       toast({
         title: 'Success',
-        description: `Reclassified ${fileIds.length} file(s) as ${mediaType}`,
+        description: `Reclassified ${fileIds.length} file(s) as ${mediaType === 'photos' || mediaType === 'main' || mediaType === 'main_photos' || mediaType === 'edited' ? 'Main photos' : mediaType}`,
       });
       await queryClient.refetchQueries({ queryKey: ['shootFiles', shoot.id] });
       setSelectedFiles(new Set());
@@ -965,6 +1008,7 @@ export function useShootMediaActions({
     handleEditorDownloadRaw,
     handleGenerateShareLink,
     handleDeleteFiles,
+    handleDeleteSingleFile,
     handleReclassify,
     toggleFileHidden,
     handleToggleFavorite,

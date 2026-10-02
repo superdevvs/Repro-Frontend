@@ -46,7 +46,6 @@ export function createShootMediaRenameActions({
     updateSingleFile(fileId, (file) => ({
       ...file,
       filename: validation.filename,
-      stored_filename: validation.filename,
     }));
 
     try {
@@ -58,15 +57,22 @@ export function createShootMediaRenameActions({
         ? String(renamed.stored_filename)
         : confirmedFilename;
 
+      // Display name is saved `filename`; keep storage key separate when the server returns it.
       updateSingleFile(fileId, (file) => ({
         ...file,
         filename: confirmedFilename,
         stored_filename: confirmedStored,
+        media_revision: Number.isFinite(Number(response?.media_revision))
+          ? Number(response.media_revision)
+          : file.media_revision,
       }));
 
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
+      // Refetch is source of truth for revision bumps — avoid stale optimistic revert.
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] }),
+        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] }),
+        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] }),
+      ]);
       onShootUpdate();
 
       toast({

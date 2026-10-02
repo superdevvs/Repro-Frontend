@@ -11,11 +11,20 @@ interface MediaDeleteContext {
   displayTab: 'uploaded' | 'edited';
 }
 
+/**
+ * Prefer server `can_delete` (EM may delete before/after delivery when true).
+ * Fall back to legacy client heuristics only when the field is absent.
+ */
 export function canDeleteMediaFile(file: MediaFile, context: MediaDeleteContext): boolean {
+  // Editors never delete from Raw Uploads, even with a server flag.
   if (context.isEditor && context.displayTab !== 'edited') return false;
-  // The server knows uploader ownership, service assignment and the video lane's
-  // release state. A shoot's photos may already be delivered while video is open.
-  if (context.isEditor && context.isVideoEditor) return file.can_delete === true;
+
+  if (typeof file.can_delete === 'boolean') {
+    return file.can_delete;
+  }
+
+  // Legacy payloads without can_delete.
+  if (context.isEditor && context.isVideoEditor) return false;
   return context.role === 'superadmin'
     || ((context.isAdmin || context.isPhotographer) && !context.isDelivered)
     || (context.isEditor && !context.isDelivered && !context.isSubmittedForReview);
