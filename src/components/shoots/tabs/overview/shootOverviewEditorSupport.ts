@@ -847,6 +847,29 @@ export function usePhotographerDistanceAvailability(
         // bulkIndex so the picker still lists photographers instead of hanging.
         let availabilityList: any[] = [];
         try {
+          let shootLat = shootLocation.latitude;
+          let shootLng = shootLocation.longitude;
+          if (
+            (typeof shootLat !== 'number' || typeof shootLng !== 'number')
+            && shootLocation.address
+            && shootLocation.city
+            && shootLocation.state
+          ) {
+            try {
+              const geocoded = await getCoordinatesFromAddress(
+                shootLocation.address,
+                shootLocation.city,
+                shootLocation.state,
+                shootLocation.zip || '',
+              );
+              if (geocoded) {
+                shootLat = geocoded.lat;
+                shootLng = geocoded.lon;
+              }
+            } catch {
+              // Fail open
+            }
+          }
           const response = await fetchDurationAwareAvailability(API_ROUTES.photographerAvailability.forBooking, {
             method: 'POST',
             headers,
@@ -858,14 +881,32 @@ export function usePhotographerDistanceAvailability(
               shoot_city: shootLocation.city,
               shoot_state: shootLocation.state,
               shoot_zip: shootLocation.zip || '',
-              shoot_latitude: shootLocation.latitude ?? undefined,
-              shoot_longitude: shootLocation.longitude ?? undefined,
+              shoot_latitude: shootLat ?? undefined,
+              shoot_longitude: shootLng ?? undefined,
               photographer_ids: photographers.map((photographer) => Number(photographer.id)),
             }),
           }, JSON.parse(durationGroupsKey));
           if (response.ok) {
             const json = await response.json();
             availabilityList = Array.isArray(json.data) ? json.data : [];
+            // Stash top-level job onto each row so map readers don't depend on a parallel channel.
+            const topJob = json?.job && typeof json.job === 'object' ? json.job : null;
+            const beJob = readBookingJobCoords(json);
+            const fallbackJob = beJob || toValidMapCoordinates(shootLat, shootLng);
+            if (topJob || fallbackJob) {
+              availabilityList = availabilityList.map((row: Record<string, unknown>) => {
+                const existingJob = row.job && typeof row.job === 'object' ? row.job as Record<string, unknown> : null;
+                const mapRaw = row.map && typeof row.map === 'object' ? { ...(row.map as Record<string, unknown>) } : row.map;
+                if (mapRaw && typeof mapRaw === 'object' && !(mapRaw as Record<string, unknown>).job && fallbackJob) {
+                  (mapRaw as Record<string, unknown>).job = { lat: fallbackJob.lat, lng: fallbackJob.lng };
+                }
+                return {
+                  ...row,
+                  job: existingJob || topJob || (fallbackJob ? { lat: fallbackJob.lat, lng: fallbackJob.lng } : null),
+                  map: mapRaw,
+                };
+              });
+            }
           } else {
             console.warn('[OverviewPhotographerPicker] forBooking failed', response.status);
           }

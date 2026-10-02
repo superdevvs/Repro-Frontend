@@ -43,7 +43,7 @@ export function PhotographerPickerMapShell({
       photographerName={photographerName}
       photographerId={photographerId}
       jobCoords={jobCoords}
-      className="h-full min-h-[200px]"
+      className="h-full min-h-[560px]"
     />
   )
 
@@ -94,18 +94,18 @@ export function PhotographerPickerMapShell({
           // <1024: single pane (tabbed)
           'grid-cols-1',
           // 1024–1279: stack map then list (iPad landscape / mid laptops)
-          'lg:grid-cols-1 lg:grid-rows-[minmax(220px,38%)_minmax(0,1fr)]',
-          // ≥1280: equal-width side-by-side
-          'xl:grid-cols-2 xl:grid-rows-1 xl:gap-4',
+          'lg:grid-cols-1 lg:grid-rows-[minmax(320px,46%)_minmax(0,1fr)]',
+          // ≥1280: equal-width side-by-side — map fills dialog body height
+          'xl:grid-cols-2 xl:grid-rows-1 xl:items-stretch xl:gap-4',
         )}
       >
         <div
           className={cn(
-            'min-h-0 min-w-0',
+            'min-h-0 min-w-0 h-full min-h-[560px] max-lg:min-h-[280px] lg:min-h-[320px] xl:min-h-[560px]',
             // Tab visibility below lg (and when parent forces mobile tabs)
             compactTab !== 'map' && 'max-lg:hidden',
             useTabs && compactTab !== 'map' && 'hidden',
-            useTabs && compactTab === 'map' && 'block h-full',
+            useTabs && compactTab === 'map' && 'block h-full min-h-[280px]',
             'lg:block',
           )}
         >

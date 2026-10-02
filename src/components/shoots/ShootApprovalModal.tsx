@@ -48,6 +48,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PhotographerAvailabilityTimeline } from '@/components/photographers/PhotographerAvailabilityTimeline';
 import { PhotographerPickerMapShell } from '@/components/photographers/map/PhotographerPickerMapShell';
 import { readBookingJobCoords, readPhotographerMapFields } from '@/components/photographers/map/photographerMapFields';
+import { getCoordinatesFromAddress } from '@/utils/distanceUtils';
+import { toValidMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 import type { ShootMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 import type { BookingAvailabilitySlot } from '@/types/availability';
 import { normalizeBookingAvailabilitySlots as normalizeAvailabilitySlots } from '@/utils/bookingAvailabilitySlots';
@@ -790,6 +792,26 @@ export function ShootApprovalModal({
         const requestCity = shootDetails?.city || shootDetails?.location?.city || '';
         const requestState = shootDetails?.state || shootDetails?.location?.state || '';
         const requestZip = shootDetails?.zip || shootDetails?.location?.zip || '';
+        const shootRecord = shootDetails as (typeof shootDetails & {
+          latitude?: number;
+          longitude?: number;
+          location?: { latitude?: number; longitude?: number; address?: string; city?: string; state?: string; zip?: string };
+        }) | null;
+        let shootLatLng = toValidMapCoordinates(
+          shootRecord?.location?.latitude ?? shootRecord?.latitude,
+          shootRecord?.location?.longitude ?? shootRecord?.longitude,
+        );
+        if (!shootLatLng && requestAddress && requestCity && requestState) {
+          try {
+            const geocoded = await getCoordinatesFromAddress(requestAddress, requestCity, requestState, requestZip || '');
+            if (geocoded) {
+              shootLatLng = { lat: geocoded.lat, lng: geocoded.lon };
+            }
+          } catch {
+            // Fail open
+          }
+        }
+        if (shootLatLng) setBookingJobCoords(shootLatLng);
 
         const response = await fetchDurationAwareAvailability(API_ROUTES.photographerAvailability.forBooking, {
           method: 'POST',
@@ -802,6 +824,9 @@ export function ShootApprovalModal({
             shoot_city: requestCity,
             shoot_state: requestState,
             shoot_zip: requestZip || '',
+            ...(shootLatLng
+              ? { shoot_latitude: shootLatLng.lat, shoot_longitude: shootLatLng.lng }
+              : {}),
             photographer_ids: photographerIdsForAvailability.split(',').map(Number),
           }),
         }, JSON.parse(availabilityDurationKey));
@@ -817,6 +842,10 @@ export function ShootApprovalModal({
         const enrichedPhotographers = Array.isArray(rawPhotographers)
           ? rawPhotographers.map(asRecord)
           : [];
+        const topLevelJob = asRecord(json).job;
+        const topLevelJobRecord = topLevelJob !== null && typeof topLevelJob === 'object'
+          ? asRecord(topLevelJob)
+          : null;
         const nextAvailability: PhotographerAvailabilityMap = {};
         const enrichedById = new Map(enrichedPhotographers.map((item) => [String(item.id), item]));
 
@@ -854,7 +883,9 @@ export function ShootApprovalModal({
               ? milesToJob
               : (photographer.miles_to_job ?? null),
             map: enriched.map === null ? null : ((enriched.map as Record<string, unknown> | undefined) ?? photographer.map ?? null),
-            job: enriched.job === null ? null : ((enriched.job as Record<string, unknown> | undefined) ?? photographer.job ?? null),
+            job: enriched.job === null
+              ? null
+              : ((enriched.job as Record<string, unknown> | undefined) ?? topLevelJobRecord ?? photographer.job ?? null),
             distanceFrom,
             previousShootId: Number.isFinite(previousShootId) ? previousShootId : undefined,
             availabilitySlots,
@@ -866,7 +897,8 @@ export function ShootApprovalModal({
           };
         }));
 
-        setBookingJobCoords(readBookingJobCoords(json));
+        const beJob = readBookingJobCoords(json);
+        if (beJob) setBookingJobCoords(beJob);
         setPhotographerAvailability(nextAvailability);
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -1440,28 +1472,20 @@ export function ShootApprovalModal({
                 : 'flex h-[min(88vh,48rem)] w-[96vw] max-h-[92vh] flex-col p-0 sm:max-w-6xl',
             )}
           >
-            <div className="flex min-h-0 flex-1 flex-col gap-3 px-2.5 pb-0 sm:px-6">
-                <PickerHeader className="relative items-start space-y-1 px-0 pb-1 pt-3 text-left">
-                  {isPickerMobile ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-3 px-2.5 pb-0 pt-3 sm:px-6">
+                {isPickerMobile ? (
+                  <div className="relative shrink-0">
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="absolute right-0 top-2 h-8 w-8 rounded-full"
+                      className="absolute right-0 top-0 h-8 w-8 rounded-full"
                       onClick={closePhotographerPicker}
                     >
                       <X className="h-4 w-4" />
                     </Button>
-                  ) : null}
-                  <PickerTitle className="pr-10 text-lg text-slate-900 dark:text-slate-100 sm:text-xl">
-                    {photographerPickerContext?.categoryName
-                      ? `Select Photographer for ${photographerPickerContext.categoryName}`
-                      : 'Select Photographer'}
-                  </PickerTitle>
-                  <PickerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                    Curated network - {filteredPhotographers.length} available
-                  </PickerDescription>
-                </PickerHeader>
+                  </div>
+                ) : null}
 
                 <PhotographerPickerMapShell
                   isMobile={isPickerMobile}
@@ -1472,6 +1496,16 @@ export function ShootApprovalModal({
                   className="min-h-0"
                   list={
                     <>
+                <PickerHeader className="relative shrink-0 items-start space-y-1 px-0 pb-0 text-left">
+                  <PickerTitle className="pr-2 text-lg text-slate-900 dark:text-slate-100 sm:text-xl">
+                    {photographerPickerContext?.categoryName
+                      ? `Select Photographer for ${photographerPickerContext.categoryName}`
+                      : 'Select Photographer'}
+                  </PickerTitle>
+                  <PickerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                    Curated network - {filteredPhotographers.length} available
+                  </PickerDescription>
+                </PickerHeader>
                 <div className="space-y-3">
                   <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                     <div className="relative min-w-0 flex-1">
@@ -1605,11 +1639,7 @@ export function ShootApprovalModal({
                   )}
                 </div>
 
-                    </>
-                  }
-                />
-
-                <div className="shrink-0 border-t border-slate-200/70 bg-white/80 pt-2.5 backdrop-blur [padding-bottom:calc(0.25rem+env(safe-area-inset-bottom))] sm:pt-4 sm:pb-0 dark:border-slate-800/70 dark:bg-slate-950/50">
+                <div className="shrink-0 border-t border-slate-200/70 bg-white/80 pt-2.5 backdrop-blur [padding-bottom:calc(0.25rem+env(safe-area-inset-bottom))] sm:pt-4 sm:pb-2 dark:border-slate-800/70 dark:bg-slate-950/50">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
                       <Avatar
@@ -1660,6 +1690,9 @@ export function ShootApprovalModal({
                     </div>
                   </div>
                 </div>
+                    </>
+                  }
+                />
             </div>
           </PickerContent>
         </PickerRoot>

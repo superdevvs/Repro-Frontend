@@ -195,28 +195,20 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                 : 'flex h-[min(88vh,48rem)] w-[96vw] max-h-[92vh] flex-col p-0 sm:max-w-6xl',
             )}
           >
-            <div className="flex min-h-0 flex-1 flex-col gap-3 px-2.5 pb-0 sm:px-6">
-                <PickerHeader className="relative items-start space-y-1 px-0 pb-1 pt-3 text-left">
-                  {isPickerMobile ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-3 px-2.5 pb-0 pt-3 sm:px-6">
+                {isPickerMobile ? (
+                  <div className="relative shrink-0">
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="absolute right-0 top-2 h-8 w-8 rounded-full"
+                      className="absolute right-0 top-0 h-8 w-8 rounded-full"
                       onClick={closePhotographerPicker}
                     >
                       <X className="h-4 w-4" />
                     </Button>
-                  ) : null}
-                  <PickerTitle className="pr-10 text-lg text-slate-900 dark:text-slate-100 sm:text-xl">
-                    {photographerPickerContext?.categoryName
-                      ? `Select Photographer for ${photographerPickerContext.categoryName}`
-                      : 'Select Photographer'}
-                  </PickerTitle>
-                  <PickerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                    Curated network - {filteredPhotographers.length} available
-                  </PickerDescription>
-                </PickerHeader>
+                  </div>
+                ) : null}
 
                 <PhotographerPickerMapShell
                   isMobile={isPickerMobile}
@@ -227,6 +219,16 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                   className="min-h-0"
                   list={
                     <>
+                <PickerHeader className="relative shrink-0 items-start space-y-1 px-0 pb-0 text-left">
+                  <PickerTitle className="pr-2 text-lg text-slate-900 dark:text-slate-100 sm:text-xl">
+                    {photographerPickerContext?.categoryName
+                      ? `Select Photographer for ${photographerPickerContext.categoryName}`
+                      : 'Select Photographer'}
+                  </PickerTitle>
+                  <PickerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                    Curated network - {filteredPhotographers.length} available
+                  </PickerDescription>
+                </PickerHeader>
                 <div className="space-y-3">
                   <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                     <div className="relative min-w-0 flex-1">
@@ -361,11 +363,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                   )}
                 </div>
 
-                    </>
-                  }
-                />
-
-                <div className="shrink-0 border-t border-slate-200/70 bg-white/80 pt-2.5 backdrop-blur [padding-bottom:calc(0.25rem+env(safe-area-inset-bottom))] sm:pt-4 sm:pb-0 dark:border-slate-800/70 dark:bg-slate-950/50">
+                <div className="shrink-0 border-t border-slate-200/70 bg-white/80 pt-2.5 backdrop-blur [padding-bottom:calc(0.25rem+env(safe-area-inset-bottom))] sm:pt-4 sm:pb-2 dark:border-slate-800/70 dark:bg-slate-950/50">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
                       <Avatar
@@ -416,6 +414,9 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                     </div>
                   </div>
                 </div>
+                    </>
+                  }
+                />
             </div>
           </PickerContent>
         </PickerRoot>

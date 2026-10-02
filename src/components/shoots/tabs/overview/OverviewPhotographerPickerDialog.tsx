@@ -99,28 +99,20 @@ export function OverviewPhotographerPickerDialog({
         )}
       >
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col gap-2 px-2.5 pb-0 sm:gap-4 sm:px-6">
-            <PickerHeader className="relative items-start space-y-0.5 px-0 pb-0.5 pt-1.5 text-left sm:space-y-1 sm:pb-1 sm:pt-3">
-              {isMobile ? (
+          <div className="flex min-h-0 flex-1 flex-col gap-2 px-2.5 pb-0 pt-1.5 sm:gap-3 sm:px-6 sm:pt-3">
+            {isMobile ? (
+              <div className="relative shrink-0">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="absolute right-0 top-0.5 h-7 w-7 rounded-full"
+                  className="absolute right-0 top-0 h-7 w-7 rounded-full"
                   onClick={() => onOpenChange(false)}
                 >
                   <X className="h-3.5 w-3.5" />
                 </Button>
-              ) : null}
-              <PickerTitle className="pr-9 text-base text-slate-900 dark:text-slate-100 sm:pr-10 sm:text-xl">
-                {photographerPickerContext?.categoryName
-                  ? `Select Photographer for ${photographerPickerContext.categoryName}`
-                  : 'Select Photographer'}
-              </PickerTitle>
-              <PickerDescription className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80 sm:text-[11px] sm:tracking-[0.28em]">
-                Curated network - {filteredAndSortedPhotographers.length} available
-              </PickerDescription>
-            </PickerHeader>
+              </div>
+            ) : null}
             {!isEditMode && travel && <div className="max-h-[35vh] shrink-0 overflow-y-auto"><TravelFeasibilityPanel travel={travel} /></div>}
 
             <PhotographerPickerMapShell
@@ -132,6 +124,16 @@ export function OverviewPhotographerPickerDialog({
               className="min-h-0"
               list={
                 <>
+            <PickerHeader className="relative shrink-0 items-start space-y-0.5 px-0 pb-0 text-left sm:space-y-1">
+              <PickerTitle className="pr-2 text-base text-slate-900 dark:text-slate-100 sm:text-xl">
+                {photographerPickerContext?.categoryName
+                  ? `Select Photographer for ${photographerPickerContext.categoryName}`
+                  : 'Select Photographer'}
+              </PickerTitle>
+              <PickerDescription className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80 sm:text-[11px] sm:tracking-[0.28em]">
+                Curated network - {filteredAndSortedPhotographers.length} available
+              </PickerDescription>
+            </PickerHeader>
             <div className="space-y-2 sm:space-y-3">
                               <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center sm:gap-2">
                                 <div className="relative min-w-0 flex-1">
@@ -308,11 +310,7 @@ export function OverviewPhotographerPickerDialog({
                               )}
                             </div>
                 
-                                </>
-              }
-            />
-
-            <div className="shrink-0 border-t border-slate-200/70 bg-white/95 pt-1.5 backdrop-blur [padding-bottom:calc(0.15rem+env(safe-area-inset-bottom))] sm:-mx-6 sm:px-6 sm:pt-4 sm:pb-4 dark:border-slate-800/70 dark:bg-slate-950/95">
+            <div className="shrink-0 border-t border-slate-200/70 bg-white/95 pt-1.5 backdrop-blur [padding-bottom:calc(0.15rem+env(safe-area-inset-bottom))] sm:pt-4 sm:pb-2 dark:border-slate-800/70 dark:bg-slate-950/95">
               <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                   <Avatar
@@ -361,6 +359,9 @@ export function OverviewPhotographerPickerDialog({
                 </div>
               </div>
             </div>
+                                </>
+              }
+            />
           </div>
         </div>
       </PickerContent>

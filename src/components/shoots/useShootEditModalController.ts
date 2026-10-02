@@ -38,6 +38,8 @@ import {
 } from '@/utils/shootServiceMutation';
 import { extractLookupPropertyDetails, loadPhotographerOptions, mapPhotographerOption, normalizeCategoryKey, resolveSelectedServiceIds, type Photographer, type AvailabilitySlot, type MobileEditPanel, type PhotographerAvailabilityMap, type PhotographerPickerContext, type PropertyDetails, type Service, type ServiceApiRange, type ServiceApiRecord, type ServiceScheduleFields, type ShootDetails, type ShootEditModalProps } from './shootEditModalTypes';
 import { readBookingJobCoords } from '@/components/photographers/map/photographerMapFields';
+import { getCoordinatesFromAddress } from '@/utils/distanceUtils';
+import { toValidMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 import type { ShootMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 export function useShootEditModalController({
   isOpen,
@@ -434,6 +436,24 @@ export function useShootEditModalController({
         const requestCity = city || shootDetails?.city || '';
         const requestState = state || shootDetails?.state || '';
         const requestZip = zip || shootDetails?.zip || '';
+        const shootRecord = shootDetails as (typeof shootDetails & {
+          latitude?: number;
+          longitude?: number;
+          location?: { latitude?: number; longitude?: number };
+        }) | null;
+        let shootLatLng = toValidMapCoordinates(
+          shootRecord?.location?.latitude ?? shootRecord?.latitude,
+          shootRecord?.location?.longitude ?? shootRecord?.longitude,
+        );
+        if (!shootLatLng && requestAddress && requestCity && requestState) {
+          try {
+            const geocoded = await getCoordinatesFromAddress(requestAddress, requestCity, requestState, requestZip || '');
+            if (geocoded) shootLatLng = { lat: geocoded.lat, lng: geocoded.lon };
+          } catch {
+            // Fail open
+          }
+        }
+        if (shootLatLng) setBookingJobCoords(shootLatLng);
         const response = await fetchDurationAwareAvailability(API_ROUTES.photographerAvailability.forBooking, {
           method: 'POST',
           headers,
@@ -445,6 +465,9 @@ export function useShootEditModalController({
             shoot_city: requestCity,
             shoot_state: requestState,
             shoot_zip: requestZip || '',
+            ...(shootLatLng
+              ? { shoot_latitude: shootLatLng.lat, shoot_longitude: shootLatLng.lng }
+              : {}),
             photographer_ids: photographersRef.current.map((photographer) => Number(photographer.id)).filter(Number.isFinite),
           }),
         }, JSON.parse(availabilityDurationKey));
@@ -462,8 +485,9 @@ export function useShootEditModalController({
           shoots_count_today?: number;
           distance_from?: 'home' | 'previous_shoot';
           previous_shoot_id?: number;
-        }> };
+        }>; job?: Record<string, unknown> | null };
         const enrichedPhotographers = Array.isArray(json.data) ? json.data : [];
+        const topLevelJob = json.job && typeof json.job === 'object' ? json.job : null;
         const nextAvailability: PhotographerAvailabilityMap = {};
         const enrichedById = new Map(enrichedPhotographers.map((item) => [String(item.id), item]));
         setPhotographers((current) => current.map((photographer) => {
@@ -495,7 +519,7 @@ export function useShootEditModalController({
             distance: Number.isFinite(milesToJob as number) ? milesToJob : (Number.isFinite(parsedDistance as number) ? parsedDistance : undefined),
             miles_to_job: Number.isFinite(milesToJob as number) ? (milesToJob as number) : (photographer.miles_to_job ?? null),
             map: enrichedRecord.map === null ? null : (enrichedRecord.map ?? photographer.map ?? null),
-            job: enrichedRecord.job === null ? null : (enrichedRecord.job ?? photographer.job ?? null),
+            job: enrichedRecord.job === null ? null : (enrichedRecord.job ?? topLevelJob ?? photographer.job ?? null),
             distanceFrom: enriched.distance_from,
             previousShootId: enriched.previous_shoot_id,
             availabilitySlots: enriched.availability_slots || [],
@@ -506,7 +530,8 @@ export function useShootEditModalController({
             shootsCountToday: enriched.shoots_count_today,
           };
         }));
-        setBookingJobCoords(readBookingJobCoords(json));
+        const beJob = readBookingJobCoords(json);
+        if (beJob) setBookingJobCoords(beJob);
         setPhotographerAvailability(nextAvailability);
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;

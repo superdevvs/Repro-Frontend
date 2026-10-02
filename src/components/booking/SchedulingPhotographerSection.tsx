@@ -372,14 +372,8 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
     <Dialog open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
       <DialogTrigger asChild>{photographerTrigger}</DialogTrigger>
       <DialogContent className="sm:max-w-6xl w-[96vw] max-h-[92vh] p-0 overflow-hidden">
-        <div className="flex flex-col h-full sm:h-[min(80vh,52rem)]">
-          <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
-            <DialogHeader className="space-y-1 text-left items-start">
-              <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
-              <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                {filteredAndSortedPhotographers.length} photographers shown
-              </DialogDescription>
-            </DialogHeader>
+        <div className="flex flex-col h-full sm:h-[min(88vh,52rem)]">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 sm:p-6">
             <PhotographerPickerMapShell
               isMobile={false}
               photographer={selectedPhotographerDetails}
@@ -389,59 +383,65 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
               className="min-h-0"
               list={
                 <>
+                  <DialogHeader className="shrink-0 space-y-1 text-left items-start">
+                    <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
+                    <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                      {filteredAndSortedPhotographers.length} photographers shown
+                    </DialogDescription>
+                  </DialogHeader>
                   {renderPhotographerFilters(false)}
-                  <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                  <div className="min-h-0 flex-1 overflow-y-auto pr-2">
                     {renderPhotographerResults(false)}
+                  </div>
+                  <div className="shrink-0 border-t border-slate-200/70 bg-white/80 pt-4 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/50">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar className={cn(
+                          "h-10 w-10 shrink-0",
+                          selectedPhotographerDetails
+                            ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
+                            : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                        )}>
+                          {selectedPhotographerDetails ? (
+                            <>
+                              <AvatarImage
+                                src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
+                                alt={selectedPhotographerDetails.name}
+                              />
+                              <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
+                            </>
+                          ) : (
+                            <AvatarFallback>
+                              <User className="h-4 w-4" />
+                            </AvatarFallback>
+                          )}
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">Selected specialist</p>
+                          <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {selectedPhotographerDetails?.name || 'None selected'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 gap-2">
+                        <Button
+                          variant="ghost"
+                          onClick={() => setPhotographerDialogOpen(false)}
+                        >
+                          Discard
+                        </Button>
+                        <Button
+                          onClick={handleConfirmPhotographer}
+                          disabled={!canConfirmPhotographer}
+                        >
+                          Confirm Assignment
+                        </Button>
+                      </div>
+                    </div>
                   </div>
                 </>
               }
             />
-            <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-950/50 backdrop-blur flex-shrink-0">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <Avatar className={cn(
-                    "h-10 w-10 shrink-0",
-                    selectedPhotographerDetails
-                      ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
-                      : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                  )}>
-                    {selectedPhotographerDetails ? (
-                      <>
-                        <AvatarImage
-                          src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
-                          alt={selectedPhotographerDetails.name}
-                        />
-                        <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
-                      </>
-                    ) : (
-                      <AvatarFallback>
-                        <User className="h-4 w-4" />
-                      </AvatarFallback>
-                    )}
-                  </Avatar>
-                  <div className="min-w-0">
-                    <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">Selected specialist</p>
-                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                      {selectedPhotographerDetails?.name || 'None selected'}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex gap-2 shrink-0">
-                  <Button
-                    variant="ghost"
-                    onClick={() => setPhotographerDialogOpen(false)}
-                  >
-                    Discard
-                  </Button>
-                  <Button
-                    onClick={handleConfirmPhotographer}
-                    disabled={!canConfirmPhotographer}
-                  >
-                    Confirm Assignment
-                  </Button>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </DialogContent>
@@ -651,16 +651,8 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                   if (!open) setActiveServiceForPicker(null);
                 }}>
                   <DialogContent className="sm:max-w-6xl w-[96vw] max-h-[92vh] p-0 overflow-hidden">
-                    <div className="flex flex-col h-full sm:h-[min(80vh,52rem)]">
-                      <div className="flex-1 flex flex-col p-4 sm:p-6 gap-4 min-h-0">
-                        <DialogHeader className="space-y-1 text-left items-start">
-                          <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">
-                            Select Photographer{activeServiceNameForPicker ? ` for ${activeServiceNameForPicker}` : ''}
-                          </DialogTitle>
-                          <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                            {filteredAndSortedPhotographers.length} photographers shown
-                          </DialogDescription>
-                        </DialogHeader>
+                    <div className="flex flex-col h-full sm:h-[min(88vh,52rem)]">
+                      <div className="flex min-h-0 flex-1 flex-col gap-3 p-4 sm:p-6">
                         <PhotographerPickerMapShell
                           isMobile={false}
                           photographer={selectedPhotographerDetails}
@@ -670,64 +662,72 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                           className="min-h-0"
                           list={
                             <>
+                              <DialogHeader className="shrink-0 space-y-1 text-left items-start">
+                                <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">
+                                  Select Photographer{activeServiceNameForPicker ? ` for ${activeServiceNameForPicker}` : ''}
+                                </DialogTitle>
+                                <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
+                                  {filteredAndSortedPhotographers.length} photographers shown
+                                </DialogDescription>
+                              </DialogHeader>
                               {renderPhotographerFilters(false)}
-                              <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+                              <div className="min-h-0 flex-1 overflow-y-auto pr-2">
                                 {renderPhotographerResults(false)}
+                              </div>
+                              <div className="shrink-0 border-t border-slate-200/70 bg-white/80 pt-4 backdrop-blur dark:border-slate-800/70 dark:bg-slate-950/50">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex min-w-0 items-center gap-3">
+                                    <Avatar className={cn(
+                                      "h-10 w-10 shrink-0",
+                                      selectedPhotographerDetails
+                                        ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
+                                        : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+                                    )}>
+                                      {selectedPhotographerDetails ? (
+                                        <>
+                                          <AvatarImage
+                                            src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
+                                            alt={selectedPhotographerDetails.name}
+                                          />
+                                          <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
+                                        </>
+                                      ) : (
+                                        <AvatarFallback>
+                                          <User className="h-4 w-4" />
+                                        </AvatarFallback>
+                                      )}
+                                    </Avatar>
+                                    <div className="min-w-0">
+                                      <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">
+                                        {activeServiceNameForPicker ? `Photographer for ${activeServiceNameForPicker}` : 'Selected specialist'}
+                                      </p>
+                                      <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
+                                        {selectedPhotographerDetails?.name || 'None selected'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex shrink-0 gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      onClick={() => {
+                                        setPhotographerDialogOpen(false);
+                                        setActiveServiceForPicker(null);
+                                      }}
+                                    >
+                                      Discard
+                                    </Button>
+                                    <Button
+                                      onClick={handleConfirmServicePhotographer}
+                                      disabled={!canConfirmPhotographer}
+                                    >
+                                      Confirm Assignment
+                                    </Button>
+                                  </div>
+                                </div>
                               </div>
                             </>
                           }
                         />
-                        <div className="pt-4 border-t border-slate-200/70 dark:border-slate-800/70 bg-white/80 dark:bg-slate-950/50 backdrop-blur flex-shrink-0">
-                          <div className="flex items-center justify-between gap-3">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <Avatar className={cn(
-                                "h-10 w-10 shrink-0",
-                                selectedPhotographerDetails
-                                  ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
-                                  : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                              )}>
-                                {selectedPhotographerDetails ? (
-                                  <>
-                                    <AvatarImage
-                                      src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
-                                      alt={selectedPhotographerDetails.name}
-                                    />
-                                    <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
-                                  </>
-                                ) : (
-                                  <AvatarFallback>
-                                    <User className="h-4 w-4" />
-                                  </AvatarFallback>
-                                )}
-                              </Avatar>
-                              <div className="min-w-0">
-                                <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">
-                                  {activeServiceNameForPicker ? `Photographer for ${activeServiceNameForPicker}` : 'Selected specialist'}
-                                </p>
-                                <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                  {selectedPhotographerDetails?.name || 'None selected'}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex gap-2 shrink-0">
-                              <Button
-                                variant="ghost"
-                                onClick={() => {
-                                  setPhotographerDialogOpen(false);
-                                  setActiveServiceForPicker(null);
-                                }}
-                              >
-                                Discard
-                              </Button>
-                              <Button
-                                onClick={handleConfirmServicePhotographer}
-                                disabled={!canConfirmPhotographer}
-                              >
-                                Confirm Assignment
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
                       </div>
                     </div>
                   </DialogContent>

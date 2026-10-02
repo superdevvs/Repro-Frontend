@@ -610,6 +610,21 @@ export const useSchedulingFormController = ({
         const token = localStorage.getItem('authToken');
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
+        // Resolve shoot coords before for-booking so BE can populate map.job / top-level job,
+        // and so the map shell has a job pin even when photographer home metadata is missing.
+        let shootLat: number | undefined;
+        let shootLng: number | undefined;
+        try {
+          const bookingCoords = await getCoordinatesFromAddress(address, city, state, zip || '');
+          if (bookingCoords && !isCancelled) {
+            shootLat = bookingCoords.lat;
+            shootLng = bookingCoords.lon;
+            setBookingJobCoords({ lat: bookingCoords.lat, lng: bookingCoords.lon });
+          }
+        } catch {
+          // Fail open — for-booking still works on address alone.
+        }
+        if (isCancelled) return;
         const response = await fetchDurationAwareAvailability(API_ROUTES.photographerAvailability.forBooking, {
           method: 'POST',
           headers,
@@ -622,6 +637,9 @@ export const useSchedulingFormController = ({
             shoot_city: city,
             shoot_state: state,
             shoot_zip: zip || '',
+            ...(typeof shootLat === 'number' && typeof shootLng === 'number'
+              ? { shoot_latitude: shootLat, shoot_longitude: shootLng }
+              : {}),
             photographer_ids: photographers.map(p => Number(p.id)),
             service_ids: photographerRequiredServices(selectedServices).map(service => Number(service.id)).filter(Number.isFinite),
             require_all_services: false, // Each service can have its own specialist.
@@ -636,7 +654,9 @@ export const useSchedulingFormController = ({
         if (!isRecord(json) || !Array.isArray(json.data)) throw new Error('Invalid photographer eligibility response');
         setHybridEnabledByApi(json.hybrid_travel_enabled === true);
         const photographerData = readBookingPhotographers(json);
-        setBookingJobCoords(readBookingJobCoords(json));
+        const beJobCoords = readBookingJobCoords(json);
+        if (beJobCoords) setBookingJobCoords(beJobCoords);
+        const topLevelJob = isRecord(json) && isRecord(json.job) ? json.job : null;
         setAvailabilityDataDate(bookingAvailabilityDate);
         // The API applies service and radius eligibility. "Show all" may include
         // unavailable people, but must never restore people the API excluded.
@@ -664,7 +684,7 @@ export const useSchedulingFormController = ({
             distance: Number.isFinite(parsedDistance as number) ? parsedDistance : undefined,
             miles_to_job: Number.isFinite(parsedDistance as number) ? (parsedDistance as number) : (p.miles_to_job ?? null),
             map: (p.map ?? null) as Record<string, unknown> | null,
-            job: (p.job ?? (isRecord(json) ? (json.job as Record<string, unknown> | null) : null) ?? null),
+            job: (p.job ?? topLevelJob ?? null) as Record<string, unknown> | null,
             address: canUseProtectedAvailability ? photographer?.address : undefined,
             city: canUseProtectedAvailability ? photographer?.city : undefined,
             state: canUseProtectedAvailability ? photographer?.state : undefined,

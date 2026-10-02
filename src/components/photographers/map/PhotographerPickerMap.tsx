@@ -34,7 +34,7 @@ const MapFrame = ({
 }) => (
   <div
     data-testid="photographer-picker-map"
-    className={cn('relative h-full min-h-[220px] w-full', className)}
+    className={cn('relative h-full min-h-[560px] w-full', className)}
   >
     {children}
   </div>
@@ -102,7 +102,7 @@ export function PhotographerPickerMap({
     <MapFrame className={className}>
       <Suspense
         fallback={
-          <div className="grid h-full min-h-[220px] place-items-center rounded-2xl border bg-muted text-sm text-muted-foreground">
+          <div className="grid h-full min-h-[560px] place-items-center rounded-2xl border bg-muted text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-2">
               <Loader2 className="h-4 w-4" /> Loading map…
             </span>

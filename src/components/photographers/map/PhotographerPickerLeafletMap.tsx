@@ -58,7 +58,7 @@ export function PhotographerPickerLeafletMap({
     <div
       data-testid="photographer-picker-leaflet-map"
       className={cn(
-        'relative h-full min-h-[220px] w-full overflow-hidden rounded-2xl border border-slate-200/80 dark:border-white/10',
+        'relative h-full min-h-[560px] w-full overflow-hidden rounded-2xl border border-slate-200/80 dark:border-white/10',
         className,
       )}
     >
