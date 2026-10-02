@@ -3,6 +3,14 @@ import { DashboardClientRequest } from '@/types/dashboard';
 
 type RequestManagerShootOpenResult = 'opened' | 'missing' | 'unhandled';
 
+export type RequestCategoryId = 'client' | 'editing' | 'cancellation' | 'hold' | 'reschedule' | 'overdue';
+export interface RequestManagerCategory {
+  id: RequestCategoryId;
+  label: string;
+  count: number;
+  renderContent: () => React.ReactNode;
+}
+
 type RequestManagerShootOpenHandler = (
   request: DashboardClientRequest,
 ) => Promise<RequestManagerShootOpenResult> | RequestManagerShootOpenResult;
@@ -11,7 +19,11 @@ interface RequestManagerContextType {
   isOpen: boolean;
   requests: DashboardClientRequest[];
   selectedRequestId: string | null;
-  openModal: (requests: DashboardClientRequest[], selectedRequestId?: string | null) => void;
+  category: RequestCategoryId;
+  categories: RequestManagerCategory[];
+  selectCategory: (category: RequestCategoryId) => void;
+  registerCategories: (categories: RequestManagerCategory[], clientRequests?: DashboardClientRequest[]) => void;
+  openModal: (requests: DashboardClientRequest[], selectedRequestId?: string | null, category?: RequestCategoryId) => void;
   closeModal: () => void;
   selectRequest: (requestId: string | null) => void;
   removeRequest: (requestId: string) => void;
@@ -26,11 +38,18 @@ export const RequestManagerProvider: React.FC<{ children: React.ReactNode }> = (
   const [isOpen, setIsOpen] = useState(false);
   const [requests, setRequests] = useState<DashboardClientRequest[]>([]);
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [category, selectCategory] = useState<RequestCategoryId>('client');
+  const [categories, setCategories] = useState<RequestManagerCategory[]>([]);
+  const registerCategories = useCallback((next: RequestManagerCategory[], clientRequests?: DashboardClientRequest[]) => {
+    setCategories(next);
+    if (clientRequests) setRequests(clientRequests);
+  }, []);
   const shootOpenHandlerRef = useRef<RequestManagerShootOpenHandler | null>(null);
 
-  const openModal = useCallback((newRequests: DashboardClientRequest[], selectedId?: string | null) => {
+  const openModal = useCallback((newRequests: DashboardClientRequest[], selectedId?: string | null, selectedCategory: RequestCategoryId = 'client') => {
     setRequests(newRequests);
     setSelectedRequestId(selectedId ?? null);
+    selectCategory(selectedCategory);
     setIsOpen(true);
   }, []);
 
@@ -74,6 +93,10 @@ export const RequestManagerProvider: React.FC<{ children: React.ReactNode }> = (
         isOpen,
         requests,
         selectedRequestId,
+        category,
+        categories,
+        selectCategory,
+        registerCategories,
         openModal,
         closeModal,
         selectRequest,
@@ -95,6 +118,4 @@ export const useRequestManager = () => {
   }
   return context;
 };
-
-
 

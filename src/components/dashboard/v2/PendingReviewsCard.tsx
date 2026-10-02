@@ -5,7 +5,7 @@ import type { OverdueClientsState } from '@/features/dashboard/hooks/useOverdueC
 import type { HoldRequestsState } from '@/features/dashboard/hooks/useHoldRequests';
 import type { RescheduleRequestsState } from '@/features/dashboard/hooks/useRescheduleRequests';
 import { EmptyState } from '@/components/ui/empty-state';
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { DashboardIssueItem, DashboardShootSummary, DashboardClientRequest, DashboardCancellationItem } from '@/types/dashboard';
 import { Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,8 @@ type RequestsTab = 'client' | 'editing' | 'cancellation' | 'hold' | 'reschedule'
 export type CancellationShootItem = DashboardCancellationItem;
 
 interface PendingReviewsCardProps {
+  managerMode?: boolean;
+  initialCategory?: RequestsTab;
   overdueClients?: OverdueClientsState;
   holdRequests?: HoldRequestsState;
   rescheduleRequests?: RescheduleRequestsState;
@@ -119,7 +121,10 @@ const STATUS_LABELS: Record<string, string> = {
   completed: 'Completed',
 };
 
-export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(({
+export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo((props) => {
+ const {
+  managerMode = false,
+  initialCategory = 'client',
   overdueClients,
   holdRequests,
   rescheduleRequests,
@@ -143,13 +148,13 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   showCancellationTab = false,
   onApproveCancellation,
   onRejectCancellation,
-}) => {
-  const { openModal } = useRequestManager();
+ } = props;
+  const { openModal, closeModal, registerCategories } = useRequestManager();
   const { toast } = useToast();
   const [resolvedIssues, setResolvedIssues] = useState<Set<number>>(new Set());
   const [dismissedClientRequestIds, setDismissedClientRequestIds] = useState<Set<string>>(new Set());
   const [dismissingClientRequestId, setDismissingClientRequestId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<RequestsTab>('client');
+  const [activeTab, setActiveTab] = useState<RequestsTab>(initialCategory);
   const [drillIn, setDrillIn] = useState(false);
   const [cancellationActionLoading, setCancellationActionLoading] = useState<string | null>(null);
 
@@ -249,12 +254,25 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
     tabs.push({ id: 'overdue', label: 'Overdue', count: overdueClients.total });
   }
 
-  const totalRequests = tabs.reduce((sum, t) => sum + t.count, 0);
-  const isEmpty = totalRequests === 0;
+  const contentRef = useRef<(category: RequestsTab) => React.ReactNode>(() => null);
+  contentRef.current = (category) => <PendingReviewsCard {...props} managerMode initialCategory={category} />;
+  const clientRequestsRef = useRef(clientRequests);
+  clientRequestsRef.current = clientRequests;
+  const categorySignature = tabs.map(({ id, label, count }) => `${id}:${label}:${count}`).join('|');
+  const contentSignature = JSON.stringify([clientRequests, editingRequests, editingRequestsLoading, clientRequestsLoading, cancellationShoots, issues, holdRequests?.shoots, holdRequests?.loading, holdRequests?.error, holdRequests?.actioning, rescheduleRequests?.requests, rescheduleRequests?.loading, rescheduleRequests?.error, rescheduleRequests?.actioning, overdueClients?.clients, overdueClients?.page, overdueClients?.loading, overdueClients?.error]);
+  useEffect(() => {
+    if (managerMode || !registerCategories) return;
+    const categories = categorySignature.split('|').map((entry) => {
+      const [id, label, count] = entry.split(':');
+      return { id: id as RequestsTab, label, count: Number(count), renderContent: () => contentRef.current(id as RequestsTab) };
+    });
+    registerCategories(categories, clientRequestsRef.current);
+    return () => registerCategories([]);
+  }, [categorySignature, contentSignature, managerMode, registerCategories]);
   // All breakpoints: category list with counts → chevron drill-in → back
   // (single-tab roles skip the list and show content directly).
-  const showTypeList = tabs.length > 1 && !drillIn;
-  const showContent = drillIn || tabs.length <= 1;
+  const showTypeList = !managerMode && tabs.length > 1 && !drillIn;
+  const showContent = managerMode || drillIn || tabs.length <= 1;
   const activeTabMeta = tabs.find((tab) => tab.id === activeTab) ?? tabs[0];
 
   const selectType = (id: RequestsTab) => {
@@ -267,11 +285,11 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   );
 
   return (
-    <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex flex-col min-h-0 overflow-hidden", isEmpty ? "h-auto" : "h-full flex-1 sm:h-auto sm:flex-none")}>
+    <Card className={cn(!managerMode && DASHBOARD_MOBILE_PANEL_CLASS, "flex min-h-0 min-w-0 flex-col overflow-hidden", managerMode ? 'h-full flex-1 rounded-none border-0 bg-transparent p-0 shadow-none sm:p-0' : 'h-[420px] shrink-0 sm:flex-none')}>
       <div className="flex flex-col h-full flex-1 min-h-0">
-        <div className="mb-2 hidden flex-shrink-0 items-center justify-between sm:flex">
+        {!managerMode && <div className="mb-2 hidden flex-shrink-0 items-center justify-between sm:flex">
           <h2 className="text-base font-bold text-foreground sm:text-lg">{title}</h2>
-        </div>
+        </div>}
 
         {/* Category list with counts + chevron drill-in (all breakpoints) */}
         {showTypeList && (
@@ -283,7 +301,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                   type="button"
                   onClick={() => selectType(tab.id)}
                   aria-label={tabAriaLabel(tab)}
-                  className="w-full flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/20 p-2.5 md:p-3 text-left hover:border-primary/40 hover:bg-muted/30 transition-colors"
+                  className="w-full flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-left hover:border-primary/40 hover:bg-muted/30 transition-colors"
                 >
                   <span className="text-sm font-medium text-foreground">{tab.label}</span>
                   <span className="flex items-center gap-1.5 flex-shrink-0">
@@ -302,7 +320,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
         )}
 
         {/* Drill-in header */}
-        {drillIn && tabs.length > 1 && (
+        {!managerMode && drillIn && tabs.length > 1 && (
           <div className="mb-2 flex flex-shrink-0 items-center gap-1 border-b border-border pb-2">
             <button
               type="button"
@@ -343,7 +361,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                   ) : (
                     <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
-                        {activeClientRequests.slice(0, 7).map((request) => {
+                        {activeClientRequests.slice(0, managerMode ? undefined : 7).map((request) => {
                           const isResolved = isResolvedClientRequest(request.status);
                           const requestId = String(request.id);
 
@@ -405,10 +423,10 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                 ) : (
                   <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                     <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
-                      {visibleIssues.slice(0, 7).map((issue) => (
+                      {visibleIssues.slice(0, managerMode ? undefined : 7).map((issue) => (
                         <button
                           key={issue.id}
-                          onClick={() => onClientIssueClick?.(issue)}
+                          onClick={() => { if (managerMode) closeModal(); onClientIssueClick?.(issue); }}
                           className="w-full text-left rounded-lg border border-border/60 bg-muted/20 p-2.5 hover:border-primary/40 hover:bg-muted/30 transition-colors"
                           disabled={!onClientIssueClick}
                         >
@@ -440,23 +458,23 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
               <div className="flex-1 flex flex-col min-h-0">
                 {editingRequestsLoading ? (
                   <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground sm:pb-0">Loading...</div>
-                ) : activeEditingRequests.length === 0 ? (
+                ) : (managerMode ? editingRequests : activeEditingRequests).length === 0 ? (
                   <div className="flex-1 flex flex-col items-center justify-center px-3 sm:pb-3">
                     <EmptyState icon="clear" title={<>No active requests.</>} size="compact" />
                     {onCreateEditingRequest && (
-                      <Button size="sm" onClick={onCreateEditingRequest} className="w-full">
+                      <Button size="sm" onClick={() => { if (managerMode) closeModal(); onCreateEditingRequest(); }} className="w-full">
                         {editingActionLabel}
                       </Button>
                     )}
                   </div>
                 ) : (
-                  <div className="flex flex-col flex-1">
+                  <div className="flex min-h-0 flex-1 flex-col">
                     <div className="overflow-y-auto flex-1 min-h-0 sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       <div className="space-y-1.5">
-                        {activeEditingRequests.slice(0, 7).map((request) => (
+                        {(managerMode ? editingRequests : activeEditingRequests).slice(0, managerMode ? undefined : 7).map((request) => (
                           <button
                             key={request.id}
-                            onClick={() => onEditingRequestClick?.(request.id)}
+                            onClick={() => { if (managerMode) closeModal(); onEditingRequestClick?.(request.id); }}
                             className="w-full text-left rounded-lg border border-border/60 bg-muted/20 p-2.5 hover:border-primary/40 hover:bg-muted/30 transition-colors"
                           >
                             <div className="flex items-center justify-between gap-2">
@@ -478,7 +496,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                     </div>
                     {onCreateEditingRequest && (
                       <div className="pt-2 mt-auto">
-                        <Button size="sm" onClick={onCreateEditingRequest} className="w-full">
+                        <Button size="sm" onClick={() => { if (managerMode) closeModal(); onCreateEditingRequest(); }} className="w-full">
                           {editingActionLabel}
                         </Button>
                       </div>
@@ -496,7 +514,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                 ) : (
                   <div className="flex-1 min-h-0 overflow-y-auto sm:pb-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                     <div className="space-y-1.5" style={{ WebkitOverflowScrolling: 'touch' }}>
-                      {safeCancellationShoots.slice(0, 7).map((shoot) => {
+                      {safeCancellationShoots.slice(0, managerMode ? undefined : 7).map((shoot) => {
                         const chargeActionKey = `${shoot.id}:charge_fee`;
                         const waiveActionKey = `${shoot.id}:waive_fee`;
                         const rejectActionKey = `${shoot.id}:reject`;
@@ -556,6 +574,12 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
           </>
         )}
 
+        {!managerMode && <div className="mt-3 shrink-0 border-t border-border/60 pt-2">
+          <Button size="sm" variant="ghost" className="h-8 w-full justify-between px-2 text-xs text-primary" onClick={() => openModal(safeClientRequests, null, showTypeList ? 'client' : activeTab)}>
+            <span>{showTypeList ? 'View all requests' : `View all ${activeTabMeta?.label.toLowerCase() ?? 'requests'}`}</span>
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+          </Button>
+        </div>}
       </div>
     </Card>
   );

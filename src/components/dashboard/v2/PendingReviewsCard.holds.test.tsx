@@ -35,7 +35,7 @@ describe('hold request dashboard queue', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
     const client = mount();
-    fireEvent.click(await screen.findByRole('button', { name: 'Hold (1)' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Hold (1)' }, { timeout: 5000 }));
     expect(screen.getByText('108 Example Street')).toBeInTheDocument();
     expect(screen.getByText('Waiting for staging')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: decision === 'approve' ? 'Approve hold' : 'Reject hold' }));

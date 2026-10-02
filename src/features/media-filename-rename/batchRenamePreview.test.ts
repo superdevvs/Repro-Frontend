@@ -2,6 +2,22 @@ import { describe, expect, it } from 'vitest';
 import { previewBatchRenameFilenames } from './batchRenamePreview';
 
 describe('previewBatchRenameFilenames', () => {
+  const numbered = ['014_18502 Boysenberry Dr 156 Gaithersburg MD5147.jpg', '004_18502 Boysenberry Dr 156 Gaithersburg MD5132.jpg'];
+  it('removes only the separate number token and keeps the address and camera ID', () => {
+    expect(previewBatchRenameFilenames(numbered, { mode: 'numbering', number_action: 'remove' })).toEqual([
+      '18502 Boysenberry Dr 156 Gaithersburg MD5147.jpg',
+      '18502 Boysenberry Dr 156 Gaithersburg MD5132.jpg',
+    ]);
+    expect(previewBatchRenameFilenames(['18502 Boysenberry Dr.jpg', 'SNAP5147.CR3', 'Kitchen.jpg'], { mode: 'numbering' })).toEqual(['18502 Boysenberry Dr.jpg', 'SNAP5147.CR3', 'Kitchen.jpg']);
+  });
+  it('moves existing numbers without changing their value or zero padding', () => {
+    const moved = previewBatchRenameFilenames(numbered, { mode: 'numbering', number_action: 'move', number_position: 'end', separator: '_' });
+    expect(moved[0]).toBe('18502 Boysenberry Dr 156 Gaithersburg MD5147_014.jpg');
+    expect(previewBatchRenameFilenames(moved, { mode: 'numbering', number_action: 'move', number_position: 'start', separator: '_' })).toEqual(numbered);
+  });
+  it('replaces existing numbering with a sequence that can start at zero', () => {
+    expect(previewBatchRenameFilenames(numbered, { mode: 'numbering', number_action: 'renumber', number_position: 'start', start: 0, digits: 3, value: 'Kitchen,', separator: '_' })).toEqual(['000_Kitchen.jpg', '001_Kitchen.jpg']);
+  });
   it('applies prefix/suffix/replace/sequence', () => {
     const names = ['IMG_1.jpg', 'IMG_2.jpg'];
     expect(previewBatchRenameFilenames(names, { mode: 'prefix', value: 'Kitchen-' })).toEqual([

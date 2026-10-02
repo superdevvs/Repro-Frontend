@@ -105,6 +105,8 @@ export function createShootMediaRenameActions({
     start?: number;
     digits?: number;
     separator?: string;
+    number_action?: 'remove' | 'move' | 'renumber';
+    number_position?: 'start' | 'end';
     fileIds?: string[];
   }) => {
     if (!MEDIA_BATCH_RENAME_API_ENABLED) {
@@ -165,6 +167,8 @@ export function createShootMediaRenameActions({
           start: payload.start,
           digits: payload.digits,
           separator: payload.separator,
+          number_action: payload.number_action,
+          number_position: payload.number_position,
         },
         headers,
       );

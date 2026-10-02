@@ -439,7 +439,7 @@ export const renameShootMediaFile = async (
 };
 
 
-export type BatchRenameMode = 'prefix' | 'suffix' | 'replace' | 'sequence';
+export type BatchRenameMode = 'prefix' | 'suffix' | 'replace' | 'sequence' | 'numbering';
 
 export interface BatchRenameMediaRequest {
   file_ids: Array<string | number>;
@@ -450,6 +450,8 @@ export interface BatchRenameMediaRequest {
   start?: number;
   digits?: number;
   separator?: string;
+  number_action?: 'remove' | 'move' | 'renumber';
+  number_position?: 'start' | 'end';
 }
 
 export interface BatchRenameUpdatedItem {

@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -31,9 +32,17 @@ const formatChange = (
   requestedDate?: string | null,
   requestedTime?: string | null,
 ) => {
-  const from = `${formatDate(originalDate)}${originalTime ? ` ${originalTime}` : ''}`;
-  const to = `${formatDate(requestedDate)}${requestedTime ? ` ${requestedTime}` : ''}`;
+  const from = `${formatDate(originalDate)}${originalTime ? ` ${formatTime(originalTime)}` : ''}`;
+  const to = `${formatDate(requestedDate)}${requestedTime ? ` ${formatTime(requestedTime)}` : ''}`;
   return `${from} → ${to}`;
+};
+
+const formatTime = (value: string) => {
+  const match = value.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i);
+  if (!match) return value;
+  const hour = Number(match[1]);
+  const suffix = match[3]?.toUpperCase() || (hour >= 12 ? 'PM' : 'AM');
+  return `${hour % 12 || 12}:${match[2]} ${suffix}`;
 };
 
 export function RescheduleRequestsPanel({ requests }: { requests: RescheduleRequestsState }) {
@@ -64,24 +73,22 @@ export function RescheduleRequestsPanel({ requests }: { requests: RescheduleRequ
         const reviewedLabel = formatReviewedAt(request.reviewedAt);
 
         return (
-          <div
+          <details
             key={request.id}
-            className="space-y-2 rounded-lg border border-border/60 bg-muted/20 p-3"
+            className="group rounded-xl border border-border/60 bg-muted/20 open:border-primary/30"
             data-testid={`reschedule-request-${request.id}`}
             data-status={status}
           >
+            <summary className="cursor-pointer list-none space-y-1.5 p-2.5 outline-none focus-visible:ring-2 focus-visible:ring-primary [&::-webkit-details-marker]:hidden" aria-label={`Reschedule details for ${request.address}`}>
             <div className="flex items-start justify-between gap-2">
-              <p className="select-text cursor-text break-words text-xs font-medium">{request.address}</p>
+              <p className="min-w-0 select-text break-words text-xs font-semibold line-clamp-2">{request.address}</p>
               <Badge
                 className={`shrink-0 text-[9px] font-semibold border whitespace-nowrap px-1.5 py-0 ${presentation.className}`}
               >
                 {presentation.label}
               </Badge>
             </div>
-            {request.clientName && (
-              <p className="text-xs text-muted-foreground">{request.clientName}</p>
-            )}
-            <p className="break-words text-xs font-medium">
+            <p className="break-words text-[11px] text-muted-foreground">
               {formatChange(
                 request.originalDate,
                 request.originalTime,
@@ -89,6 +96,12 @@ export function RescheduleRequestsPanel({ requests }: { requests: RescheduleRequ
                 request.requestedTime,
               )}
             </p>
+            <div className="flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+              <span className="truncate">{request.clientName || 'Schedule change'}</span>
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" aria-hidden="true" />
+            </div>
+            </summary>
+            <div className="mx-2.5 mb-2.5 max-h-60 space-y-2 overflow-y-auto border-t border-border/60 pt-2.5">
             {request.reason && (
               <p className="break-words whitespace-pre-wrap text-xs text-muted-foreground">
                 {request.reason}
@@ -133,7 +146,8 @@ export function RescheduleRequestsPanel({ requests }: { requests: RescheduleRequ
                 </Button>
               </div>
             )}
-          </div>
+            </div>
+          </details>
         );
       })}
     </div>

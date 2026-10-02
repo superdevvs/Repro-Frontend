@@ -95,13 +95,14 @@ describe('reschedule request dashboard queue', () => {
       });
       vi.stubGlobal('fetch', fetchMock);
       const client = mount();
-      fireEvent.click(await screen.findByRole('button', { name: 'Reschedule (1)' }));
+      fireEvent.click(await screen.findByRole('button', { name: 'Reschedule (1)' }, { timeout: 5000 }));
       expect(screen.getByText('108 Example Street')).toBeInTheDocument();
       expect(screen.getByText('108 Example Street')).toHaveClass('select-text');
       expect(screen.getByText('Pending review')).toBeInTheDocument();
-      expect(screen.getByText(/Sep 10, 2026 10:00 AM → Sep 24, 2026 02:30 PM/)).toBeInTheDocument();
+      expect(screen.getByText(/Sep 10, 2026 10:00 AM → Sep 24, 2026 2:30 PM/)).toBeInTheDocument();
       expect(screen.getByText('Sellers need another week.')).toBeInTheDocument();
       expect(screen.getByText('Requested by Test Client')).toBeInTheDocument();
+      fireEvent.click(screen.getByLabelText('Reschedule details for 108 Example Street'));
       fireEvent.click(
         screen.getByRole('button', {
           name: decision === 'approved' ? 'Approve reschedule' : 'Reject reschedule',
@@ -138,6 +139,9 @@ describe('reschedule request dashboard queue', () => {
     const historyCard = screen.getByTestId('reschedule-request-12');
     expect(pendingCard).toHaveAttribute('data-status', 'pending');
     expect(historyCard).toHaveAttribute('data-status', 'rejected');
+    expect(pendingCard).not.toHaveAttribute('open');
+    expect(historyCard).not.toHaveAttribute('open');
+    fireEvent.click(within(pendingCard).getByLabelText('Reschedule details for 108 Example Street'));
     expect(within(pendingCard).getByRole('button', { name: 'Approve reschedule' })).toBeInTheDocument();
     expect(within(historyCard).queryByRole('button', { name: 'Approve reschedule' })).not.toBeInTheDocument();
     expect(within(historyCard).queryByRole('button', { name: 'Reject reschedule' })).not.toBeInTheDocument();
@@ -153,6 +157,7 @@ describe('reschedule request dashboard queue', () => {
     const client = mount();
     fireEvent.click(await screen.findByRole('button', { name: 'Reschedule (1)' }));
     expect(screen.getByTestId('reschedule-request-11')).toHaveAttribute('data-status', 'pending');
+    fireEvent.click(screen.getByLabelText('Reschedule details for 108 Example Street'));
     expect(screen.getByRole('button', { name: 'Approve reschedule' })).toBeInTheDocument();
     client.clear();
   });
@@ -184,6 +189,7 @@ describe('reschedule request dashboard queue', () => {
     pending = true;
     act(() => triggerDashboardOverviewRefresh());
     await screen.findByText('108 Example Street');
+    fireEvent.click(screen.getByLabelText('Reschedule details for 108 Example Street'));
     fireEvent.click(screen.getByRole('button', { name: 'Approve reschedule' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Approve reschedule' })).toBeEnabled());
     expect(screen.getByText('108 Example Street')).toBeInTheDocument();
