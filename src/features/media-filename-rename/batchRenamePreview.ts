@@ -1,4 +1,5 @@
 import type { BatchRenameMode } from '@/services/shootMediaService';
+import { sanitizeMediaFilename } from './filenameValidation';
 
 const splitName = (filename: string): { base: string; ext: string } => {
   const raw = String(filename || '').trim();
@@ -51,5 +52,5 @@ export const previewBatchRenameFilenames = (
       default:
         return filename;
     }
-  });
+  }).map(sanitizeMediaFilename);
 };

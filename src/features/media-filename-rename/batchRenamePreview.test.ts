@@ -21,4 +21,20 @@ describe('previewBatchRenameFilenames', () => {
       'Kitchen-02.jpg',
     ]);
   });
+
+  it('previews the cleaned address for all 125 RAW files', () => {
+    const names = Array.from({ length: 125 }, (_, index) => `SNAP${5129 + index}.CR3`);
+    expect(previewBatchRenameFilenames(names, {
+      mode: 'replace',
+      find: 'SNAP',
+      replace: '18502 Boysenberry Dr 156, Gaithersburg, MD_',
+    })).toEqual(names.map((_, index) => `18502 Boysenberry Dr 156 Gaithersburg MD_${5129 + index}.CR3`));
+  });
+
+  it('cleans punctuation and path syntax in every rename mode', () => {
+    const names = ['IMG_1.jpg'];
+    expect(previewBatchRenameFilenames(names, { mode: 'prefix', value: '../Room,:/' })).toEqual(['RoomIMG_1.jpg']);
+    expect(previewBatchRenameFilenames(names, { mode: 'suffix', value: ',*?\\' })).toEqual(names);
+    expect(previewBatchRenameFilenames(names, { mode: 'sequence', value: 'Café [2],', separator: '/', digits: 2 })).toEqual(['Café [2]01.jpg']);
+  });
 });

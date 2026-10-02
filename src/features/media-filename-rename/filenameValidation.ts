@@ -1,7 +1,13 @@
 /** Allowed display-name characters for media rename (matches Backend contract). */
-export const MEDIA_FILENAME_SAFE_PATTERN = /^[A-Za-z0-9 ._()-]+$/;
+export const MEDIA_FILENAME_SAFE_PATTERN = /^[\p{L}\p{N}_. ()[\]-]+$/u;
 
-const PATH_SEPARATOR_PATTERN = /[\\/]/;
+/** Remove unsupported characters and path syntax, matching the server cleanup. */
+export const sanitizeMediaFilename = (filename: string): string =>
+  String(filename || '')
+    .trim()
+    .replace(/[^\p{L}\p{N}_. ()[\]-]/gu, '')
+    .replace(/\.{2,}/g, '')
+    .replace(/^[ .]+|[ .]+$/g, '');
 
 export type MediaFilenameValidationResult =
   | { ok: true; filename: string }
@@ -10,7 +16,7 @@ export type MediaFilenameValidationResult =
 /**
  * Normalize a user-entered rename value against the current filename.
  * - Trims whitespace
- * - Rejects path separators and unsafe chars
+ * - Removes unsupported characters and path syntax
  * - Caps length at 255
  * - If the user omits an extension, appends the current file's extension
  * - If they supply a different extension, returns an error (Backend would 422)
@@ -19,21 +25,12 @@ export const validateMediaFilenameInput = (
   rawInput: string,
   currentFilename: string,
 ): MediaFilenameValidationResult => {
-  const trimmed = String(rawInput || '').trim();
+  const trimmed = sanitizeMediaFilename(rawInput);
   if (!trimmed) {
-    return { ok: false, message: 'Enter a filename.' };
+    return { ok: false, message: 'Enter a filename with supported characters.' };
   }
-  if (PATH_SEPARATOR_PATTERN.test(trimmed)) {
-    return { ok: false, message: 'Filename cannot include path separators.' };
-  }
-  if (trimmed.length > 255) {
+  if (new TextEncoder().encode(trimmed).length > 255) {
     return { ok: false, message: 'Filename must be 255 characters or fewer.' };
-  }
-  if (!MEDIA_FILENAME_SAFE_PATTERN.test(trimmed)) {
-    return {
-      ok: false,
-      message: 'Use letters, numbers, spaces, and . _ - ( ) only.',
-    };
   }
 
   const currentExtMatch = String(currentFilename || '').match(/\.([^.]+)$/);
@@ -43,7 +40,7 @@ export const validateMediaFilenameInput = (
 
   let filename = trimmed;
   if (!inputExt && currentExt) {
-    filename = `${trimmed}.${currentExt}`;
+    filename = `${trimmed}.${currentExt.toLowerCase()}`;
   } else if (inputExt && currentExt && inputExt.toLowerCase() !== currentExt.toLowerCase()) {
     return {
       ok: false,
@@ -51,14 +48,8 @@ export const validateMediaFilenameInput = (
     };
   }
 
-  if (filename.length > 255) {
+  if (new TextEncoder().encode(filename).length > 255) {
     return { ok: false, message: 'Filename must be 255 characters or fewer.' };
-  }
-  if (!MEDIA_FILENAME_SAFE_PATTERN.test(filename)) {
-    return {
-      ok: false,
-      message: 'Use letters, numbers, spaces, and . _ - ( ) only.',
-    };
   }
 
   return { ok: true, filename };

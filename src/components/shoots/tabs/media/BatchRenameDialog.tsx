@@ -95,7 +95,7 @@ export function BatchRenameDialog({
           <DialogTitle>Batch rename ({selectedFiles.length})</DialogTitle>
           <DialogDescription>
             {apiEnabled
-              ? 'Apply a shared rename pattern to the selected files. Extensions are preserved.'
+              ? 'Apply a shared rename pattern to the selected files. Extensions are preserved. Unsupported characters are removed automatically.'
               : 'Batch rename will unlock after the server update is live. You can still preview patterns now.'}
           </DialogDescription>
         </DialogHeader>
