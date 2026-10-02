@@ -284,16 +284,29 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
     tab.count > 0 ? `${tab.label} (${tab.count})` : tab.label
   );
 
+  // Type-list mode packs to content (footer under last row); drill-in keeps h-[420px].
   return (
-    <Card className={cn(!managerMode && DASHBOARD_MOBILE_PANEL_CLASS, "flex min-h-0 min-w-0 flex-col overflow-hidden", managerMode ? 'h-full flex-1 rounded-none border-0 bg-transparent p-0 shadow-none sm:p-0' : 'h-[420px] shrink-0 sm:flex-none')}>
-      <div className="flex flex-col h-full flex-1 min-h-0">
+    <Card
+      className={cn(
+        !managerMode && DASHBOARD_MOBILE_PANEL_CLASS,
+        'flex min-h-0 min-w-0 flex-col overflow-hidden',
+        managerMode
+          ? 'h-full flex-1 rounded-none border-0 bg-transparent p-0 shadow-none sm:p-0'
+          : cn('shrink-0 sm:flex-none', showTypeList ? 'h-auto' : 'h-[420px]'),
+      )}
+    >
+      <div
+        className={cn('flex flex-col min-h-0', showTypeList ? 'flex-none' : 'h-full flex-1')}
+        data-testid="pending-reviews-card"
+        data-requests-layout={showTypeList ? 'type-list' : 'content'}
+      >
         {!managerMode && <div className="mb-2 hidden flex-shrink-0 items-center justify-between sm:flex">
           <h2 className="text-base font-bold text-foreground sm:text-lg">{title}</h2>
         </div>}
 
         {/* Category list with counts + chevron drill-in (all breakpoints) */}
         {showTypeList && (
-          <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+          <div className="flex-none" data-testid="request-type-list">
             <div className="space-y-1.5 md:space-y-2" style={{ WebkitOverflowScrolling: 'touch' }}>
               {tabs.map((tab) => (
                 <button
@@ -575,7 +588,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
           </>
         )}
 
-        {!managerMode && <div className="mt-3 shrink-0 border-t border-border/60 pt-2">
+        {!managerMode && <div className={cn(showTypeList ? 'mt-1.5' : 'mt-3', 'shrink-0 border-t border-border/60 pt-2')}>
           <Button size="sm" variant="ghost" className="h-8 w-full justify-between px-2 text-xs text-primary" onClick={() => openModal(safeClientRequests, null, showTypeList ? 'client' : activeTab)}>
             <span>{showTypeList ? 'View all requests' : `View all ${activeTabMeta?.label.toLowerCase() ?? 'requests'}`}</span>
             <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />

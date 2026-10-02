@@ -103,4 +103,21 @@ describe('PendingReviewsCard request-type list (all breakpoints)', () => {
     expect(clientCount.className).toMatch(/secondary/);
   });
 
+
+  it('packs the type list so the card is content-sized under the footer', () => {
+    renderCard();
+    const shell = screen.getByTestId('pending-reviews-card');
+    expect(shell).toHaveAttribute('data-requests-layout', 'type-list');
+    const card = shell.parentElement;
+    expect(card?.className).toMatch(/h-auto/);
+    expect(card?.className).not.toMatch(/h-\[420px\]/);
+    expect(screen.getByTestId('request-type-list').className).toMatch(/flex-none/);
+    expect(screen.getByTestId('request-type-list').className).not.toMatch(/flex-1/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Hold' }));
+    expect(shell).toHaveAttribute('data-requests-layout', 'content');
+    expect(card?.className).toMatch(/h-\[420px\]/);
+    expect(screen.getByRole('button', { name: 'Back to Requests' })).toBeInTheDocument();
+  });
+
 });
