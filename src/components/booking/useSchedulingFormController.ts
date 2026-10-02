@@ -31,6 +31,22 @@ import type { ShootMapCoordinates } from '@/components/shoots/history/shootHisto
 import { useAuth } from '@/components/auth';
 import { CANONICAL_TIMEZONE } from '@/utils/timezone';
 
+
+/** Client-side ceiling so Confirm cannot hang forever if for-booking/geocode never settles. */
+export const BOOKING_ELIGIBILITY_TIMEOUT_MS = 30_000;
+
+async function awaitUnlessAborted<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
+  if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
+  return await new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(new DOMException('Aborted', 'AbortError'));
+    signal.addEventListener('abort', onAbort, { once: true });
+    promise.then(
+      (value) => { signal.removeEventListener('abort', onAbort); resolve(value); },
+      (error) => { signal.removeEventListener('abort', onAbort); reject(error); },
+    );
+  });
+}
+
 export const useSchedulingFormController = ({
   enforceNewBookingEligibility = false, hybridTravelEnabled = false,
   date,
@@ -504,7 +520,20 @@ export const useSchedulingFormController = ({
   useEffect(() => {
     let isCancelled = false;
     let hasLoadedEligibility = false;
+    let timedOut = false;
     const abortController = new AbortController();
+    const eligibilityTimeoutId = window.setTimeout(() => {
+      timedOut = true;
+      abortController.abort();
+    }, BOOKING_ELIGIBILITY_TIMEOUT_MS);
+    const clearEligibilityTimeout = () => window.clearTimeout(eligibilityTimeoutId);
+    const failEligibilityCheck = (message: string) => {
+      setPhotographersWithDistance([]);
+      setBookingEligiblePhotographerIds(new Set());
+      setBookingEligibilityError(message);
+      setIsCalculatingDistances(false);
+      setIsLoadingAvailability(false);
+    };
     const fetchPhotographerData = async () => {
       const bookingDate = bookingAvailabilityDate ? new Date(`${bookingAvailabilityDate}T12:00:00`) : undefined;
       setBookingEligiblePhotographerIds(null);
@@ -521,6 +550,7 @@ export const useSchedulingFormController = ({
         time: bookingAvailabilityTime,
       });
       if (photographers.length === 0 || !bookingDate) {
+        clearEligibilityTimeout();
         setPhotographersWithDistance(photographers.map(p => ({ ...p })));
         setPhotographerAvailability(new Map());
         setIsCalculatingDistances(false);
@@ -533,6 +563,7 @@ export const useSchedulingFormController = ({
         setPhotographerAvailability(new Map());
         setPhotographersWithDistance(photographers.map(p => ({ ...p })));
         if (!canUseProtectedAvailability) {
+          clearEligibilityTimeout();
           setIsLoadingAvailability(false);
           return;
         }
@@ -594,11 +625,17 @@ export const useSchedulingFormController = ({
           setPhotographersWithDistance(updatedPhotographers);
           setPhotographerAvailability(availabilityMap);
         } catch (error: unknown) {
-          if (isAbortError(error) || isCancelled) return;
+          if (isCancelled) return;
+          if (isAbortError(error) && !timedOut) return;
           console.error('Error fetching fallback availability:', error);
-          setPhotographersWithDistance(photographers.map(p => ({ ...p })));
+          if (timedOut) {
+            failEligibilityCheck('Photographer eligibility check timed out. Please try again.');
+          } else {
+            setPhotographersWithDistance(photographers.map(p => ({ ...p })));
+          }
         } finally {
-          if (!isCancelled) setIsLoadingAvailability(false);
+          clearEligibilityTimeout();
+          if (!isCancelled && !timedOut) setIsLoadingAvailability(false);
         }
         return;
       }
@@ -615,13 +652,17 @@ export const useSchedulingFormController = ({
         let shootLat: number | undefined;
         let shootLng: number | undefined;
         try {
-          const bookingCoords = await getCoordinatesFromAddress(address, city, state, zip || '');
+          const bookingCoords = await awaitUnlessAborted(
+            getCoordinatesFromAddress(address, city, state, zip || ''),
+            abortController.signal,
+          );
           if (bookingCoords && !isCancelled) {
             shootLat = bookingCoords.lat;
             shootLng = bookingCoords.lon;
             setBookingJobCoords({ lat: bookingCoords.lat, lng: bookingCoords.lon });
           }
-        } catch {
+        } catch (geocodeError: unknown) {
+          if (isAbortError(geocodeError) || abortController.signal.aborted) throw geocodeError;
           // Fail open — for-booking still works on address alone.
         }
         if (isCancelled) return;
@@ -825,20 +866,25 @@ export const useSchedulingFormController = ({
           }
         }
       } catch (error: unknown) {
-        if (isAbortError(error) || isCancelled) return;
+        if (isCancelled) return;
+        if (isAbortError(error) && !timedOut) return;
         console.error('Error fetching photographer data:', error);
-        if (!hasLoadedEligibility) {
-          setPhotographersWithDistance([]);
-          setBookingEligiblePhotographerIds(new Set());
-          setBookingEligibilityError('Could not check photographer eligibility. Please try again.');
+        if (timedOut) {
+          failEligibilityCheck('Photographer eligibility check timed out. Please try again.');
+        } else if (!hasLoadedEligibility) {
+          failEligibilityCheck('Could not check photographer eligibility. Please try again.');
+        } else {
+          setIsCalculatingDistances(false);
+          setIsLoadingAvailability(false);
         }
-        setIsCalculatingDistances(false);
-        setIsLoadingAvailability(false);
+      } finally {
+        clearEligibilityTimeout();
       }
     };
     fetchPhotographerData();
     return () => {
       isCancelled = true;
+      clearEligibilityTimeout();
       abortController.abort();
       // Always clear — aborted/cancelled paths previously skipped setIsLoadingAvailability(false)
       // and left Book Shoot / Select Photographer spinner stuck.

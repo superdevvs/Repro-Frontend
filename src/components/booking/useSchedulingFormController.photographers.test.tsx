@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { useSchedulingFormController } from './useSchedulingFormController';
+import { BOOKING_ELIGIBILITY_TIMEOUT_MS, useSchedulingFormController } from './useSchedulingFormController';
 import type { SchedulingFormProps } from './schedulingModel';
 
 const mocks = vi.hoisted(() => ({ role: 'client', getDayAvailability: vi.fn() }));
@@ -213,6 +213,52 @@ describe('per-service booking photographer availability', () => {
     await waitFor(() => expect(result.current.canConfirmPhotographer).toBe(true));
     expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toMatchObject({ date: '2026-10-06', time: '13:00' });
     await waitFor(() => expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['9']));
+  });
+
+
+  it('unblocks Confirm with a retryable error when eligibility never resolves client-side', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      vi.stubGlobal('fetch', vi.fn((_url: string, options?: RequestInit) => new Promise<Response>((_resolve, reject) => {
+        const signal = options?.signal;
+        if (!signal) return;
+        if (signal.aborted) {
+          reject(new DOMException('Aborted', 'AbortError'));
+          return;
+        }
+        signal.addEventListener('abort', () => reject(new DOMException('Aborted', 'AbortError')), { once: true });
+      })));
+      const props = eligibilityProps();
+      const { result } = renderHook(() => useSchedulingFormController(props));
+      await act(async () => { await Promise.resolve(); });
+      expect(result.current.isLoadingAvailability).toBe(true);
+      act(() => result.current.handleSubmit());
+      expect(props.handleSubmit).not.toHaveBeenCalled();
+      expect(props.setFormErrors).toHaveBeenCalledWith(expect.objectContaining({
+        photographer: 'Please wait for the photographer eligibility check to finish.',
+      }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(BOOKING_ELIGIBILITY_TIMEOUT_MS);
+      });
+      expect(result.current.isLoadingAvailability).toBe(false);
+      expect(result.current.isCalculatingDistances).toBe(false);
+      expect(result.current.bookingEligibilityError).toMatch(/timed out/);
+      expect(result.current.canConfirmPhotographer).toBe(false);
+      act(() => result.current.handleSubmit());
+      expect(props.handleSubmit).not.toHaveBeenCalled();
+      expect(props.setFormErrors).toHaveBeenCalledWith(expect.objectContaining({
+        photographer: expect.stringMatching(/timed out/),
+      }));
+      vi.useRealTimers();
+      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ data: [{ id: 9, name: 'Pat' }] }) })));
+      act(() => result.current.retryBookingEligibility());
+      await waitFor(() => expect(result.current.canConfirmPhotographer).toBe(true));
+      expect(result.current.bookingEligibilityError).toBeNull();
+      act(() => result.current.handleSubmit());
+      expect(props.handleSubmit).toHaveBeenCalledOnce();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('treats malformed success responses as failed checks with retry, not zero eligible photographers', async () => {
