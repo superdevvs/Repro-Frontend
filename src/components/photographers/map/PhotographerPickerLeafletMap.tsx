@@ -7,7 +7,14 @@ import { cn } from '@/lib/utils'
 import { PhotographerMapBottomStrip } from './PhotographerMapBottomStrip'
 import type { PhotographerMapFields } from './photographerMapFields'
 import type { PhotographerMapMarker } from './buildPhotographerMapMarkers'
-import { jobHomePinIcon, profilePinHtml, routePinIcon } from './photographerMapPinIcons'
+import {
+  jobHomePinIcon,
+  PROFILE_PIN_SIZE,
+  PROFILE_PIN_SIZE_SELECTED,
+  profilePinHtml,
+  routePinIcon,
+} from './photographerMapPinIcons'
+import { resolvePhotographerRoadPath } from './photographerMapRoadRoute'
 
 type PhotographerPickerLeafletMapProps = {
   markers: PhotographerMapMarker[]
@@ -24,16 +31,18 @@ const OSM_ATTRIBUTION =
 
 function markerDivIcon(entry: PhotographerMapMarker) {
   if (entry.appearance === 'avatar') {
+    const size = entry.selected ? PROFILE_PIN_SIZE_SELECTED : PROFILE_PIN_SIZE
     return divIcon({
       className: 'photographer-picker-avatar-marker',
       html: profilePinHtml({
         avatarUrl: entry.avatarUrl,
         initials: entry.initials || '?',
         selected: Boolean(entry.selected),
+        size,
       }),
-      iconAnchor: [20, 46],
-      iconSize: [40, 46],
-      popupAnchor: [0, -40],
+      iconAnchor: [size / 2, size + 6],
+      iconSize: [size, size + 6],
+      popupAnchor: [0, -(size)],
     })
   }
   if (entry.appearance === 'dot' || entry.dimmed) {
@@ -115,7 +124,40 @@ export function PhotographerPickerLeafletMap({
 }: PhotographerPickerLeafletMapProps) {
   const center = markers[0]?.coords ?? { lat: 39.8283, lng: -98.5795 }
   const hasSelection = Boolean(String(selectedId ?? '').trim())
-  const route = hasSelection ? straightRoute(markers) : []
+  const [route, setRoute] = React.useState<[number, number][]>([])
+  const [routeNotice, setRouteNotice] = React.useState<string | null>(null)
+
+  React.useEffect(() => {
+    if (!hasSelection) {
+      setRoute([])
+      setRouteNotice(null)
+      return
+    }
+    const waypoints = straightRoute(markers).map(([lat, lng]) => ({ lat, lng }))
+    if (waypoints.length < 2) {
+      setRoute([])
+      setRouteNotice(null)
+      return
+    }
+    let cancelled = false
+    void resolvePhotographerRoadPath({ maps: null, waypoints }).then((resolved) => {
+      if (cancelled) return
+      setRoute(resolved.path.map((point) => [point.lat, point.lng] as [number, number]))
+      if (resolved.source === 'straight') {
+        setRouteNotice(
+          resolved.detail
+            ?? 'Road directions unavailable — straight-line estimate (not along roads).',
+        )
+      } else if (resolved.source === 'osrm') {
+        setRouteNotice(resolved.detail ?? 'Showing backup road route.')
+      } else {
+        setRouteNotice(null)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [hasSelection, markers])
 
   return (
     <div
@@ -166,6 +208,15 @@ export function PhotographerPickerLeafletMap({
           </Marker>
         ))}
       </MapContainer>
+      {routeNotice ? (
+        <div
+          className="absolute left-1/2 top-2 z-30 max-w-[min(28rem,calc(100%-1rem))] -translate-x-1/2 rounded-xl border border-amber-400/80 bg-amber-950/90 px-2.5 py-1.5 text-center text-[11px] font-medium text-amber-100 shadow-lg"
+          role="status"
+          data-testid="photographer-map-route-notice"
+        >
+          {routeNotice}
+        </div>
+      ) : null}
       <PhotographerMapBottomStrip name={selectedName} fields={fields} />
     </div>
   )

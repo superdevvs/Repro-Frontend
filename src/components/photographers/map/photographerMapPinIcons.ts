@@ -11,6 +11,10 @@ export const PIN_COLORS = {
   homeDot: '#3b82f6',
 } as const
 
+/** Default overview avatar diameter (px). Selected is slightly larger. */
+export const PROFILE_PIN_SIZE = 56
+export const PROFILE_PIN_SIZE_SELECTED = 64
+
 /** Teardrop pin with a house glyph — property / job location. */
 export function jobHomePinIcon(selected = true): string {
   const size = selected ? 36 : 30
@@ -41,14 +45,18 @@ export function profilePinHtml(args: {
   selected?: boolean
   size?: number
 }): string {
-  const size = args.size ?? 40
+  const size = args.size ?? PROFILE_PIN_SIZE
   const border = args.selected ? '#2563eb' : '#ffffff'
-  const ring = args.selected ? 'box-shadow:0 0 0 3px rgba(37,99,235,.45),0 3px 10px rgba(15,23,42,.4);' : 'box-shadow:0 3px 10px rgba(15,23,42,.35);'
+  const outer = args.selected ? '#1d4ed8' : '#0f172a'
+  const fontPx = Math.max(14, Math.round(size * 0.32))
+  const ring = args.selected
+    ? 'box-shadow:0 0 0 3px rgba(37,99,235,.55),0 4px 14px rgba(15,23,42,.55);'
+    : 'box-shadow:0 4px 14px rgba(15,23,42,.5);'
   const img = args.avatarUrl
-    ? `<img src="${escapeAttr(args.avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='grid')" />
-<span style="display:none;place-items:center;width:100%;height:100%;font:700 12px/1 Inter,system-ui,sans-serif;color:#e2e8f0;background:linear-gradient(145deg,#475569,#1e293b);border-radius:50%">${escapeHtml(args.initials)}</span>`
-    : `<span style="display:grid;place-items:center;width:100%;height:100%;font:700 12px/1 Inter,system-ui,sans-serif;color:#e2e8f0;background:linear-gradient(145deg,#475569,#1e293b);border-radius:50%">${escapeHtml(args.initials)}</span>`
-  return `<div style="width:${size}px;height:${size}px;border-radius:50%;border:2.5px solid ${border};overflow:hidden;cursor:pointer;background:#1e293b;${ring}">${img}</div>`
+    ? `<img src="${escapeAttr(args.avatarUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block;opacity:1" onerror="this.style.display='none';this.nextElementSibling&&(this.nextElementSibling.style.display='grid')" />
+<span style="display:none;place-items:center;width:100%;height:100%;font:700 ${fontPx}px/1 Inter,system-ui,sans-serif;color:#f8fafc;background:linear-gradient(145deg,#64748b,#1e293b);border-radius:50%;opacity:1">${escapeHtml(args.initials)}</span>`
+    : `<span style="display:grid;place-items:center;width:100%;height:100%;font:700 ${fontPx}px/1 Inter,system-ui,sans-serif;color:#f8fafc;background:linear-gradient(145deg,#64748b,#1e293b);border-radius:50%;opacity:1">${escapeHtml(args.initials)}</span>`
+  return `<div style="width:${size}px;height:${size}px;border-radius:50%;border:3.5px solid ${border};outline:2.5px solid ${outer};overflow:hidden;cursor:pointer;background:#1e293b;opacity:1;${ring}">${img}</div>`
 }
 
 export function photographerInitials(name?: string | null): string {

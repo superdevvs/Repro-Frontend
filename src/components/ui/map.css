@@ -85,3 +85,17 @@
 .map-tiles-dark {
   filter: brightness(0.72) invert(1) contrast(1.45) hue-rotate(180deg) saturate(0.35);
 }
+
+/* Photographer picker overview avatars — opaque, no Leaflet div-icon chrome. */
+.photographer-picker-avatar-marker,
+.photographer-picker-dot-marker,
+.photographer-picker-job-marker,
+.photographer-picker-route-marker {
+  background: transparent !important;
+  border: none !important;
+  opacity: 1 !important;
+}
+
+.photographer-picker-avatar-marker img {
+  opacity: 1 !important;
+}

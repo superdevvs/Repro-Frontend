@@ -24,9 +24,12 @@ import {
 import {
   jobHomePinIcon,
   PIN_COLORS,
+  PROFILE_PIN_SIZE,
+  PROFILE_PIN_SIZE_SELECTED,
   profilePinHtml,
   routePinIcon,
 } from './photographerMapPinIcons'
+import { resolvePhotographerRoadPath, type RoadRouteSource } from './photographerMapRoadRoute'
 import { photographerMapOptions } from './photographerMapStyles'
 
 export type { PhotographerMapMarker }
@@ -88,12 +91,12 @@ function createAvatarOverlay(args: {
   const { maps, map, entry, onSelect, onInfo } = args
   const overlay = new maps.OverlayView()
   const element = document.createElement('div')
-  element.style.cssText = `position:absolute;transform:translate(-50%,-100%);padding-bottom:6px;z-index:${entry.selected ? 40 : 12};cursor:pointer`
+  element.style.cssText = `position:absolute;transform:translate(-50%,-100%);padding-bottom:8px;z-index:${entry.selected ? 40 : 12};cursor:pointer;opacity:1;filter:none`
   element.innerHTML = profilePinHtml({
     avatarUrl: entry.avatarUrl,
     initials: entry.initials || '?',
     selected: Boolean(entry.selected),
-    size: entry.selected ? 44 : 40,
+    size: entry.selected ? PROFILE_PIN_SIZE_SELECTED : PROFILE_PIN_SIZE,
   })
   element.setAttribute('role', 'button')
   element.setAttribute('aria-label', `Select ${entry.label}`)
@@ -153,29 +156,6 @@ function pathEquals(a: GoogleLatLngLiteral[], b: GoogleLatLngLiteral[]) {
   return a.every((point, index) => point.lat === b[index].lat && point.lng === b[index].lng)
 }
 
-function flattenDirectionsPath(result: { routes: Array<{ overview_path?: GoogleLatLngLiteral[]; legs?: Array<{ steps?: Array<{ path?: GoogleLatLngLiteral[] }> }> }> }): GoogleLatLngLiteral[] {
-  const route = result.routes[0]
-  if (!route) return []
-  if (route.overview_path && route.overview_path.length > 1) {
-    return route.overview_path.map((point) => ({
-      lat: typeof point.lat === 'function' ? (point as unknown as { lat: () => number }).lat() : Number(point.lat),
-      lng: typeof point.lng === 'function' ? (point as unknown as { lng: () => number }).lng() : Number(point.lng),
-    }))
-  }
-  const path: GoogleLatLngLiteral[] = []
-  for (const leg of route.legs ?? []) {
-    for (const step of leg.steps ?? []) {
-      for (const point of step.path ?? []) {
-        path.push({
-          lat: typeof point.lat === 'function' ? (point as unknown as { lat: () => number }).lat() : Number(point.lat),
-          lng: typeof point.lng === 'function' ? (point as unknown as { lng: () => number }).lng() : Number(point.lng),
-        })
-      }
-    }
-  }
-  return path
-}
-
 export function PhotographerPickerGoogleMap({
   apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '',
   theme = 'dark',
@@ -203,6 +183,8 @@ export function PhotographerPickerGoogleMap({
   const onSelectRef = React.useRef(onSelectPhotographer)
   const [ready, setReady] = React.useState(false)
   const [legendOpen, setLegendOpen] = React.useState(false)
+  const [routeNotice, setRouteNotice] = React.useState<string | null>(null)
+  const [routeSource, setRouteSource] = React.useState<RoadRouteSource | null>(null)
   const stripPad = selectedName ? 72 : 16
 
   React.useEffect(() => {
@@ -258,9 +240,11 @@ export function PhotographerPickerGoogleMap({
     pulseLineRef.current?.setMap(null)
     pulseLineRef.current = null
     lastWaypointsRef.current = []
+    setRouteNotice(null)
+    setRouteSource(null)
   }, [])
 
-  const animatePath = React.useCallback((maps: GoogleMapsApi, map: GoogleMapInstance, fullPath: GoogleLatLngLiteral[]) => {
+  const animatePath = React.useCallback((maps: GoogleMapsApi, map: GoogleMapInstance, fullPath: GoogleLatLngLiteral[], alongRoads: boolean) => {
     if (routeAnimRef.current != null) {
       window.cancelAnimationFrame(routeAnimRef.current)
       routeAnimRef.current = null
@@ -268,31 +252,46 @@ export function PhotographerPickerGoogleMap({
     routeLineRef.current?.setMap(null)
     pulseLineRef.current?.setMap(null)
 
+    const lineSymbol = {
+      path: 'M 0,-1 0,1',
+      strokeOpacity: 1,
+      scale: 3,
+      strokeColor: '#93c5fd',
+    }
     const base = new maps.Polyline({
       map,
       path: [],
-      geodesic: true,
+      geodesic: !alongRoads,
       strokeColor: '#60a5fa',
-      strokeOpacity: 0.35,
-      strokeWeight: 5,
+      strokeOpacity: 0.28,
+      strokeWeight: 6,
       zIndex: 5,
+      icons: alongRoads
+        ? [
+            {
+              icon: lineSymbol,
+              offset: '0',
+              repeat: '14px',
+            },
+          ]
+        : undefined,
     })
     const pulse = new maps.Polyline({
       map,
       path: [],
-      geodesic: true,
-      strokeColor: '#93c5fd',
+      geodesic: !alongRoads,
+      strokeColor: alongRoads ? '#38bdf8' : '#fbbf24',
       strokeOpacity: 1,
-      strokeWeight: 4,
+      strokeWeight: alongRoads ? 4 : 3,
       zIndex: 6,
       icons: [
         {
           icon: {
             path: maps.SymbolPath?.CIRCLE ?? 0,
-            scale: 4,
+            scale: 5,
             fillColor: '#ffffff',
             fillOpacity: 1,
-            strokeColor: '#3b82f6',
+            strokeColor: alongRoads ? '#0284c7' : '#d97706',
             strokeWeight: 2,
           },
           offset: '100%',
@@ -302,10 +301,10 @@ export function PhotographerPickerGoogleMap({
     routeLineRef.current = base
     pulseLineRef.current = pulse
 
-    // Show full faint path immediately, then draw pulse along it.
+    // Show full faint/dashed path immediately, then draw pulse along it.
     base.setPath(fullPath)
     const total = Math.max(fullPath.length, 2)
-    const durationMs = Math.min(2200, Math.max(900, total * 12))
+    const durationMs = Math.min(2400, Math.max(1000, total * 10))
     const started = performance.now()
 
     const tick = (now: number) => {
@@ -336,39 +335,33 @@ export function PhotographerPickerGoogleMap({
     lastWaypointsRef.current = waypoints
     const requestId = ++routeRequestIdRef.current
 
-    const fallbackStraight = () => {
-      if (requestId !== routeRequestIdRef.current) return
-      animatePath(maps, map, waypoints)
-    }
-
-    try {
-      const service = new maps.DirectionsService()
-      const origin = waypoints[0]
-      const destination = waypoints[waypoints.length - 1]
-      const middle = waypoints.slice(1, -1).map((location) => ({ location, stopover: true }))
-      service.route(
-        {
-          origin,
-          destination,
-          waypoints: middle,
-          travelMode: maps.TravelMode?.DRIVING ?? 'DRIVING',
-        },
-        (result, status) => {
-          if (requestId !== routeRequestIdRef.current) return
-          if (status === 'OK' && result?.routes?.length) {
-            const path = flattenDirectionsPath(result)
-            if (path.length > 1) {
-              animatePath(maps, map, path)
-              return
-            }
-          }
-          fallbackStraight()
-        },
-      )
-    } catch {
-      fallbackStraight()
-    }
+    void resolvePhotographerRoadPath({ maps, waypoints })
+      .then((resolved) => {
+        if (requestId !== routeRequestIdRef.current) return
+        setRouteSource(resolved.source)
+        if (resolved.source === 'google') {
+          setRouteNotice(null)
+        } else if (resolved.source === 'osrm') {
+          setRouteNotice(
+            resolved.detail
+              ?? 'Google road Directions unavailable — showing backup road route.',
+          )
+        } else {
+          setRouteNotice(
+            resolved.detail
+              ?? 'Road directions unavailable — straight-line estimate (not along roads).',
+          )
+        }
+        animatePath(maps, map, resolved.path, resolved.source !== 'straight')
+      })
+      .catch(() => {
+        if (requestId !== routeRequestIdRef.current) return
+        setRouteSource('straight')
+        setRouteNotice('Road directions unavailable — straight-line estimate (not along roads).')
+        animatePath(maps, map, waypoints, false)
+      })
   }, [animatePath, clearRouteAnimation])
+
 
   React.useEffect(() => {
     let cancelled = false
@@ -592,6 +585,21 @@ export function PhotographerPickerGoogleMap({
           <Minus className="h-3.5 w-3.5" />
         </Button>
       </div>
+
+      {routeNotice ? (
+        <div
+          className={cn(
+            'absolute left-1/2 top-2 z-30 max-w-[min(28rem,calc(100%-1rem))] -translate-x-1/2 rounded-xl border px-2.5 py-1.5 text-center text-[11px] font-medium shadow-lg',
+            routeSource === 'straight'
+              ? 'border-amber-400/80 bg-amber-950/90 text-amber-100'
+              : 'border-sky-400/70 bg-slate-950/90 text-sky-100',
+          )}
+          role="status"
+          data-testid="photographer-map-route-notice"
+        >
+          {routeNotice}
+        </div>
+      ) : null}
 
       <PhotographerMapBottomStrip name={selectedName} fields={fields} />
     </div>
