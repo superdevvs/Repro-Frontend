@@ -1,6 +1,7 @@
 import { API_BASE_URL } from '@/config/env';
 import { findCatalogPageByRoute } from '@/features/system-overview/catalog';
 import { telemetryLabel, telemetryPayload, telemetryRoute } from './telemetryPrivacy';
+import { sanitizeTransferTelemetry, type TransferTelemetry } from './transferTelemetry';
 
 type TelemetryAuthState = {
   isAuthenticated: boolean;
@@ -20,7 +21,8 @@ type ClientTelemetryEvent = {
     | 'component_unmount'
     | 'action'
     | 'blocker'
-    | 'error';
+    | 'error'
+    | 'transfer';
   routePath?: string;
   pageKey?: string;
   componentName?: string;
@@ -34,6 +36,7 @@ type ClientTelemetryEvent = {
   traceId?: string;
   payload?: Record<string, unknown>;
   occurredAt?: string;
+  transfer?: TransferTelemetry;
 };
 
 type TelemetryIngestResponse = {
@@ -136,6 +139,7 @@ const enqueue = (event: ClientTelemetryEvent) => {
     blockerMessage: ['error', 'blocker'].includes(event.type) ? 'A browser operation could not be completed.' : undefined,
     errorClass: event.type === 'error' ? 'ClientOperationError' : undefined,
     payload: telemetryPayload(event.payload),
+    transfer: event.type === 'transfer' && event.transfer ? sanitizeTransferTelemetry(event.transfer) : undefined,
     occurredAt: event.occurredAt ?? new Date().toISOString(),
   });
 
@@ -286,6 +290,11 @@ export const trackTelemetryAction = (
     traceId,
     payload,
   });
+};
+
+export const trackTransferTelemetry = (transfer: TransferTelemetry) => {
+  const sanitized = sanitizeTransferTelemetry(transfer);
+  if (sanitized) enqueue({ type: 'transfer', actionName: 'media_transfer', transfer: sanitized });
 };
 
 export const trackTelemetryBlocker = (

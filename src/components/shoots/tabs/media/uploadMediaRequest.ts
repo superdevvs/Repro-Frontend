@@ -1,3 +1,5 @@
+import { trackTransferTelemetry } from '@/features/system-overview/telemetryClient';
+
 // A transfer may be slow and healthy for hours. Only a lack of new bytes expires
 // the transfer; once sent, use a separate deadline for the server's response.
 export const UPLOAD_IDLE_TIMEOUT_MS = 120_000;
@@ -290,7 +292,7 @@ async function uploadMediaChunked(options: UploadMediaRequestOptions, file: File
   return complete;
 }
 
-export function uploadMediaRequest(options: UploadMediaRequestOptions): Promise<MediaRequestResult> {
+function sendMediaRequest(options: UploadMediaRequestOptions): Promise<MediaRequestResult> {
   const file = primaryUploadFile(options.body);
   if (file && file.size > CLOUDFLARE_SAFE_UPLOAD_BYTES) {
     return uploadMediaChunked(options, file);
@@ -372,4 +374,35 @@ export function uploadMediaRequest(options: UploadMediaRequestOptions): Promise<
 
 export function formatUploadPercent(progress: number): string {
   return progress > 0 && progress < 0.1 ? '<0.1' : String(Math.round(progress * 10) / 10);
+}
+
+export async function uploadMediaRequest(options: UploadMediaRequestOptions): Promise<MediaRequestResult> {
+  const started = performance.now();
+  let transferFinished: number | null = null;
+  const file = primaryUploadFile(options.body);
+  const result = await sendMediaRequest({
+    ...options,
+    onProgress: (progress) => {
+      if (progress.phase === 'processing' && transferFinished === null) transferFinished = performance.now();
+      options.onProgress(progress);
+    },
+  });
+  const finished = performance.now();
+  const uploadType = options.body.get('upload_type');
+  let confirmed = false;
+  if (result.ok && result.status >= 200 && result.status < 300) {
+    try { confirmed = Number(JSON.parse(result.responseText).success_count) > 0; } catch { /* Unconfirmed response. */ }
+  }
+  trackTransferTelemetry({
+    direction: 'upload',
+    mediaType: uploadType === 'edited' ? 'edited' : uploadType === 'extra' || /\/upload-extra$/.test(options.url) ? 'extra' : 'raw',
+    bytes: file?.size ?? 0,
+    transferMs: transferFinished === null ? null : transferFinished - started,
+    confirmationMs: transferFinished === null ? null : finished - transferFinished,
+    totalMs: finished - started,
+    status: result.ok ? result.status : 0,
+    outcome: options.signal?.aborted ? 'cancelled' : confirmed ? 'confirmed' : 'failed',
+    chunked: Boolean(file && file.size > CLOUDFLARE_SAFE_UPLOAD_BYTES),
+  });
+  return result;
 }
