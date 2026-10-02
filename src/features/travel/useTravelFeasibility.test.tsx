@@ -12,6 +12,31 @@ beforeEach(() => { vi.useFakeTimers(); localStorage.setItem('authToken', 'test')
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); localStorage.clear(); });
 
 describe('selected itinerary travel preview', () => {
+  it('keeps staff save provisional during the first check and after a failed check until retry succeeds', async () => {
+    const fetcher = vi.fn().mockRejectedValueOnce(new Error('Network unavailable')).mockResolvedValueOnce(response());
+    vi.stubGlobal('fetch', fetcher);
+    const { result } = renderHook(useTravelFeasibility, { initialProps: { payload } });
+    expect(result.current.enabled).toBe(false); // Not yet known, not a disabled-policy response.
+    expect(result.current.blocked).toBe(true);
+    expect(await result.current.confirmSave()).toBeNull();
+    await tick();
+    expect(result.current.error).toBe('Network unavailable');
+    expect(result.current.blocked).toBe(true);
+    expect(await result.current.confirmSave()).toBeNull();
+    await act(async () => { await result.current.retry(); });
+    expect(result.current.blocked).toBe(false);
+    expect(await result.current.confirmSave()).toEqual({});
+  });
+  it('preserves client request intake while the first check is pending or fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network unavailable')));
+    const { result } = renderHook(useTravelFeasibility, { initialProps: { payload, requestedOnly: true } });
+    expect(result.current.blocked).toBe(false);
+    expect(await result.current.confirmSave()).toEqual({});
+    await tick();
+    expect(result.current.blocked).toBe(false);
+    expect(result.current.error).toBe('Network unavailable');
+    expect(await result.current.confirmSave()).toEqual({});
+  });
   it('debounces changes into one authenticated request and fetches alternatives only on demand', async () => {
     const fetcher = vi.fn().mockImplementation(() => Promise.resolve(response())); vi.stubGlobal('fetch', fetcher);
     const { result, rerender } = renderHook(useTravelFeasibility, { initialProps: { payload } });
@@ -101,6 +126,7 @@ describe('selected itinerary travel preview', () => {
     vi.stubGlobal('fetch', fetcher);
     const { result, rerender } = renderHook(useTravelFeasibility, { initialProps: { payload } }); await tick();
     expect(result.current.visible).toBe(false); expect(result.current.blocked).toBe(false);
+    expect(await result.current.confirmSave()).toEqual({});
     rerender({ payload: { ...payload, address: '3 Main St' } }); await tick();
     expect(result.current.result).toBeNull(); expect(result.current.error).toBe('Network unavailable'); expect(result.current.visible).toBe(true);
   });

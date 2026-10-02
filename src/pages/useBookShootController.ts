@@ -87,8 +87,7 @@ export const useBookShootController = () => {
     setIsSubmitting, duplicateLocationDialogOpen, setDuplicateLocationDialogOpen,
     createdShootId, setCreatedShootId, formErrors, setFormErrors, clientPropertyFormKey,
     setClientPropertyFormKey, toast, addShoot, shoots, navigate, photographers,
-    setPhotographersList, availablePhotographerIds, setAvailablePhotographerIds,
-    availabilityChecked, setAvailabilityChecked, to12Hour, fetchShoots, shouldCacheForm,
+    setPhotographersList, to12Hour, fetchShoots, shouldCacheForm,
     CACHE_KEY, hasCachedData, setHasCachedData, clearBookingDraftState,
   } = useBookShootWorkflow({
     user, isClientAccount, clientIdFromUrl, clientNameFromUrl, clientCompanyFromUrl,
@@ -203,15 +202,6 @@ export const useBookShootController = () => {
   };
   const getTax = () => displayPricingBreakdown.taxAmount;
   const getTotal = () => displayPricingBreakdown.totalQuote;
-  const getAvailablePhotographers = () => {
-    const role = user?.role;
-    if (role === 'admin' || role === 'superadmin') return photographers;
-    // Before date/time or while bulk availability is unresolved, keep the full
-    // directory so Scheduling / for-booking can still render (fail open).
-    if (!date || !time || !availabilityChecked) return photographers;
-    if (availablePhotographerIds.length === 0) return photographers;
-    return photographers.filter(p => availablePhotographerIds.includes(p.id));
-  };
   useEffect(() => {
     if (!canAdjustBookingAmount && adjustedTotalInput) {
       setAdjustedTotalInput('');
@@ -967,14 +957,14 @@ export const useBookShootController = () => {
     setBypassPayment, sendNotification, setSendNotification, adjustedTotalInput,
     setAdjustedTotalInput, step, isComplete, completedBooking, isSubmitting,
     duplicateLocationDialogOpen, setDuplicateLocationDialogOpen, createdShootId, formErrors,
-    setFormErrors, clientPropertyFormKey, toast, photographers, availablePhotographerIds,
-    availabilityChecked, canAdjustBookingAmount, canCreateNoProductShoot, isClientAccount,
+    setFormErrors, clientPropertyFormKey, toast, photographers,
+    canAdjustBookingAmount, canCreateNoProductShoot, isClientAccount,
     travel, isFormComplete, canSubmitBooking, sameDayAddressShoot, sameAddressScheduledDates,
     addressScheduledWarningMessage, sameDayAddressWarningMessage, duplicateLocationWarningShoot,
     duplicateLocationPopupMessage, showAddressScheduledWarning, hasCachedData,
     clearBookingDraftState, selectedClientData, selectedServiceSqft, serviceSubtotal,
     pricingBreakdown, parsedAdjustedTotal, displayPricingBreakdown, getPackagePrice,
-    getPhotographerRate, getTax, getTotal, getAvailablePhotographers, validateCurrentStep,
+    getPhotographerRate, getTax, getTotal, validateCurrentStep,
     handleSubmit, goBack, resetForm, handleAddressFieldsChange, handleClientChange,
     handlePropertyDraftChange, updateClientCompanyNotes, handleClearCache,
     clientPropertyFormData, getSummaryInfo, parsedTemperature, condition, summaryInfo,

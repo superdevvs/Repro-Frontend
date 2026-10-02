@@ -11,7 +11,6 @@ import type { InternalShootType } from '@/components/booking/ClientPropertyForm'
 import type { ShootData } from '@/types/shoots';
 import axios from 'axios';
 import API_ROUTES from '@/lib/api';
-import { bookingTimeToMinutes, normalizeSlotClock, resolveBookingAvailabilityRows } from './bookShootAvailabilityMatch';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
@@ -27,14 +26,12 @@ import type {
   ServiceScheduleMap,
 } from './bookShootModel';
 import { asRecord } from './bookShootModel';
-import { isBookingTimeAvailable } from './bookShootAvailability';
 import { hydrateBookedServiceSelection, restoreCachedServiceQuantities } from './bookShootServiceSelection';
 import { serviceRequiresPhotographer, syncPhotographerRequiredFromCatalog } from '@/utils/photographerAssignment';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
 import { emptyMultiUnitDraft, hydrateUnitDraft, type MultiUnitDraft } from '@/features/shoot-units/model';
-import { format } from 'date-fns';
 
 type BookShootWorkflowOptions = {
   user: ReturnType<typeof useAuth>['user'];
@@ -152,8 +149,6 @@ export const useBookShootWorkflow = ({
   const { addShoot, shoots } = useShoots();
   const navigate = useNavigate();
   const [photographers, setPhotographersList] = useState<Array<{ id: string; name: string; avatar?: string }>>([]);
-  const [availablePhotographerIds, setAvailablePhotographerIds] = useState<string[]>([]);
-  const [availabilityChecked, setAvailabilityChecked] = useState(false);
   const to12Hour = (hhmm: string) => {
     const [h, m] = hhmm.split(':').map((v) => parseInt(v, 10));
     const mer = h >= 12 ? 'PM' : 'AM';
@@ -550,98 +545,6 @@ export const useBookShootWorkflow = ({
     fetchPackages();
   }, [toast]);
   useEffect(() => {
-    const fetchAvailable = async () => {
-      setAvailabilityChecked(false);
-      if (isClientAccount || String(user?.role ?? '').toLowerCase() === 'client') {
-        // The client picker is hydrated by the privacy-safe `/for-booking` request in
-        // `useSchedulingFormController`. Do not probe the protected per-photographer
-        // availability endpoint here; keep the base list available for that picker.
-        setAvailablePhotographerIds((photographers ?? []).map((p) => String(p.id)));
-        setAvailabilityChecked(true);
-        return;
-      }
-      if (!date || !time) { setAvailablePhotographerIds([]); setAvailabilityChecked(true); return; }
-      const bookingStartMinutes = bookingTimeToMinutes(time);
-      if (bookingStartMinutes === null) {
-        // Unknown time shape — keep full list (fail open) instead of blanking the picker.
-        console.warn('[Availability] Unrecognized time format; keeping full photographer list', time);
-        setAvailablePhotographerIds((photographers ?? []).map((p) => String(p.id)));
-        setAvailabilityChecked(true);
-        return;
-      }
-      const hh = String(Math.floor(bookingStartMinutes / 60)).padStart(2, '0');
-      const mm = String(bookingStartMinutes % 60).padStart(2, '0');
-      const start_time = `${hh}:${mm}`;
-      // Local civil date (date-fns format) — avoid UTC day-shift from toISOString()/Date-only parsing.
-      const fmtDate = format(date instanceof Date ? date : new Date(date), 'yyyy-MM-dd');
-      console.debug('[Availability] Checking within-window coverage', { fmtDate, start_time, totalPhotographers: photographers?.length || 0 });
-      try {
-        if (!photographers || photographers.length === 0) { setAvailablePhotographerIds([]); return; }
-        const token = localStorage.getItem('authToken');
-        const headers: Record<string, string> = { "Content-Type": "application/json" };
-        if (token) headers["Authorization"] = `Bearer ${token}`;
-        const allTimesSet = new Set<string>();
-        // Prefer one bulk-index call over N /availability/check posts (those 500 on cache ownership).
-        const photographerIds = photographers.map((p) => Number(p.id)).filter(Number.isFinite);
-        const res = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
-          method: "POST",
-          headers,
-          body: JSON.stringify({
-            photographer_ids: photographerIds,
-            from_date: fmtDate,
-            to_date: fmtDate,
-          }),
-        });
-        if (!res.ok) {
-          console.warn('[Availability] bulkIndex failed; keeping full photographer list', res.status);
-          setAvailablePhotographerIds(photographers.map((p) => String(p.id)));
-          return;
-        }
-        const json = await res.json();
-        const byPhotographer = asRecord(json?.data);
-        const dayName = new Date(`${fmtDate}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-        const ids = photographers.filter((p) => {
-          const rawSlots = byPhotographer[String(p.id)] ?? byPhotographer[p.id as unknown as string] ?? [];
-          const rows = (Array.isArray(rawSlots) ? rawSlots : []).map(asRecord);
-          // Dated available overrides weekly; dated unavailable alone must not hide weekly/fallback.
-          const relevant = resolveBookingAvailabilityRows(rows, fmtDate, dayName);
-          relevant.forEach((r) => {
-            if ((r?.status ?? 'available') === 'available') {
-              const norm = normalizeSlotClock(r?.start_time);
-              if (norm) allTimesSet.add(norm);
-            }
-          });
-          const hasAvailableWindow = relevant.some((r) => (r?.status ?? 'available') === 'available');
-          // No configured hours → Backend_Fallback_Hours / fail-open unless an unavailable block covers start.
-          if (!hasAvailableWindow) {
-            const blockedOnly = relevant.filter((r) => r?.status === 'unavailable');
-            if (blockedOnly.length === 0) return true;
-            // Keep when start is outside every unavailable block.
-            return !isBookingTimeAvailable(start_time, blockedOnly.map((r) => ({ ...r, status: 'available' })));
-          }
-          return isBookingTimeAvailable(start_time, relevant);
-        }).map((p) => String(p.id));
-        setAvailablePhotographerIds(ids);
-        console.debug('[Availability] Available photographer IDs (bulk):', ids);
-        const role = user?.role;
-        if (role === 'client' && date && time && ids.length === 0) {
-          const alternatives = Array.from(allTimesSet).filter(t => t !== start_time).sort();
-          const top = alternatives.slice(0, 4).map(to12Hour).join(', ');
-          const desc = top
-            ? `No one at ${to12Hour(start_time)}. Other times today: ${top}`
-            : 'No photographers available at the selected time. You can proceed without selecting a photographer.';
-          toast({ title: 'No photographers available', description: desc });
-        }
-      } catch (error) {
-        console.warn('[Availability] bulk availability failed; keeping full photographer list', error);
-        setAvailablePhotographerIds((photographers ?? []).map((p) => String(p.id)));
-      } finally {
-        setAvailabilityChecked(true);
-      }
-    };
-    fetchAvailable();
-  }, [date, time, photographers, toast, user?.role, isClientAccount]);
-  useEffect(() => {
     if (clientIdFromUrl && clientNameFromUrl) {
       setClient(clientIdFromUrl);
       toast({
@@ -764,8 +667,7 @@ export const useBookShootWorkflow = ({
     duplicateLocationDialogOpen, setDuplicateLocationDialogOpen, createdShootId,
     setCreatedShootId, formErrors, setFormErrors, clientPropertyFormKey,
     setClientPropertyFormKey, toast, addShoot, shoots, navigate, photographers,
-    setPhotographersList, availablePhotographerIds, setAvailablePhotographerIds,
-    availabilityChecked, setAvailabilityChecked, to12Hour, fetchShoots, shouldCacheForm,
+    setPhotographersList, to12Hour, fetchShoots, shouldCacheForm,
     CACHE_KEY, hasCachedData, clearBookingDraftState,
     setHasCachedData,
   };

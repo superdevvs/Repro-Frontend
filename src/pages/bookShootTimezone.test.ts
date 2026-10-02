@@ -28,6 +28,14 @@ describe('booking timezone at submission', () => {
     expect(buildBookShootServiceSchedule('1', {}, '2026-09-09', '10:00', { timezone }))
       .toBe('2026-09-09T04:30:00.000Z');
   });
+  it('normalizes a new browser alias while preserving stored edit aliases', () => {
+    const timezone = resolveBookingTimezone({ isEditMode: false, browserTimezone: 'Asia/Calcutta' });
+    expect(timezone).toBe('Asia/Kolkata');
+    expect(buildShootScheduleTimestamp('2026-10-05', '09:00', timezone)).toBe('2026-10-05T03:30:00.000Z');
+    expect(buildBookShootServiceSchedule('1', {}, '2026-10-05', '9:00 AM', { timezone }))
+      .toBe('2026-10-05T03:30:00.000Z');
+    expect(resolveBookingTimezone({ isEditMode: true, storedTimezone: 'Asia/Calcutta', browserTimezone: 'America/New_York' })).toBe('Asia/Calcutta');
+  });
 
   it('uses the existing business fallback when a new booking has no browser timezone', () => {
     const timezone = resolveBookingTimezone({ isEditMode: false, browserTimezone: null });

@@ -5,9 +5,38 @@ type Options = Parameters<typeof useBookingTravel>[0];
 const base: Options = { active: true, requestedOnly: false, clientId: 2, address: '1 Main St', city: 'Baltimore', state: 'MD', zip: '21201', date: new Date(2026, 9, 5), time: '09:00', photographer: '9', propertyDetails: { sqft: 1000 }, sqft: 1000,
   selectedServices: [{ id: '6', name: 'Exterior', description: '', price: 75, shoot_duration_minutes: 15, quantity: 2 }], servicePhotographers: {}, serviceSchedules: {} };
 beforeEach(() => { vi.useFakeTimers(); vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(new Response(JSON.stringify({ data: { enabled: false, status: 'available', available: true } }))))); });
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 const run = async () => { await act(async () => { await vi.advanceTimersByTimeAsync(350); }); return JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string); };
+const browserTimezone = (timeZone: string) => {
+  const DateTimeFormat = Intl.DateTimeFormat;
+  vi.spyOn(Intl, 'DateTimeFormat').mockImplementation(function (locales, options) {
+    const formatter = new DateTimeFormat(locales, options);
+    const resolved = formatter.resolvedOptions();
+    vi.spyOn(formatter, 'resolvedOptions').mockReturnValue({ ...resolved, timeZone });
+    return formatter;
+  });
+};
 describe('booking preview uses the booked service itinerary', () => {
+  it.each([
+    { time: '9:00 AM', expected: '2026-10-05T13:00:00.000Z' },
+    { time: '12:00 AM', expected: '2026-10-05T04:00:00.000Z' },
+    { time: '12:00 PM', expected: '2026-10-05T16:00:00.000Z' },
+    { time: '3:15 PM', expected: '2026-10-05T19:15:00.000Z' },
+  ])('keeps the main preview and inherited service aligned after quick-select $time', async ({ time, expected }) => {
+    browserTimezone('America/New_York');
+    renderHook(() => useBookingTravel({ ...base, time }));
+    const payload = await run();
+    expect(payload.scheduled_at).toBe(expected);
+    expect(payload.service_items[0].scheduled_at).toBe(expected);
+  });
+  it('canonicalizes the browser alias without changing the selected clock or preview/service parity', async () => {
+    browserTimezone('Asia/Calcutta');
+    renderHook(() => useBookingTravel({ ...base, time: '9:00 AM' }));
+    const payload = await run();
+    expect(payload.timezone).toBe('Asia/Kolkata');
+    expect(payload.scheduled_at).toBe('2026-10-05T03:30:00.000Z');
+    expect(payload.service_items[0].scheduled_at).toBe(payload.scheduled_at);
+  });
   it('sends real capture duration without multiplying quantity or adding travel to service time', async () => {
     renderHook(() => useBookingTravel(base)); const payload = await run();
     expect(payload.service_items).toEqual([expect.objectContaining({ service_id: '6', quantity: 2, duration_minutes: 15, photographer_id: '9' })]);

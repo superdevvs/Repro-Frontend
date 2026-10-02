@@ -1,5 +1,6 @@
 import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { getShootSchedule } from '@/utils/shootSchedule';
+import { normalizeSlotTime } from '@/utils/suggestedTimeSlots';
 import type { TravelPayload } from './types';
 
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' ? value as Record<string, unknown> : {};
@@ -11,7 +12,7 @@ export function shootTravelPayload(source: unknown, changes: TravelPayload = {},
   const photographer = record(changes.photographer ?? shoot.photographer);
   const timezone = changes.timezone ?? shoot.timezone ?? null;
   const scheduledAt = changes.scheduled_at ?? (changes.scheduledDate !== undefined || changes.time !== undefined
-    ? buildShootScheduleTimestamp(String(changes.scheduledDate ?? shoot.scheduledDate ?? ''), String(changes.time ?? shoot.time ?? ''), typeof timezone === 'string' ? timezone : null)
+    ? buildShootScheduleTimestamp(String(changes.scheduledDate ?? shoot.scheduledDate ?? ''), normalizeSlotTime(String(changes.time ?? shoot.time ?? '')), typeof timezone === 'string' ? timezone : null)
     : shoot.scheduled_at ?? shoot.scheduledAt ?? shoot.start_time);
   return {
     shoot_id: shoot.id, client_id: changes.client !== undefined ? client.id : shoot.client_id ?? client.id,

@@ -28,15 +28,15 @@ export function BookShootView({ controller }: { controller: BookShootController 
     setBypassPayment, sendNotification, setSendNotification, adjustedTotalInput,
     setAdjustedTotalInput, step, isComplete, completedBooking, isSubmitting,
     duplicateLocationDialogOpen, setDuplicateLocationDialogOpen, createdShootId, formErrors,
-    setFormErrors, clientPropertyFormKey, toast, photographers, availablePhotographerIds,
-    availabilityChecked, canAdjustBookingAmount, canCreateNoProductShoot, isClientAccount,
+    setFormErrors, clientPropertyFormKey, toast, photographers,
+    canAdjustBookingAmount, canCreateNoProductShoot, isClientAccount,
     isFormComplete, sameDayAddressShoot, sameAddressScheduledDates,
     addressScheduledWarningMessage, sameDayAddressWarningMessage,
     duplicateLocationPopupMessage, showAddressScheduledWarning, hasCachedData,
     handleClearCache, resetForm, getTotal, parsedTemperature, condition, summaryInfo,
     currentStepContent, clientPropertyFormData, handleAddressFieldsChange,
     handleClientChange, handlePropertyDraftChange, getPackagePrice, getPhotographerRate,
-    getTax, getAvailablePhotographers, validateCurrentStep, goBack, handleSubmit,
+    getTax, validateCurrentStep, goBack, handleSubmit,
     displayPricingBreakdown, pricingBreakdown, buildNormalizedAddress, user,
     shouldCacheForm, setNotes, duplicateLocationWarningAcceptedRef,
     compReshoot, isCompReshootMode, canSubmitBooking,
@@ -173,7 +173,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
                   getPhotographerRate={getPhotographerRate}
                   clients={clients}
                   photographers={photographers}
-                  schedulingPhotographers={getAvailablePhotographers()}
+                  schedulingPhotographers={photographers}
                   handleSubmit={handleSubmit}
                   goBack={goBack}
                   sameDayAddressWarningMessage={sameDayAddressWarningMessage}

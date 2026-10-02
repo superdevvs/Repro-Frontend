@@ -1,11 +1,15 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useSchedulingFormController } from './useSchedulingFormController';
 import type { SchedulingFormProps } from './schedulingModel';
 
-vi.mock('@/components/auth', () => ({ useAuth: () => ({ user: { role: 'client' } }) }));
+const mocks = vi.hoisted(() => ({ role: 'client', getDayAvailability: vi.fn() }));
+vi.mock('@/components/auth', () => ({ useAuth: () => ({ user: { role: mocks.role } }) }));
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false }));
+vi.mock('@/utils/availabilityProvider', () => ({ getDayAvailability: mocks.getDayAvailability }));
+vi.mock('@/utils/distanceUtils', () => ({ getCoordinatesFromAddress: vi.fn().mockResolvedValue(null), calculateDistance: vi.fn() }));
 
+beforeEach(() => { mocks.role = 'client'; mocks.getDayAvailability.mockReset(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const eligibilityProps = (): SchedulingFormProps => ({
@@ -19,6 +23,69 @@ const eligibilityProps = (): SchedulingFormProps => ({
 });
 
 describe('per-service booking photographer availability', () => {
+  it.each([
+    { netSlots: [{ start_time: '09:00', end_time: '10:00' }, { start_time: '11:00', end_time: '12:00' }] },
+    { netSlots: [] },
+  ])('preserves authoritative net slots when staff configured hours are broader: $netSlots', async ({ netSlots }) => {
+    mocks.role = 'admin';
+    mocks.getDayAvailability.mockReturnValue(new Promise(() => {}));
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => ({ ok: true, json: async () => ({ data: url.includes('for-booking')
+      ? [{ id: 9, name: 'Pat', availability_slots: [{ start_time: '09:00', end_time: '12:00' }], net_available_slots: netSlots }]
+      : { '9': [{ date: '2026-10-05', day_of_week: 'monday', status: 'available', start_time: '09:00', end_time: '17:00' }] },
+    }) })));
+    const props = eligibilityProps();
+    const { result } = renderHook(() => useSchedulingFormController(props));
+    await waitFor(() => expect(result.current.photographersWithDistance).toHaveLength(1));
+    expect(result.current.photographersWithDistance[0].netAvailableSlots).toEqual(netSlots);
+    expect(result.current.photographersWithDistance[0].availabilitySlots).toEqual([{ start_time: '09:00', end_time: '12:00' }]);
+    if (netSlots.length > 0) expect(result.current.isPhotographerTimeDisabled('9', '10:00')).toBe(true);
+  });
+
+  it.each([403, 422, 503])('blocks a new booking after eligibility HTTP %s and permits a successful retry', async status => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce({ ok: false, status })
+      .mockResolvedValue({ ok: true, json: async () => ({ data: [{ id: 9, name: 'Pat' }] }) }));
+    const props = eligibilityProps();
+    const { result } = renderHook(() => useSchedulingFormController(props));
+    await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
+    expect(result.current.bookingEligibilityError).toMatch(/Could not check/);
+    expect(result.current.canConfirmPhotographer).toBe(false);
+    act(() => result.current.handleSubmit());
+    expect(props.handleSubmit).not.toHaveBeenCalled();
+    act(() => result.current.retryBookingEligibility());
+    await waitFor(() => expect(result.current.canConfirmPhotographer).toBe(true));
+    act(() => result.current.handleSubmit());
+    expect(props.handleSubmit).toHaveBeenCalledOnce();
+  });
+
+  it('clears the previous photographer working hours while the new day check is pending', async () => {
+    mocks.role = 'admin';
+    mocks.getDayAvailability.mockImplementation((id: string) => id === '9'
+      ? Promise.resolve({ status: 'success', day: { workingHours: { start: '09:00', end: '10:00' }, blocked: [], fromConfig: true, timezone: 'America/New_York' } })
+      : new Promise(() => {}));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ data: [{ id: 9, name: 'Pat' }, { id: 10, name: 'Alex' }] }) })));
+    const props = eligibilityProps();
+    const { result, rerender } = renderHook(p => useSchedulingFormController(p), { initialProps: props });
+    await waitFor(() => expect(result.current.dayAvailability?.workingHours?.end).toBe('10:00'));
+    rerender({ ...props, photographer: '10' });
+    expect(result.current.dayAvailability).toBeNull();
+    expect(result.current.isPhotographerTimeDisabled('10', '12:00')).toBe(false);
+  });
+
+  it('ignores a pending day check after the selected photographer is cleared', async () => {
+    mocks.role = 'admin';
+    let finish!: (value: unknown) => void;
+    mocks.getDayAvailability.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ data: [] }) })));
+    const props = eligibilityProps();
+    const { result, rerender } = renderHook(p => useSchedulingFormController(p), { initialProps: props });
+    await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
+    rerender({ ...props, photographer: '' });
+    await act(async () => finish({ status: 'success', day: { workingHours: { start: '09:00', end: '10:00' }, blocked: [], fromConfig: true, timezone: 'America/New_York' } }));
+    expect(result.current.dayAvailability).toBeNull();
+    expect(result.current.availabilityPanel).toBeNull();
+  });
+
   it('updates suggested times and the API check when the duration changes within a one-hour opening', async () => {
     const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => ({ ok: true, json: async () => ({ data: [{
       id: 9, name: 'Pat', availability_slots: [{ start_time: '12:00', end_time: '13:00' }],

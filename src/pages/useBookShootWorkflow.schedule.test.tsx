@@ -1,4 +1,4 @@
-import { cleanup, renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BOOKING_FORM_CACHE_KEY } from '@/utils/bookingDraftReset';
 import { useBookShootWorkflow } from './useBookShootWorkflow';
@@ -13,7 +13,26 @@ vi.mock('@/context/shootsContextState', () => ({
   useShoots: () => ({ shoots: mocks.shoots, addShoot: vi.fn(), fetchShoots: vi.fn() }),
 }));
 
-afterEach(() => { cleanup(); vi.clearAllMocks(); localStorage.clear(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
+
+it('keeps the sales-rep photographer directory intact for independent service schedule checks', async () => {
+  localStorage.setItem('authToken', 'test-token');
+  mocks.get.mockImplementation(async (url: string) => ({ data: { data: url.includes('photographers')
+    ? [{ id: 9, name: 'Morning photographer' }, { id: 10, name: 'Afternoon photographer' }] : [] } }));
+  const fetchMock = vi.fn();
+  vi.stubGlobal('fetch', fetchMock);
+  const { result } = renderHook(() => useBookShootWorkflow({
+    user: { id: '1', role: 'rep' } as never, isClientAccount: false,
+    clientIdFromUrl: null, clientNameFromUrl: null, clientCompanyFromUrl: null,
+    editShootId: null, canAdjustBookingAmount: false,
+  }));
+  await waitFor(() => expect(result.current.photographers).toHaveLength(2));
+  act(() => { result.current.setDate(new Date(2026, 9, 5)); result.current.setTime('09:00'); });
+  expect(result.current.photographers.map(person => person.id)).toEqual(['9', '10']);
+  // Schedule's duration-aware /for-booking request owns candidate filtering;
+  // a second main-time lookup cannot discard tomorrow's/afternoon's candidates.
+  expect(fetchMock).not.toHaveBeenCalled();
+});
 
 describe('editing a shoot request keeps its stored schedule', () => {
   it.each([

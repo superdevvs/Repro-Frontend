@@ -13,7 +13,7 @@ export function repTravelChanges(shoot: ShootData, changes: TravelPayload): Trav
   };
   const slim = slimAssignedRepShootSavePayload(candidate, shoot);
   if (slim.scheduled_date !== undefined || slim.time !== undefined) {
-    slim.scheduled_at = buildShootScheduleTimestamp(String(slim.scheduled_date ?? shoot.scheduledDate ?? ''), String(slim.time ?? shoot.time ?? ''), shoot.timezone);
+    slim.scheduled_at = buildShootScheduleTimestamp(String(slim.scheduled_date ?? shoot.scheduledDate ?? ''), normalizeSlotTime(String(slim.time ?? shoot.time ?? '')), shoot.timezone);
   }
   return slim;
 }

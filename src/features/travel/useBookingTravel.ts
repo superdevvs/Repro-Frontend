@@ -1,5 +1,5 @@
 import { format } from 'date-fns';
-import type { ServicePackage } from '@/pages/bookShootModel';
+import { toBackendTime, type ServicePackage } from '@/pages/bookShootModel';
 import { resolveBookingTimezone } from '@/pages/bookShootTimezone';
 import { buildBookShootServiceSchedule } from '@/pages/bookShootServiceSchedule';
 import { resolveServicePhotographerId } from '@/utils/photographerAssignment';
@@ -23,10 +23,11 @@ export function useBookingTravel(options: Options) {
   const timezone = resolveBookingTimezone({ isEditMode: Boolean(shootId), storedTimezone: source?.timezone,
     browserTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone });
   const day = date ? format(date, 'yyyy-MM-dd') : '';
-  const payload = safelyBuildTravelPayload(() => active && day && time && address ? {
+  const scheduledTime = toBackendTime(time);
+  const payload = safelyBuildTravelPayload(() => active && day && scheduledTime && address ? {
     ...(shootId ? { shoot_id: shootId } : {}), client_id: clientId, address, city, state, zip,
     property_details: propertyDetails, timezone, photographer_id: photographer || null,
-    scheduled_at: buildShootScheduleTimestamp(day, time, timezone, source?.scheduled_at),
+    scheduled_at: buildShootScheduleTimestamp(day, scheduledTime, timezone, source?.scheduled_at),
     action_mode: shootId ? 'update' : 'create',
     ...(unitPayload ? unitPayload(timezone) : { service_items: selectedServices.map(service => ({
       service_id: service.id, quantity: service.quantity ?? 1,

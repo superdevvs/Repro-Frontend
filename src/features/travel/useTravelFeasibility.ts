@@ -58,7 +58,11 @@ export function useTravelFeasibility({ payload, requestedOnly = false }: { paylo
     ...(locationConfirmed ? { travel_location_confirmed: true } : {}),
   }), [locationConfirmed]);
   const canOverride = canConfirmTravelException(result, requestedOnly);
-  const blocked = !requestedOnly && enabled && (loading || Boolean(error?.key === key) || Boolean(result && !result.available && !canOverride));
+  // An unknown feature state is not a successful check. Staff must receive the
+  // selected itinerary's response before saving; an explicit disabled result
+  // still preserves legacy scheduling, and client intake remains request-only.
+  const blocked = !requestedOnly && Boolean(key) && (loading || Boolean(error?.key === key)
+    || Boolean(enabled && result && !result.available && !canOverride));
   const saveConfirmation = useTravelSaveConfirmation({ key, result, loading, blocked, requestedOnly, confirmation });
   const acceptServerError = useCallback((data: unknown) => {
     if (currentKey.current !== key) return false;

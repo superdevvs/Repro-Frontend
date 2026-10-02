@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { shootTravelPayload } from './travelPayload';
 import { travelAvailabilityMetadata } from './availabilityMetadata';
+import { repTravelChanges } from './repTravelPayload';
+import type { ShootData } from '@/types/shoots';
 describe('travel request and availability metadata', () => {
+  it('normalizes edited and inherited display clocks for overview previews', () => {
+    const shoot = { id: 4, scheduledDate: '2026-10-05', time: '9:00 AM', timezone: 'America/New_York' };
+    expect(shootTravelPayload(shoot, { time: '3:15 PM' }).scheduled_at).toBe('2026-10-05T19:15:00.000Z');
+    expect(shootTravelPayload(shoot, { scheduledDate: '2026-10-06' }).scheduled_at).toBe('2026-10-06T13:00:00.000Z');
+    expect(repTravelChanges(shoot as unknown as ShootData, { scheduledDate: '2026-10-06' }).scheduled_at).toBe('2026-10-06T13:00:00.000Z');
+  });
   it('uses edited location and assignment over persisted aliases, with explicit timezone', () => {
     expect(shootTravelPayload({ id: 4, client_id: 2, photographer_id: 9, address: 'Old', timezone: 'America/New_York' }, {
       location: { address: 'New', city: 'Baltimore', state: 'MD', zip: '21201' }, client: { id: 3 }, photographer: { id: 10 }, scheduledDate: '2026-10-05', time: '09:00',

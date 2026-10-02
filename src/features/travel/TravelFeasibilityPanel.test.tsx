@@ -30,6 +30,12 @@ describe('travel explanations and permission controls', () => {
     expect(screen.queryByLabelText('Approve an exception to this travel allowance')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Find up to 3 alternatives' })); expect(travel.loadAlternatives).toHaveBeenCalledOnce();
   });
+  it('directs manual alternatives to the schedule form without assuming its position', () => {
+    const travel = controller();
+    render(<TravelFeasibilityPanel travel={{ ...travel, result: { ...travel.result!, alternatives: [{ scheduled_at: '2026-10-05T15:00:00Z', photographer_id: 9 }] } }} />);
+    expect(screen.getByText('Adjust the visit times in the schedule form to use this option.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Use this time' })).not.toBeInTheDocument();
+  });
   it('shows warnings and no exception control for client requests', () => {
     render(<TravelFeasibilityPanel travel={controller({ requestedOnly: true })} />);
     expect(screen.getByText(/You can submit your request/)).toBeInTheDocument();

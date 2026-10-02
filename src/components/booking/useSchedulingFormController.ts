@@ -255,13 +255,15 @@ export const useSchedulingFormController = ({
     return Array.from(byId.values());
   }, [canUseProtectedAvailability, photographers, photographersWithDistance]);
   useEffect(() => {
+    const requestId = ++latestRequestRef.current;
+    // Hours and blocks belong to one photographer/day. Do not apply the last
+    // selection's response while the next selection is being checked.
+    setDayAvailability(null);
     if (!photographer || !date) {
-      setDayAvailability(null);
       setAvailabilityPanel(null); // idle: no selection yet
       return;
     }
     const controller = new AbortController();
-    const requestId = ++latestRequestRef.current;
     setAvailabilityPanel(derivePanelState({ loading: true, aborted: false, error: null, result: null }));
     if (!canUseProtectedAvailability) {
       if (availabilityDataDate !== defaultServiceDate) {
@@ -624,16 +626,7 @@ export const useSchedulingFormController = ({
         }, JSON.parse(availabilityDurationKey));
         if (isCancelled) return;
         if (!response.ok) {
-          // Prefer not to blank the picker on intermittent forBooking 5xx (e.g. cache ownership).
-          console.warn('[SchedulingForm] forBooking failed', response.status);
-          if (!isCancelled) {
-            setBookingEligiblePhotographerIds(null);
-            setPhotographersWithDistance(photographers.map((p) => ({ ...p })));
-            setIsCalculatingDistances(false);
-            setIsLoadingAvailability(false);
-            setBookingEligibilityError(null);
-          }
-          return;
+          throw new Error(`Photographer eligibility request failed (${response.status})`);
         }
         const json: unknown = await response.json();
         if (isCancelled) return;
@@ -735,8 +728,10 @@ export const useSchedulingFormController = ({
           });
           return {
             ...p,
-            availabilitySlots: availableSlots,
-            netAvailableSlots: availableSlots.length > 0 ? availableSlots : p.netAvailableSlots,
+            // /for-booking has already applied effective hours and subtracted
+            // bookings/blocks. Raw configured hours are only a missing-field fallback.
+            availabilitySlots: p.availabilitySlots ?? availableSlots,
+            netAvailableSlots: p.netAvailableSlots ?? (availableSlots.length > 0 ? availableSlots : undefined),
           };
         });
         setPhotographersWithDistance(enrichedPhotographers);
