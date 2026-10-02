@@ -28,6 +28,7 @@ export function useGoogleCalendarSync({
     sync_enabled: false,
   });
   const [isGoogleCalendarStatusLoading, setIsGoogleCalendarStatusLoading] = useState(false);
+  const [isGoogleCalendarDisconnecting, setIsGoogleCalendarDisconnecting] = useState(false);
 
   const fetchGoogleCalendarAuthorizationUrl = useCallback(async () => {
     if (!canLaunchGoogleCalendarOAuth) {
@@ -161,6 +162,59 @@ export function useGoogleCalendarSync({
     }
   }, [authHeaders, canLaunchGoogleCalendarOAuth, isPhotographer, selectedPhotographer]);
 
+  const disconnectGoogleCalendar = useCallback(async () => {
+    if (!isPhotographer) {
+      toast({
+        title: "Google Calendar unavailable",
+        description: "Only photographers can disconnect Google Calendar from this page.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGoogleCalendarDisconnecting(true);
+
+    try {
+      const response = await fetch(API_ROUTES.googleCalendar.disconnect, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const validationMessage = payload?.errors
+          ? Object.values(payload.errors).flat().find(Boolean)
+          : null;
+
+        throw new Error(
+          validationMessage ||
+            payload?.message ||
+            "Unable to disconnect Google Calendar."
+        );
+      }
+
+      if (payload?.data) {
+        setGoogleCalendarStatus(payload.data);
+      } else {
+        await fetchGoogleCalendarStatus();
+      }
+
+      toast({
+        title: "Google Calendar disconnected",
+        description: payload?.message || "Google Calendar disconnected.",
+      });
+    } catch (error) {
+      toast({
+        title: "Google Calendar disconnect failed",
+        description: error instanceof Error ? error.message : "Unable to disconnect Google Calendar.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGoogleCalendarDisconnecting(false);
+    }
+  }, [authHeaders, fetchGoogleCalendarStatus, isPhotographer, toast]);
+
   // URL param handler for OAuth callback
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -201,7 +255,9 @@ export function useGoogleCalendarSync({
     googleCalendarStatus,
     isGoogleCalendarConnecting,
     isGoogleCalendarStatusLoading,
+    isGoogleCalendarDisconnecting,
     fetchGoogleCalendarAuthorizationUrl,
     fetchGoogleCalendarStatus,
+    disconnectGoogleCalendar,
   };
 }

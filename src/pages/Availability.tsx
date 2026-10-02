@@ -146,7 +146,9 @@ export default function Availability() {
     googleCalendarStatus,
     isGoogleCalendarConnecting,
     isGoogleCalendarStatusLoading,
+    isGoogleCalendarDisconnecting,
     fetchGoogleCalendarAuthorizationUrl,
+    disconnectGoogleCalendar,
   } = useGoogleCalendarSync({
     canLaunchGoogleCalendarOAuth,
     isPhotographer,
@@ -962,6 +964,8 @@ export default function Availability() {
         onClose={() => setIsSyncModalOpen(false)}
         onGoogleCalendarConnect={fetchGoogleCalendarAuthorizationUrl}
         isGoogleCalendarConnecting={isGoogleCalendarConnecting}
+        onGoogleCalendarDisconnect={isPhotographer ? disconnectGoogleCalendar : undefined}
+        isGoogleCalendarDisconnecting={isGoogleCalendarDisconnecting}
         googleCalendarStatus={googleCalendarStatus}
         isGoogleCalendarStatusLoading={isGoogleCalendarStatusLoading}
         requiresPhotographerSelection={!isPhotographer && selectedPhotographer === "all"}

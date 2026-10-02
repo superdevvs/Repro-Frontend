@@ -25,6 +25,16 @@ import {
 } from "@/utils/icsGenerator";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type CalendarType = "google" | "apple" | "outlook" | null;
 type DateRangeOption = "30days" | "90days" | "custom";
@@ -46,6 +56,8 @@ interface CalendarSyncModalProps {
   photographerName?: string;
   onGoogleCalendarConnect?: () => Promise<void> | void;
   isGoogleCalendarConnecting?: boolean;
+  onGoogleCalendarDisconnect?: () => Promise<void> | void;
+  isGoogleCalendarDisconnecting?: boolean;
   googleCalendarStatus?: {
     available: boolean;
     connected: boolean;
@@ -84,12 +96,15 @@ export function CalendarSyncModal({
   photographerName = "Your",
   onGoogleCalendarConnect,
   isGoogleCalendarConnecting = false,
+  onGoogleCalendarDisconnect,
+  isGoogleCalendarDisconnecting = false,
   googleCalendarStatus,
   isGoogleCalendarStatusLoading = false,
   requiresPhotographerSelection = false,
 }: CalendarSyncModalProps) {
   const { toast } = useToast();
   const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>("30days");
+  const [isDisconnectConfirmOpen, setIsDisconnectConfirmOpen] = useState(false);
   const [customStartDate, setCustomStartDate] = useState<Date | undefined>(new Date());
   const [customEndDate, setCustomEndDate] = useState<Date | undefined>(() => addDays(new Date(), 30));
   const [selectedCalendar, setSelectedCalendar] = useState<CalendarType>(null);
@@ -317,7 +332,11 @@ export function CalendarSyncModal({
   };
 
   const handleGoogleCalendarClick = async () => {
-    if (requiresPhotographerSelection || isGoogleCalendarStatusLoading) {
+    if (requiresPhotographerSelection || isGoogleCalendarStatusLoading || isGoogleCalendarDisconnecting) {
+      return;
+    }
+
+    if (googleCalendarStatus?.connected) {
       return;
     }
 
@@ -328,6 +347,15 @@ export function CalendarSyncModal({
     }
 
     setSelectedCalendar("google");
+  };
+
+  const handleConfirmDisconnect = async () => {
+    if (!onGoogleCalendarDisconnect || isGoogleCalendarDisconnecting) {
+      return;
+    }
+
+    await onGoogleCalendarDisconnect();
+    setIsDisconnectConfirmOpen(false);
   };
 
   const calendarName = selectedCalendar === "google" ? "Google Calendar" : 
@@ -349,7 +377,16 @@ export function CalendarSyncModal({
       : googleCalendarStatus?.last_error && !googleCalendarStatus.available
         ? googleCalendarStatus.last_error
         : undefined;
-  const googleCardDisabled = isGoogleCalendarConnecting || isGoogleCalendarStatusLoading || requiresPhotographerSelection || (googleCalendarStatus ? !googleCalendarStatus.available : false);
+  const googleIsConnected = Boolean(googleCalendarStatus?.connected);
+  const googleCardDisabled = (
+    isGoogleCalendarConnecting
+    || isGoogleCalendarDisconnecting
+    || isGoogleCalendarStatusLoading
+    || requiresPhotographerSelection
+    || (googleCalendarStatus ? !googleCalendarStatus.available : false)
+    || googleIsConnected
+  );
+  const showGoogleDisconnect = Boolean(googleIsConnected && onGoogleCalendarDisconnect);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -490,16 +527,17 @@ export function CalendarSyncModal({
                 disabled={googleCardDisabled}
                 className={cn(
                   "flex flex-col items-center justify-center gap-2 p-4 rounded-lg border-2 transition-all",
-                  googleCalendarStatus?.connected
+                  googleIsConnected
                     ? "border-emerald-500/60 bg-emerald-500/5"
                     : selectedCalendar === "google"
                       ? "border-primary bg-primary/5"
                       : "border-border hover:border-primary/50",
-                  googleCardDisabled && "cursor-not-allowed opacity-70",
-                  isGoogleCalendarConnecting && "cursor-wait opacity-70"
+                  googleCardDisabled && !googleIsConnected && "cursor-not-allowed opacity-70",
+                  googleIsConnected && "cursor-default",
+                  (isGoogleCalendarConnecting || isGoogleCalendarDisconnecting) && "cursor-wait opacity-70"
                 )}
               >
-                {isGoogleCalendarConnecting || isGoogleCalendarStatusLoading ? (
+                {isGoogleCalendarConnecting || isGoogleCalendarDisconnecting || isGoogleCalendarStatusLoading ? (
                   <Loader2 aria-hidden="true" className="h-5 w-5" />
                 ) : (
                   <GoogleCalendarIcon />
@@ -557,6 +595,31 @@ export function CalendarSyncModal({
               </button>
             </div>
 
+            {showGoogleDisconnect && (
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="text-destructive border-destructive/40 hover:bg-destructive/10"
+                  disabled={isGoogleCalendarDisconnecting || isGoogleCalendarStatusLoading}
+                  onClick={() => setIsDisconnectConfirmOpen(true)}
+                >
+                  {isGoogleCalendarDisconnecting ? (
+                    <>
+                      <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
+                      Disconnecting...
+                    </>
+                  ) : (
+                    "Disconnect Google Calendar"
+                  )}
+                </Button>
+                <span className="text-xs text-muted-foreground">
+                  Stops shooting schedule sync to this Google account.
+                </span>
+              </div>
+            )}
+
             {selectedCalendar && (
               <div className="text-sm text-muted-foreground pt-2">
                 {selectedCalendar === "google" && (
@@ -578,7 +641,7 @@ export function CalendarSyncModal({
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleSync} disabled={isSyncing || isGoogleCalendarConnecting || !selectedCalendar || eventCount === 0}>
+            <Button onClick={handleSync} disabled={isSyncing || isGoogleCalendarConnecting || isGoogleCalendarDisconnecting || !selectedCalendar || eventCount === 0}>
               {isSyncing ? (
                 <>
                   <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
@@ -593,6 +656,44 @@ export function CalendarSyncModal({
           </div>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog
+        open={isDisconnectConfirmOpen}
+        onOpenChange={(open) => {
+          if (!isGoogleCalendarDisconnecting) {
+            setIsDisconnectConfirmOpen(open);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect Google Calendar?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Shoots will stop syncing to Google Calendar and this connection will be removed. You can reconnect later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isGoogleCalendarDisconnecting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
+              disabled={isGoogleCalendarDisconnecting}
+              onClick={(event) => {
+                event.preventDefault();
+                void handleConfirmDisconnect();
+              }}
+            >
+              {isGoogleCalendarDisconnecting ? (
+                <>
+                  <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
+                  Disconnecting...
+                </>
+              ) : (
+                "Disconnect"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }
