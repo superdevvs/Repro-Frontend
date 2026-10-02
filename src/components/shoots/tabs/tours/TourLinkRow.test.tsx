@@ -3,7 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Copy, ExternalLink, Trash } from 'lucide-react';
+import { Copy, Edit, ExternalLink, Trash } from 'lucide-react';
 import { TourLinkRow } from './TourLinkRow';
 
 afterEach(() => cleanup());
@@ -15,7 +15,7 @@ const actions = (onCopy = vi.fn(), onRemove = vi.fn()) => [
 ];
 
 describe('TourLinkRow', () => {
-  it('keeps copy beside the kebab on phones and hides extra actions until the menu opens', () => {
+  it('keeps copy beside the menu on phones and limits inline actions to desktop', () => {
     render(<TourLinkRow label="Branded Tour Link" value="https://example.com/t/1" actions={actions()} />);
 
     const input = screen.getByDisplayValue('https://example.com/t/1');
@@ -25,7 +25,9 @@ describe('TourLinkRow', () => {
     const mobileCopy = screen.getByTestId('tour-link-mobile-copy');
     expect(mobileCopy).toHaveClass('sm:hidden');
     expect(screen.getByRole('button', { name: 'Branded Tour Link actions' })).toBeInTheDocument();
-    expect(screen.queryByTestId('tour-link-inline-actions')).not.toBeInTheDocument();
+    expect(screen.getByTestId('tour-link-desktop-open')).toHaveClass('hidden', 'lg:inline-flex');
+    expect(screen.getByTestId('tour-link-desktop-open')).toBeDisabled();
+    expect(screen.queryByTestId('tour-link-desktop-edit')).not.toBeInTheDocument();
   });
 
   it('copies from the dedicated mobile button and still offers copy in the menu', async () => {
@@ -51,6 +53,23 @@ describe('TourLinkRow', () => {
     expect(overlay).toHaveClass('hidden', 'sm:flex');
     await user.click(overlay);
     expect(onCopy).toHaveBeenCalledTimes(1);
+  });
+
+  it('runs permitted Open and Edit actions beside the field and keeps them in the mobile menu', async () => {
+    const user = userEvent.setup();
+    const onOpen = vi.fn();
+    const onEdit = vi.fn();
+    render(<TourLinkRow label="Branded Video" value="https://example.com/video" actions={[
+      { key: 'open', label: 'Open in new tab', icon: ExternalLink, onSelect: onOpen },
+      { key: 'edit', label: 'Edit Branded Video', icon: Edit, onSelect: onEdit },
+    ]} />);
+    await user.click(screen.getByTestId('tour-link-desktop-open'));
+    await user.click(screen.getByTestId('tour-link-desktop-edit'));
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('button', { name: 'Branded Video actions' }));
+    expect(screen.getByRole('menuitem', { name: 'Open in new tab' })).toHaveClass('lg:hidden');
+    expect(screen.getByRole('menuitem', { name: 'Edit Branded Video' })).toHaveClass('lg:hidden');
   });
 
   it('shows the placeholder when nothing is set', () => {

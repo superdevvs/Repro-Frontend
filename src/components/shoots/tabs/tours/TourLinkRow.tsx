@@ -34,13 +34,14 @@ type TourLinkRowProps = {
  * A read-only link with its actions.
  *
  * On a phone the field stays full width, Copy sits next to a three-dot menu,
- * and extra actions (open, share, QR, edit, remove) live in that menu. From
- * `sm` up the extra buttons are gone: Copy appears as a hover overlay on the
- * right edge of the field, and remaining actions stay in the menu.
+ * and extra actions live in that menu. Copy appears as a hover overlay from
+ * `sm` up. On desktop, Open and Edit sit beside the field; remaining actions
+ * stay in the menu. The caller supplies only actions permitted for the role.
  */
 export function TourLinkRow({ label, value, placeholder, actions, className }: TourLinkRowProps) {
   const copyAction = actions.find((action) => action.key === 'copy');
   const canCopy = Boolean(copyAction) && !copyAction?.disabled;
+  const desktopActions = actions.filter(action => action.key === 'open' || action.key === 'edit');
 
   return (
     <div className={cn('flex items-center gap-1.5', className)}>
@@ -81,6 +82,22 @@ export function TourLinkRow({ label, value, placeholder, actions, className }: T
         </Button>
       ) : null}
 
+      {desktopActions.map(({ key, label: actionLabel, icon: Icon, onSelect, disabled }) => (
+        <Button
+          key={key}
+          variant="outline"
+          size="icon"
+          className="hidden h-9 w-9 shrink-0 lg:inline-flex"
+          onClick={onSelect}
+          disabled={disabled}
+          aria-label={actionLabel}
+          title={actionLabel}
+          data-testid={`tour-link-desktop-${key}`}
+        >
+          <Icon className="h-4 w-4" />
+        </Button>
+      ))}
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="sm" className="shrink-0" aria-label={`${label} actions`}>
@@ -93,7 +110,8 @@ export function TourLinkRow({ label, value, placeholder, actions, className }: T
               key={key}
               onSelect={onSelect}
               disabled={disabled}
-              className={destructive ? 'text-destructive focus:text-destructive' : undefined}
+              className={cn(destructive && 'text-destructive focus:text-destructive',
+                (key === 'open' || key === 'edit') && 'lg:hidden')}
             >
               <Icon className="mr-2 h-4 w-4" />
               {actionLabel}
