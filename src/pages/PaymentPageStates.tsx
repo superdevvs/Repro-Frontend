@@ -1,5 +1,6 @@
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 
 type PaymentLoadingStateProps = {
@@ -18,16 +19,28 @@ export function PaymentLoadingState({ confirmingPayment }: PaymentLoadingStatePr
 
 type PaymentErrorStateProps = {
   message: string;
+  title?: string;
+  retryLabel?: string;
+  onRetry?: () => void;
 };
 
-export function PaymentErrorState({ message }: PaymentErrorStateProps) {
+export function PaymentErrorState({
+  message,
+  title = 'Unable to Load Payment',
+  retryLabel = 'Try again',
+  onRetry,
+}: PaymentErrorStateProps) {
   return (
     <div className="min-h-screen bg-[#060a0e] flex items-center justify-center p-4">
       <Card className="max-w-md w-full bg-[#0a0f1a] border-red-500/30">
         <CardContent className="pt-6 text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-white mb-2">Unable to Load Payment</h2>
-          <p className="text-gray-400">{message}</p>
+          <h2 className="text-xl font-semibold text-white mb-2">{title}</h2>
+          <p className="text-gray-400" role="alert">{message}</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            {onRetry && <Button onClick={onRetry}>{retryLabel}</Button>}
+            <Button variant="outline" asChild><a href="/login">Go to login</a></Button>
+          </div>
         </CardContent>
       </Card>
     </div>

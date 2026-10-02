@@ -11,13 +11,13 @@ import { API_BASE_URL, STRIPE_PUBLISHABLE_KEY } from '@/config/env';
 import { loadStripe } from '@stripe/stripe-js/pure';
 import { canUseSafeHistoryFallback, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
 import { sumCompletedPayments } from '@/utils/shootPaymentSummary';
+import { confirmPaymentReturnWithRetry } from '@/utils/paymentConfirmationRetry';
 import {
   getStripeConfirmationFailureMessage,
   isStripeSessionPaymentRecorded,
   isStripeSessionRefundedAsStale,
 } from '@/utils/stripeConfirmation';
 import { PaymentAlreadyPaidState, PaymentErrorState, PaymentLoadingState } from './PaymentPageStates';
-import NotFound from './NotFound';
 import { PaymentSuccessReceipt } from './PaymentSuccessReceipt';
 import { getPaymentErrorMessage } from '@/components/payments/paymentErrorMessage';
 
@@ -38,12 +38,14 @@ export default function PaymentPage() {
   const [searchParams] = useSearchParams();
   const initialSessionId = searchParams.get('session_id');
   const initialReturnTo = searchParams.get('return_to');
-  const isSuccessRedirect = searchParams.get('success') === 'true' && Boolean(initialSessionId);
+  const isSuccessRedirect = Boolean(initialSessionId);
   const [shoot, setShoot] = useState<ShootDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [confirmingPayment, setConfirmingPayment] = useState(isSuccessRedirect);
+  const [confirmationAttempt, setConfirmationAttempt] = useState(0);
+  const [paymentReturnUnconfirmed, setPaymentReturnUnconfirmed] = useState(false);
   const [isPartialOpen, setIsPartialOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentAmountInput, setPaymentAmountInput] = useState('0.00');
@@ -67,11 +69,12 @@ export default function PaymentPage() {
       setLoading(true);
       const response = await axios.get(`${API_BASE_URL}/api/public/payments/${token}`);
       setShoot(response.data.data || response.data);
+      setError(null);
     } catch (error: unknown) {
       console.error('Failed to fetch shoot details:', error);
       const status = axios.isAxiosError(error) ? error.response?.status : undefined;
       if (status === 403 || status === 404 || status === 410) {
-        setError('missing');
+        setError('This payment link is no longer available. Sign in to check your invoice, or contact the RE Pro team. If you just submitted a payment, check its status before paying again.');
         return;
       }
       const message = axios.isAxiosError<{ message?: string }>(error)
@@ -99,10 +102,14 @@ export default function PaymentPage() {
     try {
       const response = await axios.post(`${API_BASE_URL}/api/public/payments/${token}/confirm`, {
         session_id: sessionId,
-      });
+      }, { timeout: 10000 });
       return (response.data?.data || response.data) as PaymentConfirmationResult;
-    } catch {
-      // Ignore confirmation errors and let polling/webhooks continue
+    } catch (confirmationError: unknown) {
+      const status = axios.isAxiosError(confirmationError) ? confirmationError.response?.status : undefined;
+      if (status && status !== 408 && status !== 429) {
+        return { outcome: 'confirmation_rejected' };
+      }
+      // Network interruptions can be retried without creating another payment.
       return null;
     }
   }, [token]);
@@ -117,21 +124,21 @@ export default function PaymentPage() {
       return;
     }
     let cancelled = false;
+    const confirmationController = new AbortController();
     const confirmPayment = async () => {
       setConfirmingPayment(true);
-      const confirmation = await confirmStripeSession(initialSessionId);
+      setStripeError(null);
+      const confirmation = await confirmPaymentReturnWithRetry(
+        () => confirmStripeSession(initialSessionId), initialSessionId, confirmationController.signal,
+      );
       const paymentRecorded = isStripeSessionPaymentRecorded(confirmation, initialSessionId);
-      if (paymentRecorded) {
-        // The payment webhook may already have revoked the public link, so a
-        // paid exact-session confirmation is sufficient for the receipt page.
-        setError(null);
-        setLoading(false);
-      } else {
-        await fetchShootDetails();
-      }
       if (cancelled) {
         return;
       }
+      // A completed payment can revoke this link. Confirm this exact session
+      // without loading the link again or offering another checkout on failure.
+      setError(null);
+      setLoading(false);
       const confirmedAmount = Number(confirmation?.last_payment_amount ?? Number.NaN);
       if (paymentRecorded) {
         if (Number.isFinite(confirmedAmount) && confirmedAmount > 0) {
@@ -148,11 +155,12 @@ export default function PaymentPage() {
       );
       setAutoReturnCancelled(false);
       setPaymentSuccess(paymentRecorded);
+      setPaymentReturnUnconfirmed(!paymentRecorded);
       if (!paymentRecorded) {
         setStripeError(getStripeConfirmationFailureMessage(
           confirmation,
           initialSessionId,
-          'This Stripe session has not been confirmed as paid yet. Please retry or contact support if the charge appears on your card.',
+          'We could not confirm your payment yet. Check the payment status again or contact the RE Pro team before making another payment.',
         ));
       }
       setConfirmingPayment(false);
@@ -160,8 +168,9 @@ export default function PaymentPage() {
     void confirmPayment();
     return () => {
       cancelled = true;
+      confirmationController.abort();
     };
-  }, [confirmStripeSession, fetchShootDetails, initialReturnTo, initialSessionId, isSuccessRedirect]);
+  }, [confirmationAttempt, confirmStripeSession, initialReturnTo, initialSessionId, isSuccessRedirect]);
   const totalPaid = sumCompletedPayments(shoot?.payments);
   const amountDue = Math.max((shoot?.total_quote || 0) - totalPaid, 0);
   const fullAddress = shoot
@@ -221,12 +230,12 @@ export default function PaymentPage() {
     setPaymentAmount(clamped);
     setPaymentAmountInput(clamped.toFixed(2));
   };
-  const handlePaymentSuccess = (processedAmount: number, returnTo?: string | null) => {
+  const handlePaymentSuccess = (processedAmount: number, returnTo?: string | null, refreshDetails = true) => {
     setLastPaymentAmount(processedAmount);
     setResolvedReturnTo(sanitizeRelativeReturnTo(returnTo ?? null));
     setAutoReturnCancelled(false);
     setPaymentSuccess(true);
-    void fetchShootDetails();
+    if (refreshDetails) void fetchShootDetails();
   };
   // Cleanup on unmount
   useEffect(() => {
@@ -322,6 +331,7 @@ export default function PaymentPage() {
           handlePaymentSuccess(
             Number(confirmation?.last_payment_amount ?? effectivePaymentAmount),
             confirmation?.return_to ?? null,
+            !confirmation?.shoot,
           );
 
           return;
@@ -477,12 +487,22 @@ export default function PaymentPage() {
     );
   }
 
-  if (error === 'missing') {
-    return <NotFound />;
+  if (paymentReturnUnconfirmed) {
+    return (
+      <PaymentErrorState
+        title="Unable to Confirm Payment"
+        message={stripeError || 'Check your payment status before making another payment.'}
+        retryLabel="Check payment status"
+        onRetry={() => {
+          setConfirmingPayment(true);
+          setConfirmationAttempt((attempt) => attempt + 1);
+        }}
+      />
+    );
   }
 
   if (error) {
-    return <PaymentErrorState message={error} />;
+    return <PaymentErrorState message={error} onRetry={() => void fetchShootDetails()} />;
   }
 
   if (amountDue <= 0) {
