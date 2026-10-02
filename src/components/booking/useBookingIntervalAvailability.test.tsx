@@ -14,6 +14,15 @@ const options = (overrides: Partial<Options> = {}): Options => ({
   ...overrides,
 });
 describe('prospective capture duration for booking availability', () => {
+  it('only removes the fixed buffer when hybrid travel is enabled, retaining real overlaps and hours', () => {
+    const base = options({ getPhotographerScheduleData: () => ({ id: '9', name: 'Pat', availabilitySlots: [{ start_time: '09:00', end_time: '17:00' }], bookedSlots: [{ start_time: '09:00', end_time: '09:15' }] }) });
+    const { result, rerender } = renderHook(useBookingIntervalAvailability, { initialProps: base });
+    expect(result.current.isPhotographerTimeDisabled('9', '09:15')).toBe(true);
+    rerender({ ...base, hybridTravelEnabled: true });
+    expect(result.current.isPhotographerTimeDisabled('9', '09:15')).toBe(false);
+    expect(result.current.isPhotographerTimeDisabled('9', '09:10')).toBe(true);
+    expect(result.current.isPhotographerTimeDisabled('9', '16:50')).toBe(true);
+  });
   it('uses the exterior catalog15 and sums distinct services without multiplying packages or digital work', () => {
     const { result, rerender } = renderHook(useBookingIntervalAvailability, { initialProps: options() });
     expect(result.current.bookingAvailabilityDuration).toBe(15);

@@ -1,3 +1,4 @@
+import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { withShootUnitOverview } from '@/features/shoot-units/withShootUnitOverview';
 import { ShootNotesTab } from '@/components/dashboard/ShootNotesTab';
@@ -355,7 +356,7 @@ export interface ShootDetailsOverviewTabProps {
   isUnitSwitchDisabled?: boolean;
   unitSelector?: React.ReactNode;
   unitAccessNotes?: string;
-  onSave?: (updates: Partial<ShootData>) => void;
+  onSave?: (updates: Partial<ShootData>, onTravelFailure?: (data: unknown) => void) => void;
   onCancel?: () => void;
   onRegisterEditActions?: (actions: { save: () => void; cancel: () => void }) => void;
   /**
@@ -491,7 +492,7 @@ function ShootDetailsOverviewTabContent({
     panelServices,
     compSourceServiceOptions,
     filteredAndSortedPhotographers,
-    editModePhotographerRows,
+    editModePhotographerRows, travel,
   } = useShootOverviewEditor({
     shoot,
     isAdmin,
@@ -856,6 +857,7 @@ function ShootDetailsOverviewTabContent({
   return (
     <div className="space-y-2">
       <HistoricalImportSummary shoot={shoot} />
+      {isEditMode && <TravelFeasibilityPanel travel={travel} />}
       <CompReshootOverviewStrip
         shoot={shoot}
         role={role}
@@ -1134,6 +1136,7 @@ function ShootDetailsOverviewTabContent({
       />
 
       <OverviewPhotographerPickerDialog
+        travel={travel}
         open={assignPhotographerOpen}
         onOpenChange={(open) => {
           if (open) {

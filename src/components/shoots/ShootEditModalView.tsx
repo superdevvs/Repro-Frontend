@@ -1,3 +1,4 @@
+import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
 import { ShootUnitScopeBar } from '@/features/shoot-units/ShootUnitScope';
 import React from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -92,6 +93,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
+            <div className="mb-4"><TravelFeasibilityPanel travel={model.travel} /></div>
             {isDesktopLayout ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-start">
                 {renderDetailsPanel()}
@@ -138,7 +140,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           <Button
             variant="outline"
             onClick={handleApproveWithoutNotification}
-            disabled={isSubmitting || isLoading}
+            disabled={isSubmitting || isLoading || model.travel.blocked}
             className="w-full sm:min-w-[220px]"
           >
             {isSubmitting ? (
@@ -155,7 +157,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           </Button>
           <Button 
             onClick={handleApprove} 
-            disabled={isSubmitting || isLoading} 
+            disabled={isSubmitting || isLoading || model.travel.blocked}
             className="w-full bg-blue-600 hover:bg-blue-700 sm:min-w-[140px]"
           >
             {isSubmitting ? (

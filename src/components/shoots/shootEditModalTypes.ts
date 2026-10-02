@@ -1,3 +1,4 @@
+import type { TravelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
 import axios from 'axios';
 import type { ServiceDurationSource } from '@/utils/shootDuration';
 type DurationMetadata = Pick<ServiceDurationSource, 'booking_duration_default_minutes' | 'booking_duration_min_minutes' | 'booking_duration_max_minutes' | 'booking_duration_defaults'>;
@@ -33,7 +34,7 @@ export interface Service extends DurationMetadata {
   scheduledAt?: string | null;
 }
 
-export interface Photographer {
+export interface Photographer extends TravelAvailabilityMetadata {
   id: string | number;
   name: string;
   avatar?: string;

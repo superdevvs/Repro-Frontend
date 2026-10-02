@@ -1,3 +1,4 @@
+import { useOverviewTravel } from '@/features/travel/useOverviewTravel';
 import { resolveServicePrice } from './shootOverviewServicePricing';
 import { withServiceDurationSnapshot } from './shootOverviewDurations';
 import { useUnitAssignmentPayload } from '@/features/shoot-units/useUnitAssignmentPayload';
@@ -54,7 +55,6 @@ import {
   formatAvailabilitySummary,
   formatLocationLabel,
 } from './overviewPhotographerDisplayUtils';
-
 export function useShootOverviewEditor({
   shoot,
   isAdmin,
@@ -68,7 +68,6 @@ export function useShootOverviewEditor({
 }: UseShootOverviewEditorArgs) {
   const buildAssignmentPayload = useUnitAssignmentPayload(shoot);
   const refreshShootMutations = useShootMutationRefresh();
-
   const [editedShoot, setEditedShoot] = useState<Partial<ShootData>>({});
   const [clients, setClients] = useState<ClientOption[]>(() => {
     if (!shoot.client) return [];
@@ -123,12 +122,10 @@ export function useShootOverviewEditor({
   const [showAllPhotographers, setShowAllPhotographers] = useState(false);
   const [isCalculatingDistances, setIsCalculatingDistances] = useState(false);
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
-
   const safeEditPhotographers = useMemo(
     () => (Array.isArray(editPhotographers) ? editPhotographers : []),
     [editPhotographers],
   );
-
   const photographerAssignments = useMemo(() => getShootPhotographerAssignmentGroups(shoot), [shoot]);
   const isAdminOrRep = isAdmin || role === 'rep' || role === 'representative';
   const {
@@ -170,7 +167,6 @@ export function useShootOverviewEditor({
     catalogServices: servicesList,
     toast,
   });
-
   const initializeMetricsFromShoot = useCallback(() => {
     const legacyShoot = shoot as ShootWithLegacyOverviewFields;
     const propertyDetails = (shoot.propertyDetails ?? legacyShoot.property_details ?? {}) as Record<string, unknown>;
@@ -190,11 +186,9 @@ export function useShootOverviewEditor({
       ),
     });
   }, [shoot]);
-
   const updateField = useCallback((field: string, value: unknown) => {
     setEditedShoot((current) => setNestedDraftValue(current as Record<string, unknown>, field, value));
   }, []);
-
   const clearAddressDerivedState = useCallback(({ keepAddressInput = true }: { keepAddressInput?: boolean } = {}) => {
     if (!keepAddressInput) {
       setAddressInput('');
@@ -209,7 +203,6 @@ export function useShootOverviewEditor({
     updateField('propertyDetails', {});
     setPropertyMetricsEdit({ beds: '', baths: '', sqft: '' });
   }, [updateField]);
-
   const handleAddressSelect = useCallback((details: AddressDetailsForLookup) => {
     const mergedAddress = details.address || details.formatted_address || '';
     setAddressInput(mergedAddress);
@@ -403,8 +396,13 @@ export function useShootOverviewEditor({
     });
   }, [isEditMode, selectedServiceIds.length, shoot]);
 
+  const travel = useOverviewTravel({ active: isEditMode, draft: editedShoot, shoot, isAdmin, role, omitStandardServices: hasComplimentaryServices,
+    selectedServiceIds, serviceSchedules, servicePrices, servicePhotographerPays, serviceQuantities: serviceQuantityChanges,
+    perCategoryPhotographers, servicesList, effectiveSqft,
+    assignment: !isEditMode && assignPhotographerOpen && selectedPhotographerId ? buildAssignmentPayload('photographer_id', selectedPhotographerId) : null });
   const handleSave = useCallback(() => {
     if (!onSave) return;
+    if (travel.blocked) { toast({ title: 'Review travel before saving', description: 'Resolve the travel warning or approve an authorized exception.', variant: 'destructive' }); return; }
 
     if (!validateCompServicesBeforeSave()) return;
 
@@ -510,7 +508,7 @@ export function useShootOverviewEditor({
 
     // `onSave` is typed against the display model, while this payload carries the
     // request-shaped service keys the endpoint requires.
-    onSave(updates as unknown as Partial<ShootData>);
+    onSave({ ...updates, ...travel.confirmation } as unknown as Partial<ShootData>, travel.acceptServerError);
   }, [
     accessContactName,
     accessContactPhone,
@@ -535,7 +533,7 @@ export function useShootOverviewEditor({
     servicesList,
     shoot,
     toast,
-    validateCompServicesBeforeSave,
+    validateCompServicesBeforeSave, travel.blocked, travel.confirmation, travel.acceptServerError,
   ]);
 
   // An UNSET service schedule must stay empty (UNASSIGNED) rather than
@@ -917,7 +915,7 @@ export function useShootOverviewEditor({
   ]);
 
   const handleAssignPhotographer = useCallback(async () => {
-    if (!selectedPhotographerId) return;
+    if (!selectedPhotographerId || (!isEditMode && travel.blocked)) return;
     const selectedPhotographer = resolvePhotographerDetails(selectedPhotographerId);
 
     if (isEditMode) {
@@ -977,9 +975,9 @@ export function useShootOverviewEditor({
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify(buildAssignmentPayload('photographer_id', selectedPhotographerId)),
+        body: JSON.stringify({ ...buildAssignmentPayload('photographer_id', selectedPhotographerId), ...travel.confirmation }),
       });
-      if (!response.ok) throw new Error('Failed to assign photographer');
+      if (!response.ok) { travel.acceptServerError(await response.json()); throw new Error('Failed to assign photographer'); }
 
       toast({
         title: 'Success',
@@ -996,7 +994,7 @@ export function useShootOverviewEditor({
       });
     }
   }, [
-    buildAssignmentPayload,
+    travel.blocked, travel.confirmation, travel.acceptServerError, buildAssignmentPayload,
     closePhotographerPicker,
     editModePhotographerRows.length,
     isEditMode,
@@ -1013,6 +1011,7 @@ export function useShootOverviewEditor({
   ]);
 
   return {
+    travel,
     state: {
       editedShoot,
       clients,

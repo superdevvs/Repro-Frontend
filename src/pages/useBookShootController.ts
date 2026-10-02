@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { useBookingTravel } from '@/features/travel/useBookingTravel';
 import { resolveServiceShootDuration } from '@/utils/shootDuration';
 import { useMultiUnitBooking } from '@/features/shoot-units/useMultiUnitBooking';
 import { bookingSummaryInfo } from './bookingSummaryInfo';
@@ -219,6 +220,10 @@ export const useBookShootController = () => {
   const bookingWizard = getBookingWizardConfig(isCompReshootMode);
   const finalBookingStep = bookingWizard.finalStep;
   const schedulingStep = bookingWizard.schedulingStep;
+  const travel = useBookingTravel({ active: step >= schedulingStep && !isComplete, requestedOnly: isClientAccount,
+    shootId: isEditMode ? editShootId : null, clientId: isClientAccount ? user?.id : client, address, city, state, zip, date, time, photographer,
+    propertyDetails, sqft: propertySqft, source: editingScheduleSource, selectedServices, servicePhotographers, serviceSchedules,
+    unitPayload: unitBooking.enabled ? unitBooking.payload : undefined });
   const validateCurrentStep = () => {
     if (unitBooking.enabled) {
       const issues = step === 1 ? Object.values(unitBooking.propertyErrors).flat() : step === bookingWizard.servicesStep ? Object.values(unitBooking.errors).flat() : unitBooking.schedule.errors;
@@ -309,6 +314,7 @@ export const useBookShootController = () => {
     return true;
   };
   const handleSubmit = async () => {
+    if (step === finalBookingStep && travel.blocked) { toast({ title: 'Review travel before confirming', description: 'Resolve the travel warning or approve an authorized exception.', variant: 'destructive' }); return; }
     if (isSubmitting) return;
     setFormErrors({});
     if (step === finalBookingStep) {
@@ -495,6 +501,7 @@ export const useBookShootController = () => {
         : null;
       const effectiveClientId = isClientAccount ? user?.id : client;
       const payload = {
+        ...travel.confirmation,
         client_id: effectiveClientId,
         address,
         city,
@@ -675,7 +682,8 @@ export const useBookShootController = () => {
       } catch (error: unknown) {
         const errorDetails = asRecord(error);
         const errorResponse = asRecord(errorDetails.response);
-        const responseData = asRecord(errorResponse.data);
+        const responseData = asRecord(errorResponse.data ?? errorDetails.data);
+        travel.acceptServerError(responseData);
         console.error("Error creating shoot:", error);
         console.error("Error details:", {
           message: error instanceof Error ? error.message : undefined,
@@ -927,7 +935,7 @@ export const useBookShootController = () => {
     return bookingWizard.steps[step - 1] || { title: '', description: '' };
   };
   const currentStepContent = getCurrentStepContent();
-  const canSubmitBooking = isFormComplete && (!unitBooking.enabled || unitBooking.valid) && (!isCompReshootMode || compReshoot.isValid);
+  const canSubmitBooking = !travel.blocked && isFormComplete && (!unitBooking.enabled || unitBooking.valid) && (!isCompReshootMode || compReshoot.isValid);
   const openCompReshootSource = React.useCallback(() => {
     if (compReshoot.sourceShootId) navigate(`/shoots/${compReshoot.sourceShootId}`);
   }, [compReshoot.sourceShootId, navigate]);
@@ -959,7 +967,7 @@ export const useBookShootController = () => {
     duplicateLocationDialogOpen, setDuplicateLocationDialogOpen, createdShootId, formErrors,
     setFormErrors, clientPropertyFormKey, toast, photographers, availablePhotographerIds,
     availabilityChecked, canAdjustBookingAmount, canCreateNoProductShoot, isClientAccount,
-    isFormComplete, canSubmitBooking, sameDayAddressShoot, sameAddressScheduledDates,
+    travel, isFormComplete, canSubmitBooking, sameDayAddressShoot, sameAddressScheduledDates,
     addressScheduledWarningMessage, sameDayAddressWarningMessage, duplicateLocationWarningShoot,
     duplicateLocationPopupMessage, showAddressScheduledWarning, hasCachedData,
     clearBookingDraftState, selectedClientData, selectedServiceSqft, serviceSubtotal,

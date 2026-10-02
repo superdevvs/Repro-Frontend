@@ -1,3 +1,7 @@
+import { normalizeSlotTime } from '@/utils/suggestedTimeSlots';
+import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
+import { useTravelFeasibility } from '@/features/travel/useTravelFeasibility';
+import { shootTravelPayload } from '@/features/travel/travelPayload';
 
 import React, { useEffect, useState } from 'react';
 import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
@@ -57,7 +61,12 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
    */
   const appliesImmediately = canReviewRescheduleRequests(role);
 
+  const durationPayload = appliesImmediately ? buildRescheduleDurationPayload(shoot, durationChanges) : {};
+  const travel = useTravelFeasibility({ requestedOnly: !appliesImmediately, payload: isOpen && date && time ? shootTravelPayload(shoot, {
+    requested_date: format(date, 'yyyy-MM-dd'), requested_time: normalizeSlotTime(time), ...durationPayload,
+  }, 'reschedule') : null });
   const handleReschedule = async () => {
+    if (travel.blocked) return;
     if (!date) {
       toast({
         title: "Select a date",
@@ -78,8 +87,9 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
       const response = await axios.post(
         `${API_BASE_URL}/api/shoots/${shoot.id}/reschedule`,
         {
+          ...travel.confirmation,
           requested_date: format(date, 'yyyy-MM-dd'),
-          requested_time: time,
+          requested_time: normalizeSlotTime(time),
           reason: reason || undefined,
           ...(appliesImmediately ? buildRescheduleDurationPayload(shoot, durationChanges) : {}),
           ...(units.length ? { expected_units_revision: shoot.units_revision } : {}),
@@ -115,6 +125,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
     } catch (error) {
       console.error('Error rescheduling shoot:', error);
       const response = axios.isAxiosError(error) ? error.response?.data : undefined;
+      travel.acceptServerError(response);
       const validationMessage = response?.errors ? Object.values(response.errors).flat().join(' ') : response?.message;
       toast({
         title: appliesImmediately ? 'Failed to reschedule' : 'Failed to submit request',
@@ -257,9 +268,10 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
           </div>
         </div>
         
+        <TravelFeasibilityPanel travel={travel} />
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleReschedule} disabled={isSubmitting}>
+          <Button onClick={handleReschedule} disabled={isSubmitting || travel.blocked}>
             {isSubmitting
               ? 'Submitting...'
               : appliesImmediately

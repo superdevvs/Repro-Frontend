@@ -107,7 +107,7 @@ interface ShootDetailsModalBodyProps {
   handleSendToEditing: () => void;
   handleApproveEditingReview?: () => void;
   handleFinalise: () => void;
-  handleSaveRequest: (updates: Partial<ShootData>) => void;
+  handleSaveRequest: (updates: Partial<ShootData>, onTravelFailure?: (data: unknown) => void) => void;
   handleCancelEdit: () => void;
   refreshShootAndParent: () => Promise<ShootData | null>;
 }

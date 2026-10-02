@@ -38,7 +38,11 @@ export function withShootUnitOverview(Component: ComponentType<ShootDetailsOverv
       <Component {...props} key={activeId} shoot={scopedShoot}
         unitSelector={<ShootUnitScopeBar shoot={shoot} containerRef={selectorRef} variant="embedded" disabled={isEditMode || props.isUnitSwitchDisabled || saving} manageUnitsLabel={isAdmin ? 'Manage units' : 'View units'} onManageUnits={() => { setError(''); setDraft(scope.units); }} />}
         unitAccessNotes={scope.unit.access_notes}
-        onSave={props.onSave ? updates => props.onSave?.(buildUnitScopedUpdate(shoot, activeId, updates as Record<string, unknown>) as Partial<ShootData>) : undefined} />
+        onSave={props.onSave ? (updates, onTravelFailure) => {
+          const payload = buildUnitScopedUpdate(shoot, activeId, updates as Record<string, unknown>) as Partial<ShootData>;
+          if (onTravelFailure) props.onSave?.(payload, onTravelFailure);
+          else props.onSave?.(payload);
+        } : undefined} />
       <UnitManagerDialog open={draft !== null} onClose={() => { if (!saving) setDraft(null); }} units={draft ?? scope.units} onChange={isAdmin && !saving ? setDraft : undefined} readOnly={!isAdmin || saving} activeUnitId={scope.unit.client_key ?? activeId} title={isAdmin ? 'Manage property units' : 'Property units'} footer={isAdmin ? <div className="w-full space-y-2">{error && <p role="alert" className="text-xs text-destructive">{error}</p>}<Button className="w-full" disabled={saving} onClick={() => void saveUnits()}>{saving ? 'Saving…' : 'Save all changes'}</Button></div> : undefined} />
     </>;
   }

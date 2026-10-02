@@ -1,3 +1,5 @@
+import { travelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
+import type { TravelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
 import { fetchDurationAwareAvailability, photographerVisitDurationGroups, type PhotographerDurationGroup } from '@/utils/photographerVisitDuration';
 import type { ServiceDurationSource } from '@/utils/shootDuration';
 import { normalizeShootServiceCategoryKey } from '@/utils/shootPhotographerAssignments';
@@ -74,7 +76,7 @@ export type AddressDetailsForLookup = {
   longitude?: number;
 };
 
-export type PhotographerPickerOption = {
+export type PhotographerPickerOption = TravelAvailabilityMetadata & {
   id: string;
   name: string;
   email: string;
@@ -135,7 +137,7 @@ export type UseShootOverviewEditorArgs = {
   role: string;
   isEditMode?: boolean;
   onShootUpdate: () => void;
-  onSave?: (updates: Partial<ShootData>) => void;
+  onSave?: (updates: Partial<ShootData>, onTravelFailure?: (data: unknown) => void) => void;
   onCancel?: () => void;
   onRegisterEditActions?: (actions: { save: () => void; cancel: () => void }) => void;
   toast: (args: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void;
@@ -937,6 +939,7 @@ export function usePhotographerDistanceAvailability(
             previousShootId: match.previous_shoot_id ?? match.previousShootId ?? photographer.previousShootId,
             availabilitySlots: nextAvailableSlots,
             netAvailableSlots: nextNetSlots,
+            ...travelAvailabilityMetadata(match),
             bookedSlots: match.booked_slots ?? photographer.bookedSlots,
             unavailableSlots: match.unavailable_slots ?? photographer.unavailableSlots,
             hasAvailability: rawAvailableSlots.length > 0 || match.has_availability || photographer.hasAvailability,

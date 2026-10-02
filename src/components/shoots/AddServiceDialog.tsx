@@ -1,3 +1,6 @@
+import { useTravelFeasibility } from '@/features/travel/useTravelFeasibility';
+import { safelyBuildTravelPayload, shootTravelPayload } from '@/features/travel/travelPayload';
+import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
 import { ShootUnitScopeBar } from '@/features/shoot-units/ShootUnitScope';
 import { useShootUnitScope } from '@/features/shoot-units/useShootUnitScope';
 import { getUnitVisitDefaults, projectShootForUnit } from '@/features/shoot-units/shootUnitData';
@@ -36,7 +39,7 @@ import {
 import {
   getCatalogServiceEntries,
 } from './addServiceInvoiceAdjustments';
-import { submitShootServiceMutation } from '@/utils/shootServiceMutation';
+import { ShootServiceMutationError, submitShootServiceMutation } from '@/utils/shootServiceMutation';
 
 interface Service {
   id: number;
@@ -125,19 +128,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
 
 
   const adaptUnitPayload = (input: Record<string, unknown>) => unitScope.isMultiUnit && unitScope.activeUnitId ? buildUnitScopedUpdate(shoot, unitScope.activeUnitId, input) : input;
-  const handleAddService = async () => {
-    if (!selectedServiceId) {
-      toast({
-        title: 'Error',
-        description: 'Please select a service',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+  const buildServicePayload = () => {
       const existingServiceEntries = getExistingServiceEntries();
       const bookedQuantities = getBookedServiceQuantities(scopedShoot);
       
@@ -183,11 +174,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
 
       const updatedServices = [...currentServices, newService];
 
-      // The server owns discount, tax, adjustments, totals and payment state.
-      const result = await submitShootServiceMutation({
-        url: `${API_BASE_URL}/api/shoots/${shoot.id}`,
-        token,
-        payload: adaptUnitPayload({
+    return adaptUnitPayload({
           services: updatedServices,
           service_items: updatedServices.map((service) => ({
             service_id: service.id,
@@ -197,8 +184,24 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
             ...('photographer_id' in service ? { photographer_id: service.photographer_id } : {}),
             scheduled_at: service.scheduled_at || null,
           })),
-        }),
+        });
+  };
+  const handleAddService = async () => {
+    if (travel.blocked) return;
+    if (!selectedServiceId) {
+      toast({
+        title: 'Error',
+        description: 'Please select a service',
+        variant: 'destructive',
       });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const result = await submitShootServiceMutation({ url: `${API_BASE_URL}/api/shoots/${shoot.id}`, token,
+        payload: { ...buildServicePayload(), ...travel.confirmation } });
 
       if (result.kind === 'confirmation_required') {
         throw new Error('The shoot changed while this dialog was open. Refresh it before adding a service.');
@@ -218,6 +221,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
       setScheduleTime('10:00');
       onShootUpdate();
     } catch (error: unknown) {
+      if (error instanceof ShootServiceMutationError) travel.acceptServerError(error.data);
       console.error('Error adding service:', error);
       toast({
         title: 'Error',
@@ -255,6 +259,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
     return buildWallClockIso(dateValue, timeValue || '10:00');
   };
 
+  const travel = useTravelFeasibility({ payload: open && selectedServiceId ? safelyBuildTravelPayload(() => shootTravelPayload(shoot, buildServicePayload(), 'update')) : null });
   return (
     <>
       <Button 
@@ -268,7 +273,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Add Service to Shoot</DialogTitle>
             <DialogDescription>
@@ -363,11 +368,12 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
             </div>
           </div>
 
+          <TravelFeasibilityPanel travel={travel} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleAddService} disabled={loading || !selectedServiceId}>
+            <Button onClick={handleAddService} disabled={loading || !selectedServiceId || travel.blocked}>
               {loading ? 'Adding...' : 'Add Service'}
             </Button>
           </DialogFooter>

@@ -19,6 +19,7 @@ type ServiceScheduleMap = Record<string, { date?: string; time?: string; duratio
 
 interface BookingContentAreaProps {
   enforceNewBookingEligibility: boolean;
+  hybridTravelEnabled?: boolean;
   step: number;
   formErrors: Record<string, string>;
   setFormErrors: React.Dispatch<React.SetStateAction<Record<string, string>>>;
@@ -79,7 +80,7 @@ interface BookingContentAreaProps {
 }
 
 export function BookingContentArea({
-  enforceNewBookingEligibility,
+  enforceNewBookingEligibility, hybridTravelEnabled,
   step,
   formErrors,
   setFormErrors,
@@ -196,6 +197,7 @@ export function BookingContentArea({
       {step === wizard.schedulingStep && (
         <SchedulingForm
           enforceNewBookingEligibility={enforceNewBookingEligibility}
+          hybridTravelEnabled={hybridTravelEnabled}
           date={date}
           setDate={setDate}
           time={time}

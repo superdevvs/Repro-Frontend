@@ -1,3 +1,5 @@
+import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
+import type { TravelController } from '@/features/travel/useTravelFeasibility';
 import { Check, Search, User, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import type { ElementType } from 'react';
@@ -26,6 +28,7 @@ import { getStateFullName } from '@/utils/stateUtils';
 import type { PhotographerPickerOption } from './useShootOverviewEditor';
 
 type OverviewPhotographerPickerDialogProps = {
+  travel?: TravelController;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   photographerPickerContext: {
@@ -49,7 +52,7 @@ type OverviewPhotographerPickerDialogProps = {
 };
 
 export function OverviewPhotographerPickerDialog({
-  open,
+  open, travel,
   onOpenChange,
   photographerPickerContext,
   isEditMode,
@@ -109,6 +112,7 @@ export function OverviewPhotographerPickerDialog({
                 Curated network - {filteredAndSortedPhotographers.length} available
               </PickerDescription>
             </PickerHeader>
+            {!isEditMode && travel && <div className="max-h-[35vh] shrink-0 overflow-y-auto"><TravelFeasibilityPanel travel={travel} /></div>}
 
             <div className="space-y-2 sm:space-y-3">
               <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center sm:gap-2">
@@ -327,7 +331,7 @@ export function OverviewPhotographerPickerDialog({
                   </Button>
                   <Button
                     onClick={handleAssignPhotographer}
-                    disabled={!selectedPhotographerId}
+                    disabled={!selectedPhotographerId || (!isEditMode && travel?.blocked)}
                     className="h-9 min-w-0 px-2 text-xs sm:h-9 sm:px-3 sm:text-sm"
                   >
                     <span className="truncate">{isEditMode ? 'Use selection' : 'Confirm Assignment'}</span>

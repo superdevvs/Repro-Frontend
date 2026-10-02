@@ -1,3 +1,4 @@
+import type { TravelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
 import type React from 'react';
 
 export interface SchedulingPhotographer {
@@ -33,7 +34,7 @@ export interface SchedulingSlot {
   zip?: string;
 }
 
-export interface SchedulingPhotographerView extends SchedulingPhotographer {
+export interface SchedulingPhotographerView extends SchedulingPhotographer, TravelAvailabilityMetadata {
   serviceAreaLabel?: string;
   distance?: number;
   distanceFrom?: 'home' | 'previous_shoot';
@@ -98,6 +99,7 @@ export const canUseProtectedAvailabilityRoutes = (
 
 export interface SchedulingFormProps {
   enforceNewBookingEligibility?: boolean;
+  hybridTravelEnabled?: boolean;
   date: Date | undefined;
   setDate: React.Dispatch<React.SetStateAction<Date | undefined>>;
   time: string;

@@ -84,6 +84,7 @@ export function useShootDetailsModalSave({
 }: UseShootDetailsModalSaveParams) {
   const [isSavingChanges, setIsSavingChanges] = useState(false);
   const saveChangesInFlight = useRef(false);
+  const travelFailureHandler = useRef<((data: unknown) => void) | undefined>();
   const [isSaveConfirmOpen, setIsSaveConfirmOpen] = useState(false);
   const [pendingUpdates, setPendingUpdates] = useState<Partial<ShootData> | null>(null);
   const [serviceDetachConfirmation, setServiceDetachConfirmation] = useState<ServiceDetachConfirmation | null>(null);
@@ -144,6 +145,9 @@ export function useShootDetailsModalSave({
     let preservePendingUpdates = false;
     try {
       const payload: Record<string, unknown> = {};
+      for (const field of ['travel_override', 'travel_override_reason', 'travel_location_confirmed'] as const) {
+        if (hasOwn(updates, field)) payload[field] = (updates as unknown as Record<string, unknown>)[field];
+      }
       
       // Map updates to API format (support snake_case from API)
       if (hasOwn(updates, 'scheduledDate')) {
@@ -604,6 +608,7 @@ export function useShootDetailsModalSave({
         }, 0);
       }
     } catch (error) {
+      if (error instanceof ShootServiceMutationError) travelFailureHandler.current?.(error.data);
       console.error('💾 Save error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to update shoot';
       
@@ -656,9 +661,10 @@ export function useShootDetailsModalSave({
     }
   };
 
-  const handleSaveRequest = (updates: Partial<ShootData>) => {
+  const handleSaveRequest = (updates: Partial<ShootData>, onTravelFailure?: (data: unknown) => void) => {
     if (!shoot || isSavingChanges || isSaveConfirmOpen) return;
 
+    travelFailureHandler.current = onTravelFailure;
     setPendingUpdates(updates);
     setServiceDetachConfirmation(null);
     setNotifyClientOnSave(canNotifyClient);

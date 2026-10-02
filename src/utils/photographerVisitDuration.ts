@@ -24,6 +24,6 @@ export async function fetchDurationAwareAvailability(url: string, options: Reque
   const failed = responses.find(response => !response.ok);
   if (failed) return failed;
   if (responses.length === 1) return responses[0];
-  const payloads = await Promise.all(responses.map(response => response.json() as Promise<{ data?: unknown[] }>));
-  return new Response(JSON.stringify({ data: payloads.flatMap(payload => payload.data ?? []) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  const payloads = await Promise.all(responses.map(response => response.json() as Promise<{ data?: unknown[]; [key: string]: unknown }>));
+  return new Response(JSON.stringify({ ...payloads[0], data: payloads.flatMap(payload => payload.data ?? []) }), { status: 200, headers: { 'Content-Type': 'application/json' } });
 }

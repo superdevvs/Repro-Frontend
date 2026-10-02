@@ -1,3 +1,6 @@
+import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
+import { useTravelFeasibility } from '@/features/travel/useTravelFeasibility';
+import { shootTravelPayload } from '@/features/travel/travelPayload';
 import { useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
@@ -27,6 +30,9 @@ export function MultiUnitApprovalDialog({ open, onClose, source, photographers, 
   const [busy, setBusy] = useState(false);
   const [page, setPage] = useState(0);
   const lines = allUnitLines(shoot).map(line => ({ ...line, ...changes[String(line.shoot_service_id ?? line.shootServiceId)] }));
+  const serviceLinesPayload = lines.map(unitLinePayload);
+  const firstStart = serviceLinesPayload.map(line => line.scheduled_at).filter((value): value is string => typeof value === 'string' && Number.isFinite(Date.parse(value))).sort((a, b) => Date.parse(a) - Date.parse(b))[0];
+  const travel = useTravelFeasibility({ payload: open ? shootTravelPayload(shoot, { service_lines: serviceLinesPayload, ...(firstStart ? { scheduled_at: firstStart } : {}) }, 'approve') : null });
   const total = lines.reduce((sum, line) => sum + line.price * normalizeBookingQuantity(line.quantity), 0);
   const selected = lines.filter(line => getServiceUnitId(line) === activeUnitId);
   const currentPage = Math.min(page, Math.max(0, Math.ceil(selected.length / 8) - 1));
@@ -35,21 +41,23 @@ export function MultiUnitApprovalDialog({ open, onClose, source, photographers, 
     setChanges(previous => ({ ...previous, [id]: { ...previous[id], ...value } }));
   };
   const approve = async () => {
-    if (busy) return;
+    if (busy || travel.blocked) return;
     setBusy(true); setError('');
     try {
       const service_lines = lines.map(unitLinePayload);
       const scheduled_at = service_lines.map(line => line.scheduled_at).filter((value): value is string => typeof value === 'string' && Number.isFinite(Date.parse(value))).sort((a, b) => Date.parse(a) - Date.parse(b))[0];
-      await apiClient.post(`/shoots/${shoot.id}/approve`, { expected_units_revision: shoot.units_revision, service_lines, ...(scheduled_at ? { scheduled_at } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}) });
+      await apiClient.post(`/shoots/${shoot.id}/approve`, { ...travel.confirmation, expected_units_revision: shoot.units_revision, service_lines, ...(scheduled_at ? { scheduled_at } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}) });
       onApproved?.(); onClose();
     } catch (caught) {
       const data = (caught as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }).response?.data;
+      travel.acceptServerError(data);
       setError(Object.values(data?.errors ?? {}).flat().join(' ') || data?.message || 'Approval failed. Review the assignments and try again.');
     } finally { setBusy(false); }
   };
   return <Dialog open={open} onOpenChange={value => { if (!value && !busy) onClose(); }}><DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-3xl flex-col overflow-hidden p-0">
     <DialogHeader className="shrink-0 px-4 pt-5 sm:px-6"><DialogTitle>Approve multi-unit booking</DialogTitle><DialogDescription>{units.length} units / areas · {lines.length} booked services. Review each unit’s schedule and photographer before approving the whole property.</DialogDescription></DialogHeader>
     <div className="min-h-0 space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
+      <TravelFeasibilityPanel travel={travel} />
       <ShootUnitScopeBar shoot={shoot} disabled={busy} />
       <p className="text-xs text-muted-foreground">{shoot.location?.address} · {shoot.client?.name}. Unit prices stay at their booked amounts.</p>
       <div className="space-y-3">{selected.slice(currentPage * 8, currentPage * 8 + 8).map(line => {
@@ -76,6 +84,6 @@ export function MultiUnitApprovalDialog({ open, onClose, source, photographers, 
       <label className="block space-y-1 text-xs">Internal approval notes<Textarea value={notes} onChange={event => setNotes(event.target.value)} disabled={busy} /></label>
       {error && <p role="alert" className="whitespace-pre-wrap break-words text-sm text-destructive">{error}</p>}
     </div>
-    <DialogFooter className="shrink-0 border-t px-4 py-3 sm:px-6"><p className="mr-auto self-center text-sm">Services total: <span className="font-semibold tabular-nums">{formatPrice(total)}</span></p><Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button><Button disabled={busy} onClick={() => void approve()}>{busy ? 'Approving…' : `Approve ${units.length} units / areas`}</Button></DialogFooter>
+    <DialogFooter className="shrink-0 border-t px-4 py-3 sm:px-6"><p className="mr-auto self-center text-sm">Services total: <span className="font-semibold tabular-nums">{formatPrice(total)}</span></p><Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button><Button disabled={busy || travel.blocked} onClick={() => void approve()}>{busy ? 'Approving…' : `Approve ${units.length} units / areas`}</Button></DialogFooter>
   </DialogContent></Dialog>;
 }

@@ -23,4 +23,12 @@ describe('candidate photographer capture time', () => {
       { date: '2026-10-05', photographer_ids: [9], duration_minutes: 45 }, { date: '2026-10-05', photographer_ids: [10, 11], duration_minutes: 15 },
     ]);
   });
+  it('preserves hybrid travel metadata while combining duration groups', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify({ hybrid_travel_enabled: true, data: body.photographer_ids.map((id: number) => ({ id, travel_check_required: true })) }));
+    }));
+    const response = await fetchDurationAwareAvailability('/availability', { body: '{}' }, [{ duration_minutes: 15, photographer_ids: [9] }, { duration_minutes: 45, photographer_ids: [10] }]);
+    expect(await response.json()).toEqual({ hybrid_travel_enabled: true, data: [{ id: 9, travel_check_required: true }, { id: 10, travel_check_required: true }] });
+  });
 });

@@ -1,3 +1,4 @@
+import { travelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
 import { fetchDurationAwareAvailability } from '@/utils/photographerVisitDuration';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
@@ -29,7 +30,7 @@ import { useAuth } from '@/components/auth';
 import { CANONICAL_TIMEZONE } from '@/utils/timezone';
 
 export const useSchedulingFormController = ({
-  enforceNewBookingEligibility = false,
+  enforceNewBookingEligibility = false, hybridTravelEnabled = false,
   date,
   setDate,
   time,
@@ -65,6 +66,8 @@ export const useSchedulingFormController = ({
   const [bookingEligibilityError, setBookingEligibilityError] = useState<string | null>(null);
   const [bookingEligibilityRetry, setBookingEligibilityRetry] = useState(0);
   const [availabilityDataDate, setAvailabilityDataDate] = useState('');
+  const [hybridEnabledByApi, setHybridEnabledByApi] = useState(false);
+  const useHybridTravel = hybridTravelEnabled || hybridEnabledByApi;
   const retryBookingEligibility = () => setBookingEligibilityRetry(value => value + 1);
   const {
     disabledDates, today, toast, isMobile, isLocationLoading, timeDialogOpen,
@@ -368,7 +371,7 @@ export const useSchedulingFormController = ({
   const { bookingAvailabilityDuration, bookingDurationForPhotographer, isPhotographerTimeDisabled } = useBookingIntervalAvailability({
     selectedServices, serviceSchedules, servicePhotographers, sqft, photographer, defaultServiceDate, defaultServiceTime,
     pickerServiceId, bookingAvailabilityDate, bookingAvailabilityTime, availabilityDataDate,
-    dayAvailability, workingWindowMinutes, getPhotographerScheduleData,
+    dayAvailability, workingWindowMinutes, getPhotographerScheduleData, hybridTravelEnabled: useHybridTravel,
   });
 
   const durationGroups = new Map<number, number[]>();
@@ -635,6 +638,7 @@ export const useSchedulingFormController = ({
         const json: unknown = await response.json();
         if (isCancelled) return;
         if (!isRecord(json) || !Array.isArray(json.data)) throw new Error('Invalid photographer eligibility response');
+        setHybridEnabledByApi(json.hybrid_travel_enabled === true);
         const photographerData = readBookingPhotographers(json);
         setAvailabilityDataDate(bookingAvailabilityDate);
         // The API applies service and radius eligibility. "Show all" may include
@@ -649,6 +653,7 @@ export const useSchedulingFormController = ({
             ? Number.parseFloat(String(p.distance))
             : undefined;
           return {
+            ...travelAvailabilityMetadata(p),
             id: String(p.id),
             name: p.name || photographer?.name || '',
             avatar: p.avatar || p.profile_image || p.photo || photographer?.avatar,
@@ -849,7 +854,7 @@ export const useSchedulingFormController = ({
       const availableAtSelectedTime = selectedTimeMinutes !== null
         ? slots.some((slot) => slot.start <= selectedTimeMinutes && slot.end >= selectedTimeMinutes + candidateDuration)
           && !isBookingIntervalDisabled({ time: bookingAvailabilityTime, durationMinutes: candidateDuration,
-            bookedSlots: photographerItem.bookedSlots, unavailableSlots: photographerItem.unavailableSlots })
+            bookedSlots: photographerItem.bookedSlots, unavailableSlots: photographerItem.unavailableSlots, travelBufferMinutes: useHybridTravel ? 0 : undefined })
         : false;
       const firstStart = slots.length > 0 ? Math.min(...slots.map((slot) => slot.start)) : Number.POSITIVE_INFINITY;
       const totalMinutes = slots.reduce((total, slot) => total + (slot.end - slot.start), 0);
@@ -910,7 +915,7 @@ export const useSchedulingFormController = ({
       return distanceCompare !== 0 ? distanceCompare : a.name.localeCompare(b.name);
     });
     return sorted;
-  }, [photographersWithDistance, photographerOptions, bookingEligiblePhotographerIds, searchQuery, sortBy, showAllPhotographers, photographerAvailability, date, time, bookingAvailabilityTime, bookingDurationForPhotographer, requiresPerServiceAssignment, activeServiceForPicker, activeServiceCapabilityForPicker, filteredPhotographersForService, timeToMinutes, canUseProtectedAvailability]);
+  }, [useHybridTravel, photographersWithDistance, photographerOptions, bookingEligiblePhotographerIds, searchQuery, sortBy, showAllPhotographers, photographerAvailability, date, time, bookingAvailabilityTime, bookingDurationForPhotographer, requiresPerServiceAssignment, activeServiceForPicker, activeServiceCapabilityForPicker, filteredPhotographersForService, timeToMinutes, canUseProtectedAvailability]);
 
   const handleSchedulingSubmit = () => {
     if (enforceNewBookingEligibility && requiresPhotographerAssignment) {

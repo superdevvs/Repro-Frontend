@@ -1,6 +1,7 @@
 import { MultiUnitBookingContext } from '@/features/shoot-units/useMultiUnitBooking';
 import { BookingUnitManager } from '@/features/shoot-units/BookingUnitControls';
 import React from 'react';
+import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
 import { AnimatePresence } from 'framer-motion';
 import { BookingStepIndicator } from '@/components/booking/BookingStepIndicator';
 import { BookingComplete } from '@/components/booking/BookingComplete';
@@ -120,7 +121,9 @@ export function BookShootView({ controller }: { controller: BookShootController 
                 }[String(!isMobile || step === finalStep) as 'true' | 'false']} gap-8 mt-2 items-start`}
               >
                 <div className="order-2 lg:order-1 w-full">
+                {step >= wizard.schedulingStep && <div className="mb-4"><TravelFeasibilityPanel travel={controller.travel} /></div>}
                 <BookingContentArea
+                  hybridTravelEnabled={controller.travel.enabled}
                   enforceNewBookingEligibility={!isEditMode && !isCompReshootMode}
                   step={step}
                   formErrors={formErrors}

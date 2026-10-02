@@ -1,3 +1,8 @@
+import { travelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
+import type { TravelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
+import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
+import { useTravelFeasibility } from '@/features/travel/useTravelFeasibility';
+import { safelyBuildTravelPayload, shootTravelPayload } from '@/features/travel/travelPayload';
 import { fetchDurationAwareAvailability, photographerVisitDurationGroups } from '@/utils/photographerVisitDuration';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { ServiceDurationPicker } from './ServiceDurationPicker';
@@ -56,7 +61,7 @@ import { getShootSchedule } from '@/utils/shootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 
-interface Photographer {
+interface Photographer extends TravelAvailabilityMetadata {
   id: string | number;
   name: string;
   avatar?: string;
@@ -544,21 +549,8 @@ export function ShootApprovalModal({
     fetchShootDetails();
   }, [buildTimeOptions, isOpen, photographers, shootId]);
 
-  const handleApprove = async () => {
-    if (!scheduledDate) {
-      toast({
-        title: 'Date required',
-        description: 'Please select a scheduled date for the shoot.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    setIsSubmitting(true);
-
-    try {
-      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      
+  const buildTravelApprovalPayload = () => {
+    if (!scheduledDate || !shootDetails) return null;
       const scheduledAt = buildShootScheduleTimestamp(format(scheduledDate, 'yyyy-MM-dd'), scheduledTime,
         shootDetails?.timezone, shootDetails?.scheduled_at || shootDetails?.scheduledAt || shootDetails?.start_time);
 
@@ -632,9 +624,27 @@ export function ShootApprovalModal({
         }
       }
 
-      if (notes.trim()) {
-        payload.notes = notes.trim();
-      }
+    return payload;
+  };
+  const approvalTravelPayload = isOpen && !isLoading && shootDetails && !getShootUnits(shootDetails).length ? safelyBuildTravelPayload(buildTravelApprovalPayload) : null;
+  const travel = useTravelFeasibility({ payload: approvalTravelPayload ? shootTravelPayload(shootDetails, approvalTravelPayload, 'approve') : null });
+  const handleApprove = async () => {
+    if (travel.blocked) return;
+    if (!scheduledDate) {
+      toast({
+        title: 'Date required',
+        description: 'Please select a scheduled date for the shoot.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+
+      const payload = { ...buildTravelApprovalPayload(), ...travel.confirmation, ...(notes.trim() ? { notes: notes.trim() } : {}) };
 
       const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/approve`, {
         method: 'POST',
@@ -648,6 +658,7 @@ export function ShootApprovalModal({
 
       if (!response.ok) {
         const error = await response.json();
+        travel.acceptServerError(error);
         throw new Error(error.message || 'Failed to approve shoot');
       }
 
@@ -825,6 +836,7 @@ export function ShootApprovalModal({
             previousShootId: Number.isFinite(previousShootId) ? previousShootId : undefined,
             availabilitySlots,
             unavailableSlots,
+            ...travelAvailabilityMetadata(enriched),
             bookedSlots,
             netAvailableSlots,
             shootsCountToday: Number.isFinite(shootsCountToday) ? shootsCountToday : undefined,
@@ -1134,6 +1146,7 @@ export function ShootApprovalModal({
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
+          <div className="mb-4"><TravelFeasibilityPanel travel={travel} /></div>
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1fr)_minmax(0,0.9fr)]">
             {/* Left Column - Shoot Details */}
             <div className="flex-1 space-y-4">
@@ -1367,7 +1380,7 @@ export function ShootApprovalModal({
           </Button>
           <Button 
             onClick={handleApprove} 
-            disabled={isSubmitting || isLoading} 
+            disabled={isSubmitting || isLoading || travel.blocked}
             className="bg-green-600 hover:bg-green-700 min-w-[140px]"
           >
             {isSubmitting ? (
