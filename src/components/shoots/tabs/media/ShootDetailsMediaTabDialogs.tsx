@@ -29,6 +29,8 @@ export function ShootDetailsMediaTabDialogs(props: any) {
     onDownloadSingle,
     onRenameFilename,
     onDeleteFile,
+    canReclassify,
+    onReclassify,
     downloadingFileIds,
     showAiEditDialog,
     setShowAiEditDialog,
@@ -69,6 +71,8 @@ export function ShootDetailsMediaTabDialogs(props: any) {
         onDownloadSingle={onDownloadSingle}
         onRenameFilename={onRenameFilename}
         onDeleteFile={onDeleteFile}
+        canReclassify={canReclassify}
+        onReclassify={onReclassify}
         downloadingFileIds={downloadingFileIds}
       />
 

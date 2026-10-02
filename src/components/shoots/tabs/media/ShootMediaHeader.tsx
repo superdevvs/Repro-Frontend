@@ -44,7 +44,7 @@ interface ShootMediaHeaderProps {
   canMarkSelectedFiles: boolean;
   canDownload: boolean;
   isAdmin: boolean;
-  handleReclassify: (type: ReclassifyMediaType) => Promise<void>;
+  handleReclassify: (type: ReclassifyMediaType, fileIdsOverride?: Array<string | number>) => Promise<void>;
   markMenuOptions: Array<{ label: string; value: ReclassifyMediaType }>;
   canDelete: boolean;
   handleDeleteFiles: () => Promise<void>;
@@ -259,7 +259,7 @@ export function ShootMediaHeader({
               </Button>
             )}
             {/* Selection actions */}
-            {(canDownload || canDelete || canBatchRename) && selectedFiles.size > 0 && (
+            {(canDownload || canDelete || canBatchRename || canMarkSelectedFiles) && selectedFiles.size > 0 && (
               <>
                 {/* Mark selected files - admin only */}
                 {canMarkSelectedFiles && (
@@ -405,7 +405,7 @@ export function ShootMediaHeader({
       </div>
       
       {/* Selected-file actions - Below tabs on mobile only */}
-      {(canDownload || canDelete || canBatchRename) && selectedFiles.size > 0 && (
+      {(canDownload || canDelete || canBatchRename || canMarkSelectedFiles) && selectedFiles.size > 0 && (
         <div className="mb-1.5 pb-1 border-b flex-shrink-0 sm:hidden">
           <div className="flex items-center justify-end gap-1.5 flex-wrap">
             {/* Mark selected files - mobile */}

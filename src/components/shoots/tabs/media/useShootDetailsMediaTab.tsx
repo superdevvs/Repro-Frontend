@@ -1406,6 +1406,8 @@ export function useShootDetailsMediaTab({
         onDownloadSingle={canDownloadViewerSingleMedia ? handleDownloadSingleFile : undefined}
         onRenameFilename={canRenameFilename ? handleRenameFilenameWithPrompt : undefined}
         onDeleteFile={handleDeleteSingleFile}
+        canReclassify={!isClient && (!isEditor || displayTab === 'edited')}
+        onReclassify={(fileId, mediaType) => handleReclassify(mediaType, [fileId])}
         downloadingFileIds={downloadingFileIds}
         showAiEditDialog={showAiEditDialog}
         setShowAiEditDialog={setShowAiEditDialog}

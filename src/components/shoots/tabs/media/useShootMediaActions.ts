@@ -773,12 +773,16 @@ export function useShootMediaActions({
     }
   };
 
-  const handleReclassify = async (mediaType: ReclassifyMediaType) => {
-    if (selectedFiles.size === 0) return;
+  const handleReclassify = async (
+    mediaType: ReclassifyMediaType,
+    fileIdsOverride?: Array<string | number>,
+  ) => {
+    const sourceIds = fileIdsOverride?.map(String) ?? Array.from(selectedFiles);
+    if (sourceIds.length === 0) return;
 
     try {
       const headers = getApiHeaders();
-      const fileIds = Array.from(selectedFiles).map((id) => parseInt(id, 10));
+      const fileIds = sourceIds.map((id) => parseInt(String(id), 10));
       const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files/reclassify`, {
         method: 'PATCH',
         headers,
@@ -795,7 +799,12 @@ export function useShootMediaActions({
         description: `Reclassified ${fileIds.length} file(s) as ${mediaType === 'photos' || mediaType === 'main' || mediaType === 'main_photos' || mediaType === 'edited' ? 'Main photos' : mediaType}`,
       });
       await queryClient.refetchQueries({ queryKey: ['shootFiles', shoot.id] });
-      setSelectedFiles(new Set());
+      setSelectedFiles((prev) => {
+        if (!fileIdsOverride) return new Set();
+        const next = new Set(prev);
+        sourceIds.forEach((id) => next.delete(String(id)));
+        return next;
+      });
       onShootUpdate();
     } catch (error: unknown) {
       toast({

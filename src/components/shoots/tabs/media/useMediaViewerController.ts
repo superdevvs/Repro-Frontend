@@ -34,6 +34,7 @@ import {
   type MediaIssueRequest,
   type MediaViewerProps,
 } from './mediaViewerTypes';
+import { markMenuOptions, type ReclassifyMediaType } from './shootMediaActionTypes';
 export function useMediaViewerController({
   isOpen,
   onClose,
@@ -58,6 +59,8 @@ export function useMediaViewerController({
   onDownloadSingle,
   onRenameFilename,
   onDeleteFile,
+  canReclassify = false,
+  onReclassify,
   downloadingFileIds,
   onShootUpdate,
 }: MediaViewerProps) {
@@ -820,6 +823,13 @@ export function useMediaViewerController({
         mediaType !== 'extra' &&
         mediaType !== 'floorplan' &&
         ['completed', 'verified'].includes((currentFile.workflowStage || '').toLowerCase())));
+  // Same gate as grid Mark menu (passed from tab); images only — videos stay unmarked here.
+  const canMarkAs = Boolean(canReclassify && onReclassify && shoot && isImg && !isVid);
+  const viewerMarkMenuOptions = markMenuOptions;
+  const handleMarkAs = async (nextType: ReclassifyMediaType) => {
+    if (!currentFile || !onReclassify || !canMarkAs) return;
+    await onReclassify(String(currentFile.id), nextType);
+  };
   const detailRows = getMediaViewerDetailRows(currentFile, isClient, fileExt, role);
   const slideshowMotionVariants = getSlideshowMotionVariants(prefersReducedMotion);
   const sidebarActionButtonClassName =
@@ -828,6 +838,7 @@ export function useMediaViewerController({
     'gap-2 rounded-md px-2 py-2 text-sm text-white focus:bg-white/10 focus:text-white';
   const showMobileActionMenu =
     canSetHero ||
+    canMarkAs ||
     (canDownloadSingleMedia && Boolean(onDownloadSingle)) ||
     Boolean(onToggleHidden) ||
     canShowRenameFilename ||
@@ -972,6 +983,9 @@ export function useMediaViewerController({
     zoomedImageViewportStyle,
     canRequestModification,
     canSetHero,
+    canMarkAs,
+    viewerMarkMenuOptions,
+    handleMarkAs,
     detailRows,
     slideshowMotionVariants,
     sidebarActionButtonClassName,

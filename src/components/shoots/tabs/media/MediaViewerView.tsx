@@ -3,7 +3,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import VideoThumbnail from '../../VideoThumbnail';
 import { getMediaVideoPreviewUrl, getMediaVideoUrl } from './mediaPreviewUtils';
 import { isRawFile } from '@/services/rawPreviewService';
 import { blurActiveElement } from '../../dialogFocusUtils';
-import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, MoreHorizontal, Pencil, Play, Trash2, X } from 'lucide-react';
+import { AlertCircle, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, Eye, EyeOff, FileIcon, Heart, MoreHorizontal, Pencil, Play, Tag, Trash2, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { getRequestStatusClassName, formatViewerDateTime, formatViewerFileSize } from './mediaViewerTypes';
 import type { useMediaViewerController } from './useMediaViewerController';
@@ -73,6 +73,9 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
     handleEnterSlideshow,
     handleFlagImage,
     handleSetHeroImage,
+    handleMarkAs,
+    canMarkAs,
+    viewerMarkMenuOptions,
     stopZoomPan,
     handleZoomStagePointerDown,
     handleZoomStagePointerMove,
@@ -147,6 +150,25 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                     <CheckCircle2 className="h-4 w-4" />
                     Make hero
                   </DropdownMenuItem>
+                )}
+                {canMarkAs && (
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className={mobileActionMenuItemClassName}>
+                      <Tag className="h-4 w-4" />
+                      Mark as
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="z-[130] border-white/10 bg-neutral-950/95 text-white">
+                      {viewerMarkMenuOptions.map((option) => (
+                        <DropdownMenuItem
+                          key={option.value}
+                          className={mobileActionMenuItemClassName}
+                          onSelect={() => { void handleMarkAs(option.value); }}
+                        >
+                          {option.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                 )}
                 {canDownloadSingleMedia && onDownloadSingle && (
                   <DropdownMenuItem
@@ -522,6 +544,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                       </Badge>
                     </div>
                     {(canSetHero ||
+                      canMarkAs ||
                       (canDownloadSingleMedia && onDownloadSingle) ||
                       onToggleHidden ||
                       canShowRenameFilename ||
@@ -537,6 +560,31 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                           >
                             <CheckCircle2 className="h-4 w-4" />
                           </Button>
+                        )}
+                        {canMarkAs && (
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9 shrink-0 rounded-lg !border-white/10 !bg-black/35 !text-white hover:!bg-white/10"
+                                title="Mark as"
+                              >
+                                <Tag className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="start" className="z-[120] border-white/10 bg-neutral-950/95 text-white">
+                              {viewerMarkMenuOptions.map((option) => (
+                                <DropdownMenuItem
+                                  key={option.value}
+                                  className={mobileActionMenuItemClassName}
+                                  onSelect={() => { void handleMarkAs(option.value); }}
+                                >
+                                  {option.label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                         {canDownloadSingleMedia && onDownloadSingle && (
                           <Button
@@ -668,6 +716,30 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                           <CheckCircle2 className="mr-2 h-4 w-4" />
                           Make hero
                         </Button>
+                      )}
+                      {canMarkAs && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className={sidebarActionButtonClassName}
+                            >
+                              <Tag className="mr-2 h-4 w-4" />
+                              Mark as
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="z-[120] min-w-[180px] border-white/10 bg-neutral-950/95 text-white">
+                            {viewerMarkMenuOptions.map((option) => (
+                              <DropdownMenuItem
+                                key={option.value}
+                                className="focus:bg-white/10 focus:text-white"
+                                onSelect={() => { void handleMarkAs(option.value); }}
+                              >
+                                {option.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       )}
                       {canDownloadSingleMedia && onDownloadSingle && (
                         <Button

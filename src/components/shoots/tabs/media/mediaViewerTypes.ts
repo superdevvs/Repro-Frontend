@@ -26,6 +26,10 @@ export interface MediaViewerProps {
   onRenameFilename?: (fileId: string, filename: string) => void | Promise<void>;
   /** Returns true when the file was deleted so the viewer can advance. */
   onDeleteFile?: (fileId: string) => void | Promise<boolean>;
+  /** When true, show Mark as (reclassify) actions for the current image. */
+  canReclassify?: boolean;
+  /** Reclassify one file (same PATCH as grid Mark menu). */
+  onReclassify?: (fileId: string, mediaType: import('./shootMediaActionTypes').ReclassifyMediaType) => void | Promise<void>;
   downloadingFileIds?: ReadonlySet<string>;
   onShootUpdate?: () => void;
 }
