@@ -175,12 +175,11 @@ export interface ServicesTabHandle {
   openAddCategory: () => void;
 }
 
-export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_props, ref) {
+export const ServicesTab = forwardRef<ServicesTabHandle, { serviceQuery: string; onServiceQueryChange: (query: string) => void }>(function ServicesTab({ serviceQuery, onServiceQueryChange: setServiceQuery }, ref) {
   const [isLoading, setIsLoading] = useState(true);
   const [catalogError, setCatalogError] = useState(false);
   const [services, setServices] = useState<Service[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
-  const [serviceQuery, setServiceQuery] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newService, setNewService] = useState<ServiceDraft>({
     name: '',
@@ -636,13 +635,6 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
 
   return (
     <div className="space-y-3 sm:space-y-4">
-      <Input
-        value={serviceQuery}
-        onChange={(event) => setServiceQuery(event.target.value)}
-        placeholder="Search services"
-        aria-label="Search services"
-        className="max-w-md"
-      />
       <div>
         {categoriesLoading ? (
           <div className="flex justify-center py-4">

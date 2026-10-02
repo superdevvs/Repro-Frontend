@@ -35,6 +35,7 @@ function NeighborCard({ leg, timezone, showProposedTime }: { leg: TravelTransiti
     </div>
     <div className="space-y-1 text-xs text-muted-foreground">
       {leg.source === 'google_routes' && leg.drive_minutes != null ? <p>Approximate Google drive time {leg.direction === 'outgoing' ? 'to the next booking' : 'to the proposed location'}: <span className="font-medium text-foreground">{Math.ceil(leg.drive_minutes)} min.</span></p>
+        : leg.source === 'fixed' ? <p>Fixed travel gap: {leg.required_minutes} min.</p>
         : leg.source === 'same_building' ? <p>Same confirmed building; no travel between these units.</p>
           : leg.source === 'unknown' ? <p>Travel cannot be estimated reliably; staff review required.</p>
             : <p>Estimated travel based on distance; actual road travel may take longer. Google drive time is unavailable.</p>}

@@ -34,7 +34,7 @@ function renderCatalog() {
   const ref = createRef<ServicesTabHandle>();
   render(<>
     <button onClick={() => ref.current?.openAddService()}>Open new service</button>
-    <ServicesTab ref={ref} />
+    <ServicesTab ref={ref} serviceQuery="" onServiceQueryChange={() => {}} />
   </>);
 }
 

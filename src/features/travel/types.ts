@@ -1,7 +1,7 @@
 export type TravelTransition = {
   id: string;
   direction: 'incoming' | 'outgoing' | 'between_proposed';
-  source: 'same_building' | 'google_routes' | 'mileage_band' | 'unknown';
+  source: 'fixed' | 'same_building' | 'google_routes' | 'mileage_band' | 'unknown';
   required_minutes: number | null;
   available_minutes: number;
   shortfall_minutes: number | null;

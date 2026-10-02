@@ -35,6 +35,7 @@ export function TravelFeasibilityPanel({ travel, onAlternative }: { travel: Trav
       <p className="font-medium">{labels[transition.direction]}</p>
       <p>{transition.required_minutes == null ? 'Travel allowance is not yet known.' : `${transition.required_minutes} min needed · ${Math.max(0, transition.available_minutes)} min available`}
         {transition.shortfall_minutes != null && transition.shortfall_minutes > 0 ? ` · ${transition.shortfall_minutes} min short` : ''}</p>
+      {transition.source === 'fixed' && <p className="text-xs text-muted-foreground">Fixed travel gap from scheduling settings.</p>}
       {transition.source === 'same_building' && <p className="text-xs text-muted-foreground">Same confirmed building · no travel allowance between units.</p>}
       {transition.source === 'mileage_band' && <p className="text-xs text-muted-foreground">Estimated travel based on distance; actual road travel may take longer.</p>}
       {transition.source !== 'same_building' && transition.drive_minutes != null && <p className="text-xs text-muted-foreground">Estimated drive: {Math.ceil(transition.drive_minutes)} min{transition.distance_miles != null ? ` · ${transition.distance_miles.toFixed(1)} miles` : ''}</p>}
