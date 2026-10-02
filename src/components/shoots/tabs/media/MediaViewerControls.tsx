@@ -9,7 +9,7 @@ export function MediaViewerPreviewSizeControls({ model }: { model: MediaViewerMo
   const renderPreviewSizeControls = (
     wrapperClassName = '',
     groupClassName = '',
-  ) => isImg ? (
+  ) => isImg && canViewFullSize ? (
     <div className={`flex min-w-0 max-w-full overflow-x-auto rounded-xl ${wrapperClassName}`}>
       <div className={`ml-auto flex w-max items-center gap-1 rounded-xl border border-white/10 bg-black/55 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md ${groupClassName}`}>
         <Button
@@ -51,7 +51,7 @@ export function MediaViewerZoomControls({ model }: { model: MediaViewerModel }) 
   const zoomControls = isImg ? (
     <div className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center sm:bottom-4">
       <div className="pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-black/60 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
-        <div className="flex shrink-0 items-center gap-1 md:hidden">
+        {canViewFullSize && <div className="flex shrink-0 items-center gap-1 md:hidden">
           <Button
             variant="ghost"
             size="sm"
@@ -79,8 +79,8 @@ export function MediaViewerZoomControls({ model }: { model: MediaViewerModel }) 
           >
             Full
           </Button>
-        </div>
-        <span className="h-5 w-px shrink-0 bg-white/10 md:hidden" aria-hidden />
+        </div>}
+        {canViewFullSize && <span className="h-5 w-px shrink-0 bg-white/10 md:hidden" aria-hidden />}
         <Button
           variant="ghost"
           size="icon"
@@ -119,4 +119,3 @@ export function MediaViewerZoomControls({ model }: { model: MediaViewerModel }) 
   ) : null;
   return zoomControls;
 }
-

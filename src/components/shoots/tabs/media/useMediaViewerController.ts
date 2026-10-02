@@ -767,7 +767,8 @@ export function useMediaViewerController({
   const displayFilename = getDisplayMediaFilename(currentFile) || currentFile.filename;
   const mediaType = (currentFile.media_type || '').toLowerCase();
   const fullSizeAvailable = Boolean(
-    fullSizeImageUrl &&
+    canViewFullSize &&
+      fullSizeImageUrl &&
       previewImageUrl &&
       fullSizeImageUrl !== previewImageUrl,
   );
