@@ -2,12 +2,14 @@
 export const MEDIA_FILENAME_SAFE_PATTERN = /^[\p{L}\p{N}_. ()[\]-]+$/u;
 
 /** Remove unsupported characters and path syntax, matching the server cleanup. */
-export const sanitizeMediaFilename = (filename: string): string =>
-  String(filename || '')
+export const sanitizeMediaFilename = (filename: string): string => {
+  const cleaned = String(filename || '')
     .trim()
     .replace(/[^\p{L}\p{N}_. ()[\]-]/gu, '')
-    .replace(/\.{2,}/g, '')
-    .replace(/^[ .]+|[ .]+$/g, '');
+    .replace(/\.{2,}/g, '');
+  if (/^\.[^.]+$/.test(cleaned.trim())) return '';
+  return cleaned.replace(/^[ .]+|[ .]+$/g, '');
+};
 
 export type MediaFilenameValidationResult =
   | { ok: true; filename: string }

@@ -37,4 +37,8 @@ describe('previewBatchRenameFilenames', () => {
     expect(previewBatchRenameFilenames(names, { mode: 'suffix', value: ',*?\\' })).toEqual(names);
     expect(previewBatchRenameFilenames(names, { mode: 'sequence', value: 'Café [2],', separator: '/', digits: 2 })).toEqual(['Café [2]01.jpg']);
   });
+
+  it('does not turn an empty cleaned stem into a filename made from its extension', () => {
+    expect(previewBatchRenameFilenames(['SNAP.CR3'], { mode: 'replace', find: 'SNAP', replace: ',/?*' })).toEqual(['']);
+  });
 });

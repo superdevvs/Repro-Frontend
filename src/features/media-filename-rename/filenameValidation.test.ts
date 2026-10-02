@@ -39,7 +39,7 @@ describe('validateMediaFilenameInput', () => {
     expect(validateMediaFilenameInput(input, 'shot.jpg')).toEqual({ ok: true, filename });
   });
 
-  it.each(['', ',/?*', ' ... '])('rejects %s when cleanup leaves no name', (input) => {
+  it.each(['', ',/?*', ',/?*.jpg', ' ... '])('rejects %s when cleanup leaves no name', (input) => {
     expect(validateMediaFilenameInput(input, 'shot.jpg')).toMatchObject({ ok: false });
   });
 
