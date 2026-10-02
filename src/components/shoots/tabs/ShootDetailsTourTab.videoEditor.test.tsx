@@ -6,8 +6,8 @@ import { ShootDetailsTourTab } from './ShootUnitTourTab';
 import { OverviewVideoEmbedsSection } from './overview/OverviewVideoEmbedsSection';
 
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
-vi.mock('./tours/TourLinkRow', () => ({ TourLinkRow: ({ label, value, actions }) => <div>
-  <input aria-label={label} value={value} readOnly />{actions.map(action => <button key={action.key} onClick={action.onSelect} disabled={action.disabled}>{action.label}</button>)}
+vi.mock('./tours/TourLinkRow', () => ({ TourLinkRow: ({ label, value, placeholder, actions }) => <div>
+  <input aria-label={label} value={value} placeholder={placeholder} readOnly />{actions.map(action => <button key={action.key} onClick={action.onSelect} disabled={action.disabled}>{action.label}</button>)}
 </div> }));
 vi.mock('./tours/TourProvidersSection', () => ({ TourProvidersSection: () => <div>3D providers</div> }));
 const editor = { id: '22', role: 'editor', metadata: { editing_capabilities: ['video'] } };
@@ -25,6 +25,14 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('video-only Tours and Overview links', () => {
+  it('shows entry placeholders for unsaved versions even when an embed link exists', async () => {
+    render(<ShootDetailsTourTab shoot={makeShoot()} isAdmin={false} editorUser={editor} onShootUpdate={vi.fn()} />);
+    for (const placeholder of ['Enter branded link', 'Enter MLS link', 'Enter generic link']) {
+      expect(screen.getByPlaceholderText(placeholder)).toHaveValue('');
+    }
+    await waitFor(() => expect(screen.getByLabelText('Video embed')).toHaveValue('https://vimeo.com/123'));
+  });
+
   it.each([
     ['Edit Branded Video', 'video_branded'], ['Edit MLS Video', 'video_mls'],
     ['Edit Generic Video', 'video_generic'], ['Edit video embed', 'video_link'],

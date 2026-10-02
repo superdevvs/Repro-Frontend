@@ -394,17 +394,17 @@ export function ShootDetailsTourContent({
     {
       key: 'video_branded',
       label: 'Branded Video',
-      placeholder: 'No branded video link set',
+      placeholder: 'Enter branded link',
     },
     {
       key: 'video_mls',
       label: 'MLS Video',
-      placeholder: 'No MLS video link set',
+      placeholder: 'Enter MLS link',
     },
     {
       key: 'video_generic',
       label: 'Generic Video',
-      placeholder: 'No generic video link set',
+      placeholder: 'Enter generic link',
     },
   ];
   const visibleMatterportKeys = isClientView

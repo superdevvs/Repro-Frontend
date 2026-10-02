@@ -178,6 +178,8 @@ export function ShootDetailsTourTabView(props: any) {
     ]
     : []);
 
+  const videoEmbedUrl = typeof tourLinks.video_link === 'string' ? tourLinks.video_link.trim() : '';
+
   return (
     <div className="w-full space-y-4">
       {/* Tour Links Section */}
@@ -254,13 +256,13 @@ export function ShootDetailsTourTabView(props: any) {
               <div className="space-y-3">
                 {(isAdmin || canEditVideoLinks) && (
                   <p className="text-[11px] text-muted-foreground">
-                    These links stay fixed. Editing a row changes the video that the public page plays.
+                    Use Edit to set a video link for each version.
                   </p>
                 )}
                 {publicVideoLinkConfigs.map(({ key, label, placeholder }) => {
                   const isEditing = editingVideoLinkKey === key;
-                  const url = getTourUrl(key);
-                  const destinationUrl = typeof tourLinks[key] === 'string' ? tourLinks[key] : '';
+                  const destinationUrl = typeof tourLinks[key] === 'string' ? tourLinks[key].trim() : '';
+                  const url = destinationUrl ? getTourUrl(key) : '';
                   return (
                     <div key={key} className="space-y-2">
                       <Label>{label}</Label>
@@ -272,9 +274,9 @@ export function ShootDetailsTourTabView(props: any) {
                             placeholder={placeholder}
                             actions={[...shareActions(key, Boolean(url)), ...manageActions(key, label)]}
                           />
-                          {(isAdmin || canEditVideoLinks) && (
+                          {(isAdmin || canEditVideoLinks) && destinationUrl && (
                             <p className="truncate text-xs text-muted-foreground">
-                              Destination: {destinationUrl || placeholder}
+                              Destination: {destinationUrl}
                             </p>
                           )}
                         </div>
@@ -309,11 +311,11 @@ export function ShootDetailsTourTabView(props: any) {
                 {editingVideoLinkKey !== 'video_link' ? (
                   <TourLinkRow
                     label="Video embed"
-                    value={tourLinks.video_link || ''}
-                    placeholder="No video embed set"
+                    value={videoEmbedUrl}
+                    placeholder="Enter video link"
                     actions={[
-                      { key: 'copy', label: 'Copy embed link', icon: Copy, onSelect: () => copyLink('video_link'), disabled: !tourLinks.video_link },
-                      { key: 'open', label: 'Open embed link', icon: ExternalLink, onSelect: () => openLink('video_link'), disabled: !tourLinks.video_link },
+                      { key: 'copy', label: 'Copy embed link', icon: Copy, onSelect: () => copyLink('video_link'), disabled: !videoEmbedUrl },
+                      { key: 'open', label: 'Open embed link', icon: ExternalLink, onSelect: () => openLink('video_link'), disabled: !videoEmbedUrl },
                       ...manageActions('video_link', 'video embed'),
                     ]}
                   />
