@@ -8,7 +8,7 @@ import { protectUploadFromNavigation, releaseUploadNavigationProtection } from '
 const telemetry = vi.hoisted(() => vi.fn());
 vi.mock('@/features/system-overview/telemetryClient', () => ({ trackTelemetryError: telemetry }));
 const suppressExpectedRenderError = (event: ErrorEvent) => {
-  if (['private-filename-and-token-canary', 'Render failed', 'Importing a module script failed.'].some((message) => event.message.includes(message))) event.preventDefault();
+  if (['private-filename-and-token-canary', 'Render failed', 'Route render failed', 'Importing a module script failed.'].some((message) => event.message.includes(message))) event.preventDefault();
 };
 beforeEach(() => { vi.spyOn(console, 'error').mockImplementation(() => {}); telemetry.mockReset(); window.addEventListener('error', suppressExpectedRenderError); });
 afterEach(() => { cleanup(); releaseUploadNavigationProtection('fallback-test'); window.removeEventListener('error', suppressExpectedRenderError); vi.restoreAllMocks(); });
@@ -87,12 +87,36 @@ describe('contained render recovery', () => {
     expect(screen.getByRole('alert')).toBeVisible();
   });
 
-  it('reuses the app NotFound 404 pattern for unscoped route/view failures', () => {
+  it('shows recovery guidance and retries unscoped route failures without a missing-page screen', () => {
+    let broken = true;
+    function BrokenRoute() {
+      if (broken) throw new Error('Route render failed');
+      return <p>Registration is available</p>;
+    }
+    render(<ErrorBoundary><BrokenRoute /></ErrorBoundary>);
+    expect(screen.getByRole('alert')).toHaveTextContent('This view could not load');
+    expect(screen.queryByRole('heading', { name: 'This page is under a different plan' })).not.toBeInTheDocument();
+    expect(telemetry).toHaveBeenCalledWith('A view could not render.', 'ReactRenderError', { code: 'react_render_error', kind: 'ReactRenderError' });
+    broken = false;
+    fireEvent.click(screen.getByRole('button', { name: 'Try Again' }));
+    expect(screen.getByText('Registration is available')).toBeVisible();
+  });
+
+  it('protects active uploads when an unscoped route fails', () => {
+    protectUploadFromNavigation('fallback-test');
     function BrokenRoute(): never { throw new Error('Route render failed'); }
     render(<ErrorBoundary><BrokenRoute /></ErrorBoundary>);
-    expect(screen.getByRole('heading', { name: 'This page is under a different plan' })).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Go to Homepage' })).toHaveAttribute('href', '/');
+    expect(screen.getByRole('status')).toHaveTextContent('Uploads are still running');
+    expect(screen.getByRole('button', { name: 'Reload Page' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Try Again' })).toBeEnabled();
+    act(() => releaseUploadNavigationProtection('fallback-test'));
+    expect(screen.getByRole('button', { name: 'Reload Page' })).toBeEnabled();
+  });
+
+  it('preserves an explicitly supplied fallback', () => {
+    function BrokenRoute(): never { throw new Error('Route render failed'); }
+    render(<ErrorBoundary fallback={<p role="alert">Custom recovery guidance</p>}><BrokenRoute /></ErrorBoundary>);
+    expect(screen.getByRole('alert')).toHaveTextContent('Custom recovery guidance');
     expect(screen.queryByText('This view could not load')).not.toBeInTheDocument();
-    expect(telemetry).toHaveBeenCalledWith('A view could not render.', 'ReactRenderError', { code: 'react_render_error', kind: 'ReactRenderError' });
   });
 });

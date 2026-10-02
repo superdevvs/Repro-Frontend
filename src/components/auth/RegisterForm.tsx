@@ -18,12 +18,13 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { toast } from '@/components/ui/use-toast';
-import type { EmailHealth, UserData } from '@/types/auth';
+import type { EmailHealth } from '@/types/auth';
 import { API_BASE_URL } from '@/config/env';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { EmailHealthInlineHint } from '@/components/email/EmailHealthInlineHint';
-import { analyzeEmailInput, normalizeEmailHealth } from '@/utils/emailHealth';
+import { analyzeEmailInput } from '@/utils/emailHealth';
 import { PrivacyPolicyDialog, TermsAgreementDialog } from './RegisterLegalDialogs';
+import { registrationFailure, registrationSuccess, type RegistrationFailure } from './registrationResponse';
 import {
   registerSchema,
   smsConsentOptions,
@@ -31,17 +32,12 @@ import {
   type RegisterFormValues,
 } from './registerFormModel';
 
-interface RegistrationErrorPayload {
-  email_health?: unknown;
-  errors?: { email?: unknown };
-  message?: string;
-}
-
-const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, isActive = false }) => {
+const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, onLogin, isActive = false }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [registrationError, setRegistrationError] = useState<RegistrationFailure | null>(null);
   const [serverEmailHealth, setServerEmailHealth] = useState<EmailHealth | undefined>(undefined);
   const [emailWarningOverride, setEmailWarningOverride] = useState(false);
   const [showRegisterTermsHint, setShowRegisterTermsHint] = useState(false);
@@ -50,6 +46,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
   const [termsScrolledToEnd, setTermsScrolledToEnd] = useState(false);
   const isMobile = useIsMobile();
   const formTopRef = useRef<HTMLDivElement | null>(null);
+  const errorRef = useRef<HTMLDivElement | null>(null);
   const termsScrollRef = useRef<HTMLDivElement | null>(null);
   const previousStepRef = useRef<1 | 2>(1);
 
@@ -212,7 +209,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
   useEffect(() => {
     setEmailWarningOverride(false);
     setServerEmailHealth(undefined);
+    setRegistrationError(null);
   }, [emailValue]);
+
+  useEffect(() => {
+    if (registrationError) errorRef.current?.focus();
+  }, [registrationError]);
 
   useEffect(() => {
     onStepChange?.(currentStep);
@@ -310,6 +312,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
 
   const handleRegister = async (values: RegisterFormValues) => {
     setIsSubmitting(true);
+    setRegistrationError(null);
     try {
       if (localEmailHint.requiresConfirmation && !emailWarningOverride) {
         setCurrentStep(1);
@@ -345,70 +348,30 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
         marketing_sms_opt_in: values.marketingSmsOptIn ?? false,
         transactional_sms_opt_in: values.transactionalSmsOptIn ?? false,
         email_warning_override: emailWarningOverride,
-      });
+      }, { headers: { Accept: 'application/json' } });
 
-      const apiUser = response.data.user;
-      const token = response.data.token;
-      const normalizedRole =
-        apiUser.role === 'sales_rep'
-          ? 'salesRep'
-          : apiUser.role || 'client';
-
-      const newUser: UserData = {
-        id: String(apiUser.id),
-        name: apiUser.name,
-        email: apiUser.email,
-        role: normalizedRole,
-        company: apiUser.company_name,
-        phone: apiUser.phonenumber,
-        avatar: apiUser.avatar,
-        bio: apiUser.bio,
-        isActive: apiUser.account_status === 'active',
-        metadata: {
-          city: apiUser.city,
-          state: apiUser.state,
-          zip: apiUser.zip,
-          country: apiUser.country,
-        },
-        email_health: normalizeEmailHealth(apiUser.email_health),
-      };
-
-      onSuccess({ user: newUser, token });
+      const result = registrationSuccess(response.data);
+      if (!result) throw new Error('Invalid registration response');
+      onSuccess(result);
       form.reset();
       setCurrentStep(1);
       setEmailWarningOverride(false);
       setServerEmailHealth(undefined);
     } catch (error: unknown) {
-      console.error('Registration error:', error);
-      const errorPayload = axios.isAxiosError<RegistrationErrorPayload>(error)
-        ? error.response?.data
-        : undefined;
-      const nextEmailHealth = normalizeEmailHealth(errorPayload?.email_health);
-      if (nextEmailHealth) {
-        setServerEmailHealth(nextEmailHealth);
-        setCurrentStep(1);
-        focusEmailField();
-      }
-
-      const emailFieldMessage = Array.isArray(errorPayload?.errors?.email)
-        ? errorPayload.errors.email[0]
-        : undefined;
-
-      if (emailFieldMessage && !nextEmailHealth) {
-        setCurrentStep(1);
+      const failure = registrationFailure(error);
+      setRegistrationError(failure);
+      setCurrentStep(1);
+      setServerEmailHealth(failure.emailHealth);
+      if (failure.emailMessage && !failure.emailHealth) {
         form.setError('email', {
           type: 'server',
-          message: emailFieldMessage,
+          message: failure.emailMessage,
         });
-        focusEmailField();
       }
 
       toast({
-        title: 'Registration Failed',
-        description:
-          emailFieldMessage ||
-          errorPayload?.message ||
-          'An unexpected error occurred. Please try again.',
+        title: failure.accountExists ? 'Account already exists' : 'Registration Failed',
+        description: failure.message,
         variant: 'destructive',
       });
     } finally {
@@ -423,6 +386,17 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, is
         onSubmit={handleFormSubmit}
         className="space-y-6"
       >
+        {registrationError && (
+          <div ref={errorRef} role="alert" tabIndex={-1} className={`space-y-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm outline-none focus-visible:ring-2 focus-visible:ring-amber-500 ${isMobile ? 'text-amber-100' : 'text-amber-900 dark:text-amber-100'}`}>
+            <p className="font-semibold">{registrationError.accountExists ? 'Account already exists' : 'Registration could not be completed'}</p>
+            <p>{registrationError.message}</p>
+            {registrationError.accountExists && onLogin && (
+              <Button type="button" variant="outline" onClick={() => onLogin((emailValue ?? '').trim())}>
+                Go to login
+              </Button>
+            )}
+          </div>
+        )}
         {currentStep === 1 ? (
           <>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">

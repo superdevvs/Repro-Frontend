@@ -269,6 +269,7 @@ export type RegisterSuccessPayload = {
 
 export type RegisterFormProps = {
   onSuccess: (payload: RegisterSuccessPayload) => void;
+  onLogin?: (email: string) => void;
   onStepChange?: (step: 1 | 2) => void;
   isActive?: boolean;
 };

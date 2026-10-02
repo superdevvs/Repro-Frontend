@@ -457,6 +457,11 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
                 <div className={isMobile ? 'flex flex-1 flex-col' : ''}>
                   <RegisterForm
                     onSuccess={handleRegisterSuccess}
+                    onLogin={(email) => {
+                      loginForm.reset({ email, password: '' });
+                      setActiveTab('login');
+                      window.setTimeout(() => loginForm.setFocus('password'), 0);
+                    }}
                     onStepChange={setRegisterStep}
                     isActive={activeTab === 'register'}
                   />
