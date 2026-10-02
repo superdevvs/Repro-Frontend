@@ -201,6 +201,11 @@ const normalizeEditorAssignments = (shoot: ApiShoot): ShootEditorAssignment[] | 
           : Array.isArray(assignment.serviceNames)
             ? assignment.serviceNames.filter((name): name is string => typeof name === 'string' && Boolean(name.trim()))
             : undefined,
+        shootServiceIds: Array.isArray(assignment.shoot_service_ids)
+          ? assignment.shoot_service_ids.map((id) => String(id)).filter(Boolean)
+          : Array.isArray(assignment.shootServiceIds)
+            ? assignment.shootServiceIds.map((id) => String(id)).filter(Boolean)
+            : undefined,
         ready: Boolean(assignment.ready),
         readyAt:
           (typeof assignment.ready_at === 'string' && assignment.ready_at.trim() ? assignment.ready_at : undefined) ||

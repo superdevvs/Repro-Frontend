@@ -408,6 +408,7 @@ export interface ShootEditorAssignment {
   editorId?: string | null;
   editor?: ShootServiceEditor | null;
   serviceIds?: string[];
+  shootServiceIds?: string[];
   serviceNames?: string[];
   ready?: boolean;
   readyAt?: string | null;
