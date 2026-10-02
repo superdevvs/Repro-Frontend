@@ -196,7 +196,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                 : PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_COMPACT,
             )}
           >
-            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-2.5 pb-0 pt-3 sm:px-6">
+            <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-2.5 pb-0 pt-3 sm:px-6 [@media(orientation:landscape)_and_(max-height:900px)]:gap-2 [@media(orientation:landscape)_and_(max-height:900px)]:px-2 [@media(orientation:landscape)_and_(max-height:900px)]:pt-2">
                 {isPickerMobile ? (
                   <div className="relative shrink-0">
                     <Button

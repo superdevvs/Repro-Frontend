@@ -376,7 +376,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
       <DialogTrigger asChild>{photographerTrigger}</DialogTrigger>
       <DialogContent className={PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_BOOK}>
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6 [@media(orientation:landscape)_and_(max-height:900px)]:gap-2 [@media(orientation:landscape)_and_(max-height:900px)]:p-3">
             <PhotographerPickerMapShell
               isMobile={false}
               photographer={selectedPhotographerDetails}
@@ -389,7 +389,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
               list={
                 <>
                   <DialogHeader className="shrink-0 space-y-1 text-left items-start">
-                    <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">Select Photographer</DialogTitle>
+                    <DialogTitle className="text-xl text-slate-900 dark:text-slate-100 [@media(orientation:landscape)_and_(max-height:900px)]:text-lg">Select Photographer</DialogTitle>
                     <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
                       {filteredAndSortedPhotographers.length} photographers shown
                     </DialogDescription>
@@ -659,7 +659,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                 }}>
                   <DialogContent className={PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_BOOK}>
                     <div className="flex min-h-0 flex-1 flex-col">
-                      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6">
+                      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6 [@media(orientation:landscape)_and_(max-height:900px)]:gap-2 [@media(orientation:landscape)_and_(max-height:900px)]:p-3">
                         <PhotographerPickerMapShell
                           isMobile={false}
                           photographer={selectedPhotographerDetails}
@@ -672,7 +672,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                           list={
                             <>
                               <DialogHeader className="shrink-0 space-y-1 text-left items-start">
-                                <DialogTitle className="text-xl text-slate-900 dark:text-slate-100">
+                                <DialogTitle className="text-xl text-slate-900 dark:text-slate-100 [@media(orientation:landscape)_and_(max-height:900px)]:text-lg">
                                   Select Photographer{activeServiceNameForPicker ? ` for ${activeServiceNameForPicker}` : ''}
                                 </DialogTitle>
                                 <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">

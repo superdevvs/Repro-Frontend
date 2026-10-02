@@ -4,6 +4,12 @@ import { PhotographerPickerMap } from './PhotographerPickerMap'
 import type { PhotographerListEntry } from './buildPhotographerMapMarkers'
 import type { ShootMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates'
 
+/** Landscape → 50/50 even under xl (iPad landscape ~1024–1180). */
+export const PICKER_LANDSCAPE_QUERY = '(orientation: landscape)'
+/** Shorter landscape heights: tighten chrome so the list stays readable. */
+export const PICKER_COMPACT_LANDSCAPE_QUERY =
+  '(orientation: landscape) and (max-height: 900px)'
+
 export type PhotographerPickerMapShellProps = {
   /** Phone / short-landscape hint from parent; shell still uses CSS for iPad mid-widths. */
   isMobile: boolean
@@ -18,11 +24,31 @@ export type PhotographerPickerMapShellProps = {
   className?: string
 }
 
+function useMatchMedia(query: string): boolean {
+  const [matches, setMatches] = React.useState(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false
+    return window.matchMedia(query).matches
+  })
+
+  React.useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return
+    const mq = window.matchMedia(query)
+    const onChange = () => setMatches(mq.matches)
+    onChange()
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [query])
+
+  return matches
+}
+
 /**
- * Responsive layout (Tailwind defaults):
- * - max-lg (<1024): Map/List tabs — phones + iPad portrait (~768–834)
- * - lg–xl (1024–1279): stacked map above list — iPad landscape / ~1180 laptops
- * - xl+ (≥1280): equal-width 50/50 — 1366 / 1440 / 1920 desktops
+ * Responsive layout:
+ * - Phone / forced mobile (isMobile): Map/List tabs
+ * - Portrait <lg: Map/List tabs (CSS)
+ * - Portrait lg–xl: stacked map above list
+ * - Portrait xl+: equal-width 50/50
+ * - Landscape (any width, non-mobile): equal-width 50/50 — iPad landscape never stacks
  *
  * Parent Dialog wrappers use photographerPickerDialogClasses: edge-to-edge
  * ~100dvh×100vw below xl (iPad portrait/landscape); inset modal on xl+.
@@ -43,6 +69,10 @@ export function PhotographerPickerMapShell({
 }: PhotographerPickerMapShellProps) {
   const [compactTab, setCompactTab] = React.useState<'map' | 'list'>('list')
   const useTabs = isMobile
+  const isLandscape = useMatchMedia(PICKER_LANDSCAPE_QUERY)
+  const compactChrome = useMatchMedia(PICKER_COMPACT_LANDSCAPE_QUERY)
+  /** Desktop Dialog path in landscape → always side-by-side (even under xl). */
+  const sideBySide = !useTabs && isLandscape
 
   const map = (
     <PhotographerPickerMap
@@ -56,17 +86,22 @@ export function PhotographerPickerMapShell({
     />
   )
 
+  const layout = useTabs ? 'tabs' : sideBySide ? 'side-by-side' : 'responsive'
+
   return (
     <div
       className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', className)}
       data-testid="photographer-picker-map-shell"
-      data-layout={useTabs ? 'tabs' : 'responsive'}
+      data-layout={layout}
+      data-orientation={isLandscape ? 'landscape' : 'portrait'}
+      data-compact-chrome={compactChrome ? 'true' : 'false'}
     >
       <div
         className={cn(
           'mb-2 shrink-0 gap-1 rounded-full border border-slate-200/80 bg-slate-100/80 p-1 dark:border-slate-800 dark:bg-slate-900/60',
-          useTabs ? 'flex' : 'hidden max-lg:flex',
-          'lg:hidden',
+          useTabs ? 'flex' : sideBySide ? 'hidden' : 'hidden max-lg:flex',
+          !sideBySide && 'lg:hidden',
+          compactChrome && 'mb-1.5',
         )}
       >
         <button
@@ -102,13 +137,18 @@ export function PhotographerPickerMapShell({
           'relative min-h-0 flex-1',
           useTabs
             ? 'flex flex-col'
-            : cn(
-                // lg–xl: stacked map then list (iPad landscape height budget)
-                'lg:grid lg:gap-3',
-                'lg:grid-cols-1 lg:grid-rows-[minmax(220px,38%)_minmax(0,1fr)]',
-                // ≥1280: equal-width side-by-side
-                'xl:grid-cols-2 xl:grid-rows-1 xl:items-stretch xl:gap-4',
-              ),
+            : sideBySide
+              ? cn(
+                  'grid grid-cols-2 grid-rows-1 items-stretch',
+                  compactChrome ? 'gap-2' : 'gap-3',
+                )
+              : cn(
+                  // Portrait lg–xl: stacked map then list
+                  'lg:grid lg:gap-3',
+                  'lg:grid-cols-1 lg:grid-rows-[minmax(220px,38%)_minmax(0,1fr)]',
+                  // Portrait xl+: equal-width side-by-side
+                  'xl:grid-cols-2 xl:grid-rows-1 xl:items-stretch xl:gap-4',
+                ),
         )}
       >
         <div
@@ -116,26 +156,34 @@ export function PhotographerPickerMapShell({
             'min-h-0 min-w-0',
             useTabs
               ? cn('min-h-0 flex-1', compactTab !== 'map' && 'hidden')
-              : cn(
-                  // Fill dialog below lg via absolute; grid cell at lg+
-                  'absolute inset-0 lg:static lg:h-full',
-                  compactTab !== 'map' && 'max-lg:hidden',
-                  'lg:block',
-                ),
+              : sideBySide
+                ? 'h-full'
+                : cn(
+                    // Fill dialog below lg via absolute; grid cell at lg+
+                    'absolute inset-0 lg:static lg:h-full',
+                    compactTab !== 'map' && 'max-lg:hidden',
+                    'lg:block',
+                  ),
           )}
         >
           {map}
         </div>
         <div
           className={cn(
-            'flex min-h-0 min-w-0 flex-col gap-3 overflow-hidden',
+            'flex min-h-0 min-w-0 flex-col overflow-hidden',
+            compactChrome ? 'gap-2' : 'gap-3',
+            // Compact list chrome titles/footers when landscape height is tight
+            compactChrome &&
+              '[&_[class*="text-xl"]]:text-lg [&_[class*="pt-4"]]:pt-2.5 [&_[class*="space-y-3"]]:space-y-2',
             useTabs
               ? cn('min-h-0 flex-1', compactTab !== 'list' && 'hidden')
-              : cn(
-                  'absolute inset-0 lg:static',
-                  compactTab !== 'list' && 'max-lg:hidden',
-                  'lg:flex',
-                ),
+              : sideBySide
+                ? 'flex'
+                : cn(
+                    'absolute inset-0 lg:static',
+                    compactTab !== 'list' && 'max-lg:hidden',
+                    'lg:flex',
+                  ),
           )}
         >
           {list}

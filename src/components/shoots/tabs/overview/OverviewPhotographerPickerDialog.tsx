@@ -100,7 +100,7 @@ export function OverviewPhotographerPickerDialog({
         )}
       >
         <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden px-2.5 pb-0 pt-1.5 sm:gap-3 sm:px-6 sm:pt-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden px-2.5 pb-0 pt-1.5 sm:gap-3 sm:px-6 sm:pt-3 [@media(orientation:landscape)_and_(max-height:900px)]:gap-1.5 [@media(orientation:landscape)_and_(max-height:900px)]:px-2 [@media(orientation:landscape)_and_(max-height:900px)]:pt-1.5">
             {isMobile ? (
               <div className="relative shrink-0">
                 <Button
