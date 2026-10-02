@@ -16,6 +16,8 @@ import { getAvatarUrl } from '@/utils/defaultAvatars';
 import type { useShootEditModalController } from './useShootEditModalController';
 import { createShootEditModalPanels } from './ShootEditModalPanels';
 import { PhotographerAvailabilityTimeline } from '@/components/photographers/PhotographerAvailabilityTimeline';
+import { PhotographerPickerMapShell } from '@/components/photographers/map/PhotographerPickerMapShell';
+import { readPhotographerMapFields } from '@/components/photographers/map/photographerMapFields';
 import {
   type MobileEditPanel,
 } from './shootEditModalTypes';
@@ -45,6 +47,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
     resolvePhotographerDetails,
     filteredPhotographers,
     formatPhotographerLocationLabel,
+    bookingJobCoords,
     closePhotographerPicker,
     handleConfirmPhotographerPicker,
     handleClearPhotographerPicker,
@@ -66,6 +69,11 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
   const PickerHeader: React.ElementType = isPickerMobile ? DrawerHeader : DialogHeader;
   const PickerTitle: React.ElementType = isPickerMobile ? DrawerTitle : DialogTitle;
   const PickerDescription: React.ElementType = isPickerMobile ? DrawerDescription : DialogDescription;
+  const selectedPickerPhotographer = resolvePhotographerDetails(pickerPhotographerId);
+  const resolvedPickerJobCoords = React.useMemo(() => {
+    const fromSelection = readPhotographerMapFields(selectedPickerPhotographer, bookingJobCoords).job;
+    return fromSelection ?? bookingJobCoords ?? null;
+  }, [selectedPickerPhotographer, bookingJobCoords]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -183,8 +191,8 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
             className={cn(
               'overflow-hidden border-slate-800/80 bg-background',
               isPickerMobile
-                ? 'z-[190] flex max-h-[88dvh] flex-col rounded-t-3xl'
-                : 'flex h-[min(88vh,44rem)] w-[92vw] max-h-[90vh] flex-col p-0 sm:max-w-4xl',
+                ? 'z-[190] flex max-h-[92dvh] flex-col rounded-t-3xl'
+                : 'flex h-[min(88vh,48rem)] w-[96vw] max-h-[92vh] flex-col p-0 sm:max-w-6xl',
             )}
           >
             <div className="flex min-h-0 flex-1 flex-col gap-3 px-2.5 pb-0 sm:px-6">
@@ -210,6 +218,15 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                   </PickerDescription>
                 </PickerHeader>
 
+                <PhotographerPickerMapShell
+                  isMobile={isPickerMobile}
+                  photographer={selectedPickerPhotographer}
+                  photographerName={selectedPickerPhotographer?.name}
+                  photographerId={selectedPickerPhotographer?.id != null ? String(selectedPickerPhotographer.id) : null}
+                  jobCoords={resolvedPickerJobCoords}
+                  className="min-h-0"
+                  list={
+                    <>
                 <div className="space-y-3">
                   <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                     <div className="relative min-w-0 flex-1">
@@ -343,6 +360,10 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                     </div>
                   )}
                 </div>
+
+                    </>
+                  }
+                />
 
                 <div className="shrink-0 border-t border-slate-200/70 bg-white/80 pt-2.5 backdrop-blur [padding-bottom:calc(0.25rem+env(safe-area-inset-bottom))] sm:pt-4 sm:pb-0 dark:border-slate-800/70 dark:bg-slate-950/50">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

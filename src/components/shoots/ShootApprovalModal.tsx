@@ -46,6 +46,9 @@ import API_ROUTES from '@/lib/api';
 import axios from 'axios';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PhotographerAvailabilityTimeline } from '@/components/photographers/PhotographerAvailabilityTimeline';
+import { PhotographerPickerMapShell } from '@/components/photographers/map/PhotographerPickerMapShell';
+import { readBookingJobCoords, readPhotographerMapFields } from '@/components/photographers/map/photographerMapFields';
+import type { ShootMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 import type { BookingAvailabilitySlot } from '@/types/availability';
 import { normalizeBookingAvailabilitySlots as normalizeAvailabilitySlots } from '@/utils/bookingAvailabilitySlots';
 import { Input } from '@/components/ui/input';
@@ -80,6 +83,9 @@ interface Photographer extends TravelAvailabilityMetadata {
   unavailableSlots?: AvailabilitySlot[];
   bookedSlots?: Array<AvailabilitySlot & { status?: string; shoot_id?: number }>;
   shootsCountToday?: number;
+  miles_to_job?: number | null;
+  map?: Record<string, unknown> | null;
+  job?: Record<string, unknown> | null;
 }
 
 type AvailabilitySlot = BookingAvailabilitySlot;
@@ -316,6 +322,7 @@ export function ShootApprovalModal({
   const [serviceQuantities, setServiceQuantities] = useState<Record<string, number>>({});
   const [photographerAvailability, setPhotographerAvailability] = useState<PhotographerAvailabilityMap>({});
   const [isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability] = useState(false);
+  const [bookingJobCoords, setBookingJobCoords] = useState<ShootMapCoordinates | null>(null);
   const [notes, setNotes] = useState('');
 
   const normalizeTimeValue = (raw?: string | null): string | null => {
@@ -831,9 +838,23 @@ export function ShootApprovalModal({
           const distanceFrom = enriched.distance_from === 'previous_shoot' ? 'previous_shoot' : 'home';
           const previousShootId = Number(enriched.previous_shoot_id);
           const shootsCountToday = Number(enriched.shoots_count_today);
+          const milesToJob = typeof enriched.miles_to_job === 'number'
+            ? enriched.miles_to_job
+            : typeof enriched.milesToJob === 'number'
+              ? enriched.milesToJob
+              : typeof parsedDistance === 'number' && Number.isFinite(parsedDistance)
+                ? parsedDistance
+                : undefined;
           return {
             ...photographer,
-            distance: typeof parsedDistance === 'number' && Number.isFinite(parsedDistance) ? parsedDistance : undefined,
+            distance: typeof milesToJob === 'number' && Number.isFinite(milesToJob)
+              ? milesToJob
+              : (typeof parsedDistance === 'number' && Number.isFinite(parsedDistance) ? parsedDistance : undefined),
+            miles_to_job: typeof milesToJob === 'number' && Number.isFinite(milesToJob)
+              ? milesToJob
+              : (photographer.miles_to_job ?? null),
+            map: enriched.map === null ? null : ((enriched.map as Record<string, unknown> | undefined) ?? photographer.map ?? null),
+            job: enriched.job === null ? null : ((enriched.job as Record<string, unknown> | undefined) ?? photographer.job ?? null),
             distanceFrom,
             previousShootId: Number.isFinite(previousShootId) ? previousShootId : undefined,
             availabilitySlots,
@@ -845,6 +866,7 @@ export function ShootApprovalModal({
           };
         }));
 
+        setBookingJobCoords(readBookingJobCoords(json));
         setPhotographerAvailability(nextAvailability);
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -1114,6 +1136,12 @@ export function ShootApprovalModal({
       </p>
     </div>
   );
+
+  const selectedPickerPhotographer = resolvePhotographerDetails(pickerPhotographerId);
+  const resolvedPickerJobCoords = React.useMemo(() => {
+    const fromSelection = readPhotographerMapFields(selectedPickerPhotographer, bookingJobCoords).job;
+    return fromSelection ?? bookingJobCoords ?? null;
+  }, [selectedPickerPhotographer, bookingJobCoords]);
 
   // Photographer picker renders as a centered Dialog on desktop and a bottom
   // Drawer on mobile, matching the responsive pattern used elsewhere.
@@ -1408,8 +1436,8 @@ export function ShootApprovalModal({
             className={cn(
               'overflow-hidden border-slate-800/80 bg-background',
               isPickerMobile
-                ? 'z-[190] flex max-h-[88dvh] flex-col rounded-t-3xl'
-                : 'flex h-[min(88vh,44rem)] w-[92vw] max-h-[90vh] flex-col p-0 sm:max-w-4xl',
+                ? 'z-[190] flex max-h-[92dvh] flex-col rounded-t-3xl'
+                : 'flex h-[min(88vh,48rem)] w-[96vw] max-h-[92vh] flex-col p-0 sm:max-w-6xl',
             )}
           >
             <div className="flex min-h-0 flex-1 flex-col gap-3 px-2.5 pb-0 sm:px-6">
@@ -1435,6 +1463,15 @@ export function ShootApprovalModal({
                   </PickerDescription>
                 </PickerHeader>
 
+                <PhotographerPickerMapShell
+                  isMobile={isPickerMobile}
+                  photographer={selectedPickerPhotographer}
+                  photographerName={selectedPickerPhotographer?.name}
+                  photographerId={selectedPickerPhotographer?.id != null ? String(selectedPickerPhotographer.id) : null}
+                  jobCoords={resolvedPickerJobCoords}
+                  className="min-h-0"
+                  list={
+                    <>
                 <div className="space-y-3">
                   <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center">
                     <div className="relative min-w-0 flex-1">
@@ -1567,6 +1604,10 @@ export function ShootApprovalModal({
                     </div>
                   )}
                 </div>
+
+                    </>
+                  }
+                />
 
                 <div className="shrink-0 border-t border-slate-200/70 bg-white/80 pt-2.5 backdrop-blur [padding-bottom:calc(0.25rem+env(safe-area-inset-bottom))] sm:pt-4 sm:pb-0 dark:border-slate-800/70 dark:bg-slate-950/50">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">

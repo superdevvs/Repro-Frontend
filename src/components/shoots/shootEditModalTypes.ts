@@ -53,6 +53,9 @@ export interface Photographer extends TravelAvailabilityMetadata {
   unavailableSlots?: AvailabilitySlot[];
   bookedSlots?: Array<AvailabilitySlot & { status?: string; shoot_id?: number }>;
   shootsCountToday?: number;
+  miles_to_job?: number | null;
+  map?: Record<string, unknown> | null;
+  job?: Record<string, unknown> | null;
 }
 
 export type AvailabilitySlot = BookingAvailabilitySlot;

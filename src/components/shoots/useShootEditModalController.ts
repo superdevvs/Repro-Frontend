@@ -37,6 +37,8 @@ import {
   type ServiceDetachConfirmation,
 } from '@/utils/shootServiceMutation';
 import { extractLookupPropertyDetails, loadPhotographerOptions, mapPhotographerOption, normalizeCategoryKey, resolveSelectedServiceIds, type Photographer, type AvailabilitySlot, type MobileEditPanel, type PhotographerAvailabilityMap, type PhotographerPickerContext, type PropertyDetails, type Service, type ServiceApiRange, type ServiceApiRecord, type ServiceScheduleFields, type ShootDetails, type ShootEditModalProps } from './shootEditModalTypes';
+import { readBookingJobCoords } from '@/components/photographers/map/photographerMapFields';
+import type { ShootMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 export function useShootEditModalController({
   isOpen,
   onClose,
@@ -88,6 +90,7 @@ export function useShootEditModalController({
   const [perCategoryPhotographers, setPerCategoryPhotographers] = useState<Record<string, string>>({});
   const [photographerAvailability, setPhotographerAvailability] = useState<PhotographerAvailabilityMap>({});
   const [isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability] = useState(false);
+  const [bookingJobCoords, setBookingJobCoords] = useState<ShootMapCoordinates | null>(null);
   const [editDayAvailability, setEditDayAvailability] = useState<DayAvailability | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [shootNotes, setShootNotes] = useState(''); // All: client, admin, rep
@@ -476,9 +479,23 @@ export function useShootEditModalController({
             start_time: slot.start_time,
             end_time: slot.end_time,
           }));
+          const milesToJob = typeof (enriched as { miles_to_job?: number }).miles_to_job === 'number'
+            ? (enriched as { miles_to_job?: number }).miles_to_job
+            : typeof (enriched as { milesToJob?: number }).milesToJob === 'number'
+              ? (enriched as { milesToJob?: number }).milesToJob
+              : Number.isFinite(parsedDistance as number) ? (parsedDistance as number) : undefined;
+          const enrichedRecord = enriched as Partial<Photographer> & {
+            map?: Record<string, unknown> | null;
+            job?: Record<string, unknown> | null;
+            miles_to_job?: number | null;
+            milesToJob?: number | null;
+          };
           return {
             ...photographer,
-            distance: Number.isFinite(parsedDistance as number) ? parsedDistance : undefined,
+            distance: Number.isFinite(milesToJob as number) ? milesToJob : (Number.isFinite(parsedDistance as number) ? parsedDistance : undefined),
+            miles_to_job: Number.isFinite(milesToJob as number) ? (milesToJob as number) : (photographer.miles_to_job ?? null),
+            map: enrichedRecord.map === null ? null : (enrichedRecord.map ?? photographer.map ?? null),
+            job: enrichedRecord.job === null ? null : (enrichedRecord.job ?? photographer.job ?? null),
             distanceFrom: enriched.distance_from,
             previousShootId: enriched.previous_shoot_id,
             availabilitySlots: enriched.availability_slots || [],
@@ -489,6 +506,7 @@ export function useShootEditModalController({
             shootsCountToday: enriched.shoots_count_today,
           };
         }));
+        setBookingJobCoords(readBookingJobCoords(json));
         setPhotographerAvailability(nextAvailability);
       } catch (error) {
         if (error instanceof DOMException && error.name === 'AbortError') return;
@@ -994,5 +1012,5 @@ export function useShootEditModalController({
     return buildWallClockIso(dateValue, timeValue);
   };
   const unitScopeDirty = useUnitEditDirtyTracking(JSON.stringify([address, city, state, zip, scheduledDate, scheduledTime, alternateDate, alternateTime, [...selectedServiceIds], serviceQuantities, serviceSchedules, photographerId, perCategoryPhotographers, shootNotes, companyNotes, photographerNotes, editorNotes, propertyDetails, propertySqft]), isLoading, unitEdit.activeUnitId);
-  return { travel, unitSource: unitEdit.source, unitScopeDirty, isOpen, onClose, shootId, onSaved, toast, user, isSubmitting, setIsSubmitting, isLoading, setIsLoading, shootDetails, setShootDetails, availableServices, setAvailableServices, photographers, setPhotographers, photographerPickerOpen, setPhotographerPickerOpen, photographerPickerContext, setPhotographerPickerContext, pickerPhotographerId, setPickerPhotographerId, photographerSearchQuery, setPhotographerSearchQuery, sortBy, setSortBy, showAllPhotographers, setShowAllPhotographers, expandedServiceScheduleId, setExpandedServiceScheduleId, servicesEditorOpen, setServicesEditorOpen, serviceDetachConfirmation, pendingDetachApproval, handleConfirmServiceDetach, handleCancelServiceDetach, canRemoveAllServices, userRole, isAdmin, isRep, isAdminOrRep, address, setAddress, city, setCity, state, setState, zip, setZip, scheduledDate, setScheduledDate: changeScheduledDate, scheduledTime, setScheduledTime: changeScheduledTime, alternateDate, setAlternateDate, alternateTime, setAlternateTime, selectedServiceIds, setSelectedServiceIds, serviceSchedules, setServiceSchedules, photographerId, setPhotographerId, perCategoryPhotographers, setPerCategoryPhotographers, photographerAvailability, setPhotographerAvailability, isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability, editDayAvailability, setEditDayAvailability, scheduleError, setScheduleError, shootNotes, setShootNotes, companyNotes, setCompanyNotes, photographerNotes, setPhotographerNotes, editorNotes, setEditorNotes, showInternalNotes, companyNotesOpen, setCompanyNotesOpen, photographerNotesOpen, setPhotographerNotesOpen, editorNotesOpen, setEditorNotesOpen, propertyDetails, setPropertyDetails, propertySqft, setPropertySqft, taxPercent, setTaxPercent, activeMobilePanel, setActiveMobilePanel, isDesktopLayout, clearAddressDerivedState, handleAddressSelect, getServicePrice, hasVariablePricingWithoutSqft, clientName, clientEmail, clientPhone, clientVerified, activeDiscountType, activeDiscountValue, photographerEmail, availableServiceCategoryGroups, selectedServiceCategoryGroups, hasMultiplePhotographerCategories, resolvePhotographerDetails, filteredPhotographers, formatPhotographerLocationLabel, isEditTimeDisabled, openPhotographerPicker, closePhotographerPicker, handleConfirmPhotographerPicker, handleClearPhotographerPicker, buildApprovalPayload, canNotifyClient, notificationPhotographerId, canNotifyPhotographer, submitApproval, handleApprove, handleApproveWithoutNotification, normalizeTimeValue, buildTimeOptions, timeOptions, setTimeOptions, minSelectableDate, scheduledDateInputValue, defaultServiceSchedule, selectedServiceRows, updateServiceSchedule, applyServiceScheduleToAll, getServiceScheduleDateLabel, getServiceScheduleTimeLabel, getServiceScheduleSummary, sortedServiceScheduleRows, selectedServicesPricing, serviceSelectionOptions, selectedServiceSelectionOptions, handleSelectedServicesChange, buildScheduledAtIso };
+  return { travel, unitSource: unitEdit.source, unitScopeDirty, isOpen, onClose, shootId, onSaved, toast, user, isSubmitting, setIsSubmitting, isLoading, setIsLoading, shootDetails, setShootDetails, availableServices, setAvailableServices, photographers, setPhotographers, photographerPickerOpen, setPhotographerPickerOpen, photographerPickerContext, setPhotographerPickerContext, pickerPhotographerId, setPickerPhotographerId, photographerSearchQuery, setPhotographerSearchQuery, sortBy, setSortBy, showAllPhotographers, setShowAllPhotographers, expandedServiceScheduleId, setExpandedServiceScheduleId, servicesEditorOpen, setServicesEditorOpen, serviceDetachConfirmation, pendingDetachApproval, handleConfirmServiceDetach, handleCancelServiceDetach, canRemoveAllServices, userRole, isAdmin, isRep, isAdminOrRep, address, setAddress, city, setCity, state, setState, zip, setZip, scheduledDate, setScheduledDate: changeScheduledDate, scheduledTime, setScheduledTime: changeScheduledTime, alternateDate, setAlternateDate, alternateTime, setAlternateTime, selectedServiceIds, setSelectedServiceIds, serviceSchedules, setServiceSchedules, photographerId, setPhotographerId, perCategoryPhotographers, setPerCategoryPhotographers, photographerAvailability, setPhotographerAvailability, isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability, editDayAvailability, setEditDayAvailability, scheduleError, setScheduleError, shootNotes, setShootNotes, companyNotes, setCompanyNotes, photographerNotes, setPhotographerNotes, editorNotes, setEditorNotes, showInternalNotes, companyNotesOpen, setCompanyNotesOpen, photographerNotesOpen, setPhotographerNotesOpen, editorNotesOpen, setEditorNotesOpen, propertyDetails, setPropertyDetails, propertySqft, setPropertySqft, taxPercent, setTaxPercent, activeMobilePanel, setActiveMobilePanel, isDesktopLayout, clearAddressDerivedState, handleAddressSelect, getServicePrice, hasVariablePricingWithoutSqft, clientName, clientEmail, clientPhone, clientVerified, activeDiscountType, activeDiscountValue, photographerEmail, availableServiceCategoryGroups, selectedServiceCategoryGroups, hasMultiplePhotographerCategories, resolvePhotographerDetails, filteredPhotographers, formatPhotographerLocationLabel, bookingJobCoords, isEditTimeDisabled, openPhotographerPicker, closePhotographerPicker, handleConfirmPhotographerPicker, handleClearPhotographerPicker, buildApprovalPayload, canNotifyClient, notificationPhotographerId, canNotifyPhotographer, submitApproval, handleApprove, handleApproveWithoutNotification, normalizeTimeValue, buildTimeOptions, timeOptions, setTimeOptions, minSelectableDate, scheduledDateInputValue, defaultServiceSchedule, selectedServiceRows, updateServiceSchedule, applyServiceScheduleToAll, getServiceScheduleDateLabel, getServiceScheduleTimeLabel, getServiceScheduleSummary, sortedServiceScheduleRows, selectedServicesPricing, serviceSelectionOptions, selectedServiceSelectionOptions, handleSelectedServicesChange, buildScheduledAtIso };
 }
