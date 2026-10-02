@@ -1,10 +1,10 @@
 export type MessageChannel = 'EMAIL' | 'SMS';
 export type MessageDirection = 'OUTBOUND' | 'INBOUND';
-export type MessageStatus = 'QUEUED' | 'SCHEDULED' | 'SENT' | 'DELIVERED' | 'FAILED' | 'CANCELLED';
+export type MessageStatus = 'QUEUED' | 'SCHEDULED' | 'SENT' | 'DELIVERED' | 'FAILED' | 'CANCELLED' | 'BOUNCED' | 'COMPLAINED';
 export type SendSource = 'MANUAL' | 'AUTOMATION' | 'SYSTEM';
 export type TemplateScope = 'SYSTEM' | 'GLOBAL' | 'ACCOUNT' | 'USER';
 export type TemplateCategory = 'BOOKING' | 'REMINDER' | 'PAYMENT' | 'INVOICE' | 'ACCOUNT' | 'GENERAL';
-export type EmailProviderType = 'CAKEMAIL';
+export type EmailProviderType = 'CAKEMAIL' | 'RESEND';
 export type ChannelScope = 'GLOBAL' | 'ACCOUNT' | 'USER';
 export type RelatedShootContextType = 'new_shoot' | 'previous_shoot';
 
@@ -270,6 +270,7 @@ export interface Message {
   direction: MessageDirection;
   provider?: string;
   provider_message_id?: string;
+  metadata?: MessagingJsonObject;
   message_channel_id?: number;
   from_address?: string;
   to_address: string;
@@ -309,6 +310,16 @@ export interface Message {
     id: number;
     name: string;
   };
+}
+
+export interface EmailActivity {
+  provider: string;
+  provider_message_id: string | null;
+  status: MessageStatus;
+  provider_logs_available: boolean;
+  open_count: number;
+  click_count: number;
+  events: Array<{ id: string; type: string; at: string | null; detail: string | null; link: string | null }>;
 }
 
 export interface MessageThread {

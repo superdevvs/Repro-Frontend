@@ -18,6 +18,9 @@ import { useAuth } from '@/components/auth/AuthProvider';
 const FILTER_OPTIONS = [
   { value: null, label: 'All Messages' },
   { value: 'SENT', label: 'Sent' },
+  { value: 'DELIVERED', label: 'Delivered' },
+  { value: 'BOUNCED', label: 'Bounced' },
+  { value: 'COMPLAINED', label: 'Spam complaint' },
   { value: 'SCHEDULED', label: 'Scheduled' },
   { value: 'FAILED', label: 'Failed' },
   { value: 'ARCHIVED', label: 'Archived' },
@@ -40,6 +43,8 @@ const statusIcons = {
   QUEUED: Clock,
   DELIVERED: Send,
   CANCELLED: AlertCircle,
+  BOUNCED: AlertCircle,
+  COMPLAINED: AlertCircle,
 };
 
 const statusColors = {
@@ -49,6 +54,8 @@ const statusColors = {
   QUEUED: 'text-yellow-600',
   DELIVERED: 'text-green-600',
   CANCELLED: 'text-gray-600',
+  BOUNCED: 'text-red-600',
+  COMPLAINED: 'text-red-600',
 };
 
 const contextLabels = {
@@ -217,6 +224,11 @@ export function EmailMessageList({
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap">
+                      {message.direction === 'OUTBOUND' && message.provider !== 'INTERNAL' && (
+                        <span className="text-xs text-muted-foreground capitalize">{message.status.toLowerCase()}</span>
+                      )}
+                      {Number(message.metadata?.open_count) > 0 && <span className="text-xs text-muted-foreground">Opened {Number(message.metadata?.open_count)}×</span>}
+                      {Number(message.metadata?.click_count) > 0 && <span className="text-xs text-muted-foreground">Clicked {Number(message.metadata?.click_count)}×</span>}
                       {message.template && (
                         <Badge variant="outline" className="text-xs">
                           {message.template.name}
@@ -248,4 +260,3 @@ export function EmailMessageList({
     </>
   );
 }
-

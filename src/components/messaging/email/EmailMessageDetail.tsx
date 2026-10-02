@@ -13,6 +13,7 @@ import type { Message } from '@/types/messaging';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { cn } from '@/lib/utils';
 import { repairStoredEmailAppearance } from './storedEmailAppearance';
+import { EmailActivityPanel } from './EmailActivityPanel';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,6 +34,8 @@ const statusIcons = {
   QUEUED: Clock,
   DELIVERED: CheckCircle,
   CANCELLED: XCircle,
+  BOUNCED: XCircle,
+  COMPLAINED: XCircle,
 };
 
 const statusLabels = {
@@ -42,6 +45,8 @@ const statusLabels = {
   QUEUED: 'Queued',
   DELIVERED: 'Delivered',
   CANCELLED: 'Cancelled',
+  BOUNCED: 'Bounced',
+  COMPLAINED: 'Spam complaint',
 };
 
 const statusColors = {
@@ -51,6 +56,8 @@ const statusColors = {
   QUEUED: 'bg-yellow-100 text-yellow-800',
   DELIVERED: 'bg-green-100 text-green-800',
   CANCELLED: 'bg-gray-100 text-gray-800',
+  BOUNCED: 'bg-red-100 text-red-800',
+  COMPLAINED: 'bg-red-100 text-red-800',
 };
 
 const contextLabels = {
@@ -296,6 +303,8 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
 
         <Separator />
 
+        <EmailActivityPanel message={message} />
+
         {/* Body */}
         <div className="prose prose-sm max-w-none">
           {message.body_html ? (
@@ -432,4 +441,3 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
     </div>
   );
 }
-

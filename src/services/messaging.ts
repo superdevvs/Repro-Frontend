@@ -1,6 +1,7 @@
 import { apiClient } from './api';
 import type {
   Message,
+  EmailActivity,
   MessageTemplate,
   MessageChannelConfig,
   AutomationRule,
@@ -330,6 +331,11 @@ export const getEmailMessages = async (params?: {
   page?: number;
 }): Promise<{ data: Message[]; total: number; current_page: number; last_page: number }> => {
   const response = await apiClient.get('/messaging/email/messages', { params });
+  return response.data;
+};
+
+export const getEmailActivity = async (id: number): Promise<EmailActivity> => {
+  const response = await apiClient.get(`/messaging/email/messages/${id}/activity`);
   return response.data;
 };
 
