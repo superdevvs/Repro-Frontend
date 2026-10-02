@@ -4,7 +4,7 @@ import { useTravelFeasibility } from './useTravelFeasibility';
 import type { TravelFeasibility } from './types';
 
 const available: TravelFeasibility = { enabled: true, status: 'available', available: true, reason_codes: [], transitions: [], alternatives: [], can_override: false, policy_version: '1', schedule_version: '1' };
-const conflict = { ...available, status: 'conflict' as const, available: false, can_override: true, reason_codes: ['insufficient_travel_time'] };
+const conflict = { ...available, status: 'conflict' as const, available: false, can_override: true, confirmation_version: 'evaluated-itinerary-v1', reason_codes: ['insufficient_travel_time'] };
 const payload = { client_id: 2, address: '1 Main St', scheduled_at: '2026-10-05T13:00:00Z', photographer_id: 9 };
 const response = (value = available, status = 200) => new Response(JSON.stringify({ data: value }), { status });
 const tick = async () => { await act(async () => { await vi.advanceTimersByTimeAsync(350); }); };
@@ -34,23 +34,25 @@ describe('selected itinerary travel preview', () => {
     await tick(); await act(async () => finishOld(response(conflict)));
     expect(result.current.result?.status).toBe('available');
   });
-  it('requires server permission and a nonblank reason; schedule changes discard approval immediately', async () => {
+  it('pauses the real save until deliberate confirmation and consumes it once', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(response(conflict))));
-    const { result, rerender } = renderHook(useTravelFeasibility, { initialProps: { payload } });
-    await tick(); expect(result.current.blocked).toBe(true);
-    act(() => result.current.setOverrideChecked(true));
-    act(() => result.current.setOverrideReason('  ')); expect(result.current.blocked).toBe(true);
-    act(() => result.current.setOverrideReason('four')); expect(result.current.blocked).toBe(true);
-    act(() => result.current.setOverrideReason('Building manager confirmed access'));
-    expect(result.current.confirmation).toEqual({ travel_override: true, travel_override_reason: 'Building manager confirmed access' });
-    expect(result.current.blocked).toBe(false);
-    rerender({ payload: { ...payload, scheduled_at: '2026-10-05T14:00:00Z' } });
-    expect(result.current.confirmation).toEqual({}); expect(result.current.blocked).toBe(true);
+    const { result } = renderHook(useTravelFeasibility, { initialProps: { payload } });
+    await tick(); expect(result.current.blocked).toBe(false);
+    const saved = vi.fn();
+    act(() => { void result.current.confirmSave().then(saved); });
+    expect(await result.current.confirmSave()).toBeNull();
+    expect(result.current.overrideDialog.open).toBe(true); expect(saved).not.toHaveBeenCalled();
+    act(() => result.current.overrideDialog.setReason('four'));
+    act(() => result.current.overrideDialog.complete()); expect(saved).not.toHaveBeenCalled();
+    act(() => result.current.overrideDialog.setReason('Building manager confirmed access'));
+    await act(async () => { result.current.overrideDialog.complete(); result.current.overrideDialog.complete(); });
+    expect(saved).toHaveBeenCalledExactlyOnceWith({ travel_override: true, travel_override_reason: 'Building manager confirmed access', travel_override_confirmed: true, travel_override_confirmation_version: 'evaluated-itinerary-v1' });
+    expect(result.current.confirmation).toEqual({}); expect(result.current.overrideDialog.open).toBe(false);
   });
   it('cannot forge an override without server permission, and preserves client request submission', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(response({ ...conflict, can_override: false }))));
     const { result, rerender } = renderHook(useTravelFeasibility, { initialProps: { payload, requestedOnly: false } });
-    await tick(); act(() => result.current.setOverrideChecked(true)); act(() => result.current.setOverrideReason('reason'));
+    await tick(); expect(await result.current.confirmSave()).toBeNull();
     expect(result.current.confirmation).toEqual({}); expect(result.current.blocked).toBe(true);
     rerender({ payload, requestedOnly: true }); expect(result.current.blocked).toBe(false);
   });
@@ -69,10 +71,30 @@ describe('selected itinerary travel preview', () => {
     const { result, rerender } = renderHook(useTravelFeasibility, { initialProps: { payload } }); await tick();
     const oldHandler = result.current.acceptServerError;
     act(() => result.current.acceptServerError({ feasibility: { ...conflict, schedule_version: '2' } }));
-    expect(result.current.result?.schedule_version).toBe('2'); expect(result.current.blocked).toBe(true);
+    expect(result.current.result?.schedule_version).toBe('2'); expect(result.current.blocked).toBe(false);
     rerender({ payload: { ...payload, address: '3 Main St' } }); await tick();
     act(() => { expect(oldHandler({ feasibility: conflict })).toBe(false); });
     expect(result.current.result?.status).toBe('available');
+  });
+  it.each(['itinerary', 'retry', 'server', 'cancel'] as const)('cancels the pending save after %s changes instead of using stale approval', async change => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(response(conflict))));
+    const { result, rerender } = renderHook(useTravelFeasibility, { initialProps: { payload } }); await tick();
+    const saved = vi.fn(); act(() => { void result.current.confirmSave().then(saved); });
+    act(() => result.current.overrideDialog.setReason('Coordinated with photographer'));
+    const oldComplete = result.current.overrideDialog.complete;
+    await act(async () => {
+      if (change === 'itinerary') rerender({ payload: { ...payload, scheduled_at: '2026-10-05T15:00:00Z' } });
+      if (change === 'retry') await result.current.retry();
+      if (change === 'server') result.current.acceptServerError({ feasibility: { ...conflict, schedule_version: 'new' } });
+      if (change === 'cancel') result.current.overrideDialog.cancel();
+    });
+    act(oldComplete);
+    expect(saved).toHaveBeenCalledExactlyOnceWith(null); expect(result.current.overrideDialog.open).toBe(false);
+  });
+  it.each(['capture_overlap', 'outside_working_hours'])('does not offer a confirmation bypass for %s even if a malformed response grants override', async reason => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => Promise.resolve(response({ ...conflict, reason_codes: [reason] }))));
+    const { result } = renderHook(useTravelFeasibility, { initialProps: { payload } }); await tick();
+    expect(result.current.blocked).toBe(true); expect(await result.current.confirmSave()).toBeNull(); expect(result.current.overrideDialog.open).toBe(false);
   });
   it('keeps the legacy flow when disabled and never treats network failure as a successful check', async () => {
     const fetcher = vi.fn().mockResolvedValueOnce(response({ ...available, enabled: false })).mockRejectedValueOnce(new Error('Network unavailable'));

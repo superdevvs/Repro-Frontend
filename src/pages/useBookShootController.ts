@@ -500,8 +500,10 @@ export const useBookShootController = () => {
             scheduleSource?.scheduled_at || scheduleSource?.scheduledAt || scheduleSource?.start_time)
         : null;
       const effectiveClientId = isClientAccount ? user?.id : client;
+      const travelConfirmation = await travel.confirmSave();
+      if (!travelConfirmation) { setIsSubmitting(false); return; }
       const payload = {
-        ...travel.confirmation,
+        ...travelConfirmation,
         client_id: effectiveClientId,
         address,
         city,

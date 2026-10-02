@@ -112,7 +112,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
     await waitFor(() => expect(result.current.state.selectedServiceIds).toEqual(['10']));
 
     act(() => result.current.actions.toggleCompServiceSelection('501'));
-    act(() => result.current.actions.handleSave());
+    await act(async () => { await result.current.actions.handleSave(); });
     expect(onSave).not.toHaveBeenCalled();
     expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Choose a return-visit reason' }));
 
@@ -121,7 +121,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
       result.current.actions.updateCompServiceSchedule('501', 'date', '2026-09-12');
       result.current.actions.updateCompServiceSchedule('501', 'time', '11:30');
     });
-    act(() => result.current.actions.handleSave());
+    await act(async () => { await result.current.actions.handleSave(); });
 
     expect(onSave).not.toHaveBeenCalled();
     expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({ title: 'Finish the return-visit schedule' }));
@@ -140,7 +140,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
       result.current.actions.updateCompServiceSchedule('501', 'date', '2026-09-12');
       result.current.actions.updateCompServiceSchedule('501', 'time', '11:30');
     });
-    act(() => result.current.actions.handleSave());
+    await act(async () => { await result.current.actions.handleSave(); });
 
     const payload = onSave.mock.calls[0][0] as Record<string, unknown>;
     expect(payload).not.toHaveProperty('services');
@@ -169,7 +169,7 @@ describe('useShootOverviewEditor complimentary service mode', () => {
       result.current.actions.toggleCompServiceSelection('501');
       result.current.actions.toggleServiceSelection('10');
     });
-    act(() => result.current.actions.handleSave());
+    await act(async () => { await result.current.actions.handleSave(); });
 
     expect(onSave).not.toHaveBeenCalled();
     expect(toast).toHaveBeenLastCalledWith(expect.objectContaining({

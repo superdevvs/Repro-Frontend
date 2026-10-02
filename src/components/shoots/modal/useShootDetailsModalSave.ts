@@ -145,7 +145,7 @@ export function useShootDetailsModalSave({
     let preservePendingUpdates = false;
     try {
       const payload: Record<string, unknown> = {};
-      for (const field of ['travel_override', 'travel_override_reason', 'travel_location_confirmed'] as const) {
+      for (const field of ['travel_override', 'travel_override_reason', 'travel_override_confirmed', 'travel_override_confirmation_version', 'travel_location_confirmed'] as const) {
         if (hasOwn(updates, field)) payload[field] = (updates as unknown as Record<string, unknown>)[field];
       }
       

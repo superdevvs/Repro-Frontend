@@ -199,9 +199,11 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
 
     setLoading(true);
     try {
+      const travelConfirmation = await travel.confirmSave();
+      if (!travelConfirmation) return;
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const result = await submitShootServiceMutation({ url: `${API_BASE_URL}/api/shoots/${shoot.id}`, token,
-        payload: { ...buildServicePayload(), ...travel.confirmation } });
+        payload: { ...buildServicePayload(), ...travelConfirmation } });
 
       if (result.kind === 'confirmation_required') {
         throw new Error('The shoot changed while this dialog was open. Refresh it before adding a service.');

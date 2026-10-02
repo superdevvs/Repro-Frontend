@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+import { TravelOverrideDialog } from './TravelOverrideDialog';
 import type { TravelController } from './useTravelFeasibility';
 import type { TravelAlternative } from './types';
 
@@ -25,7 +25,7 @@ export function TravelFeasibilityPanel({ travel, onAlternative }: { travel: Trav
     || result?.reason_codes?.some(code => /location|building|geocod|address/.test(code));
   const canConfirm = Boolean(result?.can_confirm_location || result?.can_override);
   const labels = { incoming: 'From previous appointment', outgoing: 'To next appointment', between_proposed: 'Between these visits' };
-  return <section aria-label="Travel feasibility" className="min-w-0 space-y-3 rounded-xl border bg-muted/30 p-3 text-sm sm:p-4">
+  return <><section aria-label="Travel feasibility" className="min-w-0 space-y-3 rounded-xl border bg-muted/30 p-3 text-sm sm:p-4">
     <div role="status" aria-live="polite">
       <p className="font-semibold">{travel.loading ? 'Checking travel · time is provisional' : travel.error ? 'Travel check unavailable' : result?.available ? 'Travel time checked' : 'Travel needs attention'}</p>
       {travel.error && <p className="mt-1 break-words text-muted-foreground">{travel.error}</p>}
@@ -47,10 +47,7 @@ export function TravelFeasibilityPanel({ travel, onAlternative }: { travel: Trav
       <input type="checkbox" className="mt-1" checked={travel.locationConfirmed} onChange={event => travel.setLocationConfirmed(event.target.checked)} />
       <span>I confirm this is the correct building address, including the street number. Units at this building share its location.</span>
     </label>}
-    {!travel.loading && hasIssue && result.can_override && !travel.requestedOnly && <div className="space-y-2">
-      <label className="flex items-start gap-2"><input type="checkbox" className="mt-1" checked={travel.overrideChecked} onChange={event => travel.setOverrideChecked(event.target.checked)} /><span>Approve an exception to this travel allowance</span></label>
-      {travel.overrideChecked && <div className="space-y-1"><Textarea aria-label="Travel exception reason" placeholder="Explain why this exception is appropriate" value={travel.overrideReason} onChange={event => travel.setOverrideReason(event.target.value)} required minLength={5} maxLength={2000} /><p className="text-xs text-muted-foreground">Enter at least 5 characters to explain the exception.</p></div>}
-    </div>}
+    {!travel.loading && hasIssue && travel.canOverride && <p className="text-muted-foreground">Saving will ask you to review the neighboring bookings, explain the travel exception, and swipe to confirm.</p>}
     {travel.error && <Button type="button" variant="outline" size="sm" onClick={() => void travel.retry()}>Retry travel check</Button>}
     {hasIssue && !travel.error && <Button type="button" variant="outline" size="sm" disabled={travel.loading} onClick={() => void travel.loadAlternatives()}>{travel.loading ? 'Checking…' : 'Find up to 3 alternatives'}</Button>}
     {!travel.loading && result?.alternatives?.slice(0, 3).map((alternative, index) => <div key={`${alternative.scheduled_at}-${alternative.photographer_id}-${index}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2">
@@ -60,5 +57,5 @@ export function TravelFeasibilityPanel({ travel, onAlternative }: { travel: Trav
     {!travel.loading && travel.alternativesRequested && !result?.alternatives?.length && <p className="text-muted-foreground">No verified alternatives found. Choose another date or photographer.</p>}
     {result?.budget && result.budget.alert_level > 0 && <p role="status" className="rounded-lg border border-amber-500/40 p-2 text-xs">Route lookup budget: {result.budget.alert_level}% threshold reached ({result.budget.used_elements.toLocaleString()} of {result.budget.limit_elements.toLocaleString()} elements).{result.budget.alert_level === 100 ? ' Distance estimates will be used when routes are unavailable.' : ''}</p>}
     {result?.enabled && !travel.loading && !travel.error && <p className="text-xs text-muted-foreground">Availability is checked again when you save.</p>}
-  </section>;
+  </section><TravelOverrideDialog travel={travel} /></>;
 }

@@ -13,6 +13,7 @@ export type TravelTransition = {
   latest_start?: string | null;
   candidate_start?: string;
   candidate_end?: string;
+  neighbor?: { shoot_id: number; scheduled_at: string; end_at: string; timezone: string; services: Array<{ id: number; name: string }>; photographer?: { id: number; name: string }; can_view_details: true };
 };
 export type TravelAlternative = {
   scheduled_at: string;
@@ -31,10 +32,11 @@ export type TravelFeasibility = {
   can_confirm_location?: boolean;
   policy_version: string;
   schedule_version: string;
+  confirmation_version?: string;
   budget?: { used_elements: number; limit_elements: number; remaining_elements: number; usage_percent: number; alert_level: 0 | 75 | 90 | 100; budget_usd: number };
 };
 export type TravelPayload = Record<string, unknown>;
-export type TravelConfirmation = { travel_override?: boolean; travel_override_reason?: string; travel_location_confirmed?: boolean };
+export type TravelConfirmation = { travel_override?: boolean; travel_override_reason?: string; travel_override_confirmed?: boolean; travel_override_confirmation_version?: string; travel_location_confirmed?: boolean };
 
 export function readTravelFeasibility(value: unknown): TravelFeasibility | null {
   if (!value || typeof value !== 'object') return null;

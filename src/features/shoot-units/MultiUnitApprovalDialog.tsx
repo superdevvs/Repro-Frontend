@@ -44,9 +44,11 @@ export function MultiUnitApprovalDialog({ open, onClose, source, photographers, 
     if (busy || travel.blocked) return;
     setBusy(true); setError('');
     try {
+      const travelConfirmation = await travel.confirmSave();
+      if (!travelConfirmation) return;
       const service_lines = lines.map(unitLinePayload);
       const scheduled_at = service_lines.map(line => line.scheduled_at).filter((value): value is string => typeof value === 'string' && Number.isFinite(Date.parse(value))).sort((a, b) => Date.parse(a) - Date.parse(b))[0];
-      await apiClient.post(`/shoots/${shoot.id}/approve`, { ...travel.confirmation, expected_units_revision: shoot.units_revision, service_lines, ...(scheduled_at ? { scheduled_at } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}) });
+      await apiClient.post(`/shoots/${shoot.id}/approve`, { ...travelConfirmation, expected_units_revision: shoot.units_revision, service_lines, ...(scheduled_at ? { scheduled_at } : {}), ...(notes.trim() ? { notes: notes.trim() } : {}) });
       onApproved?.(); onClose();
     } catch (caught) {
       const data = (caught as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } }).response?.data;

@@ -74,7 +74,7 @@ describe('useShootOverviewEditor service mutation payload', () => {
     act(() => result.current.actions.updateServiceSchedule('10', 'date', '2026-10-08'));
     act(() => result.current.actions.updateServiceSchedule('10', 'time', '12:00'));
     act(() => result.current.actions.applyServiceScheduleToAll('10'));
-    act(() => result.current.actions.handleSave());
+    await act(async () => { await result.current.actions.handleSave(); });
     const payload = onSave.mock.calls.at(-1)?.[0];
     expect(payload.service_items).toEqual(expect.arrayContaining([
       expect.objectContaining({ service_id: 10, duration_minutes: 30, scheduled_at: '2026-10-08T12:00:00' }),
@@ -94,7 +94,7 @@ describe('useShootOverviewEditor service mutation payload', () => {
     expect(result.current.state.serviceQuantities['10']).toBe(2);
     act(() => result.current.actions.updateServiceQuantity('10', 3));
     await waitFor(() => expect(result.current.state.editedShoot.payment?.serviceSubtotal).toBe(350));
-    act(() => result.current.actions.handleSave());
+    await act(async () => { await result.current.actions.handleSave(); });
     const payload = onSave.mock.calls.at(-1)?.[0];
     expect(payload.service_items[0]).toEqual(expect.objectContaining({ service_id: 10, quantity: 3 }));
     expect(payload.services[0]).toEqual(expect.objectContaining({ id: 10, quantity: 3 }));
@@ -127,7 +127,7 @@ describe('useShootOverviewEditor service mutation payload', () => {
       result.current.actions.updateServiceSchedule('10', 'date', '2026-03-08');
       result.current.actions.updateServiceSchedule('10', 'time', '02:30');
     });
-    act(() => result.current.actions.handleSave());
+    await act(async () => { await result.current.actions.handleSave(); });
     expect(onSave).not.toHaveBeenCalled();
     expect(toast).toHaveBeenCalledWith(expect.objectContaining({
       description: expect.stringContaining('does not exist'), variant: 'destructive',
@@ -173,7 +173,7 @@ describe('useShootOverviewEditor service mutation payload', () => {
       expect(result.current.state.editedShoot.payment?.serviceSubtotal).toBe(250);
     });
 
-    act(() => result.current.actions.handleSave());
+    await act(async () => { await result.current.actions.handleSave(); });
     const retainedPayload = onSave.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(retainedPayload.services).toEqual([
       expect.not.objectContaining({ price: expect.anything(), quantity: expect.anything() }),
@@ -190,7 +190,7 @@ describe('useShootOverviewEditor service mutation payload', () => {
     });
     expect(result.current.state.selectedServiceIds).toEqual([]);
 
-    act(() => result.current.actions.handleSave());
+    await act(async () => { await result.current.actions.handleSave(); });
     const emptyPayload = onSave.mock.calls.at(-1)?.[0] as Record<string, unknown>;
     expect(emptyPayload.services).toEqual([]);
     expect(emptyPayload.service_items).toEqual([]);

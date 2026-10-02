@@ -15,6 +15,8 @@ export const ASSIGNED_REP_SHOOT_SAVE_KEYS = [
   'service_photographers',
   'travel_override',
   'travel_override_reason',
+  'travel_override_confirmed',
+  'travel_override_confirmation_version',
   'travel_location_confirmed',
   'notify_client',
   'notify_photographer',

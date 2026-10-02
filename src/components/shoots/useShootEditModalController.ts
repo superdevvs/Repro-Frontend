@@ -746,8 +746,10 @@ export function useShootEditModalController({
       setScheduleError(null);
       setIsSubmitting(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const travelConfirmation = await travel.confirmSave();
+      if (!travelConfirmation) return;
       const approvalPayload = {
-        ...payload, ...travel.confirmation,
+        ...payload, ...travelConfirmation,
         notify_client: notifyClient,
         notify_photographer: notifyPhotographer,
       };

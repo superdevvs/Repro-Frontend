@@ -400,10 +400,9 @@ export function useShootOverviewEditor({
     selectedServiceIds, serviceSchedules, servicePrices, servicePhotographerPays, serviceQuantities: serviceQuantityChanges,
     perCategoryPhotographers, servicesList, effectiveSqft,
     assignment: !isEditMode && assignPhotographerOpen && selectedPhotographerId ? buildAssignmentPayload('photographer_id', selectedPhotographerId) : null });
-  const handleSave = useCallback(() => {
+  const handleSave = useCallback(async () => {
     if (!onSave) return;
     if (travel.blocked) { toast({ title: 'Review travel before saving', description: 'Resolve the travel warning or approve an authorized exception.', variant: 'destructive' }); return; }
-
     if (!validateCompServicesBeforeSave()) return;
 
     const legacyShoot = shoot as ShootWithLegacyOverviewFields;
@@ -508,7 +507,8 @@ export function useShootOverviewEditor({
 
     // `onSave` is typed against the display model, while this payload carries the
     // request-shaped service keys the endpoint requires.
-    onSave({ ...updates, ...travel.confirmation } as unknown as Partial<ShootData>, travel.acceptServerError);
+    const travelConfirmation = await travel.confirmSave();
+    if (travelConfirmation) onSave({ ...updates, ...travelConfirmation } as unknown as Partial<ShootData>, travel.acceptServerError);
   }, [
     accessContactName,
     accessContactPhone,
@@ -533,7 +533,7 @@ export function useShootOverviewEditor({
     servicesList,
     shoot,
     toast,
-    validateCompServicesBeforeSave, travel.blocked, travel.confirmation, travel.acceptServerError,
+    validateCompServicesBeforeSave, travel.blocked, travel.confirmSave, travel.acceptServerError,
   ]);
 
   // An UNSET service schedule must stay empty (UNASSIGNED) rather than
@@ -968,6 +968,8 @@ export function useShootOverviewEditor({
 
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const travelConfirmation = await travel.confirmSave();
+      if (!travelConfirmation) return;
       const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
         method: 'PATCH',
         headers: {
@@ -975,7 +977,7 @@ export function useShootOverviewEditor({
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({ ...buildAssignmentPayload('photographer_id', selectedPhotographerId), ...travel.confirmation }),
+        body: JSON.stringify({ ...buildAssignmentPayload('photographer_id', selectedPhotographerId), ...travelConfirmation }),
       });
       if (!response.ok) { travel.acceptServerError(await response.json()); throw new Error('Failed to assign photographer'); }
 
@@ -994,7 +996,7 @@ export function useShootOverviewEditor({
       });
     }
   }, [
-    travel.blocked, travel.confirmation, travel.acceptServerError, buildAssignmentPayload,
+    travel.blocked, travel.confirmSave, travel.acceptServerError, buildAssignmentPayload,
     closePhotographerPicker,
     editModePhotographerRows.length,
     isEditMode,

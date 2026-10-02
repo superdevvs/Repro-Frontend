@@ -10,8 +10,8 @@ const controller = (overrides: Partial<TravelController> = {}): TravelController
     policy_version: '1', schedule_version: '1', alternatives: [], transitions: [
       { id: 'a', direction: 'incoming', source: 'google_routes', required_minutes: 25, available_minutes: 10, shortfall_minutes: 15, reason_code: 'insufficient_travel_time', attribution: 'Google Maps', drive_minutes: 20, distance_miles: 9.5 },
       { id: 'b', direction: 'outgoing', source: 'mileage_band', required_minutes: 30, available_minutes: 45, shortfall_minutes: 0, reason_code: 'available' },
-    ] }, enabled: true, loading: false, requestedOnly: false, timezone: 'America/New_York', error: null, visible: true, blocked: true,
-  confirmation: {}, overrideChecked: false, overrideReason: '', locationConfirmed: false, setOverrideChecked: vi.fn(), setOverrideReason: vi.fn(), setLocationConfirmed: vi.fn(),
+    ] }, enabled: true, loading: false, requestedOnly: false, timezone: 'America/New_York', proposedLocation: '1 Main St', error: null, visible: true, blocked: true,
+  confirmation: {}, canOverride: true, confirmSave: vi.fn(), overrideDialog: { open: false, reason: '', setReason: vi.fn(), cancel: vi.fn(), complete: vi.fn() }, locationConfirmed: false, setLocationConfirmed: vi.fn(),
   retry: vi.fn(), loadAlternatives: vi.fn(), alternativesRequested: false, acceptServerError: vi.fn(), ...overrides,
 });
 describe('travel explanations and permission controls', () => {
@@ -26,7 +26,8 @@ describe('travel explanations and permission controls', () => {
   });
   it('requires an explicit exception action and reason and loads alternatives on demand', () => {
     const travel = controller(); render(<TravelFeasibilityPanel travel={travel} />);
-    fireEvent.click(screen.getByLabelText('Approve an exception to this travel allowance')); expect(travel.setOverrideChecked).toHaveBeenCalledWith(true);
+    expect(screen.getByText(/Saving will ask you to review/)).toBeInTheDocument();
+    expect(screen.queryByLabelText('Approve an exception to this travel allowance')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Find up to 3 alternatives' })); expect(travel.loadAlternatives).toHaveBeenCalledOnce();
   });
   it('shows warnings and no exception control for client requests', () => {

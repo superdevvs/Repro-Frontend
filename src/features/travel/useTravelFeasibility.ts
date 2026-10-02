@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
 import { readTravelFeasibility, type TravelConfirmation, type TravelFeasibility, type TravelPayload } from './types';
+import { canConfirmTravelException, useTravelSaveConfirmation } from './useTravelSaveConfirmation';
 
 /** One preview for the selected itinerary, never one Routes lookup per time option. */
 export function useTravelFeasibility({ payload, requestedOnly = false }: { payload: TravelPayload | null; requestedOnly?: boolean }) {
@@ -11,7 +12,6 @@ export function useTravelFeasibility({ payload, requestedOnly = false }: { paylo
   const [loadingKey, setLoadingKey] = useState('');
   const [error, setError] = useState<{ key: string; message: string } | null>(null);
   const [featureEnabled, setFeatureEnabled] = useState(false);
-  const [override, setOverride] = useState<{ key: string; reason: string; checked: boolean }>({ key: '', reason: '', checked: false });
   const [location, setLocation] = useState<{ key: string; confirmed: boolean }>({ key: '', confirmed: false });
   const [alternativesRequested, setAlternativesRequested] = useState('');
   const active = useRef<{ key: string; controller: AbortController } | null>(null);
@@ -26,7 +26,6 @@ export function useTravelFeasibility({ payload, requestedOnly = false }: { paylo
     const controller = new AbortController();
     active.current = { key, controller };
     setLoadingKey(key); setError(null);
-    setOverride({ key: '', reason: '', checked: false });
     if (includeAlternatives) setAlternativesRequested(key);
     try {
       const response = await fetch(`${API_BASE_URL}/api/photographer/availability/feasibility`, {
@@ -48,7 +47,6 @@ export function useTravelFeasibility({ payload, requestedOnly = false }: { paylo
   }, [key]);
   useEffect(() => {
     setPreview(null); setError(null); setAlternativesRequested('');
-    setOverride({ key: '', reason: '', checked: false });
     active.current?.controller.abort();
     if (!key) { setLoadingKey(''); return; }
     setLoadingKey(key);
@@ -56,29 +54,25 @@ export function useTravelFeasibility({ payload, requestedOnly = false }: { paylo
     return () => { window.clearTimeout(timer); active.current?.controller.abort(); };
   }, [key, locationConfirmed, request]);
   const loading = Boolean(key && (loadingKey === key || (!result && error?.key !== key)));
-  const overrideChecked = override.key === key && override.checked;
-  const overrideReason = override.key === key ? override.reason : '';
-  const validOverride = Boolean(result?.can_override && overrideChecked && overrideReason.trim().length >= 5);
   const confirmation = useMemo<TravelConfirmation>(() => ({
     ...(locationConfirmed ? { travel_location_confirmed: true } : {}),
-    ...(validOverride ? { travel_override: true, travel_override_reason: overrideReason.trim() } : {}),
-  }), [locationConfirmed, validOverride, overrideReason]);
+  }), [locationConfirmed]);
+  const canOverride = canConfirmTravelException(result, requestedOnly);
+  const blocked = !requestedOnly && enabled && (loading || Boolean(error?.key === key) || Boolean(result && !result.available && !canOverride));
+  const saveConfirmation = useTravelSaveConfirmation({ key, result, loading, blocked, requestedOnly, confirmation });
   const acceptServerError = useCallback((data: unknown) => {
     if (currentKey.current !== key) return false;
     const next = readTravelFeasibility(data);
     if (!next) return false;
     active.current?.controller.abort(); setLoadingKey(''); setError(null); setPreview({ key, result: next }); setFeatureEnabled(next.enabled);
-    setOverride({ key: '', checked: false, reason: '' });
     return true;
   }, [key]);
   return {
     result, enabled, loading, requestedOnly, timezone: typeof payload?.timezone === 'string' ? payload.timezone : undefined,
+    proposedLocation: [payload?.address, payload?.city, payload?.state, payload?.zip].filter(value => typeof value === 'string' && value).join(', '),
     error: error?.key === key ? error.message : null,
     visible: Boolean(key && (enabled || loading || error?.key === key)),
-    blocked: !requestedOnly && enabled && (loading || Boolean(error?.key === key) || Boolean(result && !result.available && !validOverride)),
-    confirmation, overrideChecked, overrideReason, locationConfirmed,
-    setOverrideChecked: (checked: boolean) => setOverride({ key, checked, reason: overrideReason }),
-    setOverrideReason: (reason: string) => setOverride({ key, checked: overrideChecked, reason }),
+    blocked, canOverride, confirmation, locationConfirmed, ...saveConfirmation,
     setLocationConfirmed: (confirmed: boolean) => setLocation({ key, confirmed }),
     retry: () => request(false, locationConfirmed),
     loadAlternatives: () => request(true, locationConfirmed),

@@ -644,7 +644,9 @@ export function ShootApprovalModal({
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
 
-      const payload = { ...buildTravelApprovalPayload(), ...travel.confirmation, ...(notes.trim() ? { notes: notes.trim() } : {}) };
+      const travelConfirmation = await travel.confirmSave();
+      if (!travelConfirmation) return;
+      const payload = { ...buildTravelApprovalPayload(), ...travelConfirmation, ...(notes.trim() ? { notes: notes.trim() } : {}) };
 
       const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/approve`, {
         method: 'POST',

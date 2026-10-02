@@ -3,7 +3,7 @@ import { slimAssignedRepShootSavePayload } from './assignedRepShootSavePayload';
 
 describe('slimAssignedRepShootSavePayload', () => {
   it('retains authorized travel confirmations for server validation', () => {
-    expect(slimAssignedRepShootSavePayload({ photographer_id: 9, travel_override: true, travel_override_reason: 'Confirmed adjacent building', travel_location_confirmed: true, editor_id: 7 })).toEqual({ photographer_id: 9, travel_override: true, travel_override_reason: 'Confirmed adjacent building', travel_location_confirmed: true });
+    expect(slimAssignedRepShootSavePayload({ photographer_id: 9, travel_override: true, travel_override_reason: 'Confirmed adjacent building', travel_override_confirmed: true, travel_override_confirmation_version: 'reviewed-warning', travel_location_confirmed: true, editor_id: 7 })).toEqual({ photographer_id: 9, travel_override: true, travel_override_reason: 'Confirmed adjacent building', travel_override_confirmed: true, travel_override_confirmation_version: 'reviewed-warning', travel_location_confirmed: true });
   });
   it('keeps photographer/notify and drops forbidden echo keys', () => {
     const slim = slimAssignedRepShootSavePayload({

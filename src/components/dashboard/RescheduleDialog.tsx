@@ -79,6 +79,8 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
     setIsSubmitting(true);
     
     try {
+      const travelConfirmation = await travel.confirmSave();
+      if (!travelConfirmation) return;
       const token = localStorage.getItem('authToken');
       if (!token) {
         throw new Error('Authentication token missing');
@@ -87,7 +89,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
       const response = await axios.post(
         `${API_BASE_URL}/api/shoots/${shoot.id}/reschedule`,
         {
-          ...travel.confirmation,
+          ...travelConfirmation,
           requested_date: format(date, 'yyyy-MM-dd'),
           requested_time: normalizeSlotTime(time),
           reason: reason || undefined,
