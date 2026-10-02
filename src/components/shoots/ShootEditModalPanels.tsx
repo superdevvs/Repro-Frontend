@@ -359,7 +359,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
                         />
                       </div>
                     </div>
-                    <ServiceDurationPicker serviceName={service.name}
+                    <ServiceDurationPicker serviceName={service.name} durationSource={service}
                       value={resolveServiceShootDuration(service, model.propertySqft, schedule.duration_minutes)}
                       onChange={value => updateServiceSchedule(id, 'duration_minutes', value)} />
                   </div>

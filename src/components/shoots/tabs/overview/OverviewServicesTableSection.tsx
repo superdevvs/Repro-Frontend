@@ -589,7 +589,7 @@ function renderEditRows(
                 onChange={(value) => updateServiceSchedule(serviceId, 'time', value)}
                 triggerClassName="h-8 w-full rounded-lg min-w-0"
               />
-              <ServiceDurationPicker serviceName={service.name}
+              <ServiceDurationPicker serviceName={service.name} durationSource={service}
                 value={resolveServiceShootDuration(service, props.effectiveSqft, schedule.duration_minutes)}
                 onChange={value => updateServiceSchedule(serviceId, 'duration_minutes', value)} />
               <ApplyAllServiceScheduleButton

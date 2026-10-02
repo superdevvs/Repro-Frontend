@@ -1,11 +1,12 @@
 import { slotTimeToMinutes, type WorkingWindowMinutes } from './suggestedTimeSlots';
+import { BOOKING_TRAVEL_BUFFER_MINUTES } from './shootDuration';
 
 type Slot = { start_time?: string; end_time?: string };
 
 /** Match an entire appointment to known availability; the API remains authoritative. */
 export function isBookingIntervalDisabled({
   time, durationMinutes, workingWindow, blocked = [], bookedSlots = [], unavailableSlots = [],
-  availableSlots = [], travelBufferMinutes = 30,
+  availableSlots = [], travelBufferMinutes = BOOKING_TRAVEL_BUFFER_MINUTES,
 }: {
   time: string;
   durationMinutes: number;

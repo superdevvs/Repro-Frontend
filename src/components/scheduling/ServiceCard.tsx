@@ -19,7 +19,7 @@ import { IconPicker, getIconComponent } from './IconPicker';
 import { MultiSelectChecklist } from '@/components/ui/multi-select-checklist';
 import type { ServiceGroupDetail } from '@/types/serviceGroups';
 import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
-import { resolveShootDuration } from '@/utils/shootDuration';
+import { resolveServiceShootDuration, type ServiceDurationSource } from '@/utils/shootDuration';
 
 type SqftRange = {
   id?: number;
@@ -32,7 +32,7 @@ type SqftRange = {
 };
 
 type ServiceProps = {
-  service: {
+  service: ServiceDurationSource & {
     id: string;
     name: string;
     description?: string;
@@ -107,7 +107,7 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
     const newFrom = lastRange ? lastRange.sqft_to + 1 : 1;
     setSqftRanges([
       ...sqftRanges,
-      { sqft_from: newFrom, sqft_to: newFrom + 1499, duration: 60, price: 0, photographer_pay: null, photo_count: null }
+      { sqft_from: newFrom, sqft_to: newFrom + 1499, duration: resolveServiceShootDuration(editedService), price: 0, photographer_pay: null, photo_count: null }
     ]);
   };
 
@@ -159,7 +159,7 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
       pricing_type: editedService.pricing_type || 'fixed',
       allow_multiple: editedService.allow_multiple || false,
       delivery_time: parseInt(String(editedService.delivery_time), 10),
-      shoot_duration_minutes: resolveShootDuration(editedService.shoot_duration_minutes),
+      shoot_duration_minutes: resolveServiceShootDuration(editedService),
       icon: editedService.icon,
       photographer_required: editedService.photographer_required || false,
       exclude_from_sales_commission: editedService.exclude_from_sales_commission || false,
@@ -331,7 +331,7 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
             )}
             <div className="flex justify-between">
               <span className="text-sm font-medium">Default shoot duration:</span>
-              <span>{resolveShootDuration(service.shoot_duration_minutes)} minutes</span>
+              <span>{resolveServiceShootDuration(service)} minutes</span>
             </div>
             
             <div className="flex justify-between">
@@ -523,7 +523,7 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
               )}
 
               <div className="space-y-2">
-                <ServiceDurationPicker serviceName={editedService.name}
+                <ServiceDurationPicker serviceName={editedService.name} durationSource={editedService}
                   value={editedService.shoot_duration_minutes}
                   onChange={(minutes) => setEditedService({ ...editedService, shoot_duration_minutes: minutes })} />
                 <p className="text-xs text-muted-foreground">

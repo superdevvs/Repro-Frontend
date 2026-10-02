@@ -101,14 +101,14 @@ describe('editing the main shoot appointment', () => {
     await waitFor(() => expect(result.current.scheduledTime).toBe('09:00'));
     act(() => result.current.setScheduledTime('12:00'));
     expect(result.current.serviceSchedules).toEqual({
-      '10': { date: '2026-10-09', time: '09:00', duration_minutes: 60 },
-      '11': { date: '2026-10-08', time: '12:00', duration_minutes: 60 },
+      '10': { date: '2026-10-09', time: '09:00', duration_minutes: 0 },
+      '11': { date: '2026-10-08', time: '12:00', duration_minutes: 0 },
     });
     act(() => result.current.applyServiceScheduleToAll('10'));
     act(() => result.current.setScheduledTime('14:00'));
     expect(result.current.serviceSchedules).toEqual({
-      '10': { date: '2026-10-09', time: '09:00', duration_minutes: 60 },
-      '11': { date: '2026-10-09', time: '09:00', duration_minutes: 60 },
+      '10': { date: '2026-10-09', time: '09:00', duration_minutes: 0 },
+      '11': { date: '2026-10-09', time: '09:00', duration_minutes: 0 },
     });
   });
 
@@ -126,14 +126,14 @@ describe('editing the main shoot appointment', () => {
     const { result } = renderHook(() => useShootEditModalController({ isOpen: true, onClose: vi.fn(), shootId: '42', onSaved: vi.fn() }));
     await waitFor(() => expect(result.current.selectedServiceIds.size).toBe(2));
     expect(result.current.serviceSchedules).toEqual({
-      '10': { date: '2026-10-06', time: '10:30', duration_minutes: 60 }, '11': { date: '2026-10-07', time: '10:30', duration_minutes: 60 },
+      '10': { date: '2026-10-06', time: '10:30', duration_minutes: 0 }, '11': { date: '2026-10-07', time: '10:30', duration_minutes: 0 },
     });
     act(() => {
       result.current.setScheduledDate(new Date(2026, 9, 7, 12));
       result.current.setScheduledTime('12:00');
     });
-    expect(result.current.serviceSchedules['10']).toEqual({ date: '2026-10-07', time: '12:00', duration_minutes: 60 });
-    expect(result.current.serviceSchedules['11']).toEqual({ date: '2026-10-07', time: '10:30', duration_minutes: 60 });
+    expect(result.current.serviceSchedules['10']).toEqual({ date: '2026-10-07', time: '12:00', duration_minutes: 0 });
+    expect(result.current.serviceSchedules['11']).toEqual({ date: '2026-10-07', time: '10:30', duration_minutes: 0 });
     const payload = result.current.buildApprovalPayload();
     expect(payload?.scheduled_at).toBe(fixture.expected);
     expect(payload?.service_items).toEqual([
@@ -147,7 +147,7 @@ describe('editing the main shoot appointment', () => {
     act(() => result.current.updateServiceSchedule('10', 'time', '14:00'));
     act(() => result.current.setScheduledTime('14:00'));
     act(() => result.current.setScheduledTime('13:00'));
-    expect(result.current.serviceSchedules['10']).toEqual({ date: '2026-10-07', time: '14:00', duration_minutes: 60 });
+    expect(result.current.serviceSchedules['10']).toEqual({ date: '2026-10-07', time: '14:00', duration_minutes: 0 });
     const explicitPayload = result.current.buildApprovalPayload();
     expect(explicitPayload?.service_items).toEqual(expect.arrayContaining([
       expect.objectContaining({ service_id: 10, scheduled_at: fixture.timezone ? '2026-10-07T18:00:00.000Z' : '2026-10-07T14:00:00' }),

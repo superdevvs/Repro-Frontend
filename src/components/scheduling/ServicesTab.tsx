@@ -19,9 +19,9 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ServiceCreateDialog } from './ServiceCreateDialog';
 import { serviceMatchesSearch } from './catalogSearch';
 import type { PhotographerPayType, ServiceDraft, SqftRange } from './ServiceCreateDialog';
-import { resolveShootDuration } from '@/utils/shootDuration';
+import { resolveServiceShootDuration, type ServiceDurationSource } from '@/utils/shootDuration';
 
-type Service = {
+type Service = ServiceDurationSource & {
   id: string;
   name: string;
   description?: string;
@@ -132,12 +132,15 @@ const normalizeService = (value: unknown): Service | null => {
     price: String(item.price ?? '0'),
     pricing_type: item.pricing_type === 'variable' ? 'variable' : 'fixed',
     allow_multiple: Boolean(item.allow_multiple),
-    shoot_duration_minutes: resolveShootDuration(item.shoot_duration_minutes),
+    shoot_duration_minutes: resolveServiceShootDuration({ shoot_duration_minutes: toNumber(item.shoot_duration_minutes), photographer_required: item.photographer_required !== false,
+      booking_duration_default_minutes: toNumber(asRecord(item.booking_duration_defaults).default_minutes) ?? toNumber(item.booking_duration_default_minutes) }),
+    booking_duration_min_minutes: toNumber(asRecord(item.booking_duration_defaults).min_minutes) ?? toNumber(item.booking_duration_min_minutes),
+    booking_duration_max_minutes: toNumber(asRecord(item.booking_duration_defaults).max_minutes) ?? toNumber(item.booking_duration_max_minutes),
     delivery_time: item.delivery_time === null || item.delivery_time === undefined
       ? undefined
       : String(item.delivery_time),
     category: categoryName,
-    photographer_required: Boolean(item.photographer_required),
+    photographer_required: item.photographer_required !== false,
     photographer_pay: typeof pay === 'string' || typeof pay === 'number' ? pay : undefined,
     photographer_pay_type: payType === 'percent' ? 'percent' : 'fixed',
     photographer_pay_percent: typeof item.photographer_pay_percent === 'string'
@@ -345,7 +348,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle>(function ServicesTab(_p
       pricing_type: newService.pricing_type || 'fixed',
       allow_multiple: newService.allow_multiple || false,
       delivery_time: Number.isFinite(parsedDeliveryTime) ? parsedDeliveryTime : 0,
-      shoot_duration_minutes: resolveShootDuration(newService.shoot_duration_minutes),
+      shoot_duration_minutes: resolveServiceShootDuration(newService),
       category_id: Number(newService.category),
       icon: newService.icon || null,
       photographer_required: newService.photographer_required || false,

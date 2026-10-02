@@ -1,3 +1,4 @@
+import { fetchDurationAwareAvailability } from '@/utils/photographerVisitDuration';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
@@ -9,6 +10,7 @@ import { derivePanelState } from '@/utils/availabilityPanelState';
 import { FRONTEND_FALLBACK_HOURS_DISPLAY_ONLY } from '@/config/availabilityDefaults';
 import API_ROUTES from '@/lib/api';
 import { getCategorySpecialtyId, hasCategorySpecialty } from '@/utils/photographerSpecialties';
+import { resolveBookingAvailabilityRows } from '@/pages/bookShootAvailabilityMatch';
 import { buildAssignmentGroups, photographerRequiredServices, requiresPerServiceAssignment as computeRequiresPerServiceAssignment, resolveServicePhotographerId, selectedServicesRequirePhotographer } from '@/utils/photographerAssignment';
 import { buildServiceTimeOptions } from '@/components/shoots/ServiceSchedulePicker';
 import { useSchedulingBase } from './useSchedulingBase';
@@ -363,11 +365,15 @@ export const useSchedulingFormController = ({
       displayFallbackOnly: true,
     };
   }, [timeToMinutes, workingWindowMinutes]);
-  const { bookingAvailabilityDuration, isPhotographerTimeDisabled } = useBookingIntervalAvailability({
-    selectedServices, serviceSchedules, sqft, photographer, defaultServiceDate, defaultServiceTime,
+  const { bookingAvailabilityDuration, bookingDurationForPhotographer, isPhotographerTimeDisabled } = useBookingIntervalAvailability({
+    selectedServices, serviceSchedules, servicePhotographers, sqft, photographer, defaultServiceDate, defaultServiceTime,
     pickerServiceId, bookingAvailabilityDate, bookingAvailabilityTime, availabilityDataDate,
     dayAvailability, workingWindowMinutes, getPhotographerScheduleData,
   });
+
+  const durationGroups = new Map<number, number[]>();
+  photographers.forEach(person => { const duration = bookingDurationForPhotographer(person.id); durationGroups.set(duration, [...(durationGroups.get(duration) ?? []), Number(person.id)]); });
+  const availabilityDurationKey = JSON.stringify([...durationGroups].map(([duration_minutes, photographer_ids]) => ({ duration_minutes, photographer_ids })));
   const availableTimesForSelectedPhotographer = useMemo(
     () => buildTimeOptionsForRangePure(
       5,
@@ -558,11 +564,7 @@ export const useSchedulingFormController = ({
               dayOfWeek,
               dateStr,
             });
-            const specificDateSlots = rawSlots.filter((slot) => slot.date === dateStr);
-            const weeklySlots = rawSlots.filter((slot) =>
-              !slot.date && slot.day_of_week?.toLowerCase() === dayOfWeek
-            );
-            const relevantSlots = specificDateSlots.length > 0 ? specificDateSlots : weeklySlots;
+            const relevantSlots = resolveBookingAvailabilityRows(rawSlots, dateStr, dayOfWeek);
             const availableSlots = relevantSlots
               .filter((slot) => !slot.status || slot.status === 'available')
               .map((slot) => ({
@@ -600,7 +602,7 @@ export const useSchedulingFormController = ({
         const token = localStorage.getItem('authToken');
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        const response = await fetch(API_ROUTES.photographerAvailability.forBooking, {
+        const response = await fetchDurationAwareAvailability(API_ROUTES.photographerAvailability.forBooking, {
           method: 'POST',
           headers,
           signal: abortController.signal,
@@ -616,7 +618,7 @@ export const useSchedulingFormController = ({
             service_ids: photographerRequiredServices(selectedServices).map(service => Number(service.id)).filter(Number.isFinite),
             require_all_services: false, // Each service can have its own specialist.
           }),
-        });
+        }, JSON.parse(availabilityDurationKey));
         if (isCancelled) return;
         if (!response.ok) {
           // Prefer not to blank the picker on intermittent forBooking 5xx (e.g. cache ownership).
@@ -711,16 +713,7 @@ export const useSchedulingFormController = ({
               hasMatchingDay: daysInSlots.some((d: string) => d?.toLowerCase() === dayOfWeek),
             });
           }
-          const specificDateSlots = rawSlots.filter((slot) => {
-            const slotDate = slot.date ? String(slot.date).slice(0, 10) : '';
-            return slotDate === dateStr;
-          });
-          const weeklySlots = rawSlots.filter((slot) => {
-            const slotDate = slot.date ? String(slot.date).trim() : '';
-            if (slotDate) return false;
-            return normalizeDayOfWeek(slot.day_of_week) === dayOfWeek;
-          });
-          const relevantSlots = specificDateSlots.length > 0 ? specificDateSlots : weeklySlots;
+          const relevantSlots = resolveBookingAvailabilityRows(rawSlots, dateStr, dayOfWeek);
           const availableSlots = relevantSlots
             .filter((slot) => !slot.status || slot.status === 'available')
             .map((slot) => ({
@@ -732,8 +725,6 @@ export const useSchedulingFormController = ({
             name: p.name,
             rawSlotsCount: rawSlots.length,
             dayOfWeek,
-            specificDateSlotsCount: specificDateSlots.length,
-            weeklySlotsCount: weeklySlots.length,
             availableSlotsCount: availableSlots.length,
             availableSlots,
           });
@@ -822,7 +813,7 @@ export const useSchedulingFormController = ({
     };
   }, [
     address, city, state, zip, photographers, date,
-    normalizeDayOfWeek, canUseProtectedAvailability, selectedServices, bookingEligibilityRetry, bookingAvailabilityDate, bookingAvailabilityTime, bookingAvailabilityDuration,
+    normalizeDayOfWeek, canUseProtectedAvailability, selectedServices, bookingEligibilityRetry, bookingAvailabilityDate, bookingAvailabilityTime, bookingAvailabilityDuration, availabilityDurationKey,
     setIsCalculatingDistances, setIsLoadingAvailability, setPhotographerAvailability,
     setPhotographersWithDistance,
   ]);
@@ -840,6 +831,7 @@ export const useSchedulingFormController = ({
     }
     const selectedTimeMinutes = bookingAvailabilityTime ? timeToMinutes(bookingAvailabilityTime) : null;
     const getAvailabilityMetrics = (photographerItem: SchedulingPhotographerView) => {
+      const candidateDuration = bookingDurationForPhotographer(photographerItem.id);
       const rawSlots = Array.isArray(photographerItem.netAvailableSlots) && photographerItem.netAvailableSlots.length > 0
         ? photographerItem.netAvailableSlots
         : Array.isArray(photographerItem.availabilitySlots)
@@ -855,8 +847,8 @@ export const useSchedulingFormController = ({
         || photographerAvailability.get(String(photographerItem.id))
         || photographerAvailability.get(Number(photographerItem.id));
       const availableAtSelectedTime = selectedTimeMinutes !== null
-        ? slots.some((slot) => slot.start <= selectedTimeMinutes && slot.end >= selectedTimeMinutes + bookingAvailabilityDuration)
-          && !isBookingIntervalDisabled({ time: bookingAvailabilityTime, durationMinutes: bookingAvailabilityDuration,
+        ? slots.some((slot) => slot.start <= selectedTimeMinutes && slot.end >= selectedTimeMinutes + candidateDuration)
+          && !isBookingIntervalDisabled({ time: bookingAvailabilityTime, durationMinutes: candidateDuration,
             bookedSlots: photographerItem.bookedSlots, unavailableSlots: photographerItem.unavailableSlots })
         : false;
       const firstStart = slots.length > 0 ? Math.min(...slots.map((slot) => slot.start)) : Number.POSITIVE_INFINITY;
@@ -918,7 +910,7 @@ export const useSchedulingFormController = ({
       return distanceCompare !== 0 ? distanceCompare : a.name.localeCompare(b.name);
     });
     return sorted;
-  }, [photographersWithDistance, photographerOptions, bookingEligiblePhotographerIds, searchQuery, sortBy, showAllPhotographers, photographerAvailability, date, time, bookingAvailabilityTime, bookingAvailabilityDuration, requiresPerServiceAssignment, activeServiceForPicker, activeServiceCapabilityForPicker, filteredPhotographersForService, timeToMinutes, canUseProtectedAvailability]);
+  }, [photographersWithDistance, photographerOptions, bookingEligiblePhotographerIds, searchQuery, sortBy, showAllPhotographers, photographerAvailability, date, time, bookingAvailabilityTime, bookingDurationForPhotographer, requiresPerServiceAssignment, activeServiceForPicker, activeServiceCapabilityForPicker, filteredPhotographersForService, timeToMinutes, canUseProtectedAvailability]);
 
   const handleSchedulingSubmit = () => {
     if (enforceNewBookingEligibility && requiresPhotographerAssignment) {

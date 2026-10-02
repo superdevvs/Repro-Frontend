@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bookingTimeToMinutes, slotCoversBookingTime } from './bookShootAvailabilityMatch';
+import { bookingTimeToMinutes, slotCoversBookingTime, resolveBookingAvailabilityRows } from './bookShootAvailabilityMatch';
 
 describe('bookShootAvailabilityMatch', () => {
   it('parses 12h and 24h booking times', () => {
@@ -22,5 +22,29 @@ describe('bookShootAvailabilityMatch', () => {
       { start_time: '08:00', end_time: '16:30', status: 'unavailable' },
       600,
     )).toBe(false);
+  });
+});
+
+
+describe('resolveBookingAvailabilityRows', () => {
+  it('falls back to weekly when dated rows are only unavailable overrides', () => {
+    const rows = [
+      { date: '2026-10-07', day_of_week: 'wednesday', start_time: '09:00', end_time: '12:30', status: 'unavailable' },
+      { date: null, day_of_week: 'wednesday', start_time: '09:00', end_time: '17:00', status: 'available' },
+    ];
+    const resolved = resolveBookingAvailabilityRows(rows, '2026-10-07', 'wednesday');
+    expect(resolved.some((r) => (r.status ?? 'available') === 'available' && r.start_time === '09:00' && r.end_time === '17:00')).toBe(true);
+    expect(resolved.some((r) => r.status === 'unavailable')).toBe(true);
+  });
+
+  it('prefers dated available windows over weekly', () => {
+    const rows = [
+      { date: '2026-10-06', day_of_week: 'tuesday', start_time: '10:00', end_time: '14:00', status: 'available' },
+      { date: null, day_of_week: 'tuesday', start_time: '09:00', end_time: '17:00', status: 'available' },
+    ];
+    const resolved = resolveBookingAvailabilityRows(rows, '2026-10-06', 'tuesday');
+    const available = resolved.filter((r) => (r.status ?? 'available') === 'available');
+    expect(available).toHaveLength(1);
+    expect(available[0].start_time).toBe('10:00');
   });
 });

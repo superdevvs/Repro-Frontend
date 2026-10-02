@@ -1,4 +1,6 @@
 import axios from 'axios';
+import type { ServiceDurationSource } from '@/utils/shootDuration';
+type DurationMetadata = Pick<ServiceDurationSource, 'booking_duration_default_minutes' | 'booking_duration_min_minutes' | 'booking_duration_max_minutes' | 'booking_duration_defaults'>;
 import API_ROUTES from '@/lib/api';
 import type { AddressDetails } from '@/utils/addressLookup';
 import type { PricingDiscountType } from '@/utils/pricing';
@@ -14,7 +16,7 @@ export interface SqftRange {
   photographer_pay?: number | null;
 }
 
-export interface Service {
+export interface Service extends DurationMetadata {
   id: number | string;
   name: string;
   duration_minutes?: number | null;
@@ -149,7 +151,7 @@ export type ServiceApiRange = {
   photographer_pay?: number | string | null;
 };
 
-export type ServiceApiRecord = {
+export type ServiceApiRecord = DurationMetadata & {
   duration_minutes?: number | null;
   shoot_duration_minutes?: number | null;
   id?: string | number;

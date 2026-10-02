@@ -249,7 +249,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
                 <p className="text-sm font-medium">Service duration</p>
                 {durationEntries.map(entry => <div key={entry.id} className="space-y-1">
                   <p className="text-xs font-medium">{entry.name}</p>
-                  <ServiceDurationPicker serviceName={entry.name} value={durationChanges[entry.id] ?? entry.duration}
+                  <ServiceDurationPicker serviceName={entry.name} durationSource={entry.durationSource} value={durationChanges[entry.id] ?? entry.duration}
                     disabled={isSubmitting} onChange={minutes => setDurationChanges(current => ({ ...current, [entry.id]: minutes }))} />
                 </div>)}
               </div>

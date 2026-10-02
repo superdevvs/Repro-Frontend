@@ -28,7 +28,7 @@ import {
   toNumberOrUndefined,
   useOverviewLookupData,
   usePhotographerAssignmentOptions,
-  usePhotographerDistanceAvailability,
+  usePhotographerDistanceAvailability, getOverviewAvailabilityDuration,
 } from './shootOverviewEditorSupport';
 import { calculatePricingBreakdown } from '@/utils/pricing';
 import type {
@@ -773,6 +773,7 @@ export function useShootOverviewEditor({
     setPhotographers,
     setIsCalculatingDistances,
     setIsLoadingAvailability,
+    getOverviewAvailabilityDuration(servicesList, selectedServiceIds, photographerPickerContext, serviceSchedules, photographerPickerScheduleDate, photographerPickerScheduleTime, perCategoryPhotographers, photographerAssignments.groups, selectedPhotographerIdEdit, effectiveSqft, photographers.map(person => person.id)),
   );
 
   const fallbackAssignedPhotographers = useMemo(() => {

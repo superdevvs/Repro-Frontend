@@ -92,14 +92,15 @@ describe('download transfer lifecycle', () => {
     const writable = new WritableStream<Uint8Array>({
       write(chunk) { written.push(chunk); },
     });
+    const showSaveFilePicker = vi.fn().mockResolvedValue({ createWritable: async () => writable });
     Object.defineProperty(window, 'showSaveFilePicker', {
       configurable: true,
-      value: vi.fn().mockResolvedValue({ createWritable: async () => writable }),
+      value: showSaveFilePicker,
     });
     expect(canStreamArchiveToDisk()).toBe(true);
     const response = new Response(new Uint8Array([80, 75, 3, 4]), { headers: { 'Content-Type': 'application/zip' } });
     await expect(streamArchiveResponseToDisk(response, 'archive.zip')).resolves.toBe('archive.zip');
     expect(written[0]?.[0]).toBe(80);
-    expect(window.showSaveFilePicker).toHaveBeenCalledOnce();
+    expect(showSaveFilePicker).toHaveBeenCalledOnce();
   });
 });

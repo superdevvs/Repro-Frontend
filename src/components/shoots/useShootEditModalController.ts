@@ -1,3 +1,4 @@
+import { fetchDurationAwareAvailability, photographerVisitDurationGroups } from '@/utils/photographerVisitDuration';
 import { formatPhotographerLocationLabel } from './shootEditPhotographerDisplay';
 import { useUnitScopedEdit, useUnitEditDirtyTracking } from '@/features/shoot-units/useUnitScopedEdit';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -137,9 +138,13 @@ export function useShootEditModalController({
           name: s.name,
           duration_minutes: s.duration_minutes,
           shoot_duration_minutes: s.shoot_duration_minutes,
+          booking_duration_defaults: s.booking_duration_defaults,
+          booking_duration_default_minutes: s.booking_duration_default_minutes,
+          booking_duration_min_minutes: s.booking_duration_min_minutes,
+          booking_duration_max_minutes: s.booking_duration_max_minutes,
           price: Number(s.price || 0),
           pricing_type: s.pricing_type || 'fixed',
-          photographer_required: Boolean(s.photographer_required),
+          photographer_required: s.photographer_required !== false && s.photographer_required !== 0 && s.photographer_required !== '0',
           allow_multiple: s.allow_multiple === true || s.allow_multiple === 1 || s.allow_multiple === '1',
           category: s.category ? { id: s.category.id, name: s.category.name } : undefined,
           sqft_ranges: (s.sqft_ranges || s.sqftRanges || []).map((r: ServiceApiRange) => ({
@@ -366,6 +371,13 @@ export function useShootEditModalController({
         .filter((group) => group.serviceIds.length > 0),
     [availableServiceCategoryGroups, selectedServiceIds],
   );
+  const availabilityDurationGroups = useMemo(() => photographerVisitDurationGroups(
+    selectedServiceCategoryGroups.flatMap(group => availableServices.filter(service => group.serviceIds.includes(String(service.id))).map(service => ({ ...service,
+      assignedPhotographerId: perCategoryPhotographers[group.key] || photographerId || '',
+      moving: photographerPickerContext?.categoryKey ? photographerPickerContext.categoryKey === group.key : !perCategoryPhotographers[group.key],
+    }))), photographers.map(person => person.id), scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '', scheduledTime, propertySqft, serviceSchedules,
+  ), [availableServices, perCategoryPhotographers, photographerId, photographerPickerContext, photographers, propertySqft, scheduledDate, scheduledTime, selectedServiceCategoryGroups, serviceSchedules]);
+  const availabilityDurationKey = JSON.stringify(availabilityDurationGroups);
   const hasMultiplePhotographerCategories = selectedServiceCategoryGroups.length > 1;
   const resolvePhotographerDetails = (value?: string | number | null) => {
     if (value === null || value === undefined || value === '') return null;
@@ -416,7 +428,7 @@ export function useShootEditModalController({
         const requestCity = city || shootDetails?.city || '';
         const requestState = state || shootDetails?.state || '';
         const requestZip = zip || shootDetails?.zip || '';
-        const response = await fetch(API_ROUTES.photographerAvailability.forBooking, {
+        const response = await fetchDurationAwareAvailability(API_ROUTES.photographerAvailability.forBooking, {
           method: 'POST',
           headers,
           signal: abortController.signal,
@@ -429,7 +441,7 @@ export function useShootEditModalController({
             shoot_zip: requestZip || '',
             photographer_ids: photographersRef.current.map((photographer) => Number(photographer.id)).filter(Number.isFinite),
           }),
-        });
+        }, JSON.parse(availabilityDurationKey));
         if (!response.ok) {
           // Degrade: keep photographer list selectable without timeline enrichment.
           console.warn('[ShootEditModal] forBooking failed', response.status);
@@ -484,7 +496,7 @@ export function useShootEditModalController({
     };
     fetchAvailability();
     return () => abortController.abort();
-  }, [isOpen, photographers.length, scheduledDate, scheduledTime, address, city, state, zip, shootDetails]);
+  }, [isOpen, photographers.length, scheduledDate, scheduledTime, address, city, state, zip, shootDetails, availabilityDurationKey]);
   useEffect(() => {
     if (!isOpen || !photographerId || photographerId === 'unassigned' || !scheduledDate) {
       setEditDayAvailability(null);

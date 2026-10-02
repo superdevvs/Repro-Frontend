@@ -11,7 +11,7 @@ import type { InternalShootType } from '@/components/booking/ClientPropertyForm'
 import type { ShootData } from '@/types/shoots';
 import axios from 'axios';
 import API_ROUTES from '@/lib/api';
-import { bookingTimeToMinutes, normalizeSlotClock } from './bookShootAvailabilityMatch';
+import { bookingTimeToMinutes, normalizeSlotClock, resolveBookingAvailabilityRows } from './bookShootAvailabilityMatch';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
@@ -603,18 +603,22 @@ export const useBookShootWorkflow = ({
         const ids = photographers.filter((p) => {
           const rawSlots = byPhotographer[String(p.id)] ?? byPhotographer[p.id as unknown as string] ?? [];
           const rows = (Array.isArray(rawSlots) ? rawSlots : []).map(asRecord);
-          const specific = rows.filter((r) => String(r?.date ?? '').slice(0, 10) === fmtDate);
-          const weekly = rows.filter((r) => !r?.date && String(r?.day_of_week ?? '').toLowerCase() === dayName);
-          const relevant = specific.length > 0 ? specific : weekly;
+          // Dated available overrides weekly; dated unavailable alone must not hide weekly/fallback.
+          const relevant = resolveBookingAvailabilityRows(rows, fmtDate, dayName);
           relevant.forEach((r) => {
             if ((r?.status ?? 'available') === 'available') {
               const norm = normalizeSlotClock(r?.start_time);
               if (norm) allTimesSet.add(norm);
             }
           });
-          // No configured hours for the day → keep photographer (Backend_Fallback_Hours /
-          // fail-open). Only drop when there are windows and none cover the booking start.
-          if (relevant.length === 0) return true;
+          const hasAvailableWindow = relevant.some((r) => (r?.status ?? 'available') === 'available');
+          // No configured hours → Backend_Fallback_Hours / fail-open unless an unavailable block covers start.
+          if (!hasAvailableWindow) {
+            const blockedOnly = relevant.filter((r) => r?.status === 'unavailable');
+            if (blockedOnly.length === 0) return true;
+            // Keep when start is outside every unavailable block.
+            return !isBookingTimeAvailable(start_time, blockedOnly.map((r) => ({ ...r, status: 'available' })));
+          }
           return isBookingTimeAvailable(start_time, relevant);
         }).map((p) => String(p.id));
         setAvailablePhotographerIds(ids);

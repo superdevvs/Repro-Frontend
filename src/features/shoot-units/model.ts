@@ -6,7 +6,7 @@ import { getShootSchedule } from '@/utils/shootSchedule';
 import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { getServiceUnitId, getUnitKey, normalizeShootUnits } from './shootUnitData';
 import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
-import { resolveShootDuration } from '@/utils/shootDuration';
+import { DEFAULT_SHOOT_DURATION_MINUTES, resolveServiceShootDuration } from '@/utils/shootDuration';
 
 export type UnitDraft = ShootUnit & { client_key: string };
 export type UnitLineDraft = {
@@ -69,8 +69,27 @@ export function summarizeUnitServices(draft: MultiUnitDraft, catalog: ServicePac
 }
 export type ResolvedUnitLine = UnitLineDraft & { scheduled_date: string; start_time: string; photographer_id: string; duration: number; end_time: string };
 export function unitServiceDuration(service: ServicePackage, unit: ShootUnit): number {
-  const tier = service.pricing_type === 'variable' && unit.sqft ? service.sqft_ranges?.find(range => unit.sqft! >= range.sqft_from && unit.sqft! <= range.sqft_to) : undefined;
-  return resolveShootDuration(service.duration_minutes, tier?.duration, service.shoot_duration_minutes, service.booking_duration_defaults?.default_minutes, service.booking_duration_default_minutes);
+  return resolveServiceShootDuration(service, unit.sqft);
+}
+/** Sequential units at one property share one visit; travel is outside this span. */
+export function unitVisitDuration(lines: ResolvedUnitLine[], date: string, photographerId = '', time?: string): number {
+  const minutes = (value: string) => { const [hours, mins] = toBackendTime(value).split(':').map(Number); return hours * 60 + mins; };
+  const byStart = new Map<string, { photographer: string; start: number; duration: number }>();
+  for (const line of lines) {
+    if (!line.duration || line.scheduled_date !== date || (photographerId && line.photographer_id !== photographerId)) continue;
+    const start = minutes(line.start_time), key = `${line.photographer_id}:${start}`;
+    byStart.set(key, { photographer: line.photographer_id, start, duration: (byStart.get(key)?.duration ?? 0) + line.duration });
+  }
+  const visits: Array<{ photographer: string; start: number; end: number }> = [];
+  for (const line of [...byStart.values()].sort((a, b) => a.photographer.localeCompare(b.photographer) || a.start - b.start)) {
+    const prior = visits.at(-1);
+    if (prior?.photographer === line.photographer && line.start <= prior.end) prior.end = Math.max(prior.end, line.start + line.duration);
+    else visits.push({ photographer: line.photographer, start: line.start, end: line.start + line.duration });
+  }
+  const candidate = time ? minutes(time) : null;
+  const durations = visits.filter(visit => candidate === null || (visit.start <= candidate && candidate < visit.end))
+    .map(visit => visit.end - (candidate ?? visit.start));
+  return durations.length ? Math.max(...durations) : DEFAULT_SHOOT_DURATION_MINUTES;
 }
 /** Each photographer gets sequential occupied blocks, never N units at the same instant. */
 export function resolveUnitSchedule(draft: MultiUnitDraft, catalog: ServicePackage[], fallback: UnitScheduleDefault): { lines: ResolvedUnitLine[]; errors: string[]; totalMinutes: number } {
@@ -87,7 +106,7 @@ export function resolveUnitSchedule(draft: MultiUnitDraft, catalog: ServicePacka
     const time = toBackendTime(line.time || defaults.time || fallback.time).slice(0, 5);
     const photographerId = line.photographer_id || defaults.photographer_id || fallback.photographer_id || '';
     const required = serviceRequiresPhotographer(service);
-    const duration = resolveShootDuration(line.duration_minutes, defaults.duration_minutes, unitServiceDuration(service, unit));
+    const duration = resolveServiceShootDuration(service, unit.sqft, line.duration_minutes ?? defaults.duration_minutes);
     if (!date || !time) errors.push(`${unit.label} / ${service.name}: choose a date and time.`);
     if (required && !photographerId) errors.push(`${unit.label} / ${service.name}: choose a photographer.`);
     if (required && !(duration > 0)) errors.push(`${unit.label} / ${service.name}: service duration is missing; update the service catalogue.`);
@@ -114,7 +133,7 @@ export function buildUnitPayload(draft: MultiUnitDraft, resolved: ResolvedUnitLi
         unit_client_key: line.unit_client_key, ...(unit.id ? { shoot_unit_id: unit.id } : {}), service_id: line.service_id,
         scheduled_at: buildShootScheduleTimestamp(line.scheduled_date, line.start_time, timezone), photographer_id: line.photographer_id || null,
         quantity: normalizeBookingQuantity(line.quantity),
-        duration_minutes: resolveShootDuration(line.duration_minutes, line.duration), is_deliverable: true as const };
+        duration_minutes: line.duration_minutes ?? line.duration, is_deliverable: true as const };
     }),
   };
 }

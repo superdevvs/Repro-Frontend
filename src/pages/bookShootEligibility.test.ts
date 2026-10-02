@@ -23,6 +23,14 @@ describe('final new-booking photographer eligibility', () => {
     expect(axios.post).toHaveBeenNthCalledWith(2, API_ROUTES.photographerAvailability.forBooking, expect.objectContaining({ service_ids: [1], time: '12:00' }), expect.anything());
     expect(axios.post).toHaveBeenLastCalledWith(url, multi, config);
   });
+  it('sends actual per-visit duration15 and sums distinct simultaneous services without a buffer in their lengths', async () => {
+    vi.mocked(axios.post).mockResolvedValue({ data: { data: [{ id: 9 }] } });
+    await submitNewShootWithEligibility(url, { ...payload, services: [{ ...payload.services[0], duration_minutes: 15 }] }, config);
+    expect(axios.post).toHaveBeenNthCalledWith(1, API_ROUTES.photographerAvailability.forBooking, expect.objectContaining({ duration_minutes: 15 }), expect.anything());
+    vi.clearAllMocks();
+    await submitNewShootWithEligibility(url, { ...payload, services: [{ ...payload.services[0], duration_minutes: 15 }, { ...payload.services[0], id: '2', duration_minutes: 30 }] }, config);
+    expect(axios.post).toHaveBeenNthCalledWith(1, API_ROUTES.photographerAvailability.forBooking, expect.objectContaining({ duration_minutes: 45 }), expect.anything());
+  });
   it('does not create a booking when a previously selected photographer is now excluded', async () => {
     vi.mocked(axios.post).mockResolvedValue({ data: { data: [] } });
     await expect(submitNewShootWithEligibility(url, payload, config)).rejects.toThrow(/no longer eligible/);

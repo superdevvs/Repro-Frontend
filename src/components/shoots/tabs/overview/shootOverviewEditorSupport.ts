@@ -1,3 +1,6 @@
+import { fetchDurationAwareAvailability, photographerVisitDurationGroups, type PhotographerDurationGroup } from '@/utils/photographerVisitDuration';
+import type { ServiceDurationSource } from '@/utils/shootDuration';
+import { normalizeShootServiceCategoryKey } from '@/utils/shootPhotographerAssignments';
 import { normalizeDayOfWeek } from './photographerAvailabilityDay';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect } from 'react';
@@ -22,7 +25,7 @@ import {
 
 export type PresenceOption = 'self' | 'other' | 'lockbox';
 
-export type ServiceOption = {
+export type ServiceOption = ServiceDurationSource & {
   duration_minutes?: number | null;
   shoot_duration_minutes?: number | null;
   id: string;
@@ -403,6 +406,10 @@ const normalizeServiceOption = (value: unknown): ServiceOption | null => {
     duration: optionalNumber(service.duration) ?? null,
     duration_minutes: optionalNumber(service.duration_minutes) ?? null,
     shoot_duration_minutes: optionalNumber(service.shoot_duration_minutes) ?? null,
+    photographer_required: service.photographer_required !== false,
+    booking_duration_default_minutes: optionalNumber(asRecord(service.booking_duration_defaults).default_minutes ?? service.booking_duration_default_minutes),
+    booking_duration_min_minutes: optionalNumber(asRecord(service.booking_duration_defaults).min_minutes ?? service.booking_duration_min_minutes),
+    booking_duration_max_minutes: optionalNumber(asRecord(service.booking_duration_defaults).max_minutes ?? service.booking_duration_max_minutes),
   };
 };
 
@@ -684,7 +691,9 @@ export function usePhotographerDistanceAvailability(
   setPhotographers: Dispatch<SetStateAction<PhotographerPickerOption[]>>,
   setIsCalculatingDistances: Dispatch<SetStateAction<boolean>>,
   setIsLoadingAvailability: Dispatch<SetStateAction<boolean>>,
+  durationGroups: PhotographerDurationGroup[] = [],
 ) {
+  const durationGroupsKey = JSON.stringify(durationGroups);
   const shootLocation = getShootLocation();
   const shootLocationKey = [
     shootLocation.address,
@@ -824,7 +833,7 @@ export function usePhotographerDistanceAvailability(
         // bulkIndex so the picker still lists photographers instead of hanging.
         let availabilityList: any[] = [];
         try {
-          const response = await fetch(API_ROUTES.photographerAvailability.forBooking, {
+          const response = await fetchDurationAwareAvailability(API_ROUTES.photographerAvailability.forBooking, {
             method: 'POST',
             headers,
             signal: controller.signal,
@@ -837,7 +846,7 @@ export function usePhotographerDistanceAvailability(
               shoot_zip: shootLocation.zip || '',
               photographer_ids: photographers.map((photographer) => Number(photographer.id)),
             }),
-          });
+          }, JSON.parse(durationGroupsKey));
           if (response.ok) {
             const json = await response.json();
             availabilityList = Array.isArray(json.data) ? json.data : [];
@@ -961,8 +970,17 @@ export function usePhotographerDistanceAvailability(
     photographerAvailabilityKey,
     scheduleDate,
     scheduleTime,
+    durationGroupsKey,
     setIsLoadingAvailability,
     setPhotographers,
     shootLocationKey,
   ]);
+}
+
+export function getOverviewAvailabilityDuration(servicesList: ServiceOption[], selectedServiceIds: string[], photographerPickerContext: PhotographerPickerContext, serviceSchedules: Record<string, ServiceScheduleFields>, photographerPickerScheduleDate: string, photographerPickerScheduleTime: string, perCategoryPhotographers: Record<string, string>, assignmentGroups: Array<{ key: string; photographer?: { id?: string | number } | null }>, selectedPhotographerIdEdit: string, effectiveSqft: number | null, photographerIds: string[]) {
+  return photographerVisitDurationGroups(servicesList.filter(item => selectedServiceIds.includes(item.id)).map(service => {
+    const categoryKey = normalizeShootServiceCategoryKey(deriveServiceCategoryName(service));
+    return { ...service, assignedPhotographerId: String(perCategoryPhotographers[categoryKey] || assignmentGroups.find(group => group.key === categoryKey)?.photographer?.id || selectedPhotographerIdEdit || ''),
+      moving: photographerPickerContext?.categoryKey ? photographerPickerContext.categoryKey === categoryKey : !perCategoryPhotographers[categoryKey] };
+  }), photographerIds, photographerPickerScheduleDate, photographerPickerScheduleTime, effectiveSqft, serviceSchedules);
 }

@@ -43,6 +43,24 @@ describe('per-service booking photographer availability', () => {
     expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toMatchObject({ duration_minutes: 60 });
   });
 
+  it('uses each candidate duration for API requests and visible availability when moving a service', async () => {
+    const fetchMock = vi.fn(async (_url: string, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body)) as { photographer_ids: number[] };
+      return { ok: true, json: async () => ({ data: body.photographer_ids.map(id => ({ id, name: String(id), net_available_slots: [{ start_time: '10:00', end_time: '10:20' }] })) }) } as Response;
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const props: SchedulingFormProps = { ...eligibilityProps(), selectedServices: [
+      { id: '1', name: 'Photos', price: 100, shoot_duration_minutes: 15 }, { id: '2', name: 'Video', price: 100, shoot_duration_minutes: 30 },
+    ], servicePhotographers: { '1': '9', '2': '9' } };
+    const { result } = renderHook(() => useSchedulingFormController(props));
+    await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
+    act(() => { result.current.setActiveServiceForPicker('1'); result.current.setShowAllPhotographers(false); });
+    await waitFor(() => expect(result.current.filteredAndSortedPhotographers.map(person => person.id)).toEqual(['10']));
+    const bodies = fetchMock.mock.calls.map(([, init]) => JSON.parse(String(init?.body)));
+    expect(bodies).toEqual(expect.arrayContaining([
+      expect.objectContaining({ photographer_ids: [9], duration_minutes: 45 }), expect.objectContaining({ photographer_ids: [10], duration_minutes: 15 }),
+    ]));
+  });
   it('checks independent services with their own duration and their own selected date and time', async () => {
     const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => ({ ok: true, json: async () => ({ data: [{
       id: 9, name: 'Pat', availability_slots: [{ start_time: '12:00', end_time: '13:00' }],
@@ -64,7 +82,7 @@ describe('per-service booking photographer availability', () => {
     expect(result.current.isPhotographerTimeDisabled('9', '12:00', '2')).toBe(true);
   });
 
-  it('uses the longest same-slot service and does not trust a stale available flag over a short free range', async () => {
+  it('sums distinct same-slot services and does not trust a stale available flag over a short free range', async () => {
     const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => ({ ok: true, json: async () => ({ data: [{
       id: 9, name: 'Pat', is_available_at_time: true,
       availability_slots: [{ start_time: '12:00', end_time: '13:00' }],
@@ -77,9 +95,9 @@ describe('per-service booking photographer availability', () => {
     };
     const { result } = renderHook(() => useSchedulingFormController(props));
     await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
-    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toMatchObject({ duration_minutes: 90 });
+    expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toMatchObject({ duration_minutes: 120 });
     expect(result.current.suggestedTimes).not.toContain('12:00 PM');
-    expect(result.current.isPhotographerTimeDisabled('9', '12:00', '1')).toBe(false);
+    expect(result.current.isPhotographerTimeDisabled('9', '12:00', '1')).toBe(true);
     act(() => result.current.setShowAllPhotographers(false));
     expect(result.current.filteredAndSortedPhotographers).toHaveLength(0);
   });
@@ -127,7 +145,7 @@ describe('per-service booking photographer availability', () => {
     act(() => result.current.setActiveServiceForPicker('1'));
     await waitFor(() => expect(result.current.canConfirmPhotographer).toBe(true));
     expect(JSON.parse(String(fetchMock.mock.calls.at(-1)?.[1]?.body))).toMatchObject({ date: '2026-10-06', time: '13:00' });
-    expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['9']);
+    await waitFor(() => expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['9']));
   });
 
   it('treats malformed success responses as failed checks with retry, not zero eligible photographers', async () => {
@@ -153,7 +171,7 @@ describe('per-service booking photographer availability', () => {
     act(() => result.current.retryBookingEligibility());
     await waitFor(() => expect(result.current.canConfirmPhotographer).toBe(true));
     expect(result.current.bookingEligibilityError).toBeNull();
-    expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['9']);
+    await waitFor(() => expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['9']));
     act(() => result.current.handleSubmit());
     expect(eligibilityPropsStable.handleSubmit).toHaveBeenCalledOnce();
   });
@@ -174,7 +192,7 @@ describe('per-service booking photographer availability', () => {
     rerender({ ...props, address: '456 Changed Street' });
     await waitFor(() => expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['10']));
     await act(async () => finishOld({ data: [{ id: 9, name: 'Pat' }] }));
-    expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['10']);
+    await waitFor(() => expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['10']));
     expect(result.current.canConfirmPhotographer).toBe(false);
     act(() => result.current.handleSubmit());
     expect(props.handleSubmit).not.toHaveBeenCalled();
@@ -234,7 +252,7 @@ describe('per-service booking photographer availability', () => {
       const data = request.require_all_services === false ? [
         { id: 9, name: 'Photo specialist', is_available_at_time: true, has_availability: true },
         { id: 10, name: 'Video specialist', is_available_at_time: true, has_availability: true },
-      ] : [];
+      ].filter(person => request.photographer_ids.includes(person.id)) : [];
       return { ok: true, json: async () => ({ data }) } as Response;
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -259,10 +277,10 @@ describe('per-service booking photographer availability', () => {
     const request = JSON.parse(String(fetchMock.mock.calls[0][1]?.body));
     expect(request).toMatchObject({ service_ids: [1, 2], require_all_services: false });
     act(() => result.current.setActiveServiceForPicker('1'));
-    expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['9']);
+    await waitFor(() => expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['9']));
     expect(result.current.canConfirmPhotographer).toBe(true);
     act(() => result.current.setActiveServiceForPicker('2'));
-    expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['10']);
+    await waitFor(() => expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['10']));
     expect(result.current.canConfirmPhotographer).toBe(false);
   });
 
@@ -280,7 +298,7 @@ describe('per-service booking photographer availability', () => {
     };
     const { result } = renderHook(() => useSchedulingFormController(props));
     await waitFor(() => expect(result.current.photographersWithDistance).toHaveLength(1));
-    expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['9']);
+    await waitFor(() => expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['9']));
     expect(result.current.isPhotographerTimeDisabled('9', '10:30')).toBe(true);
     act(() => result.current.setShowAllPhotographers(false));
     expect(result.current.filteredAndSortedPhotographers).toEqual([]);

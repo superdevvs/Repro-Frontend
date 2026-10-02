@@ -1,7 +1,7 @@
 import type { ShootData } from '@/types/shoots';
 import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 import { isInvoiceAdjustmentServiceItem } from './shootServiceItems';
-import { resolveShootDuration } from './shootDuration';
+import { resolveServiceShootDuration, resolveShootDuration, type ServiceDurationSource } from './shootDuration';
 
 export function getRescheduleDurationEntries(shoot: ShootData) {
   const multiUnit = getShootUnits(shoot).length > 0;
@@ -14,7 +14,8 @@ export function getRescheduleDurationEntries(shoot: ShootData) {
     if (!id || seen.has(String(id))) return [];
     seen.add(String(id));
     return [{ id: String(id), name: `${row.name || row.serviceName || 'Service'}${multiUnit && row.unit_label ? ` · ${row.unit_label}` : ''}`,
-      duration: resolveShootDuration(row.duration_minutes), multiUnit }];
+      duration: resolveServiceShootDuration(row as ServiceDurationSource, Number(shoot.propertyDetails?.sqft) || null),
+      durationSource: row as ServiceDurationSource, multiUnit }];
   });
 }
 

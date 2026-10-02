@@ -251,7 +251,7 @@ export function ServiceCreateDialog({
 
             <div className="space-y-2">
               <ServiceDurationPicker serviceName={newService.name || 'new service'}
-                value={newService.shoot_duration_minutes}
+                durationSource={newService} value={newService.shoot_duration_minutes}
                 onChange={(minutes) => setNewService(prev => ({ ...prev, shoot_duration_minutes: minutes }))} />
               <p className="text-xs text-muted-foreground">
                 Default time on site. Can be adjusted when scheduling.

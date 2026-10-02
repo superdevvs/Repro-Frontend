@@ -65,7 +65,7 @@ describe('Scheduling catalog shoot duration', () => {
     renderCatalog();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
 
-    expect(screen.getByRole('combobox', { name: 'Shoot duration for HDR Photos' })).toHaveValue(String(expected));
+    expect(screen.getByRole('slider', { name: 'Shoot duration for HDR Photos' })).toHaveValue(String(expected));
     expect(screen.getByLabelText('Delivery Time (hours)')).toHaveValue(24);
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
@@ -83,7 +83,7 @@ describe('Scheduling catalog shoot duration', () => {
     }]);
     renderCatalog();
     fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
-    fireEvent.change(screen.getByRole('combobox', { name: 'Shoot duration for HDR Photos' }), {
+    fireEvent.change(screen.getByRole('slider', { name: 'Shoot duration for HDR Photos' }), {
       target: { value: '90' },
     });
     expect(screen.getByLabelText('Delivery Time (hours)')).toHaveValue(48);
@@ -100,12 +100,13 @@ describe('Scheduling catalog shoot duration', () => {
     renderCatalog();
     await screen.findByText('No services in this category');
     fireEvent.click(screen.getByRole('button', { name: 'Open new service' }));
-    expect(screen.getByRole('combobox', { name: 'Shoot duration for new service' })).toHaveValue('60');
+    fireEvent.click(screen.getByRole('switch', { name: 'Photographer Required' }));
+    expect(screen.getByRole('slider', { name: 'Shoot duration for new service' })).toHaveValue('60');
     fireEvent.change(screen.getByLabelText('Service Name'), { target: { value: 'New HDR Photos' } });
     fireEvent.change(screen.getByLabelText('Price ($)'), { target: { value: '175' } });
     fireEvent.change(screen.getByLabelText('Delivery Time (hours)'), { target: { value: '24' } });
     if (minutes !== 60) {
-      fireEvent.change(screen.getByRole('combobox', { name: 'Shoot duration for New HDR Photos' }), {
+      fireEvent.change(screen.getByRole('slider', { name: 'Shoot duration for New HDR Photos' }), {
         target: { value: String(minutes) },
       });
     }
@@ -119,6 +120,7 @@ describe('Scheduling catalog shoot duration', () => {
     });
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
     fireEvent.click(screen.getByRole('button', { name: 'Open new service' }));
-    expect(screen.getByRole('combobox', { name: 'Shoot duration for new service' })).toHaveValue('60');
+    fireEvent.click(screen.getByRole('switch', { name: 'Photographer Required' }));
+    expect(screen.getByRole('slider', { name: 'Shoot duration for new service' })).toHaveValue('60');
   });
 });

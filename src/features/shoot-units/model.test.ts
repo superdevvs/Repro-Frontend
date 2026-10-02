@@ -1,6 +1,7 @@
+import { isBookingIntervalDisabled } from '@/utils/bookingIntervalAvailability';
 import { describe, expect, it } from 'vitest';
 import { resolveSelectedServiceSubtotal, type ServicePackage } from '@/pages/bookShootModel';
-import { buildUnitPayload, copyMissingServices, emptyMultiUnitDraft, hydrateUnitDraft, makeUnitDraft, multiUnitErrors, resolveUnitSchedule, setUnitServices, summarizeUnitServices, unitServiceDuration, type MultiUnitDraft } from './model';
+import { buildUnitPayload, copyMissingServices, emptyMultiUnitDraft, hydrateUnitDraft, makeUnitDraft, multiUnitErrors, resolveUnitSchedule, setUnitServices, summarizeUnitServices, unitServiceDuration, unitVisitDuration, type MultiUnitDraft } from './model';
 const catalog: ServicePackage[] = [
   { id: '1', name: 'Photos', description: '', price: 200, photographer_required: true, pricing_type: 'variable', sqft_ranges: [{ sqft_from: 1, sqft_to: 2000, price: 200, duration: 60, photographer_pay: 50 }, { sqft_from: 2001, sqft_to: 10000, price: 350, duration: 90, photographer_pay: 80 }] },
   { id: '2', name: 'Floor plan', description: '', price: 100, photographer_required: false },
@@ -11,6 +12,39 @@ function draft(count = 2): MultiUnitDraft {
   return value;
 }
 describe('multi-unit booking identity, pricing and occupied time', () => {
+  it('books two exterior units as one30-minute visit with one15-minute gap outside it', () => {
+    const value = copyMissingServices(draft(), 'u0', ['u1']);
+    const exterior = [{ ...catalog[0], pricing_type: 'fixed' as const, shoot_duration_minutes: 15 }];
+    const result = resolveUnitSchedule(value, exterior, { date: '2026-10-06', time: '09:00', photographer_id: '7' });
+    expect(result.errors).toEqual([]);
+    expect(result.lines.map(line => [line.start_time, line.end_time])).toEqual([['09:00', '09:15'], ['09:15', '09:30']]);
+    expect(buildUnitPayload(value, result.lines).service_lines.map(line => line.duration_minutes)).toEqual([15, 15]);
+    expect(unitVisitDuration(result.lines, '2026-10-06', '7')).toBe(30);
+    const interval = { durationMinutes: 30, bookedSlots: [{ start_time: '09:45', end_time: '10:00' }] };
+    expect(isBookingIntervalDisabled({ ...interval, time: '09:00' })).toBe(false);
+    expect(isBookingIntervalDisabled({ ...interval, time: '09:01' })).toBe(true);
+    value.lines[0].time = '09:00'; value.lines[1].time = '09:15';
+    expect(resolveUnitSchedule(value, exterior, { date: '2026-10-06', time: '09:00', photographer_id: '7' }).errors).toEqual([]);
+  });
+  it('keeps independent same-day unit visits separate from a contiguous sequence', () => {
+    const value = copyMissingServices(draft(), 'u0', ['u1']);
+    value.lines[0].time = '09:00'; value.lines[1].time = '15:00';
+    const exterior = [{ ...catalog[0], pricing_type: 'fixed' as const, shoot_duration_minutes: 15 }];
+    const result = resolveUnitSchedule(value, exterior, { date: '2026-10-06', time: '09:00', photographer_id: '7' });
+    expect(unitVisitDuration(result.lines, '2026-10-06', '7', '15:00')).toBe(15);
+    expect(unitVisitDuration(result.lines, '2026-10-06', '7', '09:00')).toBe(15);
+    expect(unitVisitDuration(result.lines, '2026-10-06', '7')).toBe(15);
+    value.lines[1].time = '09:15';
+    const contiguous = resolveUnitSchedule(value, exterior, { date: '2026-10-06', time: '09:00', photographer_id: '7' });
+    expect(unitVisitDuration(contiguous.lines, '2026-10-06', '7', '09:00')).toBe(30);
+    expect(unitVisitDuration(contiguous.lines, '2026-10-06', '7', '09:15')).toBe(15);
+  });
+  it('round trips zero non-onsite lines without adding occupied time', () => {
+    const value = setUnitServices(draft(1), 'u0', ['2']);
+    const result = resolveUnitSchedule(value, catalog, { date: '2026-10-06', time: '09:00', photographer_id: '7' });
+    expect(result.totalMinutes).toBe(0);
+    expect(buildUnitPayload(value, result.lines).service_lines[0]).toMatchObject({ duration_minutes: 0, photographer_id: null });
+  });
   it('uses explicit per-line durations for sequential blocks and the saved payload', () => {
     const value = copyMissingServices(draft(), 'u0', ['u1']);
     value.defaults['1'] = { duration_minutes: 120 };
@@ -90,8 +124,8 @@ describe('multi-unit booking identity, pricing and occupied time', () => {
   it('matches backend duration precedence and configuration bounds, ignoring delivery time', () => {
     expect(unitServiceDuration({ ...catalog[0], shoot_duration_minutes: 40, delivery_time: 3 }, draft().units[1])).toBe(90);
     expect(unitServiceDuration({ ...catalog[0], shoot_duration_minutes: 120, duration_minutes: 30 }, draft().units[1])).toBe(30);
-    expect(unitServiceDuration({ ...catalog[1], delivery_time: 48 }, draft().units[0])).toBe(60);
-    expect(unitServiceDuration({ ...catalog[1], shoot_duration_minutes: 400 }, draft().units[0])).toBe(240);
+    expect(unitServiceDuration({ ...catalog[1], delivery_time: 48 }, draft().units[0])).toBe(0);
+    expect(unitServiceDuration({ ...catalog[1], photographer_required: true, shoot_duration_minutes: 270 }, draft().units[0])).toBe(270);
     expect(unitServiceDuration({ ...catalog[0], shoot_duration_minutes: 120 }, { ...draft().units[0], sqft: null })).toBe(120);
   });
   it('hydrates repeated persisted catalog services without collapsing unit ownership or snapshot prices', () => {

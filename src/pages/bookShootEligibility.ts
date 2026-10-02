@@ -1,18 +1,19 @@
 import axios, { type AxiosRequestConfig } from 'axios';
 import API_ROUTES from '@/lib/api';
+import { resolveShootDuration } from '@/utils/shootDuration';
 
 type NewBookingPayload = {
   address: string; city: string; state: string; zip: string;
   scheduled_date: string; time: string;
-  services?: Array<{ id?: unknown; photographer_id?: unknown; scheduled_at?: unknown }>;
-  service_lines?: Array<{ service_id?: unknown; photographer_id?: unknown; scheduled_at?: unknown }>;
+  services?: Array<{ id?: unknown; photographer_id?: unknown; scheduled_at?: unknown; duration_minutes?: unknown }>;
+  service_lines?: Array<{ service_id?: unknown; photographer_id?: unknown; scheduled_at?: unknown; duration_minutes?: unknown }>;
 };
 
 /** Recheck service/radius eligibility immediately before a new booking is sent. */
 export async function submitNewShootWithEligibility(
   url: string, payload: NewBookingPayload, config: AxiosRequestConfig,
 ) {
-  const groups = new Map<string, { photographerId: number; serviceIds: number[]; date: string; time: string }>();
+  const groups = new Map<string, { photographerId: number; serviceIds: number[]; date: string; time: string; durationMinutes: number }>();
   for (const service of payload.service_lines?.map(line => ({ ...line, id: line.service_id })) ?? payload.services ?? []) {
     if (!service.photographer_id) continue; // Products without on-site work need no assignment.
     const photographerId = Number(service.photographer_id);
@@ -24,7 +25,8 @@ export async function submitNewShootWithEligibility(
       throw new Error('Please return to Scheduling and select a photographer for each on-site service.');
     }
     const key = `${photographerId}|${date}|${time}`;
-    const group = groups.get(key) || { photographerId, serviceIds: [], date, time };
+    const group = groups.get(key) || { photographerId, serviceIds: [], date, time, durationMinutes: 0 };
+    if (payload.service_lines || !group.serviceIds.includes(serviceId)) group.durationMinutes += resolveShootDuration(service.duration_minutes);
     group.serviceIds.push(serviceId);
     groups.set(key, group);
   }
@@ -33,7 +35,7 @@ export async function submitNewShootWithEligibility(
     let eligible: boolean;
     try {
       const response = await axios.post<{ data?: Array<{ id: string | number }> }>(API_ROUTES.photographerAvailability.forBooking, {
-        date: group.date, time: group.time,
+        date: group.date, time: group.time, duration_minutes: group.durationMinutes,
         shoot_address: payload.address, shoot_city: payload.city, shoot_state: payload.state, shoot_zip: payload.zip,
         photographer_ids: [group.photographerId], service_ids: group.serviceIds, require_all_services: true,
       }, { ...config, timeout: 15000 });

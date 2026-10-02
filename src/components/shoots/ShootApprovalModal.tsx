@@ -1,6 +1,7 @@
+import { fetchDurationAwareAvailability, photographerVisitDurationGroups } from '@/utils/photographerVisitDuration';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { ServiceDurationPicker } from './ServiceDurationPicker';
-import { resolveServiceShootDuration } from '@/utils/shootDuration';
+import { resolveServiceShootDuration, type ServiceDurationSource } from '@/utils/shootDuration';
 import { getBookedServiceQuantities, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { getApprovalServices, getApprovalPricing, type ApprovalService } from './shootApprovalServices';
 import { ShootApprovalServicesSection } from './ShootApprovalServicesSection';
@@ -80,7 +81,7 @@ type AvailabilitySlot = BookingAvailabilitySlot;
 
 type PhotographerAvailabilityMap = Record<string, AvailabilitySlot[]>;
 
-interface ShootServiceDetails {
+interface ShootServiceDetails extends ServiceDurationSource {
   pricing_type?: string;
   sqft_ranges?: Array<{ sqft_from: number; sqft_to: number; duration?: number | null }>;
   duration_minutes?: number | null;
@@ -695,6 +696,12 @@ export function ShootApprovalModal({
     return Array.from(groups.values());
   }, [shootDetails?.services]);
 
+  const availabilityDurationKey = JSON.stringify(photographerVisitDurationGroups(
+    serviceCategoryGroups.flatMap(group => (shootDetails?.services || []).filter(isShootServiceDetails).filter(service => group.serviceIds.includes(String(service.id || service.service_id))).map(service => ({ ...service,
+      assignedPhotographerId: perCategoryPhotographers[group.key] || photographerId || '',
+      moving: photographerPickerContext?.categoryKey ? photographerPickerContext.categoryKey === group.key : !perCategoryPhotographers[group.key],
+    }))), photographers.map(person => person.id), scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '', scheduledTime,
+    Number(shootDetails?.sqft ?? shootDetails?.property_details?.sqft ?? shootDetails?.propertyDetails?.sqft) || null, serviceSchedules));
   const hasMultiplePhotographerCategories = serviceCategoryGroups.length > 1;
 
   const resolvePhotographerDetails = (value?: string | number | null) => {
@@ -764,7 +771,7 @@ export function ShootApprovalModal({
         const requestState = shootDetails?.state || shootDetails?.location?.state || '';
         const requestZip = shootDetails?.zip || shootDetails?.location?.zip || '';
 
-        const response = await fetch(API_ROUTES.photographerAvailability.forBooking, {
+        const response = await fetchDurationAwareAvailability(API_ROUTES.photographerAvailability.forBooking, {
           method: 'POST',
           headers,
           signal: abortController.signal,
@@ -777,7 +784,7 @@ export function ShootApprovalModal({
             shoot_zip: requestZip || '',
             photographer_ids: photographerIdsForAvailability.split(',').map(Number),
           }),
-        });
+        }, JSON.parse(availabilityDurationKey));
 
         if (!response.ok) {
           console.warn('[ShootApprovalModal] forBooking failed', response.status);
@@ -837,7 +844,7 @@ export function ShootApprovalModal({
     fetchAvailability();
 
     return () => abortController.abort();
-  }, [isOpen, photographerIdsForAvailability, scheduledDate, scheduledTime, shootDetails, shootAddress]);
+  }, [isOpen, photographerIdsForAvailability, scheduledDate, scheduledTime, shootDetails, shootAddress, availabilityDurationKey]);
 
   const openPhotographerPicker = (context: PhotographerPickerContext) => {
     const singleCategory = serviceCategoryGroups[0];
@@ -1334,7 +1341,7 @@ export function ShootApprovalModal({
                                   />
                                 </div>
                               </div>
-                              <ServiceDurationPicker serviceName={getServiceName(service)} value={schedule.duration_minutes}
+                              <ServiceDurationPicker serviceName={getServiceName(service)} durationSource={isShootServiceDetails(service) ? service : undefined} value={schedule.duration_minutes}
                                 onChange={value => updateServiceSchedule(serviceId, 'duration_minutes', value)} />
                             </div>
                           </div>

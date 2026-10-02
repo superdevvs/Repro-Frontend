@@ -48,3 +48,28 @@ export function slotCoversBookingTime(
   if (start === null || end === null || end <= start) return false;
   return bookingStartMinutes >= start && bookingStartMinutes < end;
 }
+
+
+export type AvailabilityRow = { start_time?: unknown; end_time?: unknown; status?: unknown; date?: unknown; day_of_week?: unknown };
+
+/**
+ * Align with PhotographerAvailabilityController::getPhotographersForBooking:
+ * dated *available* windows override weekly; dated *unavailable* alone must not
+ * wipe weekly/fallback hours for the rest of the day.
+ */
+export function resolveBookingAvailabilityRows<T extends AvailabilityRow>(
+  rows: T[],
+  dateStr: string,
+  dayName: string,
+): T[] {
+  const isAvailable = (row: AvailabilityRow) => (row?.status ?? 'available') === 'available';
+  const specific = rows.filter((row) => String(row?.date ?? '').slice(0, 10) === dateStr);
+  const weekly = rows.filter((row) => {
+    const date = String(row?.date ?? '').trim();
+    return !date && String(row?.day_of_week ?? '').toLowerCase() === dayName;
+  });
+  const specificAvailable = specific.filter(isAvailable);
+  const windows = specificAvailable.length > 0 ? specificAvailable : weekly.filter(isAvailable);
+  const blocked = [...specific, ...weekly].filter((row) => !isAvailable(row));
+  return [...windows, ...blocked];
+}

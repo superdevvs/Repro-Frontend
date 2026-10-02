@@ -12,8 +12,16 @@ describe('whole-appointment availability', () => {
     const bookedSlots = [{ start_time: '14:00', end_time: '15:00' }];
     expect(isBookingIntervalDisabled({ time: '12:00', durationMinutes: 90, bookedSlots })).toBe(false);
     expect(isBookingIntervalDisabled({ time: '12:00', durationMinutes: 120, bookedSlots })).toBe(true);
-    expect(isBookingIntervalDisabled({ time: '15:15', durationMinutes: 30, bookedSlots })).toBe(true);
+    expect(isBookingIntervalDisabled({ time: '15:10', durationMinutes: 30, bookedSlots })).toBe(true);
+    expect(isBookingIntervalDisabled({ time: '15:15', durationMinutes: 30, bookedSlots })).toBe(false);
     expect(isBookingIntervalDisabled({ time: '15:30', durationMinutes: 30, bookedSlots })).toBe(false);
+  });
+  it('allows a 15-minute exterior visit after exactly one 15-minute gap', () => {
+    const bookedSlots = [{ start_time: '08:00', end_time: '08:15' }];
+    expect(isBookingIntervalDisabled({ time: '08:25', durationMinutes: 15, bookedSlots })).toBe(true);
+    expect(isBookingIntervalDisabled({ time: '08:30', durationMinutes: 15, bookedSlots })).toBe(false);
+    expect(isBookingIntervalDisabled({ time: '07:30', durationMinutes: 15, bookedSlots })).toBe(false);
+    expect(isBookingIntervalDisabled({ time: '07:35', durationMinutes: 15, bookedSlots })).toBe(true);
   });
 
   it('rejects an interval crossing a break or ending after working hours', () => {

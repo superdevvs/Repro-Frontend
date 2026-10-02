@@ -294,7 +294,7 @@ export function SchedulingFormView({ controller }: { controller: SchedulingFormC
               <div key={service.id} className="grid grid-cols-[minmax(0,1fr)_140px] items-end gap-3">
                 <span className="min-w-0 pb-2 text-sm font-medium">{service.name}</span>
                 <ServiceDurationPicker serviceName={service.name}
-                  value={resolveServiceShootDuration(service, Number(controller.sqft) || null, controller.getServiceSchedule(service.id).duration_minutes)}
+                  durationSource={service} value={resolveServiceShootDuration(service, Number(controller.sqft) || null, controller.getServiceSchedule(service.id).duration_minutes)}
                   onChange={duration_minutes => controller.updateServiceSchedules([service.id], { duration_minutes })} />
               </div>
             ))}
