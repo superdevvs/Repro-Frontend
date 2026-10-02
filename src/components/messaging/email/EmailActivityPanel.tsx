@@ -46,7 +46,7 @@ export function EmailActivityPanel({ message }: { message: Message }) {
           </Button>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(5.5rem,1fr))] gap-2">
         {summary.map(({ label, value, icon: Icon }) => (
           <div key={label} className="rounded-md bg-muted/50 p-2 sm:p-3 min-w-0">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Icon className="h-3.5 w-3.5 shrink-0" />{label}</div>
