@@ -86,6 +86,7 @@ test('Book Shoot Schedule: incoming shortage remains visible through review on d
   await expect(page.getByText('From previous appointment', { exact: true })).toBeVisible();
   await reviewBooking(page);
   await expect(page.getByRole('dialog').getByText(/8:00 AM.*8:15 AM/)).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCSS('opacity', '1');
   await page.screenshot({ path: process.env.BOOKING_QA_OUTPUT ? `${process.env.BOOKING_QA_OUTPUT}/desktop-booking-warning.png` : testInfo.outputPath('desktop-booking-warning.png') });
   await page.getByRole('button', { name: 'Go back without saving' }).click();
   expect(qa.saves()).toHaveLength(0);
@@ -98,6 +99,7 @@ test('Book Shoot Schedule: mobile unknown route reaches review and cancel sends 
   await expect(page.getByText('Travel allowance is not yet known.')).toBeVisible();
   await reviewBooking(page);
   await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('dialog')).toHaveCSS('opacity', '1');
   await page.screenshot({ path: process.env.BOOKING_QA_OUTPUT ? `${process.env.BOOKING_QA_OUTPUT}/mobile-booking-warning.png` : testInfo.outputPath('mobile-booking-warning.png') });
   await page.getByRole('button', { name: 'Go back without saving' }).click();
   expect(qa.saves()).toHaveLength(0);
