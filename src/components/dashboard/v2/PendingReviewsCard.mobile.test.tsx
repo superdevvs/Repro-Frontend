@@ -84,4 +84,23 @@ describe('PendingReviewsCard request-type list (all breakpoints)', () => {
     expect(screen.queryByRole('button', { name: 'Back to Requests' })).not.toBeInTheDocument();
     expect(screen.getByText('No active requests.')).toBeInTheDocument();
   });
+
+  it('renders request category count badges red when count > 0 and muted when zero', () => {
+    renderCard();
+
+    const rescheduleCount = screen.getByTestId('request-tab-count-reschedule');
+    const holdCount = screen.getByTestId('request-tab-count-hold');
+    const clientCount = screen.getByTestId('request-tab-count-client');
+
+    expect(rescheduleCount).toHaveTextContent('2');
+    expect(holdCount).toHaveTextContent('0');
+    expect(clientCount).toHaveTextContent('0');
+
+    expect(rescheduleCount.className).toMatch(/destructive/);
+    expect(holdCount.className).not.toMatch(/destructive/);
+    expect(holdCount.className).toMatch(/secondary/);
+    expect(clientCount.className).not.toMatch(/destructive/);
+    expect(clientCount.className).toMatch(/secondary/);
+  });
+
 });

@@ -306,8 +306,9 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                   <span className="text-sm font-medium text-foreground">{tab.label}</span>
                   <span className="flex items-center gap-1.5 flex-shrink-0">
                     <Badge
-                      variant="secondary"
+                      variant={tab.count > 0 ? 'destructive' : 'secondary'}
                       className="text-[10px] font-semibold tabular-nums px-1.5 py-0"
+                      data-testid={`request-tab-count-${tab.id}`}
                     >
                       {tab.count}
                     </Badge>
