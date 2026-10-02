@@ -78,16 +78,93 @@ const normalizeDate = (value: unknown): string => {
   return date.toISOString().slice(0, 10);
 };
 
+/** Compare schedule stamps to the minute across floating wall-clock and ISO-Z. */
+export const normalizeScheduleStamp = (value: unknown): string => {
+  if (value == null || value === '') return '';
+  const text = String(value).trim().replace(' ', 'T');
+  if (!/(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)) {
+    const match = text.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})/);
+    return match ? `${match[1]}T${match[2]}:${match[3]}` : text;
+  }
+  const ms = Date.parse(text);
+  if (!Number.isFinite(ms)) return text;
+  return new Date(ms).toISOString().slice(0, 16);
+};
+
+type ShootServiceLike = {
+  id?: unknown;
+  service_id?: unknown;
+  serviceId?: unknown;
+  scheduled_at?: unknown;
+  scheduledAt?: unknown;
+};
+
 type ShootLike = {
   scheduledDate?: unknown;
   scheduled_date?: unknown;
   time?: unknown;
+  services?: ShootServiceLike[] | unknown;
+  serviceItems?: ShootServiceLike[] | unknown;
+  service_items?: ShootServiceLike[] | unknown;
+  serviceObjects?: ShootServiceLike[] | unknown;
+};
+
+const collectShootScheduleByServiceId = (shoot?: ShootLike | null): Map<string, string> => {
+  const map = new Map<string, string>();
+  if (!shoot) return map;
+  for (const list of [shoot.services, shoot.serviceItems, shoot.service_items, shoot.serviceObjects]) {
+    if (!Array.isArray(list)) continue;
+    for (const row of list) {
+      const record = asRecord(row);
+      const id = record.service_id ?? record.serviceId ?? record.id;
+      if (id == null || id === '') continue;
+      const stamp = record.scheduled_at ?? record.scheduledAt;
+      if (stamp == null || stamp === '') continue;
+      // First non-empty stamp wins; later lists may be thinner aliases.
+      const key = String(id);
+      if (!map.has(key)) map.set(key, normalizeScheduleStamp(stamp));
+    }
+  }
+  return map;
+};
+
+const hasDirtyServiceSchedules = (
+  payload: Record<string, unknown>,
+  shoot?: ShootLike | null,
+): boolean => {
+  const db = collectShootScheduleByServiceId(shoot);
+  const collections: Array<{ key: 'services' | 'service_items'; idKey: 'id' | 'service_id' }> = [
+    { key: 'services', idKey: 'id' },
+    { key: 'service_items', idKey: 'service_id' },
+  ];
+
+  for (const { key, idKey } of collections) {
+    const lines = payload[key];
+    if (!Array.isArray(lines)) continue;
+    for (const row of lines) {
+      const record = asRecord(row);
+      if (!Object.prototype.hasOwnProperty.call(record, 'scheduled_at')) continue;
+      const id = record[idKey];
+      if (id == null || id === '') continue;
+      const incoming = normalizeScheduleStamp(record.scheduled_at);
+      const existing = db.get(String(id)) ?? '';
+      if (incoming === existing) continue;
+      // Both empty (null/undefined/'') — not a schedule edit.
+      if (!incoming && !existing) continue;
+      return true;
+    }
+  }
+  return false;
 };
 
 /**
  * Keep only assigned-rep editable keys. Drop unchanged schedule/service plan
  * echoes so a photographer-only Save becomes
  * `{ photographer_id, service_photographers?, notify_* }`.
+ *
+ * Do not strip services/service_items when any line's scheduled_at differs from
+ * the shoot's stored line (Overview can dirty per-service time while top-level
+ * scheduled_date/time still match and get dropped — #395 / 16 Dayton).
  */
 export function slimAssignedRepShootSavePayload(
   payload: Record<string, unknown>,
@@ -132,12 +209,15 @@ export function slimAssignedRepShootSavePayload(
   }
   // Photographer/notify-only saves must not re-echo the full service plan —
   // that path still trips AssignedRepSchedulePayload when line shapes drift.
+  // Exception: dirty per-service scheduled_at is a real schedule edit even when
+  // top-level date/time keys were dropped as unchanged.
   const photographerOnly = (
     Object.prototype.hasOwnProperty.call(next, 'photographer_id')
     || Object.prototype.hasOwnProperty.call(next, 'service_photographers')
   ) && !Object.prototype.hasOwnProperty.call(next, 'scheduled_date')
     && !Object.prototype.hasOwnProperty.call(next, 'scheduled_at')
-    && !Object.prototype.hasOwnProperty.call(next, 'time');
+    && !Object.prototype.hasOwnProperty.call(next, 'time')
+    && !hasDirtyServiceSchedules(next, shoot);
 
   if (photographerOnly) {
     delete next.services;
