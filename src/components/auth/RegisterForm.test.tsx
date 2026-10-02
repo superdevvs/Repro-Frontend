@@ -62,12 +62,38 @@ describe('registration error recovery', () => {
     await submitRegistration();
     const alert = await screen.findByRole('alert');
     expect(alert).toHaveTextContent(duplicateMessage);
+    expect(screen.getAllByText(duplicateMessage)).toHaveLength(1);
+    expect(mocks.toast).not.toHaveBeenCalled();
     expect(alert).toHaveFocus();
     expect(screen.getByPlaceholderText('Your email')).toHaveValue('client@example.com');
     fireEvent.click(within(alert).getByRole('button', { name: 'Go to login' }));
     expect(onLogin).toHaveBeenCalledWith('client@example.com');
     expect(onSuccess).not.toHaveBeenCalled();
     expect(mocks.post).toHaveBeenCalledWith(expect.stringMatching(/\/api\/register$/), expect.any(Object), { headers: { Accept: 'application/json' } });
+  });
+
+  it.each([false, true])('shows an ordinary server email error only once (mobile: %s)', async (mobile) => {
+    mocks.mobile = mobile;
+    const message = 'Please use a valid email address.';
+    mocks.post.mockRejectedValueOnce(new AxiosError('Request failed', undefined, undefined, undefined, {
+      data: { message, errors: { email: [message] } },
+      status: 422, statusText: 'Error', headers: {}, config: {} as never,
+    }));
+    render(<RegisterForm onSuccess={vi.fn()} isActive />);
+    await submitRegistration();
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(screen.getAllByText(message)).toHaveLength(1);
+    expect(mocks.toast).not.toHaveBeenCalled();
+  });
+
+  it('keeps client-side validation beside the field without a server error banner', async () => {
+    render(<RegisterForm onSuccess={vi.fn()} isActive />);
+    fireEvent.click(screen.getByRole('button', { name: /Next/ }));
+    expect(await screen.findByText('Invalid email address')).toBeVisible();
+    expect(screen.getByPlaceholderText('Your email')).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(mocks.toast).not.toHaveBeenCalled();
+    expect(mocks.post).not.toHaveBeenCalled();
   });
 
   it.each(['resolved', 'rejected'])('keeps an HTML %s response inside the form without signing in', async (kind) => {

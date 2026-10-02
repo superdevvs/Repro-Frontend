@@ -362,18 +362,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, on
       setRegistrationError(failure);
       setCurrentStep(1);
       setServerEmailHealth(failure.emailHealth);
-      if (failure.emailMessage && !failure.emailHealth) {
-        form.setError('email', {
-          type: 'server',
-          message: failure.emailMessage,
-        });
-      }
-
-      toast({
-        title: failure.accountExists ? 'Account already exists' : 'Registration Failed',
-        description: failure.message,
-        variant: 'destructive',
-      });
     } finally {
       setIsSubmitting(false);
     }
