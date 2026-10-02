@@ -24,6 +24,9 @@ export type PhotographerPickerMapShellProps = {
  * - lg–xl (1024–1279): stacked map above list — iPad landscape / ~1180 laptops
  * - xl+ (≥1280): equal-width 50/50 — 1366 / 1440 / 1920 desktops
  *
+ * Parent Dialog wrappers use photographerPickerDialogClasses: edge-to-edge
+ * ~100dvh×100vw below xl (iPad portrait/landscape); inset modal on xl+.
+ *
  * Map fills the pane via h-full/min-h-0 (no hard 560px min) so stacked tablet
  * dialogs keep list + specialist footer inside the modal.
  */

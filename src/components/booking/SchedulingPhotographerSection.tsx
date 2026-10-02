@@ -16,6 +16,7 @@ import { ServiceDatePicker, ServiceTimePicker, buildServiceTimeOptions } from '@
 import { ApplyAllServiceScheduleButton } from '@/components/shoots/ApplyAllServiceScheduleButton';
 import type { SchedulingFormController } from './useSchedulingFormController';
 import { PhotographerPickerMapShell } from '@/components/photographers/map/PhotographerPickerMapShell';
+import { PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_BOOK } from '@/components/photographers/map/photographerPickerDialogClasses';
 
 export function SchedulingPhotographerSection({ controller }: { controller: SchedulingFormController }) {
   const {
@@ -373,7 +374,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
   ) : (
     <Dialog open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
       <DialogTrigger asChild>{photographerTrigger}</DialogTrigger>
-      <DialogContent className="flex h-[min(88dvh,52rem)] max-h-[92dvh] w-[96vw] flex-col overflow-hidden p-0 sm:max-w-6xl">
+      <DialogContent className={PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_BOOK}>
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6">
             <PhotographerPickerMapShell
@@ -656,7 +657,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                   setPhotographerDialogOpen(open);
                   if (!open) setActiveServiceForPicker(null);
                 }}>
-                  <DialogContent className="flex h-[min(88dvh,52rem)] max-h-[92dvh] w-[96vw] flex-col overflow-hidden p-0 sm:max-w-6xl">
+                  <DialogContent className={PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_BOOK}>
                     <div className="flex min-h-0 flex-1 flex-col">
                       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden p-4 sm:p-6">
                         <PhotographerPickerMapShell

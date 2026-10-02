@@ -27,6 +27,7 @@ import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { getStateFullName } from '@/utils/stateUtils';
 import type { PhotographerPickerOption } from './useShootOverviewEditor';
 import { PhotographerPickerMapShell } from '@/components/photographers/map/PhotographerPickerMapShell';
+import { PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_COMPACT } from '@/components/photographers/map/photographerPickerDialogClasses';
 import { readPhotographerMapFields } from '@/components/photographers/map/photographerMapFields';
 import type { ShootMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 
@@ -95,7 +96,7 @@ export function OverviewPhotographerPickerDialog({
           'overflow-hidden border-slate-800/80 bg-background p-0',
           isMobile
             ? 'z-[190] flex h-[min(92dvh,52rem)] max-h-[92dvh] flex-col rounded-t-3xl'
-            : 'flex h-[min(88dvh,48rem)] w-[96vw] max-h-[92dvh] flex-col overflow-hidden sm:max-w-6xl',
+            : PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_COMPACT,
         )}
       >
         <div className="flex min-h-0 flex-1 flex-col">

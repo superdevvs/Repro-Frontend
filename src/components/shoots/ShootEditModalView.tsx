@@ -17,6 +17,7 @@ import type { useShootEditModalController } from './useShootEditModalController'
 import { createShootEditModalPanels } from './ShootEditModalPanels';
 import { PhotographerAvailabilityTimeline } from '@/components/photographers/PhotographerAvailabilityTimeline';
 import { PhotographerPickerMapShell } from '@/components/photographers/map/PhotographerPickerMapShell';
+import { PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_COMPACT } from '@/components/photographers/map/photographerPickerDialogClasses';
 import { readPhotographerMapFields } from '@/components/photographers/map/photographerMapFields';
 import {
   type MobileEditPanel,
@@ -192,7 +193,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
               'overflow-hidden border-slate-800/80 bg-background',
               isPickerMobile
                 ? 'z-[190] flex h-[min(92dvh,52rem)] max-h-[92dvh] flex-col overflow-hidden rounded-t-3xl'
-                : 'flex h-[min(88dvh,48rem)] w-[96vw] max-h-[92dvh] flex-col overflow-hidden p-0 sm:max-w-6xl',
+                : PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_COMPACT,
             )}
           >
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-2.5 pb-0 pt-3 sm:px-6">
