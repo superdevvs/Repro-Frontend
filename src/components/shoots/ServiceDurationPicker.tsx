@@ -1,12 +1,13 @@
 import { useEffect, useId, useState } from 'react';
 import { resolveShootDuration, serviceDurationLimits, type ServiceDurationSource } from '@/utils/shootDuration';
 
-export function ServiceDurationPicker({ serviceName, value, onChange, disabled = false, showSlider = true,
+export function ServiceDurationPicker({ serviceName, value, onChange, onValidityChange, disabled = false, showSlider = true,
   durationSource = {}, minMinutes = serviceDurationLimits(durationSource).minMinutes, maxMinutes = serviceDurationLimits(durationSource).maxMinutes,
 }: {
   serviceName: string;
   value?: number | null;
   onChange: (minutes: number) => void;
+  onValidityChange?: (valid: boolean) => void;
   disabled?: boolean;
   showSlider?: boolean;
   minMinutes?: number;
@@ -20,6 +21,7 @@ export function ServiceDurationPicker({ serviceName, value, onChange, disabled =
   useEffect(() => { setDraft(String(minutes)); if (minutes % 5 !== 0) setCustom(true); }, [minutes]);
   const customValue = Number(draft);
   const invalid = !draft.trim() || !Number.isInteger(customValue) || customValue < minMinutes || customValue > maxMinutes;
+  useEffect(() => { onValidityChange?.(!custom || !invalid); }, [custom, invalid, onValidityChange]);
   if (durationSource.photographer_required === false) return <p className="text-xs text-muted-foreground">No on-site time</p>;
   return (
     <div className="min-w-0 space-y-2">

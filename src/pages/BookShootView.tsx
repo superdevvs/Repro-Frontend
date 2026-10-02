@@ -121,7 +121,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
                 }[String(!isMobile || step === finalStep) as 'true' | 'false']} gap-8 mt-2 items-start`}
               >
                 <div className="order-2 lg:order-1 w-full">
-                {step >= wizard.schedulingStep && <div className="mb-4"><TravelFeasibilityPanel travel={controller.travel} /></div>}
+                {step >= wizard.schedulingStep && <div className="mb-4"><TravelFeasibilityPanel travel={controller.travel} durationAdjuster={controller.travelDurationAdjuster} /></div>}
                 <BookingContentArea
                   hybridTravelEnabled={controller.travel.enabled}
                   enforceNewBookingEligibility={!isEditMode && !isCompReshootMode}

@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { TravelOverrideDialog } from './TravelOverrideDialog';
 import type { TravelController } from './useTravelFeasibility';
 import type { TravelAlternative } from './types';
+import type { TravelDurationAdjuster } from './TravelDurationAdjustment';
 
 const reasonText: Record<string, string> = {
   insufficient_travel_time: 'There is not enough travel time.', travel_time_conflict: 'There is not enough travel time.',
@@ -17,7 +18,7 @@ function travelDateLabel(value: string, timezone?: string) {
   if (!Number.isFinite(date.getTime())) return value;
   return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZone: timezone || 'America/New_York', timeZoneName: 'short' }).format(date);
 }
-export function TravelFeasibilityPanel({ travel, onAlternative }: { travel: TravelController; onAlternative?: (alternative: TravelAlternative) => void }) {
+export function TravelFeasibilityPanel({ travel, onAlternative, durationAdjuster }: { travel: TravelController; onAlternative?: (alternative: TravelAlternative) => void; durationAdjuster?: TravelDurationAdjuster }) {
   if (!travel.visible) return null;
   const result = travel.result;
   const hasIssue = result && !result.available;
@@ -56,7 +57,7 @@ export function TravelFeasibilityPanel({ travel, onAlternative }: { travel: Trav
       {onAlternative ? <Button type="button" size="sm" variant="outline" onClick={() => onAlternative(alternative)}>Use this time</Button> : <span className="text-xs text-muted-foreground">Adjust the visit times in the schedule form to use this option.</span>}
     </div>)}
     {!travel.loading && travel.alternativesRequested && !result?.alternatives?.length && <p className="text-muted-foreground">No verified alternatives found. Choose another date or photographer.</p>}
-    {result?.budget && result.budget.alert_level > 0 && <p role="status" className="rounded-lg border border-amber-500/40 p-2 text-xs">Route lookup budget: {result.budget.alert_level}% threshold reached ({result.budget.used_elements.toLocaleString()} of {result.budget.limit_elements.toLocaleString()} elements).{result.budget.alert_level === 100 ? ' Distance estimates will be used when routes are unavailable.' : ''}</p>}
+    {result?.budget && result.budget.alert_level > 0 && <p role="status" className="rounded-lg border border-amber-500/40 p-2 text-xs">Route lookup budget: {result.budget.alert_level}% threshold reached ({result.budget.used_elements.toLocaleString()} of {result.budget.limit_elements.toLocaleString()} elements).{result.budget.alert_level === 100 ? ' Google route lookups are paused until usage drops below the limit.' : ''}</p>}
     {result?.enabled && !travel.loading && !travel.error && <p className="text-xs text-muted-foreground">Availability is checked again when you save.</p>}
-  </section><TravelOverrideDialog travel={travel} /></>;
+  </section><TravelOverrideDialog travel={travel} durationAdjuster={durationAdjuster} /></>;
 }

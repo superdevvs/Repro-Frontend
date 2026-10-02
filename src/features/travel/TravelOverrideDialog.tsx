@@ -5,20 +5,25 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Textarea } from '@/components/ui/textarea';
 import type { TravelController } from './useTravelFeasibility';
 import { TravelOverrideSchedule } from './TravelOverrideSchedule';
+import { TravelDurationAdjustment, type TravelDurationAdjuster } from './TravelDurationAdjustment';
 
-export function TravelOverrideDialog({ travel }: { travel: TravelController }) {
+export function TravelOverrideDialog({ travel, durationAdjuster }: { travel: TravelController; durationAdjuster?: TravelDurationAdjuster }) {
   const { open, reason, setReason, cancel, complete } = travel.overrideDialog;
   const [progress, setProgress] = useState(0);
+  const [durationPending, setDurationPending] = useState(false);
   const progressRef = useRef(0);
   const drag = useRef<{ start: number; width: number; pointerId: number } | null>(null);
   const updateProgress = (value: number) => { progressRef.current = value; setProgress(value); };
-  const valid = reason.trim().length >= 5 && reason.trim().length <= 2000;
-  useEffect(() => { progressRef.current = 0; setProgress(0); drag.current = null; }, [open, reason]);
+  const valid = !durationPending && reason.trim().length >= 5 && reason.trim().length <= 2000;
+  useEffect(() => { setDurationPending(false); }, [open]);
+  useEffect(() => { progressRef.current = 0; setProgress(0); drag.current = null; }, [open, reason, durationPending]);
   if (travel.requestedOnly || !travel.result?.can_override) return null;
   return <Dialog open={open} onOpenChange={value => { if (!value) cancel(); }}><DialogContent className="max-h-[92dvh] w-[calc(100vw-1rem)] max-w-4xl gap-0 overflow-y-auto rounded-2xl p-0 shadow-2xl">
     <div className="space-y-4 p-4 sm:space-y-5 sm:p-6">
       <DialogHeader className="flex-row items-start gap-3 space-y-0 pr-5 text-left"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-200"><TriangleAlert aria-hidden="true" className="h-5 w-5" /></span><div className="space-y-1.5"><DialogTitle className="text-lg leading-tight sm:text-xl">Review the travel warning</DialogTitle><DialogDescription className="text-xs sm:text-sm">Check the photographer’s travel time before confirming this exception.</DialogDescription></div></DialogHeader>
       <TravelOverrideSchedule travel={travel} />
+      {open && travel.canOverride && durationAdjuster?.items.length ? <TravelDurationAdjustment key={JSON.stringify(durationAdjuster.items)}
+        adjuster={durationAdjuster} cancelSave={cancel} onPendingChange={setDurationPending} /> : null}
     </div>
     <div className="space-y-3 border-t bg-muted/30 p-4 sm:px-6 sm:py-4">
       <p className="text-sm font-semibold sm:text-base">Do you still want to book at this time?</p>
@@ -31,10 +36,10 @@ export function TravelOverrideDialog({ travel }: { travel: TravelController }) {
           style={{ left: `calc(${progress}% - ${progress * 0.48}px)` }}
           onPointerDown={event => { if (!valid || drag.current) return; const width = event.currentTarget.parentElement!.getBoundingClientRect().width - 48; drag.current = { start: event.clientX, width, pointerId: event.pointerId }; event.currentTarget.setPointerCapture(event.pointerId); updateProgress(0); }}
           onPointerMove={event => { if (drag.current?.pointerId === event.pointerId) updateProgress(Math.max(0, Math.min(100, Math.round((event.clientX - drag.current.start) / Math.max(1, drag.current.width) * 100)))); }}
-          onPointerUp={event => { if (drag.current?.pointerId !== event.pointerId) return; drag.current = null; if (progressRef.current >= 95) complete(); else updateProgress(0); }}
+          onPointerUp={event => { if (drag.current?.pointerId !== event.pointerId) return; drag.current = null; if (valid && progressRef.current >= 95) complete(); else updateProgress(0); }}
           onPointerCancel={event => { if (drag.current?.pointerId === event.pointerId) { drag.current = null; updateProgress(0); } }}
           onLostPointerCapture={() => { drag.current = null; updateProgress(0); }}
-          onKeyDown={event => { if (['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End', 'Enter', ' '].includes(event.key)) event.preventDefault();
+          onKeyDown={event => { if (!valid) return; if (['ArrowRight', 'ArrowUp', 'ArrowLeft', 'ArrowDown', 'Home', 'End', 'Enter', ' '].includes(event.key)) event.preventDefault();
             if (event.key === 'Enter' || event.key === ' ') { if (progress === 100 && !event.repeat) complete(); }
             else if (event.key === 'End') updateProgress(100); else if (event.key === 'Home') updateProgress(0);
             else if (event.key === 'ArrowRight' || event.key === 'ArrowUp') updateProgress(Math.min(100, progressRef.current + 10));

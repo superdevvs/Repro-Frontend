@@ -8,6 +8,13 @@ export function restoreCachedServiceQuantities(services: ServicePackage[], quant
   return services.map(service => ({ ...service, quantity: quantityVersion === 1 ? normalizeBookingQuantity(service.quantity) : 1 }));
 }
 
+/** New booking drafts use catalog timing; booked edit snapshots remain untouched. */
+export function withoutDraftDurationOverride<T extends { duration_minutes?: number | null }>(value: T): T {
+  const next = { ...value };
+  delete next.duration_minutes;
+  return next;
+}
+
 /** Refresh new-draft timing without changing prices, quantities, or explicit snapshots. */
 export function syncDraftServiceDurations(services: ServicePackage[], catalog: ServicePackage[]): ServicePackage[] {
   const byId = new Map(catalog.map(service => [service.id, service]));

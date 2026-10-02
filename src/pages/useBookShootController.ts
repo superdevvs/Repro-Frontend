@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useBookingTravel } from '@/features/travel/useBookingTravel';
+import { buildBookingDurationAdjuster } from './bookShootDurationAdjustment';
 import { resolveServiceShootDuration } from '@/utils/shootDuration';
 import { useMultiUnitBooking } from '@/features/shoot-units/useMultiUnitBooking';
 import { bookingSummaryInfo } from './bookingSummaryInfo';
@@ -214,6 +215,10 @@ export const useBookShootController = () => {
     shootId: isEditMode ? editShootId : null, clientId: isClientAccount ? user?.id : client, address, city, state, zip, date, time, photographer,
     propertyDetails, sqft: propertySqft, source: editingScheduleSource, selectedServices, servicePhotographers, serviceSchedules,
     unitPayload: unitBooking.enabled ? unitBooking.payload : undefined });
+  const travelDurationAdjuster = buildBookingDurationAdjuster({ role: user?.role, impersonating: isImpersonating,
+    canOverride: travel.canOverride, services: selectedServices, sqft: selectedServiceSqft, schedules: serviceSchedules,
+    setSchedules: setServiceSchedules, units: unitBooking,
+    onApplied: () => toast({ title: 'Duration updated', description: 'Review the refreshed travel check, then confirm the booking again.' }) });
   const validateCurrentStep = () => {
     if (unitBooking.enabled) {
       const issues = step === 1 ? Object.values(unitBooking.propertyErrors).flat() : step === bookingWizard.servicesStep ? Object.values(unitBooking.errors).flat() : unitBooking.schedule.errors;
@@ -959,7 +964,7 @@ export const useBookShootController = () => {
     duplicateLocationDialogOpen, setDuplicateLocationDialogOpen, createdShootId, formErrors,
     setFormErrors, clientPropertyFormKey, toast, photographers,
     canAdjustBookingAmount, canCreateNoProductShoot, isClientAccount,
-    travel, isFormComplete, canSubmitBooking, sameDayAddressShoot, sameAddressScheduledDates,
+    travel, travelDurationAdjuster, isFormComplete, canSubmitBooking, sameDayAddressShoot, sameAddressScheduledDates,
     addressScheduledWarningMessage, sameDayAddressWarningMessage, duplicateLocationWarningShoot,
     duplicateLocationPopupMessage, showAddressScheduledWarning, hasCachedData,
     clearBookingDraftState, selectedClientData, selectedServiceSqft, serviceSubtotal,

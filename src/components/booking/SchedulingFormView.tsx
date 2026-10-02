@@ -11,8 +11,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { SchedulingPhotographerSection } from './SchedulingPhotographerSection';
 import type { SchedulingFormController } from './useSchedulingFormController';
-import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
-import { resolveServiceShootDuration } from '@/utils/shootDuration';
 
 export function SchedulingFormView({ controller }: { controller: SchedulingFormController }) {
   const {
@@ -286,20 +284,6 @@ export function SchedulingFormView({ controller }: { controller: SchedulingFormC
         {controller.requiresPhotographerAssignment ? (
           <SchedulingPhotographerSection controller={controller} />
         ) : null}
-        {controller.selectedServices.length > 0 && (
-          <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3 dark:border-border dark:bg-card/40 sm:p-6">
-            <h2 className="text-lg font-semibold">Service duration</h2>
-            <p className="text-xs text-muted-foreground">Time reserved for each service. Defaults to 1 hour when no duration is set.</p>
-            {controller.selectedServices.map(service => (
-              <div key={service.id} className="grid grid-cols-[minmax(0,1fr)_140px] items-end gap-3">
-                <span className="min-w-0 pb-2 text-sm font-medium">{service.name}</span>
-                <ServiceDurationPicker serviceName={service.name} showSlider={false}
-                  durationSource={service} value={resolveServiceShootDuration(service, Number(controller.sqft) || null, controller.getServiceSchedule(service.id).duration_minutes)}
-                  onChange={duration_minutes => controller.updateServiceSchedules([service.id], { duration_minutes })} />
-              </div>
-            ))}
-          </div>
-        )}
       </div>
       <div className="flex gap-2">
         <Button

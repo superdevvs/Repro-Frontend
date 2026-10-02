@@ -26,7 +26,7 @@ import type {
   ServiceScheduleMap,
 } from './bookShootModel';
 import { asRecord } from './bookShootModel';
-import { hydrateBookedServiceSelection, restoreCachedServiceQuantities, syncDraftServiceDurations } from './bookShootServiceSelection';
+import { hydrateBookedServiceSelection, restoreCachedServiceQuantities, syncDraftServiceDurations, withoutDraftDurationOverride } from './bookShootServiceSelection';
 import { serviceRequiresPhotographer, syncPhotographerRequiredFromCatalog } from '@/utils/photographerAssignment';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
@@ -233,11 +233,23 @@ export const useBookShootWorkflow = ({
         if (typeof parsed.time === 'string') setTime(parsed.time);
         if (typeof parsed.photographer === 'string') setPhotographer(parsed.photographer);
         if (parsed.servicePhotographers) setServicePhotographers(parsed.servicePhotographers);
-        if (parsed.serviceSchedules) setServiceSchedules(parsed.serviceSchedules);
-        if (parsed.selectedServices && Array.isArray(parsed.selectedServices)) {
-          setSelectedServices(restoreCachedServiceQuantities(parsed.selectedServices, parsed.bookingQuantityVersion));
+        if (parsed.serviceSchedules) {
+          const schedules = parsed.serviceSchedules as ServiceScheduleMap;
+          setServiceSchedules(editShootId ? schedules : Object.fromEntries(Object.entries(schedules)
+            .map(([id, schedule]) => [id, withoutDraftDurationOverride(schedule)])));
         }
-        if (parsed.multiUnitDraft?.enabled && Array.isArray(parsed.multiUnitDraft.units) && Array.isArray(parsed.multiUnitDraft.lines)) setMultiUnitDraft(parsed.multiUnitDraft);
+        if (parsed.selectedServices && Array.isArray(parsed.selectedServices)) {
+          const services = restoreCachedServiceQuantities(parsed.selectedServices, parsed.bookingQuantityVersion);
+          setSelectedServices(editShootId ? services : services.map(withoutDraftDurationOverride));
+        }
+        if (parsed.multiUnitDraft?.enabled && Array.isArray(parsed.multiUnitDraft.units) && Array.isArray(parsed.multiUnitDraft.lines)) {
+          const units = parsed.multiUnitDraft as MultiUnitDraft;
+          setMultiUnitDraft(editShootId ? units : { ...units,
+            lines: units.lines.map(withoutDraftDurationOverride),
+            defaults: Object.fromEntries(Object.entries(units.defaults ?? {})
+              .map(([id, schedule]) => [id, withoutDraftDurationOverride(schedule)])),
+          });
+        }
         if (typeof parsed.notes === 'string') setNotes(parsed.notes);
         if (typeof parsed.companyNotes === 'string') setCompanyNotes(parsed.companyNotes);
         if (typeof parsed.photographerNotes === 'string') setPhotographerNotes(parsed.photographerNotes);
@@ -265,7 +277,7 @@ export const useBookShootWorkflow = ({
     setTimeout(() => {
       isInitialMountRef.current = false;
     }, 1000);
-  }, [CACHE_KEY, user, shouldCacheForm, isClientAccount]);
+  }, [CACHE_KEY, user, shouldCacheForm, isClientAccount, editShootId]);
   useEffect(() => {
     if (!shouldCacheForm || !user) return;
     if (isInitialMountRef.current) return;
