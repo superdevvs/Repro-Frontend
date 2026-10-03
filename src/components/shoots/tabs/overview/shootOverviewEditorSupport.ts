@@ -1,4 +1,6 @@
 import { travelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
+import { readBookingJobCoords } from '@/components/photographers/map/photographerMapFields';
+import { toValidMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 import type { TravelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
 import { fetchDurationAwareAvailability, photographerVisitDurationGroups, type PhotographerDurationGroup } from '@/utils/photographerVisitDuration';
 import type { ServiceDurationSource } from '@/utils/shootDuration';
