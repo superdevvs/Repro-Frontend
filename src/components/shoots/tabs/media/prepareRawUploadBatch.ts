@@ -29,12 +29,22 @@ export async function prepareRawUploadBatch(options: {
       headers: Object.fromEntries(Object.entries({ ...options.headers, Accept: 'application/json', 'Content-Type': 'application/json' })
         .filter((entry): entry is [string, string] => typeof entry[1] === 'string')),
       signal: controller.signal,
-      body: JSON.stringify({ type: 'raw', batch_id: batchId, total_files: batch.total, service_id: options.serviceId ? Number(options.serviceId) : null, upload_lane: batch.lane }),
+      body: JSON.stringify({
+        type: 'raw', batch_id: batchId, total_files: batch.total, service_id: options.serviceId ? Number(options.serviceId) : null, upload_lane: batch.lane,
+        upload_type: 'raw', upload_batch_id: batchId, upload_batch_total: batch.total, shoot_service_id: options.serviceId ? Number(options.serviceId) : null,
+      }),
       });
       // Only an absent endpoint permits an older deployment's serial protocol.
       if (response.status === 404 || response.status === 405) return 1;
       const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.message || 'Could not prepare the upload batch. Please retry.');
+      // Older servers negotiate the draft reservation format. Preserve that
+      // identity, but keep their uploads serial until durable slots are supported.
+      if (payload?.batch_id === undefined && payload?.upload_batch_id === batchId
+        && payload?.upload_batch_total === batch.total) {
+        concurrency = 1;
+        continue;
+      }
       if (payload?.batch_id !== batchId || ![1, 2].includes(payload?.parallel_uploads)) {
         throw new Error('The server did not confirm the upload batch. Please retry.');
       }

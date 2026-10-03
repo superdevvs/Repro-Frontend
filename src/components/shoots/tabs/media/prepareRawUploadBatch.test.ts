@@ -16,8 +16,16 @@ describe('durable RAW batch negotiation', () => {
     vi.setSystemTime(Date.now() + 3 * 60 * 60 * 1000);
     expect(await prepareRawUploadBatch({ ...input, batchId: crypto.randomUUID() })).toBe(2);
     const bodies = fetcher.mock.calls.map(([, init]) => JSON.parse(init.body));
-    expect(bodies[0]).toEqual({ type: 'raw', batch_id: identity.batchId, total_files: 20, service_id: 7, upload_lane: 'photo' });
+    expect(bodies[0]).toEqual({ type: 'raw', batch_id: identity.batchId, total_files: 20, service_id: 7, upload_lane: 'photo', upload_type: 'raw', upload_batch_id: identity.batchId, upload_batch_total: 20, shoot_service_id: 7 });
     expect(bodies[1]).toEqual(bodies[0]);
+  });
+  it('keeps an older draft reservation server serial during a mixed release', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_url, init) => {
+      const body = JSON.parse(init.body);
+      expect(body.upload_type).toBe('raw');
+      return { ok: true, status: 201, json: async () => ({ upload_batch_id: body.upload_batch_id, upload_batch_total: body.upload_batch_total, parallel_uploads: 2 }) };
+    }));
+    expect(await prepareRawUploadBatch(options())).toBe(1);
   });
   it.each([404, 405])('falls back to serial only when the endpoint is unsupported (%i)', async (status) => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status })));
