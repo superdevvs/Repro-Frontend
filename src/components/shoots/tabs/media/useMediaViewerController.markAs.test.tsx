@@ -26,7 +26,7 @@ const base = {
   currentIndex: 0,
   onIndexChange: vi.fn(),
   getImageUrl: () => 'https://example.test/img.jpg',
-  shoot: { id: 108 } as any,
+  shoot: { id: 108 } as Parameters<typeof useMediaViewerController>[0]['shoot'],
   isAdmin: true,
   isClient: false,
 };
