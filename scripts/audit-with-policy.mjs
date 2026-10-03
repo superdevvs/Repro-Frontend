@@ -4,6 +4,12 @@ import path from 'node:path';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const allowedAdvisory = 'GHSA-qwww-vcr4-c8h2';
+const buildOnlyAdvisory = 'GHSA-vfj7-8cjw-p6xm';
+const buildOnlyPackages = new Set([
+  'braces', 'micromatch', 'fast-glob', 'chokidar', 'tailwindcss', 'lovable-tagger',
+  'typescript-eslint', '@typescript-eslint/eslint-plugin', '@typescript-eslint/parser',
+  '@typescript-eslint/type-utils', '@typescript-eslint/typescript-estree', '@typescript-eslint/utils',
+]);
 const allowedRouterVersion = '7.18.2';
 const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
 const ignoredDirectories = new Set(['__tests__', 'dist', 'node_modules']);
@@ -55,6 +61,25 @@ const collectSourceFiles = (directory) => {
 };
 
 collectSourceFiles(path.join(projectRoot, 'src'));
+collectSourceFiles(path.join(projectRoot, 'packages'));
+
+// Temporary exposure-based review, not a general high-severity exception.
+// These tools consume repository-controlled build patterns only. See the review
+// and the complementary Rollup module-graph guard in vite.config.ts.
+if (Date.now() >= Date.parse('2026-11-03T00:00:00Z')) {
+  throw new Error('Build-only braces advisory review expired; upgrade or reassess exposure.');
+}
+for (const [name, version] of [['braces', '3.0.3'], ['micromatch', '4.0.8']]) {
+  if (packageLock.packages?.[`node_modules/${name}`]?.version !== version) {
+    throw new Error(`Build-only advisory review requires ${name} ${version}.`);
+  }
+}
+const buildToolImport = /(?:from\s*|import\s*\(|require\s*\()\s*["'](?:braces|micromatch|fast-glob|chokidar|tailwindcss|lovable-tagger|typescript-eslint|@typescript-eslint\/[^/"']+)(?:\/[^"']*)?["']/;
+for (const file of sourceFiles) {
+  if (buildToolImport.test(readFileSync(file, 'utf8'))) {
+    throw new Error(`Build-only dependency imported by application code: ${file}`);
+  }
+}
 
 const prohibitedImport = /(?:from\s*|import\s*\(|require\s*\()\s*["'](?:react-router(?:-dom)?\/(?:rsc|dom\/server|server)|@react-router\/)[^"']*["']/;
 const prohibitedRscApi = /\b(?:RSCRouter|RSCStaticRouter|createCallServer|getRSCStream|routeRSCServerRequest|unstable_[A-Za-z0-9_]*RSC[A-Za-z0-9_]*)\b/;
@@ -120,7 +145,9 @@ for (const packageName of Object.keys(vulnerabilities)) {
     continue;
   }
   for (const id of ids) {
-    if (id.toLowerCase() !== allowedAdvisory.toLowerCase()) {
+    const routerAllowed = id === allowedAdvisory && ['react-router', 'react-router-dom'].includes(packageName);
+    const buildAllowed = id === buildOnlyAdvisory && buildOnlyPackages.has(packageName);
+    if (!routerAllowed && !buildAllowed) {
       unexpected.push(`${packageName}: ${id}`);
     }
   }
@@ -133,13 +160,13 @@ if (unexpected.length > 0) {
 // The approved packages are an upper bound, not an exact expectation: anything
 // outside this set is unreviewed and must fail, but an empty report means the
 // advisory has cleared upstream and is strictly better than the reviewed state.
-const approvedPackages = new Set(['react-router', 'react-router-dom']);
+const approvedPackages = new Set(['react-router', 'react-router-dom', ...buildOnlyPackages]);
 const affectedPackages = Object.keys(vulnerabilities).sort();
 const unapprovedPackages = affectedPackages.filter((name) => !approvedPackages.has(name));
 
 if (unapprovedPackages.length > 0) {
   throw new Error(
-    `Only react-router and react-router-dom are covered by the reviewed exception; ` +
+    `Only the explicitly reviewed Router and build-tool packages are covered; ` +
       `also affected: ${unapprovedPackages.join(', ')}`,
   );
 }
@@ -152,8 +179,8 @@ if (affectedPackages.length === 0) {
   );
 } else {
   console.log(
-    `Audit policy passed. npm reports only ${allowedAdvisory} for Router ${allowedRouterVersion}; ` +
-      'the app is a React 18 browser SPA and contains no React Router RSC/framework-mode imports. ' +
+    'Audit policy passed with only explicitly reviewed, exposure-constrained advisories. ' +
+      `Router ${allowedRouterVersion} is SPA-only; braces is restricted to repository-controlled build tools until 2026-11-03. ` +
       'Use npm run audit:raw to view the non-zero upstream report.',
   );
 }

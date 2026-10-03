@@ -162,6 +162,19 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [
+    {
+      name: 'exclude-build-only-glob-tools',
+      generateBundle(_options, bundle) {
+        for (const output of Object.values(bundle)) {
+          if (output.type !== 'chunk') continue;
+          for (const id of Object.keys(output.modules)) {
+            if (/\/node_modules\/(?:braces|micromatch|fast-glob|chokidar|tailwindcss|lovable-tagger)\//.test(normalizeModuleId(id))) {
+              this.error(`Build-only glob dependency must not ship in the browser: ${id}`);
+            }
+          }
+        }
+      },
+    },
     dashboardManifest(),
     mode === 'production' && {
       name: 'private-jspdf-diagnostics',
