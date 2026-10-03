@@ -317,7 +317,7 @@ export function EditedUploadSection({
               const formData = new FormData();
               const mediaType = getQueueClassification(file, index, classificationsForUpload);
               const identity = ensureUploadAttemptIdentity(file, uploadBatchId, index, filesForUpload.length,
-                JSON.stringify([shoot.id, 'edited', selectedServiceId, mediaType, replacementTargets[file.name]]));
+                JSON.stringify([shoot.id, 'edited', selectedServiceId, mediaType, replacementTargets[file.name], uploadNote]));
               formData.append('files[]', file);
               formData.append('upload_type', 'edited');
               formData.append('idempotency_key', identity.idempotencyKey);

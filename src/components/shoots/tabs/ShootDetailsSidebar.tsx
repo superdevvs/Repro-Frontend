@@ -596,7 +596,7 @@ export function ShootDetailsSidebar({
 
       {/* Manual notification action (Req 12.5-12.8) — admins can send a manual
           email/SMS notification to the client or photographer for this shoot. */}
-      {(isAdmin || isSuperAdmin) && !isEditor && !isEditingManager && (
+      {((isAdmin || isSuperAdmin) && !isEditor || isEditingManager) && (
         <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -624,7 +624,7 @@ export function ShootDetailsSidebar({
         </Card>
       )}
 
-      {(isAdmin || isSuperAdmin) && !isEditor && !isEditingManager && (
+      {((isAdmin || isSuperAdmin) && !isEditor || isEditingManager) && (
         <ManualNotificationDialog
           shootId={Number(shoot.id)}
           shootLabel={shoot.location?.fullAddress || shoot.location?.address || `#${shoot.id}`}
