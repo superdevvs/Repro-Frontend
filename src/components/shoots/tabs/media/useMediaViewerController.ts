@@ -888,6 +888,7 @@ export function useMediaViewerController({
     fullSizeAvailable,
     imageUrl,
     imageStatus,
+    imageLoading: viewerImages.loadingFullSize && !viewerImages.error,
     zoomedImageViewportStyle,
     canRequestModification,
     canSetHero,
