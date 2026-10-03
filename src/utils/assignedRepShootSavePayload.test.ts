@@ -94,6 +94,87 @@ describe('slimAssignedRepShootSavePayload', () => {
     });
   });
 
+
+  it('keeps a quantity change and does not send empty service_photographers (shoot 379)', () => {
+    const slim = slimAssignedRepShootSavePayload({
+      photographer_id: 1104,
+      notify_client: true,
+      notify_photographer: false,
+      service_photographers: [],
+      scheduled_date: '2026-10-03',
+      time: '10:00:00',
+      services: [{ id: 1, quantity: 2, scheduled_at: '2026-10-03T10:00:00' }],
+      service_items: [{ service_id: 1, quantity: 2, scheduled_at: '2026-10-03T10:00:00' }],
+      address: '3254 Gleneagles Dr Silver Spring',
+    }, {
+      scheduledDate: '2026-10-03',
+      time: '10:00',
+      serviceItems: [{ id: 1, service_id: 1, quantity: 1, scheduled_at: '2026-10-03 10:00:00' }],
+    });
+
+    expect(slim).toEqual({
+      photographer_id: 1104,
+      notify_client: true,
+      notify_photographer: false,
+      services: [{ id: 1, quantity: 2, scheduled_at: '2026-10-03T10:00:00' }],
+      service_items: [{ service_id: 1, quantity: 2, scheduled_at: '2026-10-03T10:00:00' }],
+    });
+    expect(slim).not.toHaveProperty('service_photographers');
+  });
+
+  it('keeps an added or removed service id instead of an empty photographer list', () => {
+    const shoot = {
+      scheduledDate: '2026-10-03',
+      time: '10:00:00',
+      serviceItems: [{ service_id: 1, quantity: 1, scheduled_at: '2026-10-03T10:00:00' }],
+    };
+    const added = slimAssignedRepShootSavePayload({
+      photographer_id: 1104,
+      notify_client: false,
+      notify_photographer: true,
+      service_photographers: [],
+      services: [
+        { id: 1, quantity: 1, scheduled_at: '2026-10-03T10:00:00' },
+        { id: 4, quantity: 1, scheduled_at: '2026-10-03T10:00:00' },
+      ],
+    }, shoot);
+    expect(added.services).toEqual([
+      { id: 1, quantity: 1, scheduled_at: '2026-10-03T10:00:00' },
+      { id: 4, quantity: 1, scheduled_at: '2026-10-03T10:00:00' },
+    ]);
+    expect(added).not.toHaveProperty('service_photographers');
+
+    const removed = slimAssignedRepShootSavePayload({
+      photographer_id: 1104,
+      notify_client: false,
+      service_photographers: [],
+      services: [],
+      service_items: [],
+    }, shoot);
+    expect(removed.services).toEqual([]);
+    expect(removed.service_items).toEqual([]);
+    expect(removed).not.toHaveProperty('service_photographers');
+  });
+
+  it('still strips an unchanged service echo and omits empty service_photographers', () => {
+    const slim = slimAssignedRepShootSavePayload({
+      photographer_id: 1104,
+      notify_client: true,
+      notify_photographer: true,
+      service_photographers: [],
+      services: [{ id: 1, quantity: 1, scheduled_at: '2026-10-03T10:00:00' }],
+      service_items: [{ service_id: 1, quantity: 1, scheduled_at: '2026-10-03 10:00:00' }],
+    }, {
+      time: '10:00:00',
+      serviceItems: [{ service_id: 1, quantity: 1, scheduled_at: '2026-10-03T10:00:00' }],
+    });
+    expect(slim).toEqual({
+      photographer_id: 1104,
+      notify_client: true,
+      notify_photographer: true,
+    });
+  });
+
   it('still strips service plan when per-service scheduled_at matches the shoot', () => {
     const slim = slimAssignedRepShootSavePayload({
       photographer_id: 1163,

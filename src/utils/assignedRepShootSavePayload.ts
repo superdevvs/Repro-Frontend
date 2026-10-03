@@ -1,3 +1,4 @@
+import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 /**
  * Assigned sales_rep Overview Save may only touch schedule / service plan /
  * photographer / notify fields (AssignedRepSchedulePayload + UpdateShootAction
@@ -157,14 +158,112 @@ const hasDirtyServiceSchedules = (
   return false;
 };
 
+const knownQuantity = (value: unknown): number | null => {
+  if (value == null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const serviceIdOf = (record: Record<string, unknown>, idKey?: 'id' | 'service_id'): string => {
+  const id = idKey ? record[idKey] : (record.service_id ?? record.serviceId ?? record.id);
+  if (id == null || id === '') return '';
+  return String(id);
+};
+
+/** Booked lines the shoot actually stores. Name-only `services: string[]` is not a plan. */
+const shootServicePlan = (shoot?: ShootLike | null): Map<string, number | null> | null => {
+  if (!shoot) return null;
+  const lists: unknown[] = [];
+  for (const list of [shoot.serviceItems, shoot.service_items, shoot.serviceObjects]) {
+    if (Array.isArray(list)) lists.push(...list);
+  }
+  if (Array.isArray(shoot.services) && shoot.services.some((row) => row !== null && typeof row === 'object')) {
+    lists.push(...shoot.services);
+  }
+  if (
+    !Array.isArray(shoot.serviceItems)
+    && !Array.isArray(shoot.service_items)
+    && !Array.isArray(shoot.serviceObjects)
+    && !(Array.isArray(shoot.services) && shoot.services.some((row) => row !== null && typeof row === 'object'))
+  ) {
+    return null;
+  }
+  const plan = new Map<string, number | null>();
+  for (const row of lists) {
+    if (isInvoiceAdjustmentServiceItem(row)) continue;
+    const record = asRecord(row);
+    const id = serviceIdOf(record);
+    if (!id) continue;
+    const quantity = knownQuantity(record.quantity);
+    if (!plan.has(id)) plan.set(id, quantity);
+    else if (plan.get(id) == null && quantity != null) plan.set(id, quantity);
+  }
+  return plan;
+};
+
+const payloadServicePlan = (
+  lines: unknown,
+  idKey: 'id' | 'service_id',
+): Map<string, number | null> => {
+  const plan = new Map<string, number | null>();
+  if (!Array.isArray(lines)) return plan;
+  for (const row of lines) {
+    const record = asRecord(row);
+    const id = serviceIdOf(record, idKey);
+    if (!id) continue;
+    const quantity = knownQuantity(record.quantity);
+    if (!plan.has(id)) plan.set(id, quantity);
+    else if (plan.get(id) == null && quantity != null) plan.set(id, quantity);
+  }
+  return plan;
+};
+
+/**
+ * Id set, quantity, or an explicit empty selection (`[]`) is a plan edit.
+ * Unknown shoot lines (no service arrays on the model) are not a difference.
+ */
+const hasDirtyServicePlan = (
+  payload: Record<string, unknown>,
+  shoot?: ShootLike | null,
+): boolean => {
+  const stored = shootServicePlan(shoot);
+  if (!stored) return false;
+  const collections: Array<{ key: 'services' | 'service_items'; idKey: 'id' | 'service_id' }> = [
+    { key: 'services', idKey: 'id' },
+    { key: 'service_items', idKey: 'service_id' },
+  ];
+  const present = collections.filter(({ key }) => Array.isArray(payload[key]));
+  if (present.length === 0) return false;
+  if (present.every(({ key }) => Array.isArray(payload[key]) && (payload[key] as unknown[]).length === 0)) {
+    return stored.size > 0;
+  }
+  const incoming = new Map<string, number | null>();
+  for (const { key, idKey } of present) {
+    if ((payload[key] as unknown[]).length === 0) continue;
+    for (const [id, quantity] of payloadServicePlan(payload[key], idKey)) {
+      if (!incoming.has(id)) incoming.set(id, quantity);
+      else if (incoming.get(id) == null && quantity != null) incoming.set(id, quantity);
+    }
+  }
+  if (incoming.size !== stored.size) return true;
+  for (const [id, quantity] of incoming) {
+    if (!stored.has(id)) return true;
+    const storedQuantity = stored.get(id);
+    if (quantity == null || storedQuantity == null) continue;
+    if (!sameScalar(quantity, storedQuantity)) return true;
+  }
+  return false;
+};
+
 /**
  * Keep only assigned-rep editable keys. Drop unchanged schedule/service plan
  * echoes so a photographer-only Save becomes
  * `{ photographer_id, service_photographers?, notify_* }`.
  *
- * Do not strip services/service_items when any line's scheduled_at differs from
- * the shoot's stored line (Overview can dirty per-service time while top-level
- * scheduled_date/time still match and get dropped — #395 / 16 Dayton).
+ * Do not strip services/service_items when the booked id set, quantity, or an
+ * explicit empty selection differs from the shoot, or when any line's
+ * scheduled_at differs (#395). An empty `service_photographers` array is not a
+ * plan edit — the API will not remove a booked service or line photographer.
  */
 export function slimAssignedRepShootSavePayload(
   payload: Record<string, unknown>,
@@ -207,17 +306,24 @@ export function slimAssignedRepShootSavePayload(
   ) {
     delete next.time;
   }
+  // Empty assignments are not a service-plan edit. Leave real
+  // [{ service_id, photographer_id }] rows; drop the stand-in [].
+  const hadEmptyServicePhotographers = Array.isArray(next.service_photographers)
+    && next.service_photographers.length === 0;
+  if (hadEmptyServicePhotographers) delete next.service_photographers;
+
   // Photographer/notify-only saves must not re-echo the full service plan —
   // that path still trips AssignedRepSchedulePayload when line shapes drift.
-  // Exception: dirty per-service scheduled_at is a real schedule edit even when
-  // top-level date/time keys were dropped as unchanged.
+  // Keep services/service_items when the plan or a per-service time actually changed.
   const photographerOnly = (
     Object.prototype.hasOwnProperty.call(next, 'photographer_id')
     || Object.prototype.hasOwnProperty.call(next, 'service_photographers')
+    || hadEmptyServicePhotographers
   ) && !Object.prototype.hasOwnProperty.call(next, 'scheduled_date')
     && !Object.prototype.hasOwnProperty.call(next, 'scheduled_at')
     && !Object.prototype.hasOwnProperty.call(next, 'time')
-    && !hasDirtyServiceSchedules(next, shoot);
+    && !hasDirtyServiceSchedules(next, shoot)
+    && !hasDirtyServicePlan(next, shoot);
 
   if (photographerOnly) {
     delete next.services;
