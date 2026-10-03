@@ -7,6 +7,7 @@ interface UploadAttemptIdentity {
   batchTotal: number;
 }
 
+const uploadAttemptContexts = new WeakMap<File, string | undefined>();
 const uploadAttemptIdentities = new WeakMap<File, UploadAttemptIdentity>();
 
 export const createUploadBatchId = (): string => {
@@ -22,9 +23,11 @@ export function ensureUploadAttemptIdentity(
   batchId: string,
   batchIndex: number,
   batchTotal: number,
+  context?: string,
 ): UploadAttemptIdentity {
   const existing = uploadAttemptIdentities.get(file);
-  if (existing) return existing;
+  if (existing && uploadAttemptContexts.get(file) === context) return existing;
+  uploadAttemptContexts.set(file, context);
 
   const identity = {
     idempotencyKey: createUploadBatchId(),

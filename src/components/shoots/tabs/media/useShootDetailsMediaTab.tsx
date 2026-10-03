@@ -1,3 +1,4 @@
+import type { StagedMediaDrop } from './stagedMediaDrop';
 import { EmptyStateArtwork } from '@/components/ui/empty-state';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 
@@ -380,6 +381,9 @@ export function useShootDetailsMediaTab({
       // Ignore unavailable localStorage in restricted/private browsing contexts.
     }
   };
+  const [stagedDrop, setStagedDrop] = useState<StagedMediaDrop>();
+  const clearStagedDrop = useCallback(() => setStagedDrop(undefined), []);
+  useEffect(clearStagedDrop, [shoot.id, clearStagedDrop]);
   const [dragOverTab, setDragOverTab] = useState<'uploaded' | 'edited' | null>(null);
   const [directUploading, setDirectUploading] = useState(false);
   const [directUploadProgress, setDirectUploadProgress] = useState(0);
@@ -878,6 +882,7 @@ export function useShootDetailsMediaTab({
     queryClient,
     toast,
     trackUpload,
+    onStageUploadFiles: setStagedDrop,
     dragCounterRef,
     setDragOverTab,
   });
@@ -1258,6 +1263,8 @@ export function useShootDetailsMediaTab({
             isEditor={isEditor}
             editedFiles={editedFiles}
             showInlineProgress={false}
+            stagedDrop={stagedDrop?.type === 'edited' ? stagedDrop : undefined}
+            onStagedDropConsumed={clearStagedDrop}
           />
         </div>
       );
@@ -1265,7 +1272,7 @@ export function useShootDetailsMediaTab({
 
     return (
       <div className="space-y-4 flex-1 flex flex-col min-h-0">
-        <RawUploadSection shoot={shoot} rawFiles={rawFiles} onUploadComplete={onUploadComplete} showInlineProgress={false} />
+        <RawUploadSection onStagedDropConsumed={clearStagedDrop} stagedDrop={stagedDrop?.type === 'raw' ? stagedDrop : undefined} shoot={shoot} rawFiles={rawFiles} onUploadComplete={onUploadComplete} showInlineProgress={false} />
       </div>
     );
   };
@@ -1340,6 +1347,8 @@ export function useShootDetailsMediaTab({
         uploadedDrone={uploadedDrone}
         uploadedExtras={uploadedExtras}
         renderMediaGridPane={renderMediaGridPane}
+        stagedDrop={stagedDrop}
+        onStagedDropConsumed={clearStagedDrop}
         renderAdminUploadSection={AdminUploadSection}
         shoot={shoot}
         toast={toast}

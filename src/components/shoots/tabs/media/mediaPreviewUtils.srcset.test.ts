@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { MEDIA_GRID_SIZES_ATTR, getMediaSrcSet } from './mediaPreviewUtils';
+import { MEDIA_GRID_SIZES_ATTR, getMediaSrcSet, getDisplayMediaFilename, buildMediaFilesFingerprint } from './mediaPreviewUtils';
 import { type MediaFile } from '@/hooks/useShootFiles';
 
 /**
@@ -103,5 +103,17 @@ describe('getMediaSrcSet', () => {
     expect(MEDIA_GRID_SIZES_ATTR).toContain('max-width: 640px');
     expect(MEDIA_GRID_SIZES_ATTR).toContain('max-width: 1024px');
     expect(MEDIA_GRID_SIZES_ATTR.trim().endsWith('320px')).toBe(true);
+  });
+});
+
+
+describe('saved media identity', () => {
+  it.each(['living_web.jpg', 'kitchen_full.jpg', 'bedroom_medium.jpg'])('preserves the saved display filename %s', (filename) => {
+    expect(getDisplayMediaFilename(buildFile({ filename }))).toBe(filename);
+  });
+  it('refreshes a filename-only update and permission-only update', () => {
+    const old = buildFile({ filename: 'before.jpg', can_delete: false });
+    expect(buildMediaFilesFingerprint([old])).not.toBe(buildMediaFilesFingerprint([{ ...old, filename: 'after.jpg' }]));
+    expect(buildMediaFilesFingerprint([old])).not.toBe(buildMediaFilesFingerprint([{ ...old, can_delete: true }]));
   });
 });

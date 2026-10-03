@@ -23,7 +23,7 @@ export interface MediaViewerProps {
   onAddComment?: (fileId: string, comment: string) => void;
   onToggleHidden?: (fileId: string, hidden: boolean) => void;
   onDownloadSingle?: (fileId: string) => void | Promise<void>;
-  onRenameFilename?: (fileId: string, filename: string) => void | Promise<void>;
+  onRenameFilename?: (fileId: string, filename: string) => void | Promise<void | { ok: boolean }>;
   /** Returns true when the file was deleted so the viewer can advance. */
   onDeleteFile?: (fileId: string) => void | Promise<boolean>;
   /** When true, show Mark as (reclassify) actions for the current image. */

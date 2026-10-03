@@ -42,6 +42,8 @@ export function createShootMediaRenameActions({
       return { ok: false as const };
     }
 
+    const mediaQueries = { predicate: (query: { queryKey: readonly unknown[] }) => query.queryKey[0] === 'shootFiles' && String(query.queryKey[1]) === String(shoot.id) };
+    await queryClient.cancelQueries(mediaQueries);
     const previousFile = targetFile;
     updateSingleFile(fileId, (file) => ({
       ...file,
@@ -67,12 +69,11 @@ export function createShootMediaRenameActions({
           : file.media_revision,
       }));
 
+      queryClient.setQueriesData<MediaFile[]>(mediaQueries, (files) => files?.map((file) =>
+        String(file.id) === String(fileId) ? { ...file, filename: confirmedFilename, stored_filename: confirmedStored } : file,
+      ));
       // Refetch is source of truth for revision bumps — avoid stale optimistic revert.
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] }),
-        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] }),
-        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] }),
-      ]);
+      await queryClient.invalidateQueries(mediaQueries);
       onShootUpdate();
 
       toast({

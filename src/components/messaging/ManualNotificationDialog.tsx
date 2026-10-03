@@ -443,10 +443,10 @@ export function ManualNotificationDialog({
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-900/50 dark:bg-amber-950/30">
                 <div className="flex items-center gap-1.5 text-sm font-medium text-amber-700 dark:text-amber-400">
                   <Info className="h-4 w-4 shrink-0" />
-                  Some details aren&apos;t filled in
+                  Required details are missing
                 </div>
                 <p className="mt-1 text-xs text-amber-700/80 dark:text-amber-400/80">
-                  These optional fields are empty for this shoot and will be left blank.
+                  Complete these details before sending this notification.
                 </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {missingVariables.map((variable) => (

@@ -1,3 +1,4 @@
+import { useStagedMediaDrop, type StagedMediaDrop } from './stagedMediaDrop';
 import { useEffect, useMemo, useState } from 'react';
 import { Upload, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -63,12 +64,16 @@ export function EditedUploadSection({
   isEditor,
   editedFiles = [],
   showInlineProgress = true,
+  stagedDrop,
+  onStagedDropConsumed,
 }: {
   shoot: ShootData;
   onUploadComplete: () => void;
   isEditor?: boolean;
   editedFiles?: MediaFile[];
   showInlineProgress?: boolean;
+  stagedDrop?: StagedMediaDrop;
+  onStagedDropConsumed?: () => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -85,13 +90,16 @@ export function EditedUploadSection({
   const [pendingSubmitAfterUpload, setPendingSubmitAfterUpload] = useState(false);
   const [notes, setNotes] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [replacementTargets, setReplacementTargets] = useState<Record<string, string>>({});
+  const replacementCandidates = (filename: string) => editedFiles.filter((file) =>
+    file.filename === filename && String(file.shoot_service_id ?? file.shootServiceId ?? '') === selectedServiceId,
+  );
   const inputId = `edited-upload-input-${shoot.id}`;
   const eligibleServices = useMemo(
     () => resolveEligibleUploadServices(shoot, user, 'edited'),
     [shoot, user],
   );
-  const normalizedRole = String(user?.role || '').toLowerCase();
-  const requiresServiceSelection = normalizedRole === 'editor' && eligibleServices.length > 1;
+  const requiresServiceSelection = eligibleServices.length > 1;
 
   const expectedCount = useMemo(() => resolveExpectedFinalCount(shoot), [shoot]);
   const existingCounts = useMemo(() => getExistingMediaTypeCounts(editedFiles), [editedFiles]);
@@ -111,6 +119,7 @@ export function EditedUploadSection({
     setPendingSubmitAfterUpload(false);
     setNotes('');
     setSelectedServiceId('');
+    setReplacementTargets({});
     setUploadLimitHint(buildUploadLimitDescription());
   }, [shoot.id, user?.id]);
 
@@ -160,6 +169,8 @@ export function EditedUploadSection({
     );
   };
 
+  useStagedMediaDrop(stagedDrop, mergeSelectedFiles, onStagedDropConsumed);
+
   const removeSelectedFile = (indexToRemove: number) => {
     setSelectedFiles((currentFiles) => {
       const nextFiles = currentFiles.filter((_, index) => index !== indexToRemove);
@@ -206,6 +217,12 @@ export function EditedUploadSection({
       setUploadProgress(0);
     setTransferDetail(undefined);
       setPendingSubmitAfterUpload(false);
+      return;
+    }
+
+    if (nextFiles.some((file) => replacementCandidates(file.name).length > 1
+      && !replacementCandidates(file.name).some((candidate) => String(candidate.id) === replacementTargets[file.name]))) {
+      toast({ title: 'Choose a file to replace', description: 'More than one saved file has this name. Select the saved version below.', variant: 'destructive' });
       return;
     }
 
@@ -299,10 +316,12 @@ export function EditedUploadSection({
           }> => {
               const formData = new FormData();
               const mediaType = getQueueClassification(file, index, classificationsForUpload);
-              const identity = ensureUploadAttemptIdentity(file, uploadBatchId, index, filesForUpload.length);
+              const identity = ensureUploadAttemptIdentity(file, uploadBatchId, index, filesForUpload.length,
+                JSON.stringify([shoot.id, 'edited', selectedServiceId, mediaType, replacementTargets[file.name]]));
               formData.append('files[]', file);
               formData.append('upload_type', 'edited');
               formData.append('idempotency_key', identity.idempotencyKey);
+              if (replacementTargets[file.name]) formData.append('replace_file_id', replacementTargets[file.name]);
               formData.append('upload_batch_id', identity.batchId);
               formData.append('upload_batch_total', String(identity.batchTotal));
               formData.append('upload_batch_index', String(identity.batchIndex));
@@ -390,84 +409,6 @@ export function EditedUploadSection({
                 return { success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits, acceptedFiles: [] };
               }
 
-              // Ambiguous same-name replace: BE returns 422 with replace_file_id — confirm and retry.
-              let replaceFileId: string | null = null;
-              try {
-                const payload = responseText ? JSON.parse(responseText) as Record<string, unknown> : null;
-                const rawId = payload?.replace_file_id ?? (payload?.data as Record<string, unknown> | undefined)?.replace_file_id;
-                if (rawId != null && String(rawId).trim() !== '') {
-                  replaceFileId = String(rawId);
-                }
-              } catch {
-                replaceFileId = null;
-              }
-
-              if (status === 422 && replaceFileId) {
-                const shouldReplace = typeof window !== 'undefined'
-                  && window.confirm(
-                    `A saved file named "${file.name}" already exists on this shoot. Replace it with this upload?`,
-                  );
-                if (shouldReplace) {
-                  const retryForm = new FormData();
-                  formData.forEach((value, key) => {
-                    retryForm.append(key, value);
-                  });
-                  retryForm.append('replace_file_id', replaceFileId);
-                  const retryRequest = await uploadMediaRequest({
-                    url: `${API_BASE_URL}/api/shoots/${shoot.id}/upload`,
-                    body: retryForm,
-                    signal,
-                    headers: {
-                      Accept: 'application/json',
-                      Authorization: authHeader,
-                      'X-Impersonate-User-Id': impersonateHeader,
-                    },
-                    onProgress: ({ phase, loaded, total }) => {
-                      const fraction = phase === 'processing'
-                        ? 1
-                        : total > 0
-                          ? Math.min(loaded / total, 1)
-                          : Math.min(loaded / Math.max(file.size, 1), 1);
-                      fileProgresses[index] = Math.min(100, fraction * 100);
-                      emitTransferProgress(index, phase);
-                    },
-                  });
-                  if (retryRequest.ok !== false) {
-                    const retryText = retryRequest.responseText;
-                    const retryStatus = retryRequest.status;
-                    const retryResult = parseCanonicalUploadResponse(retryText);
-                    if (retryStatus >= 200 && retryStatus < 300 && retryResult.successCount > 0) {
-                      mergeAcceptedShootFiles(queryClient, shoot.id, 'edited', retryResult.uploadedFiles);
-                      fileProgresses[index] = 100;
-                      if (!completedIndexes.includes(index)) completedIndexes.push(index);
-                      emitTransferProgress(index, 'processing', true);
-                      return {
-                        success: true,
-                        issues: [],
-                        file,
-                        originalIndex: index,
-                        uploadLimits: retryResult.uploadLimits,
-                        acceptedFiles: retryResult.uploadedFiles,
-                      };
-                    }
-                  }
-                }
-                const parsedReplace = parseUploadIssues(
-                  file,
-                  index,
-                  responseText,
-                  shouldReplace ? 'Replace upload failed' : 'Replace cancelled — pass replace_file_id to overwrite the existing file.',
-                );
-                return {
-                  success: false,
-                  issues: parsedReplace.issues.map((issue) => ({ ...issue, retryable: true })),
-                  file,
-                  originalIndex: index,
-                  uploadLimits: parsedReplace.uploadLimits,
-                  acceptedFiles: [],
-                };
-              }
-
               const parsed = parseUploadIssues(file, index, responseText, 'Upload failed');
               return { success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits: parsed.uploadLimits, acceptedFiles: [] };
           };
@@ -498,7 +439,7 @@ export function EditedUploadSection({
             }
           }
           if (filesForUpload.length > 0) {
-            const finalProgress = failedFileEntries.length === filesForUpload.length
+            const finalProgress = failedFileEntries.length > 0
               ? Math.min(99.9, lastEmittedProgress < 0 ? 0 : lastEmittedProgress)
               : 100;
             const detail: UploadTransferDetail = {
@@ -525,7 +466,7 @@ export function EditedUploadSection({
           });
           if (acceptedFiles.length > 0) {
             triggerUploadRefreshes(shoot.id);
-            onUploadComplete();
+            if (failedFileEntries.length === 0) onUploadComplete();
           }
 
           if (failedFileEntries.length === filesForUpload.length) {
@@ -567,7 +508,7 @@ export function EditedUploadSection({
               setQueueClassifications(failedClassificationMap);
             }
             setPendingSubmitAfterUpload(false);
-            return;
+            throw new Error(issues[0]?.message || 'Some files were not saved. Retry the remaining files.');
           }
 
           if (retryOnly) {
@@ -638,12 +579,12 @@ export function EditedUploadSection({
           <span className="text-sm font-medium text-foreground">Service for this batch</span>
           <select
             value={selectedServiceId}
-            onChange={(event) => setSelectedServiceId(event.target.value)}
+            onChange={(event) => { setSelectedServiceId(event.target.value); setReplacementTargets({}); }}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
             aria-label="Service for edited upload batch"
           >
             <option value="">
-              {normalizedRole === 'editor' ? 'Select editing service' : 'General / Unassigned'}
+              Select editing service
             </option>
             {eligibleServices.map((service) => (
               <option key={service.id} value={service.id}>{service.label}</option>
@@ -651,6 +592,19 @@ export function EditedUploadSection({
           </select>
         </label>
       )}
+      {selectedFiles.filter((file) => replacementCandidates(file.name).length > 1).map((file) => (
+        <label key={file.name} className="block space-y-1.5 text-sm">
+          <span>Replace saved file: {file.name}</span>
+          <select aria-label={`Replacement for ${file.name}`} className="flex h-10 w-full rounded-md border bg-background px-3"
+            value={replacementTargets[file.name] ?? ''} disabled={isUploading}
+            onChange={(event) => setReplacementTargets((current) => ({ ...current, [file.name]: event.target.value }))}>
+            <option value="">Choose which saved file to replace</option>
+            {replacementCandidates(file.name).map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>{candidate.filename} � #{candidate.id}</option>
+            ))}
+          </select>
+        </label>
+      ))}
       <div className="space-y-3 md:space-y-0 md:flex md:items-stretch md:gap-3">
         <SummaryCard label="Expected" value={expectedCount} className="md:w-[170px] md:shrink-0" />
         <SummaryCard label="Uploaded" value={uploadedCount} tone="info" className="md:w-[170px] md:shrink-0" />

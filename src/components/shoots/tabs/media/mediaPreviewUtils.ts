@@ -6,6 +6,10 @@ export type MediaImageSize = 'thumb' | 'grid' | 'web' | 'medium' | 'large' | 'or
 export const buildMediaFilesFingerprint = (files: MediaFile[]) => JSON.stringify(
   files.map((file) => ({
     id: file.id,
+    filename: file.filename,
+    storedFilename: file.stored_filename,
+    revision: file.media_revision,
+    canDelete: file.can_delete,
     shootServiceId: file.shoot_service_id ?? file.shootServiceId,
     url: file.url,
     path: file.path,
@@ -31,7 +35,6 @@ export const buildMediaFilesFingerprint = (files: MediaFile[]) => JSON.stringify
 );
 
 const RAW_EXTENSIONS = /\.(nef|cr2|cr3|arw|dng|raf|rw2|orf|pef|srw|3fr|iiq)$/;
-const DERIVATIVE_SUFFIX_REGEX = /([._-](thumb|thumbnail|web|medium|large|full|placeholder))+$/i;
 
 const isRawMediaFile = (file: MediaFile): boolean => {
   const name = (file.filename || '').toLowerCase();
@@ -365,27 +368,7 @@ export const getMediaVideoUrl = (file: MediaFile): string => {
   return getMediaVideoUrlCandidates(file)[0] || getMediaVideoPreviewUrl(file);
 };
 
-export const getDisplayMediaFilename = (file: Pick<MediaFile, 'filename'>): string => {
-  const rawFilename = String(file.filename || '').trim();
-  if (!rawFilename) {
-    return '';
-  }
-
-  const extensionMatch = rawFilename.match(/\.([^.]+)$/);
-  if (!extensionMatch) {
-    return rawFilename.replace(DERIVATIVE_SUFFIX_REGEX, '');
-  }
-
-  const extension = extensionMatch[1];
-  const baseName = rawFilename.slice(0, -(extension.length + 1));
-  const cleanedBaseName = baseName.replace(DERIVATIVE_SUFFIX_REGEX, '');
-
-  if (new RegExp(`\\.${extension}$`, 'i').test(cleanedBaseName)) {
-    return cleanedBaseName;
-  }
-
-  return `${cleanedBaseName}.${extension}`;
-};
+export const getDisplayMediaFilename = (file: Pick<MediaFile, 'filename'>): string => String(file.filename || '').trim();
 
 /**
  * Candidate renditions for a media tile, smallest first: 300w for a low-density

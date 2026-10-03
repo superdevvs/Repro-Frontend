@@ -82,6 +82,8 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     uploadedExtras,
     renderMediaGridPane,
     renderAdminUploadSection,
+    stagedDrop,
+    onStagedDropConsumed,
     shoot,
     toast,
     queryClient,
@@ -367,6 +369,8 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                 })
               ) : isEditor ? (
                 <EditedUploadSection
+                  stagedDrop={stagedDrop?.type === 'edited' ? stagedDrop : undefined}
+                  onStagedDropConsumed={onStagedDropConsumed}
                   shoot={shoot}
                   isEditor={isEditor}
                   showInlineProgress={false}
@@ -385,6 +389,8 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                 />
               ) : (
                 <RawUploadSection
+                  stagedDrop={stagedDrop?.type === 'raw' ? stagedDrop : undefined}
+                  onStagedDropConsumed={onStagedDropConsumed}
                   shoot={shoot}
                   rawFiles={rawFiles}
                   showInlineProgress={false}

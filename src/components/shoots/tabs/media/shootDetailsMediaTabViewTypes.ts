@@ -9,6 +9,7 @@ import type { NormalizedIguideFloorplan, NormalizedIguideSync } from '@/utils/sh
 import type { DownloadPopupState, ReclassifyMediaType } from './useShootMediaActions';
 import type { MediaImageSize } from './mediaPreviewUtils';
 import type { MediaSortOrder } from './mediaSort';
+import type { StagedMediaDrop } from './stagedMediaDrop';
 
 export type MediaSubTab =
   | 'photos'
@@ -29,6 +30,8 @@ type AdminUploadSectionProps = {
 };
 
 export interface ShootDetailsMediaTabViewProps {
+  stagedDrop?: StagedMediaDrop;
+  onStagedDropConsumed?: () => void;
   downloadPopup: DownloadPopupState;
   handleManualDownload: (popup: DownloadPopupState) => void;
   closeDownloadPopup: (popup: DownloadPopupState) => void;

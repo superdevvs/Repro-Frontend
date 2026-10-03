@@ -115,4 +115,33 @@ describe('edited upload transfer progress', () => {
     expect(lastCall?.[1]?.completedFileIndexes.sort()).toEqual([0, 1]);
     expect(lastCall?.[1]?.fileProgresses).toEqual([100, 100]);
   });
+  it('retains only failed files and rejects global completion after a partial save', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    vi.spyOn(client, 'invalidateQueries').mockResolvedValue(undefined);
+    const onComplete = vi.fn();
+    const onConsumed = vi.fn();
+    const files = ['saved.jpg', 'retry.jpg'].map((name) => new File(['abc'], name, { type: 'image/jpeg' }));
+    render(<QueryClientProvider client={client}>
+      <EditedUploadSection shoot={{ id: '162', services: [] } as unknown as ShootData}
+        stagedDrop={{ files, type: 'edited' }} onStagedDropConsumed={onConsumed} onUploadComplete={onComplete} />
+    </QueryClientProvider>);
+    expect(onConsumed).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByRole('button', { name: 'Upload Edited Files' }));
+    vi.mocked(uploadMediaRequest).mockImplementation(async (options) => {
+      const file = (options.body as FormData).get('files[]') as File;
+      options.onProgress({ phase: 'processing', loaded: file.size, total: file.size });
+      return { ok: true, status: 200, responseText: JSON.stringify(file.name === 'saved.jpg'
+        ? { success_count: 1, uploaded_files: [{ id: 1, filename: file.name, upload_type: 'edited' }] }
+        : { success_count: 0, error_count: 1, errors: [{ file_name: file.name, message: 'Storage busy', retryable: true }] }) };
+    });
+    const progress = vi.fn();
+    await act(async () => {
+      await expect(mocks.trackUpload.mock.calls[0][0].uploadFn(progress, new AbortController().signal)).rejects.toThrow();
+    });
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(progress.mock.calls.at(-1)?.[0]).toBeLessThan(100);
+    fireEvent.click(screen.getByRole('button', { name: 'Upload Edited Files' }));
+    expect(mocks.trackUpload.mock.calls.at(-1)?.[0].fileNames).toEqual(['retry.jpg']);
+  });
+
 });

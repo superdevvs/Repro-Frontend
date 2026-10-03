@@ -1,3 +1,4 @@
+import { useStagedMediaDrop, type StagedMediaDrop } from './stagedMediaDrop';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Plus, Upload, X } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -80,11 +81,15 @@ export function RawUploadSection({
   onUploadComplete,
   rawFiles = [],
   showInlineProgress = true,
+  stagedDrop,
+  onStagedDropConsumed,
 }: {
   shoot: ShootData;
   onUploadComplete: () => void;
   rawFiles?: MediaFile[];
   showInlineProgress?: boolean;
+  stagedDrop?: StagedMediaDrop;
+  onStagedDropConsumed?: () => void;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -325,6 +330,8 @@ export function RawUploadSection({
       return [...currentGroups, created];
     });
   };
+
+  useStagedMediaDrop(stagedDrop, mergeSelectedFiles, onStagedDropConsumed);
 
   const removeFileFromGroup = (groupId: string, indexToRemove: number) => {
     setGroups((currentGroups) => currentGroups

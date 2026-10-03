@@ -754,8 +754,8 @@ export function useMediaViewerController({
     if (!draft) return;
     setRenamingFilename(true);
     try {
-      await onRenameFilename(currentFile.id, draft);
-      setShowRenameComposer(false);
+      const result = await onRenameFilename(currentFile.id, draft);
+      if (!result || result.ok) setShowRenameComposer(false);
     } finally {
       setRenamingFilename(false);
     }

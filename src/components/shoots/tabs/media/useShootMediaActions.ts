@@ -14,20 +14,12 @@ import {
   triggerShootListRefresh,
 } from '@/realtime/realtimeRefreshBus';
 import { getShootUnits } from '@/features/shoot-units/shootUnitData';
-import { mergeAcceptedShootFiles, type MediaFile } from '@/hooks/useShootFiles';
+import { type MediaFile } from '@/hooks/useShootFiles';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { canDeleteMediaSelection } from './mediaDeletePermissions';
 import { deleteShootMediaFile } from '@/services/shootMediaService';
 import { invalidateShootMediaQueries } from './mediaMutationResult';
-import {
-  createUploadBatchId,
-  ensureUploadAttemptIdentity,
-  parseCanonicalUploadResponse,
-  resolveEligibleUploadServices,
-  resolveUploadLaneForFile,
-  resolveUploadLanesForFiles,
-} from './mediaUploadUtils';
-import { uploadMediaRequest } from './uploadMediaRequest';
+import { readDroppedMedia } from './stagedMediaDrop';
 import {
   downloadScanFailedShootFile,
   downloadShootMediaFile,
@@ -38,17 +30,6 @@ import {
   type ShootShareLinkEntry,
 } from '../overview/shareLinksEvents';
 
-const isVideoUpload = (file: File) =>
-  Boolean(file.type && file.type.toLowerCase().startsWith('video/')) ||
-  /\.(mp4|mov|m4v|avi|mkv|wmv|webm|mpg|mpeg|3gp)$/i.test(file.name);
-
-const floorplanPatterns = ['floorplan', 'floor-plan', 'floor_plan', 'fp_', 'fp-', 'layout', 'blueprint'];
-
-const isFloorplanUpload = (file: File) => {
-  const lower = file.name.toLowerCase();
-  return floorplanPatterns.some((pattern) => lower.includes(pattern));
-};
-
 const resetDownloadPopup = (): DownloadPopupState => ({
   visible: false,
   status: 'processing',
@@ -57,17 +38,6 @@ const resetDownloadPopup = (): DownloadPopupState => ({
   fileCount: 0,
   sizeLabel: '',
 });
-
-const buildUploadWarningDescription = (errors: string[], totalCount: number): string => {
-  const failedCount = errors.length;
-  const failedNames = errors
-    .slice(0, 3)
-    .map((error) => error.split(':')[0]?.trim())
-    .filter(Boolean);
-  const remainingCount = failedCount - failedNames.length;
-
-  return `${failedCount} of ${totalCount} file${failedCount === 1 ? '' : 's'} failed to upload.${failedNames.length > 0 ? ` Failed: ${failedNames.join(', ')}` : ''}${remainingCount > 0 ? `, plus ${remainingCount} more.` : ''}`;
-};
 
 export function useShootMediaActions({
   shoot,
@@ -90,7 +60,7 @@ export function useShootMediaActions({
   onShootUpdate,
   queryClient,
   toast,
-  trackUpload,
+  onStageUploadFiles,
   dragCounterRef,
   setDragOverTab,
 }: UseShootMediaActionsParams) {
@@ -110,173 +80,14 @@ export function useShootMediaActions({
     setDragOverTab(null);
 
     if (!showUploadTab) return;
-    const files = Array.from(event.dataTransfer.files || []);
-    if (files.length === 0) return;
-
-    // Gate the drop by the lanes these specific files need, so a drag-and-drop cannot
-    // reach a service the upload panel would never have offered.
-    const eligibleServices = resolveEligibleUploadServices(
-      shoot,
-      user,
-      uploadType,
-      resolveUploadLanesForFiles(files),
-    );
-    const assignedRole = (normalizedRole === 'photographer' && uploadType === 'raw')
-      || (normalizedRole === 'editor' && uploadType === 'edited');
-    if (assignedRole && eligibleServices.length > 1) {
-      toast({
-        title: 'Choose a service first',
-        description: 'This shoot has multiple assigned services. Open the upload panel and choose one service for the batch.',
-        variant: 'destructive',
-      });
+    const files = readDroppedMedia(event.dataTransfer);
+    if (files.length === 0) {
+      toast({ title: 'No uploadable files', description: 'Save the images to a folder on this computer, then drag the files here or use Upload More.', variant: 'destructive' });
       return;
     }
-    if (uploadType === 'raw' && eligibleServices.length === 0) {
-      toast({
-        title: 'No service accepts these files',
-        description: 'None of this shoot\'s booked services accept this kind of raw media. Open the upload panel to review the booked services.',
-        variant: 'destructive',
-      });
-      return;
-    }
-    const selectedServiceId = eligibleServices.length === 1 ? eligibleServices[0].id : '';
-
-    const apiHeaders = getApiHeaders();
-    const authHeader = apiHeaders.Authorization;
-    const impersonateHeader = apiHeaders['X-Impersonate-User-Id'];
-
-    toast({
-      title: 'Upload Started',
-      description: `${files.length} file${files.length !== 1 ? 's' : ''} uploading in background.`,
-    });
-
-    trackUpload({
-      shootId: String(shoot.id),
-      shootAddress: shoot.location?.fullAddress || shoot.location?.address || `Shoot #${shoot.id}`,
-      fileCount: files.length,
-      fileNames: files.map((file) => file.name),
-      uploadType,
-      uploadFn: async (onProgress, signal) => {
-        let completed = 0;
-        let processedBytes = 0;
-        const errors: string[] = [];
-        const uploadBatchId = createUploadBatchId();
-        const totalBytes = files.reduce((sum, file) => sum + file.size, 0);
-
-        const uploadOne = async (file: File, index: number): Promise<{ success: boolean; error?: string }> => {
-            const formData = new FormData();
-            const isVideo = isVideoUpload(file);
-            const identity = ensureUploadAttemptIdentity(file, uploadBatchId, index, files.length);
-            formData.append('files[]', file);
-            formData.append('upload_type', uploadType);
-            formData.append('idempotency_key', identity.idempotencyKey);
-            formData.append('upload_batch_id', identity.batchId);
-            formData.append('upload_batch_index', String(identity.batchIndex));
-            formData.append('upload_batch_total', String(identity.batchTotal));
-            if (selectedServiceId) formData.append('shoot_service_id', selectedServiceId);
-            // Declare the lane so the backend gates on the same rule the selector
-            // used. It still re-derives the lane from the file itself, so this is a
-            // statement of intent rather than something the server trusts blindly.
-            if (uploadType === 'raw') {
-              formData.append('upload_lane', resolveUploadLaneForFile(file));
-            }
-            if (isVideo) formData.append('service_category', 'video');
-            if (!isVideo && isFloorplanUpload(file)) formData.append('media_type', 'floorplan');
-
-            const request = await uploadMediaRequest({
-              url: `${API_BASE_URL}/api/shoots/${shoot.id}/upload`,
-              body: formData,
-              signal,
-              headers: {
-                Accept: 'application/json',
-                Authorization: authHeader,
-                'X-Impersonate-User-Id': impersonateHeader,
-              },
-              onProgress: ({ phase, loaded, total }) => {
-                const fraction = phase === 'processing'
-                  ? 1
-                  : total > 0
-                    ? Math.min(loaded / total, 1)
-                    : Math.min(loaded / Math.max(file.size, 1), 1);
-                const value = Math.min(
-                  99.9,
-                  totalBytes > 0
-                    ? ((processedBytes + file.size * fraction) / totalBytes) * 100
-                    : (completed / Math.max(files.length, 1)) * 100,
-                );
-                onProgress(value);
-              },
-            });
-
-            if (request.ok === false) {
-              return { success: false, error: `${file.name}: ${request.message}` };
-            }
-
-            const result = parseCanonicalUploadResponse(request.responseText);
-            if (request.status >= 200 && request.status < 300) {
-              if (result.successCount > 0) {
-                mergeAcceptedShootFiles(queryClient, shoot.id, uploadType, result.uploadedFiles);
-                return { success: true };
-              }
-              return { success: false, error: `${file.name}: ${result.message || 'Upload failed'}` };
-            }
-
-            let message = 'Upload failed';
-            try {
-              message = JSON.parse(request.responseText).message || message;
-            } catch {
-              // Fall back to the generic upload error when the response is not JSON.
-            }
-            return { success: false, error: `${file.name}: ${message}` };
-        };
-
-        for (let index = 0; index < files.length; index += 1) {
-          if (signal.aborted) {
-            throw new Error('Upload cancelled. The remaining files are still selected for retry.');
-          }
-          const file = files[index];
-          const result = await uploadOne(file, index);
-          completed += 1;
-          processedBytes += file.size;
-          if (!result.success && result.error) errors.push(result.error);
-          onProgress(Math.min(
-            100,
-            totalBytes > 0
-              ? (processedBytes / totalBytes) * 100
-              : Math.round((completed / files.length) * 100),
-          ));
-        }
-
-        if (errors.length === files.length) {
-          toast({
-            title: 'Upload failed',
-            description: buildUploadWarningDescription(errors, files.length),
-            variant: 'destructive',
-          });
-          throw new Error('All files failed to upload');
-        }
-
-        if (errors.length > 0) {
-          toast({
-            title: 'Some files did not upload',
-            description: buildUploadWarningDescription(errors, files.length),
-            variant: 'destructive',
-          });
-        }
-
-        // Auto-finalize-raw removed: shoot status transitions are now owned exclusively
-        // by the user pressing "Submit Raw Files" / "Submit Edits". Uploads only place files.
-
-        await queryClient.invalidateQueries({
-          predicate: (query) => query.queryKey[0] === 'shootFiles' && String(query.queryKey[1]) === String(shoot.id),
-        });
-        triggerShootDetailRefresh(shoot.id);
-        triggerShootHistoryRefresh();
-        triggerShootListRefresh();
-        triggerDashboardOverviewRefresh();
-        onShootUpdate();
-      },
-    });
+    onStageUploadFiles?.({ files, type: uploadType });
+    setDisplayTab(uploadType === 'edited' ? 'edited' : 'uploaded');
+    setActiveSubTab('upload');
   };
 
   const handleTabDragEnter = (event: React.DragEvent<HTMLDivElement>, tab: 'uploaded' | 'edited') => {

@@ -3,6 +3,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import type { ShootData } from '@/types/shoots';
 import type { MediaFile } from '@/hooks/useShootFiles';
 import type { useToast } from '@/hooks/use-toast';
+import type { StagedMediaDrop } from './stagedMediaDrop';
 import type { useUpload } from '@/context/UploadContext';
 
 export type ReclassifyMediaType =
@@ -58,6 +59,7 @@ export interface UseShootMediaActionsParams {
   onShootUpdate: () => void;
   queryClient: QueryClient;
   toast: ReturnType<typeof useToast>['toast'];
+  onStageUploadFiles?: (batch: StagedMediaDrop) => void;
   trackUpload: ReturnType<typeof useUpload>['trackUpload'];
   dragCounterRef: MutableRefObject<number>;
   setDragOverTab: Dispatch<SetStateAction<'uploaded' | 'edited' | null>>;

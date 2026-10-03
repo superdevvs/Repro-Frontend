@@ -234,3 +234,13 @@ describe('service provenance', () => {
       .toEqual([]);
   });
 });
+
+
+it('uses a new upload identity when service or classification changes', () => {
+  const file = new File(['bytes'], 'photo.jpg');
+  const first = ensureUploadAttemptIdentity(file, 'batch-a', 0, 1, 'service-1:floorplan');
+  expect(ensureUploadAttemptIdentity(file, 'ignored', 0, 1, 'service-1:floorplan')).toEqual(first);
+  const changed = ensureUploadAttemptIdentity(file, 'batch-b', 0, 1, 'service-2:edited');
+  expect(changed.idempotencyKey).not.toBe(first.idempotencyKey);
+  expect(changed.batchId).toBe('batch-b');
+});
