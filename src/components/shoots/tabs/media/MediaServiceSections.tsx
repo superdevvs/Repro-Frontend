@@ -11,22 +11,29 @@ import { groupMediaFilesByService, shouldShowServiceSections } from './mediaServ
  * Extracted verbatim from `useShootDetailsMediaTab` to keep that module within
  * its recorded file-size baseline. Grouping, heading copy, section keys and the
  * single-group fallback are unchanged.
+ *
+ * When `unifyForManualSort` is set, every file is handed to one grid even if
+ * there are multiple service sections. Manual drag uses a per-grid DnD context,
+ * so keeping sections would trap each service (and Unassigned) in its own
+ * sortable island and block "sort all together" rearrangements.
  */
 export function MediaServiceSections({
   files,
   shoot,
   renderGrid,
+  unifyForManualSort = false,
 }: {
   files: MediaFile[];
   shoot: ShootData;
   renderGrid: (paneFiles: MediaFile[]) => ReactNode;
+  unifyForManualSort?: boolean;
 }) {
   // Media kind picked the tab; the booked service picks the section inside it. A shoot
   // with one service (or no attribution) renders exactly as before, with no heading.
   const serviceGroups = groupMediaFilesByService(files, shoot);
   const showSections = shouldShowServiceSections(serviceGroups);
 
-  if (!showSections) {
+  if (!showSections || unifyForManualSort) {
     return <>{renderGrid(files)}</>;
   }
 

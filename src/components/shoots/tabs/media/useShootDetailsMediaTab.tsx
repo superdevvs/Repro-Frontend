@@ -1212,7 +1212,7 @@ export function useShootDetailsMediaTab({
     return (
       <div className="relative h-full m-0 sm:mx-0 sm:my-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card">
         <div className={`h-full overflow-y-auto p-1 sm:p-2.5 ${canUploadInDisplayTab ? 'pb-20 sm:pb-2.5' : ''}`}>
-          <MediaServiceSections files={files} shoot={shoot} renderGrid={renderGrid} />
+          <MediaServiceSections files={files} shoot={shoot} renderGrid={renderGrid} unifyForManualSort={isDragMode} />
         </div>
         {canUploadInDisplayTab && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center bg-gradient-to-t from-background via-background/90 to-transparent px-3 pb-3 pt-8 sm:hidden">

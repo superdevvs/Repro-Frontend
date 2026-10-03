@@ -152,7 +152,10 @@ export function MediaGrid({
   });
 
   const renderFileCard = (file: MediaFile, index: number, isExtraSection: boolean = false, stack?: MediaStack) => {
-    const isSelected = selectedFiles.has(file.id);
+    const stackIds = stack && stack.files.length > 1 ? stack.files.map((stackFile) => stackFile.id) : null;
+    const isSelected = stackIds
+      ? stackIds.every((id) => selectedFiles.has(id))
+      : selectedFiles.has(file.id);
     const isImg = isImage(file);
     const isVid = isVideo?.(file) ?? false;
     const isRaw = isRawFile(file.filename);
@@ -397,7 +400,7 @@ export function MediaGrid({
             <Checkbox
               aria-label={`Select ${displayFilename}`}
               checked={isSelected}
-              onCheckedChange={() => onSelectionChange(file.id)}
+              onCheckedChange={() => onSelectionChange(stackIds ?? file.id)}
               className="bg-background/80"
             />
           </div>

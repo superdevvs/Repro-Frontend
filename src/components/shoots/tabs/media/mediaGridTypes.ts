@@ -7,7 +7,7 @@ export interface MediaGridProps {
   files: MediaFile[];
   onFileClick: (index: number, sortedFiles: MediaFile[]) => void;
   selectedFiles: Set<string>;
-  onSelectionChange: (fileId: string) => void;
+  onSelectionChange: (fileId: string | string[]) => void;
   onSelectAll?: () => void;
   canSelect: boolean;
   canSelectFile?: (file: MediaFile) => boolean;

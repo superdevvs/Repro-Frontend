@@ -556,6 +556,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                           <MediaServiceSections
                             files={uploadedFloorplans}
                             shoot={shoot}
+                            unifyForManualSort={isDragMode}
                             renderGrid={(paneFiles) => (
                               <MediaGrid
                                 files={paneFiles}
@@ -806,6 +807,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                           <MediaServiceSections
                             files={editedFloorplans}
                             shoot={shoot}
+                            unifyForManualSort={isDragMode}
                             renderGrid={(paneFiles) => (
                               <MediaGrid
                                 files={paneFiles}

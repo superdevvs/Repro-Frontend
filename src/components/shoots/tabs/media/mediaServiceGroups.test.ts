@@ -61,12 +61,25 @@ describe('grouping media by service', () => {
     expect(shouldShowServiceSections(groups)).toBe(false);
   });
 
-  it('keeps unattributed files in their own trailing section', () => {
-    // Files predating per-service attribution must stay visible, not disappear.
+  it('folds unattributed files into the sole attributed service', () => {
+    // A single service + Unassigned used to render as two DnD islands, blocking
+    // "sort all together". Fold the orphans into the only booked-service bucket
+    // so they share one grid; they must stay visible, not disappear.
     const groups = groupMediaFilesByService([file('a', '101'), file('legacy', null)], shoot);
 
-    expect(groups.map((group) => group.label)).toEqual(['Exterior HDR', 'Unassigned']);
-    expect(groups[1].files.map((f) => f.id)).toEqual(['legacy']);
+    expect(groups.map((group) => group.label)).toEqual(['Exterior HDR']);
+    expect(groups[0].files.map((f) => f.id)).toEqual(['a', 'legacy']);
+    expect(shouldShowServiceSections(groups)).toBe(false);
+  });
+
+  it('keeps Unassigned when attribution is ambiguous across multiple services', () => {
+    const groups = groupMediaFilesByService(
+      [file('a', '101'), file('b', '102'), file('legacy', null)],
+      shoot,
+    );
+
+    expect(groups.map((group) => group.label)).toEqual(['Exterior HDR', 'Interior HDR', 'Unassigned']);
+    expect(groups[2].files.map((f) => f.id)).toEqual(['legacy']);
   });
 
   it('separates extras into a final section rather than a service', () => {
@@ -292,12 +305,15 @@ describe('provider-delivered floorplans keep their own section', () => {
     expect(groups[0].label).toBe('2D Floor plans');
   });
 
-  it('ignores an unrecognised provider and falls back to Unassigned', () => {
+  it('folds an unrecognised-provider floorplan into the sole booked service', () => {
+    // Unknown providers are not labelled; with only one attributed service they
+    // join that section rather than opening a separate Unassigned DnD island.
     const groups = groupMediaFilesByService(
       [floorplan('booked', null, '201'), floorplan('mystery', 'some-new-provider')],
       fpShoot,
     );
-    expect(groups.map((group) => group.label)).toEqual(['2D Floor plans', 'Unassigned']);
+    expect(groups.map((group) => group.label)).toEqual(['2D Floor plans']);
+    expect(groups[0].files.map((f) => f.id).sort()).toEqual(['booked', 'mystery']);
   });
 
   it('never applies a floorplan provider label to non-floorplan media', () => {
@@ -311,7 +327,10 @@ describe('provider-delivered floorplans keep their own section', () => {
     } as unknown as MediaFile;
 
     const groups = groupMediaFilesByService([floorplan('booked', null, '201'), photo], fpShoot);
-    expect(groups.map((group) => group.label)).toEqual(['2D Floor plans', 'Unassigned']);
+    // Photo has no service and no floorplan-provider label; sole attributed
+    // service absorbs it so the tab stays one sortable grid.
+    expect(groups.map((group) => group.label)).toEqual(['2D Floor plans']);
+    expect(groups[0].files.map((f) => f.id).sort()).toEqual(['booked', 'p']);
   });
 
   it('does not lose or duplicate provider files', () => {

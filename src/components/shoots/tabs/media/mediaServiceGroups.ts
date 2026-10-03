@@ -190,13 +190,23 @@ export const groupMediaFilesByService = (
     });
 
   if (unattributed.length > 0) {
-    groups.push({
-      serviceId: '',
-      // Files predating per-service attribution, or uploaded without a service.
-      label: 'Unassigned',
-      files: unattributed,
-      isExtras: false,
-    });
+    // A single attributed service plus Unassigned used to render as two section
+    // grids, each with its own DnD context — so editors could not drag those
+    // orphans into the main set ("can't sort the images all together"). When
+    // there is only one booked-service bucket among the files, fold the orphans
+    // into it. Keep a trailing Unassigned section when attribution is ambiguous
+    // (zero or two-plus attributed services).
+    if (attributed.length === 1) {
+      attributed[0].files = [...attributed[0].files, ...unattributed];
+    } else {
+      groups.push({
+        serviceId: '',
+        // Files predating per-service attribution, or uploaded without a service.
+        label: 'Unassigned',
+        files: unattributed,
+        isExtras: false,
+      });
+    }
   }
 
   if (extras.length > 0) {

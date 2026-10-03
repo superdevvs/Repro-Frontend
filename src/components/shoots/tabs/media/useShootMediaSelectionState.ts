@@ -17,14 +17,19 @@ export function useShootMediaSelectionState({ onSelectionChange }: UseShootMedia
     setViewerOpen(true);
   }, []);
 
-  const toggleSelection = useCallback((fileId: string) => {
+  const toggleSelection = useCallback((fileId: string | string[]) => {
+    const ids = (Array.isArray(fileId) ? fileId : [fileId]).map(String).filter(Boolean);
+    if (ids.length === 0) return;
+
     setSelectedFiles((prev) => {
       const next = new Set(prev);
-      if (next.has(fileId)) {
-        next.delete(fileId);
-      } else {
-        next.add(fileId);
-      }
+      // Stacks toggle as a unit: if every frame is selected, clear the stack;
+      // otherwise select every frame so "delete 10 HDR photos" removes all brackets.
+      const allSelected = ids.every((id) => next.has(id));
+      ids.forEach((id) => {
+        if (allSelected) next.delete(id);
+        else next.add(id);
+      });
       return next;
     });
   }, []);
