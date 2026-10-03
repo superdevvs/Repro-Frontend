@@ -270,6 +270,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
         </div>
       )}
       <ShootMediaHeader
+        shootId={shoot.id}
         isClient={isClient}
         rawFiles={rawFiles}
         editedFiles={editedFiles}

@@ -67,5 +67,7 @@ bun.lockb
 # Desktop build products
 packages/monitor-desktop/renderer/
 packages/monitor-desktop/artifact/
+packages/edit-helper/artifact/
+.qa-selectedmedia/
 
 __pycache__/

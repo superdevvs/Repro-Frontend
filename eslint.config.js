@@ -5,7 +5,7 @@ import reactRefresh from "eslint-plugin-react-refresh";
 import tseslint from "typescript-eslint";
 
 export default tseslint.config(
-  { ignores: ["dist", "**/dist/**", "packages/monitor-desktop/renderer/**", "packages/monitor-desktop/artifact/**"] },
+  { ignores: ["dist", "**/dist/**", "packages/monitor-desktop/renderer/**", "packages/monitor-desktop/artifact/**", "packages/edit-helper/artifact/**", ".qa-selectedmedia/**"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

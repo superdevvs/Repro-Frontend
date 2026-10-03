@@ -37,13 +37,14 @@ import { SettingsBrandingTab } from '@/pages/settings/SettingsBrandingTab';
 import { NotificationPreferencesCard } from '@/components/settings/NotificationPreferencesCard';
 import { photographerSettingsDestination } from '@/pages/photographerAccountNavigation';
 import { AiEditingProviderSettings } from '@/components/settings/AiEditingProviderSettings';
+import { DesktopEditingSettings } from '@/components/settings/DesktopEditingSettings';
 import { EditorPreferencesCard } from '@/components/settings/EditorPreferencesCard';
 import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 import { ShortLinkSettings } from '@/components/settings/ShortLinkSettings';
 import { ProfileActivityCard } from '@/components/profile/ProfileActivityCard';
 import { ProfileSecurityCard } from '@/components/profile/ProfileSecurityCard';
 
-const BASE_TABS = ['profile', 'account', 'branding', 'notifications'] as const;
+const BASE_TABS = ['profile', 'account', 'branding', 'notifications', 'desktop-editing'] as const;
 
 // Roles that participate in the dashboard onboarding tour. `role` is treated as
 // a RoleKey only when it is one of these values.
@@ -141,7 +142,8 @@ const Settings = () => {
   const availableTabs = React.useMemo<TabValue[]>(() => {
     // Hide branding tab for photographer, editor, and editing_manager roles
     const hideBranding = ['photographer', 'editor', 'editing_manager'].includes(role || '');
-    const tabs: TabValue[] = [...BASE_TABS].filter(tab => !(tab === 'branding' && hideBranding));
+    const tabs: TabValue[] = [...BASE_TABS].filter(tab => !(tab === 'branding' && hideBranding)
+      && (tab !== 'desktop-editing' || ['admin', 'superadmin', 'editing_manager'].includes(role ?? '')));
     if (canViewCoupons) {
       tabs.push('coupons');
     }
@@ -431,6 +433,7 @@ const Settings = () => {
       account: { icon: SettingsIcon, label: 'Account' },
       branding: { icon: Palette, label: 'Branding' },
       notifications: { icon: Bell, label: 'Notifications' },
+      'desktop-editing': { icon: Camera, label: 'Desktop editing' },
       coupons: { icon: Ticket, label: 'Discounts' },
     };
 
@@ -892,6 +895,7 @@ const Settings = () => {
             )}
 
             {role === 'superadmin' && <TabsContent value="ai-editing" className="space-y-6"><AiEditingProviderSettings /></TabsContent>}
+            {['admin', 'superadmin', 'editing_manager'].includes(role ?? '') && <TabsContent value="desktop-editing" className="space-y-6"><DesktopEditingSettings /></TabsContent>}
             {canViewServiceAreas && (
               <TabsContent value="service-areas" className="space-y-6">
                 <div>

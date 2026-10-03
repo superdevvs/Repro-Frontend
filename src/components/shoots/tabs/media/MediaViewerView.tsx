@@ -1,4 +1,5 @@
 import { MediaViewerSlideshow } from './MediaViewerSlideshow';
+import { MediaEditingMenu } from '../../MediaEditingMenu';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -115,12 +116,11 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
       >
         <DialogHeader className="sr-only">
           <DialogTitle>Media Viewer</DialogTitle>
-          <DialogDescription>
-            View and navigate through media files for this shoot
-          </DialogDescription>
+          <DialogDescription>View and navigate through media files for this shoot</DialogDescription>
         </DialogHeader>
         {/* Glass blur overlay background */}
         <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+        <div className="absolute left-3 top-3 z-30"><MediaEditingMenu file={currentFile} shootId={shoot.id} beforeOpen={onClose} className="bg-black/50 text-white hover:bg-white/20" /></div>
 
         {viewerMode === 'slideshow' && slideshowCurrentFile ? (
           <MediaViewerSlideshow model={model} />

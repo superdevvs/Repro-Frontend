@@ -1,0 +1,17 @@
+{
+  "name": "@repro/edit-helper",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Version-aware Photoshop working copies and uploads for RePro",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check main.cjs && node --check core.cjs && node --check api.cjs && node --check preload.cjs && node --check renderer.js && node --check release.cjs && node --test test/*.test.cjs",
+    "package": "node release.cjs",
+    "package:qa": "node release.cjs --qa"
+  },
+  "devDependencies": {
+    "electron": "44.4.5",
+    "electron-builder": "26.15.3"
+  }
+}

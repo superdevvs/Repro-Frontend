@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { MediaEditingMenu } from '../../MediaEditingMenu';
 import { Download, Eye, EyeOff, Heart, MessageSquare } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Button } from '@/components/ui/button';
@@ -145,6 +146,7 @@ export function useMediaGridActions({
         )}
         {renderCommentAction(file, 'h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center')}
         {renderDownloadAction(file, 'h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center')}
+        <MediaEditingMenu file={file} className="h-7 w-7 rounded-full bg-black/55 text-white" />
         {showHiddenToggle && (
           <button
             className={`h-7 w-7 rounded-full backdrop-blur-sm flex items-center justify-center ${file.is_hidden ? 'bg-yellow-500/90 text-white opacity-100' : 'bg-black/55 text-white'}`}

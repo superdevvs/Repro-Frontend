@@ -21,6 +21,8 @@ export interface MediaFile {
   path?: string;
   fileType?: string;
   workflowStage?: string;
+  content_version?: number;
+  pending_version_id?: string | null;
   /** File-level deletion permission, evaluated by the server for the current user. */
   can_delete?: boolean;
   /** Monotonic shoot media revision from mutation responses / list payloads. */
@@ -168,6 +170,8 @@ export const normalizeShootMediaFile = (payload: Record<string, unknown>): Media
   path: value.path,
   fileType: value.file_type || value.fileType,
   workflowStage: value.workflow_stage || value.workflowStage,
+  content_version: value.content_version,
+  pending_version_id: value.pending_version_id,
   can_delete: typeof value.can_delete === 'boolean' ? value.can_delete : undefined,
   media_revision: Number.isFinite(Number(value.media_revision)) ? Number(value.media_revision) : undefined,
   isExtra: Boolean(value.is_extra ?? value.isExtra),

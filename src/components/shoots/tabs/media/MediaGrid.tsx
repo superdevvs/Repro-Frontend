@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { MediaEditingMenu } from '../../MediaEditingMenu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, Play } from 'lucide-react';
 import { type MediaFile } from '@/hooks/useShootFiles';
@@ -746,6 +747,7 @@ export function MediaGrid({
           )}
           {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
           {renderDownloadAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
+          <MediaEditingMenu file={file} className="h-7 w-7" />
           {toggleFileHidden && !isClient && (
             <button
               className={`h-7 w-7 rounded-full flex items-center justify-center transition-all ${
@@ -907,6 +909,7 @@ export function MediaGrid({
               )}
               {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
               {renderDownloadAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
+              <MediaEditingMenu file={file} className="h-7 w-7" />
               {toggleFileHidden && !isClient && (
                 <button
                   className={`h-7 w-7 rounded-full flex items-center justify-center transition-all ${

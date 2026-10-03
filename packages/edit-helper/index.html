@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<title>RePro Edit Helper</title><link rel="stylesheet" href="renderer.css"></head>
+<body><header><div><span class="eyebrow">REPRO PHOTOS</span><h1>Edit in Photoshop</h1><p>Save locally. Publish when ready.</p></div><button id="dashboard">Dashboard settings</button></header>
+<main><section class="connection"><div id="connection"></div><p id="photoshop"></p><div class="row"><button id="choose">Choose Photoshop</button><label><input type="checkbox" id="defaultAuto"> Auto-upload on save for new sessions</label></div>
+<p class="hint">Manual upload is the default. Auto-upload applies only to this helper’s session folders.</p></section>
+<p id="message" role="status"></p><section id="pairing" hidden><h2>Approve this device</h2><p>Compare this code with Settings → Desktop editing before approving.</p><strong id="pairCode"></strong></section>
+<div id="sessions"></div><p id="empty" class="empty">Open an edited image’s menu in the dashboard and choose Open in Photoshop.</p>
+<footer><p>Layered PSD and PSB masters remain local. Export JPEG, PNG or TIFF to the session’s Exports folder, or choose Export file for a Save As elsewhere. Unsent work survives quitting and connection failures.</p><button id="quit">Quit helper</button></footer></main>
+<script src="renderer.js"></script></body></html>

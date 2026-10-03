@@ -1,4 +1,5 @@
 import { ShootEditingDialogHost } from '@/components/shoots/ShootEditingDialog';
+import { MediaVersionsDialogHost } from '@/components/shoots/MediaVersionsDialog';
 import { PageLoadingOverlay } from '@/components/layout/PageLoadingOverlay';
 import { usePageLoading } from '@/hooks/use-page-loading';
 
@@ -763,6 +764,7 @@ function App() {
                       <ShootsProvider>
                         <UploadProvider>
                           <ShootEditingDialogHost />
+                          <MediaVersionsDialogHost />
                           <SystemTelemetryProvider>
                             <RealtimeBridge />
                             <FirstLoginLegalAgreementPrompt />

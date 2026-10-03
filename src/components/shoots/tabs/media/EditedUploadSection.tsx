@@ -1,4 +1,5 @@
 import { useStagedMediaDrop, type StagedMediaDrop } from './stagedMediaDrop';
+import { waitForSavedMedia } from '@/services/savedMediaPublication';
 import { useEffect, useMemo, useState } from 'react';
 import { Upload, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -546,7 +547,13 @@ export function EditedUploadSection({
             setNotes('');
           }
 
-          if (submitAfter) {
+          const pendingVersions = acceptedFiles.map(file => file.pending_version_id).filter((id): id is string => Boolean(id));
+          const publication = pendingVersions.length ? await waitForSavedMedia(shoot.id, pendingVersions, signal) : { published: true, message: '' };
+          if (pendingVersions.length) {
+            triggerUploadRefreshes(shoot.id);
+            toast({ title: publication.published ? 'Saved edits published' : 'Uploads saved — review before submitting', description: publication.message });
+          }
+          if (submitAfter && publication.published) {
             try {
               setIsSubmittingAfterUpload(true);
               const finalizeRes = await finalizeEditedUploadQueue(shoot.id, getApiHeaders());
