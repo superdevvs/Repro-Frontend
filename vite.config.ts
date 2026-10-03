@@ -174,7 +174,7 @@ export default defineConfig(({ mode }) => ({
           }
         }
       },
-    },
+    } satisfies Plugin,
     dashboardManifest(),
     mode === 'production' && {
       name: 'private-jspdf-diagnostics',
