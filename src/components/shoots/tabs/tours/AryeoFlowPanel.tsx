@@ -2,16 +2,16 @@ import { useCallback, useEffect, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
+import { AryeoJobActivity, type AryeoJob } from './AryeoJobActivity';
 
 type Counts = Record<'photos' | 'floorplans' | 'videos' | 'tours', number>;
 type Asset = { id: string; type: keyof Counts; filename?: string; delivered: boolean };
-type Job = { id: string; status: string; media_version: string; error: string | null; steps: Record<string, string>; receipt: { verified_at: string } | null };
 type Order = {
   id: number; connection_id: number; request_id: string | null; listing_id: string | null;
   discovery: { address: string; requester_email: string; required: Record<keyof Counts, number | null> | null };
   inventory: { complete: boolean; assets: Asset[] } | null; inventory_checked_at: string | null;
   readiness: { eligible: boolean; blockers: string[]; dashboard?: { paid: boolean; delivered: boolean; summary_required: boolean }; available: Counts; media_version: string; assets: { id: number; filename: string; type: string }[] };
-  jobs: Job[];
+  jobs: AryeoJob[];
 };
 type Panel = {
   configured: boolean;
@@ -42,6 +42,8 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState('');
   const [confirmed, setConfirmed] = useState(false);
+  const [now, setNow] = useState(Date.now);
+  const pollMs = panel?.orders.some(order => order.jobs.some(job => ['queued', 'running', 'reconciling'].includes(job.status))) ? 5000 : 15000;
   const base = `shoots/${shootId}/aryeo`;
   const load = useCallback(async (signal?: AbortSignal) => {
     try {
@@ -54,9 +56,16 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
   useEffect(() => {
     const controller = new AbortController();
     void load(controller.signal);
-    const timer = setInterval(() => { if (!document.hidden) void load(controller.signal); }, 15000);
+    let refreshing = false;
+    const timer = setInterval(() => {
+      setNow(Date.now());
+      if (!document.hidden && !refreshing) {
+        refreshing = true;
+        void load(controller.signal).finally(() => { refreshing = false; });
+      }
+    }, pollMs);
     return () => { controller.abort(); clearInterval(timer); };
-  }, [load]);
+  }, [load, pollMs]);
   const action = async (path: string, body: object = {}) => {
     if (busy) return;
     setBusy(true); setError('');
@@ -93,15 +102,17 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
         </tbody></table></div>
         <p className="text-xs text-muted-foreground">Inventory checked: {date(order.inventory_checked_at)}{!inventoryFresh ? (inventoryKnown ? ' · Showing last verified counts; refresh required before delivery' : ' · Fresh inventory required') : ''}{job?.receipt ? ` · Delivery verified: ${date(job.receipt.verified_at)}` : ''}</p>
         {order.readiness.blockers.length > 0 && <p className="text-xs text-amber-700 dark:text-amber-400">{order.readiness.blockers.map(readable).join(' · ')}</p>}
-        {job?.error && <p className="text-xs">{job.error}</p>}
         <details className="text-xs"><summary className="cursor-pointer">Media and delivery details</summary><div className="mt-2 max-h-48 overflow-y-auto space-y-1">
           {order.readiness.assets.map(a => <p key={`ready-${a.id}`}>Dashboard · {a.filename} · {labels[a.type as keyof Counts]}</p>)}
           {order.inventory?.assets.map(a => <p key={`remote-${a.id}`}>Aryeo · {a.filename || a.id} · {a.delivered ? 'Delivered' : 'Uploaded'}</p>)}
           {job && Object.entries(job.steps).map(([step, state]) => <p key={step}>{readable(step)}: {readable(state)}</p>)}
         </div></details>
-        <Button size="sm" disabled={busy || !canProcess || Boolean(active) || Boolean(sameDelivered) || (!retry && !order.readiness.eligible)} onClick={() => void action(retry ? `jobs/${job.id}/retry` : `requests/${order.id}/process`)}>
+        <div className="flex flex-col items-start gap-3 sm:flex-row">
+        <Button size="sm" className="shrink-0" disabled={busy || !canProcess || Boolean(active) || Boolean(sameDelivered) || (!retry && !order.readiness.eligible)} onClick={() => void action(retry ? `jobs/${job.id}/retry` : `requests/${order.id}/process`)}>
           {busy ? 'Working…' : active ? 'Processing…' : retry ? 'Resume unfinished steps' : sameDelivered ? 'Delivered' : order.jobs.some(j => j.receipt) ? 'Deliver update' : 'Process & deliver'}
         </Button>
+        {job && <AryeoJobActivity job={job} online={Boolean(c?.online)} now={now} />}
+        </div>
       </div>;
     })}
     {panel && panel.unmatched.length > 0 && <details className="text-xs border-t pt-3"><summary className="cursor-pointer">Match an existing request</summary><div className="mt-2 space-y-2">
