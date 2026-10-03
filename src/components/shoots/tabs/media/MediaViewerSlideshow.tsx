@@ -1,4 +1,6 @@
 import { useViewerSwipe } from './useViewerSwipe';
+import { DecodedViewerImage } from './DecodedViewerImage';
+import { MediaViewerImageStatus } from './MediaViewerImageStatus';
 import { MediaViewerPreviewSizeControls, MediaViewerZoomControls } from './MediaViewerControls';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -16,8 +18,9 @@ export function MediaViewerSlideshow({ model }: { model: NonNullable<ReturnType<
     slideshowIntervalSeconds,
     showSlideshowHint,
     waitingForNextSlide,
-    handleStageImageError,
     imageStatus,
+    imageLoading,
+    imageElement,
     zoom,
     zoomStageRef,
     handleZoomStagePointerDown,
@@ -78,22 +81,20 @@ export function MediaViewerSlideshow({ model }: { model: NonNullable<ReturnType<
           </div>
         )}
 
-        {imageStatus && <div role="status" className="absolute top-16 z-30 rounded-full bg-black/70 px-3 py-1 text-xs text-white">{imageStatus}</div>}
+        <MediaViewerImageStatus message={imageStatus} loading={imageLoading} className="top-16" />
         <AnimatePresence initial={false} custom={slideshowDirection}>
-          <motion.img
+          <motion.div
             key={slideshowCurrentFile.id}
             custom={slideshowDirection}
             variants={slideshowMotionVariants}
             initial="initial"
             animate="animate"
             exit="exit"
-            src={slideshowCurrentImageUrl || undefined}
-            alt={getDisplayMediaFilename(slideshowCurrentFile) || slideshowCurrentFile.filename}
-            className="absolute inset-0 h-full w-full select-none object-contain"
-            draggable={false}
-            loading="eager"
-            onError={handleStageImageError}
-          />
+            className="absolute inset-0 h-full w-full"
+          >
+            <DecodedViewerImage image={imageElement} filename={getDisplayMediaFilename(slideshowCurrentFile) || slideshowCurrentFile.filename}
+              className="h-full w-full select-none object-contain" />
+          </motion.div>
         </AnimatePresence>
         </div>
       </div>

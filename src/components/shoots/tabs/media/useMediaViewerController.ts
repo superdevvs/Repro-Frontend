@@ -715,7 +715,7 @@ export function useMediaViewerController({
       fullSizeImageUrl !== previewImageUrl,
   );
   const imageUrl = viewerImages.url;
-  const imageStatus = viewerImages.error ? 'Image unavailable. Try another photo.' : viewerImages.message;
+  const imageStatus = viewerImages.error ? 'Image unavailable. Try another photo.' : viewerImages.message || (!viewerImages.ready ? 'Loading photo…' : '');
   const zoomedImageViewportStyle =
     zoom > 1
       ? {
@@ -887,8 +887,9 @@ export function useMediaViewerController({
     mediaType,
     fullSizeAvailable,
     imageUrl,
+    imageElement: viewerImages.imageElement,
     imageStatus,
-    imageLoading: viewerImages.loadingFullSize && !viewerImages.error,
+    imageLoading: !viewerImages.error && (viewerImages.loadingFullSize || (!viewerImages.message && !viewerImages.ready)),
     zoomedImageViewportStyle,
     canRequestModification,
     canSetHero,

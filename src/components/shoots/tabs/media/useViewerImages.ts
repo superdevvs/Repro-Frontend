@@ -43,7 +43,7 @@ export function useViewerImages(files: MediaFile[], index: number, mode: 'web' |
   useEffect(() => { if (!enabled) { buffer.dispose(); refreshed.current.clear(); } }, [enabled, buffer]);
 
   const resolve = (file?: MediaFile) => {
-    if (!file) return { url: '', ready: false, error: false, loadingFullSize: false, message: '', displayed: 'web' as const };
+    if (!file) return { url: '', imageElement: undefined, ready: false, error: false, loadingFullSize: false, message: '', displayed: 'web' as const };
     const web = request(file, false, true);
     const original = request(file, true, true);
     const webEntry = buffer.entries.get(web.key);
@@ -54,6 +54,7 @@ export function useViewerImages(files: MediaFile[], index: number, mode: 'web' |
     const fallbackReady = !useFull || !available || fullEntry?.state === 'error';
     return {
       url: fullReady ? original.url : web.url,
+      imageElement: fullReady ? fullEntry?.image : webEntry?.state === 'ready' ? webEntry.image : undefined,
       displayed: fullReady ? 'full' as const : 'web' as const,
       ready: Boolean(fullReady || (fallbackReady && webEntry?.state === 'ready')),
       error: !fullReady && (!web.url || webEntry?.state === 'error'),
