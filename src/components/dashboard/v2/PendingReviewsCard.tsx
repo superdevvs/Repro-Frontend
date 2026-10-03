@@ -13,6 +13,7 @@ import { useRequestManager } from '@/context/RequestManagerContext';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EditingRequest } from '@/services/editingRequestService';
+import { EditingTasks } from '@/components/shoots/EditingTasks';
 import { MapPin, User, ChevronLeft, ChevronRight } from 'lucide-react';
 import { CancellationDecisionActions } from '@/components/dashboard/CancellationDecisionActions';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -470,6 +471,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
             {/* Special Editing Requests Tab Content */}
             {activeTab === 'editing' && showEditingTab && (
               <div className="flex-1 flex flex-col min-h-0">
+                <EditingTasks />
                 {editingRequestsLoading ? (
                   <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground sm:pb-0">Loading...</div>
                 ) : (managerMode ? editingRequests : activeEditingRequests).length === 0 ? (

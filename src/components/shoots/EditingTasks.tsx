@@ -5,6 +5,7 @@ import { studioError } from '@/services/studioWorkspaceService';
 import { openMediaVersions, type MediaVersion } from '@/services/mediaVersions';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ChevronRight } from 'lucide-react';
 
 interface TaskItem {
   id: string; sources: { id: number; name: string; version: number }[]; lane: string; destination: string;
@@ -61,7 +62,7 @@ export function EditingTasks() {
   });
   if (!allowed) return null;
   return <>
-    <div className="flex shrink-0 justify-end px-4 py-1"><Button variant="outline" size="sm" onClick={() => setOpen(true)}>Editing tasks</Button></div>
+    <Button variant="outline" size="sm" className="mb-3 w-full shrink-0 justify-between" onClick={() => setOpen(true)}>Editing tasks<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button>
     <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}><DialogContent className="flex max-h-[90dvh] max-w-4xl flex-col">
       <DialogHeader><DialogTitle>Editing tasks</DialogTitle><DialogDescription>Exact media assignments, saved returns and progress for each request.</DialogDescription></DialogHeader>
       <div className="min-h-0 space-y-4 overflow-auto">
