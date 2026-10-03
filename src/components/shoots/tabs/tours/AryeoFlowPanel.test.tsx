@@ -18,6 +18,7 @@ describe('Aryeo Flow panel', () => {
     vi.stubGlobal('fetch', fetch);
     render(<AryeoFlowPanel shootId={4} unitId={7} />);
     await screen.findByText('Order order-42');
+    expect(screen.getByText('Showcase request received')).toBeVisible();
     expect(screen.getAllByText('Unknown')).toHaveLength(8);
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(fetch.mock.calls[0][0]).toContain('/shoots/4/aryeo?unit_id=7');
@@ -30,11 +31,34 @@ describe('Aryeo Flow panel', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Process & deliver' }));
     await waitFor(() => expect(fetch.mock.calls.some(c => c[0].endsWith('/shoots/4/aryeo/requests/3/process') && c[1].method === 'POST')).toBe(true));
   });
+  it('shows an unspecified requested quantity without inventing a count or waiting for Summary', async () => {
+    const original = fixture();
+    const data = { ...original, orders: [{ ...original.orders[0],
+      discovery: { ...original.orders[0].discovery, required: { photos: null, floorplans: 0, videos: 0, tours: 0 } },
+      readiness: { ...original.orders[0].readiness, dashboard: { paid: true, delivered: true, summary_required: false } },
+    }] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => data }));
+    render(<AryeoFlowPanel shootId={4} />);
+    expect(await screen.findByText('Dashboard: Paid · Delivered · Summary email not required')).toBeVisible();
+    expect(screen.getByRole('cell', { name: /^Requested$/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Process & deliver' })).toBeEnabled();
+  });
   it('blocks processing while the worker is offline or in automatic mode', async () => {
     const data = fixture(); data.connections[0].online = false; data.connections[0].executor_ready = false;
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => data }));
     render(<AryeoFlowPanel shootId={4} />);
     expect(await screen.findByRole('button', { name: 'Process & deliver' })).toBeDisabled();
+  });
+  it('retains a labelled last verified inventory instead of presenting stale counts as current', async () => {
+    const original = fixture();
+    const data = { ...original, orders: [{ ...original.orders[0],
+      inventory: { complete: true, assets: [{ id: 'photo-1', type: 'photos', delivered: false }] },
+      inventory_checked_at: new Date(Date.now() - 600000).toISOString(),
+    }] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => data }));
+    render(<AryeoFlowPanel shootId={4} />);
+    expect(await screen.findByText(/Showing last verified counts; refresh required before delivery/)).toBeVisible();
+    expect(screen.queryByText('Unknown')).not.toBeInTheDocument();
   });
   it('keeps delivered state separate from unfinished filing', async () => {
     const data = { ...fixture(), orders: [{ ...fixture().orders[0], jobs: [{ id: 'job-1', status: 'followup_pending', media_version: 'v1', error: 'Archive unavailable', steps: { delivery: 'success', filing: 'failed' }, receipt: { verified_at: new Date().toISOString() } }] }] };

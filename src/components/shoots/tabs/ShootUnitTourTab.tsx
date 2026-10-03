@@ -58,8 +58,8 @@ export function ShootDetailsTourTab(props: ShootDetailsTourTabProps) {
       {unit && props.isAdmin && overrides && <Button size="sm" variant="ghost" className="h-7 px-0 text-xs" disabled={saving} onClick={() => void saveOptions({ reset_building_defaults: true })}>Use building defaults</Button>}
       </>}
     </div>}
-    {['admin', 'superadmin', 'editing_manager'].includes(String(props.editorUser?.role ?? '').toLowerCase()) && <AryeoFlowPanel key={`aryeo-${props.shoot.id}-${unit?.id ?? 'building'}`} shootId={props.shoot.id} unitId={unit?.id} />}
     {videoOnly && !canEditVideoLinks && <p className="text-sm text-muted-foreground">Video links can be edited only for units assigned to you.</p>}
     {!isUnitReleaseLocked && (!videoOnly || canEditVideoLinks) && <ShootDetailsTourContent key={`${unit?.id ?? 'building'}-${iguideLineId ?? ''}-${cubicasaLineId ?? ''}`} {...props} videoOnly={videoOnly} canEditVideoLinks={canEditVideoLinks} isClientReleaseLocked={unit && Number(unit.ready_service_count ?? 0) > 0 ? false : props.isClientReleaseLocked} shoot={shoot} unitId={unit?.id} iguideLineId={iguideLineId} cubicasaLineId={cubicasaLineId} />}
+    {['admin', 'superadmin', 'editing_manager'].includes(String(props.editorUser?.role ?? '').toLowerCase()) && <AryeoFlowPanel key={`aryeo-${props.shoot.id}-${unit?.id ?? 'building'}`} shootId={props.shoot.id} unitId={unit?.id} />}
   </div>;
 }

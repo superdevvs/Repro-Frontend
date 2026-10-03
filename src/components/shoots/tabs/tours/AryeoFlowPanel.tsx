@@ -8,9 +8,9 @@ type Asset = { id: string; type: keyof Counts; filename?: string; delivered: boo
 type Job = { id: string; status: string; media_version: string; error: string | null; steps: Record<string, string>; receipt: { verified_at: string } | null };
 type Order = {
   id: number; connection_id: number; request_id: string | null; listing_id: string | null;
-  discovery: { address: string; requester_email: string; required: Counts };
+  discovery: { address: string; requester_email: string; required: Record<keyof Counts, number | null> | null };
   inventory: { complete: boolean; assets: Asset[] } | null; inventory_checked_at: string | null;
-  readiness: { eligible: boolean; blockers: string[]; available: Counts; media_version: string; assets: { id: number; filename: string; type: string }[] };
+  readiness: { eligible: boolean; blockers: string[]; dashboard?: { paid: boolean; delivered: boolean; summary_required: boolean }; available: Counts; media_version: string; assets: { id: number; filename: string; type: string }[] };
   jobs: Job[];
 };
 type Panel = {
@@ -73,22 +73,25 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
     {!panel && !error && <p className="text-sm text-muted-foreground">Checking Aryeo Flow…</p>}
     {panel && !panel.configured && <p className="text-sm text-muted-foreground">Aryeo Flow is not connected for this client yet.</p>}
     {panel?.connections.map(c => <p key={c.id} className="text-xs text-muted-foreground">{c.name}: {c.online ? 'Online' : 'Offline'} · Last seen {date(c.last_seen_at)}{!c.processing_enabled || !c.shoot_enabled ? ' · Read-only' : !c.executor_ready ? ' · Worker setup required' : ''}</p>)}
-    {panel?.configured && panel.orders.length === 0 && <p className="text-sm text-muted-foreground">No matched Aryeo order. New requests appear here after discovery.</p>}
+    {panel?.configured && panel.orders.length === 0 && <p className="text-sm text-muted-foreground">{panel.connections.every(c => !c.last_seen_at) ? 'Waiting for the Mac to sync Showcase requests.' : 'No Showcase request matched to this shoot yet.'}</p>}
     {panel?.orders.map(order => {
       const c = panel.connections.find(c => c.id === order.connection_id);
       const job = order.jobs[0];
       const active = job && ['queued', 'running', 'reconciling'].includes(job.status);
       const retry = job && ['failed', 'followup_pending'].includes(job.status);
       const sameDelivered = job?.status === 'completed' && job.media_version === order.readiness.media_version;
-      const inventoryKnown = order.inventory?.complete && order.inventory_checked_at && Date.now() - Date.parse(order.inventory_checked_at) < 120000;
+      const inventoryKnown = Boolean(order.inventory?.complete && order.inventory_checked_at && Number.isFinite(Date.parse(order.inventory_checked_at)));
+      const inventoryFresh = inventoryKnown && Date.now() - Date.parse(order.inventory_checked_at!) < 120000;
       const canProcess = Boolean(c?.online && c.processing_enabled && c.shoot_enabled && c.executor_ready && order.request_id && !error);
       return <div key={order.id} className="space-y-3 border-t pt-3">
+        <p className="text-sm font-medium">Showcase request received</p>
         <div className="flex flex-wrap justify-between gap-2 text-sm"><span className="font-medium">Order {order.request_id ?? 'awaiting Aryeo verification'}</span><span>{job?.receipt ? (job.status === 'completed' ? (sameDelivered ? 'Delivered' : 'Update available') : 'Delivered · follow-up pending') : job ? readable(job.status) : order.readiness.eligible ? 'Ready to process' : 'Waiting'}</span></div>
         <p className="text-xs text-muted-foreground">{order.discovery.address} · {order.discovery.requester_email}{order.listing_id ? ` · Listing ${order.listing_id}` : ''}</p>
+        {order.readiness.dashboard && <p className="text-xs text-muted-foreground">Dashboard: {order.readiness.dashboard.paid ? 'Paid' : 'Awaiting payment'} · {order.readiness.dashboard.delivered ? 'Delivered' : 'Awaiting delivery'} · Summary email not required</p>}
         <div className="overflow-x-auto"><table className="w-full text-xs text-left"><thead><tr className="text-muted-foreground"><th className="py-2 pr-3">Media</th><th className="px-2">Requested</th><th className="px-2">Ready</th><th className="px-2">In Aryeo</th><th className="pl-2">Delivered</th></tr></thead><tbody>
-          {kinds.map(kind => <tr key={kind} className="border-t"><th className="py-2 pr-3 font-medium">{labels[kind]}</th><td className="px-2">{order.discovery.required[kind]}</td><td className="px-2">{order.readiness.available[kind]}</td><td className="px-2">{inventoryKnown ? order.inventory?.assets.filter(a => a.type === kind).length : 'Unknown'}</td><td className="pl-2">{inventoryKnown ? order.inventory?.assets.filter(a => a.type === kind && a.delivered).length : 'Unknown'}</td></tr>)}
+          {kinds.map(kind => <tr key={kind} className="border-t"><th className="py-2 pr-3 font-medium">{labels[kind]}</th><td className="px-2">{order.discovery.required ? (order.discovery.required[kind] ?? 'Requested') : 'Unknown'}</td><td className="px-2">{order.readiness.available[kind]}</td><td className="px-2">{inventoryKnown ? order.inventory?.assets.filter(a => a.type === kind).length : 'Unknown'}</td><td className="pl-2">{inventoryKnown ? order.inventory?.assets.filter(a => a.type === kind && a.delivered).length : 'Unknown'}</td></tr>)}
         </tbody></table></div>
-        <p className="text-xs text-muted-foreground">Inventory checked: {date(order.inventory_checked_at)}{!inventoryKnown ? ' · Fresh inventory required' : ''}{job?.receipt ? ` · Delivery verified: ${date(job.receipt.verified_at)}` : ''}</p>
+        <p className="text-xs text-muted-foreground">Inventory checked: {date(order.inventory_checked_at)}{!inventoryFresh ? (inventoryKnown ? ' · Showing last verified counts; refresh required before delivery' : ' · Fresh inventory required') : ''}{job?.receipt ? ` · Delivery verified: ${date(job.receipt.verified_at)}` : ''}</p>
         {order.readiness.blockers.length > 0 && <p className="text-xs text-amber-700 dark:text-amber-400">{order.readiness.blockers.map(readable).join(' · ')}</p>}
         {job?.error && <p className="text-xs">{job.error}</p>}
         <details className="text-xs"><summary className="cursor-pointer">Media and delivery details</summary><div className="mt-2 max-h-48 overflow-y-auto space-y-1">
