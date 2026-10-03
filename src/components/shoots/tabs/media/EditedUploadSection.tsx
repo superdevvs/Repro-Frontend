@@ -266,7 +266,13 @@ export function EditedUploadSection({
           const fileSizes = filesForUpload.map((file) => file.size);
           const fileProgresses = filesForUpload.map(() => 0);
           const completedIndexes: number[] = [];
-          filesForUpload.forEach((file, index) => ensureUploadAttemptIdentity(file, uploadBatchId, index, filesForUpload.length));
+          const attemptContext = (file: File, index: number) => JSON.stringify([
+            shoot.id, 'edited', selectedServiceId, getQueueClassification(file, index, classificationsForUpload),
+            replacementTargets[file.name], uploadNote,
+          ]);
+          filesForUpload.forEach((file, index) => ensureUploadAttemptIdentity(
+            file, uploadBatchId, index, filesForUpload.length, attemptContext(file, index),
+          ));
           let lastEmittedProgress = -1;
 
           const emitTransferProgress = (
@@ -319,7 +325,7 @@ export function EditedUploadSection({
               const formData = new FormData();
               const mediaType = getQueueClassification(file, index, classificationsForUpload);
               const identity = ensureUploadAttemptIdentity(file, uploadBatchId, index, filesForUpload.length,
-                JSON.stringify([shoot.id, 'edited', selectedServiceId, mediaType, replacementTargets[file.name], uploadNote]));
+                attemptContext(file, index));
               formData.append('files[]', file);
               formData.append('upload_type', 'edited');
               formData.append('idempotency_key', identity.idempotencyKey);
@@ -612,7 +618,7 @@ export function EditedUploadSection({
             onChange={(event) => setReplacementTargets((current) => ({ ...current, [file.name]: event.target.value }))}>
             <option value="">Choose which saved file to replace</option>
             {replacementCandidates(file.name).map((candidate) => (
-              <option key={candidate.id} value={candidate.id}>{candidate.filename} · #{candidate.id}</option>
+              <option key={candidate.id} value={candidate.id}>{candidate.filename} Â· #{candidate.id}</option>
             ))}
           </select>
         </label>

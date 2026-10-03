@@ -24,6 +24,25 @@ afterEach(() => {
 });
 
 describe('edited upload transfer progress', () => {
+  it('reuses the scoped attempt key when retrying an uncertain network result', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={client}><EditedUploadSection shoot={{ id: '163', services: [] } as ShootData} onUploadComplete={vi.fn()} /></QueryClientProvider>);
+    fireEvent.change(screen.getByTestId('edited-upload-input'), {
+      target: { files: [new File(['photo'], 'retry.jpg', { type: 'image/jpeg' })] },
+    });
+    vi.mocked(uploadMediaRequest).mockResolvedValue({ ok: false, message: 'Connection lost' });
+    const keys: unknown[] = [];
+    for (let attempt = 0; attempt < 2; attempt++) {
+      fireEvent.click(screen.getByRole('button', { name: 'Upload Edited Files' }));
+      await act(async () => {
+        await expect(mocks.trackUpload.mock.calls.at(-1)?.[0].uploadFn(vi.fn(), new AbortController().signal)).rejects.toThrow();
+      });
+      keys.push((vi.mocked(uploadMediaRequest).mock.calls.at(-1)?.[0].body as FormData).get('idempotency_key'));
+    }
+    expect(keys[0]).toBeTruthy();
+    expect(keys[1]).toBe(keys[0]);
+  });
+
   it('keeps successful confirmations and never finalizes a failed parallel batch', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const complete = vi.fn();
