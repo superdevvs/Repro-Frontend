@@ -41,6 +41,7 @@ import {
   pickNextUploadServiceId,
   resolveExpectedRawCount,
   resolveUploadLanesForFiles,
+  resolveUploadLaneForFile,
   resolveUploadServiceExpectedCount,
   resolveUploadServiceTargets,
   prepareUploadRetries,
@@ -74,7 +75,9 @@ import {
 import { ChangeRestackDialog } from './ChangeRestackDialog';
 import { useServiceBracketMode } from './useServiceBracketMode';
 import { useRawUploadSummary } from './useRawUploadSummary';
-import { uploadMediaRequest } from './uploadMediaRequest';
+import { CLOUDFLARE_SAFE_UPLOAD_BYTES, uploadMediaRequest } from './uploadMediaRequest';
+import { runUploadConcurrencyPool } from './mediaUploadConcurrency';
+import { prepareRawUploadBatch } from './prepareRawUploadBatch';
 
 export function RawUploadSection({
   shoot,
@@ -442,7 +445,17 @@ export function RawUploadSection({
     const acceptedFileSet = new Set(preflightValidation.acceptedFiles);
     const plans = plansForUpload
       .map((plan) => ({ ...plan, files: plan.files.filter((file) => acceptedFileSet.has(file)) }))
-      .filter((plan) => plan.files.length > 0);
+      .filter((plan) => plan.files.length > 0)
+      .flatMap((plan) => {
+        const lanes = [...new Set(plan.files.map(resolveUploadLaneForFile))];
+        return lanes.map((lane, index) => ({
+          ...plan,
+          groupId: lanes.length > 1 ? `${plan.groupId}:${lane}` : plan.groupId,
+          uploadBatchId: index === 0 ? plan.uploadBatchId : createUploadBatchId(),
+          files: plan.files.filter((file) => resolveUploadLaneForFile(file) === lane),
+          bracketMode: lane === 'video' ? null : plan.bracketMode,
+        }));
+      });
     const totalFiles = plans.reduce((total, plan) => total + plan.files.length, 0);
 
     const apiHeaders = getApiHeaders();
@@ -472,7 +485,6 @@ export function RawUploadSection({
       uploadFn: async (onProgress, signal) => {
         try {
           let completed = 0;
-          let processedBytes = 0;
           const flatFiles = plans.flatMap((plan) => plan.files);
           const totalBytes = flatFiles.reduce((sum, file) => sum + file.size, 0);
           const fileSizes = flatFiles.map((file) => file.size);
@@ -499,6 +511,7 @@ export function RawUploadSection({
               });
               formData.append('files[]', file);
               formData.append('upload_type', 'raw');
+              formData.append('upload_lane', resolveUploadLaneForFile(file));
               // This group's own size, omitted entirely when the service does not
               // bracket. The server resolves the divisor from the service item
               // itself and does not trust this value, so it is sent only to keep
@@ -534,11 +547,12 @@ export function RawUploadSection({
                 headers: { Accept: 'application/json', Authorization: authHeader, 'X-Impersonate-User-Id': impersonateHeader },
                 onProgress: ({ phase, loaded, total }) => {
                   const fraction = phase === 'processing' ? 1 : total > 0 ? Math.min(loaded / total, 1) : Math.min(loaded / Math.max(file.size, 1), 1);
-                  const value = Math.min(99.9, totalBytes > 0 ? ((processedBytes + file.size * fraction) / totalBytes) * 100 : (completed / totalFiles) * 100);
                   const flatIndex = flatFiles.indexOf(file);
                   if (flatIndex >= 0) {
                     fileProgresses[flatIndex] = Math.min(100, fraction * 100);
                   }
+                  const loadedBytes = fileProgresses.reduce((sum, pct, position) => sum + fileSizes[position] * pct / 100, 0);
+                  const value = Math.min(99.9, totalBytes > 0 ? loadedBytes / totalBytes * 100 : completed / totalFiles * 100);
                   const detail: UploadTransferDetail = {
                     fileName: file.name,
                     fileNumber: completed + 1,
@@ -592,57 +606,56 @@ export function RawUploadSection({
           const acceptedFiles = [] as ReturnType<typeof parseCanonicalUploadResponse>['uploadedFiles'];
           let latestUploadLimits: UploadLimitsPayload | undefined;
 
-          // Sequential across groups and within them. One request at a time is
-          // what makes the backend's batch offset deterministic.
-          uploadLoop: for (const plan of plans) {
-            for (let index = 0; index < plan.files.length; index += 1) {
-              const result = await uploadOne(plan, plan.files[index], index);
-              completed += 1;
-              processedBytes += result.file.size;
-
-              if (result.uploadLimits) {
-                latestUploadLimits = result.uploadLimits;
-              }
-              acceptedFiles.push(...result.acceptedFiles);
-              if (result.issues.length > 0) {
-                issues.push(...result.issues);
-              }
-              if (result.success) {
-                uploadedFileObjects.add(result.file);
-                const flatIndex = flatFiles.indexOf(result.file);
-                if (flatIndex >= 0) {
-                  fileProgresses[flatIndex] = 100;
-                }
-                const detail: UploadTransferDetail = {
-                  fileName: result.file.name,
-                  fileNumber: completed,
-                  fileProgress: 100,
-                  phase: 'processing',
-                  completedFileIndexes: flatFiles.flatMap((candidate, position) => (
-                    uploadedFileObjects.has(candidate) ? [position] : []
-                  )),
-                  fileSizes,
-                  fileProgresses: [...fileProgresses],
-                };
-                setTransferDetail(detail);
-                onProgress(
-                  Math.min(99.9, totalBytes > 0 ? (processedBytes / totalBytes) * 100 : (completed / totalFiles) * 100),
-                  detail,
-                );
-              } else if (result.issues.length > 0) {
-                failedFiles.add(result.file);
-              }
-
-              if (result.stopBatch) {
-                for (const pendingPlan of plans) pendingPlan.files.forEach((file, pendingIndex) => {
-                  if (uploadedFileObjects.has(file) || failedFiles.has(file)) return;
-                  failedFiles.add(file);
-                  issues.push({ id: getQueueFileKey(file, pendingIndex), fileName: file.name, errorType: 'network_failure', message: 'Not sent because the upload was interrupted. This file is still selected for retry.', retryable: true });
-                });
-                break uploadLoop;
-              }
+          // Services remain sequential; each group negotiates a durable RAW range.
+          let stopped = false;
+          let stopMessage = 'Not sent because the upload was interrupted. This file is still selected for retry.';
+          for (const plan of plans) {
+            if (stopped || signal.aborted) break;
+            try {
+              const concurrency = await prepareRawUploadBatch({
+                shootId: shoot.id, files: plan.files, batchId: plan.uploadBatchId,
+                serviceId: plan.serviceId, headers: apiHeaders, signal,
+              });
+              await runUploadConcurrencyPool<File, Awaited<ReturnType<typeof uploadOne>>>({
+                items: plan.files, concurrency, signal,
+                exclusive: (file) => file.size > CLOUDFLARE_SAFE_UPLOAD_BYTES,
+                stopWhen: (result) => result.stopBatch,
+                run: async (file, index) => {
+                  const result = await uploadOne(plan, file, index);
+                  completed += 1;
+                  if (result.uploadLimits) latestUploadLimits = result.uploadLimits;
+                  acceptedFiles.push(...result.acceptedFiles);
+                  issues.push(...result.issues);
+                  if (result.success) {
+                    uploadedFileObjects.add(result.file);
+                    const flatIndex = flatFiles.indexOf(result.file);
+                    if (flatIndex >= 0) fileProgresses[flatIndex] = 100;
+                    const detail: UploadTransferDetail = {
+                      fileName: result.file.name, fileNumber: flatIndex + 1, fileProgress: 100,
+                      phase: 'processing', fileSizes, fileProgresses: [...fileProgresses],
+                      completedFileIndexes: flatFiles.flatMap((candidate, position) => uploadedFileObjects.has(candidate) ? [position] : []),
+                    };
+                    setTransferDetail(detail);
+                    const loadedBytes = fileProgresses.reduce((sum, pct, position) => sum + fileSizes[position] * pct / 100, 0);
+                    onProgress(Math.min(uploadedFileObjects.size === totalFiles ? 100 : 99.9, totalBytes > 0 ? loadedBytes / totalBytes * 100 : completed / totalFiles * 100), detail);
+                  } else {
+                    failedFiles.add(result.file);
+                  }
+                  if (result.stopBatch) stopped = true;
+                  return result;
+                },
+              });
+            } catch (error) {
+              stopped = true;
+              stopMessage = error instanceof Error ? error.message : stopMessage;
             }
           }
+          // Collect unsent work only after in-flight confirmations have settled.
+          for (const pendingPlan of plans) pendingPlan.files.forEach((file, pendingIndex) => {
+            if (uploadedFileObjects.has(file) || failedFiles.has(file)) return;
+            failedFiles.add(file);
+            issues.push({ id: getQueueFileKey(file, pendingIndex), fileName: file.name, errorType: 'network_failure', message: stopMessage, retryable: true });
+          });
 
           const limitHint = buildUploadLimitDescription(latestUploadLimits) || uploadLimitHint;
           setUploadLimitHint(limitHint);
@@ -652,6 +665,9 @@ export function RawUploadSection({
           });
           if (acceptedFiles.length > 0) {
             triggerUploadRefreshes(shoot.id);
+          }
+          if (failedFiles.size > 0 && retryOnly) {
+            setGroups((currentGroups) => removeFilesFromStagedGroups(currentGroups, uploadedFileObjects));
           }
           if (failedFiles.size > 0 && !retryOnly) {
             const restaged = restageFailedUploadGroups(plans, failedFiles);

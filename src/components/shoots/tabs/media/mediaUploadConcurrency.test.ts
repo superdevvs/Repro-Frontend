@@ -33,4 +33,58 @@ describe('runUploadConcurrencyPool', () => {
       }),
     ).rejects.toThrow(/cancelled/i);
   });
+
+  it('drains existing requests on failure and leaves later files unsent', async () => {
+    let finishSecond!: (value: number) => void;
+    let settled = false;
+    const run = vi.fn((item: number) => item === 1 ? Promise.resolve(-1) : new Promise<number>((resolve) => { finishSecond = resolve; }));
+    const pending = runUploadConcurrencyPool({ items: [1, 2, 3, 4], concurrency: 2, run, stopWhen: (result) => result < 0, onSkipped: () => 0 }).then((results) => { settled = true; return results; });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    expect(run).toHaveBeenCalledTimes(2);
+    finishSecond(2);
+    expect(await pending).toEqual([-1, 2, 0, 0]);
+  });
+
+  it('runs large files exclusively between concurrent ordinary groups', async () => {
+    const active = new Set<number>();
+    const pairs: number[][] = [];
+    await runUploadConcurrencyPool({ items: [1, 2, 99, 3, 4], concurrency: 3, exclusive: (item) => item === 99,
+      run: async (item) => {
+        active.add(item);
+        pairs.push([...active]);
+        await new Promise((resolve) => setTimeout(resolve, 1));
+        active.delete(item);
+        return item;
+      },
+    });
+    expect(pairs.filter((pair) => pair.includes(99))).toEqual([[99]]);
+    expect(pairs).toContainEqual([1, 2]);
+    expect(pairs).toContainEqual([3, 4]);
+  });
+
+  it('keeps active confirmations when cancelled and fills skipped results after draining', async () => {
+    const controller = new AbortController();
+    let finish!: (value: number) => void;
+    const run = vi.fn(() => new Promise<number>((resolve) => { finish = resolve; }));
+    const result = runUploadConcurrencyPool({ items: [1, 2], concurrency: 1, signal: controller.signal, run, onSkipped: () => 0 });
+    controller.abort();
+    finish(1);
+    expect(await result).toEqual([1, 0]);
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits for the other request before propagating an unexpected rejection', async () => {
+    let finish!: (value: number) => void;
+    let rejected = false;
+    const result = runUploadConcurrencyPool({ items: [1, 2, 3], concurrency: 2,
+      run: (item) => item === 1 ? Promise.reject(new Error('unexpected')) : new Promise<number>((resolve) => { finish = resolve; }),
+    }).catch((error) => { rejected = true; throw error; });
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(rejected).toBe(false);
+    finish(2);
+    await expect(result).rejects.toThrow('unexpected');
+  });
 });

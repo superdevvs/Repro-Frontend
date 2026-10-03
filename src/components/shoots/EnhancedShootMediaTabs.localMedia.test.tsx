@@ -2,6 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import axios from 'axios';
+import { uploadMediaRequest } from '@/components/shoots/tabs/media/uploadMediaRequest';
 import { EnhancedShootMediaTabs } from './EnhancedShootMediaTabs';
 
 const session = vi.hoisted(() => ({ accessToken: 'local-session' }));
@@ -14,6 +15,8 @@ vi.mock('@/components/auth', () => ({ useAuth: () => ({ session }) }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ session }) }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast }) }));
 vi.mock('@/config/env', () => ({ API_BASE_URL: 'https://api.example.test' }));
+vi.mock('@/components/shoots/tabs/media/prepareRawUploadBatch', () => ({ prepareRawUploadBatch: vi.fn(async () => 1) }));
+vi.mock('@/components/shoots/tabs/media/uploadMediaRequest', () => ({ CLOUDFLARE_SAFE_UPLOAD_BYTES: 90 * 1024 * 1024, uploadMediaRequest: vi.fn() }));
 
 const media = {
   data: [{ id: '8', name: 'front.jpg', path: 'shoots/42/front.jpg', size: 4096, mime_type: 'image/jpeg', modified: null,
@@ -27,6 +30,7 @@ describe('shoot media stays available without Dropbox', () => {
     vi.clearAllMocks();
     vi.mocked(axios.get).mockResolvedValue({ data: media });
     vi.mocked(axios.post).mockResolvedValue({ data: { success_count: 1 } });
+    vi.mocked(uploadMediaRequest).mockResolvedValue({ ok: true, status: 200, responseText: '{"success_count":1}' });
   });
   afterEach(cleanup);
 
@@ -65,10 +69,33 @@ describe('shoot media stays available without Dropbox', () => {
     expect(input).not.toBeNull();
     fireEvent.change(input!, { target: { files: [file] } });
     await waitFor(() => expect(countsUpdated).toHaveBeenCalledOnce());
-    expect(axios.post).toHaveBeenCalledWith('https://api.example.test/api/shoots/42/upload', expect.any(FormData), expect.objectContaining({
+    expect(uploadMediaRequest).toHaveBeenCalledWith(expect.objectContaining({
+      url: 'https://api.example.test/api/shoots/42/upload', body: expect.any(FormData),
       headers: expect.objectContaining({ Authorization: 'Bearer local-session' }),
     }));
     await waitFor(() => expect(axios.get).toHaveBeenCalledTimes(2));
     expect(screen.queryByText(/dropbox/i)).not.toBeInTheDocument();
+  });
+
+  it('offers only unfinished RAW files for retry and preserves their original identities', async () => {
+    const { container } = render(<EnhancedShootMediaTabs shootId="42" canUploadRaw />);
+    await screen.findByRole('img', { name: 'front.jpg' });
+    const files = [1, 2, 3].map((index) => new File(['raw'], `${index}.cr3`));
+    vi.mocked(uploadMediaRequest)
+      .mockResolvedValueOnce({ ok: true, status: 200, responseText: '{"success_count":1}' })
+      .mockResolvedValueOnce({ ok: false, message: 'Connection lost' });
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files } });
+    const retry = await screen.findByRole('button', { name: 'Retry remaining 2 RAW files' });
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Upload needs attention' }));
+    expect(uploadMediaRequest).toHaveBeenCalledTimes(2);
+    const original = vi.mocked(uploadMediaRequest).mock.calls[1][0].body;
+    fireEvent.click(retry);
+    await waitFor(() => expect(uploadMediaRequest).toHaveBeenCalledTimes(4));
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Retry remaining/ })).not.toBeInTheDocument());
+    const retryBodies = vi.mocked(uploadMediaRequest).mock.calls.slice(2).map(([request]) => request.body);
+    expect(retryBodies.map((body) => body.get('upload_batch_index'))).toEqual(['1', '2']);
+    expect(retryBodies.map((body) => body.get('upload_batch_total'))).toEqual(['3', '3']);
+    expect(retryBodies[0].get('idempotency_key')).toBe(original.get('idempotency_key'));
+    expect(retryBodies[1].get('upload_batch_id')).toBe(original.get('upload_batch_id'));
   });
 });

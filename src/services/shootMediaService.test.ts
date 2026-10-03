@@ -1,8 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
+import { uploadMediaRequest } from '@/components/shoots/tabs/media/uploadMediaRequest';
+import { prepareRawUploadBatch } from '@/components/shoots/tabs/media/prepareRawUploadBatch';
 import { fetchShootMedia, finalizeEditedUploadQueue, getMediaThumbnail, batchRenameShootMediaFiles, renameShootMediaFile, uploadRawPhotos } from './shootMediaService';
 
 vi.mock('axios', () => ({ default: { get: vi.fn(), post: vi.fn(), patch: vi.fn(), isAxiosError: vi.fn(() => false) } }));
+vi.mock('@/components/shoots/tabs/media/uploadMediaRequest', () => ({ CLOUDFLARE_SAFE_UPLOAD_BYTES: 90 * 1024 * 1024, uploadMediaRequest: vi.fn() }));
+vi.mock('@/components/shoots/tabs/media/prepareRawUploadBatch', () => ({ prepareRawUploadBatch: vi.fn(async () => 2) }));
 vi.mock('@/config/env', () => ({ API_BASE_URL: 'https://api.example.test' }));
 
 describe('shoot media without a cloud connection', () => {
@@ -23,16 +27,16 @@ describe('shoot media without a cloud connection', () => {
   });
 
   it('uploads local files with the bearer session and preserves bracket batch metadata', async () => {
-    vi.mocked(axios.post).mockResolvedValue({ data: { success_count: 1, workflow_status: 'editing', workflow_status_changed: true } });
+    vi.mocked(uploadMediaRequest).mockResolvedValue({ ok: true, status: 200, responseText: JSON.stringify({ success_count: 1, workflow_status: 'editing', workflow_status_changed: true }) });
     const files = [new File(['first'], 'first.jpg', { type: 'image/jpeg' }), new File(['second'], 'second.jpg', { type: 'image/jpeg' })];
     const progress = vi.fn();
     const result = await uploadRawPhotos('42', files, 3, 'session-token', progress);
     expect(result).toMatchObject({ success_count: 2, error_count: 0, workflow_status_changed: true });
-    expect(axios.post).toHaveBeenCalledTimes(2);
+    expect(uploadMediaRequest).toHaveBeenCalledTimes(2);
     const batchIds: FormDataEntryValue[] = [];
-    vi.mocked(axios.post).mock.calls.forEach(([url, body, options], index) => {
+    vi.mocked(uploadMediaRequest).mock.calls.forEach(([{ url, body, headers }], index) => {
       expect(url).toBe('https://api.example.test/api/shoots/42/upload');
-      expect(options?.headers?.Authorization).toBe('Bearer session-token');
+      expect(headers.Authorization).toBe('Bearer session-token');
       const data = body as FormData;
       expect(data.get('files[]')).toBe(files[index]);
       expect(data.get('upload_type')).toBe('raw');
@@ -52,6 +56,18 @@ describe('shoot media without a cloud connection', () => {
     expect(axios.post).toHaveBeenCalledWith('https://api.example.test/api/shoots/42/upload/finalize-edited', {}, {
       headers: { Authorization: 'Bearer session-token' },
     });
+  });
+
+  it('retains confirmed results when preparing a later lane fails', async () => {
+    vi.mocked(prepareRawUploadBatch).mockResolvedValueOnce(2).mockRejectedValueOnce(new Error('Video assignment changed'));
+    vi.mocked(uploadMediaRequest).mockResolvedValue({ ok: true, status: 200, responseText: JSON.stringify({ success_count: 1 }) });
+    const files = [new File(['raw'], 'photo.cr3'), new File(['video'], 'video.mp4', { type: 'video/mp4' })];
+    const progress = vi.fn();
+    const result = await uploadRawPhotos('42', files, 3, 'session-token', progress);
+    expect(result).toMatchObject({ success_count: 1, error_count: 1, partial_success: true });
+    expect(result.errors?.[0]).toMatchObject({ file_name: 'video.mp4', message: 'Video assignment changed' });
+    expect(uploadMediaRequest).toHaveBeenCalledOnce();
+    expect(progress).not.toHaveBeenCalledWith(100);
   });
 });
 

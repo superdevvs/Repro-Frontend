@@ -20,7 +20,7 @@ import {
   UploadResultsPanel,
   type UploadIssue,
 } from './MediaUploadPanels';
-import { uploadMediaRequest } from './uploadMediaRequest';
+import { CLOUDFLARE_SAFE_UPLOAD_BYTES, uploadMediaRequest } from './uploadMediaRequest';
 import { EDITED_UPLOAD_CONCURRENCY, runUploadConcurrencyPool } from './mediaUploadConcurrency';
 import {
   SummaryBadge,
@@ -266,6 +266,7 @@ export function EditedUploadSection({
           const fileSizes = filesForUpload.map((file) => file.size);
           const fileProgresses = filesForUpload.map(() => 0);
           const completedIndexes: number[] = [];
+          filesForUpload.forEach((file, index) => ensureUploadAttemptIdentity(file, uploadBatchId, index, filesForUpload.length));
           let lastEmittedProgress = -1;
 
           const emitTransferProgress = (
@@ -308,6 +309,7 @@ export function EditedUploadSection({
 
           const uploadOne = async (file: File, index: number): Promise<{
             success: boolean;
+            stopBatch?: boolean;
             issues: UploadIssue[];
             file: File;
             originalIndex: number;
@@ -364,6 +366,7 @@ export function EditedUploadSection({
               if (request.ok === false) {
                 return {
                   success: false,
+                  stopBatch: true,
                   issues: [
                     {
                       id: getQueueFileKey(file, index),
@@ -410,7 +413,7 @@ export function EditedUploadSection({
               }
 
               const parsed = parseUploadIssues(file, index, responseText, 'Upload failed');
-              return { success: false, issues: parsed.issues, file, originalIndex: index, uploadLimits: parsed.uploadLimits, acceptedFiles: [] };
+              return { success: false, stopBatch: [401, 403, 409, 429].includes(status) || status >= 500, issues: parsed.issues, file, originalIndex: index, uploadLimits: parsed.uploadLimits, acceptedFiles: [] };
           };
 
           const issues: UploadIssue[] = [];
@@ -419,10 +422,16 @@ export function EditedUploadSection({
           let latestUploadLimits: UploadLimitsPayload | undefined;
 
           // Small parallel pool: edited files don't share raw bracket offsets.
-          const uploadResults = await runUploadConcurrencyPool({
+          const uploadResults = await runUploadConcurrencyPool<File, Awaited<ReturnType<typeof uploadOne>>>({
             items: filesForUpload,
             concurrency: EDITED_UPLOAD_CONCURRENCY,
             signal,
+            exclusive: (file) => file.size > CLOUDFLARE_SAFE_UPLOAD_BYTES,
+            stopWhen: (result) => Boolean(result.stopBatch),
+            onSkipped: (file, index) => ({
+              success: false, file, originalIndex: index, acceptedFiles: [],
+              issues: [{ id: getQueueFileKey(file, index), fileName: file.name, errorType: 'network_failure', message: 'Not sent because the upload was interrupted. Retry the remaining files.', retryable: true }],
+            }),
             run: async (file, index) => uploadOne(file, index),
           });
 
@@ -461,7 +470,7 @@ export function EditedUploadSection({
           const limitHint = buildUploadLimitDescription(latestUploadLimits) || uploadLimitHint;
           setUploadLimitHint(limitHint);
 
-          await queryClient.invalidateQueries({
+          void queryClient.invalidateQueries({
             predicate: (query) => query.queryKey[0] === 'shootFiles' && String(query.queryKey[1]) === String(shoot.id),
           });
           if (acceptedFiles.length > 0) {
@@ -469,6 +478,7 @@ export function EditedUploadSection({
             if (failedFileEntries.length === 0) onUploadComplete();
           }
 
+          if (failedFileEntries.length > 0) setPendingSubmitAfterUpload(false);
           if (failedFileEntries.length === filesForUpload.length) {
             setUploadIssues((currentIssues) => retryOnly
               ? mergeUploadIssueLists(currentIssues, issues)
@@ -506,9 +516,11 @@ export function EditedUploadSection({
             if (!retryOnly) {
               setSelectedFiles(failedFiles);
               setQueueClassifications(failedClassificationMap);
+            } else {
+              setSelectedFiles((current) => current.filter((file) => !filesForUpload.includes(file) || failedFiles.includes(file)));
             }
             setPendingSubmitAfterUpload(false);
-            throw new Error(issues[0]?.message || 'Some files were not saved. Retry the remaining files.');
+            throw new Error(issues[0]?.message || `${failedFiles.length} files still need uploading. Files already confirmed are kept.`);
           }
 
           if (retryOnly) {

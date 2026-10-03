@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ShootData } from '@/types/shoots';
 import { EditedUploadSection } from './EditedUploadSection';
 import { uploadMediaRequest } from './uploadMediaRequest';
+import { finalizeEditedUploadQueue } from '@/services/shootMediaService';
 
 const mocks = vi.hoisted(() => ({ toast: vi.fn(), trackUpload: vi.fn(), uploads: [] }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: mocks.toast }) }));
@@ -14,6 +15,7 @@ vi.mock('./uploadMediaRequest', async (original) => ({
   ...await original<typeof import('./uploadMediaRequest')>(),
   uploadMediaRequest: vi.fn(),
 }));
+vi.mock('@/services/shootMediaService', async (original) => ({ ...await original<typeof import('@/services/shootMediaService')>(), finalizeEditedUploadQueue: vi.fn() }));
 
 afterEach(() => {
   cleanup();
@@ -22,6 +24,33 @@ afterEach(() => {
 });
 
 describe('edited upload transfer progress', () => {
+  it('keeps successful confirmations and never finalizes a failed parallel batch', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const complete = vi.fn();
+    render(<QueryClientProvider client={client}><EditedUploadSection isEditor shoot={{ id: '160', services: [] } as ShootData} onUploadComplete={complete} /></QueryClientProvider>);
+    const files = [1, 2, 3, 4].map((id) => new File(['photo'], `${id}.jpg`, { type: 'image/jpeg' }));
+    fireEvent.change(screen.getByTestId('edited-upload-input'), { target: { files } });
+    const resolvers: Array<(result: Awaited<ReturnType<typeof uploadMediaRequest>>) => void> = [];
+    vi.mocked(uploadMediaRequest).mockImplementation(() => new Promise((resolve) => { resolvers.push(resolve); }));
+    fireEvent.click(screen.getByRole('button', { name: 'Upload & Submit Edits' }));
+    let finished!: Promise<unknown>;
+    const progress = vi.fn();
+    await act(async () => { finished = mocks.trackUpload.mock.calls[0][0].uploadFn(progress, new AbortController().signal).catch(() => undefined); });
+    expect(resolvers).toHaveLength(3);
+    await act(async () => { resolvers[0]({ ok: false, message: 'Connection lost' }); });
+    expect(finalizeEditedUploadQueue).not.toHaveBeenCalled();
+    await act(async () => {
+      resolvers[1]({ ok: true, status: 200, responseText: JSON.stringify({ success_count: 1, uploaded_files: [{ id: 2, filename: '2.jpg', upload_type: 'edited' }] }) });
+      resolvers[2]({ ok: true, status: 200, responseText: JSON.stringify({ success_count: 1, uploaded_files: [{ id: 3, filename: '3.jpg', upload_type: 'edited' }] }) });
+      await finished;
+    });
+    expect(uploadMediaRequest).toHaveBeenCalledTimes(3);
+    expect(finalizeEditedUploadQueue).not.toHaveBeenCalled();
+    expect(complete).not.toHaveBeenCalled();
+    expect(progress.mock.calls.every(([value]) => value < 100)).toBe(true);
+    expect(screen.getByText('Selected Files (2)')).toBeVisible();
+  });
+
   it('reports byte-level progress while a video is still transferring (not stuck at 0%)', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     vi.spyOn(client, 'invalidateQueries').mockResolvedValue(undefined);

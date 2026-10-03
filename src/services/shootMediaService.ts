@@ -1,5 +1,10 @@
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
+import { CLOUDFLARE_SAFE_UPLOAD_BYTES, uploadMediaRequest } from '@/components/shoots/tabs/media/uploadMediaRequest';
+import { runUploadConcurrencyPool } from '@/components/shoots/tabs/media/mediaUploadConcurrency';
+import { prepareRawUploadBatch } from '@/components/shoots/tabs/media/prepareRawUploadBatch';
+import { createUploadBatchId, ensureUploadAttemptIdentity } from '@/components/shoots/tabs/media/uploadAttemptIdentity';
+import { resolveUploadLaneForFile } from '@/components/shoots/tabs/media/uploadIntakeLanes';
 
 export interface ShootMediaFile {
   id: string;
@@ -45,6 +50,8 @@ export interface MediaUploadResponse {
   error_type?: string;
   workflow_status?: string;
   workflow_status_changed?: boolean;
+  /** Client-local positions acknowledged by the per-file uploader. */
+  confirmed_file_indexes?: number[];
 }
 
 export interface FinalizeRawUploadResponse {
@@ -152,130 +159,84 @@ export const approveEditingReview = async (
 
 interface UploadFilesIndividuallyConfig {
   endpoint: string;
+  shootId: string;
+  uploadType: 'raw' | 'edited' | 'extra';
   files: File[];
   token: string;
   onProgress?: (progress: number) => void;
   appendFields?: (formData: FormData, file: File, index: number) => void;
 }
 
-const createUploadBatchId = (): string => {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return crypto.randomUUID();
-  }
-
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-};
-
-const uploadFilesIndividually = async ({
-  endpoint,
-  files,
-  token,
-  onProgress,
-  appendFields,
-}: UploadFilesIndividuallyConfig): Promise<MediaUploadResponse> => {
+const uploadFilesIndividually = async ({ endpoint, shootId, uploadType, files, token, onProgress, appendFields }: UploadFilesIndividuallyConfig): Promise<MediaUploadResponse> => {
   const totalBytes = files.reduce((sum, file) => sum + Math.max(file.size, 0), 0);
-  const inFlightBytes = new Map<number, number>();
-  let processedFiles = 0;
-  let processedBytes = 0;
+  const transferred = files.map(() => 0);
+  const confirmed = new Set<number>();
+  const headers = { Authorization: `Bearer ${token}`, Accept: 'application/json' };
   let successCount = 0;
   let workflowStatus: string | undefined;
   let workflowStatusChanged = false;
   const errors: MediaUploadErrorItem[] = [];
-  const uploadBatchId = files.length > 1 ? createUploadBatchId() : null;
-
-  const updateProgress = () => {
-    const uploadedBytes = processedBytes + Array.from(inFlightBytes.values()).reduce((sum, value) => sum + value, 0);
-    const progress = totalBytes > 0
-      ? Math.round((Math.min(uploadedBytes, totalBytes) * 100) / totalBytes)
-      : Math.round((processedFiles * 100) / Math.max(files.length, 1));
-    onProgress?.(progress);
-  };
-
-  const concurrentUploads = 1;
-
-  for (let index = 0; index < files.length; index += concurrentUploads) {
-    const batch = files.slice(index, index + concurrentUploads);
-
-    await Promise.all(batch.map(async (file, batchIndex) => {
-      const fileIndex = index + batchIndex;
-      const formData = new FormData();
-      formData.append('files[]', file);
-      if (uploadBatchId) {
-        formData.append('upload_batch_id', uploadBatchId);
-        formData.append('upload_batch_total', files.length.toString());
-        formData.append('upload_batch_index', fileIndex.toString());
-      }
-      appendFields?.(formData, file, fileIndex);
-
-      try {
-        const response = await axios.post<MediaUploadResponse>(endpoint, formData, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data',
-          },
-          onUploadProgress: (progressEvent) => {
-            const loadedBytes = file.size > 0
-              ? Math.min(progressEvent.loaded, file.size)
-              : Math.min(progressEvent.loaded, progressEvent.total || progressEvent.loaded || 0);
-            inFlightBytes.set(fileIndex, loadedBytes);
-            updateProgress();
-          },
-        });
-
-        const payload = response.data;
-        successCount += payload.success_count ?? 0;
-        workflowStatus = payload.workflow_status ?? workflowStatus;
-        workflowStatusChanged = workflowStatusChanged || Boolean(payload.workflow_status_changed);
-
-        if (Array.isArray(payload.errors) && payload.errors.length > 0) {
-          errors.push(...payload.errors);
-        } else if ((payload.success_count ?? 0) === 0) {
-          errors.push({
-            file_name: file.name,
-            message: payload.message || 'Upload failed',
-            error_type: payload.error_type,
-          });
+  const groups = uploadType === 'raw'
+    ? [...new Set(files.map(resolveUploadLaneForFile))].map((lane) => files.filter((file) => resolveUploadLaneForFile(file) === lane))
+    : [files];
+  let stopped = false;
+  let stopMessage = 'Not sent because the upload was interrupted. Retry the remaining files.';
+  for (const group of groups) {
+    const batchId = createUploadBatchId();
+    group.forEach((file, index) => ensureUploadAttemptIdentity(file, batchId, index, group.length));
+    let concurrency = uploadType === 'edited' ? 3 : 1;
+    if (uploadType === 'raw' && !stopped) {
+      try { concurrency = await prepareRawUploadBatch({ shootId, files: group, batchId, headers }); }
+      catch (error) { stopped = true; stopMessage = error instanceof Error ? error.message : stopMessage; }
+    }
+    const results = await runUploadConcurrencyPool<File, { stop: boolean; error?: MediaUploadErrorItem; errors?: MediaUploadErrorItem[] }>({
+      items: group, concurrency: stopped ? 1 : concurrency,
+      exclusive: (file) => file.size > CLOUDFLARE_SAFE_UPLOAD_BYTES,
+      stopWhen: (result) => result.stop,
+      onSkipped: (file) => ({ stop: true, error: { file_name: file.name, message: 'Not sent because the upload was interrupted. Retry the remaining files.' } }),
+      run: async (file, index) => {
+        if (stopped) return { stop: true, error: { file_name: file.name, message: stopMessage } };
+        const identity = ensureUploadAttemptIdentity(file, batchId, index, group.length);
+        const fileIndex = files.indexOf(file);
+        const body = new FormData();
+        body.append('files[]', file);
+        body.append('idempotency_key', identity.idempotencyKey);
+        body.append('upload_batch_id', identity.batchId);
+        body.append('upload_batch_total', String(identity.batchTotal));
+        body.append('upload_batch_index', String(identity.batchIndex));
+        if (uploadType === 'raw') body.append('upload_lane', resolveUploadLaneForFile(file));
+        appendFields?.(body, file, fileIndex);
+        const response = await uploadMediaRequest({ url: endpoint, body, headers, onProgress: ({ phase, loaded, total }) => {
+          transferred[fileIndex] = file.size * (phase === 'processing' ? 1 : Math.min(1, loaded / Math.max(total || file.size, 1)));
+          onProgress?.(Math.min(99.9, totalBytes > 0 ? transferred.reduce((sum, bytes) => sum + bytes, 0) / totalBytes * 100 : confirmed.size / Math.max(files.length, 1) * 100));
+        } });
+        if (response.ok === false) return { stop: true, error: { file_name: file.name, message: response.message } };
+        let payload: MediaUploadResponse;
+        try { payload = JSON.parse(response.responseText); } catch { return { stop: true, error: { file_name: file.name, message: 'The server did not confirm this upload. Retry safely.' } }; }
+        if (response.status >= 200 && response.status < 300 && payload.success_count > 0) {
+          successCount += payload.success_count;
+          confirmed.add(fileIndex);
+          transferred[fileIndex] = file.size;
+          workflowStatus = payload.workflow_status ?? workflowStatus;
+          workflowStatusChanged ||= Boolean(payload.workflow_status_changed);
+          return { stop: false, errors: payload.errors };
         }
-      } catch (error) {
-        if (axios.isAxiosError(error)) {
-          const payload = error.response?.data as MediaUploadResponse | undefined;
-          if (Array.isArray(payload?.errors) && payload.errors.length > 0) {
-            errors.push(...payload.errors);
-          } else {
-            errors.push({
-              file_name: file.name,
-              message: payload?.message || error.message || 'Upload failed',
-              error_type: payload?.error_type,
-            });
-          }
-        } else {
-          errors.push({
-            file_name: file.name,
-            message: error instanceof Error ? error.message : 'Upload failed',
-          });
-        }
-      } finally {
-        inFlightBytes.delete(fileIndex);
-        processedFiles += 1;
-        processedBytes += Math.max(file.size, 0);
-        updateProgress();
-      }
-    }));
+        return { stop: [401, 403, 409, 429].includes(response.status) || response.status >= 500,
+          error: payload.errors?.[0] ?? { file_name: file.name, message: payload.message || 'Upload failed', error_type: payload.error_type } };
+      },
+    });
+    for (const result of results) {
+      stopped ||= result.stop;
+      if (result.error) errors.push(result.error);
+      if (result.errors) errors.push(...result.errors);
+    }
   }
-
-  if (successCount === 0 && errors.length > 0) {
-    throw new Error(errors[0].message || 'Upload failed');
-  }
-
-  return {
-    message: errors.length > 0 ? 'Files processed with some upload errors' : 'Files processed',
-    success_count: successCount,
-    error_count: errors.length,
-    partial_success: successCount > 0 && errors.length > 0,
-    errors,
-    workflow_status: workflowStatus,
-    workflow_status_changed: workflowStatusChanged,
-  };
+  if (successCount === 0 && errors.length) throw new Error(errors[0].message || 'Upload failed');
+  if (!errors.length) onProgress?.(100);
+  return { message: errors.length ? 'Files processed with some upload errors' : 'Files processed', success_count: successCount,
+    confirmed_file_indexes: [...confirmed],
+    error_count: errors.length, partial_success: successCount > 0 && errors.length > 0, errors,
+    workflow_status: workflowStatus, workflow_status_changed: workflowStatusChanged };
 };
 
 /**
@@ -309,6 +270,7 @@ export const uploadRawPhotos = async (
 ): Promise<MediaUploadResponse> => {
   const result = await uploadFilesIndividually({
     endpoint: `${API_BASE_URL}/api/shoots/${shootId}/upload`,
+    shootId, uploadType: 'raw',
     files,
     token,
     onProgress,
@@ -334,6 +296,7 @@ export const uploadExtraPhotos = async (
 ): Promise<MediaUploadResponse> => {
   return uploadFilesIndividually({
     endpoint: `${API_BASE_URL}/api/shoots/${shootId}/upload-extra`,
+    shootId, uploadType: 'extra',
     files,
     token,
     onProgress,
@@ -351,6 +314,7 @@ export const uploadEditedPhotos = async (
 ): Promise<MediaUploadResponse> => {
   return uploadFilesIndividually({
     endpoint: `${API_BASE_URL}/api/shoots/${shootId}/upload`,
+    shootId, uploadType: 'edited',
     files,
     token,
     onProgress,

@@ -22,6 +22,7 @@ import { BracketModeSelector, type BracketMode } from './BracketModeSelector';
 import { MediaUploadProgress } from './MediaUploadProgress';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { useMediaUploadRetrySelection } from './tabs/media/useMediaUploadRetrySelection';
 
 interface EnhancedShootMediaTabsProps {
   shootId: string;
@@ -57,6 +58,7 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
   const { session } = useAuth();
   const { toast } = useToast();
   const accessToken = session?.accessToken;
+  const retrySelection = useMediaUploadRetrySelection(`${shootId}:${accessToken ?? ''}`);
 
   const normalizeCounts = (nextCounts: {
     raw_photo_count: number;
@@ -178,16 +180,17 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
     }
   }, [activeTab, loadEditedFiles, loadExtraFiles, loadRawFiles]);
 
-  const handleRawUpload = async (files: FileList) => {
+  const handleRawUpload = async (files: FileList | File[]) => {
     if (!accessToken || files.length === 0) return;
+    const fileArray = retrySelection.prepare('raw', Array.from(files));
+    if (fileArray.length === 0) return;
 
     setUploading(true);
     setUploadProgress(0);
     setUploadedCount(0);
-    setTotalUploadCount(files.length);
+    setTotalUploadCount(fileArray.length);
 
     try {
-      const fileArray = Array.from(files);
       const response = await uploadRawPhotos(
         shootId,
         fileArray,
@@ -201,15 +204,18 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
         }
       );
 
-      setUploadedCount(fileArray.length);
+      retrySelection.record('raw', fileArray, response.confirmed_file_indexes ?? []);
+      setUploadedCount(response.success_count);
       toast({
-        title: 'Success',
-        description: `Uploaded ${response.success_count} RAW photos`,
+        title: response.partial_success ? 'Upload needs attention' : 'Success',
+        description: response.partial_success ? `Uploaded ${response.success_count} files. ${response.error_count ?? 0} still need uploading; retry the remaining files.` : `Uploaded ${response.success_count} RAW photos`,
+        variant: response.partial_success ? 'destructive' : 'default',
       });
 
       loadRawFiles();
       onCountsUpdate?.();
     } catch (error) {
+      retrySelection.record('raw', fileArray, []);
       console.error('Failed to upload RAW files:', error);
       toast({
         title: 'Error',
@@ -222,16 +228,17 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
     }
   };
 
-  const handleExtraUpload = async (files: FileList) => {
+  const handleExtraUpload = async (files: FileList | File[]) => {
     if (!accessToken || files.length === 0) return;
+    const fileArray = retrySelection.prepare('extra', Array.from(files));
+    if (fileArray.length === 0) return;
 
     setUploading(true);
     setUploadProgress(0);
     setUploadedCount(0);
-    setTotalUploadCount(files.length);
+    setTotalUploadCount(fileArray.length);
 
     try {
-      const fileArray = Array.from(files);
       const response = await uploadExtraPhotos(
         shootId,
         fileArray,
@@ -239,15 +246,18 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
         (progress) => setUploadProgress(progress)
       );
 
-      setUploadedCount(fileArray.length);
+      retrySelection.record('extra', fileArray, response.confirmed_file_indexes ?? []);
+      setUploadedCount(response.success_count);
       toast({
-        title: 'Success',
-        description: `Uploaded ${fileArray.length} extra photos`,
+        title: response.partial_success ? 'Upload needs attention' : 'Success',
+        description: response.partial_success ? `Uploaded ${response.success_count} files. ${response.error_count ?? 0} still need uploading; retry the remaining files.` : `Uploaded ${response.success_count} extra photos`,
+        variant: response.partial_success ? 'destructive' : 'default',
       });
 
       loadExtraFiles();
       onCountsUpdate?.();
     } catch (error) {
+      retrySelection.record('extra', fileArray, []);
       console.error('Failed to upload extra files:', error);
       toast({
         title: 'Error',
@@ -260,16 +270,17 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
     }
   };
 
-  const handleEditedUpload = async (files: FileList) => {
+  const handleEditedUpload = async (files: FileList | File[]) => {
     if (!accessToken || files.length === 0) return;
+    const fileArray = retrySelection.prepare('edited', Array.from(files));
+    if (fileArray.length === 0) return;
 
     setUploading(true);
     setUploadProgress(0);
     setUploadedCount(0);
-    setTotalUploadCount(files.length);
+    setTotalUploadCount(fileArray.length);
 
     try {
-      const fileArray = Array.from(files);
       const response = await uploadEditedPhotos(
         shootId,
         fileArray,
@@ -277,7 +288,8 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
         (progress) => setUploadProgress(progress)
       );
 
-      setUploadedCount(fileArray.length);
+      retrySelection.record('edited', fileArray, response.confirmed_file_indexes ?? []);
+      setUploadedCount(response.success_count);
       const failedCount = response.error_count ?? Math.max(fileArray.length - response.success_count, 0);
       toast({
         title: response.partial_success ? 'Upload Partially Complete' : 'Success',
@@ -290,6 +302,7 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
       loadEditedFiles();
       onCountsUpdate?.();
     } catch (error) {
+      retrySelection.record('edited', fileArray, []);
       console.error('Failed to upload edited files:', error);
       toast({
         title: 'Error',
@@ -446,6 +459,11 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
                       onChange={(e) => e.target.files && handleRawUpload(e.target.files)}
                       disabled={uploading}
                     />
+                  {retrySelection.pending('raw').length > 0 && !uploading && (
+                    <Button type="button" variant="outline" className="mt-2" onClick={() => handleRawUpload(retrySelection.pending('raw'))}>
+                      Retry remaining {retrySelection.pending('raw').length} RAW files
+                    </Button>
+                  )}
                   </div>
 
                   <MediaUploadProgress
@@ -490,6 +508,11 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
                     onChange={(e) => e.target.files && handleExtraUpload(e.target.files)}
                     disabled={uploading}
                   />
+                  {retrySelection.pending('extra').length > 0 && !uploading && (
+                    <Button type="button" variant="outline" className="mt-2" onClick={() => handleExtraUpload(retrySelection.pending('extra'))}>
+                      Retry remaining {retrySelection.pending('extra').length} extra files
+                    </Button>
+                  )}
                   
                   <MediaUploadProgress
                     isUploading={uploading}
@@ -529,6 +552,11 @@ export const EnhancedShootMediaTabs: React.FC<EnhancedShootMediaTabsProps> = ({
                     onChange={(e) => e.target.files && handleEditedUpload(e.target.files)}
                     disabled={uploading}
                   />
+                  {retrySelection.pending('edited').length > 0 && !uploading && (
+                    <Button type="button" variant="outline" className="mt-2" onClick={() => handleEditedUpload(retrySelection.pending('edited'))}>
+                      Retry remaining {retrySelection.pending('edited').length} edited files
+                    </Button>
+                  )}
                   
                   <MediaUploadProgress
                     isUploading={uploading}
