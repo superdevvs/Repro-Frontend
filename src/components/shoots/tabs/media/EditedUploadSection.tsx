@@ -550,13 +550,17 @@ export function EditedUploadSection({
             try {
               setIsSubmittingAfterUpload(true);
               const finalizeRes = await finalizeEditedUploadQueue(shoot.id, getApiHeaders());
-              const changed = Boolean(finalizeRes.workflow_status_changed);
+              const changed = Boolean(finalizeRes.workflow_status_changed || finalizeRes.editing_submission_changed);
               toast({
                 title: changed ? 'Edited files submitted' : 'Already submitted',
                 description: finalizeRes.message
                   || (changed ? 'Shoot moved to Ready for client review.' : 'These edits were already submitted.'),
               });
-              triggerUploadRefreshes(shoot.id);
+              try {
+                triggerUploadRefreshes(shoot.id);
+              } catch {
+                toast({ title: 'Dashboard refresh incomplete', description: 'Your edits were submitted successfully. Refresh to see the latest status.' });
+              }
             } catch (submitError: unknown) {
               const description = getMediaUploadErrorMessage(submitError, 'Failed to submit edits.');
               toast({

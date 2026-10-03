@@ -21,6 +21,32 @@ beforeEach(() => vi.clearAllMocks());
 afterEach(cleanup);
 
 describe('editing review workflow', () => {
+  it('keeps confirmation open on submission failure and includes the support reference', async () => {
+    vi.mocked(finalizeEditedUploadQueue).mockRejectedValue({ response: { data: { message: 'Uploads saved. Try submitting again.', correlation_id: 'support-reference' } } });
+    const props = options();
+    const { result } = renderHook(() => useShootDetailsModalWorkflow(props));
+    act(() => result.current.handleSubmitEdits());
+    act(() => result.current.confirmSubmit());
+    await waitFor(() => expect(props.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Submit edits failed', description: expect.stringContaining('support-reference') })));
+    expect(result.current.submitConfirm).toEqual({ kind: 'edited' });
+    expect(props.refreshShoot).not.toHaveBeenCalled();
+  });
+
+  it('deduplicates clicks and preserves submission success when its background refresh fails', async () => {
+    vi.mocked(finalizeEditedUploadQueue).mockResolvedValue({ workflow_status_changed: true, shoot_status: 'ready' });
+    const props = options();
+    props.refreshShoot.mockRejectedValue(new Error('Network error'));
+    const { result } = renderHook(() => useShootDetailsModalWorkflow(props));
+    act(() => result.current.handleSubmitEdits());
+    act(() => { result.current.confirmSubmit(); result.current.confirmSubmit(); });
+    await waitFor(() => expect(result.current.isSubmittingEdits).toBe(false));
+    expect(finalizeEditedUploadQueue).toHaveBeenCalledOnce();
+    expect(result.current.submitConfirm).toBeNull();
+    expect(props.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Edited files submitted' }));
+    expect(props.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Dashboard refresh incomplete' }));
+    expect(props.toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Submit edits failed' }));
+    expect(props.updateShoot).toHaveBeenCalledWith('100', expect.objectContaining({ workflowStatus: 'ready' }), { skipApi: true });
+  });
   it('refreshes the shoot and parent after approval and stays busy until the refresh finishes', async () => {
     vi.mocked(approveEditingReview).mockResolvedValue({ workflow_status_changed: true, shoot_status: 'ready' });
     const props = options();

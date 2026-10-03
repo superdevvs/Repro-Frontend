@@ -79,10 +79,11 @@ export const getMediaUploadErrorMessage = (
         message?: string;
         error_type?: string;
         errors?: MediaUploadErrorItem[];
+        correlation_id?: string;
       }
     | undefined;
 
-  const baseMessage = payload?.message?.trim() || fallback;
+  const baseMessage = (payload?.message?.trim() || fallback) + (payload?.correlation_id ? ` Reference: ${payload.correlation_id}` : '');
 
   if (payload?.error_type === 'invalid_workflow_stage') {
     return `${baseMessage} Please move the shoot into the upload/editing workflow and try again.`;
@@ -121,6 +122,9 @@ export const finalizeRawUploadQueue = async (
 
 export interface FinalizeEditedUploadResponse extends FinalizeRawUploadResponse {
   error_type?: string;
+  editing_submission_changed?: boolean;
+  correlation_id?: string;
+  retryable?: boolean;
 }
 
 export const finalizeEditedUploadQueue = async (

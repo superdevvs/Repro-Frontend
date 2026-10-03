@@ -1,6 +1,6 @@
 import { useHoldNotifications, describeHoldNotifications } from '../details/useHoldNotifications';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
-import { Dispatch, SetStateAction, useState } from 'react';
+import { Dispatch, SetStateAction, useState, useRef } from 'react';
 import { ShootData } from '@/types/shoots';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
@@ -70,6 +70,7 @@ export function useShootDetailsModalWorkflow({
   const [isSubmittingEdits, setIsSubmittingEdits] = useState(false);
   const [isApprovingEditingReview, setIsApprovingEditingReview] = useState(false);
   const [submitConfirm, setSubmitConfirm] = useState<{ kind: 'raw' | 'edited' } | null>(null);
+  const submitInFlight = useRef(false);
   const [isResumeScheduleDialogOpen, setIsResumeScheduleDialogOpen] = useState(false);
   const [isResumingFromHold, setIsResumingFromHold] = useState(false);
   const shouldShowCancellationFeePrompt = !isClient && isWithinCancellationFeeWindow;
@@ -107,11 +108,11 @@ export function useShootDetailsModalWorkflow({
         description: 'Shoot sent to editing',
       });
       await refreshShoot();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Send to editing error:', error);
       toast({
         title: 'Error',
-        description: error?.message || 'Failed to send to editing',
+        description: error instanceof Error ? error.message : 'Failed to send to editing',
         variant: 'destructive',
       });
     } finally {
@@ -464,7 +465,8 @@ export function useShootDetailsModalWorkflow({
   const closeSubmitConfirm = () => setSubmitConfirm(null);
 
   const runSubmitFinalize = async (kind: 'raw' | 'edited') => {
-    if (!shoot) return;
+    if (!shoot || submitInFlight.current) return;
+    submitInFlight.current = true;
     const headers = getApiHeaders();
     const setBusy = kind === 'raw' ? setIsSubmittingRaw : setIsSubmittingEdits;
     setBusy(true);
@@ -483,25 +485,35 @@ export function useShootDetailsModalWorkflow({
         title: changed
           ? kind === 'raw' ? 'Raw files submitted' : 'Edited files submitted'
           : 'Already submitted',
-        description: (res as any)?.message || (changed
+        description: res.message || (changed
           ? (kind === 'raw'
               ? 'Shoot moved to Uploaded.'
               : submittedDescription)
           : 'No changes were applied to the shoot.'),
       });
-      await refreshShoot();
-      onShootUpdate?.();
       setSubmitConfirm(null);
-    } catch (error: any) {
-      const payload = error?.response?.data;
+      try {
+        if (res.shoot_status) {
+          const committed = { ...shoot, workflowStatus: res.shoot_status };
+          setShoot(committed);
+          updateShoot(shoot.id, committed, { skipApi: true });
+        }
+        await refreshShoot();
+        onShootUpdate?.();
+      } catch {
+        toast({ title: 'Dashboard refresh incomplete', description: 'Your files were submitted successfully. Refresh the shoot to see its latest status.' });
+      }
+    } catch (error: unknown) {
+      const payload = (error as { response?: { data?: { message?: string; correlation_id?: string } } })?.response?.data;
       const description = payload?.message
         || (error instanceof Error ? error.message : 'Failed to submit.');
       toast({
         title: kind === 'raw' ? 'Submit raw failed' : 'Submit edits failed',
-        description,
+        description: payload?.correlation_id ? `${description} Reference: ${payload.correlation_id}` : description,
         variant: 'destructive',
       });
     } finally {
+      submitInFlight.current = false;
       setBusy(false);
     }
   };
@@ -516,16 +528,16 @@ export function useShootDetailsModalWorkflow({
     setIsApprovingEditingReview(true);
     try {
       const res = await approveEditingReview(shoot.id, getApiHeaders());
-      const changed = Boolean((res as any)?.workflow_status_changed);
+      const changed = Boolean(res.workflow_status_changed);
       toast({
         title: changed ? 'Edits approved' : 'Already approved',
-        description: (res as any)?.message
+        description: res.message
           || (changed ? 'Shoot is now Ready for finalization.' : 'These edits were already approved.'),
       });
       await refreshShoot();
       onShootUpdate?.();
-    } catch (error: any) {
-      const payload = error?.response?.data;
+    } catch (error: unknown) {
+      const payload = (error as { response?: { data?: { message?: string } } })?.response?.data;
       const description = payload?.message
         || (error instanceof Error ? error.message : 'Failed to approve edits.');
       toast({

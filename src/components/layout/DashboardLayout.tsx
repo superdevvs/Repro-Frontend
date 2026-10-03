@@ -151,6 +151,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
             <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`} bottomInset={compactBottomInset}>
+              {isDashboardRoute && <DashboardRefreshNotice />}
             <main style={compactMainStyle} className={`flex-1 min-w-0 min-h-0 ${lockMainScroll ? 'flex flex-col overflow-hidden overflow-x-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
               <PageTransition className={lockMainScroll ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : 'flex flex-col min-h-full'}>
                 <EmailVerificationNotice>
@@ -195,3 +196,4 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
 };
 
 export default DashboardLayout;
+import { DashboardRefreshNotice } from '@/components/dashboard/DashboardRefreshNotice';

@@ -18,9 +18,12 @@ const response = (payload: unknown, status = 200) => ({
 }) as Response;
 
 const Probe = () => {
-  const { shoots, isInitialLoading, fetchShoots } = useShoots();
+  const { shoots, isInitialLoading, fetchShoots, refreshIssue, updateShoot } = useShoots();
   return <>
     <button onClick={() => void fetchShoots()}>Refresh</button>
+    <button onClick={() => void updateShoot('101', { workflowStatus: 'ready' }, { skipApi: true })}>Commit submission</button>
+    <output data-testid="issue">{refreshIssue}</output>
+    <output data-testid="statuses">{shoots.map(shoot => shoot.workflowStatus).join(',')}</output>
     <output data-testid="loading">{String(isInitialLoading)}</output>
     <output data-testid="ids">{shoots.map(shoot => shoot.id).join(',')}</output>
     <output data-testid="today">{shoots.filter(shoot => shoot.scheduledDate?.startsWith('2026-09-28')).length}</output>
@@ -33,6 +36,44 @@ beforeEach(() => { localStorage.clear(); localStorage.setItem('authToken', 'test
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('complete scheduled shoot hydration', () => {
+  it('does not overwrite a committed submission with an older dashboard response', async () => {
+    auth.user.role = 'admin';
+    let refreshing = false;
+    let resolveRefresh!: (value: Response) => void;
+    const delayed = new Promise<Response>(resolve => { resolveRefresh = resolve; });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const tab = new URL(String(input), 'https://example.test').searchParams.get('tab');
+      if (tab === 'scheduled') return response({ data: [] });
+      return refreshing ? delayed : response({ data: [{ ...record(101), status: 'editing', workflow_status: 'editing' }] });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    showProbe();
+    await waitFor(() => expect(screen.getByTestId('ids').textContent).toBe('101'));
+    refreshing = true;
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(4));
+    fireEvent.click(screen.getByRole('button', { name: 'Commit submission' }));
+    await waitFor(() => expect(screen.getByTestId('statuses').textContent).toBe('ready'));
+    await act(async () => resolveRefresh(response({ data: [{ ...record(101), status: 'editing', workflow_status: 'editing' }] })));
+    expect(screen.getByTestId('statuses').textContent).toBe('ready');
+    expect(effects.toast).not.toHaveBeenCalled();
+  });
+
+  it('preserves loaded sections when a refresh is aborted without reporting a failure', async () => {
+    auth.user.role = 'editing_manager';
+    let abort = false;
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+      if (abort) throw new DOMException('Aborted', 'AbortError');
+      return response({ data: String(input).includes('tab=scheduled') ? [record(1)] : [] });
+    }));
+    showProbe();
+    await waitFor(() => expect(screen.getByTestId('ids').textContent).toBe('1'));
+    abort = true;
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Refresh' })));
+    expect(screen.getByTestId('ids').textContent).toBe('1');
+    expect(screen.getByTestId('issue').textContent).toBe('');
+    expect(effects.toast).not.toHaveBeenCalled();
+  });
   it('retains the complete earlier queue on refresh failure and removes finalized work after recovery', async () => {
     auth.user.role = 'admin';
     let phase = 'initial';
@@ -50,9 +91,8 @@ describe('complete scheduled shoot hydration', () => {
     await waitFor(() => expect(screen.getByTestId('ids').textContent).toBe('1,101'));
     phase = 'failure';
     fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
-    await waitFor(() => expect(effects.toast).toHaveBeenCalledWith(expect.objectContaining({
-      title: 'Earlier work could not refresh', description: expect.stringContaining('last loaded'),
-    })));
+    await waitFor(() => expect(screen.getByTestId('issue').textContent).toContain('completed, page 2'));
+    expect(effects.toast).not.toHaveBeenCalled();
     expect(screen.getByTestId('ids').textContent).toBe('1,101');
     expect(JSON.parse(localStorage.getItem('shoots') ?? '[]').map((shoot: { id: string }) => shoot.id)).toEqual(['1', '101']);
     phase = 'recovery';

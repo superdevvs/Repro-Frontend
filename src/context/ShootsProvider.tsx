@@ -21,6 +21,7 @@ import {
   type ApiShoot,
 } from './shootNormalization';
 import { registerShootListRefresh } from '@/realtime/realtimeRefreshBus';
+import { readDashboardSection, DashboardSectionError } from './readDashboardSection';
 import { readShootListPages } from '@/utils/readShootListPages';
 import { deduplicateApiShoots, normalizeShootRecords } from './shootListRecords';
 import {
@@ -98,6 +99,8 @@ const shouldAutoFetchShootsForPath = (path: string) =>
 export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [shoots, setShoots] = useState<ShootData[]>(getStoredShoots);
   const shootsRef = useRef(shoots);
+  const fetchGeneration = useRef(0);
+  const [refreshIssue, setRefreshIssue] = useState<string | null>(null);
   useEffect(() => { shootsRef.current = shoots; }, [shoots]);
   const [hydratedScope, setHydratedScope] = useState<string | null>(null);
   const [paginationMeta, setPaginationMeta] = useState<ShootsContextType['paginationMeta']>();
@@ -152,6 +155,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const persistShoots = useCallback((items: ShootData[]) => {
     if (typeof window === 'undefined') return;
+    shootsRef.current = items;
     localStorage.setItem('shoots', JSON.stringify(items));
     window.dispatchEvent(new CustomEvent('shoots:updated'));
   }, []);
@@ -207,16 +211,9 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return { ...result, data: deduplicateApiShoots(result.data ?? []) };
     };
 
+    const generation = ++fetchGeneration.current;
+    const startingRecords = new Map(shootsRef.current.map(item => [item.id, JSON.stringify(item)]));
     fetchInFlightRef.current = true;
-    const preserveCurrentShoots = shootsRef.current.length > 0;
-    let freshSchedule: ShootData[] | null = null;
-    const publishInitialSchedule = (items: ShootData[]) => {
-      freshSchedule = items;
-      // Refresh atomically so a rotating stack does not lose its current card.
-      if (preserveCurrentShoots) return;
-      setShoots(items);
-      persistShoots(items);
-    };
     try {
       // For admins/superadmins, fetch from both 'scheduled' and 'completed' tabs to get all non-delivered shoots
       // For photographers, fetch from both tabs to see all shoots until delivered
@@ -231,124 +228,40 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       let allShoots: ShootData[] = [];
       
       if (isAdmin || isPhotographer || isEditor || isEditingManager || isSalesRep) {
-        const headers = buildFetchHeaders(token);
-        if (isEditor || isPhotographer || isEditingManager || isSalesRep) {
-          const [scheduledResponse, completedResponse, deliveredResponse] = await Promise.all([
-            fetch(`${API_BASE_URL}/api/shoots?tab=scheduled&page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
-              headers,
-              signal,
-            }),
-            fetch(`${API_BASE_URL}/api/shoots?tab=completed&page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}&dashboard_open=true`, {
-              headers,
-              signal,
-            }),
-            fetch(`${API_BASE_URL}/api/shoots?tab=delivered&page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
-              headers,
-              signal,
-            }),
-          ]);
-
-          if (scheduledResponse.status === 401 || scheduledResponse.status === 419 ||
-              completedResponse.status === 401 || completedResponse.status === 419 ||
-              deliveredResponse.status === 401 || deliveredResponse.status === 419) {
-            handleSessionExpired();
-            setShoots([]);
-            persistShoots([]);
-            return [];
-          }
-          if (!scheduledResponse.ok) {
-            throw new Error('Failed to load shoots from server');
-          }
-
-          const scheduledJson = await readOperationalPages(scheduledResponse);
-          const scheduledRecords = Array.isArray(scheduledJson.data) ? scheduledJson.data : [];
-          const scheduledShoots = normalizeShootRecords(scheduledRecords);
-          publishInitialSchedule(scheduledShoots);
-
-          const readOptional = async (response: Response, tab: 'completed' | 'delivered') => {
-            if (!response.ok) {
-              if (tab === 'completed') throw new Error('Failed to load shoots from server');
-              console.error('Shoot tab failed', response.status);
-              return { data: [] as ApiShoot[], meta: undefined as ShootListPayload['meta'] };
+        const tabs = isAdmin ? ['scheduled', 'completed'] : ['scheduled', 'completed', 'delivered'];
+        const results = await Promise.allSettled(tabs.map(tab => readDashboardSection<ApiShoot, ShootListPayload>(tab, (nextPage, requestSignal) =>
+          fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&page=${nextPage}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}${tab === 'completed' ? '&dashboard_open=true' : ''}`, {
+            headers: buildFetchHeaders(token), signal: requestSignal,
+          }), { page, signal, allPages: tab !== 'delivered' }).then(payload => {
+            if (tab === 'scheduled' && startingRecords.size === 0 && generation === fetchGeneration.current && !signal?.aborted) {
+              const schedule = normalizeShootRecords(deduplicateApiShoots(payload.data ?? []));
+              setShoots(schedule);
+              persistShoots(schedule);
             }
-            const json = tab === 'completed'
-              ? await readOperationalPages(response, tab)
-              : await parseJsonResponse<ShootListPayload>(response);
-            return { data: Array.isArray(json.data) ? json.data : [], meta: json.meta };
-          };
-          const completedTab = await readOptional(completedResponse, 'completed');
-          const deliveredTab = await readOptional(deliveredResponse, 'delivered');
-          const optionalRecords = [...completedTab.data, ...deliveredTab.data];
-          const completedMeta = completedTab.meta;
-          const deliveredMeta = deliveredTab.meta;
-
-          const uniqueRecords = deduplicateApiShoots([...scheduledRecords, ...optionalRecords]);
-          allShoots = normalizeShootRecords(uniqueRecords);
-
-          if (scheduledJson.meta || completedMeta || deliveredMeta) {
-            const totalCount = (scheduledJson.meta?.count || 0) + (completedMeta?.count || 0) + (deliveredMeta?.count || 0);
-            setPaginationMeta({
-              currentPage: page,
-              lastPage: Math.max(
-                scheduledJson.meta?.last_page || 1,
-                completedMeta?.last_page || 1,
-                deliveredMeta?.last_page || 1,
-              ),
-              total: totalCount,
-              perPage: perPage,
-            });
-          }
-        } else {
-          // Fetch from both tabs and combine to show all shoots until delivered
-          const [scheduledResponse, completedResponse] = await Promise.all([
-            fetch(`${API_BASE_URL}/api/shoots?tab=scheduled&page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
-              headers,
-              signal,
-            }),
-            fetch(`${API_BASE_URL}/api/shoots?tab=completed&page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}&dashboard_open=true`, {
-              headers,
-              signal,
-            }),
-          ]);
-
-          if (scheduledResponse.status === 401 || scheduledResponse.status === 419 || 
-              completedResponse.status === 401 || completedResponse.status === 419) {
-            handleSessionExpired();
-            setShoots([]);
-            persistShoots([]);
-            return [];
-          }
-
-          if (!scheduledResponse.ok) {
-            throw new Error('Failed to load shoots from server');
-          }
-
-          const scheduledJson = await readOperationalPages(scheduledResponse);
-          const scheduledRecords = Array.isArray(scheduledJson.data) ? scheduledJson.data : [];
-          const scheduledShoots = normalizeShootRecords(scheduledRecords);
-          publishInitialSchedule(scheduledShoots);
-
-          if (!completedResponse.ok) throw new Error('Failed to load shoots from server');
-          const completedPayload = await readOperationalPages(completedResponse, 'completed');
-          const completedMeta = completedPayload?.meta;
-
-          const uniqueRecords = deduplicateApiShoots([
-            ...scheduledRecords,
-            ...(Array.isArray(completedPayload?.data) ? completedPayload.data : []),
-          ]);
-          allShoots = normalizeShootRecords(uniqueRecords);
-          
-          // Update pagination meta from combined results
-          if (scheduledJson.meta || completedMeta) {
-            const totalCount = (scheduledJson.meta?.count || 0) + (completedMeta?.count || 0);
-            setPaginationMeta({
-              currentPage: page,
-              lastPage: Math.max(scheduledJson.meta?.last_page || 1, completedMeta?.last_page || 1),
-              total: totalCount,
-              perPage: perPage,
-            });
-          }
+            return payload;
+          })));
+        if (signal?.aborted || generation !== fetchGeneration.current) return [];
+        if (results.some(result => result.status === 'rejected' && (result.reason as Error)?.message === 'Unauthorized')) {
+          handleSessionExpired();
+          setShoots([]);
+          persistShoots([]);
+          return [];
         }
+        if (results.some(result => result.status === 'rejected' && isAbortError(result.reason))) return [];
+        const failedTabs = tabs.filter((_, index) => results[index].status === 'rejected');
+        const sectionFor = (item: ShootData) => {
+          const status = String(item.workflowStatus || item.status).toLowerCase();
+          if (['delivered', 'delivered_to_client', 'ready_for_client', 'client_delivered', 'workflow_completed', 'finalized'].includes(status)) return 'delivered';
+          return ['scheduled', 'booked', 'requested', 'raw_upload_pending', 'on_hold'].includes(status) ? 'scheduled' : 'completed';
+        };
+        const successful = results.flatMap(result => result.status === 'fulfilled' ? [result.value] : []);
+        const freshRecords = normalizeShootRecords(deduplicateApiShoots(successful.flatMap(result => result.data ?? [])));
+        const freshIds = new Set(freshRecords.map(item => item.id));
+        allShoots = [...freshRecords, ...shootsRef.current.filter(item => failedTabs.includes(sectionFor(item)) && !freshIds.has(item.id))];
+        const failures = results.flatMap(result => result.status === 'rejected' && result.reason instanceof DashboardSectionError ? [result.reason] : []);
+        setRefreshIssue(failedTabs.length ? `Dashboard refresh incomplete: ${failures.map(failure => `${failure.section}, page ${failure.page}${failure.reference ? ` (reference ${failure.reference})` : ''}`).join('; ') || failedTabs.join(', ')}. Showing the last loaded data for those sections. Saved uploads and submissions are unaffected.` : null);
+        setPaginationMeta({ currentPage: page, lastPage: Math.max(1, ...successful.map(result => result.meta?.last_page || 1)),
+          total: successful.reduce((count, result) => count + (result.meta?.count || result.meta?.total || 0), 0), perPage });
       } else if (clientRole === 'client') {
         // For clients: fetch from multiple tabs to get all their shoots (scheduled, completed, delivered)
         const headers = buildFetchHeaders(token);
@@ -502,25 +415,27 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
       
+      if (signal?.aborted || generation !== fetchGeneration.current) return [];
+      // A mutation that completed during this read is newer than its snapshot.
+      const latest = new Map(shootsRef.current.map(item => [item.id, item]));
+      allShoots = allShoots.filter(item => !startingRecords.has(item.id) || latest.has(item.id)).map(item => {
+        const current = latest.get(item.id);
+        return current && startingRecords.get(item.id) !== JSON.stringify(current) ? current : item;
+      });
+      const incomingIds = new Set(allShoots.map(item => item.id));
+      for (const current of latest.values()) {
+        if (!incomingIds.has(current.id) && startingRecords.get(current.id) !== JSON.stringify(current)) allShoots.push(current);
+      }
       setShoots(allShoots);
       persistShoots(allShoots);
       return allShoots;
     } catch (error) {
-      if (error instanceof DOMException && error.name === 'AbortError') {
+      if (signal?.aborted || generation !== fetchGeneration.current || isAbortError(error)) {
         return [];
       }
       if ((error as Error)?.message === 'Unauthorized') {
         setShoots([]);
         persistShoots([]);
-        return [];
-      }
-      if (freshSchedule) {
-        console.error('Shoot dashboard refresh was incomplete', error);
-        if (!preserveCurrentShoots) {
-          setShoots(freshSchedule);
-          persistShoots(freshSchedule);
-        }
-        toast({ title: 'Earlier work could not refresh', description: preserveCurrentShoots ? 'Showing the last loaded shoots. Refresh to try again.' : 'Your schedule is current. Refresh to load earlier unfinished shoots.', variant: 'destructive' });
         return [];
       }
       console.error('Error fetching shoots:', error);
@@ -541,11 +456,10 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         description: errorMessage,
         variant: 'destructive',
       });
-      setShoots([]);
-      persistShoots([]);
+      setRefreshIssue('Dashboard could not refresh. Showing the last loaded data. Saved uploads and submissions are unaffected.');
       return [];
     } finally {
-      fetchInFlightRef.current = false;
+      if (generation === fetchGeneration.current) fetchInFlightRef.current = false;
     }
   }, [clientRole, handleSessionExpired, persistShoots]);
 
@@ -956,6 +870,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const contextValue = useMemo<ShootsContextType>(() => ({
       shoots,
       isInitialLoading,
+      refreshIssue,
       addShoot,
       updateShoot,
       applyAlternateDate,
@@ -978,6 +893,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       paginationMeta,
       shoots,
       isInitialLoading,
+      refreshIssue,
       updateShoot,
     ]);
 
