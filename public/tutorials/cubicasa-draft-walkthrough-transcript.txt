@@ -1,8 +1,8 @@
 Start with your Draft order
-Now let's connect your scan to the correct REPro shoot. Once the order is in Draft, open the CubiCasa app with an account that can access your team's orders. Open Orders and choose Draft.
+Now let's connect your scan to the correct shoot with R/E Pro Photos. Once the order is in Draft, open the CubiCasa app with an account that can access your team's orders. Open Orders and choose Draft.
 
 Match the property first
-Find your property and check the address against the assigned shoot. Check the shoot ID when shown, then open the matching draft. If the order is missing or incorrect, contact the REPro team before creating another order.
+Find your property and check the address against the assigned shoot. Check the shoot ID when shown, then open the matching draft. If the order is missing or incorrect, contact the R/E Pro Photos team before creating another order.
 
 Scan from the existing order
 For a new scan, start from that draft order and follow the scanning instructions you just watched. Cover the full property, then review your scan and the app's feedback before continuing.
@@ -10,11 +10,11 @@ For a new scan, start from that draft order and follow the scanning instructions
 Already scanned? Attach it.
 If you've already captured the property, open its draft and choose Attach Scan. Select the matching scan saved on this phone. Check carefully that the scan belongs to this address.
 
-Send the scan for processing
-Review the address and order details. The package is already selected on the draft. When everything is correct, choose Send for Processing and complete any confirmation shown in the app.
+Choose Plus, then submit
+Review the address and scan, then check the package. Draft orders may open with Lite selected. Change it to Plus and confirm Plus is selected before continuing. Then choose Send for Processing and complete any confirmation shown in the app.
 
 Wait for the upload to finish
 Use a stable internet connection and keep the app open until the upload finishes. If it fails, check the connection and retry. Confirm the order has moved out of Draft before leaving.
 
 Check the finished floor plans
-CubiCasa processes the submitted scan. Once the order is ready, REPro can sync the finished floor plans to the linked shoot. Check the shoot in REPro, and contact the team if the plans are missing. Remember: match the draft, scan or attach, then submit.
+CubiCasa processes the submitted scan. Once the order is ready, R/E Pro Photos can sync the finished floor plans to the linked shoot. Check the shoot in R/E Pro Photos, and contact the team if the plans are missing. Remember: match the draft, scan or attach, then submit.

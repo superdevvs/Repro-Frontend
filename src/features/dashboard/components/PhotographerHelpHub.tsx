@@ -21,7 +21,7 @@ interface PhotographerHelpHubProps {
 
 const guides = [
   { id: 'uploads' as const, title: 'Upload shoot media', description: 'Photos, RAW files and video', poster: photographerUploadGuide.poster },
-  { id: 'cubicasa' as const, title: 'CubiCasa floor plans', description: 'Scan and upload from your Draft', poster: '/tutorials/cubicasa-guide.jpg' },
+  { id: 'cubicasa' as const, title: 'CubiCasa floor plans', description: 'Scan and upload from your Draft', poster: '/tutorials/cubicasa-guide.jpg?v=20261003-plus-1' },
 ];
 
 export function PhotographerHelpHub({ active, tourActive, bottomInset, onOpen, onClose, onGuide, onTour, chat }: PhotographerHelpHubProps) {
@@ -37,8 +37,8 @@ export function PhotographerHelpHub({ active, tourActive, bottomInset, onOpen, o
       aria-hidden={active !== null || undefined} tabIndex={active ? -1 : 0}
       style={{ bottom }}
       className={cn('fixed right-4 flex h-14 items-center gap-2.5 rounded-full border border-blue-500/50 bg-gradient-to-r from-background via-background to-blue-50 pl-3 pr-5 text-base font-medium text-foreground shadow-lg shadow-blue-950/10 transition hover:border-blue-400 hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 motion-reduce:transition-none dark:to-blue-950/80 sm:right-6', tourActive ? 'z-[80]' : 'z-40', active && 'pointer-events-none invisible')}>
-      <ReproAiIcon className="h-9 w-9 shrink-0" />
-      Need help?
+      <ReproAiIcon className="block h-8 w-8 shrink-0 -translate-y-px" />
+      <span className="leading-none">Need help?</span>
     </button>, document.body)}
     <Dialog.Root open={active === 'library'} onOpenChange={open => { if (!open) onClose(); }}>
       <Dialog.Portal>

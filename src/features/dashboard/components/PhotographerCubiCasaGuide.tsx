@@ -51,7 +51,7 @@ export function PhotographerCubiCasaGuide({ open, onOpenChange }: PhotographerCu
         <DialogHeader className="pr-6 text-left">
           <DialogTitle>{guide.title}</DialogTitle>
           <DialogDescription>
-            Start with CubiCasa’s scanning lesson, then follow your REPro draft order through submission.
+            Start with CubiCasa’s scanning lesson, then follow your R/E Pro Photos draft order through submission.
           </DialogDescription>
         </DialogHeader>
 
@@ -59,7 +59,7 @@ export function PhotographerCubiCasaGuide({ open, onOpenChange }: PhotographerCu
           <Tabs value={chapter} onValueChange={setChapter} className="min-w-0 space-y-4">
             <TabsList aria-label="CubiCasa guide chapters" className="grid h-auto w-full grid-cols-2">
               <TabsTrigger value="scan" className="whitespace-normal text-center">1. How to scan</TabsTrigger>
-              <TabsTrigger value="draft" className="whitespace-normal text-center">2. Your REPro order</TabsTrigger>
+              <TabsTrigger value="draft" className="whitespace-normal text-center">2. Your R/E Pro Photos order</TabsTrigger>
             </TabsList>
             <TabsContent value="scan" className="space-y-4">
               {chapter === "scan" && (
@@ -78,15 +78,15 @@ export function PhotographerCubiCasaGuide({ open, onOpenChange }: PhotographerCu
                   Watch on YouTube <ExternalLink aria-hidden="true" className="h-3 w-3" />
                 </a>
               </p>
-              <Button className="w-full sm:w-auto" onClick={() => setChapter("draft")}>
-                Continue to your REPro order <ArrowRight aria-hidden="true" className="ml-2 h-4 w-4" />
+              <Button className="h-auto min-h-10 w-full whitespace-normal py-2 sm:w-auto" onClick={() => setChapter("draft")}>
+                <span className="min-w-0">Continue to your R/E Pro Photos order</span><ArrowRight aria-hidden="true" className="ml-2 h-4 w-4 shrink-0" />
               </Button>
             </TabsContent>
             <TabsContent value="draft" className="space-y-4">
               {chapter === "draft" && (
                 <video
                   ref={setVideoRef}
-                  aria-label="Your REPro draft order walkthrough"
+                  aria-label="Your R/E Pro Photos draft order walkthrough"
                   src={guide.video}
                   className="aspect-video w-full rounded-xl bg-black"
                   controls
@@ -99,7 +99,7 @@ export function PhotographerCubiCasaGuide({ open, onOpenChange }: PhotographerCu
                   Your browser cannot play this video. Read the transcript below.
                 </video>
               )}
-              <p className="text-sm text-muted-foreground">Play the walkthrough when you’re ready. English captions are included.</p>
+              <p className="text-sm text-muted-foreground">Choose the Plus package before Send for Processing. Draft orders may default to Lite.</p>
               {videoFailed && (
                 <p role="status" className="rounded-lg bg-muted p-3 text-sm">
                   The walkthrough couldn’t load. Read the transcript below or try again later.
@@ -107,7 +107,7 @@ export function PhotographerCubiCasaGuide({ open, onOpenChange }: PhotographerCu
               )}
               <details open={videoFailed} className="rounded-xl border border-border p-3">
                 <summary className="cursor-pointer text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  Read the REPro walkthrough transcript
+                  Read the R/E Pro Photos walkthrough transcript
                 </summary>
                 <div className="mt-3 space-y-3 text-sm leading-relaxed text-muted-foreground">
                   {guide.transcript.map((section) => (

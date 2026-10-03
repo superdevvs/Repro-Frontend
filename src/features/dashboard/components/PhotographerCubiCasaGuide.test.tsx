@@ -29,9 +29,9 @@ describe("PhotographerCubiCasaGuide", () => {
 
   it("unmounts the official player when continuing and provides reviewed video and captions", async () => {
     render(<PhotographerCubiCasaGuide open onOpenChange={vi.fn()} />);
-    await userEvent.click(screen.getByRole("button", { name: "Continue to your REPro order" }));
+    await userEvent.click(screen.getByRole("button", { name: "Continue to your R/E Pro Photos order" }));
     expect(screen.queryByTitle(guide.officialTitle)).not.toBeInTheDocument();
-    const video = screen.getByLabelText<HTMLVideoElement>("Your REPro draft order walkthrough");
+    const video = screen.getByLabelText<HTMLVideoElement>("Your R/E Pro Photos draft order walkthrough");
     expect(video).toHaveAttribute("src", guide.video);
     expect(video).toHaveAttribute("poster", guide.poster);
     expect(video).toHaveAttribute("controls");
@@ -43,8 +43,8 @@ describe("PhotographerCubiCasaGuide", () => {
 
   it("pauses and removes the walkthrough when switching back to the official lesson", async () => {
     render(<PhotographerCubiCasaGuide open onOpenChange={vi.fn()} />);
-    await userEvent.click(screen.getByRole("tab", { name: "2. Your REPro order" }));
-    const video = screen.getByLabelText<HTMLVideoElement>("Your REPro draft order walkthrough");
+    await userEvent.click(screen.getByRole("tab", { name: "2. Your R/E Pro Photos order" }));
+    const video = screen.getByLabelText<HTMLVideoElement>("Your R/E Pro Photos draft order walkthrough");
     await userEvent.click(screen.getByRole("tab", { name: "1. How to scan" }));
     expect(video.pause).toHaveBeenCalledOnce();
     expect(video).not.toBeInTheDocument();
@@ -53,8 +53,8 @@ describe("PhotographerCubiCasaGuide", () => {
 
   it("pauses and removes the walkthrough on close and resets the chapter on reopening", async () => {
     const { rerender } = render(<PhotographerCubiCasaGuide open onOpenChange={vi.fn()} />);
-    await userEvent.click(screen.getByRole("button", { name: "Continue to your REPro order" }));
-    const video = screen.getByLabelText<HTMLVideoElement>("Your REPro draft order walkthrough");
+    await userEvent.click(screen.getByRole("button", { name: "Continue to your R/E Pro Photos order" }));
+    const video = screen.getByLabelText<HTMLVideoElement>("Your R/E Pro Photos draft order walkthrough");
     rerender(<PhotographerCubiCasaGuide open={false} onOpenChange={vi.fn()} />);
     expect(video.pause).toHaveBeenCalledOnce();
     expect(document.querySelector("video, iframe")).not.toBeInTheDocument();
@@ -63,13 +63,13 @@ describe("PhotographerCubiCasaGuide", () => {
     expect(document.querySelector("video")).not.toBeInTheDocument();
   });
 
-  it("opens the full REPro transcript when the local video fails and returns to help on request", async () => {
+  it("opens the full R/E Pro Photos transcript when the local video fails and returns to help on request", async () => {
     const onOpenChange = vi.fn();
     render(<PhotographerCubiCasaGuide open onOpenChange={onOpenChange} />);
-    await userEvent.click(screen.getByRole("button", { name: "Continue to your REPro order" }));
-    fireEvent.error(screen.getByLabelText("Your REPro draft order walkthrough"));
+    await userEvent.click(screen.getByRole("button", { name: "Continue to your R/E Pro Photos order" }));
+    fireEvent.error(screen.getByLabelText("Your R/E Pro Photos draft order walkthrough"));
     expect(screen.getByRole("status")).toHaveTextContent("walkthrough couldn’t load");
-    expect(screen.getByText("Read the REPro walkthrough transcript").closest("details")).toHaveAttribute("open");
+    expect(screen.getByText("Read the R/E Pro Photos walkthrough transcript").closest("details")).toHaveAttribute("open");
     expect(screen.getByText(guide.transcript[1].text)).toBeVisible();
     expect(screen.getByText(guide.transcript[6].text)).toBeVisible();
     await userEvent.click(screen.getByRole("button", { name: "Back to help" }));
