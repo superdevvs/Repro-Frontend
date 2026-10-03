@@ -16,6 +16,7 @@ import { canUseListingStudioDashboard, listingStudioRole, LISTING_STUDIO_QUERY }
 import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
 import { isSupportInbox } from '@/pages/messaging/messagingSupport';
 import { formatUserRoleLabel } from '@/utils/userRoleLabels';
+import { PhotographerHelpProvider } from '@/features/dashboard/components/PhotographerHelpProvider';
 
 const ListingStudioDialog = React.lazy(() => import('@/components/listing-studio/ListingStudioDialog'));
 
@@ -125,6 +126,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
 
   return (
     <DashboardLayoutContext.Provider value={true}>
+      <PhotographerHelpProvider enabled={role === 'photographer'} userId={user?.id} bottomInset={compactBottomInset}>
       {/* The viewport rule keeps the dynamic height after its legacy fallback;
           combining h-screen and h-dvh lets Tailwind's h-screen rule win. */}
       <div className="dashboard-viewport flex overflow-hidden">
@@ -192,6 +194,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
           <ListingStudioDialog key={`${user?.id}:${role}:${user?.secondary_roles?.join(',')}:${location.search}`} initialTab={listingStudioTab === 'requests' || listingStudioTab === 'subscriptions' ? listingStudioTab : undefined} onClose={closeListingStudio} />
         </React.Suspense>
       )}
+      </PhotographerHelpProvider>
     </DashboardLayoutContext.Provider>
   );
 };

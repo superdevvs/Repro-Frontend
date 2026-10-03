@@ -114,9 +114,9 @@ const photographerSteps: OnboardingStep[] = [
     mobileTab: "completed",
   },
   {
-    title: "Upload photos and videos",
-    description: "Watch the upload guide to see how to add files to a shoot and check the results. You can reopen it here any time.",
-    target: "photographer-upload-guide",
+    title: "Help, whenever you need it",
+    description: "Open Need help? for upload and CubiCasa guides, the dashboard tour, and a place to ask Robbie a question.",
+    target: "photographer-help-hub",
     mobileTab: "shoots",
     guide: "uploads",
   },

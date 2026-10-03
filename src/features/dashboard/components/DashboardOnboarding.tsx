@@ -39,7 +39,11 @@ interface DashboardOnboardingProps {
   tourOpen: boolean;
   /** Pause the tour while the photographer watches the upload guide. */
   uploadGuideOpen?: boolean;
+  /** Pause onboarding while another help hub view or guide is open. */
+  overlayOpen?: boolean;
   onOpenUploadGuide?: () => void;
+  /** Use the shared help hub instead of the tour's standalone Robbie chat. */
+  onOpenHelp?: () => void;
   isMobile: boolean;
   currentMobileTab?: string;
   lastStep?: number;
@@ -178,7 +182,9 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
   welcomeOpen,
   tourOpen,
   uploadGuideOpen = false,
+  overlayOpen = false,
   onOpenUploadGuide,
+  onOpenHelp,
   isMobile,
   currentMobileTab,
   lastStep,
@@ -211,7 +217,8 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
   const cardRef = useRef<HTMLDivElement | null>(null);
   const currentStep = steps[activeStep];
   const showUploadGuideAction = roleKey === "photographer" && !!onOpenUploadGuide;
-  const tourVisible = tourOpen && !uploadGuideOpen;
+  const onboardingPaused = uploadGuideOpen || overlayOpen;
+  const tourVisible = tourOpen && !onboardingPaused;
   const progress = useMemo(() => ((activeStep + 1) / steps.length) * 100, [activeStep, steps.length]);
   const prefersReducedMotion = useMemo(
     () =>
@@ -443,7 +450,7 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
 
   return (
     <>
-      <Dialog open={welcomeOpen && !uploadGuideOpen} onOpenChange={(open) => { if (!open) onDismiss(); }}>
+      <Dialog open={welcomeOpen && !onboardingPaused} onOpenChange={(open) => { if (!open) onDismiss(); }}>
         <DialogContent className="w-[calc(100vw-1rem)] max-w-xl rounded-2xl p-0 overflow-hidden">
           <div className="bg-gradient-to-br from-primary/15 via-background to-background p-5 sm:p-6">
             <DialogHeader className="text-left space-y-3">
@@ -545,6 +552,12 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
                 Watch upload guide
               </Button>
             )}
+            {onOpenHelp && (
+              <Button variant="ghost" size="sm" className="mt-3 gap-2" onClick={onOpenHelp}>
+                <ReproAiIcon className="h-4 w-4" />
+                Ask Robbie
+              </Button>
+            )}
             <Progress value={progress} className="mt-4 h-2" />
             <div className="mt-4 flex items-center justify-between gap-2">
               <Button variant="outline" size="sm" className="gap-2" onClick={handleBack} disabled={activeStep === 0}>
@@ -558,7 +571,7 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
             </div>
           </div>
 
-          <div className={cn(
+          {!onOpenHelp && <div className={cn(
             "pointer-events-auto fixed right-4 z-[80] flex items-end gap-2",
             isMobile
               ? "top-[calc(1rem+env(safe-area-inset-top))] flex-col-reverse"
@@ -628,7 +641,7 @@ export const DashboardOnboarding: React.FC<DashboardOnboardingProps> = ({
               <ReproAiIcon className="h-4 w-4" />
               Help
             </Button>
-          </div>
+          </div>}
         </div>,
         document.body,
         )
