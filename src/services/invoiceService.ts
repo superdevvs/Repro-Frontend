@@ -1,3 +1,4 @@
+import { getApiHeaders } from '@/services/api';
 import { API_BASE_URL } from '@/config/env';
 import type { InvoiceData } from '@/utils/invoiceUtils';
 import type { PaymentDetails } from '@/utils/paymentUtils';
@@ -48,6 +49,7 @@ const getAuthToken = (): string | null => {
 const buildHeaders = () => {
   const token = getAuthToken();
   return {
+    ...getApiHeaders(),
     Accept: 'application/json',
     'Content-Type': 'application/json',
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -55,6 +57,8 @@ const buildHeaders = () => {
 };
 
 export interface FetchInvoicesParams {
+  status?: 'all' | 'pending' | 'paid' | 'overdue';
+  sort?: 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
   page?: number;
   per_page?: number;
   paid?: boolean;
@@ -74,13 +78,15 @@ export interface InvoiceResponse {
 /**
  * Fetch invoices from the API with role-based filtering
  */
-export const fetchInvoices = async (params: FetchInvoicesParams = {}): Promise<InvoiceResponse> => {
+export const fetchInvoices = async (params: FetchInvoicesParams = {}, signal?: AbortSignal): Promise<InvoiceResponse> => {
   const token = getAuthToken();
   if (!token) {
     throw new Error('Authentication required');
   }
 
   const queryParams = new URLSearchParams();
+  if (params.status) queryParams.append('status', params.status);
+  if (params.sort) queryParams.append('sort', params.sort);
   if (params.page) queryParams.append('page', params.page.toString());
   if (params.per_page) queryParams.append('per_page', params.per_page.toString());
   if (params.paid !== undefined) queryParams.append('paid', params.paid.toString());
@@ -91,7 +97,7 @@ export const fetchInvoices = async (params: FetchInvoicesParams = {}): Promise<I
   const url = `${API_BASE_URL}/api/invoices${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
   
   const response = await fetch(url, {
-    headers: buildHeaders(),
+    headers: buildHeaders(), signal,
   });
 
   if (!response.ok) {
@@ -114,6 +120,15 @@ export const fetchInvoices = async (params: FetchInvoicesParams = {}): Promise<I
     total: json.total || invoices.length,
   };
 };
+
+export async function fetchInvoiceSummary(params: FetchInvoicesParams = {}, signal?: AbortSignal): Promise<InvoiceData[]> {
+  const query = new URLSearchParams();
+  for (const name of ['status', 'start', 'end', 'photographer_id', 'paid'] as const) if (params[name] !== undefined) query.set(name, String(params[name]));
+  const response = await fetch(`${API_BASE_URL}/api/invoices/summary?${query}`,  { headers: buildHeaders(), signal });
+  if (!response.ok) throw new Error('Unable to load invoice summary');
+  const json = await response.json();
+  return (json.data ?? []).map((row: InvoiceApiRecord) => mapInvoiceResponse(row));
+}
 
 const sanitizeDownloadFilename = (value: string): string | null => {
   const basename = value

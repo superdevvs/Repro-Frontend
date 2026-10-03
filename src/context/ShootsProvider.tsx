@@ -90,7 +90,6 @@ const shouldAutoFetchShootsForPath = (path: string) =>
   || path === '/book-shoot'
   || path === '/accounting'
   || path === '/invoices'
-  || path === '/shoot-history'
   || path === '/shoot-calendar'
   || path.startsWith('/accounts/')
   || path.startsWith('/shoots/')

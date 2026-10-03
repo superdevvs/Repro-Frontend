@@ -1,3 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
+import { fetchInvoiceSummary, type FetchInvoicesParams } from '@/services/invoiceService';
+import { getImpersonatedUserId } from '@/services/api';
 import { usePageLoading } from '@/hooks/use-page-loading';
 
 import React, { lazy, Suspense, useState, useMemo, useEffect, useCallback } from 'react';
@@ -145,73 +148,36 @@ const AccountingPage = () => {
     });
   }, []);
 
-  const loadInvoices = useCallback(async (): Promise<void> => {
-    if (accountingMode === 'client' || accountingMode === 'editor') {
-      setInvoices([]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      // Fetch first page only for fast initial load
-      const response = await fetchInvoices({
-        page: 1,
-        per_page: 100,
-      });
-      
-      const firstPageData = response.data;
-      const lastPage = response.last_page || 1;
-      
-      // If there are more pages, fetch them in parallel (background)
-      if (lastPage > 1) {
-        commitLoadedInvoices(firstPageData); // Show first page immediately
-        
-        // Fetch remaining pages in parallel
-        const pagePromises = [];
-        for (let page = 2; page <= lastPage; page++) {
-          pagePromises.push(fetchInvoices({ page, per_page: 100 }));
-        }
-        
-        const remainingResponses = await Promise.all(pagePromises);
-        const allData = [
-          ...firstPageData,
-          ...remainingResponses.flatMap(r => r.data)
-        ];
-        commitLoadedInvoices(allData);
-      } else {
-        commitLoadedInvoices(firstPageData);
-      }
-    } catch (error) {
-      console.error('Failed to load invoices:', error);
-      toast({
-        title: 'Failed to load invoices',
-        description: error instanceof Error ? error.message : 'An error occurred while loading invoices',
-        variant: 'destructive',
-      });
-      setInvoices([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [accountingMode, commitLoadedInvoices, toast]);
-
-  // Fetch invoices from API
+  const [invoiceParams, setInvoiceParams] = useState<FetchInvoicesParams>({ page: 1, per_page: 25, sort: 'date_desc' });
+  const invoiceAccessScope = `${user?.id ?? ''}:${role}:${getImpersonatedUserId() ?? ''}`;
+  const invoiceQuery = useQuery({
+    queryKey: ['accounting-performance', invoiceAccessScope, 'list', invoiceParams],
+    enabled: Boolean(user?.id) && accountingMode !== 'client' && accountingMode !== 'editor',
+    queryFn: ({ signal }) => fetchInvoices(invoiceParams, signal), staleTime: 30_000, gcTime: 300_000,
+  });
+  const summaryParams = { status: invoiceParams.status, start: invoiceParams.start, end: invoiceParams.end };
+  const invoiceSummaryQuery = useQuery({
+    queryKey: ['accounting-performance', invoiceAccessScope, 'summary', summaryParams],
+    enabled: Boolean(user?.id) && accountingMode === 'admin',
+    queryFn: ({ signal }) => fetchInvoiceSummary(summaryParams, signal), staleTime: 30_000, gcTime: 300_000,
+  });
+  useEffect(() => { commitLoadedInvoices(invoiceQuery.data?.data ?? []); }, [invoiceQuery.data, commitLoadedInvoices, invoiceAccessScope]);
+  useEffect(() => { setLoading(invoiceQuery.isLoading); }, [invoiceQuery.isLoading]);
   useEffect(() => {
-    if (accountingMode === 'client' || accountingMode === 'editor') {
-      setLoading(false);
-      return;
-    }
-
-    loadInvoices();
-  }, [accountingMode, loadInvoices]);
-
-  useEffect(() => {
-    if (accountingMode === 'client' || accountingMode === 'editor') {
-      return;
-    }
-
-    return registerInvoicesRefresh(loadInvoices);
-  }, [accountingMode, loadInvoices]);
+    if (invoiceQuery.error) toast({ title: 'Unable to load invoices', description: invoiceQuery.error.message, variant: 'destructive' });
+  }, [invoiceQuery.error, toast]);
+  const { refetch: refetchInvoices } = invoiceQuery;
+  const { refetch: refetchInvoiceSummary } = invoiceSummaryQuery;
+  const loadInvoices = useCallback(async () => {
+    if (accountingMode === 'client' || accountingMode === 'editor') return;
+    await refetchInvoices();
+    if (accountingMode === 'admin') await refetchInvoiceSummary();
+  }, [accountingMode, refetchInvoices, refetchInvoiceSummary]);
+  useEffect(() => registerInvoicesRefresh(loadInvoices), [loadInvoices]);
+  const serverInvoices = {
+    page: invoiceParams.page ?? 1, perPage: invoiceParams.per_page ?? 25,
+    total: invoiceQuery.data?.total ?? 0, onChange: setInvoiceParams, params: invoiceParams,
+  };
 
   // Filter invoices based on role (backend already filters, but this is a safety check)
   const filteredInvoices = useMemo(() => {
@@ -259,8 +225,8 @@ const AccountingPage = () => {
       return filteredInvoices;
     }
 
-    return filteredInvoices.filter((invoice) => isInvoiceInDaysWindow(invoice, daysWindow));
-  }, [filteredInvoices, accountingMode, daysWindow]);
+    return (invoiceSummaryQuery.data ?? []).filter((invoice) => isInvoiceInDaysWindow(invoice, daysWindow));
+  }, [filteredInvoices, accountingMode, daysWindow, invoiceSummaryQuery.data]);
 
   // Fetch shoots and editing jobs based on role
   // TODO: Replace with actual API calls
@@ -405,6 +371,7 @@ const AccountingPage = () => {
         variant: "default",
       });
       setPaymentDialogOpen(false);
+      void loadInvoices();
     } catch (error) {
       console.error('Failed to mark invoice as paid:', error);
       toast({
@@ -562,6 +529,7 @@ const AccountingPage = () => {
                       <section id="invoice-activity" className="min-w-0 scroll-mt-6 space-y-3">
                         <h2 className="text-base font-semibold tracking-tight">Client invoices</h2>
                         <InvoiceList
+                          server={serverInvoices}
                           data={{ invoices: filteredInvoices }}
                           onView={handleViewInvoice}
                           onEdit={handleEditInvoice}
@@ -584,12 +552,14 @@ const AccountingPage = () => {
                       <Suspense fallback={null}><LazyEditorEarningsWorkspace mode="self" startDate={reportingRange.startDate} endDate={reportingRange.endDate} /></Suspense>
                       <Suspense fallback={null}><LazyEditorRateSettings className="min-h-0 max-h-[min(72vh,38rem)]" /></Suspense>
                     </>}
-                    {config.showOverviewCards && accountingMode === 'admin' && <OverviewCards invoices={adminWindowInvoices} timeFilter={timeFilter} daysWindow={daysWindow} />}
+                    {accountingMode === 'admin' && invoiceSummaryQuery.isLoading && <p role="status">Loading financial summary…</p>}
+                    {accountingMode === 'admin' && invoiceSummaryQuery.isError && <p role="alert">Financial summary could not load. <button onClick={() => void invoiceSummaryQuery.refetch()}>Retry</button></p>}
+                    {config.showOverviewCards && accountingMode === 'admin' && invoiceSummaryQuery.data && <OverviewCards invoices={adminWindowInvoices} timeFilter={timeFilter} daysWindow={daysWindow} />}
                     {accountingMode === 'client' && <>
                       {config.showOverviewCards && <ClientBillingOverviewCards summary={clientBillingSummary} items={clientBillingItems} daysWindow={daysWindow} paidDateRange={reportingRange} />}
                       {config.showInvoiceTable && <ClientBillingList items={clientBillingItems} loading={clientBillingLoading} onView={handleViewClientBillingItem} onPay={handlePayClientBillingItem} onDownload={handleDownloadClientBillingItem} onDownloadMultiple={handleDownloadClientBillingItems} />}
                     </>}
-                    {config.showRevenueChart && (accountingMode === 'admin' || accountingMode === 'client') && (
+                    {config.showRevenueChart && ((accountingMode === 'admin' && Boolean(invoiceSummaryQuery.data)) || accountingMode === 'client') && (
                       <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
                         <div className="min-w-0 lg:col-span-2"><Suspense fallback={null}>
                           {accountingMode === 'admin' ? <LazyRevenueCharts invoices={adminWindowInvoices} timeFilter={timeFilter} onTimeFilterChange={setTimeFilter} role={role} /> : <LazyClientBillingCharts items={clientBillingItems} timeFilter={timeFilter} onTimeFilterChange={setTimeFilter} />}
@@ -614,6 +584,7 @@ const AccountingPage = () => {
                         ) : (
                           accountingMode === 'editor' ? null : (
                             <InvoiceList
+                          server={serverInvoices}
                               data={{ invoices: filteredInvoices }}
                               onView={handleViewInvoice}
                               onEdit={handleEditInvoice}

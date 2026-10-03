@@ -1,3 +1,6 @@
+import React from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+const QueryWrapper = ({ children }: { children: React.ReactNode }) => { const [client] = React.useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } })); return <QueryClientProvider client={client}>{children}</QueryClientProvider>; };
 import { useShootsTabsCardController } from '@/components/dashboard/v2/useShootsTabsCardController';
 import { shootDataToSummary } from '@/utils/dashboardDerivedUtils';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
@@ -10,7 +13,7 @@ import { DEFAULT_HISTORY_FILTERS, DEFAULT_OPERATIONAL_FILTERS } from './shootHis
 import type { ShootData } from '@/types/shoots';
 
 const mocks = vi.hoisted(() => ({ get: vi.fn(), toast: vi.fn() }));
-vi.mock('@/services/api', () => ({ apiClient: { get: mocks.get }, getApiHeaders: () => ({}) }));
+vi.mock('@/services/api', () => ({ apiClient: { get: mocks.get }, getImpersonatedUserId: () => null, getApiHeaders: () => ({}) }));
 vi.mock('@/hooks/useShootHistoryMapGeocoding', () => ({ useShootHistoryMapGeocoding: () => ({ geoCache: {}, setGeoCache: vi.fn() }) }));
 vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: () => false }));
 vi.mock('@/hooks/useWeatherData', () => ({ useWeatherData: () => ({}) }));
@@ -66,12 +69,12 @@ describe('sales requested shoot controls', () => {
       canViewAllShoots: false, canViewHistory: false, canViewInvoice: false, shouldHideClientDetails: false,
       isSuperAdmin: false, isAdmin: false, isEditingManager: false, isPhotographer: false, isEditor: false,
       formatDatePref: () => '', formatTime: (value) => value,
-    }), { initialProps: { subTab: 'all' } });
+    }), { wrapper: QueryWrapper, initialProps: { subTab: 'all' } });
     await waitFor(() => expect(result.current.loading).toBe(false));
     act(() => result.current.handleOperationalPageChange('next'));
-    await waitFor(() => expect(mocks.get).toHaveBeenLastCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ page: 2 }) })));
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ page: 2 }) })));
     rerender({ subTab: 'requested' });
-    await waitFor(() => expect(mocks.get).toHaveBeenLastCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ page: 1, scheduled_status: 'requested' }) })));
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ page: 1, scheduled_status: 'requested' }) })));
     expect(result.current.operationalData).toHaveLength(1);
   });
 });

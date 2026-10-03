@@ -37,13 +37,14 @@ describe('release-locked lightbox', () => {
       { initialProps: { canViewFullSize: true } },
     );
     act(() => result.current!.setPreviewMode('full'));
-    expect(result.current!.imageUrl).toBe(file.original_url);
+    expect(result.current!.previewMode).toBe('full');
+    expect(result.current!.imageUrl).toBe(file.web_url);
     rerender({ canViewFullSize: false });
     expect(result.current!.imageUrl).toBe(file.web_url);
   });
 
   it('keeps size controls available for released media', () => {
-    const { result } = renderHook(() => useMediaViewerController({ ...base, canViewFullSize: true }));
+    const { result } = renderHook(() => useMediaViewerController({ ...base, files: [{ ...file, uses_watermark: false }], canViewFullSize: true }));
     render(<MediaViewerPreviewSizeControls model={result.current!} />);
     expect(screen.getByRole('button', { name: 'Full size' })).toBeEnabled();
   });

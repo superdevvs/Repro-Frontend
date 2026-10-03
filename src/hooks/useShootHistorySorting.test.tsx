@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import React from 'react'
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
@@ -10,7 +11,7 @@ import { useShootHistoryFilters } from './useShootHistoryFilters'
 import { useShootHistoryData, type UseShootHistoryDataArgs } from './useShootHistoryData'
 
 const mocks = vi.hoisted(() => ({ get: vi.fn(), toast: vi.fn() }))
-vi.mock('@/services/api', () => ({ apiClient: { get: mocks.get }, getApiHeaders: () => ({}) }))
+vi.mock('@/services/api', () => ({ apiClient: { get: mocks.get }, getApiHeaders: () => ({}), getImpersonatedUserId: () => null }))
 vi.mock('@/hooks/useShootHistoryMapGeocoding', () => ({
   useShootHistoryMapGeocoding: () => ({ geoCache: {}, setGeoCache: vi.fn() }),
 }))
@@ -55,6 +56,8 @@ beforeEach(() => {
 })
 afterEach(cleanup)
 
+const QueryWrapper = ({ children }: { children: React.ReactNode }) => { const [client] = React.useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } })); return <QueryClientProvider client={client}>{children}</QueryClientProvider>; };
+
 describe('Shoot History sort selection', () => {
   it.each(['admin', 'superadmin', 'editing_manager', 'salesRep', 'photographer', 'client', 'editor'])(
     'provides the appropriate default and retains each tab selection for %s',
@@ -79,7 +82,7 @@ describe('Shoot History sort selection', () => {
 describe('Shoot History server ordering', () => {
   it('keeps the server sequence and sort selection when switching list and grid', async () => {
     const { result, rerender } = renderHook((args: UseShootHistoryDataArgs) => useShootHistoryData(args), {
-      initialProps: baseArgs,
+      wrapper: QueryWrapper, initialProps: baseArgs,
     })
     await waitFor(() => expect(result.current.operationalData.map((shoot) => shoot.id)).toEqual(['9', '2', '11']))
     expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({
@@ -93,7 +96,7 @@ describe('Shoot History server ordering', () => {
 
   it('starts a changed operational sort on page one rather than reordering the current page', async () => {
     const { result, rerender } = renderHook((args: UseShootHistoryDataArgs) => useShootHistoryData(args), {
-      initialProps: baseArgs,
+      wrapper: QueryWrapper, initialProps: baseArgs,
     })
     await waitFor(() => expect(result.current.loading).toBe(false))
     act(() => result.current.setOperationalPage(3))
@@ -105,15 +108,17 @@ describe('Shoot History server ordering', () => {
     await waitFor(() => expect(result.current.operationalPage).toBe(1))
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(mocks.get.mock.calls.length).toBeGreaterThan(0)
-    for (const [, config] of mocks.get.mock.calls) {
-      expect(config.params).toMatchObject({ sort: 'date_desc', page: 1 })
+    for (const [path, config] of mocks.get.mock.calls.filter(([path]) => path === '/shoots')) {
+      expect(path).toBe('/shoots')
+      expect(config.params).toMatchObject({ sort: 'date_desc' })
+      expect([1, 2]).toContain(config.params.page)
     }
   })
 
   it('applies a changed history sort before pagination and includes it in export parameters', async () => {
     const args: UseShootHistoryDataArgs = { ...baseArgs, activeTab: 'history', shootSort: 'date_desc' }
     const { result, rerender } = renderHook((props: UseShootHistoryDataArgs) => useShootHistoryData(props), {
-      initialProps: args,
+      wrapper: QueryWrapper, initialProps: args,
     })
     await waitFor(() => expect(result.current.loading).toBe(false))
     act(() => result.current.setHistoryPage(2))

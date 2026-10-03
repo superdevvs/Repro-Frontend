@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { prefetchRoute } from '@/services/routePrefetch';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { formatBadgeCount } from '@/utils/formatBadgeCount';
@@ -40,6 +41,8 @@ export function NavLink({
   return (
     <Link
       to={to}
+      onMouseEnter={() => !external && prefetchRoute(to)}
+      onFocus={() => !external && prefetchRoute(to)}
       reloadDocument={external}
       target={external ? '_blank' : undefined}
       rel={external ? 'noopener noreferrer' : undefined}

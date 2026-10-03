@@ -51,7 +51,7 @@ export function getSlideshowMotionVariants(prefersReducedMotion: boolean | null)
       y: 0,
       filter: 'blur(0px)',
       transition: {
-        duration: prefersReducedMotion ? 0.2 : 0.72,
+        duration: prefersReducedMotion ? 0 : 0.08,
         ease: [0.22, 1, 0.36, 1],
       },
     },
@@ -62,7 +62,7 @@ export function getSlideshowMotionVariants(prefersReducedMotion: boolean | null)
       y: prefersReducedMotion ? 0 : -4,
       filter: prefersReducedMotion ? 'none' : 'blur(6px)',
       transition: {
-        duration: prefersReducedMotion ? 0.18 : 0.5,
+        duration: prefersReducedMotion ? 0 : 0.08,
         ease: [0.4, 0, 0.2, 1],
       },
     }),

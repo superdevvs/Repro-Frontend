@@ -1,15 +1,17 @@
+import { getApiHeaders } from '@/services/api';
 import { DashboardOverview } from '@/types/dashboard';
 import { transformDashboardOverview } from '@/utils/dashboardTransformers';
 import { API_BASE_URL } from '@/config/env';
 
 const buildHeaders = (token?: string) => ({
+  ...getApiHeaders(),
   Accept: 'application/json',
   ...(token ? { Authorization: `Bearer ${token}` } : {}),
 });
 
-export const fetchDashboardOverview = async (token?: string): Promise<DashboardOverview> => {
+export const fetchDashboardOverview = async (token?: string, signal?: AbortSignal): Promise<DashboardOverview> => {
   const res = await fetch(`${API_BASE_URL}/api/dashboard/overview`, {
-    headers: buildHeaders(token),
+    headers: buildHeaders(token), signal,
   });
 
   if (!res.ok) {

@@ -1,3 +1,4 @@
+import type { FetchInvoicesParams } from '@/services/invoiceService';
 import { EmptyState } from '@/components/ui/empty-state';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -26,6 +27,7 @@ import { Card } from '@/components/ui/card';
 import { InvoiceData } from '@/utils/invoiceUtils';
 import { InvoiceDateFilterToolbar, type InvoiceExportFormat } from '@/components/accounting/InvoiceDateFilterToolbar';
 import {
+  resolveInvoiceDateFilterRange,
   DEFAULT_INVOICE_DATE_FILTER,
   filterInvoiceItemsByDate,
   parseInvoiceDateInput,
@@ -109,6 +111,7 @@ export const isSettleableInvoice = (
 };
 
 interface InvoiceListProps {
+  server?: { page: number; perPage: number; total: number; params: FetchInvoicesParams; onChange: (params: FetchInvoicesParams) => void };
   data: {
     invoices: InvoiceData[];
   };
@@ -124,7 +127,8 @@ interface InvoiceListProps {
   loading?: boolean;
 }
 
-export function InvoiceList({ 
+export function InvoiceList({
+  server,
   data, 
   onView, 
   onEdit, 
@@ -159,6 +163,15 @@ export function InvoiceList({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
 
+  useEffect(() => {
+    if (!server) return;
+    const range = resolveInvoiceDateFilterRange(dateFilter);
+    const start = range.start ? format(range.start, 'yyyy-MM-dd') : undefined;
+    const end = range.end ? format(range.end, 'yyyy-MM-dd') : undefined;
+    if ((server.params.status ?? 'all') !== activeTab || server.params.start !== start || server.params.end !== end) {
+      server.onChange({ ...server.params, page: 1, status: activeTab, start, end });
+    }
+  }, [activeTab, dateFilter, server]);
   const dateFilteredInvoices = useMemo(
     () => filterInvoiceItemsByDate(data.invoices, dateFilter, (invoice) => (
       invoice.billingPeriodStart || invoice.billingPeriodEnd
@@ -172,6 +185,7 @@ export function InvoiceList({
   );
   const filteredInvoices = useMemo(
     () => {
+      if (server) return data.invoices;
       if (activeTab === 'all') return dateFilteredInvoices;
       if (activeTab === 'pending') {
         return dateFilteredInvoices.filter((invoice) => (
@@ -180,23 +194,25 @@ export function InvoiceList({
       }
       return dateFilteredInvoices.filter((invoice) => invoice.status === activeTab);
     },
-    [activeTab, dateFilteredInvoices],
+    [activeTab, dateFilteredInvoices, server, data.invoices],
   );
 
-  const [itemsPerPage, setItemsPerPage] = useState(5);
-  const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / itemsPerPage));
-  const safePage = Math.min(currentPage, totalPages);
-  const startIndex = (safePage - 1) * itemsPerPage;
-  const paginatedInvoices = filteredInvoices.slice(startIndex, startIndex + itemsPerPage);
+  const [itemsPerPage, setItemsPerPage] = useState(server?.perPage ?? 5);
+  const totalCount = server?.total ?? filteredInvoices.length;
+  const pageSize = server?.perPage ?? itemsPerPage;
+  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
+  const safePage = Math.min(server?.page ?? currentPage, totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const paginatedInvoices = server ? data.invoices : filteredInvoices.slice(startIndex, startIndex + itemsPerPage);
 
   const { showingFrom, showingTo } = useMemo(() => {
     if (filteredInvoices.length === 0) {
       return { showingFrom: 0, showingTo: 0 };
     }
     const start = startIndex + 1;
-    const end = Math.min(startIndex + paginatedInvoices.length, filteredInvoices.length);
+    const end = Math.min(startIndex + paginatedInvoices.length, totalCount);
     return { showingFrom: start, showingTo: end };
-  }, [filteredInvoices.length, paginatedInvoices.length, startIndex]);
+  }, [filteredInvoices.length, paginatedInvoices.length, startIndex, totalCount]);
 
   useEffect(() => {
     // Reset pagination whenever tab or view mode changes
@@ -218,7 +234,9 @@ export function InvoiceList({
   }, [hasExplicitViewMode, isMobile]);
 
   const handlePageChange = (page: number) => {
-    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+    const next = Math.max(1, Math.min(page, totalPages));
+    if (server) server.onChange({ ...server.params, page: next });
+    else setCurrentPage(next);
   };
 
   const handleViewModeChange = (mode: 'list' | 'grid') => {
@@ -393,7 +411,13 @@ export function InvoiceList({
     <div className="w-full">
       <Card className="mb-6">
         <div className="flex flex-wrap items-center gap-2 border-b p-3">
-          <InvoiceStatusTabs
+          {server && <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+        <span>Export includes this page or selected rows.</span>
+        <select aria-label="Sort invoices" value={server.params.sort ?? 'date_desc'} onChange={(event) => server.onChange({ ...server.params, page: 1, sort: event.target.value as FetchInvoicesParams['sort'] })}>
+          <option value="date_desc">Newest first</option><option value="date_asc">Oldest first</option><option value="amount_desc">Amount: high to low</option><option value="amount_asc">Amount: low to high</option>
+        </select>
+      </div>}
+      <InvoiceStatusTabs
             value={activeTab}
             className="min-w-0 flex-1 sm:flex-none"
             onValueChange={setActiveTab}
@@ -687,9 +711,9 @@ export function InvoiceList({
       {filteredInvoices.length > 0 && (
         <div className="mt-4 flex flex-col gap-3 rounded-lg border bg-card px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
           <p className="text-muted-foreground text-xs sm:text-sm">
-            Showing {showingFrom}-{showingTo} of {filteredInvoices.length} invoices
+            Showing {showingFrom}-{showingTo} of {totalCount} invoices
           </p>
-          <label className="flex items-center gap-2 text-xs text-muted-foreground">Rows per page<select aria-label="Invoice rows per page" value={itemsPerPage} className="h-8 rounded-md border bg-background px-2" onChange={event => { setItemsPerPage(Number(event.target.value)); setCurrentPage(1); }}>{[5, 10, 20].map(size => <option key={size} value={size}>{size}</option>)}</select></label>
+          {!server && <label className="flex items-center gap-2 text-xs text-muted-foreground">Rows per page<select aria-label="Invoice rows per page" value={pageSize} className="h-8 rounded-md border bg-background px-2" onChange={event => { setItemsPerPage(Number(event.target.value)); setCurrentPage(1); }}>{[5, 10, 20].map(size => <option key={size} value={size}>{size}</option>)}</select></label>}
           {totalPages > 1 && (
             <Pagination>
               <PaginationContent>

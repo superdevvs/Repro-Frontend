@@ -144,44 +144,44 @@ describe('dashboard page loading integration', () => {
     expect(container.querySelector('footer')).toBeNull();
   });
 
-  it('uses one overlay for nested layouts and leaves navigation usable while the page loads', () => {
+  it('keeps nested page content and navigation usable during section loading', () => {
     vi.useFakeTimers();
     const view = (loading: boolean) => <MemoryRouter initialEntries={['/shoot-history']}><DashboardLayout><Page loading={loading} /></DashboardLayout></MemoryRouter>;
     const { rerender, container } = render(view(true));
     expect(container.querySelectorAll('[data-page-loading]')).toHaveLength(1);
     expect(container.querySelectorAll('main')).toHaveLength(1);
-    expect(screen.getByRole('status', { name: 'Loading page' })).toBeInTheDocument();
+    expect(screen.queryByRole('status', { name: 'Loading page' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Navigation' }).closest('[inert]')).toBeNull();
     expect(screen.getByRole('link', { name: 'Dashboard' }).closest('[inert]')).toBeNull();
-    expect(screen.getByText('Page action').closest('[inert]')).not.toBeNull();
+    expect(screen.getByText('Page action').closest('[inert]')).toBeNull();
     rerender(view(false));
     act(() => { vi.advanceTimersByTime(151); });
     expect(screen.queryByRole('status', { name: 'Loading page' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Page action' })).toBeEnabled();
   });
 
-  it('centers above the measured mobile navigation and follows its height changes', () => {
+  it('keeps content usable when the mobile navigation height changes', () => {
     viewport.mobile = true;
     const view = () => <MemoryRouter initialEntries={['/shoot-history']}><DashboardLayout><Page loading /></DashboardLayout></MemoryRouter>;
     const { rerender } = render(view());
-    expect(screen.getByRole('status', { name: 'Loading page' })).toHaveStyle({ paddingBottom: '62px' });
+    expect(screen.getByRole('button', { name: 'Page action' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Mobile menu' }).closest('[inert]')).toBeNull();
 
     viewport.bottomNavHeight = 88;
     rerender(view());
-    expect(screen.getByRole('status', { name: 'Loading page' })).toHaveStyle({ paddingBottom: '88px' });
+    expect(screen.getByRole('button', { name: 'Page action' })).toBeEnabled();
   });
 
-  it('removes the mobile inset when resizing into the desktop shell', () => {
+  it('keeps content usable when resizing into the desktop shell', () => {
     viewport.mobile = true;
     const view = () => <MemoryRouter initialEntries={['/shoot-history']}><DashboardLayout><Page loading /></DashboardLayout></MemoryRouter>;
     const { rerender } = render(view());
-    expect(screen.getByRole('status', { name: 'Loading page' })).toHaveStyle({ paddingBottom: '62px' });
+    expect(screen.getByRole('button', { name: 'Page action' })).toBeEnabled();
 
     viewport.mobile = false;
     rerender(view());
     expect(screen.queryByRole('navigation', { name: 'Mobile navigation' })).not.toBeInTheDocument();
-    expect(screen.getByRole('status', { name: 'Loading page' })).toHaveStyle({ paddingBottom: '0px' });
+    expect(screen.getByRole('button', { name: 'Page action' })).toBeEnabled();
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
   });
 
@@ -189,7 +189,7 @@ describe('dashboard page loading integration', () => {
     viewport.compact = true;
     viewport.bottomNavHeight = 70;
     render(<MemoryRouter initialEntries={['/dashboard']}><DashboardLayout><Page loading /></DashboardLayout></MemoryRouter>);
-    expect(screen.getByRole('status', { name: 'Loading page' })).toHaveStyle({ paddingBottom: '70px' });
+    expect(screen.getByRole('button', { name: 'Page action' })).toBeEnabled();
     expect(screen.getByRole('navigation', { name: 'Mobile navigation' })).toBeInTheDocument();
   });
 

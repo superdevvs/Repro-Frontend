@@ -1,3 +1,6 @@
+import type { ShootCard } from '@/types/shootCard'
+import { useQueryClient } from '@tanstack/react-query'
+import { getImpersonatedUserId } from '@/services/api'
 import { downloadBlob, getHistoryDownloadMode } from './shootHistoryDownloadHelpers';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
@@ -33,8 +36,7 @@ import {
 import type { UserData } from '@/types/auth'
 import { downloadShootMediaArchive, downloadShootRawFiles } from '@/utils/shootMediaDownload'
 import { buildShootPath } from '@/utils/shootPath'
-import { shootHasEditorAssignment } from '@/utils/shootEditorAssignments'
-import { doesShootBelongToClient } from '@/utils/dashboardDerivedUtils'
+import { filterShootByRole } from './shootHistoryRoleFilter'
 import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess'
 import { useShootHistoryMapGeocoding } from '@/hooks/useShootHistoryMapGeocoding'
 import type { ShootHistorySort } from '@/components/shoots/history/shootHistorySorting'
@@ -101,73 +103,6 @@ export interface UseShootHistoryDataArgs {
   formatTime: (value: string) => string
 }
 
-const filterShootByRole = (
-  shoot: ShootData,
-  role: string | null | undefined,
-  user: UserData | null | undefined,
-) => {
-  if (role === 'client') {
-    if (!user?.id && !user?.email && !user?.name) return true
-    if (doesShootBelongToClient(shoot, user)) return true
-
-    const userId = user?.id ? String(user.id) : ''
-    const userMetadata = (user?.metadata as Record<string, unknown> | undefined) ?? {}
-    const scopedClientIds = new Set(
-      [
-        userMetadata.clientId,
-        userMetadata.client_id,
-        ...(Array.isArray(userMetadata.clientIds) ? userMetadata.clientIds : []),
-        ...(Array.isArray(userMetadata.managedClientIds) ? userMetadata.managedClientIds : []),
-      ]
-        .map((value) => (value == null ? '' : String(value).trim()))
-        .filter(Boolean),
-    )
-
-    if (shoot.client?.id && scopedClientIds.has(String(shoot.client.id))) {
-      return true
-    }
-
-    if (shoot.isGhostVisibleForUser) return true
-    return Boolean(userId && (shoot.ghostUserIds ?? []).includes(userId))
-  }
-
-  if (role === 'photographer') {
-    const userId = user?.id ? String(user.id) : ''
-    const photographerId = shoot.photographer?.id ? String(shoot.photographer.id) : ''
-    const isParentPhotographer = Boolean(userId && photographerId && userId === photographerId)
-
-    const serviceItems = [
-      ...(shoot.serviceItems ?? []),
-      ...(shoot.service_items ?? []),
-      ...(shoot.serviceObjects ?? []),
-    ]
-    const hasAssignedServiceItem = serviceItems.some((serviceItem) => {
-      const assignedPhotographerId =
-        serviceItem.resolved_photographer_id ??
-        serviceItem.photographer_id ??
-        serviceItem.photographer?.id
-
-      return userId && assignedPhotographerId !== undefined && String(assignedPhotographerId) === userId
-    })
-    if (isParentPhotographer || hasAssignedServiceItem) return true
-
-    const userName = user?.name?.toLowerCase() || ''
-    const photographerName = shoot.photographer?.name?.toLowerCase() || ''
-    if (!userId && !userName) return true
-    const hasAssignedServiceItemByName = serviceItems.some((serviceItem) => {
-      const assignedPhotographerName = serviceItem.photographer?.name?.toLowerCase()
-      return Boolean(userName && assignedPhotographerName && assignedPhotographerName === userName)
-    })
-    return photographerName === userName || hasAssignedServiceItemByName
-  }
-
-  if (role === 'editor') {
-    return shootHasEditorAssignment(shoot, user)
-  }
-
-  return true
-}
-
 const isSalesRepRole = (role: string | null | undefined) => {
   const normalizedRole = String(role ?? '').trim().toLowerCase()
 
@@ -201,6 +136,13 @@ export function useShootHistoryData({
   formatDatePref,
   formatTime,
 }: UseShootHistoryDataArgs) {
+  const queryClient = useQueryClient()
+  const accessScope = `${user?.id ?? ''}:${role ?? ''}:${getImpersonatedUserId() ?? ''}:${canViewAllShoots}:${shouldHideClientDetails}`
+  const accessScopeRef = useRef(accessScope)
+  accessScopeRef.current = accessScope
+  const loadedOperationalKey = useRef('')
+  const loadedHistoryKey = useRef('')
+
   const calendarEnabled = Boolean(calendarRange) && (activeTab === 'history'
     ? historyFilters.viewAs === 'calendar' && historyFilters.groupBy === 'shoot'
     : viewMode === 'calendar')
@@ -466,7 +408,7 @@ export function useShootHistoryData({
     }
   }, [handleShootSelect, handleUploadMedia, navigate])
 
-  const fetchOperationalData = useCallback(async () => {
+  const fetchOperationalData = useCallback(async (force = false) => {
     if (calendarRef.current.enabled) return calendarRef.current.refresh()
     operationalFetchAbortRef.current?.abort()
     const controller = new AbortController()
@@ -482,7 +424,6 @@ export function useShootHistoryData({
     const currentIsEditor = isEditorRef.current
     const currentHideClient = shouldHideClientDetailsRef.current
 
-    setLoading(true)
     try {
       let backendTab = isActiveOperationalTab(currentTab)
         ? currentTab
@@ -504,7 +445,8 @@ export function useShootHistoryData({
         page: currentPage,
         per_page: 12,
         include_files: 'false',
-        no_cache: 'true',
+        view: 'card',
+        include_filters: 'false',
       }
       if (backendTab === 'scheduled' && scheduledSubTabRef.current !== 'all') {
         params.scheduled_status = scheduledSubTabRef.current
@@ -523,10 +465,12 @@ export function useShootHistoryData({
         }
       }
 
-      const response = await apiClient.get('/shoots', { params, signal: controller.signal })
-      if (controller.signal.aborted) return
-      const payload = (response.data ?? {}) as { data?: unknown; meta?: { filters?: FilterCollections } }
-      const shoots = Array.isArray(payload.data) ? (payload.data as Record<string, unknown>[]) : []
+      const scope = accessScopeRef.current
+      const queryKey = ['shoot-history', scope, 'operational', params] as const
+      const serializedKey = JSON.stringify(queryKey)
+      type Payload = { data?: unknown; meta?: Partial<OperationalMeta> & { count?: number; filters?: FilterCollections } }
+      const applyPayload = (payload: Payload) => {
+      const shoots = Array.isArray(payload.data) ? (payload.data as ShootCard[]) : []
       const mappedShoots = shoots.map(mapShootApiToShootData)
       const roleFilteredShoots = currentCanViewAll
         ? mappedShoots
@@ -545,8 +489,32 @@ export function useShootHistoryData({
         setOperationalMeta({ current_page: currentPage, per_page: 12, total: 0 })
       }
 
-      const filtersMeta: FilterCollections = payload.meta?.filters ?? deriveFilterOptionsFromShoots(mappedShoots)
-      setOperationalOptions(currentHideClient ? { ...filtersMeta, clients: [] } : filtersMeta)
+        loadedOperationalKey.current = serializedKey
+      }
+      const cached = queryClient.getQueryData<Payload>(queryKey)
+      if (cached) applyPayload(cached)
+      else if (loadedOperationalKey.current !== serializedKey) setOperationalData([])
+      setLoading(!cached && loadedOperationalKey.current !== serializedKey)
+      if (force) await queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'none' })
+      const payload = await queryClient.fetchQuery<Payload>({
+        queryKey, staleTime: 30_000, gcTime: 300_000,
+        queryFn: async ({ signal }) => (await apiClient.get('/shoots', {
+          params: { ...params, ...(force ? { no_cache: 'true' } : {}) }, signal: AbortSignal.any([signal, controller.signal]),
+        })).data,
+      })
+      if (controller.signal.aborted || scope !== accessScopeRef.current) return
+      applyPayload(payload)
+      if ((payload.meta?.total ?? payload.meta?.count ?? 0) > currentPage * 12) {
+        const nextParams = { ...params, page: currentPage + 1 }
+        void queryClient.prefetchQuery({ queryKey: ['shoot-history', scope, 'operational', nextParams], staleTime: 30_000, gcTime: 300_000,
+          queryFn: async ({ signal }) => (await apiClient.get('/shoots', { params: nextParams, signal })).data })
+      }
+      void queryClient.fetchQuery<FilterCollections>({
+        queryKey: ['shoot-history', scope, 'filters'], staleTime: 300_000, gcTime: 300_000,
+        queryFn: async ({ signal }) => (await apiClient.get('/shoots/filters', { signal })).data.data,
+      }).then((filters) => {
+        if (!controller.signal.aborted && scope === accessScopeRef.current) setOperationalOptions(currentHideClient ? { ...filters, clients: [] } : filters)
+      }).catch(() => undefined)
     } catch (error) {
       if (controller.signal.aborted) return
       if (axios.isAxiosError(error) && (error.code === 'ERR_CANCELED' || error.name === 'CanceledError')) {
@@ -594,7 +562,7 @@ export function useShootHistoryData({
         setLoading(false)
       }
     }
-  }, [toast])
+  }, [toast, queryClient])
 
   const fetchBulkShoots = useCallback(async () => {
     if (!(isSuperAdmin || isAdmin || isEditingManager)) return
@@ -676,12 +644,10 @@ export function useShootHistoryData({
       if (currentFilters.completedStart) params.completed_start = currentFilters.completedStart
       if (currentFilters.completedEnd) params.completed_end = currentFilters.completedEnd
 
-      const response = await apiClient.get('/shoots/history', { params, signal: controller.signal })
-      if (controller.signal.aborted) return
-      const payload = (response.data ?? {}) as {
-        data?: unknown
-        meta?: { filters?: FilterCollections; current_page?: number; per_page?: number; total?: number }
-      }
+      const scope = accessScopeRef.current
+      const queryKey = ['shoot-history', scope, 'history', params]
+      type HistoryPayload = { data?: unknown; meta?: { filters?: FilterCollections; current_page?: number; per_page?: number; total?: number } }
+      const applyPayload = (payload: HistoryPayload) => {
       const isServiceGrouping = currentFilters.groupBy === 'services'
       const rows = Array.isArray(payload.data) ? payload.data : []
 
@@ -707,6 +673,20 @@ export function useShootHistoryData({
         const metaFilters = payload.meta.filters
         setHistoryOptions(currentHideClient ? { ...metaFilters, clients: [] } : metaFilters)
       }
+      }
+      const cached = queryClient.getQueryData<HistoryPayload>(queryKey)
+      if (cached) applyPayload(cached)
+      else if (loadedHistoryKey.current !== JSON.stringify(queryKey)) {
+        setHistoryRecords([])
+        setHistoryAggregates([])
+        setHistoryMeta(null)
+      }
+      setLoading(!cached && loadedHistoryKey.current !== JSON.stringify(queryKey))
+      const payload = await queryClient.fetchQuery<HistoryPayload>({ queryKey, staleTime: 30_000, gcTime: 300_000,
+        queryFn: async ({ signal }) => (await apiClient.get('/shoots/history', { params, signal: AbortSignal.any([signal, controller.signal]) })).data })
+      if (scope !== accessScopeRef.current || controller.signal.aborted) return
+      loadedHistoryKey.current = JSON.stringify(queryKey)
+      applyPayload(payload)
     } catch (error) {
       if (controller.signal.aborted) return
       if (axios.isAxiosError(error) && (error.code === 'ERR_CANCELED' || error.name === 'CanceledError')) {
@@ -755,15 +735,16 @@ export function useShootHistoryData({
         setLoading(false)
       }
     }
-  }, [toast])
+  }, [toast, queryClient])
 
   const refreshActiveTabData = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: ['shoot-history', accessScopeRef.current], refetchType: 'none' })
     if (activeTab === 'history') {
       await fetchHistoryData()
     } else {
-      await fetchOperationalData()
+      await fetchOperationalData(true)
     }
-  }, [activeTab, fetchHistoryData, fetchOperationalData])
+  }, [activeTab, fetchHistoryData, fetchOperationalData, queryClient])
 
   useEffect(() => registerShootHistoryRefresh(refreshActiveTabData), [refreshActiveTabData])
 
@@ -778,6 +759,16 @@ export function useShootHistoryData({
 
     return () => clearTimeout(timeoutId)
   }, [loading, calendarEnabled])
+
+  useEffect(() => {
+    loadedOperationalKey.current = ''
+    loadedHistoryKey.current = ''
+    setOperationalData([])
+    setHistoryRecords([])
+    setHistoryAggregates([])
+    setOperationalOptions(EMPTY_FILTER_COLLECTION)
+
+  }, [accessScope, queryClient])
 
   const operationalScope = `${activeTab}:${activeTab === 'scheduled' ? scheduledSubTab : 'all'}:${shootSort}`
   const lastActiveTabRef = useRef(operationalScope)
@@ -804,7 +795,7 @@ export function useShootHistoryData({
       historyFetchAbortRef.current?.abort()
       historyFetchAbortRef.current = null
     }
-  }, [historyPage, activeTab, shootSort, canViewHistory, historyFilters, fetchHistoryData, calendarEnabled])
+  }, [historyPage, activeTab, shootSort, canViewHistory, historyFilters, fetchHistoryData, calendarEnabled, accessScope])
 
   useEffect(() => {
     if (!calendarEnabled && activeTab !== 'history') {
@@ -814,7 +805,7 @@ export function useShootHistoryData({
       operationalFetchAbortRef.current?.abort()
       operationalFetchAbortRef.current = null
     }
-  }, [operationalPage, activeTab, scheduledSubTab, shootSort, operationalFilters, fetchOperationalData, calendarEnabled])
+  }, [operationalPage, activeTab, scheduledSubTab, shootSort, operationalFilters, fetchOperationalData, calendarEnabled, accessScope])
 
   const handleSendToEditing = useCallback(
     async (shoot: Pick<ShootData, 'id' | 'status' | 'workflowStatus'>) => {

@@ -295,18 +295,19 @@ export const getMediaViewerImageCandidates = (file: MediaFile): string[] => {
     ? [
         ...previewCandidates,
         ...safeDisplayUrlCandidates,
+        ...getStrictResolvedUrls(file, ['grid_url']),
         ...thumbCandidates,
         ...placeholderCandidates,
       ]
     : [
         ...previewCandidates,
         ...safeDisplayUrlCandidates,
-        ...originalCandidates,
+        ...getStrictResolvedUrls(file, ['grid_url']),
         ...thumbCandidates,
         ...placeholderCandidates,
       ];
 
-  return Array.from(new Set(preferredCandidates.filter(Boolean)));
+  return Array.from(new Set(preferredCandidates.filter((url) => Boolean(url) && url !== explicitOriginalUrl)));
 };
 
 export const getMediaViewerImageUrl = (file: MediaFile): string => {

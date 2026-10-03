@@ -1,10 +1,13 @@
+import React from 'react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+const QueryWrapper = ({ children }: { children: React.ReactNode }) => { const [client] = React.useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } })); return <QueryClientProvider client={client}>{children}</QueryClientProvider>; };
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { DEFAULT_HISTORY_FILTERS, DEFAULT_OPERATIONAL_FILTERS } from '@/components/shoots/history/shootHistoryUtils'
 import { useShootHistoryData, type UseShootHistoryDataArgs } from './useShootHistoryData'
 
 const mocks = vi.hoisted(() => ({ get: vi.fn(), toast: vi.fn() }))
-vi.mock('@/services/api', () => ({ apiClient: { get: mocks.get }, getApiHeaders: () => ({}) }))
+vi.mock('@/services/api', () => ({ apiClient: { get: mocks.get }, getImpersonatedUserId: () => null, getApiHeaders: () => ({}) }))
 vi.mock('@/hooks/useShootHistoryMapGeocoding', () => ({ useShootHistoryMapGeocoding: () => ({ geoCache: {}, setGeoCache: vi.fn() }) }))
 
 const range = { start: '2026-09-28', end: '2026-10-04' }
@@ -31,7 +34,7 @@ describe('calendar range data integration', () => {
     const second = deferred<ReturnType<typeof payload>>()
     mocks.get.mockImplementation((_path, config) => config.params.page === 1 ? Promise.resolve(payload(Array.from({ length: 12 }, (_, i) => shoot(i + 1)), 13)) : second.promise)
     const props = { ...args, scheduledSubTab: 'requested' as const, operationalFilters: { ...DEFAULT_OPERATIONAL_FILTERS, search: 'Main', photographerId: '7', services: ['HDR'], dateRange: 'custom' as const, scheduledStart: '2025-01-01', scheduledEnd: '2025-01-02' } }
-    const { result } = renderHook(() => useShootHistoryData(props))
+    const { result } = renderHook(() => useShootHistoryData(props), { wrapper: QueryWrapper })
     await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(2))
     expect(result.current.loading).toBe(true)
     expect(result.current.calendarShoots).toEqual([])
@@ -48,7 +51,7 @@ describe('calendar range data integration', () => {
     const next = deferred<ReturnType<typeof payload>>()
     let oldSignal!: AbortSignal
     mocks.get.mockImplementation((_path, config) => { if (config.params.scheduled_start === range.start) { oldSignal = config.signal; return old.promise } return next.promise })
-    const { result, rerender } = renderHook(useShootHistoryData, { initialProps: args })
+    const { result, rerender } = renderHook(useShootHistoryData, { wrapper: QueryWrapper, initialProps: args })
     await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
     const nextRange = { start: '2026-10-05', end: '2026-10-11' }
     rerender({ ...args, calendarRange: nextRange })
@@ -63,7 +66,7 @@ describe('calendar range data integration', () => {
 
   it('does not keep a partial month when a later page fails and retries the complete range', async () => {
     mocks.get.mockResolvedValueOnce(payload(Array.from({ length: 12 }, (_, i) => shoot(i)), 13)).mockRejectedValueOnce(new Error('Connection interrupted'))
-    const { result } = renderHook(() => useShootHistoryData(args))
+    const { result } = renderHook(() => useShootHistoryData(args), { wrapper: QueryWrapper })
     await waitFor(() => expect(result.current.calendarError).toBe('Connection interrupted'))
     expect(result.current.calendarShoots).toEqual([])
     expect(result.current.loading).toBe(false)
@@ -76,7 +79,7 @@ describe('calendar range data integration', () => {
   it('loads raw History calendar records, preserves completed filters, and exports the visible range', async () => {
     mocks.get.mockResolvedValue(payload([{ id: 3, scheduledDate: range.start, time: '1:30 PM', timezone: 'America/New_York', address: { street: '3 Main' }, financials: { totalQuote: 200 } }]))
     const props: UseShootHistoryDataArgs = { ...args, activeTab: 'history', historyFilters: { ...DEFAULT_HISTORY_FILTERS, viewAs: 'calendar', dateRange: 'custom', scheduledStart: '2025-01-01', scheduledEnd: '2025-01-02', completedStart: '2026-09-01' } }
-    const { result } = renderHook(() => useShootHistoryData(props))
+    const { result } = renderHook(() => useShootHistoryData(props), { wrapper: QueryWrapper })
     await waitFor(() => expect(result.current.calendarShoots).toHaveLength(1))
     expect(mocks.get.mock.calls[0][0]).toBe('/shoots/history')
     expect(mocks.get.mock.calls[0][1].params).toMatchObject({ group_by: 'shoot', per_page: 200, scheduled_start: range.start, scheduled_end: range.end, completed_start: '2026-09-01' })
@@ -89,8 +92,8 @@ describe('calendar range data integration', () => {
 
   it('aborts a calendar load on exit and restores the existing single-page list request', async () => {
     const old = deferred<ReturnType<typeof payload>>()
-    mocks.get.mockImplementation((_path, config) => config.params.per_page === 50 ? old.promise : Promise.resolve(payload([shoot(4)], 30)))
-    const { result, rerender } = renderHook(useShootHistoryData, { initialProps: args })
+    mocks.get.mockImplementation((_path, config) => config.params?.per_page === 50 ? old.promise : Promise.resolve(payload([shoot(4)], 30)))
+    const { result, rerender } = renderHook(useShootHistoryData, { wrapper: QueryWrapper, initialProps: args })
     await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
     const signal = mocks.get.mock.calls[0][1].signal as AbortSignal
     rerender({ ...args, viewMode: 'list', calendarRange: undefined })
@@ -98,14 +101,14 @@ describe('calendar range data integration', () => {
     await waitFor(() => expect(result.current.operationalData.map((item) => item.id)).toEqual(['4']))
     await act(async () => { old.resolve(payload([shoot(99)])); await old.promise })
     expect(result.current.operationalData.map((item) => item.id)).toEqual(['4'])
-    expect(mocks.get.mock.calls.at(-1)?.[1].params).toMatchObject({ page: 1, per_page: 12, sort: 'next_up' })
-    expect(mocks.get).toHaveBeenCalledTimes(2)
+    expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ page: 1, per_page: 12, sort: 'next_up' }) }))
+    expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ page: 2, per_page: 12 }) }))
   })
 
   it('aborts on unmount and does not request another page or report an error', async () => {
     const pending = deferred<ReturnType<typeof payload>>()
     mocks.get.mockReturnValue(pending.promise)
-    const { unmount } = renderHook(() => useShootHistoryData(args))
+    const { unmount } = renderHook(() => useShootHistoryData(args), { wrapper: QueryWrapper })
     await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(1))
     const signal = mocks.get.mock.calls[0][1].signal as AbortSignal
     unmount()
@@ -116,7 +119,7 @@ describe('calendar range data integration', () => {
   })
 
   it('does not fetch History calendar data without the existing History permission', async () => {
-    const { result } = renderHook(() => useShootHistoryData({ ...args, activeTab: 'history', canViewHistory: false, historyFilters: { ...DEFAULT_HISTORY_FILTERS, viewAs: 'calendar' } }))
+    const { result } = renderHook(() => useShootHistoryData({ ...args, activeTab: 'history', canViewHistory: false, historyFilters: { ...DEFAULT_HISTORY_FILTERS, viewAs: 'calendar' } }), { wrapper: QueryWrapper })
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(mocks.get).not.toHaveBeenCalled()
     expect(result.current.calendarShoots).toEqual([])

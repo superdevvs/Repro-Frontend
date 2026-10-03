@@ -1,3 +1,5 @@
+import { useViewerImages } from './useViewerImages';
+import { getImpersonatedUserId } from '@/services/api';
 import { getMediaViewerDetailRows, getSlideshowMotionVariants } from './mediaViewerPresentation';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -64,14 +66,17 @@ export function useMediaViewerController({
   downloadingFileIds,
   onShootUpdate,
 }: MediaViewerProps) {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const { toast } = useToast();
   const prefersReducedMotion = useReducedMotion();
   const isImageFile = (file: MediaFile): boolean => checkIsImageFile(file);
   const isPreviewableImage = (file: MediaFile): boolean => checkIsPreviewableImage(file);
   const isVideoFile = (file: MediaFile): boolean => checkIsVideoFile(file);
   const [zoom, setZoom] = useState(1);
-  const [previewMode, setPreviewMode] = useState<'web' | 'full'>('web');
+  const viewerScope = `${user?.id ?? 'anonymous'}:${role}:${getImpersonatedUserId() ?? ''}:${shoot?.id ?? ''}:${canViewFullSize}:${isOpen}`;
+  const [modeSelection, setModeSelection] = useState<{ scope: string; mode: 'web' | 'full' }>({ scope: viewerScope, mode: 'web' });
+  const previewMode = modeSelection.scope === viewerScope ? modeSelection.mode : 'web';
+  const setPreviewMode = useCallback((mode: 'web' | 'full') => setModeSelection({ scope: viewerScope, mode }), [viewerScope]);
   const [viewerMode, setViewerMode] = useState<'standard' | 'slideshow'>('standard');
   const [slideshowIndex, setSlideshowIndex] = useState(0);
   const [slideshowDirection, setSlideshowDirection] = useState<1 | -1>(1);
@@ -81,7 +86,6 @@ export function useMediaViewerController({
   );
   const [showSlideshowHint, setShowSlideshowHint] = useState(false);
   const [waitingForNextSlide, setWaitingForNextSlide] = useState(false);
-  const [slideshowReadyVersion, setSlideshowReadyVersion] = useState(0);
   const [showRequestComposer, setShowRequestComposer] = useState(false);
   const [flagReason, setFlagReason] = useState('');
   const [flagging, setFlagging] = useState(false);
@@ -110,8 +114,6 @@ export function useMediaViewerController({
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestRefreshKey, setRequestRefreshKey] = useState(0);
   const [videoSourceIndex, setVideoSourceIndex] = useState(0);
-  const slideshowPreloadRefs = useRef<Map<string, HTMLImageElement>>(new Map());
-  const slideshowReadyUrlsRef = useRef<Set<string>>(new Set());
   const zoomStageRef = useRef<HTMLDivElement | null>(null);
   const previousZoomRef = useRef(1);
   const previousZoomContextRef = useRef('');
@@ -123,7 +125,13 @@ export function useMediaViewerController({
     scrollTop: 0,
   });
   const [isPanningZoomStage, setIsPanningZoomStage] = useState(false);
-  const currentFile = files[currentIndex];
+  const eligibleSlideshowFiles = slideshowFiles.filter((file) => {
+    if (!isPreviewableImage(file) || isVideoFile(file)) {
+      return false;
+    }
+    return Boolean(getMediaViewerImageUrl(file));
+  });
+  const currentFile = viewerMode === 'slideshow' ? eligibleSlideshowFiles[slideshowIndex] : files[currentIndex];
 
   useEffect(() => {
     setShowRenameComposer(false);
@@ -174,9 +182,7 @@ export function useMediaViewerController({
     setFlagReason('');
     setVideoSourceIndex(0);
   }, [currentFile?.id]);
-  useEffect(() => {
-    setPreviewMode('web');
-  }, [currentFile?.id, isOpen]);
+  useEffect(() => { setModeSelection({ scope: viewerScope, mode: 'web' }); }, [viewerScope]);
   useEffect(() => {
     if (!isOpen || !shoot?.id) {
       return;
@@ -216,32 +222,6 @@ export function useMediaViewerController({
       cancelled = true;
     };
   }, [isOpen, requestRefreshKey, shoot?.id]);
-  const markSlideshowUrlReady = useCallback((url: string) => {
-    if (!url || slideshowReadyUrlsRef.current.has(url)) {
-      return;
-    }
-    slideshowReadyUrlsRef.current.add(url);
-    setSlideshowReadyVersion((current) => current + 1);
-  }, []);
-  const preloadSlideshowUrl = useCallback((url: string) => {
-    if (!url || slideshowReadyUrlsRef.current.has(url) || slideshowPreloadRefs.current.has(url)) {
-      return;
-    }
-    const image = new Image();
-    image.onload = () => markSlideshowUrlReady(url);
-    image.onerror = () => markSlideshowUrlReady(url);
-    image.src = url;
-    if (image.complete) {
-      markSlideshowUrlReady(url);
-    }
-    slideshowPreloadRefs.current.set(url, image);
-  }, [markSlideshowUrlReady]);
-  const eligibleSlideshowFiles = slideshowFiles.filter((file) => {
-    if (!isPreviewableImage(file) || isVideoFile(file)) {
-      return false;
-    }
-    return Boolean(getMediaViewerImageUrl(file));
-  });
   const slideshowStartIndex = useMemo(() => {
     const currentId = String(currentFile?.id || '');
     if (currentId) {
@@ -265,19 +245,26 @@ export function useMediaViewerController({
     viewerMode === 'slideshow' && slideshowIndex >= 0
       ? eligibleSlideshowFiles[slideshowIndex] ?? null
       : null;
-  const slideshowCurrentImageUrl = slideshowCurrentFile ? getMediaViewerImageUrl(slideshowCurrentFile) : '';
-  const nextSlideshowFile =
-    viewerMode === 'slideshow' && slideshowIndex < eligibleSlideshowFiles.length - 1
-      ? eligibleSlideshowFiles[slideshowIndex + 1]
-      : null;
-  const nextSlideshowImageUrl = nextSlideshowFile ? getMediaViewerImageUrl(nextSlideshowFile) : '';
-  const currentSlideReady =
-    viewerMode !== 'slideshow' ||
-    !slideshowCurrentImageUrl ||
-    (slideshowReadyVersion >= 0 && slideshowReadyUrlsRef.current.has(slideshowCurrentImageUrl));
-  const nextSlideReady =
-    !nextSlideshowImageUrl ||
-    (slideshowReadyVersion >= 0 && slideshowReadyUrlsRef.current.has(nextSlideshowImageUrl));
+  const refreshViewerMetadata = useCallback(() => {
+    if (shoot?.id) triggerShootDetailRefresh(shoot.id);
+    onShootUpdate?.();
+  }, [shoot?.id, onShootUpdate]);
+  const viewerImages = useViewerImages(
+    viewerMode === 'slideshow' ? eligibleSlideshowFiles : files,
+    viewerMode === 'slideshow' ? slideshowIndex : currentIndex,
+    previewMode, isOpen, canViewFullSize,
+    `${user?.id ?? 'anonymous'}:${role}:${getImpersonatedUserId() ?? ''}:${shoot?.id ?? ''}`,
+    refreshViewerMetadata,
+  );
+  const slideshowCurrentImageUrl = viewerImages.url;
+  const nextSlideshowFile = viewerMode === 'slideshow' ? eligibleSlideshowFiles[slideshowIndex + 1] : undefined;
+  const nextSlideshowImageUrl = viewerImages.resolve(nextSlideshowFile).url;
+  const currentSlideReady = viewerImages.ready;
+  const nextSlideReady = viewerImages.resolve(nextSlideshowFile).ready;
+  useEffect(() => {
+    if (viewerMode === 'slideshow' && viewerImages.error) setSlideshowPaused(true);
+  }, [viewerMode, viewerImages.error]);
+  useEffect(() => { setZoom(1); }, [currentFile?.id, slideshowCurrentFile?.id]);
   const slideshowAvailable =
     canStartSlideshow &&
     eligibleSlideshowFiles.length > 1 &&
@@ -306,15 +293,7 @@ export function useMediaViewerController({
     setSlideshowIntervalSeconds(SLIDESHOW_INTERVAL_OPTIONS[0]);
     setWaitingForNextSlide(false);
     setShowSlideshowHint(false);
-    setPreviewMode('web');
     setZoom(1);
-    slideshowPreloadRefs.current.forEach((image) => {
-      image.onload = null;
-      image.onerror = null;
-    });
-    slideshowPreloadRefs.current.clear();
-    slideshowReadyUrlsRef.current.clear();
-    setSlideshowReadyVersion(0);
   }, [eligibleSlideshowFiles, slideshowCurrentFile, updateViewerContextForSlideshow, viewerMode]);
   const moveSlideshowToIndex = useCallback(
     (nextIndex: number, direction: 1 | -1) => {
@@ -340,15 +319,7 @@ export function useMediaViewerController({
     setShowSlideshowHint(true);
     setShowRequestComposer(false);
     setShowFileDetails(true);
-    setPreviewMode('web');
     setZoom(1);
-    slideshowPreloadRefs.current.forEach((image) => {
-      image.onload = null;
-      image.onerror = null;
-    });
-    slideshowPreloadRefs.current.clear();
-    slideshowReadyUrlsRef.current.clear();
-    setSlideshowReadyVersion(0);
   }, [slideshowAvailable, slideshowStartIndex]);
   const handleCycleSlideshowInterval = useCallback(() => {
     setSlideshowIntervalSeconds((current) => {
@@ -370,14 +341,7 @@ export function useMediaViewerController({
       setSlideshowIntervalSeconds(SLIDESHOW_INTERVAL_OPTIONS[0]);
       setWaitingForNextSlide(false);
       setShowSlideshowHint(false);
-      slideshowPreloadRefs.current.forEach((image) => {
-        image.onload = null;
-        image.onerror = null;
-      });
-      slideshowPreloadRefs.current.clear();
-      slideshowReadyUrlsRef.current.clear();
-      setSlideshowReadyVersion(0);
-    }
+      }
   }, [isOpen]);
   useEffect(() => {
     if (viewerMode !== 'slideshow') {
@@ -388,36 +352,6 @@ export function useMediaViewerController({
     }, 2200);
     return () => window.clearTimeout(timer);
   }, [viewerMode]);
-  useEffect(() => {
-    if (viewerMode !== 'slideshow') {
-      return;
-    }
-    if (!slideshowCurrentFile) {
-      setViewerMode('standard');
-      return;
-    }
-    const keepUrls = [slideshowCurrentImageUrl, nextSlideshowImageUrl].filter(Boolean);
-    keepUrls.forEach(preloadSlideshowUrl);
-    let removedUrl = false;
-    Array.from(slideshowPreloadRefs.current.entries()).forEach(([url, image]) => {
-      if (keepUrls.includes(url)) {
-        return;
-      }
-      image.onload = null;
-      image.onerror = null;
-      slideshowPreloadRefs.current.delete(url);
-      removedUrl = slideshowReadyUrlsRef.current.delete(url) || removedUrl;
-    });
-    if (removedUrl) {
-      setSlideshowReadyVersion((current) => current + 1);
-    }
-  }, [
-    nextSlideshowImageUrl,
-    preloadSlideshowUrl,
-    slideshowCurrentFile,
-    slideshowCurrentImageUrl,
-    viewerMode,
-  ]);
   useEffect(() => {
     if (viewerMode !== 'slideshow') {
       return;
@@ -436,24 +370,23 @@ export function useMediaViewerController({
       viewerMode !== 'slideshow' ||
       slideshowPaused ||
       !currentSlideReady ||
+      viewerImages.error ||
       !slideshowCurrentImageUrl ||
       isLastSlideshowSlide
     ) {
       return;
     }
     const timer = window.setTimeout(() => {
-      if (nextSlideReady) {
-        moveSlideshowToIndex(slideshowIndex + 1, 1);
-        return;
-      }
-      setWaitingForNextSlide(true);
+      // The next original may exceed the speculative memory budget. Advance to
+      // its same-photo preview; its own interval starts only after decoding.
+      moveSlideshowToIndex(slideshowIndex + 1, 1);
     }, slideshowIntervalSeconds * 1000);
     return () => window.clearTimeout(timer);
   }, [
     currentSlideReady,
+    viewerImages.error,
     isLastSlideshowSlide,
     moveSlideshowToIndex,
-    nextSlideReady,
     slideshowCurrentImageUrl,
     slideshowIntervalSeconds,
     slideshowIndex,
@@ -547,25 +480,7 @@ export function useMediaViewerController({
       });
     }
   };
-  /**
-   * The stage swaps `src` on one <img>, so a full-size load that fails leaves the
-   * browser's broken-image glyph with nothing to fall back to. Drop back to the
-   * web rendition instead of stranding the user on a dead frame.
-   */
-  const handleStageImageError = useCallback(() => {
-    setPreviewMode((current) => {
-      if (current !== 'full') {
-        return current;
-      }
-
-      toast({
-        title: 'Full-size preview unavailable',
-        description: 'Showing the web-sized version instead.',
-      });
-
-      return 'web';
-    });
-  }, [toast]);
+  const handleStageImageError = viewerImages.fail;
   const handleZoomIn = () => {
     setZoom(prev => Math.min(prev + 0.25, MAX_MEDIA_VIEWER_ZOOM));
   };
@@ -794,15 +709,13 @@ export function useMediaViewerController({
   const displayFilename = getDisplayMediaFilename(currentFile) || currentFile.filename;
   const mediaType = (currentFile.media_type || '').toLowerCase();
   const fullSizeAvailable = Boolean(
-    canViewFullSize &&
+    canViewFullSize && !currentFile.uses_watermark &&
       fullSizeImageUrl &&
       previewImageUrl &&
       fullSizeImageUrl !== previewImageUrl,
   );
-  const imageUrl =
-    previewMode === 'full' && fullSizeAvailable
-      ? fullSizeImageUrl
-      : previewImageUrl;
+  const imageUrl = viewerImages.url;
+  const imageStatus = viewerImages.error ? 'Image unavailable. Try another photo.' : viewerImages.message;
   const zoomedImageViewportStyle =
     zoom > 1
       ? {
@@ -910,8 +823,6 @@ export function useMediaViewerController({
     setShowSlideshowHint,
     waitingForNextSlide,
     setWaitingForNextSlide,
-    slideshowReadyVersion,
-    setSlideshowReadyVersion,
     showRequestComposer,
     setShowRequestComposer,
     flagReason,
@@ -930,8 +841,6 @@ export function useMediaViewerController({
     setRequestRefreshKey,
     videoSourceIndex,
     setVideoSourceIndex,
-    slideshowPreloadRefs,
-    slideshowReadyUrlsRef,
     zoomStageRef,
     previousZoomRef,
     previousZoomContextRef,
@@ -941,8 +850,6 @@ export function useMediaViewerController({
     currentFile,
     fileComments,
     relatedRequests,
-    markSlideshowUrlReady,
-    preloadSlideshowUrl,
     eligibleSlideshowFiles,
     slideshowStartIndex,
     slideshowCurrentFile,
@@ -980,6 +887,7 @@ export function useMediaViewerController({
     mediaType,
     fullSizeAvailable,
     imageUrl,
+    imageStatus,
     zoomedImageViewportStyle,
     canRequestModification,
     canSetHero,

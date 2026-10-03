@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { registerShootDetailRefresh } from '@/realtime/realtimeRefreshBus';
 import { useQuery, type QueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { API_BASE_URL } from '@/config/env';
@@ -310,12 +312,18 @@ export const useShootFiles = (
   // Include impersonated user ID in query key to ensure cache is user-specific
   const impersonatedUserId = getImpersonatedUserId();
 
-  return useQuery({
-    queryKey: ['shootFiles', shootId, type, impersonatedUserId, isImpersonating ? user?.id : null, options?.cacheKey ?? null],
+  const query = useQuery({
+    queryKey: ['shootFiles', shootId, type, impersonatedUserId, user?.id ?? null, options?.cacheKey ?? null, user?.role ?? null, isImpersonating],
     queryFn: () => fetchShootFiles(shootId!, type, getToken(session?.accessToken)),
     enabled: Boolean(shootId) && (options?.enabled !== false),
     refetchInterval: options?.refetchInterval ?? false,
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000, // 5 minutes
   });
+  const { refetch } = query;
+  useEffect(() => {
+    if (!shootId || options?.enabled === false) return;
+    return registerShootDetailRefresh(shootId, () => { void refetch(); });
+  }, [shootId, options?.enabled, refetch]);
+  return query;
 };

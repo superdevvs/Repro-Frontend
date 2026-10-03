@@ -1,3 +1,5 @@
+import { useViewerSwipe } from './useViewerSwipe';
+import { MediaViewerPreviewSizeControls, MediaViewerZoomControls } from './MediaViewerControls';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Pause, Play, X } from 'lucide-react';
@@ -14,7 +16,13 @@ export function MediaViewerSlideshow({ model }: { model: NonNullable<ReturnType<
     slideshowIntervalSeconds,
     showSlideshowHint,
     waitingForNextSlide,
-    markSlideshowUrlReady,
+    handleStageImageError,
+    imageStatus,
+    zoom,
+    zoomStageRef,
+    handleZoomStagePointerDown,
+    handleZoomStagePointerMove,
+    handleZoomStagePointerUp,
     eligibleSlideshowFiles,
     slideshowCurrentImageUrl,
     currentSlideReady,
@@ -26,6 +34,7 @@ export function MediaViewerSlideshow({ model }: { model: NonNullable<ReturnType<
     handlePrevious,
     handleNext,
   } = model;
+  const swipe = useViewerSwipe(zoom <= 1 && model.isImg, handlePrevious, handleNext);
   if (!slideshowCurrentFile) return null;
 
   return (
@@ -40,6 +49,8 @@ export function MediaViewerSlideshow({ model }: { model: NonNullable<ReturnType<
         <X className="h-4 w-4" />
       </Button>
 
+      <div className="absolute left-4 top-4 z-30"><MediaViewerPreviewSizeControls model={model} /></div>
+      <MediaViewerZoomControls model={model} />
       <AnimatePresence>
         {showSlideshowHint && (
           <motion.div
@@ -56,8 +67,9 @@ export function MediaViewerSlideshow({ model }: { model: NonNullable<ReturnType<
 
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_rgba(59,130,246,0.12),_transparent_35%),radial-gradient(circle_at_bottom,_rgba(255,255,255,0.08),_transparent_30%)]" />
 
-      <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-black">
-        {!currentSlideReady && (
+      <div ref={zoomStageRef} {...swipe} onPointerDown={handleZoomStagePointerDown} onPointerMove={handleZoomStagePointerMove} onPointerUp={handleZoomStagePointerUp} onPointerCancel={handleZoomStagePointerUp} className={`relative flex h-full w-full items-center justify-center bg-black ${zoom > 1 ? 'overflow-auto touch-none cursor-grab' : 'overflow-hidden touch-pan-y'}`}>
+        <div className="relative shrink-0" style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%`, margin: 'auto' }}>
+        {!slideshowCurrentImageUrl && !currentSlideReady && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-black/45 backdrop-blur-sm">
             <Loader2 className="h-8 w-8 text-white/70" />
             <p className="text-sm text-white/60">
@@ -66,7 +78,8 @@ export function MediaViewerSlideshow({ model }: { model: NonNullable<ReturnType<
           </div>
         )}
 
-        <AnimatePresence mode="wait" custom={slideshowDirection}>
+        {imageStatus && <div role="status" className="absolute top-16 z-30 rounded-full bg-black/70 px-3 py-1 text-xs text-white">{imageStatus}</div>}
+        <AnimatePresence initial={false} custom={slideshowDirection}>
           <motion.img
             key={slideshowCurrentFile.id}
             custom={slideshowDirection}
@@ -74,24 +87,24 @@ export function MediaViewerSlideshow({ model }: { model: NonNullable<ReturnType<
             initial="initial"
             animate="animate"
             exit="exit"
-            src={slideshowCurrentImageUrl}
+            src={slideshowCurrentImageUrl || undefined}
             alt={getDisplayMediaFilename(slideshowCurrentFile) || slideshowCurrentFile.filename}
-            className="absolute inset-0 h-full w-full select-none object-cover"
+            className="absolute inset-0 h-full w-full select-none object-contain"
             draggable={false}
             loading="eager"
-            onLoad={() => markSlideshowUrlReady(slideshowCurrentImageUrl)}
-            onError={() => markSlideshowUrlReady(slideshowCurrentImageUrl)}
+            onError={handleStageImageError}
           />
         </AnimatePresence>
+        </div>
       </div>
 
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center px-4 pb-4 sm:pb-6">
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center px-4 pb-16 sm:pb-20">
         <div className="pointer-events-auto flex flex-wrap items-center justify-center gap-1.5 rounded-full border border-white/10 bg-black/50 px-3 py-2 text-white/80 shadow-[0_12px_40px_rgba(0,0,0,0.45)] backdrop-blur-md">
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-full text-white hover:bg-white/10"
-            onClick={handlePrevious}
+            aria-label="Previous photo" onClick={handlePrevious}
             disabled={slideshowIndex === 0}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -113,7 +126,7 @@ export function MediaViewerSlideshow({ model }: { model: NonNullable<ReturnType<
             variant="ghost"
             size="icon"
             className="h-8 w-8 rounded-full text-white hover:bg-white/10"
-            onClick={handleNext}
+            aria-label="Next photo" onClick={handleNext}
             disabled={isLastSlideshowSlide}
           >
             <ChevronRight className="h-4 w-4" />

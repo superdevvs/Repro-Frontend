@@ -3,12 +3,13 @@ import { MediaVersionsDialogHost } from '@/components/shoots/MediaVersionsDialog
 import { PageLoadingOverlay } from '@/components/layout/PageLoadingOverlay';
 import { usePageLoading } from '@/hooks/use-page-loading';
 
+import { registerShootHistoryRefresh, registerShootListRefresh, registerInvoicesRefresh } from '@/realtime/realtimeRefreshBus';
 import React, { Suspense, lazy, useEffect, useRef } from 'react'
 import { AnimatePresence } from 'framer-motion';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/auth";
 import { LoginRedirect } from './components/auth/LoginRedirect';
@@ -286,6 +287,29 @@ const DashboardWrapper = ({ children }: { children: React.ReactNode }) => {
     </>
   );
 };
+
+function PerformanceCacheScope() {
+  const { user, role, isImpersonating, originalUser } = useAuth();
+  const client = useQueryClient();
+  const scope = `${user?.id ?? ''}:${role}:${isImpersonating}:${originalUser?.id ?? ''}`;
+  const prior = useRef(scope);
+  useEffect(() => {
+    const invalidateShoots = () => { void client.invalidateQueries({ queryKey: ['shoot-history'], refetchType: 'none' }); };
+    const invalidateInvoices = () => { void client.invalidateQueries({ queryKey: ['accounting-performance'], refetchType: 'none' }); invalidateShoots(); };
+    const dispose = [registerShootHistoryRefresh(invalidateShoots), registerShootListRefresh(invalidateShoots), registerInvoicesRefresh(invalidateInvoices)];
+    return () => dispose.forEach(fn => fn());
+  }, [client]);
+  useEffect(() => {
+    if (prior.current !== scope) {
+      for (const key of ['shoot-history', 'accounting-performance', 'shootFiles', 'dashboardOverview']) {
+        void client.cancelQueries({ queryKey: [key] });
+        client.removeQueries({ queryKey: [key] });
+      }
+      prior.current = scope;
+    }
+  }, [client, scope]);
+  return null;
+}
 
 // Wrapper retained for route compatibility; ShootsProvider now sits above AppRoutes.
 const ShootRoutesWrapper = ({ children }: { children: React.ReactNode }) => {
@@ -758,6 +782,7 @@ function App() {
               <BrowserRouter>
                 <RobbieRouteTracker />
                 <AuthProvider>
+                  <PerformanceCacheScope />
                   <UserPreferencesProvider>
                     <PermissionsProvider>
                       <BrowserPhoneProvider>

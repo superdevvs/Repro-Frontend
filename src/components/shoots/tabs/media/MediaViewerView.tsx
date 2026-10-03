@@ -1,3 +1,5 @@
+import { useViewerSwipe } from './useViewerSwipe';
+import { MediaViewerPhoto } from './MediaViewerPhoto';
 import { MediaViewerSlideshow } from './MediaViewerSlideshow';
 import { MediaEditingMenu } from '../../MediaEditingMenu';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -19,13 +21,13 @@ import type { useMediaViewerController } from './useMediaViewerController';
 import { MediaViewerPreviewSizeControls, MediaViewerZoomControls } from './MediaViewerControls';
 export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeof useMediaViewerController>> }) {
   const {
+    fitMediaClassName,
     isOpen,
     onClose,
     files,
     currentIndex,
     onIndexChange,
     getImageUrl,
-    handleStageImageError,
     shoot,
     isClient,
     canInteractSingleMedia,
@@ -88,16 +90,14 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
     videoUrlCandidates,
     videoUrl,
     displayFilename,
-    imageUrl,
-    zoomedImageViewportStyle,
     canRequestModification,
     canSetHero,
     detailRows,
     sidebarActionButtonClassName,
     mobileActionMenuItemClassName,
     showMobileActionMenu,
-    fitMediaClassName,
   } = model;
+  const swipe = useViewerSwipe(zoom <= 1 && model.isImg, handlePrevious, handleNext);
   const isDownloadingCurrentFile = downloadingFileIds.has(String(currentFile.id));
   return (
     <Dialog open={isOpen} onOpenChange={(next) => { if (!next) onClose(); }}>
@@ -329,7 +329,7 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                           variant="ghost"
                           size="icon"
                           className="absolute left-3 top-1/2 z-30 h-9 w-9 -translate-y-1/2 rounded-full border border-white/10 bg-black/55 text-white shadow-lg hover:bg-white/15 sm:left-4 sm:h-10 sm:w-10"
-                          onClick={handlePrevious}
+                          aria-label="Previous photo" onClick={handlePrevious}
                         >
                           <ChevronLeft className="h-5 w-5 sm:h-6 sm:w-6" />
                         </Button>
@@ -340,17 +340,17 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                           variant="ghost"
                           size="icon"
                           className="absolute right-3 top-1/2 z-30 h-9 w-9 -translate-y-1/2 rounded-full border border-white/10 bg-black/55 text-white shadow-lg hover:bg-white/15 sm:right-4 sm:h-10 sm:w-10"
-                          onClick={handleNext}
+                          aria-label="Next photo" onClick={handleNext}
                         >
                           <ChevronRight className="h-5 w-5 sm:h-6 sm:w-6" />
                         </Button>
                       )}
                     <div
-                      ref={zoomStageRef}
+                      ref={zoomStageRef} {...swipe}
                       className={`absolute inset-0 flex min-h-0 min-w-0 items-center justify-center px-2 py-2 sm:px-10 sm:py-1.5 md:px-16 lg:px-20 lg:py-1 xl:px-20 xl:py-1.5 2xl:px-24 ${
                         zoom > 1
                           ? `${isPanningZoomStage ? 'cursor-grabbing' : 'cursor-grab'} touch-none overflow-auto`
-                          : 'overflow-hidden'
+                          : 'overflow-hidden touch-pan-y'
                       }`}
                       onPointerDown={handleZoomStagePointerDown}
                       onPointerMove={handleZoomStagePointerMove}
@@ -359,31 +359,8 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                       onLostPointerCapture={() => stopZoomPan()}
                     >
                       {isImg ? (
-                        zoom > 1 ? (
-                          <div
-                            className="relative flex shrink-0 items-center justify-center"
-                            style={zoomedImageViewportStyle}
-                          >
-                            <img
-                              src={imageUrl}
-                              alt={displayFilename}
-                              className={fitMediaClassName}
-                              loading="eager"
-                              draggable={false}
-                              onError={handleStageImageError}
-                            />
-                          </div>
-                        ) : (
-                            <img
-                              src={imageUrl}
-                              alt={displayFilename}
-                              className={fitMediaClassName}
-                              loading="eager"
-                              draggable={false}
-                              onError={handleStageImageError}
-                            />
-                        )
-                        ) : isVid ? (
+                        <MediaViewerPhoto model={model} />
+                      ) : isVid ? (
                         videoUrl ? (
                           <video
                             key={`${currentFile.id}-${videoUrl}`}
@@ -457,6 +434,8 @@ export function MediaViewerView({ model }: { model: NonNullable<ReturnType<typeo
                             {hasDisplayableThumb && fileImageUrl ? (
                               <img
                                 src={fileImageUrl}
+                                  loading="lazy"
+                                  decoding="async"
                                 alt={file.filename}
                                 className="w-full h-full object-cover"
                                 onError={(e) => {

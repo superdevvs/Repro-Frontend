@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -5,7 +6,7 @@ import type { ShootData } from '@/types/shoots';
 
 const mocks = vi.hoisted(() => ({ download: vi.fn(), archive: vi.fn(), toast: vi.fn(), get: vi.fn() }));
 vi.mock('@/utils/shootMediaDownload', () => ({ downloadShootRawFiles: mocks.download, downloadShootMediaArchive: mocks.archive }));
-vi.mock('@/services/api', () => ({ apiClient: { get: mocks.get }, getApiHeaders: () => ({}) }));
+vi.mock('@/services/api', () => ({ apiClient: { get: mocks.get }, getImpersonatedUserId: () => null, getApiHeaders: () => ({}) }));
 vi.mock('@/hooks/useShootHistoryMapGeocoding', () => ({ useShootHistoryMapGeocoding: () => ({ geoCache: {}, setGeoCache: vi.fn() }) }));
 vi.mock('@/contexts/UserPreferencesContext', () => ({ useUserPreferences: () => ({ formatDate: () => 'Sep 7, 2026' }) }));
 vi.mock('@/hooks/useTheme', () => ({ useTheme: () => ({ theme: 'light' }) }));
@@ -45,7 +46,7 @@ describe('history download buttons', () => {
   it.each([['card', 'admin'], ['row', 'editor']] as const)('keeps the %s button busy through failure and permits a retry', async (layout, role) => {
     let rejectDownload!: (reason: Error) => void;
     mocks.download.mockImplementationOnce(() => new Promise((_resolve, reject) => { rejectDownload = reject; }));
-    await act(async () => { render(<HistoryDownload layout={layout} role={role} />); });
+    await act(async () => { render(<QueryClientProvider client={new QueryClient()}><HistoryDownload layout={layout} role={role} /></QueryClientProvider>); });
     const buttons = screen.getAllByRole('button', { name: 'Downloads' });
     fireEvent.click(buttons[0]);
     fireEvent.click(buttons[0]);
@@ -70,7 +71,7 @@ describe('history download buttons', () => {
 
   it('routes photographer raw downloads through the media archive endpoint', async () => {
     mocks.archive.mockResolvedValueOnce({ mode: 'blob', message: 'Raw archive ready.' });
-    await act(async () => { render(<HistoryDownload layout="card" role="photographer" />); });
+    await act(async () => { render(<QueryClientProvider client={new QueryClient()}><HistoryDownload layout="card" role="photographer" /></QueryClientProvider>); });
     fireEvent.click(screen.getAllByRole('button', { name: 'Downloads' })[0]);
     await waitFor(() => expect(mocks.archive).toHaveBeenCalledTimes(1));
     expect(mocks.archive).toHaveBeenCalledWith(expect.objectContaining({
@@ -83,7 +84,7 @@ describe('history download buttons', () => {
   });
 
   it('keeps raw download unavailable to sales', async () => {
-    await act(async () => { render(<HistoryDownload layout="card" role="salesRep" />); });
+    await act(async () => { render(<QueryClientProvider client={new QueryClient()}><HistoryDownload layout="card" role="salesRep" /></QueryClientProvider>); });
     expect(screen.queryByRole('button', { name: 'Downloads' })).not.toBeInTheDocument();
     expect(mocks.download).not.toHaveBeenCalled();
   });
