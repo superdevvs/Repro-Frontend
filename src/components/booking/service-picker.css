@@ -1,5 +1,6 @@
 .service-picker {
   --picker-surface: #fff;
+  --picker-card: #fff;
   --picker-subtle: #f6f8fb;
   --picker-text: #132239;
   --picker-muted: #5c6b80;
@@ -11,22 +12,24 @@
   background: var(--picker-surface);
 }
 .dark .service-picker {
-  --picker-surface: #111a28;
-  --picker-subtle: #172233;
-  --picker-text: #f0f5fc;
-  --picker-muted: #a2b1c7;
-  --picker-border: #2a394f;
-  --picker-accent: #60a5fa;
-  --picker-tint: #172f4f;
-  --picker-button: #287fe5;
+  --picker-surface: hsl(var(--background));
+  --picker-card: hsl(var(--card));
+  --picker-subtle: hsl(var(--card));
+  --picker-text: hsl(var(--foreground));
+  --picker-muted: hsl(var(--muted-foreground));
+  --picker-border: hsl(var(--border));
+  --picker-accent: hsl(var(--accent-foreground));
+  --picker-tint: hsl(var(--primary) / .14);
+  --picker-button: hsl(var(--primary));
 }
 .service-picker-icon { display: inline-block; flex-shrink: 0; width: 24px; height: 24px; background: currentColor; mask: var(--picker-icon) center / auto no-repeat; }
 .service-picker-icon-small { width: 18px; height: 18px; }
-.service-picker-card { display: flex; min-width: 0; min-height: 212px; flex-direction: column; gap: 12px; padding: 20px; border: 1px solid var(--picker-border); border-radius: 14px; cursor: pointer; background: var(--picker-surface); transition: border-color 150ms, background-color 150ms; }
+.service-picker-card { display: flex; min-width: 0; min-height: 212px; flex-direction: column; gap: 12px; padding: 20px; border: 1px solid var(--picker-border); border-radius: 14px; cursor: pointer; background: var(--picker-card); transition: border-color 150ms, background-color 150ms; }
 .service-picker-card:hover { border-color: var(--picker-accent); }
 .service-picker-card:focus-within { outline: 2px solid var(--picker-accent); outline-offset: 2px; }
 .service-picker-card.is-selected { border-color: var(--picker-accent); background: var(--picker-tint); }
 .service-picker-check { background: var(--picker-surface); }
+.dark .service-picker-check[data-state=unchecked] { border-color: hsl(var(--muted-foreground) / .8); }
 .service-picker-check[data-state=checked] { background: var(--picker-button); border-color: var(--picker-button); color: white; }
 .service-picker-check .service-picker-icon { width: 16px; height: 16px; }
 .service-picker-body { container-type: inline-size; }

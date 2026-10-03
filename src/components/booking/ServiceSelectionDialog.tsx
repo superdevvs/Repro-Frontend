@@ -290,19 +290,20 @@ export function ServiceSelectionDialog({
           })}
         </div>
       </aside>
-      <div className="service-picker-body min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
-        <div className="sticky top-0 z-10 mb-5 bg-[var(--picker-surface)]">
-          <div className="relative">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <div data-testid="service-picker-toolbar" className="flex shrink-0 flex-col gap-3 border-b border-[var(--picker-border)] bg-[var(--picker-surface)] p-4 lg:flex-row lg:items-center lg:justify-between sm:px-6">
+          <div className="flex min-w-0 flex-wrap items-center gap-3">
+            <h3 className="text-base font-semibold sm:text-lg">{compact ? 'Services from this shoot' : panelCategory === 'all' ? 'Explore services' : categoryOptions.find(c => c.id === panelCategory)?.name}</h3>
+            <span className="shrink-0 rounded-lg bg-[var(--picker-tint)] px-2 py-1.5 text-xs text-[var(--picker-accent)]">{selectedServices.length} {selectedServices.length === 1 ? 'service' : 'services'} selected</span>
+          </div>
+          <div className="relative w-full shrink-0 lg:w-[min(45%,360px)]">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--picker-muted)]"><ServicePickerIcon small name="search" /></span>
             <Input type="search" aria-label="Search services" placeholder="Search services..." value={serviceSearchQuery}
               onChange={event => setServiceSearchQuery(event.target.value)}
-              className="h-12 rounded-[10px] border-[var(--picker-border)] bg-[var(--picker-subtle)] pl-10 text-sm" />
+              className="h-10 rounded-[10px] border-[var(--picker-border)] bg-[var(--picker-subtle)] pl-10 text-sm placeholder:text-[var(--picker-muted)]" />
           </div>
         </div>
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-base font-semibold sm:text-lg">{compact ? 'Services from this shoot' : panelCategory === 'all' ? 'Explore services' : categoryOptions.find(c => c.id === panelCategory)?.name}</h3>
-          <span className="rounded-lg bg-[var(--picker-tint)] px-2 py-2 text-xs text-[var(--picker-accent)]">{selectedServices.length} {selectedServices.length === 1 ? 'service' : 'services'} selected</span>
-        </div>
+        <div data-testid="service-picker-results" className="service-picker-body min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
         {servicesLoading ? <div className="service-picker-grid">{Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-52 rounded-[14px]" />)}</div>
           : panelServices.length ? <div className="service-picker-grid">
             {panelServices.map(service => {
@@ -326,12 +327,13 @@ export function ServiceSelectionDialog({
           </div> : <div className="rounded-xl border border-dashed border-[var(--picker-border)] bg-[var(--picker-subtle)] p-6 text-sm text-[var(--picker-muted)]">
             {serviceSearchQuery.trim() ? 'No services match this search in the selected category.' : 'No services exist in this category yet. Pick a different category to continue.'}
           </div>}
+        </div>
       </div>
     </div>
   );
   const footer = <>
     <div className="min-w-0 flex-1">
-      <p aria-live="polite" className="text-sm font-medium">{selectionSummary ?? `${selectedItemCount} items selected`}</p>
+      <p aria-live="polite" className="text-sm font-medium">{selectionSummary ?? `${selectedItemCount} ${selectedItemCount === 1 ? 'item' : 'items'} selected`}</p>
       <p className="mt-1 truncate text-xs text-[var(--picker-muted)]" title={selectedNames}>{selectedNames || 'Choose a service to get started'}</p>
       {!allowEmptySelection && selectedServices.length <= 1 && <p className="mt-1 text-xs text-[var(--picker-muted)]">At least one service is required for your role.</p>}
     </div>
