@@ -21,20 +21,17 @@ describe('booking timezone at submission', () => {
       .toBe('2026-11-01T06:30:00.000Z');
   });
 
-  it('declares the browser timezone consistently for a new order and its services', () => {
-    const timezone = resolveBookingTimezone({ isEditMode: false, storedTimezone: null, browserTimezone: 'Asia/Kolkata' });
-    expect(timezone).toBe('Asia/Kolkata');
-    expect(buildShootScheduleTimestamp('2026-09-09', '10:00', timezone)).toBe('2026-09-09T04:30:00.000Z');
-    expect(buildBookShootServiceSchedule('1', {}, '2026-09-09', '10:00', { timezone }))
-      .toBe('2026-09-09T04:30:00.000Z');
+  it.each(['Asia/Kolkata', 'Asia/Calcutta', 'America/Los_Angeles', 'America/New_York'])('uses Eastern availability clocks for a new booking from %s', (browserTimezone) => {
+    const timezone = resolveBookingTimezone({ isEditMode: false, storedTimezone: null, browserTimezone });
+    expect(timezone).toBe('America/New_York');
+    expect(buildShootScheduleTimestamp('2026-10-02', '09:30', timezone)).toBe('2026-10-02T13:30:00.000Z');
+    expect(buildBookShootServiceSchedule('1', {}, '2026-10-02', '9:30 AM', { timezone }))
+      .toBe('2026-10-02T13:30:00.000Z');
+    expect(buildShootScheduleTimestamp('2026-12-02', '09:30', timezone)).toBe('2026-12-02T14:30:00.000Z');
   });
-  it('normalizes a new browser alias while preserving stored edit aliases', () => {
-    const timezone = resolveBookingTimezone({ isEditMode: false, browserTimezone: 'Asia/Calcutta' });
-    expect(timezone).toBe('Asia/Kolkata');
-    expect(buildShootScheduleTimestamp('2026-10-05', '09:00', timezone)).toBe('2026-10-05T03:30:00.000Z');
-    expect(buildBookShootServiceSchedule('1', {}, '2026-10-05', '9:00 AM', { timezone }))
-      .toBe('2026-10-05T03:30:00.000Z');
+  it('preserves explicitly stored edit zones, including aliases', () => {
     expect(resolveBookingTimezone({ isEditMode: true, storedTimezone: 'Asia/Calcutta', browserTimezone: 'America/New_York' })).toBe('Asia/Calcutta');
+    expect(resolveBookingTimezone({ isEditMode: true, storedTimezone: 'America/Chicago', browserTimezone: 'Asia/Kolkata' })).toBe('America/Chicago');
   });
 
   it('uses the existing business fallback when a new booking has no browser timezone', () => {

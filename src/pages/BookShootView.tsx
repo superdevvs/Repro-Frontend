@@ -16,6 +16,7 @@ import type { BookShootController } from './useBookShootController';
 import { CompReshootBanner } from '@/features/complimentary-reshoots/CompReshootBanner';
 import { CompReasonChangeDialog } from '@/features/complimentary-reshoots/CompReasonChangeDialog';
 import { getBookingWizardConfig } from './bookShootModel';
+import { NEW_BOOKING_TIMEZONE } from './bookShootTimezone';
 
 export function BookShootView({ controller }: { controller: BookShootController }) {
   const {
@@ -121,6 +122,11 @@ export function BookShootView({ controller }: { controller: BookShootController 
                 }[String(!isMobile || step === finalStep) as 'true' | 'false']} gap-8 mt-2 items-start`}
               >
                 <div className="order-2 lg:order-1 w-full">
+                {!isEditMode && step >= wizard.schedulingStep && (
+                  <p className="mb-3 text-xs text-muted-foreground">
+                    Times shown in Eastern Time ({NEW_BOOKING_TIMEZONE}).
+                  </p>
+                )}
                 {step >= wizard.schedulingStep && <div className="mb-4"><TravelFeasibilityPanel travel={controller.travel} durationAdjuster={controller.travelDurationAdjuster} /></div>}
                 <BookingContentArea
                   hybridTravelEnabled={controller.travel.enabled}

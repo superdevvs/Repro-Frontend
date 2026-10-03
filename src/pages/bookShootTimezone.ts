@@ -1,7 +1,7 @@
-import { normalizeTimezone } from '@/utils/timezone';
+export const NEW_BOOKING_TIMEZONE = 'America/New_York';
 
-/** Preserve an existing shoot's storage convention; new bookings declare their zone. */
-export function resolveBookingTimezone({ isEditMode, storedTimezone, browserTimezone }: {
+/** New picker clocks match photographer availability; edits preserve stored conventions. */
+export function resolveBookingTimezone({ isEditMode, storedTimezone }: {
   isEditMode: boolean;
   storedTimezone?: string | null;
   browserTimezone?: string | null;
@@ -9,5 +9,5 @@ export function resolveBookingTimezone({ isEditMode, storedTimezone, browserTime
   // Null-zone legacy edits use floating local timestamps and must not silently
   // acquire the current operator's timezone.
   if (isEditMode) return storedTimezone ?? null;
-  return normalizeTimezone(storedTimezone || browserTimezone) || 'America/New_York';
+  return NEW_BOOKING_TIMEZONE;
 }

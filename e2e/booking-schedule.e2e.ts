@@ -17,16 +17,29 @@ for (const override of [undefined, 37]) {
   });
 }
 
-test.describe('browser timezone alias', () => {
+test.describe('Eastern booking clocks from an India browser', () => {
   test.use({ timezoneId: 'Asia/Kolkata' });
-  test('Book Shoot Schedule: India browser uses canonical timezone and matching preview/save clocks', async ({ page, baseURL }) => {
-    const qa = await bookingScheduleFixture(page, baseURL, 'available');
+  test('Book Shoot Schedule: 9:30 AM is 13:30Z in preview and save on October 2', async ({ page, baseURL }) => {
+    const qa = await bookingScheduleFixture(page, baseURL, 'available', 'admin', { date: '2026-10-02T12:00:00-04:00', time: '9:30 AM', catalogDuration: 30 });
     const preview = qa.requests.filter(r => r.path.endsWith('/feasibility')).at(-1)?.body;
-    expect(preview).toMatchObject({ timezone: 'Asia/Kolkata', scheduled_at: '2026-10-05T03:00:00.000Z' });
+    expect(preview).toMatchObject({ timezone: 'America/New_York', scheduled_at: '2026-10-02T13:30:00.000Z' });
+    expect((preview?.service_items as { scheduled_at: string }[])[0].scheduled_at).toBe('2026-10-02T13:30:00.000Z');
+    expect(qa.requests.filter(r => r.path.endsWith('/for-booking')).at(-1)?.body).toMatchObject({ date: '2026-10-02', time: '09:30', duration_minutes: 30 });
     await reviewBooking(page);
     await expect.poll(() => qa.saves().length).toBe(1);
-    expect(qa.saves()[0].body).toMatchObject({ timezone: 'Asia/Kolkata' });
-    expect((qa.saves()[0].body?.services as { scheduled_at: string }[])[0].scheduled_at).toBe('2026-10-05T03:00:00.000Z');
+    expect(qa.saves()[0].body).toMatchObject({ timezone: 'America/New_York', scheduled_at: '2026-10-02T13:30:00.000Z' });
+    expect((qa.saves()[0].body?.services as { scheduled_at: string; duration_minutes: number }[])[0]).toMatchObject({ scheduled_at: '2026-10-02T13:30:00.000Z', duration_minutes: 30 });
+    expect(qa.errors).toEqual([]);
+  });
+  test('Book Shoot Schedule: sequential unit previews and saves inherit the Eastern timezone', async ({ page, baseURL }) => {
+    const qa = await bookingScheduleFixture(page, baseURL, 'available', 'admin', { date: '2026-10-02T12:00:00-04:00', time: '9:30 AM', catalogDuration: 30, multiUnit: true });
+    const preview = qa.requests.filter(r => r.path.endsWith('/feasibility')).at(-1)?.body;
+    expect(preview).toMatchObject({ timezone: 'America/New_York', scheduled_at: '2026-10-02T13:30:00.000Z' });
+    const lines = preview?.service_lines as { scheduled_at: string }[];
+    expect(lines.map(line => line.scheduled_at)).toEqual(['2026-10-02T13:30:00.000Z', '2026-10-02T14:00:00.000Z']);
+    await reviewBooking(page);
+    await expect.poll(() => qa.saves().length).toBe(1);
+    expect(qa.saves()[0].body).toMatchObject({ timezone: 'America/New_York', service_lines: lines });
     expect(qa.errors).toEqual([]);
   });
 });

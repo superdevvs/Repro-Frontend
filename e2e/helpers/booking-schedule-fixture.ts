@@ -1,7 +1,7 @@
 import { expect, type Page } from '@playwright/test';
 
 export type Scenario = 'available' | 'same-building' | 'incoming' | 'outgoing' | 'overlap' | 'unknown' | 'disabled';
-export async function bookingScheduleFixture(page: Page, baseURL: string | undefined, scenario: Scenario, role = 'admin', draftOptions: { legacyDuration?: number; overrideDuration?: number; selectedDuration?: number; catalogDuration?: number; multiUnit?: boolean } = {}) {
+export async function bookingScheduleFixture(page: Page, baseURL: string | undefined, scenario: Scenario, role = 'admin', draftOptions: { legacyDuration?: number; overrideDuration?: number; selectedDuration?: number; catalogDuration?: number; multiUnit?: boolean; date?: string; time?: string } = {}) {
   if (!baseURL || !['localhost', '127.0.0.1'].includes(new URL(baseURL).hostname)) throw new Error('Booking fixtures must run locally.');
   await page.clock.setFixedTime(new Date('2026-10-02T12:00:00Z'));
   const user = { id: 900503, name: 'Scheduling QA', email: 'schedule@example.test', role, account_status: 'active', email_verified_at: '2026-10-01T09:00:00Z', metadata: { terms_accepted_at: '2026-10-01T09:00:00Z' } };
@@ -20,7 +20,7 @@ export async function bookingScheduleFixture(page: Page, baseURL: string | undef
     const multiUnitDraft = draftOptions.multiUnit ? { enabled: true, activeUnitKey: 'unit-1', defaults: {},
       units: ['1', '2'].map(id => ({ client_key: `unit-${id}`, label: `Unit ${id}`, kind: 'unit', sqft: 1500, beds: 3, baths: 2, access_notes: 'QA lockbox' })),
       lines: ['1', '2'].map(id => ({ client_key: `line-${id}`, unit_client_key: `unit-${id}`, service_id: '501', quantity: 1 })) } : undefined;
-    localStorage.setItem('bookShoot_form_cache', JSON.stringify({ client: '101', address: '615 North Highland Avenue', city: 'Baltimore', state: 'MD', zip: '21205', date: '2026-10-05T12:00:00-04:00', time: '8:30 AM', photographer: '201', selectedServices: [cachedService], bookingQuantityVersion: 1, servicePhotographers: { '501': '201' }, serviceSchedules: draftOptions.overrideDuration ? { '501': { duration_minutes: draftOptions.overrideDuration } } : {}, multiUnitDraft, propertySqft: 1500, propertyDetails: { sqft: 1500, bedrooms: 3, bathrooms: 2, listingType: 'for_sale', presenceOption: 'lockbox', lockboxCode: 'QA', lockboxLocation: 'front door' }, notes: '', bypassPayment: true, sendNotification: false }));
+    localStorage.setItem('bookShoot_form_cache', JSON.stringify({ client: '101', address: '615 North Highland Avenue', city: 'Baltimore', state: 'MD', zip: '21205', date: draftOptions.date ?? '2026-10-05T12:00:00-04:00', time: draftOptions.time ?? '8:30 AM', photographer: '201', selectedServices: [cachedService], bookingQuantityVersion: 1, servicePhotographers: { '501': '201' }, serviceSchedules: draftOptions.overrideDuration ? { '501': { duration_minutes: draftOptions.overrideDuration } } : {}, multiUnitDraft, propertySqft: 1500, propertyDetails: { sqft: 1500, bedrooms: 3, bathrooms: 2, listingType: 'for_sale', presenceOption: 'lockbox', lockboxCode: 'QA', lockboxLocation: 'front door' }, notes: '', bypassPayment: true, sendNotification: false }));
   }, { user, service, draftOptions });
   await page.route('**/*', async route => {
     const request = route.request(), url = new URL(request.url()), p = url.pathname.replace(/^\/api/, '');

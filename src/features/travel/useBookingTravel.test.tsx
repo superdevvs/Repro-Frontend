@@ -29,12 +29,12 @@ describe('booking preview uses the booked service itinerary', () => {
     expect(payload.scheduled_at).toBe(expected);
     expect(payload.service_items[0].scheduled_at).toBe(expected);
   });
-  it('canonicalizes the browser alias without changing the selected clock or preview/service parity', async () => {
-    browserTimezone('Asia/Calcutta');
-    renderHook(() => useBookingTravel({ ...base, time: '9:00 AM' }));
+  it.each(['Asia/Kolkata', 'Asia/Calcutta'])('interprets new 9:30 AM as Eastern availability time from %s', async (zone) => {
+    browserTimezone(zone);
+    renderHook(() => useBookingTravel({ ...base, date: new Date(2026, 9, 2), time: '9:30 AM' }));
     const payload = await run();
-    expect(payload.timezone).toBe('Asia/Kolkata');
-    expect(payload.scheduled_at).toBe('2026-10-05T03:30:00.000Z');
+    expect(payload.timezone).toBe('America/New_York');
+    expect(payload.scheduled_at).toBe('2026-10-02T13:30:00.000Z');
     expect(payload.service_items[0].scheduled_at).toBe(payload.scheduled_at);
   });
   it('sends real capture duration without multiplying quantity or adding travel to service time', async () => {
@@ -50,9 +50,13 @@ describe('booking preview uses the booked service itinerary', () => {
     expect(payload.service_items).toEqual([expect.objectContaining({ scheduled_at: '2026-10-05T13:00:00.000Z', duration_minutes: 15 }), expect.objectContaining({ scheduled_at: '2026-10-06T19:00:00.000Z', duration_minutes: 83, photographer_id: '10' })]);
   });
   it('sends both same-building unit rows unchanged, with no frontend buffer or inferred extra package rows', async () => {
+    browserTimezone('Asia/Kolkata');
     const service_lines = [{ unit_client_key: 'a', service_id: '6', duration_minutes: 15, scheduled_at: '2026-10-05T13:00:00Z', photographer_id: '9' },
       { unit_client_key: 'b', service_id: '6', duration_minutes: 15, scheduled_at: '2026-10-05T13:15:00Z', photographer_id: '9' }];
-    renderHook(() => useBookingTravel({ ...base, unitPayload: () => ({ units: [{ client_key: 'a', label: '101' }, { client_key: 'b', label: '102' }], service_lines }) }));
+    const unitPayload = vi.fn(() => ({ units: [{ client_key: 'a', label: '101' }, { client_key: 'b', label: '102' }], service_lines }));
+    renderHook(() => useBookingTravel({ ...base, unitPayload }));
     const payload = await run(); expect(payload.service_lines).toEqual(service_lines); expect(payload).not.toHaveProperty('service_items');
+    expect(unitPayload).toHaveBeenCalledWith('America/New_York');
+    expect(payload.timezone).toBe('America/New_York');
   });
 });
