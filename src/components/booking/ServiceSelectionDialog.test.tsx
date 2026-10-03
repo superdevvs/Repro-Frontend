@@ -44,7 +44,7 @@ describe('ServiceSelectionDialog empty-selection capability', () => {
       />,
     );
 
-    fireEvent.click(screen.getByText('Photography'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Photography' }));
 
     expect(onSelectedServicesChange).not.toHaveBeenCalled();
     expect(screen.getAllByText('At least one service is required for your role.').length).toBeGreaterThan(0);
@@ -63,7 +63,7 @@ describe('ServiceSelectionDialog empty-selection capability', () => {
       />,
     );
 
-    fireEvent.click(screen.getByText('Photography'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Photography' }));
 
     expect(onSelectedServicesChange).toHaveBeenCalledWith([]);
     expect(screen.queryAllByText('At least one service is required for your role.')).toHaveLength(0);
@@ -81,7 +81,7 @@ describe('ServiceSelectionDialog empty-selection capability', () => {
       />,
     );
 
-    fireEvent.click(screen.getByText('Virtual Staging'));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Virtual Staging' }));
 
     expect(onSelectedServicesChange).toHaveBeenCalledWith([
       service,
@@ -139,7 +139,8 @@ describe('ServiceSelectionDialog quantities', () => {
     fireEvent.click(plus);
     fireEvent.click(plus);
     expect(screen.getByLabelText('Photography quantity')).toHaveTextContent('2');
-    expect(screen.getByText('2 selected · $250.00')).toBeInTheDocument();
+    expect(screen.getByText('2 items selected')).toBeInTheDocument();
+    expect(screen.getAllByText('$250.00').length).toBeGreaterThan(0);
     expect(screen.getByRole('checkbox', { name: 'Select Photography' })).toBeChecked();
     fireEvent.click(minus);
     expect(screen.getByLabelText('Photography quantity')).toHaveTextContent('1');
@@ -156,13 +157,15 @@ describe('ServiceSelectionDialog quantities', () => {
     }]} />);
     fireEvent.click(screen.getByRole('button', { name: 'Increase Photography quantity' }));
     fireEvent.click(screen.getByRole('button', { name: 'Increase Photography quantity' }));
-    expect(screen.getByText('2 selected · $360.00')).toBeInTheDocument();
+    expect(screen.getByText('2 items selected')).toBeInTheDocument();
+    expect(screen.getAllByText('$360.00').length).toBeGreaterThan(0);
   });
 
   it('preserves booked quantities and totals when multiples are later disabled', () => {
     render(<QuantityPicker catalog={[service]} initialSelection={[{ ...service, quantity: 3 }]} />);
     expect(screen.queryByRole('group', { name: 'Quantity for Photography' })).not.toBeInTheDocument();
-    expect(screen.getByText('3 selected · $375.00')).toBeInTheDocument();
+    expect(screen.getByText('3 items selected')).toBeInTheDocument();
+    expect(screen.getAllByText('$375.00').length).toBeGreaterThan(0);
   });
 
   it('preserves a booked unit price when the catalog price has changed', () => {
@@ -170,7 +173,8 @@ describe('ServiceSelectionDialog quantities', () => {
     render(<ServiceSelectionDialog open onOpenChange={vi.fn()} services={[multipleService]}
       selectedServices={[{ ...multipleService, price: 100, quantity: 2 }]}
       onSelectedServicesChange={onSelectedServicesChange} />);
-    expect(screen.getByText('$100.00')).toBeInTheDocument();
+    expect(screen.getByText('$100.00 per item')).toBeInTheDocument();
+    expect(screen.getAllByText('$200.00').length).toBeGreaterThan(0);
     expect(screen.queryByText('$125.00')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Increase Photography quantity' }));
     expect(onSelectedServicesChange).toHaveBeenCalledExactlyOnceWith([
@@ -183,7 +187,42 @@ describe('ServiceSelectionDialog quantities', () => {
     render(<QuantityPicker />);
     fireEvent.click(screen.getByRole('button', { name: 'Increase Photography quantity' }));
     fireEvent.click(screen.getByRole('button', { name: 'Increase Photography quantity' }));
-    expect(screen.getByText('2 Selected · $250.00')).toBeInTheDocument();
+    expect(screen.getByText('2 items selected')).toBeInTheDocument();
+    expect(screen.getAllByText('$250.00').length).toBeGreaterThan(0);
     expect(screen.getByLabelText('Photography quantity')).toHaveTextContent('2');
+  });
+});
+
+describe('shared catalog navigation', () => {
+  beforeEach(() => { viewport.mobile = false; });
+
+  it('starts across all categories and retains selection while filtering', () => {
+    const drone = { ...digitalExtra, category: 'Drone', name: 'Drone Photos' };
+    render(<QuantityPicker catalog={[service, drone]} initialSelection={[service]} />);
+    expect(screen.getByRole('checkbox', { name: 'Select Drone Photos' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /^Drone/ }));
+    expect(screen.queryByRole('checkbox', { name: 'Select Photography' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /All services/ }));
+    expect(screen.getByRole('checkbox', { name: 'Select Photography' })).toBeChecked();
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'Drone' } });
+    expect(screen.getByRole('checkbox', { name: 'Select Drone Photos' })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: 'Select Photography' })).not.toBeInTheDocument();
+  });
+
+  it('replaces instead of appending for single-service entry points', () => {
+    const changed = vi.fn();
+    render(<ServiceSelectionDialog open onOpenChange={vi.fn()} services={[service, digitalExtra]}
+      selectedServices={[service]} selectionMode="single" onSelectedServicesChange={changed} />);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Virtual Staging' }));
+    expect(changed).toHaveBeenCalledExactlyOnceWith([expect.objectContaining({ id: '8', quantity: 1 })]);
+  });
+
+  it('uses the comp summary and price override without leaking the catalog total', () => {
+    render(<ServiceSelectionDialog open onOpenChange={vi.fn()} services={[service]}
+      selectedServices={[service]} onSelectedServicesChange={vi.fn()} compact
+      renderServicePrice={() => '$0'} selectionSummary="1 selected · Client $0" />);
+    expect(screen.getByText('1 selected · Client $0')).toBeInTheDocument();
+    expect(screen.queryByText('$125.00')).not.toBeInTheDocument();
+    expect(screen.getByText('Original shoot service')).toBeInTheDocument();
   });
 });

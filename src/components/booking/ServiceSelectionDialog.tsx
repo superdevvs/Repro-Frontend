@@ -1,22 +1,11 @@
 import React from 'react';
-import {
-  Aperture,
-  Camera,
-  Cuboid as Cube,
-  Layers,
-  Minus,
-  Palette,
-  PenTool,
-  Plus,
-  Search,
-  Sparkles,
-  Video,
-} from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 
-import { Badge } from '@/components/ui/badge';
+import { ServicePickerIcon } from './ServicePickerIcon';
+import { serviceCategoryIcon } from './serviceCategoryIcon';
+import { ServicePickerCard } from './ServicePickerCard';
+import './service-picker.css';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -27,6 +16,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   Drawer,
+  DrawerClose,
   DrawerContent,
   DrawerDescription,
   DrawerFooter,
@@ -61,7 +51,7 @@ type CategoryDisplay = {
   id: string;
   name: string;
   count: number;
-  icon: LucideIcon;
+
 };
 
 type ServiceSelectionDialogProps = {
@@ -79,6 +69,8 @@ type ServiceSelectionDialogProps = {
   renderServicePrice?: (service: ServiceSelectionOption, defaultLabel: string) => React.ReactNode;
   selectionSummary?: React.ReactNode;
   compact?: boolean;
+  selectionMode?: 'multiple' | 'single';
+  hidePrices?: boolean;
 };
 
 const FALLBACK_CATEGORY_NAME = 'More services';
@@ -96,20 +88,6 @@ const PRIMARY_CATEGORY_ORDER: Record<string, number> = {
   virtual: 6,
   staging: 6,
 };
-
-const PRIMARY_CATEGORY_ICONS: Array<{ keyword: string; icon: LucideIcon }> = [
-  { keyword: 'photo', icon: Camera },
-  { keyword: 'video', icon: Video },
-  { keyword: 'drone', icon: Aperture },
-  { keyword: '360', icon: Cube },
-  { keyword: '3d', icon: Cube },
-  { keyword: 'floor', icon: Layers },
-  { keyword: 'plan', icon: Layers },
-  { keyword: 'virtual', icon: Sparkles },
-  { keyword: 'staging', icon: Sparkles },
-];
-
-const FALLBACK_ICONS: LucideIcon[] = [Camera, Video, Aperture, Cube, Layers, Sparkles, Palette, PenTool];
 
 const normalizeCategoryName = (name?: string | null) => {
   const normalized = (name || '').trim().toLowerCase();
@@ -141,13 +119,6 @@ const getServiceCategoryName = (service?: ServiceSelectionOption | null) => {
   return getCategoryRawName(service) ?? FALLBACK_CATEGORY_NAME;
 };
 
-const getCategoryIcon = (name: string, index: number): LucideIcon => {
-  const normalized = name?.toLowerCase?.() ?? '';
-  const match = PRIMARY_CATEGORY_ICONS.find(({ keyword }) => normalized.includes(keyword));
-  if (match) return match.icon;
-  return FALLBACK_ICONS[index % FALLBACK_ICONS.length];
-};
-
 const getServiceSqftRanges = (service?: ServiceSelectionOption | ServiceWithPricing | null) => {
   const serviceWithAliases = service as (ServiceSelectionOption & { sqftRanges?: unknown[] }) | null | undefined;
   return (serviceWithAliases?.sqft_ranges || serviceWithAliases?.sqftRanges || []) as SqftRange[];
@@ -162,12 +133,14 @@ export function ServiceSelectionDialog({
   servicesLoading = false,
   effectiveSqft,
   allowEmptySelection = false,
-  title = 'Select services',
-  description = 'Pick the services for this shoot, compare prices quickly, then tap Done.',
+  title = 'Choose your services',
+  description = 'Select services and review your total.',
   contextualControls,
   renderServicePrice,
   selectionSummary,
   compact = false,
+  selectionMode = 'multiple',
+  hidePrices = false,
 }: ServiceSelectionDialogProps) {
   const isMobile = useIsMobile();
   const [serviceSearchQuery, setServiceSearchQuery] = React.useState('');
@@ -189,18 +162,18 @@ export function ServiceSelectionDialog({
         id,
         name,
         count: 1,
-        icon: getCategoryIcon(name, categories.size),
+
       });
     });
 
-    return Array.from(categories.values()).sort((first, second) => {
+    return [{ id: 'all', name: 'All services', count: services.length }, ...Array.from(categories.values()).sort((first, second) => {
       const firstKey = Object.keys(PRIMARY_CATEGORY_ORDER).find((key) => first.name.toLowerCase().includes(key));
       const secondKey = Object.keys(PRIMARY_CATEGORY_ORDER).find((key) => second.name.toLowerCase().includes(key));
       const firstScore = firstKey ? PRIMARY_CATEGORY_ORDER[firstKey] : Number.MAX_SAFE_INTEGER;
       const secondScore = secondKey ? PRIMARY_CATEGORY_ORDER[secondKey] : Number.MAX_SAFE_INTEGER;
       if (firstScore === secondScore) return first.name.localeCompare(second.name);
       return firstScore - secondScore;
-    });
+    })];
   }, [services]);
 
   React.useEffect(() => {
@@ -219,7 +192,7 @@ export function ServiceSelectionDialog({
 
   const panelServices = React.useMemo(() => {
     if (!services?.length) return [];
-    let filtered = panelCategory
+    let filtered = panelCategory !== 'all'
       ? services.filter((service) => getServiceCategoryId(service) === panelCategory)
       : services;
 
@@ -267,7 +240,7 @@ export function ServiceSelectionDialog({
       adjustedService = { ...adjustedService, price: pricingInfo.price };
     }
 
-    onSelectedServicesChange([...selectedServices, adjustedService]);
+    onSelectedServicesChange(selectionMode === 'single' ? [adjustedService] : [...selectedServices, adjustedService]);
 
     if (isMobile && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
       navigator.vibrate(8);
@@ -295,286 +268,99 @@ export function ServiceSelectionDialog({
     onSelectedServicesChange(selectedServices.map((item) => item === selected ? { ...item, quantity } : item));
   };
 
-  const body = (mobileDrawer = false) => (
-    <div className={cn(
-      'flex h-full min-h-0 flex-col overflow-hidden sm:flex-row',
-      compact ? 'sm:h-[clamp(18rem,42vh,24rem)]' : 'sm:h-[70vh]',
-    )}>
-      <aside className={cn(
-        'shrink-0 border-b border-border/60 bg-background/95 px-2.5 py-1.5 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:w-64 sm:overflow-y-auto sm:border-b-0 sm:border-r sm:p-4',
-        compact ? 'sm:max-h-96' : 'sm:max-h-[70vh]',
-      )}>
-        <div className="-mx-1.5 flex snap-x snap-mandatory gap-1.5 overflow-x-auto px-1.5 pb-1 [scrollbar-width:none] [-ms-overflow-style:none] sm:flex-col sm:gap-2 sm:overflow-visible sm:pb-0 sm:snap-none [&::-webkit-scrollbar]:hidden">
-          {categoryOptions.map((category) => {
-            const isActive = category.id === panelCategory;
-            const selectedCount = selectedCountByCategory.get(category.id) || 0;
 
-            return (
-              <button
-                key={category.id}
-                type="button"
-                onClick={() => setPanelCategory(category.id)}
-                className={cn(
-                  'flex min-h-9 flex-shrink-0 snap-start items-center gap-1.5 rounded-full border px-3 py-1.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 sm:w-full sm:gap-3 sm:rounded-lg sm:px-4 sm:py-2.5',
-                  isActive
-                    ? 'border-primary bg-primary text-primary-foreground shadow-[inset_0_0_0_1px_rgba(255,255,255,0.2)] sm:border-primary/60 sm:bg-primary/10 sm:text-primary sm:shadow-none'
-                    : 'border-border/60 bg-background/80 text-foreground/85 hover:border-primary/40 hover:bg-primary/5 sm:border-transparent sm:bg-transparent sm:text-muted-foreground sm:hover:bg-muted/40',
-                  category.id === 'all' ? 'min-w-[112px]' : 'min-w-[98px]',
-                )}
-              >
-                <div className="hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-muted sm:flex sm:h-9 sm:w-9">
-                  <category.icon className="h-4 w-4" />
-                </div>
-                <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:block">
-                  <p className="truncate text-xs font-medium leading-tight sm:text-sm">{category.name}</p>
-                  <p className="hidden text-[11px] text-muted-foreground sm:block sm:text-xs">{category.count} items</p>
-                </div>
-                <div className="ml-auto flex shrink-0 items-center gap-1.5">
-                  {selectedCount > 0 && (
-                    <span
-                      className={cn(
-                        'inline-flex h-6 min-w-6 items-center justify-center rounded-full px-1.5 text-[10px] font-bold leading-none tabular-nums',
-                        isActive
-                          ? 'bg-primary-foreground/20 text-primary-foreground sm:bg-primary sm:text-primary-foreground'
-                          : 'bg-primary/10 text-primary',
-                      )}
-                    >
-                      {selectedCount}
-                    </span>
-                  )}
-                  <span
-                    className={cn(
-                      'inline-flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold leading-none tabular-nums sm:hidden',
-                      isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-muted text-muted-foreground',
-                    )}
-                  >
-                    {category.count}
-                  </span>
-                </div>
-              </button>
-            );
+  const selectedNames = selectedServices.map(service => `${selectedQuantity(service) > 1 ? `${selectedQuantity(service)} × ` : ''}${service.name}`).join(' · ');
+  const headerContext = effectiveSqft ? <span className="shrink-0 rounded-lg bg-[var(--picker-subtle)] px-2 py-2 text-xs text-[var(--picker-muted)]">{effectiveSqft.toLocaleString()} sq ft</span> : null;
+  const body = (
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden sm:flex-row">
+      <aside className="shrink-0 border-b border-[var(--picker-border)] bg-[var(--picker-subtle)] p-3 sm:w-[220px] sm:overflow-y-auto sm:border-b-0 sm:p-6">
+        <p className="mb-2 hidden text-[11px] font-semibold uppercase text-[var(--picker-muted)] sm:block">Categories</p>
+        <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-col sm:overflow-visible sm:pb-0">
+          {categoryOptions.map(category => {
+            const active = category.id === panelCategory;
+            const selectedCount = category.id === 'all' ? selectedItemCount : (selectedCountByCategory.get(category.id) || 0);
+            return <button key={category.id} type="button" aria-pressed={active} onClick={() => setPanelCategory(category.id)}
+              className={cn('relative flex shrink-0 items-center gap-2.5 rounded-[10px] px-3 py-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--picker-accent)] sm:w-full',
+                active ? 'bg-[var(--picker-tint)] text-[var(--picker-accent)]' : 'text-[var(--picker-muted)] hover:bg-[var(--picker-tint)]')}>
+              <ServicePickerIcon small name={category.id === 'all' ? 'grid' : serviceCategoryIcon(category.name)} />
+              <span className="min-w-0 flex-1 whitespace-nowrap font-medium sm:whitespace-normal">{category.name}</span>
+              <span className="text-xs tabular-nums" aria-label={`${category.count} services`}>{category.count}</span>
+              {selectedCount > 0 && <span className="sr-only">{selectedCount} selected</span>}
+            </button>;
           })}
         </div>
       </aside>
-
-      <div
-        className={cn(
-          'min-h-0 flex-1 space-y-2.5 overflow-y-auto px-2.5 sm:space-y-4 sm:p-6',
-          mobileDrawer ? 'pb-4' : 'pb-[calc(5.25rem+env(safe-area-inset-bottom))] sm:pb-6',
-        )}
-      >
-        <div className="sticky top-0 z-20 -mx-2.5 border-b border-border/50 bg-background/95 px-2.5 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/85 sm:static sm:mx-0 sm:border-0 sm:px-0 sm:py-0">
+      <div className="service-picker-body min-h-0 flex-1 overflow-y-auto p-4 sm:p-6">
+        <div className="sticky top-0 z-10 mb-5 bg-[var(--picker-surface)]">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              type="text"
-              placeholder="Search services..."
-              value={serviceSearchQuery}
-              onChange={(event) => setServiceSearchQuery(event.target.value)}
-              className="h-9 border-border/70 pl-8 text-sm focus-visible:ring-primary/40"
-            />
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--picker-muted)]"><ServicePickerIcon small name="search" /></span>
+            <Input type="search" aria-label="Search services" placeholder="Search services..." value={serviceSearchQuery}
+              onChange={event => setServiceSearchQuery(event.target.value)}
+              className="h-12 rounded-[10px] border-[var(--picker-border)] bg-[var(--picker-subtle)] pl-10 text-sm" />
           </div>
         </div>
-
-        {servicesLoading ? (
-          <div className="grid gap-3 sm:grid-cols-2">
-            {Array.from({ length: 4 }).map((_, index) => (
-              <Skeleton key={index} className="h-28 rounded-2xl" />
-            ))}
-          </div>
-        ) : panelServices.length ? (
-          <div className="grid gap-2.5 sm:grid-cols-2 sm:gap-4">
-            {panelServices.map((service) => {
-              const serviceId = String(service.id);
-              const isSelected = isServiceSelected(serviceId);
-              const selectedService = selectedServices.find((item) => String(item.id) === serviceId);
-              const quantity = selectedService ? selectedQuantity(selectedService) : 0;
-              const sqftRanges = getServiceSqftRanges(service);
-              const supportsVariablePricing = !!(
-                effectiveSqft &&
-                service.pricing_type === 'variable' &&
-                sqftRanges.length
-              );
-              const pricingInfo = supportsVariablePricing
-                ? getServicePricingForSqft({ ...service, sqft_ranges: sqftRanges } as ServiceWithPricing, effectiveSqft)
-                : null;
-              const displayPrice = formatPrice(Number(selectedService?.price ?? pricingInfo?.price ?? service.price ?? 0));
-              const matchedRange = pricingInfo?.matchedRange;
-              const sqftContext = matchedRange
-                ? `${matchedRange.sqft_from.toLocaleString()} - ${matchedRange.sqft_to.toLocaleString()} sqft tier`
-                : supportsVariablePricing
-                ? `Using default price for ${effectiveSqft?.toLocaleString()} sqft`
-                : null;
-              const categoryName = getServiceCategoryName(service);
-
-              return (
-                <div
-                  key={serviceId}
-                  className={cn(
-                    'group relative cursor-pointer overflow-hidden rounded-lg border border-l-4 p-2.5 transition-all duration-200 sm:rounded-2xl sm:p-3',
-                    isSelected
-                      ? 'border-primary/55 border-l-primary bg-primary/[0.08] shadow-[0_6px_18px_-12px_rgba(59,130,246,0.65)]'
-                      : 'border-border/70 border-l-border/80 bg-background hover:border-primary/35 hover:border-l-primary/40',
-                  )}
-                  onClick={() => toggleServiceSelection(service)}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="line-clamp-1 text-[15px] font-semibold leading-tight sm:text-base">{service.name}</p>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground sm:text-sm">
-                        {service.description}
-                      </p>
-                      {sqftContext && (
-                        <p className="mt-1 line-clamp-1 text-[11px] text-muted-foreground sm:text-xs">
-                          {sqftContext}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-2">
-                      <span className="text-base font-semibold leading-none tabular-nums text-foreground sm:text-lg">
-                        {renderServicePrice ? renderServicePrice(service, displayPrice) : displayPrice}
-                      </span>
-                      <Checkbox
-                        aria-label={`Select ${service.name}`}
-                        className="h-5 w-5 rounded-full sm:h-4 sm:w-4"
-                        checked={isSelected}
-                        onClick={(event) => event.stopPropagation()}
-                        onCheckedChange={() => toggleServiceSelection(service)}
-                      />
-                    </div>
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap items-center justify-between gap-2">
-                    {categoryName && (
-                      <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-                        {categoryName}
-                        {supportsVariablePricing && matchedRange && (
-                          <span className="ml-1 text-[8px] tracking-normal text-primary">SQFT</span>
-                        )}
-                      </Badge>
-                    )}
-                    {service.allow_multiple ? (
-                      <div
-                        role="group"
-                        aria-label={`Quantity for ${service.name}`}
-                        className="ml-auto inline-flex items-center rounded-lg border border-border/70 bg-background"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-r-none"
-                          aria-label={`Decrease ${service.name} quantity`}
-                          disabled={quantity <= 1}
-                          onClick={() => changeQuantity(service, -1)}
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </Button>
-                        <output aria-label={`${service.name} quantity`} aria-live="polite" className="min-w-7 px-1 text-center text-sm font-semibold tabular-nums">
-                          {quantity}
-                        </output>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-l-none"
-                          aria-label={`Increase ${service.name} quantity`}
-                          onClick={() => changeQuantity(service, 1)}
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    ) : isSelected && (
-                        <span className="text-[11px] font-medium text-primary sm:hidden">Selected</span>
-                    )}
-                  </div>
-                </div>
-              );
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-base font-semibold sm:text-lg">{compact ? 'Services from this shoot' : panelCategory === 'all' ? 'Explore services' : categoryOptions.find(c => c.id === panelCategory)?.name}</h3>
+          <span className="rounded-lg bg-[var(--picker-tint)] px-2 py-2 text-xs text-[var(--picker-accent)]">{selectedServices.length} {selectedServices.length === 1 ? 'service' : 'services'} selected</span>
+        </div>
+        {servicesLoading ? <div className="service-picker-grid">{Array.from({ length: 6 }, (_, index) => <Skeleton key={index} className="h-52 rounded-[14px]" />)}</div>
+          : panelServices.length ? <div className="service-picker-grid">
+            {panelServices.map(service => {
+              const selected = selectedServices.find(item => String(item.id) === String(service.id));
+              const ranges = getServiceSqftRanges(service);
+              const pricing = service.pricing_type === 'variable' && effectiveSqft && ranges.length
+                ? getServicePricingForSqft({ ...service, sqft_ranges: ranges } as ServiceWithPricing, effectiveSqft) : null;
+              const unitPrice = Number(selected?.price ?? pricing?.price ?? service.price ?? 0);
+              const quantity = selected ? selectedQuantity(selected) : 0;
+              const multiple = !!service.allow_multiple && selectionMode !== 'single';
+              const displayPrice = formatPrice(unitPrice * (selected ? quantity : 1));
+              const tier = pricing?.matchedRange;
+              const priceContext = hidePrices ? null : compact ? 'Original shoot service' : multiple ? `${formatPrice(unitPrice)} per item`
+                : tier ? `${tier.sqft_from.toLocaleString()}–${tier.sqft_to.toLocaleString()} sq ft tier`
+                : service.pricing_type === 'variable' && !effectiveSqft ? 'Add square footage for accurate pricing' : 'Flat price';
+              return <ServicePickerCard key={service.id} name={service.name} description={service.description} category={getServiceCategoryName(service)}
+                price={hidePrices ? null : renderServicePrice ? renderServicePrice(service, displayPrice) : displayPrice}
+                priceContext={priceContext} selected={!!selected} quantity={quantity} multiple={multiple}
+                onToggle={() => toggleServiceSelection(service)} onQuantity={delta => changeQuantity(service, delta)} />;
             })}
-          </div>
-        ) : (
-          <div className="rounded-xl border border-dashed border-muted-foreground/40 bg-muted/20 p-6 text-left text-sm text-muted-foreground">
-            {serviceSearchQuery.trim()
-              ? 'No services match this search in the selected category.'
-              : 'No services exist in this category yet. Pick a different category to continue.'}
-          </div>
-        )}
+          </div> : <div className="rounded-xl border border-dashed border-[var(--picker-border)] bg-[var(--picker-subtle)] p-6 text-sm text-[var(--picker-muted)]">
+            {serviceSearchQuery.trim() ? 'No services match this search in the selected category.' : 'No services exist in this category yet. Pick a different category to continue.'}
+          </div>}
       </div>
     </div>
   );
-
-  const footer = (mobileDrawer = false) => (
-    <>
-      <div className={cn('min-w-0', !mobileDrawer && 'sm:hidden')}>
-        <p className="text-sm font-semibold leading-tight">
-          {selectionSummary ?? `${selectedItemCount} Selected · ${formatPrice(selectedServicesTotal)}`}
-        </p>
-        {!allowEmptySelection && selectedServices.length <= 1 && (
-          <p className="mt-0.5 text-xs text-muted-foreground">At least one service is required for your role.</p>
-        )}
-      </div>
-      {!mobileDrawer && (
-        <div className="mr-auto hidden sm:block">
-          <p className="text-sm text-muted-foreground">
-            {selectionSummary ?? `${selectedItemCount} selected · ${formatPrice(selectedServicesTotal)}`}
-          </p>
-          {!allowEmptySelection && selectedServices.length <= 1 && (
-            <p className="mt-0.5 text-xs text-muted-foreground">At least one service is required for your role.</p>
-          )}
-        </div>
-      )}
-      <Button
-        className="h-10 px-5"
-        disabled={!allowEmptySelection && selectedServices.length === 0}
-        onClick={() => onOpenChange(false)}
-      >
-        Done
-      </Button>
-    </>
-  );
-
-  if (isMobile) {
-    return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="h-[84vh] max-h-[84vh]">
-          <DrawerHeader className="pb-2 text-left">
-            <DrawerTitle>{title}</DrawerTitle>
-            <DrawerDescription>{description}</DrawerDescription>
-          </DrawerHeader>
-          {contextualControls}
-          <div className="min-h-0 flex-1 overflow-hidden">{body(true)}</div>
-          <DrawerFooter className="border-t border-border/80 bg-background/95 backdrop-blur [padding-bottom:calc(0.5rem+env(safe-area-inset-bottom))] supports-[backdrop-filter]:bg-background/85">
-            {footer(true)}
-          </DrawerFooter>
-        </DrawerContent>
-      </Drawer>
-    );
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(
-        'gap-0 overflow-hidden p-0 sm:!max-h-[90vh] sm:!w-[96vw] [&>button]:right-2 [&>button]:top-2',
-        compact ? 'sm:!max-w-4xl' : 'sm:!max-w-5xl',
-      )}>
-        <DialogHeader className={cn(
-          'items-start space-y-1 border-b border-border/80 px-6 text-left',
-          compact ? 'py-3' : 'py-4',
-        )}>
-          <DialogTitle className="w-full pr-10 text-left leading-tight">{title}</DialogTitle>
-          <DialogDescription className="w-full pr-10 text-left text-sm leading-snug">
-            {description}
-          </DialogDescription>
-        </DialogHeader>
-        {contextualControls}
-        {body(false)}
-        <DialogFooter className={cn(
-          'flex-row items-center justify-between gap-2 border-t border-border/80 bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/85',
-          compact ? 'py-3' : 'py-4 [padding-bottom:1rem]',
-        )}>
-          {footer(false)}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
+  const footer = <>
+    <div className="min-w-0 flex-1">
+      <p aria-live="polite" className="text-sm font-medium">{selectionSummary ?? `${selectedItemCount} items selected`}</p>
+      <p className="mt-1 truncate text-xs text-[var(--picker-muted)]" title={selectedNames}>{selectedNames || 'Choose a service to get started'}</p>
+      {!allowEmptySelection && selectedServices.length <= 1 && <p className="mt-1 text-xs text-[var(--picker-muted)]">At least one service is required for your role.</p>}
+    </div>
+    {!selectionSummary && !hidePrices && <span className="shrink-0 text-lg font-semibold tabular-nums sm:text-[22px]">{formatPrice(selectedServicesTotal)}</span>}
+    <Button type="button" className="service-picker-done shrink-0 px-4 sm:px-6" disabled={!allowEmptySelection && !selectedServices.length} onClick={() => onOpenChange(false)}>
+      <span className="sm:hidden">Done</span><span className="hidden sm:inline">Done selecting</span><ArrowRight className="ml-2 hidden h-4 w-4 sm:block" />
+    </Button>
+  </>;
+  if (isMobile) return <Drawer open={open} onOpenChange={onOpenChange}>
+    <DrawerContent data-testid="service-picker" className="service-picker h-[92dvh] max-h-[92dvh] overflow-hidden rounded-t-[20px] [&>div:first-child]:mt-2 [&>div:first-child]:h-1 [&>div:first-child]:w-10">
+      <DrawerHeader className="flex shrink-0 items-center gap-3 border-b border-[var(--picker-border)] p-4 text-left">
+        <div className="min-w-0 flex-1"><DrawerTitle className="text-lg leading-snug">{title}</DrawerTitle><DrawerDescription className="mt-1 text-xs text-[var(--picker-muted)]">{description}</DrawerDescription></div>
+        {headerContext}
+        <DrawerClose aria-label="Close service picker" className="rounded-md p-2 focus-visible:ring-2 focus-visible:ring-primary"><ServicePickerIcon name="close" /></DrawerClose>
+      </DrawerHeader>
+      <div className="max-h-[32dvh] shrink-0 overflow-y-auto">{contextualControls}</div>
+      {body}
+      <DrawerFooter className="flex shrink-0 flex-row items-center gap-3 border-t border-[var(--picker-border)] p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</DrawerFooter>
+    </DrawerContent>
+  </Drawer>;
+  return <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent data-testid="service-picker" className={cn('service-picker flex max-h-[92dvh] w-[96vw] !max-w-[1280px] flex-col gap-0 overflow-hidden rounded-[20px] p-0 [&>button]:right-3 [&>button]:top-5 [&>button]:border-0 [&>button]:bg-transparent [&>button]:shadow-none', compact ? 'h-[min(624px,92dvh)]' : 'h-[min(798px,92dvh)]')}>
+      <DialogHeader className="m-0 flex shrink-0 flex-row items-center gap-4 space-y-0 border-b border-[var(--picker-border)] p-4 pr-14 text-left">
+        <div className="min-w-0 flex-1"><DialogTitle className="text-lg leading-snug">{title}</DialogTitle><DialogDescription className="mt-1 text-xs text-[var(--picker-muted)]">{description}</DialogDescription></div>
+        {headerContext}
+      </DialogHeader>
+      <div className="max-h-[28dvh] shrink-0 overflow-y-auto">{contextualControls}</div>
+      {body}
+      <DialogFooter className="flex shrink-0 flex-row items-center gap-4 space-x-0 border-t border-[var(--picker-border)] p-4 sm:p-6">{footer}</DialogFooter>
+    </DialogContent>
+  </Dialog>;
 }

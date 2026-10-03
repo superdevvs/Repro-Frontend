@@ -24,8 +24,8 @@ describe('CompServiceModeControls', () => {
       />,
     );
 
-    expect(screen.getByRole('switch', { name: 'Pay sales rep' })).toBeDisabled();
-    expect(screen.getByText('None assigned')).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'Pay sales rep' })).not.toBeInTheDocument();
+    expect(screen.getByText('Not assigned')).toBeInTheDocument();
   });
 
   it('makes client billing explicit and reports billing changes', () => {

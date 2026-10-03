@@ -1,3 +1,4 @@
+import { ServicePickerField } from '@/components/booking/ServicePickerField';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import React, { useState } from 'react';
 import AddressLookup from './AddressLookup';
@@ -32,7 +33,7 @@ const BookShootWithAddressLookup: React.FC = () => {
         notes: ''
     });
 
-    const [serviceAreaInfo, setServiceAreaInfo] = useState<any>(null);
+    const [serviceAreaInfo, setServiceAreaInfo] = useState<{ in_service_area: boolean; message: string } | null>(null);
     const [isCheckingServiceArea, setIsCheckingServiceArea] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
@@ -236,18 +237,9 @@ const BookShootWithAddressLookup: React.FC = () => {
                         <label className="block text-sm font-medium text-gray-700 mb-2">
                             Service Type *
                         </label>
-                        <select
-                            value={formData.serviceType}
-                            onChange={(e) => handleInputChange('serviceType', e.target.value)}
-                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors.serviceType ? 'border-red-500' : 'border-gray-300'
-                                }`}
-                            required
-                        >
-                            <option value="">Select a service...</option>
-                            <option value="P">Photography Package</option>
-                            <option value="iGuide">iGuide Virtual Tour</option>
-                            <option value="Video">Video Package</option>
-                        </select>
+                        <ServicePickerField label="Choose service type" value={formData.serviceType}
+                            onValueChange={value => handleInputChange('serviceType', value)} hidePrices
+                            options={[{ id: 'P', name: 'Photography Package', category: 'Photography' }, { id: 'iGuide', name: 'iGuide Virtual Tour', category: '3D Tours' }, { id: 'Video', name: 'Video Package', category: 'Video' }]} />
                         {errors.serviceType && (
                             <p className="mt-1 text-sm text-red-600 flex items-center">
                                 <AlertCircle className="w-4 h-4 mr-1" />
@@ -339,7 +331,7 @@ const BookShootWithAddressLookup: React.FC = () => {
                         </button>
                         <button
                             type="submit"
-                            disabled={isSubmitting || (serviceAreaInfo && !serviceAreaInfo.in_service_area)}
+                            disabled={isSubmitting || Boolean(serviceAreaInfo && !serviceAreaInfo.in_service_area)}
                             className={`px-6 py-2 rounded-lg font-medium focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${isSubmitting || (serviceAreaInfo && !serviceAreaInfo.in_service_area)
                                 ? 'bg-gray-400 text-gray-700 cursor-not-allowed'
                                 : 'bg-blue-600 text-white hover:bg-blue-700'

@@ -1,9 +1,8 @@
-import { RotateCcw } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { cn } from '@/lib/utils';
+import { useId } from 'react';
 import {
   COMP_RESHOOT_REASON_OPTIONS,
   type CompReshootReasonCode,
@@ -40,31 +39,26 @@ export function CompServiceModeControls({
   onClientPaysChange,
   hasSalesRep,
 }: CompServiceModeControlsProps) {
+  const controlId = useId();
   return (
     <div
-      className="border-b border-border/70 bg-muted/20 px-3 py-2 sm:px-5"
+      className="service-picker-comp shrink-0 border-b border-border/70 p-4"
+      data-enabled={enabled}
       data-testid="comp-service-mode-controls"
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2">
-        <div className="flex min-h-9 w-full shrink-0 items-center gap-2 sm:w-auto">
-          <RotateCcw
-            className={cn(
-              'h-3.5 w-3.5 shrink-0',
-              enabled ? 'text-primary' : 'text-muted-foreground',
-            )}
-            aria-hidden="true"
-          />
-          <Label htmlFor="comp-service-mode" className="whitespace-nowrap text-xs font-semibold">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-3">
+        <div className="flex min-h-8 shrink-0 items-center gap-2 sm:w-auto">
+          <Label htmlFor={`${controlId}-comp-service-mode`} className="whitespace-nowrap text-xs font-medium">
             Comp mode
           </Label>
           <Switch
-            id="comp-service-mode"
+            id={`${controlId}-comp-service-mode`}
             aria-label="Comp mode"
             checked={enabled}
             onCheckedChange={onEnabledChange}
           />
           {enabled && (
-            <span className="whitespace-nowrap rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">
+            <span className="whitespace-nowrap rounded-lg px-2 py-2 text-xs font-medium text-[var(--picker-accent)]">
               {clientPays ? 'Client billed' : 'Client $0'}
             </span>
           )}
@@ -72,8 +66,8 @@ export function CompServiceModeControls({
 
         {enabled && (
           <>
-            <div className="flex w-full min-w-0 flex-[1_1_14rem] items-center gap-2 sm:w-auto">
-              <Label htmlFor="comp-service-reason" className="shrink-0 text-xs text-muted-foreground">
+            <div className="flex w-full min-w-0 items-center gap-2 sm:w-[250px]">
+              <Label htmlFor={`${controlId}-comp-service-reason`} className="shrink-0 text-xs text-muted-foreground">
                 Reason
               </Label>
               <Select
@@ -81,7 +75,7 @@ export function CompServiceModeControls({
                 onValueChange={(value) => onReasonCodeChange(value as CompReshootReasonCode)}
               >
                 <SelectTrigger
-                  id="comp-service-reason"
+                  id={`${controlId}-comp-service-reason`}
                   className="h-9 min-w-0 flex-1 bg-background text-xs sm:h-8"
                 >
                   <SelectValue placeholder="Choose a reason" />
@@ -95,11 +89,11 @@ export function CompServiceModeControls({
             </div>
 
             <div
-              className="flex w-full min-w-0 flex-[1_1_27rem] flex-wrap items-center gap-x-3 gap-y-1 sm:w-auto"
+              className="flex min-w-0 flex-wrap items-center gap-x-6 gap-y-3"
               role="group"
               aria-label="Billing and staff pay"
             >
-              <label className="flex min-h-9 min-w-[8.5rem] flex-1 cursor-pointer items-center justify-between gap-2 whitespace-nowrap px-1 text-xs font-medium sm:min-h-8">
+              <label className="flex min-h-8 cursor-pointer items-center gap-2 whitespace-nowrap text-xs font-medium">
                 Bill client
                 <Switch
                   aria-label="Bill client for return visit"
@@ -107,7 +101,7 @@ export function CompServiceModeControls({
                   onCheckedChange={onClientPaysChange}
                 />
               </label>
-              <label className="flex min-h-9 min-w-[9.5rem] flex-1 cursor-pointer items-center justify-between gap-2 whitespace-nowrap px-1 text-xs font-medium sm:min-h-8">
+              <label className="flex min-h-8 cursor-pointer items-center gap-2 whitespace-nowrap text-xs font-medium">
                 Pay photographer
                 <Switch
                   aria-label="Pay photographer"
@@ -115,23 +109,13 @@ export function CompServiceModeControls({
                   onCheckedChange={onPayPhotographerChange}
                 />
               </label>
-              <label
-                className={cn(
-                  'flex min-h-9 min-w-[9.5rem] flex-1 items-center justify-between gap-2 px-1 text-xs font-medium sm:min-h-8',
-                  hasSalesRep ? 'cursor-pointer' : 'cursor-not-allowed text-muted-foreground',
-                )}
-              >
-                <span>
-                  Pay sales rep
-                  {!hasSalesRep && <span className="block text-[10px] font-normal">None assigned</span>}
-                </span>
-                <Switch
-                  aria-label="Pay sales rep"
-                  checked={paySalesRep}
-                  onCheckedChange={onPaySalesRepChange}
-                  disabled={!hasSalesRep}
-                />
-              </label>
+              {hasSalesRep ? <label className="flex min-h-8 cursor-pointer items-center gap-2 whitespace-nowrap text-xs font-medium">
+                Pay sales rep
+                <Switch aria-label="Pay sales rep" checked={paySalesRep} onCheckedChange={onPaySalesRepChange} />
+              </label> : <div className="flex min-h-8 items-center gap-2 whitespace-nowrap text-xs">
+                <span>Pay sales rep</span>
+                <span className="rounded-md border border-border bg-background px-2 py-1.5 text-muted-foreground">Not assigned</span>
+              </div>}
             </div>
           </>
         )}
@@ -139,11 +123,11 @@ export function CompServiceModeControls({
 
       {enabled && reasonCode === 'other' && (
         <div className="mt-2 flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center">
-          <Label htmlFor="comp-service-reason-note" className="shrink-0 text-xs text-muted-foreground">
+          <Label htmlFor={`${controlId}-comp-service-reason-note`} className="shrink-0 text-xs text-muted-foreground">
             Internal note
           </Label>
           <Input
-            id="comp-service-reason-note"
+            id={`${controlId}-comp-service-reason-note`}
             value={reasonNote}
             onChange={(event) => onReasonNoteChange(event.target.value)}
             placeholder="Why is this return visit needed?"

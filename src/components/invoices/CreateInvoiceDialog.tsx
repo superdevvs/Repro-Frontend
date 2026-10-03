@@ -1,9 +1,9 @@
+import { ServicePickerField } from '@/components/booking/ServicePickerField';
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarIcon, FileTextIcon, Plus, Minus } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -180,22 +180,9 @@ export function CreateInvoiceDialog({ isOpen, onClose, onInvoiceCreate }: Create
             <Label>Services</Label>
             {services.map((service, index) => (
               <div key={index} className="flex items-center space-x-2">
-                <Select
-                  value={service}
-                  onValueChange={(value) => handleServiceChange(index, value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a service" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Photography">Photography</SelectItem>
-                    <SelectItem value="Videography">Videography</SelectItem>
-                    <SelectItem value="Drone">Drone</SelectItem>
-                    <SelectItem value="Virtual Staging">Virtual Staging</SelectItem>
-                    <SelectItem value="Floorplans">Floorplans</SelectItem>
-                    <SelectItem value="3D Tour">3D Tour</SelectItem>
-                  </SelectContent>
-                </Select>
+                <ServicePickerField label="Choose invoice service" value={service}
+                  onValueChange={value => handleServiceChange(index, value)} hidePrices
+                  options={['Photography', 'Videography', 'Drone', 'Virtual Staging', 'Floorplans', '3D Tour'].map(name => ({ id: name, name, category: name }))} />
                 <Button
                   type="button"
                   variant="ghost"

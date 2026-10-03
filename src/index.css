@@ -187,6 +187,7 @@ body {
 
     --border: 210 20% 90%;
     --input: 210 20% 90%;
+    --control-border: 215 16% 47%;
     --ring: 210 100% 50%;
 
     --radius: 0.75rem;
@@ -228,6 +229,7 @@ body {
 
     --border: 210 40% 16%;
     --input: 210 40% 16%;
+    --control-border: 215 30% 24%;
     --ring: 210 100% 50%;
 
     --sidebar-background: 210 40% 8%;

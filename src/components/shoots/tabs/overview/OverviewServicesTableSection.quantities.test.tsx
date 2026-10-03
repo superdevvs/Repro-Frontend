@@ -23,7 +23,8 @@ describe('overview service quantity picker', () => {
       servicePanelCategory="all" setServicePanelCategory={vi.fn()} panelServices={[service]}
       isClient={false} isPhotographer={false} isEditor={false}
     />);
-    expect(screen.getByText('2 selected · $180.00')).toBeInTheDocument();
+    expect(screen.getByText('2 items selected')).toBeInTheDocument();
+    expect(screen.getAllByText('$180.00').length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole('button', { name: 'Increase Photos quantity' }));
     expect(updateQuantity).toHaveBeenCalledWith('10', 3);
     expect(toggle).not.toHaveBeenCalled();

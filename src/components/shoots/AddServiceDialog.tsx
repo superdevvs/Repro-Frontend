@@ -1,3 +1,4 @@
+import { ServicePickerField } from '@/components/booking/ServicePickerField';
 import { useTravelFeasibility } from '@/features/travel/useTravelFeasibility';
 import { safelyBuildTravelPayload, shootTravelPayload } from '@/features/travel/travelPayload';
 import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
@@ -6,7 +7,7 @@ import { useShootUnitScope } from '@/features/shoot-units/useShootUnitScope';
 import { getUnitVisitDefaults, projectShootForUnit } from '@/features/shoot-units/shootUnitData';
 import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { buildUnitScopedUpdate } from '@/features/shoot-units/unitMutations';
-import { calculateServicePrice, type SqftRange } from '@/utils/servicePricing';
+import { type SqftRange } from '@/utils/servicePricing';
 import { getBookedServiceQuantities, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
@@ -287,26 +288,10 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="service">Service</Label>
-              <Select value={selectedServiceId} onValueChange={(value) => { setSelectedServiceId(value); setQuantity(1); }}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a service" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableServices.length === 0 ? (
-                    <SelectItem value="no-services" disabled>No services available</SelectItem>
-                  ) : (
-                    availableServices.map((service) => {
-                      const price = calculateServicePrice({ ...service }, unitScope.unit?.sqft ?? (Number(shoot.propertyDetails?.sqft) || null));
-                      const priceDisplay = isNaN(price) ? '0.00' : price.toFixed(2);
-                      return (
-                        <SelectItem key={service.id} value={String(service.id)}>
-                          {service.name} - ${priceDisplay}
-                        </SelectItem>
-                      );
-                    })
-                  )}
-                </SelectContent>
-              </Select>
+              <ServicePickerField id="service" label="Choose a service to add" value={selectedServiceId}
+                onValueChange={value => { setSelectedServiceId(value); setQuantity(1); }}
+                options={availableServices.map(service => ({ ...service, id: String(service.id) }))}
+                effectiveSqft={unitScope.unit?.sqft ?? (Number(shoot.propertyDetails?.sqft) || null)} />
             </div>
 
             {services.find(service => String(service.id) === selectedServiceId)?.allow_multiple && (
