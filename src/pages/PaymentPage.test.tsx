@@ -3,6 +3,7 @@ import '@testing-library/jest-dom/vitest';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
+import { loadStripe } from '@stripe/stripe-js/pure';
 import PaymentPage from './PaymentPage';
 import { PAYMENT_CONFIRMATION_MAX_ATTEMPTS, PAYMENT_CONFIRMATION_RETRY_DELAY_MS } from '@/utils/paymentConfirmationRetry';
 
@@ -56,13 +57,60 @@ function renderPage(query = '') {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   vi.mocked(axios.get).mockReset();
   vi.mocked(axios.post).mockReset();
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
-afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); localStorage.clear(); vi.useRealTimers(); vi.restoreAllMocks(); });
 
 describe('public payment status recovery', () => {
+  it('recovers the signed-in owner receipt when the original payment link is reopened', async () => {
+    localStorage.setItem('authToken', 'test-owner');
+    vi.mocked(axios.get).mockRejectedValueOnce({ isAxiosError: true, response: { status: 410 } })
+      .mockResolvedValueOnce({ data: { data: confirmation().data.shoot } });
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Already Paid' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Go to dashboard' })).toHaveAttribute('href', '/dashboard');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(axios.get).toHaveBeenLastCalledWith('https://example.test/api/payments/receipt/test-token', { timeout: 10000 });
+    expect(axios.post).not.toHaveBeenCalled();
+  });
+
+  it.each([404, 409])('does not claim success if receipt recovery is rejected (%s)', async (status) => {
+    localStorage.setItem('authToken', 'test-other');
+    vi.mocked(axios.get).mockRejectedValueOnce({ isAxiosError: true, response: { status: 410 } })
+      .mockRejectedValueOnce({ isAxiosError: true, response: { status } });
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Unable to Load Payment' })).toBeInTheDocument();
+    expect(screen.queryByText('Already Paid')).not.toBeInTheDocument();
+  });
+
+  it('does not treat an unexpected receipt response as a paid bill', async () => {
+    localStorage.setItem('authToken', 'test-owner');
+    vi.mocked(axios.get).mockRejectedValueOnce({ isAxiosError: true, response: { status: 410 } })
+      .mockResolvedValueOnce({ data: '<html>Unavailable</html>' });
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Unable to Load Payment' })).toBeInTheDocument();
+    expect(screen.queryByText('Already Paid')).not.toBeInTheDocument();
+  });
+
+  it('polls only the exact checkout session, without refetching the closing public link', async () => {
+    vi.useFakeTimers();
+    vi.mocked(axios.get).mockResolvedValue({ data: shoot });
+    vi.mocked(axios.post).mockResolvedValueOnce({ data: { clientSecret: 'test-secret', sessionId: 'cs_paid' } })
+      .mockResolvedValueOnce({ data: { outcome: 'busy', session_id: 'cs_paid', payment_recorded: false } })
+      .mockResolvedValueOnce(confirmation());
+    vi.mocked(loadStripe).mockResolvedValue({ initEmbeddedCheckout: vi.fn().mockResolvedValue({ mount: vi.fn(), destroy: vi.fn() }) } as never);
+    await act(async () => { renderPage(); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Pay $100.00' })); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(6000); });
+    expect(screen.getByText('Payment received')).toBeInTheDocument();
+    expect(axios.get).toHaveBeenCalledTimes(1);
+    expect(axios.post).toHaveBeenCalledTimes(3);
+    await act(async () => { await vi.advanceTimersByTimeAsync(9000); });
+    expect(axios.post).toHaveBeenCalledTimes(3);
+  });
   it.each([403, 404, 410])('explains an unavailable link (HTTP %s) without a generic 404', async (status) => {
     vi.mocked(axios.get).mockRejectedValue({ isAxiosError: true, response: { status } });
     renderPage();

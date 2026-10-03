@@ -12,6 +12,7 @@ import { loadStripe } from '@stripe/stripe-js/pure';
 import { canUseSafeHistoryFallback, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
 import { sumCompletedPayments } from '@/utils/shootPaymentSummary';
 import { confirmPaymentReturnWithRetry } from '@/utils/paymentConfirmationRetry';
+import { startPaymentStatusPolling } from '@/utils/paymentStatusPolling';
 import {
   getStripeConfirmationFailureMessage,
   isStripeSessionPaymentRecorded,
@@ -61,7 +62,7 @@ export default function PaymentPage() {
   const [countdownSeconds, setCountdownSeconds] = useState<number | null>(null);
   const embeddedCheckoutRef = useRef<EmbeddedCheckoutInstance | null>(null);
   const checkoutMountRef = useRef<HTMLDivElement>(null);
-  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stopPollingRef = useRef<(() => void) | null>(null);
   const checkoutSessionIdRef = useRef<string | null>(initialSessionId);
   const fetchShootDetails = useCallback(async () => {
     if (!token) return;
@@ -73,6 +74,23 @@ export default function PaymentPage() {
     } catch (error: unknown) {
       console.error('Failed to fetch shoot details:', error);
       const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+      if (status === 410) {
+        try {
+          if (['authToken', 'token', 'access_token'].some((key) => localStorage.getItem(key))) {
+            const receipt = await axios.get(`${API_BASE_URL}/api/payments/receipt/${token}`, { timeout: 10000 });
+            const paidShoot = receipt.data?.data;
+            if (paidShoot?.id && typeof paidShoot.total_quote === 'number'
+              && Array.isArray(paidShoot.payments) && sumCompletedPayments(paidShoot.payments) > 0
+              && sumCompletedPayments(paidShoot.payments) >= paidShoot.total_quote) {
+              setShoot(paidShoot);
+              setError(null);
+              return;
+            }
+          }
+        } catch {
+          // Recovery requires the authenticated owner and a fully settled bill.
+        }
+      }
       if (status === 403 || status === 404 || status === 410) {
         setError('This payment link is no longer available. Sign in to check your invoice, or contact the RE Pro team. If you just submitted a payment, check its status before paying again.');
         return;
@@ -124,6 +142,8 @@ export default function PaymentPage() {
       return;
     }
     let cancelled = false;
+    stopPollingRef.current?.();
+    stopPollingRef.current = null;
     const confirmationController = new AbortController();
     const confirmPayment = async () => {
       setConfirmingPayment(true);
@@ -230,17 +250,10 @@ export default function PaymentPage() {
     setPaymentAmount(clamped);
     setPaymentAmountInput(clamped.toFixed(2));
   };
-  const handlePaymentSuccess = (processedAmount: number, returnTo?: string | null, refreshDetails = true) => {
-    setLastPaymentAmount(processedAmount);
-    setResolvedReturnTo(sanitizeRelativeReturnTo(returnTo ?? null));
-    setAutoReturnCancelled(false);
-    setPaymentSuccess(true);
-    if (refreshDetails) void fetchShootDetails();
-  };
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+      stopPollingRef.current?.();
       destroyEmbeddedCheckout();
     };
   }, [destroyEmbeddedCheckout]);
@@ -285,10 +298,8 @@ export default function PaymentPage() {
           waitForMount();
         } catch (mountError: unknown) {
           console.error('Stripe embedded checkout mount error:', mountError);
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
+          stopPollingRef.current?.();
+          stopPollingRef.current = null;
           destroyEmbeddedCheckout();
           checkoutSessionIdRef.current = null;
           setShowEmbeddedCheckout(false);
@@ -303,14 +314,15 @@ export default function PaymentPage() {
     }
   };
   const startPaymentPolling = (sessionId?: string | null) => {
-    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+    stopPollingRef.current?.();
 
-    pollingIntervalRef.current = setInterval(async () => {
+    stopPollingRef.current = startPaymentStatusPolling(async (isActive) => {
       try {
         const activeSessionId = sessionId ?? checkoutSessionIdRef.current;
         const confirmation = activeSessionId
           ? await confirmStripeSession(activeSessionId)
           : null;
+        if (!isActive()) return;
         const paymentRecorded = isStripeSessionPaymentRecorded(confirmation, activeSessionId);
         if (paymentRecorded) {
           const confirmedAmount = Number(confirmation?.last_payment_amount ?? effectivePaymentAmount);
@@ -322,17 +334,14 @@ export default function PaymentPage() {
           } else if (confirmation?.receipt) {
             setShoot((current) => current ? { ...current, receipt: confirmation.receipt ?? null } : current);
           }
-          if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
+          stopPollingRef.current?.();
+          stopPollingRef.current = null;
           destroyEmbeddedCheckout();
           setShowEmbeddedCheckout(false);
           setStripeLoading(false);
           checkoutSessionIdRef.current = null;
-          handlePaymentSuccess(
-            Number(confirmation?.last_payment_amount ?? effectivePaymentAmount),
-            confirmation?.return_to ?? null,
-            !confirmation?.shoot,
-          );
+          setAutoReturnCancelled(false);
+          setPaymentSuccess(true);
 
           return;
         }
@@ -341,8 +350,8 @@ export default function PaymentPage() {
           if (confirmation?.shoot) {
             setShoot(confirmation.shoot);
           }
-          if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
+          stopPollingRef.current?.();
+          stopPollingRef.current = null;
           destroyEmbeddedCheckout();
           setShowEmbeddedCheckout(false);
           setStripeLoading(false);
@@ -356,13 +365,12 @@ export default function PaymentPage() {
           return;
         }
 
-        const statusRes = await axios.get(`${API_BASE_URL}/api/public/payments/${token}`);
-        const shootData = statusRes.data?.data || statusRes.data;
-        setShoot(shootData);
+        // The confirmation response is authoritative for this session. A
+        // second details request can race the webhook and hit a closed token.
       } catch {
         // Ignore polling errors
       }
-    }, 3000);
+    });
   };
 
   const handleCancelCheckout = () => {
@@ -370,10 +378,11 @@ export default function PaymentPage() {
     setStripeLoading(false);
     destroyEmbeddedCheckout();
     // Keep polling for 10s in case webhook is processing
+    const stopCurrentPolling = stopPollingRef.current;
     setTimeout(() => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
+      if (stopPollingRef.current === stopCurrentPolling) {
+        stopCurrentPolling?.();
+        stopPollingRef.current = null;
       }
     }, 10000);
   };

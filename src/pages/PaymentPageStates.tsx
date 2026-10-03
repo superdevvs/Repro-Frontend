@@ -57,6 +57,7 @@ export function PaymentAlreadyPaidState() {
           <p className="text-gray-400">
             This shoot has already been paid in full. Thank you!
           </p>
+          <Button className="mt-5" asChild><a href="/dashboard">Go to dashboard</a></Button>
         </CardContent>
       </Card>
     </div>
