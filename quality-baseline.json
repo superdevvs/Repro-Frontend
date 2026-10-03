@@ -6,9 +6,9 @@
       "src/components/availability/AvailabilityCalendarBody.tsx": 1476,
       "src/components/dashboard/ShootSettingsTab.tsx": 1423,
       "src/components/dashboard/v2/UpcomingShootsCard.tsx": 1618,
-      "src/components/shoots/ShootApprovalModal.tsx": 1654,
+      "src/components/shoots/ShootApprovalModal.tsx": 1706,
       "src/components/shoots/tabs/media/useShootDetailsMediaTab.tsx": 1438,
-      "src/components/shoots/tabs/overview/useShootOverviewEditor.ts": 1131,
+      "src/components/shoots/tabs/overview/useShootOverviewEditor.ts": 1137,
       "src/components/shoots/tabs/ShootDetailsOverviewTab.tsx": 1200,
       "src/components/shoots/tabs/ShootDetailsTourTab.tsx": 1488,
       "src/components/shoots/tabs/ShootDetailsTourTabView.tsx": 1265,
@@ -16,7 +16,25 @@
       "src/pages/Accounts.tsx": 1701,
       "src/pages/AiEditing.tsx": 2732,
       "src/pages/IntegrationsSettings.tsx": 1703,
-      "src/pages/ShootHistory.tsx": 1271
+      "src/pages/ShootHistory.tsx": 1271,
+      "src/components/shoots/tabs/media/MediaViewerView.tsx": 1103,
+      "src/components/booking/useSchedulingFormController.ts": 1055,
+      "src/components/shoots/useShootEditModalController.ts": 1044,
+      "src/components/accounts/useAccountFormController.ts": 1033,
+      "src/components/shoots/tabs/media/useShootMediaActions.ts": 1030
+    },
+    "productionReconciliation": {
+      "commit": "8c8b280a46cfbaa368204dbf17857bf794ea52a8",
+      "verifiedAt": "2026-10-03",
+      "sha256": {
+        "src/components/shoots/tabs/media/MediaViewerView.tsx": "84c35a53528eee8ba8a06cfd90ba653fd29027a3e6fc149f288dcaa401400e74",
+        "src/components/booking/useSchedulingFormController.ts": "f1396b8b514c8fba14a10b1e409394c5bb7a6d04f2982a1bb9d703b59f6fab9f",
+        "src/components/shoots/useShootEditModalController.ts": "d7e9ec22f74a3c21f9d7a409f2b1a6b201348a28428f2eb510152f4032b2906f",
+        "src/components/accounts/useAccountFormController.ts": "29b5b26cbab08ee7a1d24ef05382c34dfa8858755565618d8772c04fcf8ab341",
+        "src/components/shoots/tabs/media/useShootMediaActions.ts": "660ad939469edb69137a1dca51cc0f52ad1850671150335cb4df2698cce79444",
+        "src/components/shoots/ShootApprovalModal.tsx": "9fc26e1ada7724da384e54d273ff6fcf9eaadc7867f68cf3396e9109f5244fcd",
+        "src/components/shoots/tabs/overview/useShootOverviewEditor.ts": "a4c4453941a4be7782f02b87a8856d8c763732c618bba8e020708650a0351854"
+      }
     }
   },
   "lint": {
