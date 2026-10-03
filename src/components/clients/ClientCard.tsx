@@ -113,6 +113,12 @@ export const ClientCardComponent: React.FC<ClientCardComponentProps> = ({
               <span>{client.phone}</span>
             </div>
           )}
+          {client.office_phone && (
+            <div className="flex items-center gap-2.5 text-sm py-0.5">
+              <PhoneIcon className="h-4 w-4 text-muted-foreground" />
+              <span>Office: {client.office_phone}</span>
+            </div>
+          )}
 
           {client.address && (
             <div className="flex items-center gap-2.5 text-sm py-0.5">

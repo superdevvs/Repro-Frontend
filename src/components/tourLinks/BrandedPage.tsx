@@ -21,6 +21,7 @@ import { TourAboutSection } from './TourAboutSection';
 import { Public3dTourViewer } from './Public3dTourViewer';
 import { resolvePublicEmbedSources, resolvePublicIguideSources } from './publicIguideModel';
 import { normalizePublicTourData } from './publicTourData';
+import { brandedTourOfficePhone } from '@/utils/officePhone';
 import { isLandorTourStyle, resolvePublicTourStyle } from './publicTourStyle';
 import NotFound from '@/pages/NotFound';
 
@@ -37,6 +38,8 @@ interface ShootData {
   client_company?: string;
   client_email?: string;
   client_phone?: string;
+  office_phone?: string;
+  show_office_phone_on_tour?: boolean;
   client_avatar?: string;
 }
 
@@ -470,6 +473,9 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
                 {shoot.client_phone && (
                   <a href={`tel:${shoot.client_phone}`} className="text-primary text-lg hover:underline transition-colors block mt-0.5">{shoot.client_phone}</a>
                 )}
+                {brandedTourOfficePhone(shoot) && (
+                  <a href={`tel:${brandedTourOfficePhone(shoot)}`} className="text-primary text-lg hover:underline transition-colors block mt-0.5">Office {brandedTourOfficePhone(shoot)}</a>
+                )}
                 {shoot.client_company && (
                   <p className="text-sm text-muted-foreground mt-0.5">{shoot.client_company}</p>
                 )}
@@ -531,6 +537,9 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
                 <h2 className="text-lg font-extrabold text-foreground leading-tight">{shoot.client_name}</h2>
                 {shoot.client_phone && (
                   <a href={`tel:${shoot.client_phone}`} className="text-primary text-sm hover:underline transition-colors block mt-0.5">{shoot.client_phone}</a>
+                )}
+                {brandedTourOfficePhone(shoot) && (
+                  <a href={`tel:${brandedTourOfficePhone(shoot)}`} className="text-primary text-sm hover:underline transition-colors block mt-0.5">Office {brandedTourOfficePhone(shoot)}</a>
                 )}
                 {shoot.client_company && (
                   <p className="text-xs text-muted-foreground mt-0.5">{shoot.client_company}</p>
@@ -747,6 +756,11 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
                   {shoot?.client_phone && (
                     <a href={`tel:${shoot.client_phone}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                       <Phone className="w-3 h-3" />{shoot.client_phone}
+                    </a>
+                  )}
+                  {brandedTourOfficePhone(shoot) && (
+                    <a href={`tel:${brandedTourOfficePhone(shoot)}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                      <Phone className="w-3 h-3" />Office {brandedTourOfficePhone(shoot)}
                     </a>
                   )}
                   {shoot?.client_email && (

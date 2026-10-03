@@ -9,6 +9,7 @@ import React, {
   useSyncExternalStore,
 } from 'react';
 import type { UserData, UserRole, AuthSession } from '@/types/auth';
+import { hasShowOfficePhoneFlag, readOfficePhone, readShowOfficePhoneOnTour } from '@/utils/officePhone';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
 import { getStoredAuthToken } from '@/utils/authToken';
@@ -116,6 +117,12 @@ const normalizeApiUser = (apiUser: any, base?: UserData | null): UserData => {
       toStringOrUndefined(apiUser?.phonenumber) ??
       toStringOrUndefined(apiUser?.phone_number) ??
       toStringOrUndefined(base?.phone),
+    office_phone: (apiUser && typeof apiUser === 'object' && ('office_phone' in apiUser || 'officePhone' in apiUser))
+      ? (readOfficePhone(apiUser) || null)
+      : (base?.office_phone ?? null),
+    show_office_phone_on_tour: hasShowOfficePhoneFlag(apiUser)
+      ? readShowOfficePhoneOnTour(apiUser)
+      : (hasShowOfficePhoneFlag(base) ? readShowOfficePhoneOnTour(base) : true),
     address: toStringOrUndefined(apiUser?.address) ?? toStringOrUndefined(base?.address),
     city: toStringOrUndefined(apiUser?.city) ?? toStringOrUndefined(base?.city),
     state: toStringOrUndefined(apiUser?.state) ?? toStringOrUndefined(base?.state),

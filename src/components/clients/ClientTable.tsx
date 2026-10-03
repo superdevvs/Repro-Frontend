@@ -120,7 +120,12 @@ export const ClientTable: React.FC<ClientTableProps> = ({
                   </TableCell>
 
                   <TableCell>{client.email}</TableCell>
-                  <TableCell>{client.phone || '—'}</TableCell>
+                  <TableCell>
+                    <div>{client.phone || '—'}</div>
+                    {client.office_phone ? (
+                      <div className="text-xs text-muted-foreground">Office: {client.office_phone}</div>
+                    ) : null}
+                  </TableCell>
                   <TableCell className="text-center">
                     <div className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-muted/50">
                       <CameraIcon className="h-3.5 w-3.5 text-muted-foreground" />

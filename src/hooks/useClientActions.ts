@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import API_ROUTES from '@/lib/api';
 import { ClientFormData } from '@/components/clients/ClientForm';
 import { useAuth } from '@/components/auth';
+import { readOfficePhone, readShowOfficePhoneOnTour, hasShowOfficePhoneFlag } from '@/utils/officePhone';
 
 interface UseClientActionsProps {
   clientsData: Client[];
@@ -28,6 +29,8 @@ export const useClientActions = ({ clientsData, setClientsData }: UseClientActio
     company: '',
     email: '',
     phone: '',
+    officePhone: '',
+    showOfficePhoneOnTour: true,
     address: '',
     status: 'active',
     avatar: '',
@@ -45,6 +48,8 @@ export const useClientActions = ({ clientsData, setClientsData }: UseClientActio
       company: '',
       email: '',
       phone: '',
+      officePhone: '',
+      showOfficePhoneOnTour: true,
       address: '',
       status: 'active',
       avatar: '',
@@ -61,6 +66,8 @@ export const useClientActions = ({ clientsData, setClientsData }: UseClientActio
       company: client.company || '',
       email: client.email,
       phone: client.phone || '',
+      officePhone: readOfficePhone(client),
+      showOfficePhoneOnTour: hasShowOfficePhoneFlag(client) ? readShowOfficePhoneOnTour(client) : true,
       address: client.address || '',
       status: client.status,
       avatar: client.avatar || '',
@@ -80,6 +87,8 @@ export const useClientActions = ({ clientsData, setClientsData }: UseClientActio
               company: clientFormData.company,
               email: clientFormData.email,
               phone: clientFormData.phone,
+              office_phone: clientFormData.officePhone || '',
+              show_office_phone_on_tour: clientFormData.showOfficePhoneOnTour !== false,
               address: clientFormData.address,
               status: clientFormData.status,
               avatar: clientFormData.avatar
@@ -94,6 +103,8 @@ export const useClientActions = ({ clientsData, setClientsData }: UseClientActio
         company: clientFormData.company,
         email: clientFormData.email,
         phone: clientFormData.phone,
+        office_phone: clientFormData.officePhone || '',
+        show_office_phone_on_tour: clientFormData.showOfficePhoneOnTour !== false,
         address: clientFormData.address,
         status: clientFormData.status,
         avatar: clientFormData.avatar
@@ -111,6 +122,8 @@ export const useClientActions = ({ clientsData, setClientsData }: UseClientActio
         body.append('name', clientFormData.name || '');
         body.append('email', clientFormData.email || '');
         if (clientFormData.phone) body.append('phone_number', clientFormData.phone);
+        body.append('office_phone', (clientFormData.officePhone || '').trim().slice(0, 50));
+        body.append('show_office_phone_on_tour', clientFormData.showOfficePhoneOnTour === false ? '0' : '1');
         if (clientFormData.company) body.append('company_name', clientFormData.company);
         body.append('role', 'client');
         // Optional bio/avatar not handled as file here
@@ -131,7 +144,9 @@ export const useClientActions = ({ clientsData, setClientsData }: UseClientActio
           name: u.name,
           company: u.company_name || '',
           email: u.email,
-          phone: u.phonenumber || '',
+          phone: u.phonenumber || u.phone || '',
+          office_phone: u.office_phone || clientFormData.officePhone || '',
+          show_office_phone_on_tour: u.show_office_phone_on_tour ?? (clientFormData.showOfficePhoneOnTour !== false),
           address: '',
           status: 'active',
           shootsCount: 0,

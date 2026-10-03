@@ -135,6 +135,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     || (typeof invoiceData.client === 'object' ? invoiceData.client?.email : undefined);
   const clientCompany = firstText(clientProfile, ['company_name', 'company']);
   const clientPhone = firstText(clientProfile, ['phone_number', 'phonenumber', 'phone']);
+  const clientOfficePhone = firstText(clientProfile, ['office_phone', 'officePhone']);
   const clientLicense = firstText(clientProfile, ['license_number']);
   const clientMailingAddress = [
     firstText(clientProfile, ['address']),
@@ -148,6 +149,7 @@ export function InvoiceViewDialog({ isOpen, onClose, invoice }: InvoiceViewDialo
     clientCompany ? `Company: ${clientCompany}` : '',
     clientEmail ? `Email: ${clientEmail}` : '',
     clientPhone ? `Phone: ${clientPhone}` : '',
+    clientOfficePhone ? `Office phone: ${clientOfficePhone}` : '',
     clientMailingAddress ? `Account address: ${clientMailingAddress}` : '',
     clientLicense ? `License: ${clientLicense}` : '',
   ].filter(Boolean);

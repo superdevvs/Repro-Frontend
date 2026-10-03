@@ -17,6 +17,7 @@ import {
   resolvePublicIguideSources,
   resolvePublicTourVariantFromPath,
 } from './publicIguideModel';
+import { brandedTourOfficePhone } from '@/utils/officePhone';
 
 interface ShootData {
   id: number;
@@ -28,6 +29,8 @@ interface ShootData {
   client_company?: string;
   client_email?: string;
   client_phone?: string;
+  office_phone?: string;
+  show_office_phone_on_tour?: boolean;
 }
 
 interface PropertyDetails {
@@ -783,6 +786,14 @@ export function NeoTour() {
                     <Button variant="link" className="text-blue-400 hover:text-blue-300 p-0 h-auto">
                       <Phone className="w-4 h-4 mr-2" />
                       {shoot.client_phone}
+                    </Button>
+                  )}
+                  {brandedTourOfficePhone(shoot) && (
+                    <Button variant="link" className="text-blue-400 hover:text-blue-300 p-0 h-auto" asChild>
+                      <a href={`tel:${brandedTourOfficePhone(shoot)}`}>
+                        <Phone className="w-4 h-4 mr-2" />
+                        Office {brandedTourOfficePhone(shoot)}
+                      </a>
                     </Button>
                   )}
                   {shoot?.client_email && (

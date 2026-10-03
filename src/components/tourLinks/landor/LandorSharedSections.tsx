@@ -38,6 +38,12 @@ export function LandorHeader({ model, themeClass }: { model: Model; themeClass?:
             <div><small>Get in touch</small>{shoot.client_phone}</div>
           </a>
         )}
+        {branded && shoot.office_phone && (
+          <a className="landor-header-phone" href={`tel:${shoot.office_phone.replace(/[^+\d]/g, '')}`} onClick={() => model.track('phone', `tel:${shoot.office_phone}`)}>
+            <span><Phone size={18} /></span>
+            <div><small>Office</small>{shoot.office_phone}</div>
+          </a>
+        )}
         {hasContact && <a className="landor-button landor-contact-button" href="#contact">Contact agent <i /></a>}
         <button type="button" className="landor-menu" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="landor-navigation" onClick={() => setMenuOpen((value) => !value)}>
           {menuOpen ? 'Close' : 'Menu'}
@@ -87,6 +93,11 @@ export function LandorContactSection({ model, data, photo }: { model: Model; dat
         {shoot.client_phone && (
           <a className="landor-button" href={`tel:${shoot.client_phone.replace(/[^+\d]/g, '')}`} onClick={() => track('phone', `tel:${shoot.client_phone}`)}>
             <Phone size={18} />{shoot.client_phone}
+          </a>
+        )}
+        {shoot.office_phone && (
+          <a className="landor-button" href={`tel:${shoot.office_phone.replace(/[^+\d]/g, '')}`} onClick={() => track('phone', `tel:${shoot.office_phone}`)}>
+            <Phone size={18} />Office {shoot.office_phone}
           </a>
         )}
         {shoot.client_email && (

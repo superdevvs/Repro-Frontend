@@ -143,4 +143,23 @@ describe('normalizePublicTourData', () => {
     expect(result.photos).toEqual([]);
     expect(result.floorplans).toHaveLength(1);
   });
+
+  it('keeps office phone on branded tours only when the payload includes it', () => {
+    const shown = normalizePublicTourData({
+      shoot: { id: 4, address: '1 Main', office_phone: '202-555-0144', client_phone: '202-555-0100' },
+    }, 'branded');
+    expect(shown.shoot?.office_phone).toBe('202-555-0144');
+    expect(shown.shoot?.client_phone).toBe('202-555-0100');
+
+    const hidden = normalizePublicTourData({
+      shoot: { id: 4, address: '1 Main', office_phone: '202-555-0144', show_office_phone_on_tour: false },
+    }, 'branded');
+    expect(hidden.shoot?.office_phone).toBe('');
+
+    const mls = normalizePublicTourData({
+      shoot: { id: 4, address: '1 Main', office_phone: '202-555-0144', client_phone: '202-555-0100' },
+    }, 'mls');
+    expect(mls.shoot?.office_phone).toBeUndefined();
+    expect(mls.shoot?.client_phone).toBeUndefined();
+  });
 });

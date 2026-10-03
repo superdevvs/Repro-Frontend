@@ -20,7 +20,7 @@ export function useLandorModel(data: PublicTourData, paletteProp?: PublicTourPal
   const address = shoot?.address || 'Property tour';
   const locality = [shoot?.city, shoot?.state, shoot?.zip].filter(Boolean).join(', ');
   const fullAddress = [shoot?.address, locality].filter(Boolean).join(', ');
-  const hasContact = branded && Boolean(shoot?.client_name || shoot?.client_email || shoot?.client_phone || data.tourSettings.realtor_info);
+  const hasContact = branded && Boolean(shoot?.client_name || shoot?.client_email || shoot?.client_phone || shoot?.office_phone || data.tourSettings.realtor_info);
   const hero = data.heroSlides[0];
   const secondary = data.heroSlides[1] || hero;
   const hasMedia = hasLandorMedia(data);

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Role } from "@/components/auth/AuthProvider";
+import { readOfficePhone } from "@/utils/officePhone";
 import { useAuth } from "@/components/auth";
 import { Camera, ExternalLink, Trash2, LogIn, UserPlus, ShieldCheck, ArrowLeftRight, Mail, SlidersHorizontal } from "lucide-react";
 import { canResendUserVerification } from "@/utils/emailHealth";
@@ -186,7 +187,12 @@ export function AccountList({
                 </div>
               </TableCell>
               <TableCell>{user.accountRep || "Unassigned"}</TableCell>
-              <TableCell>{user.phone || "—"}</TableCell>
+              <TableCell>
+                <div>{user.phone || "—"}</div>
+                {readOfficePhone(user) && (
+                  <div className="text-xs text-muted-foreground">Office: {readOfficePhone(user)}</div>
+                )}
+              </TableCell>
               <TableCell>{formatDate(user.lastShootDate)}</TableCell>
               <TableCell>{user.company || "-"}</TableCell>
               <TableCell>

@@ -19,6 +19,8 @@ export type ClientFormData = {
   company: string;
   email: string;
   phone: string;
+  officePhone?: string;
+  showOfficePhoneOnTour?: boolean;
   address: string;
   status: 'active' | 'inactive';
   avatar: string;
@@ -151,6 +153,8 @@ export const ClientForm: React.FC<ClientFormProps> = ({
       email: client.email || '',
       role: 'client',
       phone: client.phone || '',
+      officePhone: client.officePhone || '',
+      showOfficePhoneOnTour: client.showOfficePhoneOnTour !== false,
       address: client.address || '',
       city: client.city || '',
       state: client.state || '',
@@ -171,6 +175,8 @@ export const ClientForm: React.FC<ClientFormProps> = ({
       name: combinedName || prev.name,
       email: account.email,
       phone: account.phone || prev.phone,
+      officePhone: account.officePhone || prev.officePhone,
+      showOfficePhoneOnTour: account.showOfficePhoneOnTour !== false,
       address: account.address || prev.address,
       city: account.city || prev.city,
       state: account.state || prev.state,
@@ -212,6 +218,8 @@ export const ClientForm: React.FC<ClientFormProps> = ({
         email: accountInitial.email || '',
         role: accountInitial.role || 'client',
         phone: accountInitial.phone || '',
+        office_phone: accountInitial.officePhone || '',
+        show_office_phone_on_tour: accountInitial.showOfficePhoneOnTour !== false,
         address: accountInitial.address || '',
         city: accountInitial.city || '',
         state: accountInitial.state || '',
@@ -328,6 +336,11 @@ export const ClientForm: React.FC<ClientFormProps> = ({
                 <div className="space-y-2">
                   <label htmlFor="phone" className="text-sm font-medium">Phone</label>
                   <Input id="phone" name="phone" value={formData.phone} onChange={handleFormChange} placeholder="Enter phone number" />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="officePhone" className="text-sm font-medium">Office Phone</label>
+                  <Input id="officePhone" name="officePhone" value={formData.officePhone || ''} onChange={handleFormChange} maxLength={50} placeholder="Office phone" />
                 </div>
 
                 <div className="space-y-2">

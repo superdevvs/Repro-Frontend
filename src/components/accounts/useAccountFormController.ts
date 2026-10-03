@@ -28,6 +28,7 @@ import {
 } from './accountFormModel';
 import { applyPhotographerAccountPayload } from './photographerAccountPayload';
 import { canManagePhotographerCapabilities } from '@/utils/photographerCapabilities';
+import { hasShowOfficePhoneFlag, readOfficePhone, readShowOfficePhoneOnTour } from '@/utils/officePhone';
 
 export function useAccountFormController({
   open,
@@ -63,6 +64,8 @@ export function useAccountFormController({
       role: "client" as FormRole,
       timezone: "",
       phone: "",
+      officePhone: "",
+      showOfficePhoneOnTour: true,
       address: "",
       city: "",
       state: "",
@@ -160,6 +163,10 @@ export function useAccountFormController({
           role,
           timezone: initialData.timezone || "",
           phone: initialData.phone || "",
+          officePhone: readOfficePhone(initialData),
+          showOfficePhoneOnTour: hasShowOfficePhoneFlag(initialData)
+            ? readShowOfficePhoneOnTour(initialData)
+            : true,
           address: initialData.address || "",
           city: initialData.city || "",
           state: initialData.state || "",
@@ -230,6 +237,8 @@ export function useAccountFormController({
           role: "client",
           timezone: "",
           phone: "",
+          officePhone: "",
+          showOfficePhoneOnTour: true,
           address: "",
           city: "",
           state: "",
@@ -556,6 +565,27 @@ export function useAccountFormController({
         payload.created_by_id = values.created_by_id;
       }
     }
+    const appendClientOfficePhone = (formData: FormData) => {
+      if (values.role !== 'client') return;
+      formData.append('office_phone', (values.officePhone || '').trim().slice(0, 50));
+      // Explicit flag so Hide survives a later save. Omitting it on a non-empty number defaults true.
+      formData.append('show_office_phone_on_tour', values.showOfficePhoneOnTour === false ? '0' : '1');
+    };
+    const officeFieldsFromResponse = (user: unknown) => {
+      const record = user && typeof user === 'object' ? user as Record<string, unknown> : null;
+      const echoedPhone = Boolean(record && ('office_phone' in record || 'officePhone' in record));
+      const echoedFlag = Boolean(record && ('show_office_phone_on_tour' in record || 'showOfficePhoneOnTour' in record));
+      const office_phone = (echoedPhone ? readOfficePhone(record) : (values.officePhone || '').trim()).slice(0, 50);
+      const show_office_phone_on_tour = echoedFlag
+        ? readShowOfficePhoneOnTour(record)
+        : values.showOfficePhoneOnTour !== false;
+      return {
+        officePhone: office_phone,
+        office_phone: office_phone || null,
+        showOfficePhoneOnTour: show_office_phone_on_tour,
+        show_office_phone_on_tour,
+      };
+    };
     if (initialData) {
       try {
         setSubmitting(true);
@@ -569,6 +599,7 @@ export function useAccountFormController({
         formData.append('email', values.email || '');
         if (shouldSendEmailOverride) formData.append('email_warning_override', '1');
         if (values.phone) formData.append('phone_number', values.phone);
+        appendClientOfficePhone(formData);
         if (values.company) formData.append('company_name', values.company);
         if (values.address) formData.append('address', values.address);
         if (values.city) formData.append('city', values.city);
@@ -664,6 +695,7 @@ export function useAccountFormController({
           email: updated.email,
           role: updated.role,
           phone: updated.phone ?? updated.phonenumber ?? updated.phone_number,
+          ...officeFieldsFromResponse(updated),
           company: updated.company_name,
           avatar: updated.avatar,
           bio: updated.bio,
@@ -710,6 +742,7 @@ export function useAccountFormController({
       formData.append('email', values.email || '');
       if (shouldSendEmailOverride) formData.append('email_warning_override', '1');
       if (values.phone) formData.append('phone_number', values.phone);
+      appendClientOfficePhone(formData);
       if (values.company) formData.append('company_name', values.company);
       if (values.address) formData.append('address', values.address);
       if (values.city) formData.append('city', values.city);
@@ -819,6 +852,7 @@ export function useAccountFormController({
         email: created.email,
         role: created.role,
         phone: created.phone ?? created.phonenumber ?? created.phone_number,
+        ...officeFieldsFromResponse(created),
         company: created.company_name,
         avatar: created.avatar,
         bio: created.bio,

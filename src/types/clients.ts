@@ -11,6 +11,8 @@ export interface Client {
   company?: string;
   email: string;
   phone?: string;
+  office_phone?: string | null;
+  show_office_phone_on_tour?: boolean;
   address?: string;
   city?: string;
   state?: string;

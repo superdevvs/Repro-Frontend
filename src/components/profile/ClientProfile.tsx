@@ -22,6 +22,7 @@ import { EmailHealthInlineHint } from "@/components/email/EmailHealthInlineHint"
 import { analyzeEmailInput, normalizeEmailHealth } from "@/utils/emailHealth";
 import { useResendVerificationEmail } from "@/hooks/useResendVerificationEmail";
 import { API_ROUTES } from "@/lib/api";
+import { hasShowOfficePhoneFlag, readOfficePhone, readShowOfficePhoneOnTour } from "@/utils/officePhone";
 import { NotificationSettingsLink } from '@/components/profile/NotificationSettingsLink';
 
 type PhotographerOption = {
@@ -49,6 +50,8 @@ export function ClientProfile() {
     name: user?.name || "",
     email: user?.email || "",
     phone: user?.phone || "",
+    officePhone: readOfficePhone(user),
+    showOfficePhoneOnTour: hasShowOfficePhoneFlag(user) ? readShowOfficePhoneOnTour(user) : true,
     company: user?.company || "",
     avatar: user?.avatar || "",
     about: user?.about || "",
@@ -75,6 +78,16 @@ export function ClientProfile() {
   useEffect(() => {
     setFormData((prev) => (prev.phone || !user?.phone ? prev : { ...prev, phone: user.phone }));
   }, [user?.phone]);
+
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      officePhone: prev.officePhone || readOfficePhone(user) || prev.officePhone,
+      showOfficePhoneOnTour: hasShowOfficePhoneFlag(user)
+        ? readShowOfficePhoneOnTour(user)
+        : prev.showOfficePhoneOnTour,
+    }));
+  }, [user]);
 
   useEffect(() => {
     const abortController = new AbortController();
@@ -176,6 +189,8 @@ export function ClientProfile() {
           email_warning_override: formData.email !== user?.email ? emailWarningOverride : undefined,
           current_password: formData.email !== user?.email ? formData.currentPassword : undefined,
           phone_number: formData.phone,
+          office_phone: formData.officePhone.trim().slice(0, 50) || null,
+          show_office_phone_on_tour: formData.showOfficePhoneOnTour !== false,
           company_name: formData.company,
           avatar: formData.avatar || null,
           about: formData.about,
@@ -311,6 +326,28 @@ export function ClientProfile() {
                       value={formData.phone}
                       onChange={handleChange}
                       placeholder="(123) 456-7890"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="officePhone">Office Phone</Label>
+                    <Input
+                      id="officePhone"
+                      name="officePhone"
+                      value={formData.officePhone}
+                      onChange={handleChange}
+                      maxLength={50}
+                      placeholder="Office phone"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between gap-4 rounded-lg border px-4 py-3 md:col-span-2">
+                    <div className="space-y-0.5">
+                      <Label htmlFor="show-office-phone-on-tour">Show office phone on branded tour</Label>
+                      <p className="text-sm text-muted-foreground">The client portal still shows this number whenever it is filled.</p>
+                    </div>
+                    <Switch
+                      id="show-office-phone-on-tour"
+                      checked={formData.showOfficePhoneOnTour !== false}
+                      onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, showOfficePhoneOnTour: checked }))}
                     />
                   </div>
                   <div className="space-y-2">

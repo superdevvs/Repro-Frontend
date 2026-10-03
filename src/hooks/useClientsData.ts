@@ -70,6 +70,8 @@ export const useClientsData = () => {
             company: u.company_name || '',
             email: u.email,
             phone: u.phonenumber || u.phone || '',
+            office_phone: u.office_phone || u.officePhone || '',
+            show_office_phone_on_tour: u.show_office_phone_on_tour ?? u.showOfficePhoneOnTour,
             address: '',
             status: 'active',
             shootsCount: counts[id] || 0,

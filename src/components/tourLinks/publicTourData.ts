@@ -1,4 +1,5 @@
 import { withTourUnit } from '@/features/shoot-units/unitTourData';
+import { brandedTourOfficePhone } from '@/utils/officePhone';
 import { API_BASE_URL } from '@/config/env';
 import type { TourFloorplan } from './FloorplanSection';
 import {
@@ -23,6 +24,7 @@ export interface PublicTourShoot {
   client_company?: string;
   client_email?: string;
   client_phone?: string;
+  office_phone?: string;
   client_avatar?: string;
 }
 
@@ -159,6 +161,7 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
     ...(branded ? {
       client_name: text(rawShoot.client_name), client_company: text(rawShoot.client_company),
       client_email: text(rawShoot.client_email), client_phone: text(rawShoot.client_phone),
+      office_phone: brandedTourOfficePhone(rawShoot),
       client_avatar: normalizePublicTourUrl(rawShoot.client_avatar),
     } : {}),
   } : null;

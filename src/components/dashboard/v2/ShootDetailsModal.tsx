@@ -51,7 +51,7 @@ interface ShootDetailResponse {
   time?: string;
   status?: string;
   workflow_status?: string;
-  client?: { name: string; email: string; phonenumber?: string };
+  client?: { name: string; email: string; phonenumber?: string; office_phone?: string | null };
   photographer?: { name: string; email: string };
   service?: { name: string };
   total_quote?: number | string;
@@ -292,6 +292,9 @@ export const ShootDetailsModal: React.FC<ShootDetailsModalProps> = ({ shoot, onC
                       <p className="text-xs text-muted-foreground">
                         {detail?.client?.phonenumber || detail?.client?.email || 'No contact on file'}
                       </p>
+                      {detail?.client?.office_phone ? (
+                        <p className="text-xs text-muted-foreground">Office: {detail.client.office_phone}</p>
+                      ) : null}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 p-3 border border-border rounded-xl bg-background">

@@ -78,6 +78,8 @@ export const createAccountFormSchema = (viewerRole?: string, isEditing = false) 
   role: z.enum(['superadmin', 'admin', 'editing_manager', 'photographer', 'client', 'editor', 'salesRep'] as const),
   timezone: z.string().optional(),
   phone: z.string().optional(),
+  officePhone: z.string().max(50, "Office phone must be 50 characters or fewer").optional(),
+  showOfficePhoneOnTour: z.boolean().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
   state: z.string().optional(),
@@ -212,6 +214,8 @@ export type AccountFormValues = Omit<
   client_discount_type?: 'fixed' | 'percent' | null;
   client_discount_value?: number | null;
   email_health?: EmailHealth;
+  office_phone?: string | null;
+  show_office_phone_on_tour?: boolean;
   service_group_ids?: string[];
   service_groups?: Array<{ id: string; name: string; description?: string }>;
 };

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { User, Role } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
+import { readOfficePhone } from "@/utils/officePhone";
 import { getAvatarUrl } from "@/utils/defaultAvatars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
@@ -297,6 +298,12 @@ export function AccountCard({
             <div className="flex items-center gap-2 text-sm">
               <span className="font-medium">Phone:</span>
               <span className="text-muted-foreground">{user.phone}</span>
+            </div>
+          )}
+          {readOfficePhone(user) && (
+            <div className="flex items-center gap-2 text-sm">
+              <span className="font-medium">Office Phone:</span>
+              <span className="text-muted-foreground">{readOfficePhone(user)}</span>
             </div>
           )}
           {user.email_health?.warning_message && (

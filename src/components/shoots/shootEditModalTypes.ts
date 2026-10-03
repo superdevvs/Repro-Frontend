@@ -186,6 +186,7 @@ export interface ShootDetails {
     emailVerified?: boolean;
     phonenumber?: string;
     phone?: string;
+    office_phone?: string | null;
     client_discount_type?: PricingDiscountType;
     client_discount_value?: number | string | null;
     clientDiscountType?: PricingDiscountType;

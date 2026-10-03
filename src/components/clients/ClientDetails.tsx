@@ -17,6 +17,7 @@ import {
   BuildingIcon 
 } from 'lucide-react';
 import { Client } from '@/types/clients';
+import { hasShowOfficePhoneFlag, readOfficePhone, readShowOfficePhoneOnTour } from '@/utils/officePhone';
 import { AccountForm, AccountFormValues } from '@/components/accounts/AccountForm'; // <-- import AccountForm & types
 
 interface ClientDetailsProps {
@@ -45,11 +46,14 @@ export const ClientDetails: React.FC<ClientDetailsProps> = ({
     const [firstName = '', ...rest] = (client.name || '').trim().split(' ');
     const lastName = rest.join(' ').trim();
     setAccountFormInitial({
+      id: client.id,
       firstName,
       lastName,
       email: client.email || '',
       role: 'client', // default; you can derive if you store role on Client
       phone: client.phone || '',
+      officePhone: readOfficePhone(client),
+      showOfficePhoneOnTour: hasShowOfficePhoneFlag(client) ? readShowOfficePhoneOnTour(client) : true,
       address: client.address || '',
       city: client.city || '',
       state: client.state || '',
@@ -71,6 +75,8 @@ export const ClientDetails: React.FC<ClientDetailsProps> = ({
       name: combinedName || client.name,
       email: values.email,
       phone: values.phone || client.phone,
+      office_phone: values.officePhone ?? readOfficePhone(client),
+      show_office_phone_on_tour: values.showOfficePhoneOnTour !== false,
       address: values.address || client.address,
       city: values.city || client.city,
       state: values.state || client.state,
@@ -143,9 +149,18 @@ export const ClientDetails: React.FC<ClientDetailsProps> = ({
                         <PhoneIcon className="h-5 w-5 text-muted-foreground mt-0.5" />
                         <div>
                           <h3 className="font-medium">Phone</h3>
-                          <p className="text-muted-foreground">{client.phone}</p>
+                          <p className="text-muted-foreground">{client.phone || '—'}</p>
                         </div>
                       </div>
+                      {client.office_phone && (
+                        <div className="flex items-start gap-3">
+                          <PhoneIcon className="h-5 w-5 text-muted-foreground mt-0.5" />
+                          <div>
+                            <h3 className="font-medium">Office Phone</h3>
+                            <p className="text-muted-foreground">{client.office_phone}</p>
+                          </div>
+                        </div>
+                      )}
 
                       <div className="flex items-start gap-3">
                         <HomeIcon className="h-5 w-5 text-muted-foreground mt-0.5" />

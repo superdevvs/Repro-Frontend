@@ -683,6 +683,8 @@ export default function Accounts() {
       role: created.role,
       avatar: created.avatar || '/placeholder.svg',
       phone: created.phone || created.phone_number || undefined,
+      office_phone: created.office_phone || created.officePhone || undefined,
+      show_office_phone_on_tour: created.show_office_phone_on_tour ?? created.showOfficePhoneOnTour,
       company: created.company || created.company_name || undefined,
       created_by_name: created.created_by_name || created.createdBy || undefined,
       createdBy: created.created_by_name || created.createdBy || undefined,

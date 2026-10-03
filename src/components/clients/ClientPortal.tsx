@@ -94,6 +94,7 @@ export function ClientPortal() {
     hero_subtitle?: string;
     hero_image?: string;
     phone?: string;
+    office_phone?: string;
     facebook_url?: string;
     instagram_url?: string;
     twitter_url?: string;
@@ -188,6 +189,7 @@ export function ClientPortal() {
           hero_subtitle: c.hero_subtitle || '',
           hero_image: c.hero_image || 'header-1',
           phone: c.phone,
+          office_phone: typeof c.office_phone === 'string' ? c.office_phone.trim() : '',
           facebook_url: c.facebook_url,
           instagram_url: c.instagram_url,
           twitter_url: c.twitter_url,
@@ -687,6 +689,21 @@ export function ClientPortal() {
                     <div>
                       <p className="text-sm text-muted-foreground">Phone</p>
                       <p className="text-base font-medium text-primary hover:underline">{clientInfo.phone}</p>
+                    </div>
+                  </a>
+                )}
+
+                {clientInfo?.office_phone && (
+                  <a
+                    href={`tel:${clientInfo.office_phone}`}
+                    className="flex items-center gap-3 rounded-2xl border p-4 bg-background/60 hover:bg-primary/5 transition-colors"
+                  >
+                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Phone className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Office Phone</p>
+                      <p className="text-base font-medium text-primary hover:underline">{clientInfo.office_phone}</p>
                     </div>
                   </a>
                 )}

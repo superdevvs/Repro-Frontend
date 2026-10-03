@@ -391,6 +391,47 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
                       </FormItem>
                     )}
                   />
+                  {isClientRole && (
+                    <>
+                      <FormField
+                        control={form.control}
+                        name="officePhone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Office Phone</FormLabel>
+                            <FormControl>
+                              <PhoneInput
+                                value={field.value || ''}
+                                onChange={field.onChange}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="showOfficePhoneOnTour"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-center justify-between rounded-lg border px-4 py-3 md:col-span-2">
+                            <div className="space-y-0.5 pr-4">
+                              <FormLabel>Show office phone on branded tour</FormLabel>
+                              <p className="text-sm text-muted-foreground">
+                                Saved numbers show on the branded tour unless this is off. The client portal still shows the number whenever it is filled.
+                              </p>
+                            </div>
+                            <FormControl>
+                              <Switch
+                                checked={field.value !== false}
+                                onCheckedChange={field.onChange}
+                                aria-label="Show office phone on branded tour"
+                              />
+                            </FormControl>
+                          </FormItem>
+                        )}
+                      />
+                    </>
+                  )}
                 </div>
               </div>
             </div>

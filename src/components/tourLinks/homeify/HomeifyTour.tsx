@@ -20,7 +20,7 @@ export function HomeifyTour({ data }: { data: PublicTourData }) {
   const address = shoot?.address || 'Property tour';
   const locality = [shoot?.city, shoot?.state, shoot?.zip].filter(Boolean).join(', ');
   const fullAddress = [shoot?.address, locality].filter(Boolean).join(', ');
-  const hasContact = data.variant === 'branded' && Boolean(shoot?.client_name || shoot?.client_email || shoot?.client_phone || data.tourSettings.realtor_info);
+  const hasContact = data.variant === 'branded' && Boolean(shoot?.client_name || shoot?.client_email || shoot?.client_phone || shoot?.office_phone || data.tourSettings.realtor_info);
   const has3d = Boolean(data.iguide.inlineUrl || data.matterportUrl || data.embeds.some((embed) => homeifyEmbedUrl(embed.value)));
   const hasVideo = [...data.videos, data.videoLink].some((value) => value && homeifyEmbedUrl(value));
   const hasPlans = data.floorplans.some((plan) => Boolean(plan.image || plan.preview_url || plan.previewImages?.length || plan.preview_images?.length || plan.web_url || plan.thumbnail_url));
@@ -153,6 +153,7 @@ export function HomeifyTour({ data }: { data: PublicTourData }) {
                 <div><strong>{shoot.client_name || 'Listing contact'}</strong><span>{shoot.client_company || 'Property contact'}</span></div>
               </div>
               {shoot.client_phone && <a className="homeify-button" href={`tel:${shoot.client_phone.replace(/[^+\d]/g, '')}`} onClick={() => trackLink('phone', `tel:${shoot.client_phone}`)}><Phone size={17} />{shoot.client_phone}</a>}
+              {shoot.office_phone && <a className="homeify-button" href={`tel:${shoot.office_phone.replace(/[^+\d]/g, '')}`} onClick={() => trackLink('phone', `tel:${shoot.office_phone}`)}><Phone size={17} />Office {shoot.office_phone}</a>}
               {shoot.client_email && <a className="homeify-button homeify-button-outline" href={`mailto:${shoot.client_email}?subject=${encodeURIComponent(`Property inquiry: ${address}`)}`} onClick={() => trackLink('email', `mailto:${shoot.client_email}`)}><Mail size={17} />Email contact</a>}
               {data.tourSettings.realtor_info && <p className="homeify-agent-notes">{data.tourSettings.realtor_info}</p>}
             </section>}

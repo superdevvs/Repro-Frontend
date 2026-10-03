@@ -78,6 +78,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
     clientName,
     clientEmail,
     clientPhone,
+    clientOfficePhone,
     clientVerified,
     selectedServiceCategoryGroups,
     hasMultiplePhotographerCategories,
@@ -114,6 +115,9 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
         )}
         {clientPhone && (
           <p className="text-sm text-muted-foreground">{clientPhone}</p>
+        )}
+        {clientOfficePhone && (
+          <p className="text-sm text-muted-foreground">Office: {clientOfficePhone}</p>
         )}
       </div>
 

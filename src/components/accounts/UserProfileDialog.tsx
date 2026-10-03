@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { User } from "@/components/auth/AuthProvider";
+import { readOfficePhone, readShowOfficePhoneOnTour } from "@/utils/officePhone";
 import { useAuth } from "@/components/auth";
 import { Button } from "@/components/ui/button";
 import { getAvatarUrl } from "@/utils/defaultAvatars";
@@ -252,6 +253,17 @@ export function UserProfileDialog({
                     <div>
                       <p className="text-sm text-muted-foreground">Phone</p>
                       <p className="font-medium">{user.phone}</p>
+                    </div>
+                  )}
+                  {readOfficePhone(user) && (
+                    <div>
+                      <p className="text-sm text-muted-foreground">Office Phone</p>
+                      <p className="font-medium">{readOfficePhone(user)}</p>
+                      {user.role === 'client' && (
+                        <p className="text-xs text-muted-foreground">
+                          {readShowOfficePhoneOnTour(user) ? 'Shown on branded tour' : 'Hidden on branded tour'}
+                        </p>
+                      )}
                     </div>
                   )}
                   
