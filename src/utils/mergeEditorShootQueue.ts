@@ -9,6 +9,6 @@ export function mergeEditorShootQueue(shoots: DashboardShootSummary[], tasks: Ed
     merged.set(task.shoot_id, { ...merged.get(task.shoot_id), ...task.shoot,
       hasPendingEditorWork: true, hasScopedEditingTasks: true });
   }
-  return [...merged.values()].sort((a, b) =>
+  return [...merged.values()].map(shoot => ({ ...shoot, dayLabel: shoot.scheduledLocalDate || shoot.dayLabel })).sort((a, b) =>
     (a.scheduledInstant ?? a.startTime ?? '').localeCompare(b.scheduledInstant ?? b.startTime ?? '') || a.id - b.id);
 }
