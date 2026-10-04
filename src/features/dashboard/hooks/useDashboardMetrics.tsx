@@ -426,7 +426,7 @@ export const useEditorDashboardMetrics = ({
         icon: <FileText size={16} />,
         accent:
           "from-slate-50 via-emerald-50/85 to-teal-100/70 text-emerald-900 dark:from-[#173934] dark:via-[#112431] dark:to-[#09101d] dark:text-white",
-        onClick: () => taskShootIds.length ? scrollToDashboardSection("editor-assigned-tasks") : openShootHistory("editing"),
+        onClick: () => taskShootIds.length ? scrollToDashboardSection("editor-assigned-shoots") : openShootHistory("editing"),
       },
       {
         id: "editor-in-progress",
@@ -436,7 +436,7 @@ export const useEditorDashboardMetrics = ({
         icon: <UploadCloud size={16} />,
         accent:
           "from-slate-50 via-sky-50/85 to-blue-100/70 text-sky-900 dark:from-[#19384a] dark:via-[#122534] dark:to-[#09101d] dark:text-white",
-        onClick: () => taskShootIds.length ? scrollToDashboardSection("editor-assigned-tasks") : openShootHistory("editing"),
+        onClick: () => taskShootIds.length ? scrollToDashboardSection("editor-assigned-shoots") : openShootHistory("editing"),
       },
       {
         id: "editor-delivered",

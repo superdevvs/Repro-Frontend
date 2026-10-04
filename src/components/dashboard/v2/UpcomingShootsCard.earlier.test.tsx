@@ -1,3 +1,5 @@
+import { mergeEditorShootQueue } from '@/utils/mergeEditorShootQueue';
+import type { EditorTaskSummary } from '@/hooks/useEditorEditingTasks';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -53,6 +55,22 @@ afterEach(() => {
 });
 
 describe('UpcomingShootsCard earlier unfinished work', () => {
+  it('merges dispatched assignments into normal date groups once, with scoped Open actions', () => {
+    const records = [shoot(1, '2026-09-30', 'editing'), shoot(2, '2026-10-01', 'editing'), shoot(3, '2026-10-02', 'editing')];
+    const tasks = [...records, records[0]].map(record => ({ shoot_id: record.id, shoot: record }) as EditorTaskSummary);
+    const merged = mergeEditorShootQueue([records[0]], tasks);
+    expect(merged).toHaveLength(3);
+    const onSelect = vi.fn();
+    const { container } = render(<UpcomingShootsCard shoots={merged} role="editor" onSelect={onSelect} />);
+    for (const day of ['Yesterday', 'Today', 'Tomorrow']) expect(screen.getByText(new RegExp(`${day} .* 1 shoot`))).toBeVisible();
+    expect(container.querySelectorAll('[data-shoot-card="true"]')).toHaveLength(3);
+    expect(screen.queryByText('Sent to you')).not.toBeInTheDocument();
+    expect(screen.queryByText('Share link')).not.toBeInTheDocument();
+    expect(screen.queryByText('Download')).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Open Property 1' })[0]);
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 1, hasScopedEditingTasks: true }), undefined);
+  });
+
   it.each(['editor', 'photographer'])('renders yesterday, today and next cards for %s and stacks older work', role => {
     const { container } = render(<UpcomingShootsCard shoots={[shoot(1, '2026-09-29'), shoot(2, '2026-09-30'), shoot(3, '2026-10-01'), shoot(4, '2026-10-02')]} role={role} onSelect={vi.fn()} />);
     expect(within(screen.getByRole('region', { name: 'Earlier unfinished shoots' })).getByText('Property 1')).toBeVisible();

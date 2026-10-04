@@ -1,8 +1,10 @@
+import type { DashboardShootSummary } from '@/types/dashboard';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/services/api';
 import { readShootListPages } from '@/utils/readShootListPages';
 
 export interface EditorTaskSummary {
+  shoot?: DashboardShootSummary;
   id: string;
   shoot_id: number;
   address: string;
