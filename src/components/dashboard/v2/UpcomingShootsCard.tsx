@@ -1,3 +1,4 @@
+import type { UpcomingShootsCardProps } from './UpcomingShootsCard.types';
 import { ShootEmptyState } from '@/components/shoots/ShootEmptyState';
 import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -40,19 +41,6 @@ import {
   resolveDashboardListMaxHeight, UPCOMING_SHOOT_CARD_MIN_HEIGHT_PX,
 } from '@/features/dashboard/utils/dashboardMobilePanel';
 
-interface UpcomingShootsCardProps {
-  shoots: DashboardShootSummary[];
-  onSelect: (shoot: DashboardShootSummary, weather?: WeatherInfo | null) => void;
-  onApprove?: (shoot: DashboardShootSummary) => void;
-  onDecline?: (shoot: DashboardShootSummary) => void;
-  onModify?: (shoot: DashboardShootSummary) => void;
-  onViewInvoice?: (shoot: DashboardShootSummary) => void;
-  role?: string;
-  title?: string;
-  subtitle?: string;
-  emptyStateText?: string;
-  defaultShowPastDays?: boolean;
-}
 
 const STATUS_COLORS: Record<string, string> = {
   // Main statuses with distinct colors
@@ -227,6 +215,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   subtitle,
   emptyStateText,
   defaultShowPastDays,
+  beforeShoots,
 }) => {
   // Hide client info for editors only; photographers see client info
   const hideClientInfo = role === 'editor';
@@ -1175,7 +1164,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
 
       <div ref={filterPanelHostRef} />
 
-      {paginatedGroups.length === 0 && earlierShoots.length === 0 ? (
+      {paginatedGroups.length === 0 && earlierShoots.length === 0 && !beforeShoots ? (
         <ShootEmptyState title={emptyText} filtered={activeFilterCount > 0} onReset={resetFilters} allowBooking={displayTitle === 'Upcoming shoots' || displayTitle === 'Scheduled shoots'} className="flex-1" />
       ) : (
         <div 
@@ -1184,6 +1173,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
           className="flex-1 min-h-0 space-y-6 overflow-y-auto overflow-x-hidden hidden-scrollbar"
           style={listMaxHeight ? { maxHeight: listMaxHeight } : undefined}
         >
+          {beforeShoots}
           {earlierShoots.length > 0 && (
             <EarlierShootsStack
               shoots={earlierShoots}

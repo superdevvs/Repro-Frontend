@@ -393,6 +393,7 @@ export const useEditorDashboardMetrics = ({
   effectiveEditorDelivered,
   effectiveEditorSourceShoots,
   effectiveEditorUpcoming,
+  taskShootIds = [],
   navigate,
   scrollToDashboardSection,
 }: {
@@ -401,6 +402,7 @@ export const useEditorDashboardMetrics = ({
   effectiveEditorDelivered: DashboardShootSummary[];
   effectiveEditorSourceShoots: ShootData[];
   effectiveEditorUpcoming: DashboardShootSummary[];
+  taskShootIds?: string[];
   navigate: NavigateFunction;
   scrollToDashboardSection: ScrollToDashboardSection;
 }) => {
@@ -418,23 +420,23 @@ export const useEditorDashboardMetrics = ({
     () => [
       {
         id: "editor-total-assigned",
-        value: effectiveEditorSourceShoots.length,
+        value: new Set([...effectiveEditorSourceShoots.map(shoot => String(shoot.id)), ...taskShootIds]).size,
         label: "Total edits assigned",
         subtitle: "All assigned jobs",
         icon: <FileText size={16} />,
         accent:
           "from-slate-50 via-emerald-50/85 to-teal-100/70 text-emerald-900 dark:from-[#173934] dark:via-[#112431] dark:to-[#09101d] dark:text-white",
-        onClick: () => openShootHistory("editing"),
+        onClick: () => taskShootIds.length ? scrollToDashboardSection("editor-assigned-tasks") : openShootHistory("editing"),
       },
       {
         id: "editor-in-progress",
-        value: effectiveEditorUpcoming.length,
+        value: new Set([...effectiveEditorUpcoming.map(shoot => String(shoot.id)), ...taskShootIds]).size,
         label: "In progress edits",
         subtitle: "Active queue",
         icon: <UploadCloud size={16} />,
         accent:
           "from-slate-50 via-sky-50/85 to-blue-100/70 text-sky-900 dark:from-[#19384a] dark:via-[#122534] dark:to-[#09101d] dark:text-white",
-        onClick: () => openShootHistory("editing"),
+        onClick: () => taskShootIds.length ? scrollToDashboardSection("editor-assigned-tasks") : openShootHistory("editing"),
       },
       {
         id: "editor-delivered",
@@ -463,8 +465,9 @@ export const useEditorDashboardMetrics = ({
     ],
     [
       effectiveEditorDelivered.length,
-      effectiveEditorSourceShoots.length,
-      effectiveEditorUpcoming.length,
+      effectiveEditorSourceShoots,
+      effectiveEditorUpcoming,
+      taskShootIds,
       editorOpenRequestCount,
       openShootHistory,
       scrollToDashboardSection,

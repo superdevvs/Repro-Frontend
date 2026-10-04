@@ -34,7 +34,7 @@ it.each(['editing_manager', 'admin', 'superadmin', 'editor'])('opens tasks throu
   const requests = screen.getByTestId('pending-reviews-card');
   fireEvent.click(within(requests).getByRole('button', { name: 'Editing tasks' }));
   expect(await screen.findByRole('dialog', { name: 'Editing tasks' })).toBeVisible();
-  await screen.findByText('No selected-media editing requests yet.');
+  await screen.findByText('No editing tasks found.');
   expect(state.get).toHaveBeenCalledWith('/editing-tasks?page=1', expect.objectContaining({ signal: expect.any(AbortSignal) }));
 
   fireEvent.click(screen.getByRole('button', { name: 'Close' }));

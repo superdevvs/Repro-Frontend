@@ -28,3 +28,9 @@ it('shows exact files/instructions and blocks submission until the saved return 
 it.each(['client', 'photographer', 'salesRep'])('never fetches editing tasks for %s', role => {
   state.role = role; render(<EditingTasks />); expect(screen.queryByRole('button', { name: 'Editing tasks' })).not.toBeInTheDocument(); expect(state.get).not.toHaveBeenCalled();
 });
+it('opens queue assignments directly with the selected shoot filter', async () => {
+  render(<EditingTasks shootId={379} open hideTrigger onOpenChange={vi.fn()} />);
+  await screen.findByText('Lawn.jpg · v4');
+  expect(state.get).toHaveBeenCalledWith('/editing-tasks?page=1&shoot_id=379', expect.anything());
+  expect(screen.queryByRole('button', { name: 'Editing tasks' })).not.toBeInTheDocument();
+});

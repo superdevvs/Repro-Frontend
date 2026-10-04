@@ -12,11 +12,15 @@ interface TaskItem {
   workflow: string; status: string; return_url?: string; error?: string; returnedVersion?: MediaVersion;
 }
 interface Task { id: string; shoot_id: number; address: string; scope: string; instructions: string; status: string; error?: string; items: TaskItem[] }
-export function EditingTasks() {
+export function EditingTasks({ shootId, open: controlledOpen, onOpenChange, hideTrigger = false, onTasksChanged }: {
+  shootId?: number; open?: boolean; onOpenChange?: (open: boolean) => void; hideTrigger?: boolean; onTasksChanged?: () => void;
+} = {}) {
   const { role, user } = useAuth();
   const allowed = ['editor', 'editing_manager', 'admin', 'superadmin'].includes(role ?? '');
   const staff = role !== 'editor';
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen ?? internalOpen;
+  const setOpen = (value: boolean) => { setInternalOpen(value); onOpenChange?.(value); };
   const [tasks, setTasks] = useState<Task[]>([]);
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
@@ -30,11 +34,11 @@ export function EditingTasks() {
   const load = useCallback(async (signal?: AbortSignal) => {
     if (!allowed) return;
     try {
-      const { data } = await apiClient.get<{ data: Task[]; last_page: number }>(`/editing-tasks?page=${page}`, { signal });
+      const { data } = await apiClient.get<{ data: Task[]; last_page: number }>(`/editing-tasks?page=${page}${shootId ? `&shoot_id=${shootId}` : ''}`, { signal });
       setTasks(data.data); setLastPage(data.last_page);
     } catch (e) { if (!signal?.aborted) setError(studioError(e)); }
-  }, [allowed, page]);
-  useEffect(() => { setTasks([]); setOpen(false); }, [role, user?.id]);
+  }, [allowed, page, shootId]);
+  useEffect(() => { setTasks([]); setInternalOpen(false); }, [role, user?.id]);
   useEffect(() => {
     if (!allowed || !open) return;
     const controller = new AbortController();
@@ -45,7 +49,7 @@ export function EditingTasks() {
   const perform = async (id: string, fn: () => Promise<unknown>) => {
     if (operation.current) return;
     operation.current = true; setBusy(id); setError(null); setMessage('');
-    try { await fn(); await load(); } catch (e) { setError(studioError(e)); } finally { operation.current = false; setBusy(null); setProgress(null); }
+    try { await fn(); await load(); onTasksChanged?.(); } catch (e) { setError(studioError(e)); } finally { operation.current = false; setBusy(null); setProgress(null); }
   };
   const upload = (item: TaskItem) => perform(item.id, async () => {
     const saved = returns[item.id]; if (!saved) return;
@@ -62,14 +66,14 @@ export function EditingTasks() {
   });
   if (!allowed) return null;
   return <>
-    <Button variant="outline" size="sm" className="mb-3 w-full shrink-0 justify-between" onClick={() => setOpen(true)}>Editing tasks<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button>
+    {!hideTrigger && <Button variant="outline" size="sm" className="mb-3 w-full shrink-0 justify-between" onClick={() => setOpen(true)}>Editing tasks<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button>}
     <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}><DialogContent className="flex max-h-[90dvh] max-w-4xl flex-col">
       <DialogHeader><DialogTitle>Editing tasks</DialogTitle><DialogDescription>Exact media assignments, saved returns and progress for each request.</DialogDescription></DialogHeader>
       <div className="min-h-0 space-y-4 overflow-auto">
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {message && <p role="status" className="text-sm">{message}</p>}
         <Button variant="outline" size="sm" disabled={!!busy} onClick={() => void load()}>Refresh tasks</Button>
-        {!tasks.length && <p className="text-sm text-muted-foreground">No selected-media editing requests yet.</p>}
+        {!tasks.length && <p className="text-sm text-muted-foreground">No editing tasks found.</p>}
         {tasks.map(task => <section key={task.id} className="space-y-3 rounded-lg border p-4">
           <p className="font-medium">#{task.shoot_id} · {task.address} · {task.status}</p>
           <p className="text-sm">{task.scope === 'selected' ? 'Selected media only' : task.scope} · {task.instructions || 'No additional instructions.'}</p>

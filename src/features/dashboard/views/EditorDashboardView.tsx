@@ -13,6 +13,8 @@ import type {
 import type { EditingRequest } from "@/services/editingRequestService";
 import type { WeatherInfo } from "@/services/weatherService";
 import { useEditorDashboardQueue } from "@/hooks/useEditorDashboardQueue";
+import { useEditorEditingTasks } from "@/hooks/useEditorEditingTasks";
+import { EditorEditingTaskList } from "@/components/dashboard/v2/EditorEditingTaskList";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
@@ -78,12 +80,18 @@ export const EditorDashboardView = ({
     isLoading: freshEditorQueueLoading,
     isError: freshEditorQueueError,
   } = useEditorDashboardQueue(userId ?? null, Boolean(userId));
+  const taskQueue = useEditorEditingTasks(userId, user?.role === 'editor');
+  const taskShootIds = React.useMemo(() => [...new Set((taskQueue.data ?? []).map(task => String(task.shoot_id)))], [taskQueue.data]);
+  const beforeShoots = taskQueue.isLoading || taskQueue.isError || taskShootIds.length > 0
+    ? <EditorEditingTaskList tasks={taskQueue.data ?? []} isLoading={taskQueue.isLoading} isError={taskQueue.isError} onRefresh={() => { void taskQueue.refetch(); }} />
+    : undefined;
   const editorMetricTiles = useEditorDashboardMetrics({
     clientRequests,
     editingRequests,
     effectiveEditorDelivered,
     effectiveEditorSourceShoots: freshEditorSourceShoots,
     effectiveEditorUpcoming,
+    taskShootIds,
     navigate,
     scrollToDashboardSection,
   });
@@ -140,6 +148,7 @@ export const EditorDashboardView = ({
             title="Editing queue"
             subtitle="Uploads & active edits"
             emptyStateText="No edits in progress yet."
+            beforeShoots={beforeShoots}
           />
         </div>
       ),
@@ -197,6 +206,7 @@ export const EditorDashboardView = ({
           null,
         ]}
         upcomingShoots={effectiveEditorUpcoming}
+        upcomingCard={<UpcomingShootsCard shoots={effectiveEditorUpcoming} onSelect={onSelectShoot} role="editor" title="Editing queue" subtitle="Uploads & active edits" emptyStateText="No edits in progress yet." beforeShoots={beforeShoots} />}
         upcomingTitle="Editing queue"
         upcomingSubtitle="Uploads & active edits"
         upcomingEmptyStateText="No edits in progress yet."
