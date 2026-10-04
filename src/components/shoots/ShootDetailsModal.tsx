@@ -290,12 +290,15 @@ export function ShootDetailsModal({
     editedMediaCount,
   }), [currentUserRole, editedMediaCount, isAdmin, isEditingManager, isEditor, normalizedStatus, shoot]);
   const handleOpenAiEdit = useCallback(() => {
-    if (!canOpenAiEdit || isEditMode || !imageStudioHref) {
+    if (!canOpenAiEdit || isEditMode || !imageStudioHref || !shoot) {
       return;
     }
+    // The media tab claims this when files are selected and opens Send to editing for them.
+    const claimed = !window.dispatchEvent(new CustomEvent('shoot-ai-edit-open', { detail: { shootId: shoot.id }, cancelable: true }));
+    if (claimed) return;
     onClose();
     navigate(imageStudioHref);
-  }, [canOpenAiEdit, imageStudioHref, isEditMode, navigate, onClose]);
+  }, [canOpenAiEdit, imageStudioHref, isEditMode, navigate, onClose, shoot]);
 
   const handleTabChange = (value: string) => {
     const selectedTab = visibleTabs.find((tab) => tab.id === value);

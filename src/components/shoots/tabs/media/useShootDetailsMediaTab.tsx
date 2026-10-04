@@ -447,14 +447,16 @@ export function useShootDetailsMediaTab({
       return;
     }
 
+    // The AI Studio button sends selected media to editing; with no selection it opens AI Studio.
     const handleOpenAiEdit = (event: Event) => {
       const customEvent = event as CustomEvent<{ shootId?: string | number }>;
       const targetShootId = customEvent.detail?.shootId;
 
-      if (targetShootId === undefined || String(targetShootId) !== String(shoot.id)) {
+      if (targetShootId === undefined || String(targetShootId) !== String(shoot.id) || selectedFiles.size === 0) {
         return;
       }
 
+      event.preventDefault();
       setShowAiEditDialog(true);
     };
 
@@ -463,7 +465,7 @@ export function useShootDetailsMediaTab({
     return () => {
       window.removeEventListener(aiEditEventName, handleOpenAiEdit as EventListener);
     };
-  }, [shoot.id]);
+  }, [selectedFiles, shoot.id]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

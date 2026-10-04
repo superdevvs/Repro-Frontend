@@ -1,5 +1,4 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import { SelectedMediaEditingButton } from '../../SelectedMediaEditingButton';
 import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronUp, Download, FileIcon, GripVertical, LayoutGrid, List, Pencil, Trash2, Upload } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
@@ -262,7 +261,6 @@ export function ShootMediaHeader({
               </Button>
             )}
             {/* Selection actions */}
-            <SelectedMediaEditingButton shootId={shootId} ids={selectedFiles} />
             {(canDownload || canDelete || canBatchRename || canMarkSelectedFiles) && selectedFiles.size > 0 && (
               <>
                 {/* Mark selected files - admin only */}
@@ -412,7 +410,6 @@ export function ShootMediaHeader({
       {(canDownload || canDelete || canBatchRename || canMarkSelectedFiles) && selectedFiles.size > 0 && (
         <div className="mb-1.5 pb-1 border-b flex-shrink-0 sm:hidden">
           <div className="flex items-center justify-end gap-1.5 flex-wrap">
-            <SelectedMediaEditingButton shootId={shootId} ids={selectedFiles} />
             {/* Mark selected files - mobile */}
             {canMarkSelectedFiles && (
               <DropdownMenu>
