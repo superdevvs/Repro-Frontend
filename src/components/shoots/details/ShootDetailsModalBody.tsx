@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, CheckSquare, Download, DollarSign as DollarSignIcon, FileText, PlayCircle, Save, Printer, Send, Sparkles, Trash2, Upload as UploadIcon, XCircle } from 'lucide-react';
+import { CheckCircle, CheckSquare, Download, DollarSign as DollarSignIcon, FileText, Pencil, PlayCircle, Save, Printer, Send, Sparkles, Trash2, Upload as UploadIcon, XCircle } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
@@ -88,6 +88,7 @@ interface ShootDetailsModalBodyProps {
   canOpenAiEdit?: boolean;
   handleOpenAiEdit?: () => void;
   aiEditLabel?: string;
+  onRenameMedia?: () => void;
   canSubmitRaw?: boolean;
   canSubmitEdits?: boolean;
   hasInflightUploads?: boolean;
@@ -217,6 +218,7 @@ export function ShootDetailsModalBody({
   canOpenAiEdit = false,
   handleOpenAiEdit,
   aiEditLabel = 'AI Studio',
+  onRenameMedia,
   canSubmitRaw = false,
   canSubmitEdits = false,
   hasInflightUploads = false,
@@ -470,12 +472,15 @@ export function ShootDetailsModalBody({
               />
             )}
           </div>
-          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canApproveEditingReview || canFinalise || showDesktopSubmitActions || showDesktopDeleteAction || showDesktopPrintAction || showDesktopNotifyAction || showDesktopAiEditAction || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
+          {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canApproveEditingReview || canFinalise || showDesktopSubmitActions || showDesktopDeleteAction || showDesktopPrintAction || showDesktopNotifyAction || showDesktopAiEditAction || Boolean(onRenameMedia) || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
             <div className="hidden sm:flex border-t bg-background/95 backdrop-blur px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-end gap-2 w-full">
                 {/* Collapsed to icons: these stay reachable without competing
                     with the actions people use on every shoot, which now live in
                     the top rail. */}
+                {onRenameMedia && (
+                  <RailIconAction icon={Pencil} label="Rename" onClick={onRenameMedia} />
+                )}
                 {showDesktopDeleteAction && handleCancelShootClick && (
                   <RailIconAction
                     icon={isDeleteAction ? Trash2 : XCircle}

@@ -207,21 +207,22 @@ export function createShootMediaRenameActions({
 
       const applyUpdates = (files: MediaFile[]) =>
         files.map((file) => {
-          const nextName = filenameById.get(file.id);
+          const nextName = filenameById.get(String(file.id));
           if (!nextName) return file;
           return {
             ...file,
             filename: nextName,
-            stored_filename: storedById.get(file.id) ?? nextName,
+            stored_filename: storedById.get(String(file.id)) ?? nextName,
           };
         });
 
       setRawFiles((prev) => applyUpdates(prev));
       setEditedFiles((prev) => applyUpdates(prev));
 
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
+      // Same matching as single rename: cached keys may hold the shoot id as a number or a string.
+      const mediaQueries = { predicate: (query: { queryKey: readonly unknown[] }) => query.queryKey[0] === 'shootFiles' && String(query.queryKey[1]) === String(shoot.id) };
+      queryClient.setQueriesData<MediaFile[]>(mediaQueries, (files) => (Array.isArray(files) ? applyUpdates(files) : files));
+      await queryClient.invalidateQueries(mediaQueries);
       onShootUpdate();
 
       if (failed.length === 0) {

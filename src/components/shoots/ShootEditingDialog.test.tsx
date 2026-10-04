@@ -64,16 +64,26 @@ describe('Send to editing without a selection', () => {
     expect(screen.getByRole('button', { name: 'Send to editor' })).toBeDisabled();
   });
 
-  it('sends the photos to the full-shoot AI workflow with video AI disabled', async () => {
+  it('sends the photos to the full-shoot AI workflow and the videos to the video editor', async () => {
     const onClose = vi.fn();
     render(<ShootEditingDialog shootId={4} onClose={onClose} />);
-    fireEvent.click(await screen.findByRole('button', { name: /^Send to AI editing\s*The photos/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Send to AI editing\s*Photos get/ }));
     expect(screen.getByRole('switch', { name: 'Photos' })).toBeChecked();
-    expect(screen.getByRole('switch', { name: 'Videos' })).toBeDisabled();
-    expect(screen.getByText('AI video editing is not available yet.')).toBeVisible();
+    expect(screen.getByRole('switch', { name: 'Photos' })).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Videos' })).toBeChecked();
+    expect(screen.getByText('Goes to the video editor. AI video editing is not available yet.')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: 'Send to AI editing' }));
     await waitFor(() => expect(onClose).toHaveBeenCalledWith(true));
-    expect(bodies()[0]).toMatchObject({ mode: 'ai', scope: 'photos', preset: 'full-shoot' });
+    expect(bodies()[0]).toMatchObject({ mode: 'ai', scope: 'whole', preset: 'full-shoot' });
+  });
+
+  it('keeps the videos back from a whole-shoot AI request when Videos is off', async () => {
+    render(<ShootEditingDialog shootId={4} onClose={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Send to AI editing\s*Photos get/ }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Videos' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Send to AI editing' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledTimes(1));
+    expect(bodies()[0]).toMatchObject({ mode: 'ai', scope: 'photos' });
   });
 });
 

@@ -309,6 +309,13 @@ export function ShootDetailsModal({
     return result;
   }, [refreshShoot, onShootUpdate]);
 
+  const handleRenameMedia = useCallback(() => {
+    if (!shoot) return;
+    // The media tab claims this when files are selected and opens rename for them.
+    const claimed = !window.dispatchEvent(new CustomEvent('shoot-media-rename-open', { detail: { shootId: shoot.id }, cancelable: true }));
+    if (!claimed) toast({ title: 'Select files to rename', description: 'Select photos or videos in the media tab, then press Rename.' });
+  }, [shoot, toast]);
+
   // Editing managers and admins send media to editing from here; other roles open AI Studio.
   const opensEditingDialog = isAdmin || isEditingManager;
   const handleOpenAiEdit = useCallback(() => {
@@ -780,6 +787,7 @@ export function ShootDetailsModal({
           canOpenAiEdit={canOpenAiEdit && !isCancelledOrDeclined}
           handleOpenAiEdit={handleOpenAiEdit}
           aiEditLabel={opensEditingDialog ? 'Editing' : 'AI Studio'}
+          onRenameMedia={isClient ? undefined : handleRenameMedia}
           onOpenManualNotification={() => setIsManualNotificationOpen(true)}
           setIsApprovalModalOpen={setIsApprovalModalOpen}
           setIsDeclineModalOpen={setIsDeclineModalOpen}
@@ -859,6 +867,7 @@ export function ShootDetailsModal({
           canOpenAiEdit={canOpenAiEdit}
           handleOpenAiEdit={handleOpenAiEdit}
           aiEditLabel={opensEditingDialog ? 'Editing' : 'AI Studio'}
+          onRenameMedia={isClient ? undefined : handleRenameMedia}
           isMediaExpanded={isMediaExpanded}
           showTourAnalytics={showTourAnalytics}
           canResumeFromHold={canResumeFromHold}

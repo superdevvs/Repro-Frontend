@@ -16,6 +16,8 @@ interface EditingPlan {
   editors: { id: number; name: string; lanes: string[] }[];
   addons: { preset: string; label: string; fileIds: number[] }[];
   lanes?: Record<Lane, { available: boolean; sent: boolean }>;
+  assignments?: { lane: string; editor?: { name: string } | null }[];
+  status?: string;
   videoAi: { available: false; reason: string };
 }
 
@@ -71,6 +73,8 @@ export function ShootEditingDialog({ shootId, fileIds, onClose }: { shootId: str
   const lane = (value: Lane) => plan?.lanes?.[value] ?? { available: false, sent: false };
   const selectedMedia = useMemo(() => (plan?.media ?? []).filter(file => fileIds?.includes(file.id)), [plan, fileIds]);
   const selectedVideo = selectedMedia.some(file => file.lane === 'video');
+  const assignedPhotoEditor = plan?.assignments?.find(value => value.lane === 'photo')?.editor?.name;
+  const beforeDelivery = !plan?.status || ['uploaded', 'editing'].includes(plan.status);
   const photoPresets = (plan?.workflows ?? []).filter(value => !['full-shoot', 'revision'].includes(value.id));
   const fullShoot = plan?.workflows.find(value => value.id === 'full-shoot');
   // One row per photo: the exposures of an HDR stack share a preset and are merged before editing.
@@ -112,7 +116,8 @@ export function ShootEditingDialog({ shootId, fileIds, onClose }: { shootId: str
   const requests = (): [string, Record<string, unknown>][] => {
     if (selected && mode === 'ai') return groups.map(([preset, ids]) => [preset, { ...base(), scope: 'selected', preset, file_ids: ids }]);
     if (selected) return [['editor', { ...base(), scope: 'selected', preset: 'revision', file_ids: fileIds }]];
-    if (mode === 'ai') return [['full-shoot', { ...base(), scope: 'photos', preset: 'full-shoot', targets: addons.length ? targets : {} }]];
+    // AI edits the photos; when Videos is on they go to the video editor in the same request.
+    if (mode === 'ai') return [['full-shoot', { ...base(), scope: lanes.video ? 'whole' : 'photos', preset: 'full-shoot', targets: addons.length ? targets : {} }]];
     return [['editor', { ...base(), scope: lanes.photo && lanes.video ? 'whole' : lanes.photo ? 'photos' : 'videos' }]];
   };
   const send = async () => {
@@ -143,11 +148,12 @@ export function ShootEditingDialog({ shootId, fileIds, onClose }: { shootId: str
   </button>;
   const laneToggle = (value: Lane) => {
     const state = lane(value);
-    const aiVideo = mode === 'ai' && value === 'video';
-    const disabled = aiVideo || !state.available || state.sent || mode === 'ai';
-    const checked = mode === 'ai' ? value === 'photo' && state.available && !state.sent : lanes[value];
-    const note = aiVideo ? 'AI video editing is not available yet.' : state.sent ? 'Already sent to editing.' : !state.available ? `No ${laneLabel[value].toLowerCase()} uploaded.`
-      : mode === 'ai' ? 'Full shoot enhancement (Fotello).' : `Goes to the ${value} editor.`;
+    const aiPhoto = mode === 'ai' && value === 'photo';
+    const disabled = aiPhoto || !state.available || state.sent;
+    const checked = aiPhoto ? state.available && !state.sent : lanes[value];
+    const note = state.sent ? 'Already sent to editing.' : !state.available ? `No ${laneLabel[value].toLowerCase()} uploaded.`
+      : aiPhoto ? 'Full shoot enhancement (Fotello).'
+        : mode === 'ai' ? 'Goes to the video editor. AI video editing is not available yet.' : `Goes to the ${value} editor.`;
     return <label key={value} className={`flex items-center justify-between gap-3 rounded-lg border p-3 ${disabled && !checked ? 'opacity-60' : ''}`}>
       <span><span className="block text-sm font-medium">{laneLabel[value]}</span><span className="text-xs text-muted-foreground">{note}</span></span>
       <Switch aria-label={laneLabel[value]} checked={checked} disabled={disabled} onCheckedChange={on => change(() => setLanes(previous => ({ ...previous, [value]: on })))} />
@@ -164,14 +170,19 @@ export function ShootEditingDialog({ shootId, fileIds, onClose }: { shootId: str
         {plan && <fieldset disabled={busy || sentGroups.length > 0} className="space-y-4">
           <div className="grid gap-3 sm:grid-cols-2">
             {route('editor', 'Send to editor', selected ? 'The photo or video editor receives these files.' : 'Photos go to the photo editor. Videos go to the video editor.')}
-            {route('ai', 'Send to AI editing', selected ? 'Choose an AI preset for each photo.' : 'The photos are edited with Full shoot enhancement.')}
+            {route('ai', 'Send to AI editing', selected ? 'Choose an AI preset for each photo.' : 'Photos get Full shoot enhancement. Videos go to the video editor.')}
           </div>
           {!selected && <div className="grid gap-2 sm:grid-cols-2">{(['photo', 'video'] as const).map(laneToggle)}</div>}
           {selected && mode === 'editor' && <>
             <ul aria-label="Selected files" className="max-h-40 space-y-1 overflow-auto rounded-lg border p-2 text-sm">{selectedMedia.map(file => <li key={file.id}>{file.name}</li>)}</ul>
             {!selectedVideo && <label className="block text-sm">Editor<select className={selectClass} value={editor} onChange={e => change(() => setEditor(e.target.value))}>
-              <option value="">Assigned photo editor</option>{plan.editors.filter(value => value.lanes.includes('photo')).map(value => <option key={value.id} value={value.id}>{value.name}</option>)}
+              <option value="">{assignedPhotoEditor ? `Assigned photo editor (${assignedPhotoEditor})` : 'Assigned photo editor'}</option>{plan.editors.filter(value => value.lanes.includes('photo')).map(value => <option key={value.id} value={value.id}>{value.name}</option>)}
             </select></label>}
+            {!selectedVideo && editor && assignedPhotoEditor && plan.editors.find(value => String(value.id) === editor)?.name !== assignedPhotoEditor
+              && <p className="text-xs text-muted-foreground">This reassigns the shoot's photos from {assignedPhotoEditor}.</p>}
+            <p className="text-xs text-muted-foreground">{beforeDelivery
+              ? "The editor works these files from the shoot's media and uploads the edits in Edited. The file names and instructions are added to the shoot's editing notes."
+              : 'The editor receives these files as a revision task in their Editing tasks.'}</p>
           </>}
           {selected && mode === 'ai' && !selectedVideo && <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm">Set all to<select aria-label="Set all presets" className="rounded-md border bg-background p-1.5 text-sm" value="" onChange={e => { const value = e.target.value; if (value) change(() => setPresets(Object.fromEntries(rows.map(row => [row.key, value])))); }}>

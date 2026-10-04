@@ -399,13 +399,28 @@ export const renameShootMediaFile = async (
   filename: string,
   headers?: Record<string, string>,
 ): Promise<RenameMediaFileResponse> => {
-  const response = await axios.patch<RenameMediaFileResponse>(
+  const response = await retryWhenRenameBusy(() => axios.patch<RenameMediaFileResponse>(
     `${API_BASE_URL}/api/shoots/${shootId}/media/${fileId}/rename`,
     { filename },
     headers ? { headers } : undefined,
-  );
+  ));
   return response.data;
 };
+
+export const RENAME_BUSY_RETRY_DELAYS_MS = [2_000, 4_000];
+
+/** A busy (503) rename response guarantees nothing was renamed, so resending is safe. */
+async function retryWhenRenameBusy<T>(send: () => Promise<T>): Promise<T> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await send();
+    } catch (error) {
+      const busy = axios.isAxiosError(error) && error.response?.status === 503 && error.response.data?.retryable === true;
+      if (!busy || attempt >= RENAME_BUSY_RETRY_DELAYS_MS.length) throw error;
+      await new Promise(resolve => setTimeout(resolve, RENAME_BUSY_RETRY_DELAYS_MS[attempt]));
+    }
+  }
+}
 
 
 export type BatchRenameMode = 'prefix' | 'suffix' | 'replace' | 'sequence' | 'numbering';
@@ -454,11 +469,11 @@ export const batchRenameShootMediaFiles = async (
   payload: BatchRenameMediaRequest,
   headers?: Record<string, string>,
 ): Promise<BatchRenameMediaResponse> => {
-  const response = await axios.post<BatchRenameMediaResponse>(
+  const response = await retryWhenRenameBusy(() => axios.post<BatchRenameMediaResponse>(
     `${API_BASE_URL}/api/shoots/${shootId}/media/batch-rename`,
     payload,
     headers ? { headers } : undefined,
-  );
+  ));
   return response.data;
 };
 

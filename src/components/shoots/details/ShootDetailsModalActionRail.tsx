@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { blurActiveElement } from '../dialogFocusUtils';
 import { OverflowRevealAddressTitle } from './OverflowRevealAddressTitle';
-import { Check, Copy, DollarSign, Download, Edit, Camera, FileText, Images, MessageCircle, MoreVertical, PauseCircle, PlayCircle, Printer, Save, Send, Share2, Settings, Sparkles, Upload, X, XCircle } from 'lucide-react';
+import { Check, Copy, DollarSign, Download, Edit, Camera, FileText, Images, MessageCircle, MoreVertical, PauseCircle, Pencil, PlayCircle, Printer, Save, Send, Share2, Settings, Sparkles, Upload, X, XCircle } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 type VisibleTabId =
@@ -87,6 +87,7 @@ interface ShootDetailsModalActionRailProps {
   canOpenAiEdit?: boolean;
   handleOpenAiEdit?: () => void;
   aiEditLabel?: string;
+  onRenameMedia?: () => void;
   onOpenManualNotification: () => void;
   setIsApprovalModalOpen: (open: boolean) => void;
   setIsDeclineModalOpen: (open: boolean) => void;
@@ -158,6 +159,7 @@ export function ShootDetailsModalActionRail({
   canOpenAiEdit = false,
   handleOpenAiEdit,
   aiEditLabel = 'AI Studio',
+  onRenameMedia,
   onOpenManualNotification,
   setIsApprovalModalOpen,
   setIsDeclineModalOpen,
@@ -452,6 +454,20 @@ export function ShootDetailsModalActionRail({
             </DrawerDescription>
           </DrawerHeader>
           <div className="px-3 pb-3 space-y-1">
+            {onRenameMedia && !isEditMode && !isRequestedStatus && (
+              <button
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  onRenameMedia();
+                }}
+              >
+                <div className="flex items-center justify-center h-9 w-9 rounded-full bg-primary/10">
+                  <Pencil className="h-4 w-4 text-primary" />
+                </div>
+                Rename selected files
+              </button>
+            )}
             {canOpenAiEdit && handleOpenAiEdit && !isEditMode && !isRequestedStatus && (
               <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"

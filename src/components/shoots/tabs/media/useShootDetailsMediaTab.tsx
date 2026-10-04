@@ -903,6 +903,18 @@ export function useShootDetailsMediaTab({
       isSalesRep ||
       ['admin', 'superadmin', 'editing_manager', 'editor', 'photographer', 'salesrep', 'sales_rep', 'rep', 'representative'].includes(normalizedRole)
     );
+  // The shoot's bottom rail Rename button renames the files selected here.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleOpenRename = (event: Event) => {
+      const targetShootId = (event as CustomEvent<{ shootId?: string | number }>).detail?.shootId;
+      if (event.defaultPrevented || String(targetShootId) !== String(shoot.id) || !canRenameFilename || selectedFiles.size === 0) return;
+      event.preventDefault();
+      setBatchRenameOpen(true);
+    };
+    window.addEventListener('shoot-media-rename-open', handleOpenRename);
+    return () => window.removeEventListener('shoot-media-rename-open', handleOpenRename);
+  }, [canRenameFilename, selectedFiles, shoot.id]);
   const selectedFilesForRename = useMemo(
     () => [...rawFiles, ...(isClient ? clientVisibleEditedFiles : editedFiles)].filter((file) => selectedFiles.has(file.id)),
     [clientVisibleEditedFiles, editedFiles, isClient, rawFiles, selectedFiles],

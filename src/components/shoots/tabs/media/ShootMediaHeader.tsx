@@ -287,28 +287,6 @@ export function ShootMediaHeader({
                   </DropdownMenu>
                 )}
 
-                {canBatchRename && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-[11px] px-2"
-                    disabled={!batchRenameEnabled}
-                    onClick={() => onOpenBatchRename?.()}
-                    title={
-                      batchRenameEnabled
-                        ? `Rename ${selectedFiles.size} file(s)`
-                        : 'Batch rename will be available after the server update'
-                    }
-                  >
-                    <Pencil className="h-3.5 w-3.5 mr-1" />
-                    <span>Rename</span>
-                    {selectedFiles.size > 0 && (
-                      <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-muted px-1 text-[9px] font-bold leading-none ml-1">
-                        {selectedFiles.size}
-                      </span>
-                    )}
-                  </Button>
-                )}
                 {/* Show Create Request button for clients when photos are selected */}
                 {isClient && (
                   <Button
@@ -434,23 +412,6 @@ export function ShootMediaHeader({
               </DropdownMenu>
             )}
 
-            {canBatchRename && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-[11px] px-2 flex-shrink-0"
-                disabled={!batchRenameEnabled}
-                onClick={() => onOpenBatchRename?.()}
-                title={
-                  batchRenameEnabled
-                    ? `Rename ${selectedFiles.size} file(s)`
-                    : 'Batch rename will be available after the server update'
-                }
-              >
-                <Pencil className="h-3 w-3 mr-1" />
-                <span>Rename</span>
-              </Button>
-            )}
             {/* Show Create Request button for clients when photos are selected */}
             {isClient && (
               <Button
