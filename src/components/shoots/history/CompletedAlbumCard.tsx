@@ -338,9 +338,9 @@ export const CompletedAlbumCard = ({
           </div>
         </div>
 
-        {/* Download and Delete buttons */}
+        {/* Download and Delete buttons. Photographers keep list-view downloads; the grid icon is hidden for that role only. */}
         <div className={`absolute bottom-3 right-3 flex items-center gap-2 ${isDownloading ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
-          {onDownload && (
+          {onDownload && viewerRole !== 'photographer' && (
             <Button
               size="sm"
               variant="secondary"

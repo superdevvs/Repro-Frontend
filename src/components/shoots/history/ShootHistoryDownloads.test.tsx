@@ -35,6 +35,7 @@ function HistoryDownload({ layout, role }: { layout: 'card' | 'row'; role: 'admi
   });
   const Component = layout === 'card' ? CompletedAlbumCard : CompletedShootListRow;
   return <Component shoot={shoot} onSelect={vi.fn()} isAdmin={role === 'admin'} isEditor={role === 'editor'}
+    viewerRole={role}
     onDownload={data.canDownloadHistoryShoot(shoot) ? data.handleDownloadShoot : undefined}
     isDownloading={data.downloadingShootIds.has(String(shoot.id))} />;
 }
@@ -69,9 +70,16 @@ describe('history download buttons', () => {
     buttons.forEach((button) => expect(button.querySelector('svg.animate-spin')).toBeNull());
   });
 
-  it('routes photographer raw downloads through the media archive endpoint', async () => {
-    mocks.archive.mockResolvedValueOnce({ mode: 'blob', message: 'Raw archive ready.' });
+  it('hides the photographer grid download button', async () => {
     await act(async () => { render(<QueryClientProvider client={new QueryClient()}><HistoryDownload layout="card" role="photographer" /></QueryClientProvider>); });
+    expect(screen.queryByRole('button', { name: 'Downloads' })).not.toBeInTheDocument();
+    expect(mocks.archive).not.toHaveBeenCalled();
+    expect(mocks.download).not.toHaveBeenCalled();
+  });
+
+  it('routes photographer list raw downloads through the media archive endpoint', async () => {
+    mocks.archive.mockResolvedValueOnce({ mode: 'blob', message: 'Raw archive ready.' });
+    await act(async () => { render(<QueryClientProvider client={new QueryClient()}><HistoryDownload layout="row" role="photographer" /></QueryClientProvider>); });
     fireEvent.click(screen.getAllByRole('button', { name: 'Downloads' })[0]);
     await waitFor(() => expect(mocks.archive).toHaveBeenCalledTimes(1));
     expect(mocks.archive).toHaveBeenCalledWith(expect.objectContaining({
