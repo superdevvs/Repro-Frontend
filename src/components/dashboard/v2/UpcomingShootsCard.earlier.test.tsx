@@ -72,16 +72,18 @@ describe('UpcomingShootsCard earlier unfinished work', () => {
     expect(merged).toHaveLength(2);
     expect(merged.find(item => item.id === 1)).toBe(existing);
     expect(merged.find(item => item.id === 2)).toMatchObject({ dayLabel: 'Yesterday', scheduledLocalDate: '2026-09-30' });
-    expect(merged.find(item => item.id === 2)?.hasScopedEditingTasks).toBeUndefined();
+    expect(merged.find(item => item.id === 1)?.hasScopedEditingTasks).toBeUndefined();
+    expect(merged.find(item => item.id === 2)?.hasScopedEditingTasks).toBe(true);
     const onSelect = vi.fn();
     const { container } = render(<UpcomingShootsCard shoots={merged} role="editor" onSelect={onSelect} />);
     expect(screen.getByText('Yesterday • 2 shoots')).toBeVisible();
     expect(container.querySelectorAll('[data-shoot-card="true"]')).toHaveLength(2);
-    expect(screen.getAllByRole('button', { name: 'Share link' })).toHaveLength(2);
-    expect(screen.getAllByRole('button', { name: 'Download' })).toHaveLength(2);
-    expect(screen.queryByRole('button', { name: /^Open / })).not.toBeInTheDocument();
-    fireEvent.click(screen.getAllByText('17408 Doctor Bird Road')[0]);
-    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 2, dayLabel: 'Yesterday' }), undefined);
+    // The assigned shoot keeps its raw actions; a task-only shoot opens its tasks instead.
+    expect(screen.getAllByRole('button', { name: 'Share link' })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: 'Download' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: 'Open 7500 Alaska Ave NW #638' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole('button', { name: 'Open 17408 Doctor Bird Road' })[0]);
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 2, dayLabel: 'Yesterday', hasScopedEditingTasks: true }), undefined);
   });
 
   it('puts an October 3 booked day in Yesterday when the market day is October 4', () => {

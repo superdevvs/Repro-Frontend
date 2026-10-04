@@ -14,6 +14,7 @@ import type { EditingRequest } from "@/services/editingRequestService";
 import type { WeatherInfo } from "@/services/weatherService";
 import { useEditorDashboardQueue } from "@/hooks/useEditorDashboardQueue";
 import { useEditorEditingTasks } from "@/hooks/useEditorEditingTasks";
+import { EditingTasks } from "@/components/shoots/EditingTasks";
 import { mergeEditorShootQueue } from "@/utils/mergeEditorShootQueue";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -83,6 +84,11 @@ export const EditorDashboardView = ({
   const taskQueue = useEditorEditingTasks(userId, user?.role === 'editor');
   const taskShootIds = React.useMemo(() => [...new Set((taskQueue.data ?? []).map(task => String(task.shoot_id)))], [taskQueue.data]);
   const effectiveEditorUpcoming = React.useMemo(() => mergeEditorShootQueue(legacyEditorUpcoming, taskQueue.data ?? []), [legacyEditorUpcoming, taskQueue.data]);
+  const [selectedTaskShoot, setSelectedTaskShoot] = useState<number | null>(null);
+  const selectEditorShoot = (shoot: DashboardShootSummary, weather?: WeatherInfo | null) => {
+    if (shoot.hasScopedEditingTasks) setSelectedTaskShoot(shoot.id);
+    else onSelectShoot(shoot, weather);
+  };
   const beforeShoots = taskQueue.isError
     ? <p role="alert">Could not load all assigned shoots. <button onClick={() => { void taskQueue.refetch(); }}>Retry</button></p>
     : taskQueue.isLoading ? <p role="status">Loading assigned shoots...</p> : undefined;
@@ -144,7 +150,7 @@ export const EditorDashboardView = ({
         <div id="editor-assigned-shoots" data-onboarding-target="editor-queue">
           <UpcomingShootsCard
             shoots={effectiveEditorUpcoming}
-            onSelect={(shoot, weather) => onSelectShoot(shoot, weather)}
+            onSelect={selectEditorShoot}
             role="editor"
             title="Editing queue"
             subtitle="Uploads & active edits"
@@ -207,7 +213,7 @@ export const EditorDashboardView = ({
           null,
         ]}
         upcomingShoots={effectiveEditorUpcoming}
-        upcomingCard={<div id="editor-assigned-shoots" className="flex min-h-0 flex-1 flex-col"><UpcomingShootsCard shoots={effectiveEditorUpcoming} onSelect={onSelectShoot} role="editor" title="Editing queue" subtitle="Uploads & active edits" emptyStateText="No edits in progress yet." beforeShoots={beforeShoots} /></div>}
+        upcomingCard={<div id="editor-assigned-shoots" className="flex min-h-0 flex-1 flex-col"><UpcomingShootsCard shoots={effectiveEditorUpcoming} onSelect={selectEditorShoot} role="editor" title="Editing queue" subtitle="Uploads & active edits" emptyStateText="No edits in progress yet." beforeShoots={beforeShoots} /></div>}
         upcomingTitle="Editing queue"
         upcomingSubtitle="Uploads & active edits"
         upcomingEmptyStateText="No edits in progress yet."
@@ -239,6 +245,9 @@ export const EditorDashboardView = ({
         onHelpOpened={editorOnboarding.recordHelpOpened}
         onHelpMessage={editorOnboarding.recordHelpMessage}
       />
+      {selectedTaskShoot !== null && <EditingTasks key={selectedTaskShoot} shootId={selectedTaskShoot} open hideTrigger
+        onOpenChange={open => { if (!open) { setSelectedTaskShoot(null); void taskQueue.refetch(); } }}
+        onTasksChanged={() => { void taskQueue.refetch(); }} />}
       {shootDetailsModal}
     </>
   );
