@@ -43,6 +43,36 @@ describe('edited upload transfer progress', () => {
     expect(keys[1]).toBe(keys[0]);
   });
 
+  it('resends a dropped connection with the same attempt key and completes the batch', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    vi.spyOn(client, 'invalidateQueries').mockResolvedValue(undefined);
+    const complete = vi.fn();
+    render(<QueryClientProvider client={client}><EditedUploadSection shoot={{ id: '164', services: [] } as ShootData} onUploadComplete={complete} /></QueryClientProvider>);
+    const files = ['a.jpg', 'b.jpg'].map((name) => new File(['photo'], name, { type: 'image/jpeg' }));
+    fireEvent.change(screen.getByTestId('edited-upload-input'), { target: { files } });
+    vi.mocked(uploadMediaRequest)
+      .mockResolvedValueOnce({ ok: false, interrupted: true, message: 'The upload connection was interrupted. Check your connection and retry.' })
+      .mockImplementation(async ({ body }) => {
+        const file = body.get('files[]') as File;
+        return { ok: true, status: 200, responseText: JSON.stringify({ success_count: 1, uploaded_files: [{ id: file.name === 'a.jpg' ? 1 : 2, filename: file.name, upload_type: 'edited' }] }) };
+      });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload Edited Files' }));
+    vi.useFakeTimers();
+    try {
+      let finished!: Promise<unknown>;
+      await act(async () => { finished = mocks.trackUpload.mock.calls[0][0].uploadFn(vi.fn(), new AbortController().signal); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(2_000); await finished; });
+    } finally {
+      vi.useRealTimers();
+    }
+    const calls = vi.mocked(uploadMediaRequest).mock.calls.map(([{ body }]) => body as FormData);
+    expect(calls).toHaveLength(3);
+    const first = calls[0];
+    const resent = calls.slice(1).find((body) => (body.get('files[]') as File).name === (first.get('files[]') as File).name);
+    expect(resent?.get('idempotency_key')).toBe(first.get('idempotency_key'));
+    expect(complete).toHaveBeenCalledOnce();
+  });
+
   it('keeps successful confirmations and never finalizes a failed parallel batch', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const complete = vi.fn();

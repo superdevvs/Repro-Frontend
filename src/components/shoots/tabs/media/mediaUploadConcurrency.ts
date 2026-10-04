@@ -1,6 +1,21 @@
 /** RAW concurrency is granted only after durable server-side batch preparation. */
 export const EDITED_UPLOAD_CONCURRENCY = 3;
 
+/**
+ * Parallel uploads share one HTTP/2 connection, so a brief network drop fails every
+ * in-flight file at once. Requests carry idempotency keys, so resending is safe.
+ */
+export const INTERRUPTED_UPLOAD_RETRY_DELAYS_MS = [2_000, 6_000];
+
+export function waitBeforeUploadRetry(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) { resolve(); return; }
+    const done = () => { clearTimeout(timer); signal?.removeEventListener('abort', done); resolve(); };
+    const timer = setTimeout(done, ms);
+    signal?.addEventListener('abort', done, { once: true });
+  });
+}
+
 export async function runUploadConcurrencyPool<T, R>({
   items,
   concurrency,

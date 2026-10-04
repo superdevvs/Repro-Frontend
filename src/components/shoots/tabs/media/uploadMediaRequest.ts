@@ -18,7 +18,8 @@ export interface MediaTransferProgress {
 
 type MediaRequestResult =
   | { ok: true; status: number; responseText: string }
-  | { ok: false; message: string };
+  // interrupted: the connection dropped without any server response (not a cancel or timeout).
+  | { ok: false; message: string; interrupted?: true };
 
 type UploadMediaRequestOptions = {
   url: string;
@@ -348,7 +349,7 @@ function sendMediaRequest(options: UploadMediaRequestOptions): Promise<MediaRequ
       xhr.upload.addEventListener('load', markProcessing);
       xhr.addEventListener('load', () => {
         if (xhr!.status === 0) {
-          finish({ ok: false, message: 'The upload connection ended without a server response. Check your connection and retry.' });
+          finish({ ok: false, interrupted: true, message: 'The upload connection ended without a server response. Check your connection and retry.' });
         } else if (xhr!.status === 413) {
           // Cloudflare HTML 413 — surface a clear, retryable message instead of a parse failure.
           finish({ ok: false, message: CDN_OVERSIZE_MESSAGE });
@@ -356,7 +357,7 @@ function sendMediaRequest(options: UploadMediaRequestOptions): Promise<MediaRequ
           finish({ ok: true, status: xhr!.status, responseText: xhr!.responseText });
         }
       });
-      xhr.addEventListener('error', () => finish({ ok: false, message: 'The upload connection was interrupted. Check your connection and retry.' }));
+      xhr.addEventListener('error', () => finish({ ok: false, interrupted: true, message: 'The upload connection was interrupted. Check your connection and retry.' }));
       xhr.addEventListener('abort', () => finish({ ok: false, message: 'The upload was interrupted before the server confirmed it. Retry to check it safely.' }));
       xhr.addEventListener('timeout', () => finish({ ok: false, message: 'The upload connection timed out. Check your connection and retry.' }));
       xhr.open('POST', options.url);

@@ -22,7 +22,7 @@ import {
   type UploadIssue,
 } from './MediaUploadPanels';
 import { CLOUDFLARE_SAFE_UPLOAD_BYTES, uploadMediaRequest } from './uploadMediaRequest';
-import { EDITED_UPLOAD_CONCURRENCY, runUploadConcurrencyPool } from './mediaUploadConcurrency';
+import { EDITED_UPLOAD_CONCURRENCY, INTERRUPTED_UPLOAD_RETRY_DELAYS_MS, runUploadConcurrencyPool, waitBeforeUploadRetry } from './mediaUploadConcurrency';
 import {
   SummaryBadge,
   SummaryCard,
@@ -350,7 +350,7 @@ export function EditedUploadSection({
                 }
               }
 
-              const request = await uploadMediaRequest({
+              const send = () => uploadMediaRequest({
                 url: `${API_BASE_URL}/api/shoots/${shoot.id}/upload`,
                 body: formData,
                 signal,
@@ -369,6 +369,14 @@ export function EditedUploadSection({
                   emitTransferProgress(index, phase);
                 },
               });
+              let request = await send();
+              for (const delay of INTERRUPTED_UPLOAD_RETRY_DELAYS_MS) {
+                if (request.ok !== false || !request.interrupted || signal?.aborted) break;
+                fileProgresses[index] = 0;
+                await waitBeforeUploadRetry(delay, signal);
+                if (signal?.aborted) break;
+                request = await send();
+              }
 
               if (request.ok === false) {
                 return {
