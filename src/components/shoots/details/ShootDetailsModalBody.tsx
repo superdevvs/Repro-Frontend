@@ -87,6 +87,7 @@ interface ShootDetailsModalBodyProps {
   onOpenManualNotification?: () => void;
   canOpenAiEdit?: boolean;
   handleOpenAiEdit?: () => void;
+  aiEditLabel?: string;
   canSubmitRaw?: boolean;
   canSubmitEdits?: boolean;
   hasInflightUploads?: boolean;
@@ -215,6 +216,7 @@ export function ShootDetailsModalBody({
   onOpenManualNotification,
   canOpenAiEdit = false,
   handleOpenAiEdit,
+  aiEditLabel = 'AI Studio',
   canSubmitRaw = false,
   canSubmitEdits = false,
   hasInflightUploads = false,
@@ -493,7 +495,7 @@ export function ShootDetailsModalBody({
                   />
                 )}
                 {canOpenAiEdit && !isRequestedStatus && handleOpenAiEdit && (
-                  <RailIconAction icon={Sparkles} label="AI Studio" tone="ai" onClick={handleOpenAiEdit} />
+                  <RailIconAction icon={Sparkles} label={aiEditLabel} tone="ai" onClick={handleOpenAiEdit} />
                 )}
                 {showMmmPunchoutButtons && canStartMmmPunchout && (
                   <Button

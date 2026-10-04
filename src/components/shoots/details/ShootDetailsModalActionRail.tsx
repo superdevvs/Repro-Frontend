@@ -86,6 +86,7 @@ interface ShootDetailsModalActionRailProps {
   onProcessPayment?: () => void;
   canOpenAiEdit?: boolean;
   handleOpenAiEdit?: () => void;
+  aiEditLabel?: string;
   onOpenManualNotification: () => void;
   setIsApprovalModalOpen: (open: boolean) => void;
   setIsDeclineModalOpen: (open: boolean) => void;
@@ -156,6 +157,7 @@ export function ShootDetailsModalActionRail({
   onProcessPayment,
   canOpenAiEdit = false,
   handleOpenAiEdit,
+  aiEditLabel = 'AI Studio',
   onOpenManualNotification,
   setIsApprovalModalOpen,
   setIsDeclineModalOpen,
@@ -461,7 +463,7 @@ export function ShootDetailsModalActionRail({
                 <div className="flex items-center justify-center h-9 w-9 rounded-full bg-primary/10">
                   <Sparkles className="h-4 w-4 text-primary" />
                 </div>
-                AI Studio
+                {aiEditLabel}
               </button>
             )}
             {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isEditMode && !isRequestedStatus && (

@@ -28,6 +28,7 @@ import { getApiHeaders } from '@/services/api';
 import { useToast } from '@/hooks/use-toast';
 import { usePermission } from '@/hooks/usePermission';
 import { buildShootStudioHref } from '@/components/studio/shootStudioDeepLink';
+import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { useShoots } from '@/context/shootsContextState';
 import { useShootRealtime } from '@/hooks/use-shoot-realtime';
 import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
@@ -289,17 +290,6 @@ export function ShootDetailsModal({
     normalizedStatus,
     editedMediaCount,
   }), [currentUserRole, editedMediaCount, isAdmin, isEditingManager, isEditor, normalizedStatus, shoot]);
-  const handleOpenAiEdit = useCallback(() => {
-    if (!canOpenAiEdit || isEditMode || !imageStudioHref || !shoot) {
-      return;
-    }
-    // The media tab claims this when files are selected and opens Send to editing for them.
-    const claimed = !window.dispatchEvent(new CustomEvent('shoot-ai-edit-open', { detail: { shootId: shoot.id }, cancelable: true }));
-    if (claimed) return;
-    onClose();
-    navigate(imageStudioHref);
-  }, [canOpenAiEdit, imageStudioHref, isEditMode, navigate, onClose, shoot]);
-
   const handleTabChange = (value: string) => {
     const selectedTab = visibleTabs.find((tab) => tab.id === value);
     if (selectedTab?.disabled) {
@@ -318,6 +308,25 @@ export function ShootDetailsModal({
     }
     return result;
   }, [refreshShoot, onShootUpdate]);
+
+  // Editing managers and admins send media to editing from here; other roles open AI Studio.
+  const opensEditingDialog = isAdmin || isEditingManager;
+  const handleOpenAiEdit = useCallback(() => {
+    if (!canOpenAiEdit || isEditMode || !imageStudioHref || !shoot) {
+      return;
+    }
+    if (opensEditingDialog) {
+      // The media tab claims this when files are selected and opens the dialog for them.
+      const claimed = !window.dispatchEvent(new CustomEvent('shoot-ai-edit-open', { detail: { shootId: shoot.id }, cancelable: true }));
+      if (!claimed) {
+        void sendShootToEditing(shoot.id).then(sent => { if (sent) void refreshShootAndParent(); })
+          .catch(error => toast({ title: 'Editing could not open', description: error instanceof Error ? error.message : String(error), variant: 'destructive' }));
+      }
+      return;
+    }
+    onClose();
+    navigate(imageStudioHref);
+  }, [canOpenAiEdit, imageStudioHref, isEditMode, navigate, onClose, opensEditingDialog, refreshShootAndParent, shoot, toast]);
 
   const {
     amountDue,
@@ -770,6 +779,7 @@ export function ShootDetailsModal({
           onProcessPayment={handleProcessPayment}
           canOpenAiEdit={canOpenAiEdit && !isCancelledOrDeclined}
           handleOpenAiEdit={handleOpenAiEdit}
+          aiEditLabel={opensEditingDialog ? 'Editing' : 'AI Studio'}
           onOpenManualNotification={() => setIsManualNotificationOpen(true)}
           setIsApprovalModalOpen={setIsApprovalModalOpen}
           setIsDeclineModalOpen={setIsDeclineModalOpen}
@@ -848,6 +858,7 @@ export function ShootDetailsModal({
           onOpenManualNotification={() => setIsManualNotificationOpen(true)}
           canOpenAiEdit={canOpenAiEdit}
           handleOpenAiEdit={handleOpenAiEdit}
+          aiEditLabel={opensEditingDialog ? 'Editing' : 'AI Studio'}
           isMediaExpanded={isMediaExpanded}
           showTourAnalytics={showTourAnalytics}
           canResumeFromHold={canResumeFromHold}
