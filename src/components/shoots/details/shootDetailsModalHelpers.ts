@@ -1,3 +1,4 @@
+import { getShootPropertyDetails, streetWithAptSuite } from '@/utils/shootAddressDisplay';
 import type { ShootData } from '@/types/shoots';
 
 interface ShootDetailsCompatibilityFields {
@@ -56,11 +57,15 @@ export const getShootStreetAddress = (shoot: ShootData | null): string => {
   if (!shoot) return '';
 
   const compatibleShoot = asCompatibleShoot(shoot);
+  const propertyDetails = getShootPropertyDetails(shoot);
   const explicitStreetAddress =
     shoot.location?.address || compatibleShoot.address || compatibleShoot.addressLine || '';
 
   // Structured address fields are already the canonical street-only value.
-  if (explicitStreetAddress.trim()) return explicitStreetAddress;
+  // Append aptSuite when present and not already embedded in the street.
+  if (explicitStreetAddress.trim()) {
+    return streetWithAptSuite(explicitStreetAddress, propertyDetails);
+  }
 
   const fullAddress = sanitizeWeatherSegment(
     shoot.location?.fullAddress || compatibleShoot.fullAddress,
@@ -73,7 +78,10 @@ export const getShootStreetAddress = (shoot: ShootData | null): string => {
 
   // Remove one complete, comma-delimited locality suffix. Requiring the
   // delimiter prevents street words that resemble a city/state from matching.
-  return removeTrailingLocality(fullAddress, [city, state, zip]);
+  return streetWithAptSuite(
+    removeTrailingLocality(fullAddress, [city, state, zip]),
+    propertyDetails,
+  );
 };
 
 export const buildWeatherLocationQuery = (shoot: ShootData | null): string | null => {

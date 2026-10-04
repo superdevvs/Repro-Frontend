@@ -10,16 +10,14 @@ import type { ShootData } from "@/types/shoots";
 import type { UserData } from "@/types/auth";
 import { shootHasEditorAssignment } from "@/utils/shootEditorAssignments";
 import { getStateFullName } from "@/utils/stateUtils";
-import {
-  formatDateForWallClockInput,
-  formatTimeForWallClockInput,
-} from "@/utils/wallClockDateTime";
+import { getShootSchedule } from "@/utils/shootSchedule";
 import { getShootServiceItems } from "@/utils/shootServiceItems";
 import { getDashboardBookedDayOffset } from "@/utils/dashboardShootSchedule";
 import { getShootLocalDate, parseLocalYmd } from "@/utils/shootLocalDate";
 import { isFloorplanLikeHeroFile, isUnsuitableShootCardHeroUrl, selectShootCardHeroUrls } from "@/utils/shootCardHero";
 import { normalizeShootPaymentSummary } from "@/utils/shootPaymentSummary";
 import { normalizeDashboardRole } from "@/utils/dashboardFilterPermissions";
+import { getShootPropertyDetails, streetWithAptSuite } from '@/utils/shootAddressDisplay';
 
 type ClientWithLegacyPhoneNumber = ShootData["client"] & {
   phonenumber?: string | null;
@@ -153,10 +151,9 @@ export const getGreetingPrefix = () => {
   return "Hi";
 };
 
-const parseServiceScheduleDateTime = (value?: string | null): Date | null => {
+const parseServiceScheduleDateTime = (value?: string | null, timezone?: string | null): Date | null => {
   if (!value) return null;
-  const wallDate = formatDateForWallClockInput(value);
-  const wallTime = formatTimeForWallClockInput(value);
+  const { date: wallDate, time: wallTime } = getShootSchedule({ scheduled_at: value, timezone });
   if (wallDate && wallTime) {
     const parsedWallClock = parse(`${wallDate} ${wallTime}`, "yyyy-MM-dd HH:mm", new Date());
     if (isValid(parsedWallClock)) return parsedWallClock;
@@ -168,7 +165,7 @@ const parseServiceScheduleDateTime = (value?: string | null): Date | null => {
 
 export const parseShootDateTime = (shoot: ShootData): Date | null => {
   const visibleServiceSchedules = (shoot.serviceItems || shoot.service_items || [])
-    .map((item) => parseServiceScheduleDateTime(item.scheduledAt || item.scheduled_at))
+    .map((item) => parseServiceScheduleDateTime(item.scheduledAt || item.scheduled_at, shoot.timezone))
     .filter((date): date is Date => Boolean(date));
 
   if (visibleServiceSchedules.length > 0) {
@@ -449,7 +446,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     scheduleTimezone: shoot.scheduleTimezone || shoot.schedule_timezone || shoot.timezone || null,
     startTime: start ? start.toISOString() : null,
     scheduledInstant: shoot.scheduledInstant ?? shoot.scheduled_instant ?? null,
-    addressLine: location.address || "No address on file",
+    addressLine: streetWithAptSuite(location.address || "", getShootPropertyDetails(shoot)) || "No address on file",
     cityStateZip: [location.city, getStateFullName(location.state), location.zip].filter(Boolean).join(", "),
     status: shoot.status || null,
     workflowStatus: shoot.workflowStatus || shoot.status || null,

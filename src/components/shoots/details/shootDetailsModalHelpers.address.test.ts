@@ -16,7 +16,7 @@ describe('shoot details street address', () => {
         zip: '22153',
         fullAddress: '9137 Lakeland Valley Court, Springfield, VA 22153',
       },
-    } as ShootData;
+    } as unknown as ShootData;
 
     expect(getShootStreetAddress(shoot)).toBe('9137 Lakeland Valley Court');
     expect(getShootDetailsAddressTitle(shoot)).toBe('9137 Lakeland Valley Court');
@@ -31,7 +31,7 @@ describe('shoot details street address', () => {
         zip: '22153',
         fullAddress: '9137 Lakeland Valley Court, Springfield, VA 22153',
       },
-    } as ShootData;
+    } as unknown as ShootData;
 
     expect(getShootStreetAddress(shoot)).toBe('9137 Lakeland Valley Court');
   });
@@ -45,7 +45,7 @@ describe('shoot details street address', () => {
         zip: '22153',
         fullAddress: '725 Savannah Avenue, Springfield, VA, 22153',
       },
-    } as ShootData;
+    } as unknown as ShootData;
 
     expect(getShootStreetAddress(shoot)).toBe('725 Savannah Avenue');
   });
@@ -59,7 +59,7 @@ describe('shoot details street address', () => {
         zip: '63101',
         fullAddress: '12 Valley View, St. Louis, MO 63101',
       },
-    } as ShootData;
+    } as unknown as ShootData;
 
     expect(getShootStreetAddress(shoot)).toBe('12 Valley View');
   });
@@ -73,7 +73,7 @@ describe('shoot details street address', () => {
         zip: '',
         fullAddress: '123 Springfield',
       },
-    } as ShootData;
+    } as unknown as ShootData;
 
     expect(getShootStreetAddress(shoot)).toBe('123 Springfield');
   });
@@ -135,5 +135,50 @@ describe('buildWeatherLocationQuery address fallbacks', () => {
     expect(buildWeatherLocationQuery(shoot)).toBe(
       '9137 Lakeland Valley Court, Springfield, VA 22153',
     );
+  });
+});
+
+describe('getShootStreetAddress aptSuite display', () => {
+  it('appends aptSuite when it is not already on the street', () => {
+    const shoot = {
+      location: {
+        address: '15 Rainflower Path',
+        city: 'Sparks Glencoe',
+        state: 'MD',
+        zip: '21152',
+        fullAddress: '15 Rainflower Path, Sparks Glencoe, MD 21152',
+      },
+      propertyDetails: { aptSuite: '103' },
+    } as unknown as ShootData;
+
+    expect(getShootStreetAddress(shoot)).toBe('15 Rainflower Path, Unit 103');
+    expect(getShootDetailsAddressTitle(shoot)).toBe('15 Rainflower Path, Unit 103');
+  });
+
+  it('does not double unit when the street already embeds it', () => {
+    const hashShoot = {
+      location: {
+        address: '6636 Washington Blvd #93',
+        city: 'Elkridge',
+        state: 'MD',
+        zip: '21075',
+        fullAddress: '6636 Washington Blvd #93, Elkridge, MD 21075',
+      },
+      propertyDetails: { aptSuite: '93' },
+    } as unknown as ShootData;
+
+    const unitShoot = {
+      location: {
+        address: '12800 Middlebrook Road Unit 206',
+        city: 'Germantown',
+        state: 'MD',
+        zip: '20874',
+        fullAddress: '12800 Middlebrook Road Unit 206, Germantown, MD 20874',
+      },
+      property_details: { aptSuite: '206' },
+    } as unknown as ShootData;
+
+    expect(getShootStreetAddress(hashShoot)).toBe('6636 Washington Blvd #93');
+    expect(getShootStreetAddress(unitShoot)).toBe('12800 Middlebrook Road Unit 206');
   });
 });

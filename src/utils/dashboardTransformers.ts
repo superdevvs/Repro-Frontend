@@ -16,6 +16,7 @@ import {
   DashboardWorkflowResponse,
 } from '@/types/dashboard';
 import { extractLocalYmd } from '@/utils/shootLocalDate';
+import { streetWithAptSuite } from '@/utils/shootAddressDisplay';
 
 const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSummary => ({
   id: shoot.id,
@@ -27,7 +28,7 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
   scheduledLocalDate: extractLocalYmd(shoot.start_time) ?? null,
   startTime: shoot.start_time ?? null,
   scheduledInstant: shoot.scheduled_instant ?? null,
-  addressLine: shoot.address_line ?? 'No address on file',
+  addressLine: streetWithAptSuite(shoot.address_line ?? '', shoot.property_details) || 'No address on file',
   cityStateZip: shoot.city_state_zip ?? '',
   status: shoot.status ?? null,
   cancellationRequestedAt: shoot.cancellation_requested_at ?? null,
