@@ -77,17 +77,10 @@ describe('history download buttons', () => {
     expect(mocks.download).not.toHaveBeenCalled();
   });
 
-  it('routes photographer list raw downloads through the media archive endpoint', async () => {
-    mocks.archive.mockResolvedValueOnce({ mode: 'blob', message: 'Raw archive ready.' });
+  it('hides both photographer list download buttons', async () => {
     await act(async () => { render(<QueryClientProvider client={new QueryClient()}><HistoryDownload layout="row" role="photographer" /></QueryClientProvider>); });
-    fireEvent.click(screen.getAllByRole('button', { name: 'Downloads' })[0]);
-    await waitFor(() => expect(mocks.archive).toHaveBeenCalledTimes(1));
-    expect(mocks.archive).toHaveBeenCalledWith(expect.objectContaining({
-      shootId: '101',
-      type: 'raw',
-      size: 'original',
-      address: '12 Oak Street, Austin, TX, 78701',
-    }));
+    expect(screen.queryByRole('button', { name: 'Downloads' })).not.toBeInTheDocument();
+    expect(mocks.archive).not.toHaveBeenCalled();
     expect(mocks.download).not.toHaveBeenCalled();
   });
 

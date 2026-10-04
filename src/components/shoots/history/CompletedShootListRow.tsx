@@ -226,6 +226,7 @@ export const CompletedShootListRow = ({
   const showPlaceholder = hasNoImages || imgErrored
   const displayImage = showPlaceholder ? placeholderImage : heroImage
   const serviceLabels = getShootDetailsServiceNames(shoot)
+  const showDownload = Boolean(onDownload) && viewerRole !== 'photographer'
 
   return (
     <Card
@@ -279,7 +280,7 @@ export const CompletedShootListRow = ({
                 {shoot.location.address}
               </h3>
               <div className="flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
-                {onDownload && (
+                {showDownload && onDownload && (
                   <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => onDownload(shoot, 'full')} title={isDownloading ? 'Preparing download…' : 'Downloads'} aria-label="Downloads" disabled={isDownloading} aria-busy={isDownloading}>
                     {isDownloading ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
                   </Button>
@@ -560,7 +561,7 @@ export const CompletedShootListRow = ({
                     <span className="hidden sm:inline">Approve</span>
                   </Button>
                 )}
-                {onDownload && (
+                {showDownload && onDownload && (
                   <Button
                     size="sm"
                     variant="outline"
