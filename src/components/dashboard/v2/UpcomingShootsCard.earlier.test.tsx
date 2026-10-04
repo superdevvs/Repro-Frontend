@@ -55,20 +55,43 @@ afterEach(() => {
 });
 
 describe('UpcomingShootsCard earlier unfinished work', () => {
-  it('merges dispatched assignments into normal date groups once, with scoped Open actions', () => {
-    const records = [shoot(1, '2026-09-30', 'editing'), shoot(2, '2026-10-01', 'editing'), shoot(3, '2026-10-02', 'editing')];
-    const tasks = [...records, records[0]].map(record => ({ shoot_id: record.id, shoot: record }) as EditorTaskSummary);
-    const merged = mergeEditorShootQueue([records[0]], tasks);
-    expect(merged).toHaveLength(3);
+  it('merges omitted assignments into the existing day group and shoot card', () => {
+    const existing = { ...shoot(1, '2026-09-30', 'editing'), dayLabel: 'Yesterday', addressLine: '7500 Alaska Ave NW #638' };
+    const dispatched = {
+      ...shoot(2, '2026-09-30', 'editing'),
+      dayLabel: '2026-09-30',
+      addressLine: '17408 Doctor Bird Road',
+      hasScopedEditingTasks: true,
+    };
+    const tasks = [
+      { shoot_id: 1, shoot: { ...existing, dayLabel: '2026-09-30', hasScopedEditingTasks: true } },
+      { shoot_id: 2, shoot: dispatched },
+      { shoot_id: 2, shoot: dispatched },
+    ] as EditorTaskSummary[];
+    const merged = mergeEditorShootQueue([existing], tasks);
+    expect(merged).toHaveLength(2);
+    expect(merged.find(item => item.id === 1)).toBe(existing);
+    expect(merged.find(item => item.id === 2)).toMatchObject({ dayLabel: 'Yesterday', scheduledLocalDate: '2026-09-30' });
+    expect(merged.find(item => item.id === 2)?.hasScopedEditingTasks).toBeUndefined();
     const onSelect = vi.fn();
     const { container } = render(<UpcomingShootsCard shoots={merged} role="editor" onSelect={onSelect} />);
-    for (const day of ['Yesterday', 'Today', 'Tomorrow']) expect(screen.getByText(new RegExp(`${day} .* 1 shoot`))).toBeVisible();
-    expect(container.querySelectorAll('[data-shoot-card="true"]')).toHaveLength(3);
-    expect(screen.queryByText('Sent to you')).not.toBeInTheDocument();
-    expect(screen.queryByText('Share link')).not.toBeInTheDocument();
-    expect(screen.queryByText('Download')).not.toBeInTheDocument();
-    fireEvent.click(screen.getAllByRole('button', { name: 'Open Property 1' })[0]);
-    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 1, hasScopedEditingTasks: true }), undefined);
+    expect(screen.getByText('Yesterday • 2 shoots')).toBeVisible();
+    expect(container.querySelectorAll('[data-shoot-card="true"]')).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Share link' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Download' })).toHaveLength(2);
+    expect(screen.queryByRole('button', { name: /^Open / })).not.toBeInTheDocument();
+    fireEvent.click(screen.getAllByText('17408 Doctor Bird Road')[0]);
+    expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({ id: 2, dayLabel: 'Yesterday' }), undefined);
+  });
+
+  it('puts an October 3 booked day in Yesterday when the market day is October 4', () => {
+    vi.setSystemTime(new Date('2026-10-04T15:00:00Z'));
+    const booked = { ...shoot(9, '2026-10-03', 'editing'), dayLabel: '2026-10-03' };
+    const [card] = mergeEditorShootQueue([], [{ shoot_id: 9, shoot: booked } as EditorTaskSummary]);
+    render(<UpcomingShootsCard shoots={[card]} role="editor" onSelect={vi.fn()} />);
+    expect(card.scheduledLocalDate).toBe('2026-10-03');
+    expect(card.dayLabel).toBe('Yesterday');
+    expect(screen.getByText('Yesterday • 1 shoot')).toBeVisible();
   });
 
   it.each(['editor', 'photographer'])('renders yesterday, today and next cards for %s and stacks older work', role => {

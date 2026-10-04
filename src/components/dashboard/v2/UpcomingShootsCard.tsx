@@ -1247,8 +1247,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             {isEditorSubmittedUpload && <span className="text-[10px] text-emerald-500">Submitted for review</span>}
                           </div>
                         </div>
-                        {isEditorRole && shoot.hasScopedEditingTasks && <Button size="sm" variant="outline" className="ml-auto rounded-full" aria-label={`Open ${shoot.addressLine}`} onClick={event => { event.stopPropagation(); onSelect(shoot, weather); }}>Open</Button>}
-                        {isEditorRole && !shoot.hasScopedEditingTasks && (
+                        {isEditorRole && (
                           <button type="button" onClick={(event) => void handleEditorDownloadRaw(event, shoot.id)} disabled={downloadBusyId !== null}
                             aria-label={`Download raw files for ${shoot.addressLine}`} aria-busy={downloadBusyId === shoot.id}
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground disabled:opacity-60">
@@ -1292,8 +1291,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             })()}</span>
                           </div>
                         )}
-                        {isEditorRole && shoot.hasScopedEditingTasks && <Button size="sm" variant="outline" className="ml-auto rounded-full" aria-label={`Open ${shoot.addressLine}`} onClick={event => { event.stopPropagation(); onSelect(shoot, weather); }}>Open</Button>}
-                        {isEditorRole && !shoot.hasScopedEditingTasks && (
+                        {isEditorRole && (
                           <div className="ml-auto flex items-center gap-1.5 flex-shrink-0">
                             <button
                               type="button"
@@ -1438,8 +1436,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                       </div>
 
                       <div className="flex flex-col items-end gap-3 min-w-[120px] justify-between">
-                        {isEditorRole && shoot.hasScopedEditingTasks && <Button size="sm" variant="outline" className="ml-auto rounded-full" aria-label={`Open ${shoot.addressLine}`} onClick={event => { event.stopPropagation(); onSelect(shoot, weather); }}>Open</Button>}
-                        {isEditorRole && !shoot.hasScopedEditingTasks && (
+                        {isEditorRole && (
                           <div className="flex items-center gap-2">
                             <Button
                               type="button"
