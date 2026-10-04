@@ -61,6 +61,7 @@ import { ShootDetailsMediaTabDialogs } from './ShootDetailsMediaTabDialogs';
 import { BatchRenameDialog } from './BatchRenameDialog';
 import { PostRenameBatchDialog } from './PostRenameBatchDialog';
 import { usePostRenameBatchPrompt } from './usePostRenameBatchPrompt';
+import { useShootMediaRailEvents } from './useShootMediaRailEvents';
 import { MEDIA_BATCH_RENAME_API_ENABLED } from '@/features/media-filename-rename/featureFlag';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { canShowIguideMedia } from './iguideMediaVisibility';
@@ -153,7 +154,6 @@ export function useShootDetailsMediaTab({
   onDisplayTabChange,
 }: ShootDetailsMediaTabProps) {
   const { shoot, activeUnitId } = useUnitMediaScope(fullShoot);
-  const aiEditEventName = 'shoot-ai-edit-open';
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { trackUpload, uploads } = useUpload();
@@ -441,32 +441,6 @@ export function useShootDetailsMediaTab({
       setViewerFiles(nextViewerFiles);
     }
   }, [clientVisibleEditedFiles, rawFiles, setViewerFiles, viewerFiles, viewerOpen]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') {
-      return;
-    }
-
-    // The AI Studio button sends selected media to editing; with no selection it opens AI Studio.
-    const handleOpenAiEdit = (event: Event) => {
-      const customEvent = event as CustomEvent<{ shootId?: string | number }>;
-      const targetShootId = customEvent.detail?.shootId;
-
-      // Desktop and mobile layouts can both mount this tab; only one may open the dialog.
-      if (event.defaultPrevented || targetShootId === undefined || String(targetShootId) !== String(shoot.id) || selectedFiles.size === 0) {
-        return;
-      }
-
-      event.preventDefault();
-      setShowAiEditDialog(true);
-    };
-
-    window.addEventListener(aiEditEventName, handleOpenAiEdit as EventListener);
-
-    return () => {
-      window.removeEventListener(aiEditEventName, handleOpenAiEdit as EventListener);
-    };
-  }, [selectedFiles, shoot.id]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -903,18 +877,13 @@ export function useShootDetailsMediaTab({
       isSalesRep ||
       ['admin', 'superadmin', 'editing_manager', 'editor', 'photographer', 'salesrep', 'sales_rep', 'rep', 'representative'].includes(normalizedRole)
     );
-  // The shoot's bottom rail Rename button renames the files selected here.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const handleOpenRename = (event: Event) => {
-      const targetShootId = (event as CustomEvent<{ shootId?: string | number }>).detail?.shootId;
-      if (event.defaultPrevented || String(targetShootId) !== String(shoot.id) || !canRenameFilename || selectedFiles.size === 0) return;
-      event.preventDefault();
-      setBatchRenameOpen(true);
-    };
-    window.addEventListener('shoot-media-rename-open', handleOpenRename);
-    return () => window.removeEventListener('shoot-media-rename-open', handleOpenRename);
-  }, [canRenameFilename, selectedFiles, shoot.id]);
+  useShootMediaRailEvents({
+    shootId: shoot.id,
+    selectedCount: selectedFiles.size,
+    canRename: canRenameFilename,
+    setShowAiEditDialog,
+    setBatchRenameOpen,
+  });
   const selectedFilesForRename = useMemo(
     () => [...rawFiles, ...(isClient ? clientVisibleEditedFiles : editedFiles)].filter((file) => selectedFiles.has(file.id)),
     [clientVisibleEditedFiles, editedFiles, isClient, rawFiles, selectedFiles],
