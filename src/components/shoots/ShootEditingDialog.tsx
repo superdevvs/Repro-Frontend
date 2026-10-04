@@ -50,10 +50,14 @@ export function ShootEditingDialog({ shootId, fileIds, onClose }: { shootId: str
     setPlan(null); setError(null);
     apiClient.get<{ data: EditingPlan }>(`/shoots/${shootId}/editing-plan`, { signal: controller.signal }).then(({ data }) => {
       setPlan(data.data);
+      setPreset(current => {
+        const usable = data.data.workflows.filter(value => value.available && value.id !== 'revision' && (!selected || value.id !== 'full-shoot'));
+        return usable.some(value => value.id === current) ? current : usable[0]?.id ?? current;
+      });
       setTargets(Object.fromEntries(data.data.addons.map(addon => [addon.preset, addon.fileIds])));
     }).catch(e => { if (!controller.signal.aborted) setError(studioError(e)); });
     return () => controller.abort();
-  }, [shootId, attempt]);
+  }, [shootId, attempt, selected]);
   const change = (action: () => void) => { action(); setError(null); requestId.current = crypto.randomUUID(); };
 
   const presets = (plan?.workflows ?? []).filter(value => value.id !== 'revision' && (selected ? value.id !== 'full-shoot' : true));

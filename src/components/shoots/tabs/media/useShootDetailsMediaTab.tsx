@@ -452,7 +452,8 @@ export function useShootDetailsMediaTab({
       const customEvent = event as CustomEvent<{ shootId?: string | number }>;
       const targetShootId = customEvent.detail?.shootId;
 
-      if (targetShootId === undefined || String(targetShootId) !== String(shoot.id) || selectedFiles.size === 0) {
+      // Desktop and mobile layouts can both mount this tab; only one may open the dialog.
+      if (event.defaultPrevented || targetShootId === undefined || String(targetShootId) !== String(shoot.id) || selectedFiles.size === 0) {
         return;
       }
 
