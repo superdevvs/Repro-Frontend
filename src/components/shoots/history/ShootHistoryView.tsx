@@ -29,6 +29,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ShootHistoryDisplayControls } from './ShootHistoryDisplayControls'
+import type { ShootHistorySort } from './shootHistorySorting'
 import { HorizontalLoader } from '@/components/ui/horizontal-loader'
 import { MultiSelectFilter } from '@/components/shoots/history/MultiSelectFilter'
 import { ShootHistoryMlsQueueView } from '@/components/shoots/history/ShootHistoryMlsQueueView'
@@ -104,6 +105,8 @@ export type ShootHistoryViewProps = {
   togglePinTab: (tab: AvailableTab) => void
   setIsBulkActionsOpen: React.Dispatch<React.SetStateAction<boolean>>
   viewMode: ShootHistoryDisplayMode
+  shootSort: ShootHistorySort
+  setShootSort: (sort: ShootHistorySort) => void
   setViewMode: React.Dispatch<React.SetStateAction<ShootHistoryDisplayMode>>
   gridColumns: 3 | 4
   setGridColumns: React.Dispatch<React.SetStateAction<3 | 4>>
@@ -397,6 +400,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     togglePinTab,
     setIsBulkActionsOpen,
     viewMode,
+    shootSort,
+    setShootSort,
     setViewMode,
     gridColumns,
     setGridColumns,
@@ -459,7 +464,9 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
   const displayControls = activeTab === 'history' && (historyFilters.groupBy === 'services' || historySubTab !== 'all') ? null : (
     <ShootHistoryDisplayControls
       allowCalendar={activeTab !== 'hold'}
-      view={activeView} onViewChange={selectView} gridColumns={gridColumns} onGridColumnsChange={setGridColumns}
+      view={activeView} onViewChange={selectView}
+      sort={shootSort} onSortChange={setShootSort} activeTab={activeTab}
+      gridColumns={gridColumns} onGridColumnsChange={setGridColumns}
     />
   )
   const hasOperationalFiltersApplied =

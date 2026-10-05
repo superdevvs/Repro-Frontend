@@ -1,24 +1,56 @@
-import { CalendarDays, Grid3X3, List } from 'lucide-react'
+import { ArrowUpDown, CalendarDays, Grid3X3, List } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuLabel, DropdownMenuRadioGroup,
   DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import type { ShootHistoryDisplayMode } from './shootHistoryUtils'
+import {
+  getShootHistorySortOptions,
+  type ShootHistorySort,
+} from './shootHistorySorting'
+import type { AvailableTab, ShootHistoryDisplayMode } from './shootHistoryUtils'
 
 type Props = {
   view: ShootHistoryDisplayMode
   onViewChange: (view: ShootHistoryDisplayMode) => void
+  sort: ShootHistorySort
+  onSortChange: (sort: ShootHistorySort) => void
+  activeTab: AvailableTab
   gridColumns: 3 | 4
   onGridColumnsChange: (columns: 3 | 4) => void
   allowCalendar?: boolean
 }
 
-export function ShootHistoryDisplayControls({ view, onViewChange, gridColumns, onGridColumnsChange, allowCalendar = true }: Props) {
+export function ShootHistoryDisplayControls({
+  view,
+  onViewChange,
+  sort,
+  onSortChange,
+  activeTab,
+  gridColumns,
+  onGridColumnsChange,
+  allowCalendar = true,
+}: Props) {
   const nextView = view === 'grid' ? 'list' : 'grid'
   const viewLabel = `Switch to ${nextView} view`
+  const sortOptions = getShootHistorySortOptions(activeTab)
   return (
     <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" aria-label="Sort shoots" title="Sort shoots">
+            <ArrowUpDown className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuLabel>Sort</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={sort} onValueChange={value => onSortChange(value as ShootHistorySort)}>
+            {sortOptions.map(option => (
+              <DropdownMenuRadioItem key={option.value} value={option.value}>{option.label}</DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
       {view === 'grid' && <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" aria-label="Grid layout" title="Grid layout">

@@ -122,6 +122,7 @@ const ShootHistory: React.FC = () => {
     viewMode,
     setViewMode,
     shootSort,
+    setShootSort,
     pinnedTabs,
     setPinnedTabs,
     operationalFilters,
@@ -962,6 +963,8 @@ const ShootHistory: React.FC = () => {
           setIsBulkActionsOpen={setIsBulkActionsOpen}
           viewMode={viewMode}
           setViewMode={setViewMode}
+          shootSort={shootSort}
+          setShootSort={setShootSort}
           gridColumns={gridColumns}
           setGridColumns={setGridColumns}
           historyFilters={historyFilters}

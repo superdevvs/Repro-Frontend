@@ -33,7 +33,7 @@ describe('On-Hold visibility', () => {
   })
 
   it('offers list and grid without a calendar control for holds', () => {
-    render(<ShootHistoryDisplayControls view="list" onViewChange={vi.fn()} gridColumns={3} onGridColumnsChange={vi.fn()} allowCalendar={false} />)
+    render(<ShootHistoryDisplayControls view="list" onViewChange={vi.fn()} sort="date_desc" onSortChange={vi.fn()} activeTab="hold" gridColumns={3} onGridColumnsChange={vi.fn()} allowCalendar={false} />)
     expect(screen.queryByRole('button', { name: 'Calendar view' })).toBeNull()
     expect(screen.getByRole('button', { name: 'Switch to grid view' })).toBeTruthy()
   })

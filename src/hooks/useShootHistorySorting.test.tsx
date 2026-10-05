@@ -73,22 +73,36 @@ describe('Shoot History sort selection', () => {
     await waitFor(() => expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ tab: 'hold', hold_status: 'on_hold', page: 1 }) })))
   })
   it.each(['admin', 'superadmin', 'editing_manager', 'salesRep', 'photographer', 'client', 'editor'])(
-    'uses earliest first across all tabs and views for %s',
+    'uses per-tab defaults and retains each tab selection for %s',
     (role) => {
       const { result } = renderHook(() => useShootHistoryFilters({
         role, isEditor: role === 'editor', canViewHistory: role !== 'photographer',
       }), { wrapper: router })
       const initialTab = result.current.activeTab
-      expect(result.current.shootSort).toBe('date_asc')
+      expect(result.current.shootSort).toBe(role === 'editor' ? 'date_desc' : 'next_up')
 
+      act(() => result.current.setShootSort('date_asc'))
       act(() => result.current.setViewMode('grid'))
       expect(result.current.shootSort).toBe('date_asc')
       act(() => result.current.setActiveTab(role === 'editor' ? 'edited' : 'delivered'))
-      expect(result.current.shootSort).toBe('date_asc')
+      expect(result.current.shootSort).toBe('date_desc')
       act(() => result.current.setActiveTab(initialTab))
       expect(result.current.shootSort).toBe('date_asc')
+      expect(JSON.parse(localStorage.getItem('shootHistory_sortByTab') ?? '{}')).toMatchObject({
+        [initialTab]: 'date_asc',
+      })
     },
   )
+
+  it('defaults completed, delivered, hold, featured, and history to latest first', () => {
+    const { result } = renderHook(() => useShootHistoryFilters({
+      role: 'admin', isEditor: false, canViewHistory: true,
+    }), { wrapper: router })
+    for (const tab of ['completed', 'delivered', 'hold', 'featured', 'history'] as const) {
+      act(() => result.current.setActiveTab(tab))
+      expect(result.current.shootSort).toBe('date_desc')
+    }
+  })
 })
 
 describe('Shoot History server ordering', () => {

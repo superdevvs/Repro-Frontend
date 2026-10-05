@@ -256,7 +256,7 @@ function ViewHarness({
 }) {
   const gridContainerRef = useRef<HTMLDivElement>(null)
   const [activeTab, setActiveTab] = useState<AvailableTab>(tab)
-  const shootSort: ShootHistorySort = 'date_asc'
+  const [shootSort, setShootSort] = useState<ShootHistorySort>('date_desc')
   const [gridColumns, setGridColumns] = useState<3 | 4>(4)
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map' | 'calendar'>(
     tab === 'history' ? 'map' : initialView,
@@ -282,6 +282,8 @@ function ViewHarness({
     togglePinTab: noop,
     setIsBulkActionsOpen: noop,
     viewMode,
+    shootSort,
+    setShootSort,
     setViewMode,
     historyFilters,
     setHistoryFilters,
@@ -380,17 +382,21 @@ describe.each(['delivered', 'history'] as const)('Shoot History controls in %s',
     expect(screen.getByTestId(tab === 'history' ? 'history-view' : 'operational-view')).toHaveTextContent('grid')
   })
 
-  it('retains compact columns across view toggles without a sort control', async () => {
+  it('retains compact columns across view toggles with an icon-only sort control', async () => {
     const user = userEvent.setup()
     const { container } = render(<ViewHarness tab={tab} />)
     const toolbar = within(container.querySelector('[data-desktop-display-controls]') as HTMLElement)
+    const sortButton = toolbar.getByRole('button', { name: 'Sort shoots' })
+    expect(sortButton).toHaveTextContent('')
     await user.click(toolbar.getByRole('button', { name: 'Grid layout' }))
     await user.click(screen.getByRole('menuitemradio', { name: '3 columns' }))
     expect(container.querySelector('.shoot-history-tabs')).toHaveAttribute('data-grid-columns', '3')
     await user.click(toolbar.getByRole('button', { name: 'Switch to list view' }))
     await user.click(toolbar.getByRole('button', { name: 'Switch to grid view' }))
     expect(container.querySelector('.shoot-history-tabs')).toHaveAttribute('data-grid-columns', '3')
-    expect(screen.queryByRole('button', { name: 'Sort shoots' })).not.toBeInTheDocument()
+    await user.click(sortButton)
+    expect(screen.getByRole('menuitemradio', { name: 'Date: latest first' })).toBeChecked()
+    expect(screen.queryByRole('menuitemradio', { name: 'Next upcoming' })).not.toBeInTheDocument()
   })
 })
 
