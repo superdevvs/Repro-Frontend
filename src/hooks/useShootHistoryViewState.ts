@@ -26,6 +26,7 @@ type UseShootHistoryViewStateArgs = {
   historyMeta: { total?: number } | null
   operationalServicesSelected: boolean
   historyServicesSelected: boolean
+  holdTotal?: number
 }
 
 export function useShootHistoryViewState({
@@ -36,6 +37,7 @@ export function useShootHistoryViewState({
   historyMeta,
   operationalServicesSelected,
   historyServicesSelected,
+  holdTotal,
 }: UseShootHistoryViewStateArgs) {
   const tabsConfig: AutoExpandingTab[] = useMemo(() => {
     const statusKey = (shoot: ShootData) => (shoot.workflowStatus || shoot.status || '').toLowerCase()
@@ -45,7 +47,7 @@ export function useShootHistoryViewState({
     const scheduledCount = operationalData.filter((shoot) => matchesTab(shoot, 'scheduled')).length
     const completedCount = operationalData.filter((shoot) => matchesTab(shoot, 'completed')).length
     const deliveredCount = operationalData.filter((shoot) => matchesTab(shoot, 'delivered')).length
-    const holdCount = operationalData.filter((shoot) => matchesTab(shoot, 'hold')).length
+    const holdCount = holdTotal ?? operationalData.filter((shoot) => matchesTab(shoot, 'hold')).length
     const editingCount = operationalData.filter((shoot) => isEditorActiveOperationalShoot(shoot)).length
     const editedCount = operationalData.filter((shoot) => isEditorDeliveredOperationalShoot(shoot)).length
     const featuredCount = operationalData.filter((shoot) => isFeaturedTabShoot(shoot)).length
@@ -135,7 +137,7 @@ export function useShootHistoryViewState({
     }
 
     return baseTabs
-  }, [canViewHistory, historyMeta?.total, isEditor, operationalData, role])
+  }, [canViewHistory, historyMeta?.total, isEditor, operationalData, role, holdTotal])
 
   return {
     operationalServicesSelected,

@@ -11,9 +11,10 @@ type Props = {
   onViewChange: (view: ShootHistoryDisplayMode) => void
   gridColumns: 3 | 4
   onGridColumnsChange: (columns: 3 | 4) => void
+  allowCalendar?: boolean
 }
 
-export function ShootHistoryDisplayControls({ view, onViewChange, gridColumns, onGridColumnsChange }: Props) {
+export function ShootHistoryDisplayControls({ view, onViewChange, gridColumns, onGridColumnsChange, allowCalendar = true }: Props) {
   const nextView = view === 'grid' ? 'list' : 'grid'
   const viewLabel = `Switch to ${nextView} view`
   return (
@@ -32,13 +33,13 @@ export function ShootHistoryDisplayControls({ view, onViewChange, gridColumns, o
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>}
-      <Button
+      {allowCalendar && <Button
         variant={view === 'calendar' ? 'secondary' : 'ghost'} size="icon"
         aria-label="Calendar view" title="Calendar view" aria-pressed={view === 'calendar'}
         onClick={() => onViewChange('calendar')}
       >
         <CalendarDays className="h-4 w-4" />
-      </Button>
+      </Button>}
       <Button
         variant={view === 'map' || view === 'calendar' ? 'ghost' : 'secondary'} size="sm" className="gap-2"
         aria-label={viewLabel} title={viewLabel} data-shoot-view-toggle={view}

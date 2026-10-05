@@ -458,6 +458,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
   }
   const displayControls = activeTab === 'history' && (historyFilters.groupBy === 'services' || historySubTab !== 'all') ? null : (
     <ShootHistoryDisplayControls
+      allowCalendar={activeTab !== 'hold'}
       view={activeView} onViewChange={selectView} gridColumns={gridColumns} onGridColumnsChange={setGridColumns}
     />
   )

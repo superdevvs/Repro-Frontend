@@ -59,6 +59,19 @@ afterEach(cleanup)
 const QueryWrapper = ({ children }: { children: React.ReactNode }) => { const [client] = React.useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } })); return <QueryClientProvider client={client}>{children}</QueryClientProvider>; };
 
 describe('Shoot History sort selection', () => {
+  it('requests the selected hold status before pagination and resets the page on change', async () => {
+    const args: UseShootHistoryDataArgs = { ...baseArgs, activeTab: 'hold', holdSubTab: 'all' }
+    const { result, rerender } = renderHook((props: UseShootHistoryDataArgs) => useShootHistoryData(props), {
+      wrapper: QueryWrapper, initialProps: args,
+    })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => result.current.setOperationalPage(2))
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ page: 2 }) })))
+    mocks.get.mockClear()
+    rerender({ ...args, holdSubTab: 'on_hold' })
+    await waitFor(() => expect(result.current.operationalPage).toBe(1))
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ tab: 'hold', hold_status: 'on_hold', page: 1 }) })))
+  })
   it.each(['admin', 'superadmin', 'editing_manager', 'salesRep', 'photographer', 'client', 'editor'])(
     'uses earliest first across all tabs and views for %s',
     (role) => {

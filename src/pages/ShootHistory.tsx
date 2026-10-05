@@ -257,6 +257,7 @@ const ShootHistory: React.FC = () => {
     historyFilters,
     viewMode,
     calendarRange: calendar.range,
+    holdSubTab,
     canViewAllShoots,
     canViewHistory,
     canViewInvoice,
@@ -935,6 +936,7 @@ const ShootHistory: React.FC = () => {
     historyServicesSelected,
     tabsConfig,
   } = useShootHistoryViewState({
+    holdTotal: activeTab === 'hold' ? operationalMeta?.total : undefined,
     role,
     isEditor,
     canViewHistory,

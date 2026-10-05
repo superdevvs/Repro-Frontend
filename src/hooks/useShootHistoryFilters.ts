@@ -59,7 +59,7 @@ export const useShootHistoryFilters = ({
   const initialView = ['grid', 'list', 'map', 'calendar'].includes(requestedView ?? '')
     ? requestedView as ShootHistoryDisplayMode
     : null
-  const [viewMode, setViewMode] = useState<ShootHistoryDisplayMode>(() => {
+  const [preferredViewMode, setViewMode] = useState<ShootHistoryDisplayMode>(() => {
     if (initialView) return initialView
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('shootHistory_viewMode')
@@ -69,6 +69,9 @@ export const useShootHistoryFilters = ({
     }
     return 'list'
   })
+  // Holds may have no date, or a date outside the visible calendar range.
+  // Keep the calendar preference for other tabs without hiding those holds.
+  const viewMode = activeTab === 'hold' && preferredViewMode === 'calendar' ? 'list' : preferredViewMode
   const [pinnedTabs, setPinnedTabs] = useState<Set<AvailableTab>>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('shootHistory_pinnedTabs')
@@ -151,9 +154,9 @@ export const useShootHistoryFilters = ({
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('shootHistory_viewMode', viewMode)
+      localStorage.setItem('shootHistory_viewMode', preferredViewMode)
     }
-  }, [viewMode])
+  }, [preferredViewMode])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {

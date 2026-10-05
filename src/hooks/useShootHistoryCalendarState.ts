@@ -28,7 +28,7 @@ export function useShootHistoryCalendarState({ activeTab, viewMode, historyFilte
   })
   const active = activeTab === 'history'
     ? historySubTab === 'all' && historyFilters.groupBy === 'shoot' && historyFilters.viewAs === 'calendar'
-    : viewMode === 'calendar'
+    : activeTab !== 'hold' && viewMode === 'calendar'
   const range = useMemo(() => active ? getCalendarDateRange(date, view) : undefined, [active, date, view])
   return { active, range, view, date, onViewChange, onDateChange }
 }

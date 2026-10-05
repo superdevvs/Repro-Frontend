@@ -86,6 +86,7 @@ export interface UseShootHistoryDataArgs {
   activeTab: AvailableTab
   shootSort: ShootHistorySort
   scheduledSubTab?: 'all' | 'requested' | 'scheduled'
+  holdSubTab?: 'all' | 'on_hold' | 'cancelled'
   operationalFilters: OperationalFiltersState
   historyFilters: HistoryFiltersState
   viewMode: 'grid' | 'list' | 'map' | 'calendar'
@@ -120,6 +121,7 @@ export function useShootHistoryData({
   activeTab,
   shootSort,
   scheduledSubTab = 'all',
+  holdSubTab = 'all',
   operationalFilters,
   historyFilters,
   viewMode,
@@ -203,6 +205,8 @@ export function useShootHistoryData({
   shootSortRef.current = shootSort
   const scheduledSubTabRef = useRef(scheduledSubTab)
   scheduledSubTabRef.current = scheduledSubTab
+  const holdSubTabRef = useRef(holdSubTab)
+  holdSubTabRef.current = holdSubTab
   const operationalFiltersRef = useRef(operationalFilters)
   operationalFiltersRef.current = operationalFilters
   const operationalPageRef = useRef(operationalPage)
@@ -450,6 +454,9 @@ export function useShootHistoryData({
       }
       if (backendTab === 'scheduled' && scheduledSubTabRef.current !== 'all') {
         params.scheduled_status = scheduledSubTabRef.current
+      }
+      if (backendTab === 'hold' && holdSubTabRef.current !== 'all') {
+        params.hold_status = holdSubTabRef.current
       }
       if (currentFilters.search) params.search = currentFilters.search
       if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
@@ -770,7 +777,7 @@ export function useShootHistoryData({
 
   }, [accessScope, queryClient])
 
-  const operationalScope = `${activeTab}:${activeTab === 'scheduled' ? scheduledSubTab : 'all'}:${shootSort}`
+  const operationalScope = `${activeTab}:${activeTab === 'scheduled' ? scheduledSubTab : activeTab === 'hold' ? holdSubTab : 'all'}:${shootSort}`
   const lastActiveTabRef = useRef(operationalScope)
   useEffect(() => {
     const tabChanged = lastActiveTabRef.current !== operationalScope
@@ -805,7 +812,7 @@ export function useShootHistoryData({
       operationalFetchAbortRef.current?.abort()
       operationalFetchAbortRef.current = null
     }
-  }, [operationalPage, activeTab, scheduledSubTab, shootSort, operationalFilters, fetchOperationalData, calendarEnabled, accessScope])
+  }, [operationalPage, activeTab, scheduledSubTab, holdSubTab, shootSort, operationalFilters, fetchOperationalData, calendarEnabled, accessScope])
 
   const handleSendToEditing = useCallback(
     async (shoot: Pick<ShootData, 'id' | 'status' | 'workflowStatus'>) => {
