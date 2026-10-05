@@ -10,7 +10,8 @@ import * as z from 'zod';
 import { buildNormalizedPropertyDetails, type AddressDetails } from '@/utils/addressLookup';
 import { normalizeState } from '@/utils/stateUtils';
 import type { AccountFormValues } from '@/components/accounts/AccountForm';
-import type { User } from '@/components/auth/AuthProvider';
+import { useAuth, type User } from '@/components/auth/AuthProvider';
+import { canBookOutsideClientServiceGroups } from '@/utils/bookingServiceAccess';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
@@ -295,6 +296,8 @@ export const useClientPropertyFormController = ({
   onBack,
 }: ClientPropertyFormProps) => {
   const units = useBookingUnits();
+  const { user } = useAuth();
+  const canBookFullCatalog = !isClientAccount && canBookOutsideClientServiceGroups(user?.role);
   const [searchQuery, setSearchQuery] = useState('');
   const [clientSelectOpen, setClientSelectOpen] = useState(false);
   const [isAddingClient, setIsAddingClient] = useState(false);
@@ -429,7 +432,7 @@ export const useClientPropertyFormController = ({
     [selectedClient],
   );
   const visiblePackages = React.useMemo(() => {
-    if (isClientAccount || selectedClientServiceGroupIds.length === 0) {
+    if (isClientAccount || canBookFullCatalog || selectedClientServiceGroupIds.length === 0) {
       return packages;
     }
 
@@ -437,10 +440,10 @@ export const useClientPropertyFormController = ({
       const packageGroupIds = getPackageServiceGroupIds(pkg);
       return packageGroupIds.some((id) => selectedClientServiceGroupIds.includes(id));
     });
-  }, [isClientAccount, packages, selectedClientServiceGroupIds]);
+  }, [isClientAccount, canBookFullCatalog, packages, selectedClientServiceGroupIds]);
 
   React.useEffect(() => {
-    if (units?.enabled || isClientAccount || selectedClientServiceGroupIds.length === 0 || selectedServices.length === 0) {
+    if (units?.enabled || isClientAccount || canBookFullCatalog || selectedClientServiceGroupIds.length === 0 || selectedServices.length === 0) {
       return;
     }
 
@@ -456,7 +459,7 @@ export const useClientPropertyFormController = ({
         description: 'Unavailable services were removed for the selected client.',
       });
     }
-  }, [isClientAccount, onSelectedServicesChange, selectedClientServiceGroupIds, selectedServices, toast, units?.enabled]);
+  }, [isClientAccount, canBookFullCatalog, onSelectedServicesChange, selectedClientServiceGroupIds, selectedServices, toast, units?.enabled]);
 
   // Keep parent state (for summary) in sync with address fields as they change
   React.useEffect(() => {

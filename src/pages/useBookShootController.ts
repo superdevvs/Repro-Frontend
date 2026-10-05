@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { canBookOutsideClientServiceGroups } from '@/utils/bookingServiceAccess';
 import { useBookingTravel } from '@/features/travel/useBookingTravel';
 import { buildBookingDurationAdjuster } from './bookShootDurationAdjustment';
 import { resolveServiceShootDuration } from '@/utils/shootDuration';
@@ -94,7 +95,7 @@ export const useBookShootController = () => {
     user, isClientAccount, clientIdFromUrl, clientNameFromUrl, clientCompanyFromUrl,
     editShootId, canAdjustBookingAmount,
   });
-  const unitBooking = useMultiUnitBooking({ draft: multiUnitDraft, setDraft: setMultiUnitDraft, catalog: packages, legacyServices: legacySelectedServices, propertySqft, propertyDetails, date, time, photographer, servicePhotographers, serviceSchedules, allowed: !isCompReshootMode, clientGroups: isClientAccount ? [] : (clients.find(item => item.id === client)?.service_group_ids ?? clients.find(item => item.id === client)?.service_groups?.map(group => group.id) ?? []).map(String) });
+  const unitBooking = useMultiUnitBooking({ draft: multiUnitDraft, setDraft: setMultiUnitDraft, catalog: packages, legacyServices: legacySelectedServices, propertySqft, propertyDetails, date, time, photographer, servicePhotographers, serviceSchedules, allowed: !isCompReshootMode, clientGroups: isClientAccount || canBookOutsideClientServiceGroups(user?.role) ? [] : (clients.find(item => item.id === client)?.service_group_ids ?? clients.find(item => item.id === client)?.service_groups?.map(group => group.id) ?? []).map(String) });
   const selectedServices = unitBooking.enabled ? unitBooking.summaryServices : legacySelectedServices;
   const remountPropertyForm = React.useCallback(() => {
     setClientPropertyFormKey((current) => current + 1);

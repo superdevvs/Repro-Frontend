@@ -1,11 +1,11 @@
 import { expect, type Page } from '@playwright/test';
 
 export type Scenario = 'available' | 'same-building' | 'incoming' | 'outgoing' | 'overlap' | 'unknown' | 'disabled';
-export async function bookingScheduleFixture(page: Page, baseURL: string | undefined, scenario: Scenario, role = 'admin', draftOptions: { legacyDuration?: number; overrideDuration?: number; selectedDuration?: number; catalogDuration?: number; multiUnit?: boolean; date?: string; time?: string } = {}) {
+export async function bookingScheduleFixture(page: Page, baseURL: string | undefined, scenario: Scenario, role = 'admin', draftOptions: { legacyDuration?: number; overrideDuration?: number; selectedDuration?: number; catalogDuration?: number; multiUnit?: boolean; restrictedClient?: boolean; date?: string; time?: string } = {}) {
   if (!baseURL || !['localhost', '127.0.0.1'].includes(new URL(baseURL).hostname)) throw new Error('Booking fixtures must run locally.');
   await page.clock.setFixedTime(new Date('2026-10-02T12:00:00Z'));
   const user = { id: 900503, name: 'Scheduling QA', email: 'schedule@example.test', role, account_status: 'active', email_verified_at: '2026-10-01T09:00:00Z', metadata: { terms_accepted_at: '2026-10-01T09:00:00Z' } };
-  const service = { id: '501', name: '10 Exterior HDR', price: 100, quantity: 1, shoot_duration_minutes: draftOptions.catalogDuration ?? 15, booking_duration_default_minutes: draftOptions.catalogDuration ?? 15, photographer_required: true, category: { id: '1', name: 'Photography' }, pricing_type: 'fixed' };
+  const service = { service_group_ids: ['2'], id: '501', name: '10 Exterior HDR', price: 100, quantity: 1, shoot_duration_minutes: draftOptions.catalogDuration ?? 15, booking_duration_default_minutes: draftOptions.catalogDuration ?? 15, photographer_required: true, category: { id: '1', name: 'Photography' }, pricing_type: 'fixed' };
   const people = [{ id: '201', name: 'QA Delmar', role: 'photographer' }, { id: '202', name: 'QA Jaz', role: 'photographer' }];
   const slots = [{ start_time: '07:00', end_time: '21:00', status: 'available' }];
   const requests: { path: string; method: string; body: Record<string, unknown> | null }[] = [];
@@ -37,7 +37,7 @@ export async function bookingScheduleFixture(page: Page, baseURL: string | undef
       status: 'requested', workflow_status: 'requested', services: [service],
       service_items: [{ service_id: service.id, duration_minutes: 15, photographer_id: 201, scheduled_at: '2026-10-05T12:30:00.000Z' }],
     } };
-    else if (p === '/admin/clients') data = { data: [{ id: 101, name: 'QA Jocelyn', email: 'client@example.test', role: 'client', account_status: 'active', metadata: {} }] };
+    else if (p === '/admin/clients') data = { data: [{ id: 101, name: 'QA Jocelyn', service_group_ids: draftOptions.restrictedClient ? ['1'] : [], email: 'client@example.test', role: 'client', account_status: 'active', metadata: {} }] };
     else if (/\/photographers$/.test(p)) data = { data: people };
     else if (p === '/photographer/availability/bulk-index') data = { data: Object.fromEntries(people.map(x => [x.id, slots.map(s => ({ ...s, date: body?.from_date, day_of_week: 'monday' }))])) };
     else if (p === '/photographer/availability/check') data = { data: slots, timezone: 'America/New_York', from_config: true };
