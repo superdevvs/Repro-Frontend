@@ -256,7 +256,7 @@ function ViewHarness({
 }) {
   const gridContainerRef = useRef<HTMLDivElement>(null)
   const [activeTab, setActiveTab] = useState<AvailableTab>(tab)
-  const [shootSort, setShootSort] = useState<ShootHistorySort>('date_desc')
+  const shootSort: ShootHistorySort = 'date_asc'
   const [gridColumns, setGridColumns] = useState<3 | 4>(4)
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map' | 'calendar'>(
     tab === 'history' ? 'map' : initialView,
@@ -267,8 +267,6 @@ function ViewHarness({
   })
   const props: ShootHistoryViewProps = {
     gridContainerRef,
-    shootSort,
-    setShootSort,
     gridColumns,
     setGridColumns,
     isSuperAdmin: false,
@@ -344,7 +342,7 @@ describe.each(['delivered', 'history'] as const)('Shoot History controls in %s',
     const toolbar = within(container.querySelector('[data-desktop-display-controls]') as HTMLElement)
     await user.click(toolbar.getByRole('button', { name: 'Calendar view' }))
     expect(screen.getByText('Calendar schedule')).toBeInTheDocument()
-    expect(toolbar.queryByRole('button', { name: 'Sort shoots' })).not.toBeInTheDocument()
+    expect(toolbar.queryByRole('button', { name: 'Grid layout' })).not.toBeInTheDocument()
     expect(container.querySelector('[data-shoot-history-pagination]')).toBeNull()
     expect(screen.getByTestId('operational-view')).toHaveTextContent('calendar')
     expect(screen.getByTestId('history-view')).toHaveTextContent('calendar')
@@ -353,7 +351,7 @@ describe.each(['delivered', 'history'] as const)('Shoot History controls in %s',
     expect(toolbar.getByRole('button', { name: 'Calendar view' })).toHaveAttribute('aria-pressed', 'true')
     await user.click(toolbar.getByRole('button', { name: 'Switch to grid view' }))
     expect(screen.queryByText('Calendar schedule')).not.toBeInTheDocument()
-    expect(toolbar.getByRole('button', { name: 'Sort shoots' })).toBeInTheDocument()
+    expect(toolbar.getByRole('button', { name: 'Grid layout' })).toBeInTheDocument()
   })
 
   it('uses one button to alternate list and grid without changing the other tab view', async () => {
@@ -382,19 +380,17 @@ describe.each(['delivered', 'history'] as const)('Shoot History controls in %s',
     expect(screen.getByTestId(tab === 'history' ? 'history-view' : 'operational-view')).toHaveTextContent('grid')
   })
 
-  it('retains compact columns across view toggles and exposes chronological sorting', async () => {
+  it('retains compact columns across view toggles without a sort control', async () => {
     const user = userEvent.setup()
     const { container } = render(<ViewHarness tab={tab} />)
     const toolbar = within(container.querySelector('[data-desktop-display-controls]') as HTMLElement)
-    await user.click(toolbar.getByRole('button', { name: 'Sort shoots' }))
+    await user.click(toolbar.getByRole('button', { name: 'Grid layout' }))
     await user.click(screen.getByRole('menuitemradio', { name: '3 columns' }))
     expect(container.querySelector('.shoot-history-tabs')).toHaveAttribute('data-grid-columns', '3')
     await user.click(toolbar.getByRole('button', { name: 'Switch to list view' }))
     await user.click(toolbar.getByRole('button', { name: 'Switch to grid view' }))
     expect(container.querySelector('.shoot-history-tabs')).toHaveAttribute('data-grid-columns', '3')
-    await user.click(toolbar.getByRole('button', { name: 'Sort shoots' }))
-    await user.click(screen.getByRole('menuitemradio', { name: 'Date: earliest first' }))
-    expect(screen.getByTestId('shoot-sort')).toHaveTextContent('date_asc')
+    expect(screen.queryByRole('button', { name: 'Sort shoots' })).not.toBeInTheDocument()
   })
 })
 

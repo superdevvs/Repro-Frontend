@@ -60,19 +60,18 @@ const QueryWrapper = ({ children }: { children: React.ReactNode }) => { const [c
 
 describe('Shoot History sort selection', () => {
   it.each(['admin', 'superadmin', 'editing_manager', 'salesRep', 'photographer', 'client', 'editor'])(
-    'provides the appropriate default and retains each tab selection for %s',
+    'uses earliest first across all tabs and views for %s',
     (role) => {
       const { result } = renderHook(() => useShootHistoryFilters({
         role, isEditor: role === 'editor', canViewHistory: role !== 'photographer',
       }), { wrapper: router })
       const initialTab = result.current.activeTab
-      expect(result.current.shootSort).toBe(role === 'editor' ? 'date_desc' : 'today_upcoming')
+      expect(result.current.shootSort).toBe('date_asc')
 
-      act(() => result.current.setShootSort('date_asc'))
       act(() => result.current.setViewMode('grid'))
       expect(result.current.shootSort).toBe('date_asc')
       act(() => result.current.setActiveTab(role === 'editor' ? 'edited' : 'delivered'))
-      expect(result.current.shootSort).toBe('date_desc')
+      expect(result.current.shootSort).toBe('date_asc')
       act(() => result.current.setActiveTab(initialTab))
       expect(result.current.shootSort).toBe('date_asc')
     },

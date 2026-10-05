@@ -1,3 +1,5 @@
+import { ShootHistoryDateList } from '@/components/shoots/history/ShootHistoryDateList'
+import { getShootLocalDate } from '@/utils/shootLocalDate'
 import { ShootEmptyState } from '@/components/shoots/ShootEmptyState';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
@@ -120,7 +122,6 @@ const ShootHistory: React.FC = () => {
     viewMode,
     setViewMode,
     shootSort,
-    setShootSort,
     pinnedTabs,
     setPinnedTabs,
     operationalFilters,
@@ -500,7 +501,7 @@ const ShootHistory: React.FC = () => {
     }
 
     return (
-      <div className="space-y-3">
+      <ShootHistoryDateList dates={filteredOperationalData.map(getShootLocalDate)}>
         {filteredOperationalData.map((shoot) => (
           <ScheduledShootListRow 
             key={shoot.id} 
@@ -523,7 +524,7 @@ const ShootHistory: React.FC = () => {
             viewerRole={role}
           />
         ))}
-      </div>
+      </ShootHistoryDateList>
     )
   }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, role, operationalMarkers, handleShootSelect, handlePrimaryAction, navigate, isSuperAdmin, scheduledSubTab, isAdmin, isClient, isSalesRep, isEditingManager, isEditor, canViewInvoice, canSendToEditing, handleViewInvoice, handleOpenPaymentDialog, handleDeleteShoot, handleSendToEditing, shouldHideClientDetails, setApprovalModalShoot, setDeclineModalShoot, setEditModalShoot])
 
@@ -612,7 +613,7 @@ const ShootHistory: React.FC = () => {
     }
 
     return (
-      <div className="space-y-3">
+      <ShootHistoryDateList dates={filteredOperationalData.map(getShootLocalDate)}>
         {filteredOperationalData.map((shoot) => (
           <CompletedShootListRow
             key={shoot.id}
@@ -634,7 +635,7 @@ const ShootHistory: React.FC = () => {
             viewerRole={role}
           />
         ))}
-      </div>
+      </ShootHistoryDateList>
     )
   }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isSalesRep, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails, role])
 
@@ -694,7 +695,7 @@ const ShootHistory: React.FC = () => {
     }
 
     return (
-      <div className="space-y-3">
+      <ShootHistoryDateList dates={filteredOperationalData.map(getShootLocalDate)}>
         {filteredOperationalData.map((shoot) => (
           <HoldOnShootCard 
             key={shoot.id} 
@@ -714,7 +715,7 @@ const ShootHistory: React.FC = () => {
             viewerRole={role}
           />
         ))}
-      </div>
+      </ShootHistoryDateList>
     )
   }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isSalesRep, isEditingManager, isEditor, canShowShootPaymentStatus, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, holdSubTab, role])
 
@@ -768,7 +769,7 @@ const ShootHistory: React.FC = () => {
     }
 
     return (
-      <div className="space-y-3">
+      <ShootHistoryDateList dates={filteredOperationalData.map(getShootLocalDate)}>
         {filteredOperationalData.map((shoot) => (
           <CompletedShootListRow
             key={shoot.id}
@@ -791,7 +792,7 @@ const ShootHistory: React.FC = () => {
             viewerRole={role}
           />
         ))}
-      </div>
+      </ShootHistoryDateList>
     )
   }, [loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isSalesRep, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, handleApproveFeaturedShoot, canViewInvoice, canSendToEditing, shouldHideClientDetails, role])
 
@@ -907,7 +908,7 @@ const ShootHistory: React.FC = () => {
 
     // List view (default)
     return (
-      <div className="space-y-4">
+      <ShootHistoryDateList dates={paginatedRecords.map(record => getShootLocalDate(record))}>
         {paginatedRecords.map((record) => (
           <HistoryRow 
             key={record.id} 
@@ -925,7 +926,7 @@ const ShootHistory: React.FC = () => {
             shouldHideClientDetails={shouldHideClientDetails}
           />
         ))}
-      </div>
+      </ShootHistoryDateList>
     )
   }, [canViewHistory, loading, activeTab, historyFilters, masonryColumnCount, historyAggregates, historyRecords, historyMarkers, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteHistoryRecord, handleViewInvoice, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, formatDisplayDatePref])
 
@@ -959,8 +960,6 @@ const ShootHistory: React.FC = () => {
           setIsBulkActionsOpen={setIsBulkActionsOpen}
           viewMode={viewMode}
           setViewMode={setViewMode}
-          shootSort={shootSort}
-          setShootSort={setShootSort}
           gridColumns={gridColumns}
           setGridColumns={setGridColumns}
           historyFilters={historyFilters}
