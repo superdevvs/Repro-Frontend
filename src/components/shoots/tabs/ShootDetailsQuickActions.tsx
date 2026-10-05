@@ -1,3 +1,4 @@
+import { usePermission } from '@/hooks/usePermission';
 import { useUnitAssignmentPayload } from '@/features/shoot-units/useUnitAssignmentPayload';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { loadShootAssignees, assigneesForRole } from '@/services/shootAssignees';
@@ -58,6 +59,8 @@ export function ShootDetailsQuickActions({
   onViewInvoice,
   onDownloadAll,
 }: ShootDetailsQuickActionsProps) {
+  const { can } = usePermission();
+  const canMarkPaid = can('payments', 'mark-paid');
   const buildAssignmentPayload = useUnitAssignmentPayload(shoot);
   const { toast } = useToast();
   const [assignPhotographerOpen, setAssignPhotographerOpen] = useState(false);
@@ -328,7 +331,7 @@ export function ShootDetailsQuickActions({
             <span className="hidden sm:inline">Open iGUIDE</span>
           </Button>
         )}
-        {role === 'superadmin' && !isPaid && (
+        {canMarkPaid && !isPaid && (
           <Button
             variant="default"
             size="sm"

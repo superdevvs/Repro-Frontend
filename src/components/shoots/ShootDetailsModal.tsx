@@ -767,7 +767,7 @@ export function ShootDetailsModal({
           isMobileActionsOpen={isMobileActionsOpen}
           setIsMobileActionsOpen={setIsMobileActionsOpen}
           canSendManualNotification={canSendManualNotification}
-          canMarkPaid={!isRequestedStatus && !isCancelledOrDeclined && (currentUserRole === 'superadmin' || currentUserRole === 'admin') && !isEditingManager && !isPaid}
+          canMarkPaid={!isRequestedStatus && !isCancelledOrDeclined && can('payments', 'mark-paid') && !isPaid}
           onMarkPaid={() => setIsMarkPaidDialogOpen(true)}
           canProcessPayment={!isRequestedStatus && !isCancelledOrDeclined && (isAdmin || isRep) && !isPaid && !isPhotographer && !isEditor && !isEditingManager}
           onProcessPayment={handleProcessPayment}

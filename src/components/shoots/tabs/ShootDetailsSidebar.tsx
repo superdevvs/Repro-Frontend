@@ -1,3 +1,4 @@
+import { usePermission } from '@/hooks/usePermission';
 import { loadShootAssignees, assigneesForRole } from '@/services/shootAssignees';
 import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -56,6 +57,8 @@ export function ShootDetailsSidebar({
   onMarkPaid,
   onShootUpdate,
 }: ShootDetailsSidebarProps) {
+  const { can } = usePermission();
+  const canMarkPaid = can('payments', 'mark-paid');
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
@@ -549,7 +552,7 @@ export function ShootDetailsSidebar({
               </div>
             </div>
             
-            {isSuperAdmin && (
+            {canMarkPaid && (
               <>
                 <Separator className="my-3" />
                 {!isPaid ? (

@@ -1,3 +1,4 @@
+import { usePermission } from '@/hooks/usePermission';
 import React from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
@@ -243,6 +244,8 @@ export function ShootDetailsModalBody({
   handleCancelEdit,
   refreshShootAndParent,
 }: ShootDetailsModalBodyProps) {
+  const { can } = usePermission();
+  const canMarkPaid = can('payments', 'mark-paid');
   const showSubmitActions =
     activeTab === 'media' &&
     ((activeMediaDisplayTab === 'uploaded' && canSubmitRaw) ||
@@ -393,12 +396,12 @@ export function ShootDetailsModalBody({
           </div>
 
           {!isCancelledOrDeclined && (isAdmin || isRep) && !isPhotographer && !isEditor && !isEditingManager && (
-            ((currentUserRole === 'superadmin' || currentUserRole === 'admin') && !isPaid) ||
+            (canMarkPaid && !isPaid) ||
             ((isAdmin || isRep) && !isPaid)
           ) && (
             <div className="hidden sm:block px-2 sm:px-4 py-2 border-t bg-background flex-shrink-0">
               <div className="hidden sm:flex gap-2 w-full">
-                {(currentUserRole === 'superadmin' || currentUserRole === 'admin') && !isPaid && (
+                {canMarkPaid && !isPaid && (
                   <Button
                     variant="default"
                     size="sm"

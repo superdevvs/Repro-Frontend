@@ -244,7 +244,7 @@ const AccountingPage = () => {
   // Use permission system to check if user has admin capabilities
   const canCreateInvoice = can('invoices', 'create');
   const canEditInvoice = can('invoices', 'update');
-  const canMarkAsPaid = can('payments', 'mark-paid'); // Only Super Admin can mark as paid
+  const canMarkAsPaid = can('payments', 'mark-paid');
   const isAdmin = ['admin', 'superadmin'].includes(role || '');
   const isSuperAdmin = role === 'superadmin'; // Only Super Admin can see payment status
   const isEditingManagerAccounting = role === 'editing_manager';

@@ -1,3 +1,4 @@
+import { usePermission } from '@/hooks/usePermission';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import React, { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
@@ -113,6 +114,8 @@ export function BulkActionsDialog({
   onComplete,
   isLoading = false,
 }: BulkActionsDialogProps) {
+  const { can } = usePermission();
+  const canMarkPaid = can('payments', 'mark-paid');
   const { role } = useAuth();
   const { toast } = useToast();
   const canBulkPay = role !== 'editing_manager';
@@ -619,7 +622,7 @@ export function BulkActionsDialog({
                       </div>
                     </CardContent>
                   </Card>
-                  <Card
+                  {canMarkPaid && (<Card
                     className={`cursor-pointer transition-all ${
                       paymentMethod === 'mark-paid'
                         ? 'border-primary bg-primary/5 ring-2 ring-inset ring-primary/20'
@@ -634,7 +637,7 @@ export function BulkActionsDialog({
                         <p className="text-xs text-muted-foreground">Manual payment</p>
                       </div>
                     </CardContent>
-                  </Card>
+                  </Card>)}
                 </div>
               </div>
             )}

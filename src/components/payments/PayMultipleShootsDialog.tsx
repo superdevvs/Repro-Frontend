@@ -1,3 +1,4 @@
+import { usePermission } from '@/hooks/usePermission';
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -50,6 +51,8 @@ export function PayMultipleShootsDialog({
   shoots,
   onPaymentComplete,
 }: PayMultipleShootsDialogProps) {
+  const { can } = usePermission();
+  const canMarkPaid = can('payments', 'mark-paid');
   const { toast } = useToast();
   const [selectedShoots, setSelectedShoots] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
@@ -381,7 +384,7 @@ export function PayMultipleShootsDialog({
                     </CardContent>
                   </Card>
                   
-                  <Card
+                  {canMarkPaid && (<Card
                     className={`cursor-pointer transition-all ${
                       paymentMethod === 'mark-paid'
                         ? 'border-primary bg-primary/5 ring-2 ring-inset ring-primary/20'
@@ -403,7 +406,7 @@ export function PayMultipleShootsDialog({
                         <CheckCircle2 className="h-5 w-5 text-primary" />
                       )}
                     </CardContent>
-                  </Card>
+                  </Card>)}
                 </div>
               </div>
 
