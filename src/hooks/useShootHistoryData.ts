@@ -51,6 +51,8 @@ type PhotographerOption = { id: string | number; name: string; avatar?: string }
 type ShootHistoryRecordWithMls = ShootHistoryRecord & { mls_id?: string | number | null }
 
 const ACTIVE_OPERATIONAL_TABS = ['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited', 'featured'] as const
+/** Match Support / Calls search debounce so page reset pairs with the debounced term. */
+const SEARCH_DEBOUNCE_MS = 250
 
 const isActiveOperationalTab = (value: AvailableTab): value is ActiveOperationalTab =>
   ACTIVE_OPERATIONAL_TABS.includes(value as ActiveOperationalTab)
@@ -145,12 +147,44 @@ export function useShootHistoryData({
   const loadedOperationalKey = useRef('')
   const loadedHistoryKey = useRef('')
 
+  const [debouncedOperationalSearch, setDebouncedOperationalSearch] = useState(() => operationalFilters.search.trim())
+  const [debouncedHistorySearch, setDebouncedHistorySearch] = useState(() => historyFilters.search.trim())
+  const debouncedOperationalSearchRef = useRef(debouncedOperationalSearch)
+  debouncedOperationalSearchRef.current = debouncedOperationalSearch
+  const debouncedHistorySearchRef = useRef(debouncedHistorySearch)
+  debouncedHistorySearchRef.current = debouncedHistorySearch
+
+  const operationalListFiltersKey = JSON.stringify({
+    clientId: operationalFilters.clientId,
+    photographerId: operationalFilters.photographerId,
+    address: operationalFilters.address,
+    services: operationalFilters.services,
+    dateRange: operationalFilters.dateRange,
+    scheduledStart: operationalFilters.scheduledStart,
+    scheduledEnd: operationalFilters.scheduledEnd,
+  })
+  const historyListFiltersKey = JSON.stringify({
+    clientId: historyFilters.clientId,
+    photographerId: historyFilters.photographerId,
+    services: historyFilters.services,
+    dateRange: historyFilters.dateRange,
+    scheduledStart: historyFilters.scheduledStart,
+    scheduledEnd: historyFilters.scheduledEnd,
+    completedStart: historyFilters.completedStart,
+    completedEnd: historyFilters.completedEnd,
+    groupBy: historyFilters.groupBy,
+    viewAs: historyFilters.viewAs,
+  })
+
   const calendarEnabled = Boolean(calendarRange) && (activeTab === 'history'
     ? historyFilters.viewAs === 'calendar' && historyFilters.groupBy === 'shoot'
     : viewMode === 'calendar')
+  const calendarOperationalFilters = { ...operationalFilters, search: debouncedOperationalSearch }
+  const calendarHistoryFilters = { ...historyFilters, search: debouncedHistorySearch }
   const calendar = useShootHistoryCalendarData({
     enabled: calendarEnabled, activeTab, range: calendarRange, scheduledSubTab,
-    operationalFilters, historyFilters, role, user, canViewAllShoots, canViewHistory,
+    operationalFilters: calendarOperationalFilters, historyFilters: calendarHistoryFilters,
+    role, user, canViewAllShoots, canViewHistory,
     shouldHideClientDetails, isEditor, filterByRole: filterShootByRole,
   })
   const calendarRef = useRef({ enabled: calendarEnabled, refresh: calendar.refresh })
@@ -199,6 +233,8 @@ export function useShootHistoryData({
   const gridContainerRef = useRef<HTMLDivElement>(null)
   const operationalFetchAbortRef = useRef<AbortController | null>(null)
   const historyFetchAbortRef = useRef<AbortController | null>(null)
+  const operationalFetchGenerationRef = useRef(0)
+  const historyFetchGenerationRef = useRef(0)
 
   const activeTabRef = useRef(activeTab)
   activeTabRef.current = activeTab
@@ -426,6 +462,7 @@ export function useShootHistoryData({
     operationalFetchAbortRef.current?.abort()
     const controller = new AbortController()
     operationalFetchAbortRef.current = controller
+    const fetchGeneration = ++operationalFetchGenerationRef.current
     const start = typeof performance !== 'undefined' ? performance.now() : Date.now()
 
     const currentTab = activeTabRef.current
@@ -467,7 +504,7 @@ export function useShootHistoryData({
       if (backendTab === 'hold' && holdSubTabRef.current !== 'all') {
         params.hold_status = holdSubTabRef.current
       }
-      if (currentFilters.search) params.search = currentFilters.search
+      if (debouncedOperationalSearchRef.current) params.search = debouncedOperationalSearchRef.current
       if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
       if (currentFilters.photographerId) params.photographer_id = currentFilters.photographerId
       if (currentFilters.address) params.address = currentFilters.address
@@ -518,7 +555,7 @@ export function useShootHistoryData({
           params: { ...params, ...(force ? { no_cache: 'true' } : {}) }, signal: AbortSignal.any([signal, controller.signal]),
         })).data,
       })
-      if (controller.signal.aborted || scope !== accessScopeRef.current) return
+      if (controller.signal.aborted || scope !== accessScopeRef.current || fetchGeneration !== operationalFetchGenerationRef.current) return
       applyPayload(payload)
       if ((payload.meta?.total ?? payload.meta?.count ?? 0) > currentPage * pageSizeRef.current) {
         const nextParams = { ...params, page: currentPage + 1 }
@@ -628,6 +665,7 @@ export function useShootHistoryData({
     historyFetchAbortRef.current?.abort()
     const controller = new AbortController()
     historyFetchAbortRef.current = controller
+    const fetchGeneration = ++historyFetchGenerationRef.current
     const start = typeof performance !== 'undefined' ? performance.now() : Date.now()
 
     const currentFilters = historyFiltersRef.current
@@ -642,7 +680,7 @@ export function useShootHistoryData({
         per_page: pageSizeRef.current,
         sort: shootSortRef.current,
       }
-      if (currentFilters.search) params.search = currentFilters.search
+      if (debouncedHistorySearchRef.current) params.search = debouncedHistorySearchRef.current
       if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
       if (currentFilters.photographerId) params.photographer_id = currentFilters.photographerId
       if (currentFilters.services.length) params.services = currentFilters.services
@@ -700,7 +738,7 @@ export function useShootHistoryData({
       setLoading(!cached && loadedHistoryKey.current !== JSON.stringify(queryKey))
       const payload = await queryClient.fetchQuery<HistoryPayload>({ queryKey, staleTime: 30_000, gcTime: 300_000,
         queryFn: async ({ signal }) => (await apiClient.get('/shoots/history', { params, signal: AbortSignal.any([signal, controller.signal]) })).data })
-      if (scope !== accessScopeRef.current || controller.signal.aborted) return
+      if (scope !== accessScopeRef.current || controller.signal.aborted || fetchGeneration !== historyFetchGenerationRef.current) return
       loadedHistoryKey.current = JSON.stringify(queryKey)
       applyPayload(payload)
     } catch (error) {
@@ -804,6 +842,44 @@ export function useShootHistoryData({
   }, [activeTab, operationalScope])
 
   useEffect(() => {
+    const next = operationalFilters.search.trim()
+    if (next === debouncedOperationalSearch) return
+    const timer = window.setTimeout(() => {
+      setDebouncedOperationalSearch(next)
+      operationalPageRef.current = 1
+      setOperationalPage(1)
+    }, SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [operationalFilters.search, debouncedOperationalSearch])
+
+  useEffect(() => {
+    const next = historyFilters.search.trim()
+    if (next === debouncedHistorySearch) return
+    const timer = window.setTimeout(() => {
+      setDebouncedHistorySearch(next)
+      historyPageRef.current = 1
+      setHistoryPage(1)
+    }, SEARCH_DEBOUNCE_MS)
+    return () => window.clearTimeout(timer)
+  }, [historyFilters.search, debouncedHistorySearch])
+
+  const lastOperationalListFiltersKeyRef = useRef(operationalListFiltersKey)
+  useEffect(() => {
+    if (lastOperationalListFiltersKeyRef.current === operationalListFiltersKey) return
+    lastOperationalListFiltersKeyRef.current = operationalListFiltersKey
+    operationalPageRef.current = 1
+    setOperationalPage(1)
+  }, [operationalListFiltersKey])
+
+  const lastHistoryListFiltersKeyRef = useRef(historyListFiltersKey)
+  useEffect(() => {
+    if (lastHistoryListFiltersKeyRef.current === historyListFiltersKey) return
+    lastHistoryListFiltersKeyRef.current = historyListFiltersKey
+    historyPageRef.current = 1
+    setHistoryPage(1)
+  }, [historyListFiltersKey])
+
+  useEffect(() => {
     if (!calendarEnabled && activeTab === 'history' && canViewHistory) {
       fetchHistoryData()
     }
@@ -811,7 +887,7 @@ export function useShootHistoryData({
       historyFetchAbortRef.current?.abort()
       historyFetchAbortRef.current = null
     }
-  }, [historyPage, pageSize, activeTab, shootSort, canViewHistory, historyFilters, fetchHistoryData, calendarEnabled, accessScope])
+  }, [historyPage, pageSize, activeTab, shootSort, canViewHistory, historyListFiltersKey, debouncedHistorySearch, fetchHistoryData, calendarEnabled, accessScope])
 
   useEffect(() => {
     if (!calendarEnabled && activeTab !== 'history') {
@@ -821,7 +897,7 @@ export function useShootHistoryData({
       operationalFetchAbortRef.current?.abort()
       operationalFetchAbortRef.current = null
     }
-  }, [operationalPage, pageSize, activeTab, scheduledSubTab, holdSubTab, shootSort, operationalFilters, fetchOperationalData, calendarEnabled, accessScope])
+  }, [operationalPage, pageSize, activeTab, scheduledSubTab, holdSubTab, shootSort, operationalListFiltersKey, debouncedOperationalSearch, fetchOperationalData, calendarEnabled, accessScope])
 
   const handleSendToEditing = useCallback(
     async (shoot: Pick<ShootData, 'id' | 'status' | 'workflowStatus'>) => {
@@ -956,7 +1032,7 @@ export function useShootHistoryData({
 
   const buildHistoryParams = useCallback(() => {
     const params: Record<string, unknown> = { group_by: historyFilters.groupBy, page: historyPage, per_page: pageSize, sort: shootSort }
-    if (historyFilters.search) params.search = historyFilters.search
+    if (debouncedHistorySearch) params.search = debouncedHistorySearch
     if (!shouldHideClientDetails && historyFilters.clientId) params.client_id = historyFilters.clientId
     if (historyFilters.photographerId) params.photographer_id = historyFilters.photographerId
     if (historyFilters.services.length) params.services = historyFilters.services
@@ -980,7 +1056,7 @@ export function useShootHistoryData({
       Object.assign(params, calendarRangeParams(calendarRange), { group_by: 'shoot', sort: 'date_asc' })
     }
     return params
-  }, [historyFilters, historyPage, pageSize, shootSort, shouldHideClientDetails, calendarEnabled, activeTab, calendarRange])
+  }, [historyFilters, debouncedHistorySearch, historyPage, pageSize, shootSort, shouldHideClientDetails, calendarEnabled, activeTab, calendarRange])
 
   const handleExportHistory = useCallback(async () => {
     try {
