@@ -5,8 +5,6 @@ import {
   CalendarPlus,
   CheckCircle2,
   Sparkles,
-  Users,
-  UserSquare2,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -23,6 +21,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useOptionalShoots } from "@/context/shootsContextState";
 import { useEditingRequests } from "@/hooks/useEditingRequests";
+import { useShootSearch } from "@/hooks/useShootSearch";
 import { useToast } from "@/hooks/use-toast";
 import { API_BASE_URL } from "@/config/env";
 import type { DashboardClientRequest } from "@/types/dashboard";
@@ -42,7 +41,7 @@ const MAX_RESULTS = 8;
 export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpenChange }) => {
   const { role } = useAuth();
   const shootsContext = useOptionalShoots();
-  const shoots = shootsContext?.shoots ?? [];
+  // fetchShoots kept for post-action refresh only — do NOT filter ShootsProvider for header search.
   const fetchShoots = shootsContext?.fetchShoots;
   const isAdminExperience = ["admin", "superadmin", "super_admin"].includes(role);
   const canViewAvailability = ["admin", "superadmin", "salesRep", "sales_rep", "photographer"].includes(role);
@@ -57,6 +56,17 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
 
   const trimmedQuery = searchValue.trim().toLowerCase();
   const shouldShowResults = trimmedQuery.length > 0;
+
+  // Shared server search (tab=all&search=…). Empty/whitespace never hits the API.
+  const {
+    shoots: filteredShoots,
+    isLoading: shootsSearchLoading,
+    error: shootsSearchError,
+    hasResolved: shootsSearchResolved,
+  } = useShootSearch({
+    query: searchValue,
+    enabled: open && shouldShowResults,
+  });
 
   useEffect(() => {
     if (!open) {
@@ -142,13 +152,6 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
     return `${shoot.id} ${shoot.client?.name || ""} ${shoot.client?.company || ""} ${address}`.trim();
   }, []);
 
-  const filteredShoots = useMemo(() => {
-    if (!shouldShowResults) return [];
-    return shoots
-      .filter((shoot) => matchesQuery(shootSearchValue(shoot), trimmedQuery))
-      .slice(0, MAX_RESULTS);
-  }, [shoots, matchesQuery, shootSearchValue, trimmedQuery, shouldShowResults]);
-
   const filteredClientRequests = useMemo(() => {
     if (!shouldShowResults || !isAdminExperience) return [];
     return clientRequests
@@ -170,43 +173,6 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
       })
       .slice(0, MAX_RESULTS);
   }, [editingRequests, trimmedQuery, matchesQuery, shouldShowResults, canLoadEditingRequests]);
-
-  const clients = useMemo(
-    () => (shootsContext ? shootsContext.getUniqueClients() : []),
-    [shootsContext, shoots]
-  );
-  const photographers = useMemo(
-    () => (shootsContext ? shootsContext.getUniquePhotographers() : []),
-    [shootsContext, shoots]
-  );
-  const editors = useMemo(
-    () => (shootsContext ? shootsContext.getUniqueEditors() : []),
-    [shootsContext, shoots]
-  );
-
-  const filteredClients = useMemo(() => {
-    if (!shouldShowResults) return [];
-    return clients
-      .filter((client) => {
-        const searchText = `${client.name} ${client.email || ""} ${client.company || ""}`;
-        return matchesQuery(searchText, trimmedQuery);
-      })
-      .slice(0, MAX_RESULTS);
-  }, [clients, trimmedQuery, matchesQuery, shouldShowResults]);
-
-  const filteredPhotographers = useMemo(() => {
-    if (!shouldShowResults) return [];
-    return photographers
-      .filter((photographer) => matchesQuery(photographer.name, trimmedQuery))
-      .slice(0, MAX_RESULTS);
-  }, [photographers, trimmedQuery, matchesQuery, shouldShowResults]);
-
-  const filteredEditors = useMemo(() => {
-    if (!shouldShowResults) return [];
-    return editors
-      .filter((editor) => matchesQuery(editor.name, trimmedQuery))
-      .slice(0, MAX_RESULTS);
-  }, [editors, trimmedQuery, matchesQuery, shouldShowResults]);
 
   const actions = useMemo(() => {
     const baseActions = [
@@ -320,21 +286,14 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
     [navigate],
   );
 
-  const handleOpenAccounts = useCallback(
-    (role: "client" | "photographer" | "editor", name: string) => {
-      navigate(`/accounts?role=${role}&search=${encodeURIComponent(name)}`);
-    },
-    [navigate],
-  );
-
   const shouldShowEmpty =
     shouldShowResults &&
+    !shootsSearchLoading &&
+    !shootsSearchError &&
+    shootsSearchResolved &&
     !filteredShoots.length &&
     !filteredClientRequests.length &&
     !filteredEditingRequests.length &&
-    !filteredClients.length &&
-    !filteredPhotographers.length &&
-    !filteredEditors.length &&
     !filteredActions.length;
 
   return (
@@ -370,9 +329,24 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
               (filteredShoots.length > 0 ||
                 filteredClientRequests.length > 0 ||
                 filteredEditingRequests.length > 0 ||
-                filteredClients.length > 0 ||
-                filteredPhotographers.length > 0 ||
-                filteredEditors.length > 0) && <CommandSeparator />}
+                shootsSearchLoading ||
+                Boolean(shootsSearchError)) && <CommandSeparator />}
+
+            {shootsSearchLoading && (
+              <CommandGroup heading="Shoots">
+                <CommandItem value="loading-shoots" disabled>
+                  Searching shoots...
+                </CommandItem>
+              </CommandGroup>
+            )}
+
+            {shootsSearchError && !shootsSearchLoading && (
+              <CommandGroup heading="Shoots">
+                <CommandItem value="shoots-search-error" disabled>
+                  Shoot search failed. Try again.
+                </CommandItem>
+              </CommandGroup>
+            )}
 
             {filteredShoots.length > 0 && (
               <CommandGroup heading="Shoots">
@@ -468,81 +442,6 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
                       <span className="font-medium truncate">{request.summary}</span>
                       <span className="text-xs text-muted-foreground truncate">
                         {request.shoot?.address || `Tracking ${request.tracking_code}`}
-                      </span>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-
-            {filteredClients.length > 0 && (
-              <CommandGroup heading="Clients">
-                {filteredClients.map((client) => (
-                  <CommandItem
-                    key={`client-${client.name}`}
-                    value={`${client.name} ${client.email || ""} ${client.company || ""}`}
-                    onSelect={() => {
-                      onOpenChange(false);
-                      handleOpenAccounts("client", client.name);
-                    }}
-                  >
-                    <div className="mr-2 text-muted-foreground">
-                      <Users className="h-4 w-4" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-medium truncate">{client.name}</span>
-                      <span className="text-xs text-muted-foreground truncate">
-                        {client.company || client.email || "Client"}
-                      </span>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-
-            {filteredPhotographers.length > 0 && (
-              <CommandGroup heading="Photographers">
-                {filteredPhotographers.map((photographer) => (
-                  <CommandItem
-                    key={`photographer-${photographer.name}`}
-                    value={photographer.name}
-                    onSelect={() => {
-                      onOpenChange(false);
-                      handleOpenAccounts("photographer", photographer.name);
-                    }}
-                  >
-                    <div className="mr-2 text-muted-foreground">
-                      <UserSquare2 className="h-4 w-4" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-medium truncate">{photographer.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {photographer.shootCount} shoot{photographer.shootCount === 1 ? "" : "s"}
-                      </span>
-                    </div>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            )}
-
-            {filteredEditors.length > 0 && (
-              <CommandGroup heading="Editors">
-                {filteredEditors.map((editor) => (
-                  <CommandItem
-                    key={`editor-${editor.name}`}
-                    value={editor.name}
-                    onSelect={() => {
-                      onOpenChange(false);
-                      handleOpenAccounts("editor", editor.name);
-                    }}
-                  >
-                    <div className="mr-2 text-muted-foreground">
-                      <UserSquare2 className="h-4 w-4" />
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="font-medium truncate">{editor.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {editor.shootCount} shoot{editor.shootCount === 1 ? "" : "s"}
                       </span>
                     </div>
                   </CommandItem>

@@ -1,4 +1,10 @@
 
+/**
+ * Dashboard ShootsFilter search is a LOCAL filter of the visible dashboard card list
+ * (controlled `searchTerm` from the parent). It is NOT a find-across-shoots control, so
+ * it intentionally does not use the shared `searchShoots` / `useShootSearch` client.
+ * Wire it to that shared client only if this UI starts searching beyond the loaded pool.
+ */
 import React, { useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
