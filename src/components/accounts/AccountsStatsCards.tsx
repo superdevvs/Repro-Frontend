@@ -27,6 +27,7 @@ interface AccountsStatsCardsProps {
   stats: RoleStats;
   selectedRole: string | null;
   onRoleSelect: (role: string | null) => void;
+  className?: string;
 }
 
 const roleConfig = [
@@ -44,6 +45,7 @@ export const AccountsStatsCards: React.FC<AccountsStatsCardsProps> = ({
   stats,
   selectedRole,
   onRoleSelect,
+  className,
 }) => {
   const { role: viewerRole } = useAuth();
   const isSuperAdmin = viewerRole === 'superadmin';
@@ -62,7 +64,7 @@ export const AccountsStatsCards: React.FC<AccountsStatsCardsProps> = ({
   });
 
   return (
-    <div className="overflow-x-auto pt-1 pb-1 -mx-1 px-1 touch-manipulation scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+    <div className={`overflow-x-auto pt-1 pb-1 -mx-1 px-1 touch-manipulation scrollbar-hide [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]${className ? ` ${className}` : ''}`}>
       <div className="flex gap-1.5 sm:gap-2 min-w-max">
         {visibleRoles.map((role) => {
           const Icon = role.icon;

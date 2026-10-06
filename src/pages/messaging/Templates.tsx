@@ -132,12 +132,14 @@ export default function Templates() {
 
         {/* Tabs */}
         <Tabs value={selectedScope} onValueChange={setSelectedScope}>
-          <TabsList>
-            <TabsTrigger value="all">All</TabsTrigger>
-            <TabsTrigger value="SYSTEM">System</TabsTrigger>
-            <TabsTrigger value="GLOBAL">Global</TabsTrigger>
-            <TabsTrigger value="USER">My Templates</TabsTrigger>
-          </TabsList>
+          <div className="mobile-sticky-tabs">
+            <TabsList>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="SYSTEM">System</TabsTrigger>
+              <TabsTrigger value="GLOBAL">Global</TabsTrigger>
+              <TabsTrigger value="USER">My Templates</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value={selectedScope} className="mt-6">
             {isLoading ? (

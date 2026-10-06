@@ -234,7 +234,7 @@ export default function EmailRecovery() {
     <DashboardLayout>
       <div className="flex flex-col h-full min-h-screen bg-background">
         <EmailNavigation />
-        <div className="flex-1 px-0 sm:px-6 py-4 sm:py-6 overflow-y-auto">
+        <div className="flex-1 px-0 sm:px-6 py-4 sm:py-6 overflow-y-auto max-md:overflow-y-visible">
           <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
@@ -304,7 +304,7 @@ export default function EmailRecovery() {
             </div>
 
             <Card className="p-4 sm:p-5">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mobile-sticky-tabs flex flex-col gap-3 [--mobile-sticky-tabs-bg:hsl(var(--card))] sm:flex-row sm:items-center sm:justify-between">
                 <Tabs
                   value={statusFilter}
                   onValueChange={(value) => {

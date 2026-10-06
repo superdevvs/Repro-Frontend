@@ -465,6 +465,25 @@ body {
   button {
     touch-action: manipulation;
   }
+
+  /* Shared mobile sticky filter/tab bar (same treatment as Shoot History's
+     sticky tab rail): sticks inside the compact shell's single <main>
+     scroller, flush under the top nav. top cancels main's 6px (pt-1.5)
+     padding. The bottom shadow is an 8px band of the bar's own background
+     so scrolled content never touches the pills; pages give the bar at
+     least 8px of gap below. Cards override --mobile-sticky-tabs-bg. */
+  .mobile-sticky-tabs {
+    position: sticky;
+    top: -0.375rem;
+    z-index: 20;
+    background-color: var(--mobile-sticky-tabs-bg, hsl(var(--background)));
+    box-shadow: 0 0.5rem 0 0 var(--mobile-sticky-tabs-bg, hsl(var(--background)));
+  }
+
+  /* Anchor jumps (e.g. Accounting's sales page sections) land below the bar. */
+  main:has(.mobile-sticky-tabs) {
+    scroll-padding-top: 3.5rem;
+  }
 }
 
 /* Ensure TabsContent displays correctly when active */

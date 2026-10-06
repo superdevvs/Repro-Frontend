@@ -39,7 +39,7 @@ export function AccountingHeader({
     { id: 'editors', label: 'Editors' }, { id: 'sales-reps', label: 'Sales reps' },
     { id: 'equipments', label: 'Equipment' },
   ];
-  return <header className="space-y-5">
+  return <header className="space-y-5 max-md:contents">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
       <div className="min-w-0"><h1 className="text-3xl font-semibold tracking-tight">{title}</h1><p className="mt-2 text-sm text-muted-foreground">{description}</p></div>
       <div className="flex min-w-0 flex-wrap items-center gap-3 sm:justify-end">
@@ -50,7 +50,7 @@ export function AccountingHeader({
         {showCreateButton && <DropdownMenu><DropdownMenuTrigger asChild><Button size="sm"><Plus className="mr-2 h-4 w-4" />Create invoice</Button></DropdownMenuTrigger><DropdownMenuContent align="end"><DropdownMenuItem onClick={onCreateInvoice}>Single invoice</DropdownMenuItem>{onCreateBatch && <DropdownMenuItem onClick={onCreateBatch}>Batch invoices</DropdownMenuItem>}</DropdownMenuContent></DropdownMenu>}
       </div>
     </div>
-    {showTabs && onTabChange && <nav aria-label="Accounting sections" className="flex gap-1 overflow-x-auto border-b pb-2 [scrollbar-width:thin]">{tabs.map(tab => <button key={tab.id} type="button" aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => onTabChange(tab.id)} className={`shrink-0 rounded-md px-3 py-2 text-sm transition-colors ${activeTab === tab.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>{tab.label}</button>)}</nav>}
+    {showTabs && onTabChange && <nav aria-label="Accounting sections" className="mobile-sticky-tabs flex gap-1 overflow-x-auto border-b pb-2 [scrollbar-width:thin]">{tabs.map(tab => <button key={tab.id} type="button" aria-current={activeTab === tab.id ? 'page' : undefined} onClick={() => onTabChange(tab.id)} className={`shrink-0 rounded-md px-3 py-2 text-sm transition-colors ${activeTab === tab.id ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-muted hover:text-foreground'}`}>{tab.label}</button>)}</nav>}
   </header>;
 }
 export type { AccountingTab };

@@ -92,6 +92,8 @@ describe('Property Scan tracker', () => {
     expect(await screen.findByText('10 Missing Lane')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Needs an order/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Connected/ })).toBeInTheDocument();
+    // The filter row uses the shared mobile sticky bar (index.css, <768px only).
+    expect(screen.getByRole('button', { name: /Needs an order/ }).parentElement).toHaveClass('mobile-sticky-tabs');
 
     await user.click(screen.getByRole('button', { name: 'Create order for 10 Missing Lane' }));
     await waitFor(() => expect(mocks.create).toHaveBeenCalledWith(10));

@@ -499,12 +499,13 @@ const Settings = () => {
         />
 
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-            <AutoExpandingTabsList 
-              tabs={tabsConfig} 
-              value={activeTab}
-              className="mb-6"
-
-            />
+            <div className="mobile-sticky-tabs">
+              <AutoExpandingTabsList 
+                tabs={tabsConfig} 
+                value={activeTab}
+                className="mb-6"
+              />
+            </div>
 
             <TabsContent value="profile" className="space-y-4">
               <form onSubmit={handleSaveProfile} className="space-y-4">

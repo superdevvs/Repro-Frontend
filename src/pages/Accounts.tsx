@@ -1335,7 +1335,7 @@ export default function Accounts() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Tabs row with inline controls */}
-          <div className="mb-3 flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-3">
+          <div className={`mb-3 flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-3${!canUseTopLevelTabs && activeTab === 'accounts' ? ' mobile-sticky-tabs' : ''}`}>
             {/* Show top-level tabs for admin/superadmin, role pills for editing_manager */}
             <div className="min-w-0 overflow-hidden">
             {canUseTopLevelTabs ? (
@@ -1397,6 +1397,7 @@ export default function Accounts() {
                 stats={roleStats}
                 selectedRole={filterRole === 'all' ? null : filterRole}
                 onRoleSelect={(role) => setFilterRole(role as Role | 'all' ?? 'all')}
+                className="mobile-sticky-tabs"
               />
             )}
 

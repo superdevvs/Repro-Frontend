@@ -509,7 +509,7 @@ const AccountingPage = () => {
               {(activeTab === 'home' || accountingMode !== 'admin') && (
                 accountingMode === 'rep' ? (
                   <div className="min-w-0 space-y-5">
-                    <nav aria-label="Sales page sections" className="flex gap-1 overflow-x-auto border-b pb-2 text-xs text-muted-foreground">{[['sales-overview', 'Overview'], ['sales-clients', 'Clients'], ['weekly-review', 'Reviews'], ['invoice-activity', 'Invoices']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-md px-3 py-2 hover:bg-muted hover:text-foreground">{label}</a>)}</nav>
+                    <nav aria-label="Sales page sections" className="mobile-sticky-tabs flex gap-1 overflow-x-auto border-b pb-2 text-xs text-muted-foreground">{[['sales-overview', 'Overview'], ['sales-clients', 'Clients'], ['weekly-review', 'Reviews'], ['invoice-activity', 'Invoices']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-md px-3 py-2 hover:bg-muted hover:text-foreground">{label}</a>)}</nav>
                     <Suspense fallback={null}>
                       <LazySalesRepSummarySection
                         data={salesRepSummary.data}

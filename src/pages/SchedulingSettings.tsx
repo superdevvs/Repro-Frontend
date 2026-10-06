@@ -81,10 +81,12 @@ const SchedulingSettings = () => {
         <BufferSettingsDialog open={bufferSettingsOpen} onOpenChange={setBufferSettingsOpen} />
 
         <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'services' | 'service-groups')} className="space-y-4">
-          <TabsList>
-            <TabsTrigger value="services">Services</TabsTrigger>
-            <TabsTrigger value="service-groups">Service Groups</TabsTrigger>
-          </TabsList>
+          <div className="mobile-sticky-tabs">
+            <TabsList>
+              <TabsTrigger value="services">Services</TabsTrigger>
+              <TabsTrigger value="service-groups">Service Groups</TabsTrigger>
+            </TabsList>
+          </div>
           <TabsContent value="services" className="mt-0">
             <ServicesTab ref={servicesRef} serviceQuery={serviceQuery} onServiceQueryChange={setServiceQuery} />
           </TabsContent>

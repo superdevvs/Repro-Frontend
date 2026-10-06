@@ -335,7 +335,7 @@ export default function Automations() {
         )}
 
         <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-          <nav className="flex gap-2 overflow-x-auto lg:flex-col" aria-label="Moments">
+          <nav className="mobile-sticky-tabs flex gap-2 overflow-x-auto lg:flex-col" aria-label="Moments">
             {grouped.map((group) => (
               <button
                 key={group.id}

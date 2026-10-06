@@ -253,10 +253,12 @@ export default function MessagingSettings() {
         </div>
 
         <Tabs defaultValue="email">
-          <TabsList className="mb-6">
-            <TabsTrigger value="email">Email Providers</TabsTrigger>
-            <TabsTrigger value="sms">SMS (Telnyx)</TabsTrigger>
-          </TabsList>
+          <div className="mobile-sticky-tabs mb-6">
+            <TabsList>
+              <TabsTrigger value="email">Email Providers</TabsTrigger>
+              <TabsTrigger value="sms">SMS (Telnyx)</TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="email">
             <EmailSettingsPanel
