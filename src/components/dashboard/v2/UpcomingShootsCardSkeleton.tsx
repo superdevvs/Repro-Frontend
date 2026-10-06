@@ -15,7 +15,7 @@ export const UpcomingShootsCardSkeleton: React.FC = () => {
           <Skeleton className="h-8 w-16 rounded-full" />
         </div>
       </div>
-      <div className="space-y-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:space-y-6 sm:pb-0">
+      <div role="status" aria-label="Loading shoots" aria-busy="true" className="space-y-5 pb-[calc(5.5rem+env(safe-area-inset-bottom))] sm:space-y-6 sm:pb-0">
         {[1, 2].map((group) => (
           <div key={group} className="space-y-3">
             <div className="flex items-center gap-2">

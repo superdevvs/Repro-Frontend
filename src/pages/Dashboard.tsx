@@ -606,6 +606,7 @@ const Dashboard = () => {
     isAdminExperience,
     loading,
     overviewDataAvailable: Boolean(data),
+    shootsLoading,
     pendingReviews: data?.pendingReviews || [],
     pipelineFilter,
     requestedShoots,

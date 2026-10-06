@@ -77,6 +77,7 @@ interface DashboardSectionsParams {
   filteredWorkflow: DashboardWorkflow | null;
   isAdminExperience: boolean;
   loading: boolean;
+  shootsLoading: boolean;
   overviewDataAvailable: boolean;
   pendingReviews: DashboardShootSummary[];
   pipelineFilter: PipelineFilter;
@@ -124,6 +125,7 @@ export const useDashboardSections = ({
   filteredWorkflow,
   isAdminExperience,
   loading,
+  shootsLoading,
   overviewDataAvailable,
   pendingReviews,
   pipelineFilter,
@@ -149,6 +151,8 @@ export const useDashboardSections = ({
   setSpecialRequestOpen,
   updateEditingRequest,
 }: DashboardSectionsParams) => {
+  // Overview cards and the context-backed shoot lists hydrate independently.
+  const shootListsLoading = shootsLoading || (loading && !overviewDataAvailable);
   const renderAssignPhotographersCard = () => (
     <ErrorBoundary
       fallback={
@@ -174,7 +178,7 @@ export const useDashboardSections = ({
   );
 
   const renderUpcomingCard = () =>
-    loading && !overviewDataAvailable ? (
+    shootListsLoading ? (
       <UpcomingShootsCardSkeleton />
     ) : (
       <UpcomingShootsCard
@@ -278,7 +282,7 @@ export const useDashboardSections = ({
     ) : null;
 
   const renderRequestedShootsSection = () =>
-    loading && !overviewDataAvailable ? (
+    shootListsLoading ? (
       <RequestedShootsCardSkeleton />
     ) : requestedShoots.length > 0 ? (
       <RequestedShootsSection
@@ -291,7 +295,7 @@ export const useDashboardSections = ({
     ) : null;
 
   const renderShootsTabsCard = () =>
-    loading && !overviewDataAvailable ? (
+    shootListsLoading ? (
       <UpcomingShootsCardSkeleton />
     ) : (
       <ShootsTabsCard
@@ -307,7 +311,7 @@ export const useDashboardSections = ({
     );
 
   const renderEditingManagerShootsTabsCard = () =>
-    loading && !overviewDataAvailable ? (
+    shootListsLoading ? (
       <UpcomingShootsCardSkeleton />
     ) : (
       <ShootsTabsCard
