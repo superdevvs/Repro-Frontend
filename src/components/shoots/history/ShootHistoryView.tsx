@@ -186,7 +186,7 @@ function SubTabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium leading-5 transition-colors max-md:min-h-[39px] max-sm:min-h-[36px] max-sm:py-1 max-sm:text-xs ${
+      className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium leading-5 transition-colors max-md:min-h-10 max-sm:py-1 max-sm:text-xs ${
         active
           ? activeClass
           : 'text-muted-foreground hover:text-foreground hover:bg-muted'
@@ -526,7 +526,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     <div ref={gridContainerRef} data-grid-columns={gridColumns} className={cn(
       'shoot-history-tabs max-w-full space-y-4 overflow-x-clip',
       DASHBOARD_COMPACT_PAGE_X_CLASS,
-      'pt-1.5 pb-0 max-md:flex max-md:min-h-full max-md:flex-1 max-md:flex-col sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0',
+      'pt-1.5 pb-0 max-md:-mt-1.5 max-md:pt-0 max-md:!space-y-2 max-md:flex max-md:min-h-full max-md:flex-1 max-md:flex-col sm:space-y-6 sm:px-6 sm:pb-6 sm:pt-0',
       isCalendarFill && 'is-calendar-fill flex min-h-0 flex-1 flex-col overflow-hidden sm:space-y-3 sm:pb-3',
       fillDesktopCalendar && !isCalendarFill && 'flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain',
     )}>
@@ -590,8 +590,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className={cn('space-y-3 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col sm:pb-0', isCalendarFill && 'flex min-h-0 flex-1 flex-col overflow-hidden space-y-2')}>
-        <div data-shoot-history-sticky-tabs className={cn('sticky -top-2 z-20 space-y-2 bg-background pt-0.5 sm:top-0', isCalendarFill && 'static flex-shrink-0')}>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as AvailableTab)} className={cn('space-y-3 max-md:space-y-0 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col sm:pb-0', isCalendarFill && 'flex min-h-0 flex-1 flex-col overflow-hidden space-y-2')}>
+        <div data-shoot-history-sticky-tabs className={cn('sticky -top-2 z-20 space-y-2 bg-background pt-0.5 max-md:pb-2.5 sm:top-0', isCalendarFill && 'static flex-shrink-0')}>
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-4">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <AutoExpandingTabsList tabs={tabsConfig} value={activeTab} desktopExpanded className="min-w-0 flex-1 pb-1" />

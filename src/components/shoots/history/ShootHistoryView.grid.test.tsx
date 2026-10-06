@@ -491,11 +491,17 @@ describe('Shoot History mobile chrome', () => {
     expect(mainTabs?.className).toMatch(/pb-1/)
     expect(all.className).toMatch(/py-1\.5/)
     expect(all.className).not.toMatch(/(?:^|\s)py-2(?:\s|$)/)
-    // Phones match the Dashboard Shoots card Upcoming/Requested tab band: 36px below sm
-    // (the h-9 Previous/Filter controls the tabs centre in) and 39px from sm to md.
-    expect(all.className).toMatch(/(?:^|\s)max-sm:min-h-\[36px\](?:\s|$)/)
-    expect(all.className).toMatch(/(?:^|\s)max-md:min-h-\[39px\](?:\s|$)/)
-    expect(all.className).not.toMatch(/min-h-\[34px\]/)
+    // Below md the sub-tabs match the h-10 (40px) status filter pills above them.
+    expect(all.className).toMatch(/(?:^|\s)max-md:min-h-10(?:\s|$)/)
+    expect(all.className).not.toMatch(/min-h-\[(?:34|36|39)px\]/)
+    // Phone-only spacing: page top/stack gaps, no doubled flex margin under the sub-tab rail.
+    const page = container.querySelector('.shoot-history-tabs')
+    expect(page?.className).toMatch(/(?:^|\s)max-md:-mt-1\.5(?:\s|$)/)
+    expect(page?.className).toMatch(/(?:^|\s)max-md:pt-0(?:\s|$)/)
+    expect(page?.className).toMatch(/(?:^|\s)max-md:!space-y-2(?:\s|$)/)
+    expect(page?.className).toMatch(/(?:^|\s)sm:space-y-6(?:\s|$)/)
+    expect(sticky?.className).toMatch(/(?:^|\s)max-md:pb-2\.5(?:\s|$)/)
+    expect(sticky?.parentElement?.className).toMatch(/(?:^|\s)max-md:space-y-0(?:\s|$)/)
     expect(all.className).toMatch(/(?:^|\s)max-sm:py-1(?:\s|$)/)
     expect(all.className).toMatch(/(?:^|\s)max-sm:text-xs(?:\s|$)/)
     expect(subRow?.className).toMatch(/pb-2/)
