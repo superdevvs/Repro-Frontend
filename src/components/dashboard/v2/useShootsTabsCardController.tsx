@@ -677,7 +677,7 @@ export function useShootsTabsCardController({
                   })()}
                 </span>
               ) : (
-                <span>Photographer <span className="font-semibold text-foreground">• {shoot.photographer?.name || 'Unassigned'}</span></span>
+                <span>Photographer <span className="font-semibold text-foreground">• {shoot.photographerDisplayName || shoot.photographer?.name || 'Unassigned'}</span></span>
               )}
             </div>
           </div>
@@ -777,7 +777,7 @@ export function useShootsTabsCardController({
                 <>
                   Photographer{' '}
                   <span className="font-semibold text-foreground">
-                    • {shoot.photographer?.name || 'Unassigned'}
+                    • {shoot.photographerDisplayName || shoot.photographer?.name || 'Unassigned'}
                   </span>
                 </>
               )}

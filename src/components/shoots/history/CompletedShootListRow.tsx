@@ -1,3 +1,4 @@
+import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import React, { memo, useState } from 'react'
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation'
 import axios from 'axios'
@@ -308,7 +309,7 @@ export const CompletedShootListRow = ({
                 <div className="flex min-w-0 items-center gap-1.5">
                   {!isEditor ? <Camera className="h-3.5 w-3.5 shrink-0" /> : <User className="h-3.5 w-3.5 shrink-0" />}
                   <span className="truncate font-semibold text-foreground">
-                    {!isEditor ? (shoot.photographer?.name ?? 'Unassigned') : shoot.client.name}
+                    {!isEditor ? (getShootPhotographerDisplayName(shoot)) : shoot.client.name}
                   </span>
                 </div>
               </div>
@@ -479,7 +480,7 @@ export const CompletedShootListRow = ({
                   {!isEditor && (
                     <span className="flex min-w-0 items-center gap-1.5">
                       <Camera className="h-3.5 w-3.5 flex-shrink-0" />
-                      <span className="truncate"><span className="font-semibold text-foreground">{shoot.photographer?.name ?? 'Unassigned'}</span></span>
+                      <span className="truncate"><span className="font-semibold text-foreground">{getShootPhotographerDisplayName(shoot)}</span></span>
                     </span>
                   )}
                   <span className="flex items-center gap-1.5">

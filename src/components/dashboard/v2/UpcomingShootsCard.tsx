@@ -1365,7 +1365,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                               })()}
                             </span>
                           ) : role === 'editor' ? null : (
-                            <span>Photographer <span className="font-semibold text-foreground">• {shoot.photographer?.name || 'Unassigned'}</span></span>
+                            <span>Photographer <span className="font-semibold text-foreground">• {shoot.photographerDisplayName || shoot.photographer?.name || 'Unassigned'}</span></span>
                           )}
                         </div>
                         {isEditorSubmittedUpload && (
@@ -1522,7 +1522,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             <>
                               Photographer{' '}
                               <span className="font-semibold text-foreground">
-                                • {shoot.photographer?.name || 'Unassigned'}
+                                • {shoot.photographerDisplayName || shoot.photographer?.name || 'Unassigned'}
                               </span>
                             </>
                           )}

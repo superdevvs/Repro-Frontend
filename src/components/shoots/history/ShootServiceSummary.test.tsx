@@ -30,6 +30,35 @@ const shoot = {
 const show = (node: React.ReactNode) => render(<UserPreferencesProvider>{node}</UserPreferencesProvider>);
 
 describe('grouped service labels on shoot summaries', () => {
+  const reassigned = {
+    ...shoot, photographer: { id: '1123', name: 'Alex Frachetti' },
+    serviceItems: [
+      { id: '43', name: 'Drone', photographer_id: '1134', photographer: { id: '1134', name: 'Darryl Felton' } },
+      { id: '52', name: 'Digital Twilight', photographer_id: '2264', photographer: { id: '2264', name: 'R/E Pro Photos Editor' } },
+      { id: '72', name: 'HDR', photographer_id: '1134', photographer: { id: '1134', name: 'Darryl Felton' } },
+    ],
+  } as ShootData;
+
+  it.each([
+    ['shared', <SharedShootCard shoot={reassigned} role="admin" />],
+    ['scheduled list', <ScheduledShootListRow shoot={reassigned} onSelect={vi.fn()} />],
+    ['completed list', <CompletedShootListRow shoot={reassigned} onSelect={vi.fn()} />],
+    ['completed album', <CompletedAlbumCard shoot={reassigned} onSelect={vi.fn()} />],
+    ['on hold', <HoldOnShootCard shoot={reassigned} onSelect={vi.fn()} />],
+  ])(
+    'previews current service assignees instead of a stale shoot primary in %s', (_name, node) => {
+      show(node);
+      expect(screen.getAllByText('Darryl Felton · R/E Pro Photos Editor').length).toBeGreaterThan(0);
+      expect(screen.queryByText('Alex Frachetti')).not.toBeInTheDocument();
+    },
+  );
+
+  it('carries service assignment display into the history preview without changing photographer identity', () => {
+    const summary = shootDataToSummary(reassigned);
+    expect(summary.photographerDisplayName).toBe('Darryl Felton · R/E Pro Photos Editor');
+    expect(summary.photographer).toMatchObject({ id: 1123, name: 'Alex Frachetti' });
+  });
+
   it.each([
     ['shared', <SharedShootCard shoot={shoot} role="admin" />],
     ['scheduled list', <ScheduledShootListRow shoot={shoot} onSelect={vi.fn()} />],

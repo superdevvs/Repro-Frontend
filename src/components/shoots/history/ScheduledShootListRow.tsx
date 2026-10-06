@@ -1,3 +1,4 @@
+import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import { canManageRequestedShoots } from '@/utils/requestedShootPermissions';
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 import React, { memo, useState } from 'react'
@@ -404,11 +405,11 @@ export const ScheduledShootListRow = ({
                 </span>
               </div>
             )}
-            {!isEditor && shoot.photographer?.name && shoot.photographer.name !== 'Unassigned' && (
+            {!isEditor && getShootPhotographerDisplayName(shoot) !== 'Unassigned' && (
               <div className="flex min-w-0 items-center gap-1.5">
                 <Camera className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                <span className="min-w-0 truncate font-medium" title={shoot.photographer.name}>
-                  {shoot.photographer.name}
+                <span className="min-w-0 truncate font-medium" title={getShootPhotographerDisplayName(shoot)}>
+                  {getShootPhotographerDisplayName(shoot)}
                 </span>
               </div>
             )}

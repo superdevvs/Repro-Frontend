@@ -1,3 +1,4 @@
+import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 import { canManageRequestedShoots } from '@/utils/requestedShootPermissions';
 import React from 'react';
@@ -382,13 +383,13 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
             </div>
           )}
           
-          {shoot.photographer?.name && (
+          {getShootPhotographerDisplayName(shoot) !== 'Unassigned' && (
             <div className={cn('space-y-1 min-w-0', compact && 'text-right')}>
               <div className={cn('flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide', compact && 'justify-end')}>
                 <Camera className="h-3.5 w-3.5" />
                 <span>Photographer</span>
               </div>
-              <p className="text-sm font-semibold">{shoot.photographer.name}</p>
+              <p className="text-sm font-semibold">{getShootPhotographerDisplayName(shoot)}</p>
             </div>
           )}
         </div>

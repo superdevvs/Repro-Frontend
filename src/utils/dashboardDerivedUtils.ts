@@ -18,6 +18,7 @@ import { isFloorplanLikeHeroFile, isUnsuitableShootCardHeroUrl, selectShootCardH
 import { normalizeShootPaymentSummary } from "@/utils/shootPaymentSummary";
 import { normalizeDashboardRole } from "@/utils/dashboardFilterPermissions";
 import { getShootPropertyDetails, streetWithAptSuite } from '@/utils/shootAddressDisplay';
+import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 
 type ClientWithLegacyPhoneNumber = ShootData["client"] & {
   phonenumber?: string | null;
@@ -438,6 +439,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
   const localDay = scheduledLocalDate ? parseLocalYmd(scheduledLocalDate) : null;
 
   const summary: DashboardShootSummary = {
+    photographerDisplayName: getShootPhotographerDisplayName(shoot),
     id: toNumericId(shoot.id, `${location.address}-${shoot.scheduledDate}`),
     completedAt: shoot.completedDate ?? null,
     dayLabel: getDayLabel(localDay ?? start),

@@ -216,6 +216,20 @@ export type AssignedShootPhotographer = {
   avatar?: string;
 };
 
+/** Preview current service assignees without treating a stale primary as another assignment. */
+export const getShootPhotographerDisplayName = (
+  shoot: AssignmentSource & { serviceItems?: unknown[] | null },
+): string => {
+  const serviceItems = shoot.serviceItems?.filter(
+    (item): item is Record<string, unknown> => item !== null && typeof item === 'object',
+  );
+  const assignments = getShootPhotographerAssignments(
+    serviceItems?.length ? { ...shoot, serviceObjects: serviceItems } : shoot,
+  );
+  const names = [...new Set(assignments.map((item) => item.photographer?.name).filter(Boolean))];
+  return names.length ? names.join(' · ') : shoot.photographer?.name || 'Unassigned';
+};
+
 /**
  * Unique photographers on a shoot: shoot-level primary plus every service-level assignee.
  */

@@ -1,3 +1,4 @@
+import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 import React, { memo, useState } from 'react'
 import axios from 'axios'
@@ -456,7 +457,7 @@ export const CompletedAlbumCard = ({
                 <Camera className="h-3.5 w-3.5" />
                 <span>Photographer</span>
               </div>
-              <p className="text-sm font-semibold truncate">{shoot.photographer?.name ?? 'Unassigned'}</p>
+              <p className="text-sm font-semibold truncate">{getShootPhotographerDisplayName(shoot)}</p>
             </div>
           )}
         </div>

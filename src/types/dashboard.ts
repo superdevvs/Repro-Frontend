@@ -222,6 +222,7 @@ export interface DashboardClientRequest {
 }
 
 export interface DashboardShootSummary {
+  photographerDisplayName?: string;
   /** Open only the media explicitly assigned through editing dispatches. */
   hasScopedEditingTasks?: boolean;
   /** Current editor still has an unfinished assigned media lane after other media was delivered. */

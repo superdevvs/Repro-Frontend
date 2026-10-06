@@ -1,3 +1,4 @@
+import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 import React, { memo, useState } from 'react'
 import axios from 'axios'
@@ -313,10 +314,10 @@ export const HoldOnShootCard = ({
                 <HoverCopyValue as="span" value={visibleClient.name} label="client name" />
               </div>
             )}
-            {!isEditor && shoot.photographer?.name && shoot.photographer.name !== 'Unassigned' && (
+            {!isEditor && getShootPhotographerDisplayName(shoot) !== 'Unassigned' && (
               <div className="flex items-center gap-2">
                 <Camera className="h-4 w-4 text-muted-foreground" />
-                <span>{shoot.photographer.name}</span>
+                <span>{getShootPhotographerDisplayName(shoot)}</span>
               </div>
             )}
           </div>
