@@ -57,12 +57,16 @@ function model(overrides: Partial<Model> = {}): Model {
 afterEach(cleanup);
 
 describe('staff stacked shoot views', () => {
-  it.each(['admin', 'superadmin', 'salesRep'])('puts one compact icon before Previous for %s compact chrome', (role) => {
+  it.each(['admin', 'superadmin', 'salesRep'])('puts one compact icon on the first day pill row for %s compact chrome', (role) => {
     const state = model({ role });
     const { container } = render(<DefaultShootsTabsView model={state} />);
     const compact = screen.getByRole('button', { name: 'Show compact shoot cards' });
     expect(compact.textContent).toBe('');
-    expect(compact.nextElementSibling?.textContent).toMatch(/Previous/);
+    const pillRow = screen.getByText('Today • 1 shoot').closest('.sticky');
+    expect(pillRow).toHaveClass('justify-between', 'items-center');
+    expect(compact.parentElement).toBe(pillRow);
+    expect(pillRow?.lastElementChild).toBe(compact);
+    expect(screen.getByRole('button', { name: 'Previous shoots' }).previousElementSibling).toBeNull();
     const previous = screen.getByRole('button', { name: 'Previous shoots' });
     expect(previous).toBeEnabled();
     expect(previous.querySelector('.lucide-history')).not.toBeNull();
@@ -84,6 +88,31 @@ describe('staff stacked shoot views', () => {
     render(<DefaultShootsTabsView model={model({ paginatedGroups: [] })} />);
     expect(screen.getByText('Yesterday property')).toBeVisible();
     expect(screen.queryByText('No upcoming shoots')).toBeNull();
+  });
+
+  it('puts the compact icon on the first pill row only, whatever its label', () => {
+    const later = { ...group, label: 'Tomorrow', isToday: false, dayOffset: 1 };
+    const tomorrow = { ...group, label: 'Oct 9', isToday: false, dayOffset: 4 };
+    render(<DefaultShootsTabsView model={model({ paginatedGroups: [later, tomorrow], getRelativeGroupLabel: (g: { label: string }) => `${g.label} • 1 shoot` })} />);
+    const compact = screen.getAllByRole('button', { name: 'Show compact shoot cards' });
+    expect(compact).toHaveLength(1);
+    expect(compact[0].parentElement).toBe(screen.getByText('Tomorrow • 1 shoot').closest('.sticky'));
+  });
+
+  it('falls back to the header slot before Previous when there is no pill row', () => {
+    render(<DefaultShootsTabsView model={model({ paginatedGroups: [] })} />);
+    const compact = screen.getByRole('button', { name: 'Show compact shoot cards' });
+    expect(compact.nextElementSibling?.textContent).toMatch(/Previous/);
+  });
+
+  it('keeps active styling and toggle wiring in the pill row', () => {
+    const state = model({ isCompactMobile: true });
+    render(<DefaultShootsTabsView model={state} />);
+    const compact = screen.getByRole('button', { name: 'Show full shoot cards' });
+    expect(compact).toHaveAttribute('aria-pressed', 'true');
+    expect(compact).toHaveClass('bg-primary/15', 'text-primary');
+    fireEvent.click(compact);
+    expect(state.setIsCompactMobile).toHaveBeenCalled();
   });
 
   it('preserves client menu, floating compact control and no earlier stack', () => {

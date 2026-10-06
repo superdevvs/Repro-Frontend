@@ -67,6 +67,18 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
   } = model;
   const staffStack = isStaffShootStackRole(role);
   const inlineCompactControl = staffStack && isCompactDashboardViewport;
+  // Compact viewport (staff): the compact toggle rides on the first day-group
+  // pill row of the active list, right-aligned. With no pill row (empty list,
+  // earlier-only list) it stays in the header next to History/Filters.
+  const compactInPillRow = inlineCompactControl && (
+    activeTab === 'upcoming'
+      ? paginatedGroups.length > 0
+      : filteredRequestedShoots.length > 0 && requestedGroups.length > 0
+  );
+  const pillRowCompactToggle = (groupIndex: number) =>
+    compactInPillRow && groupIndex === 0
+      ? renderCompactToggle({ iconOnly: true, className: 'shrink-0' })
+      : null;
 
   const renderCompactToggle = (opts?: { iconOnly?: boolean; className?: string }) => {
     const iconOnly = Boolean(opts?.iconOnly);
@@ -161,7 +173,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
         </div>
         {/* Desktop: inline filter/previous buttons */}
         <div className={cn('items-center gap-2', staffStack ? 'flex flex-nowrap shrink-0 max-[1024px]:justify-self-end max-[1024px]:self-start' : 'hidden sm:flex')}>
-          {inlineCompactControl && renderCompactToggle({ iconOnly: true })}
+          {inlineCompactControl && !compactInPillRow && renderCompactToggle({ iconOnly: true })}
           {activeTab === 'upcoming' && (
             <Button
               variant="outline"
@@ -572,6 +584,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
                         {getRelativeGroupLabel(group)}
                       </p>
                     </div>
+                    {pillRowCompactToggle(groupIndex)}
                   </div>
                   {group.shoots.map((shoot) => renderShootCard(shoot, false))}
                 </div>
@@ -612,6 +625,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
                         {getRelativeGroupLabel(group)}
                       </p>
                     </div>
+                    {pillRowCompactToggle(groupIndex)}
                   </div>
                   {group.shoots.map((shoot) => renderShootCard(shoot, true))}
                 </div>
