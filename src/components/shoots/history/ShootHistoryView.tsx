@@ -30,6 +30,10 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ShootHistoryDisplayControls } from './ShootHistoryDisplayControls'
 import type { ShootHistorySort } from './shootHistorySorting'
+import {
+  SHOOT_HISTORY_PAGE_SIZE_OPTIONS,
+  type ShootHistoryPageSize,
+} from './shootHistoryPageSize'
 import { HorizontalLoader } from '@/components/ui/horizontal-loader'
 import { MultiSelectFilter } from '@/components/shoots/history/MultiSelectFilter'
 import { ShootHistoryMlsQueueView } from '@/components/shoots/history/ShootHistoryMlsQueueView'
@@ -136,6 +140,8 @@ export type ShootHistoryViewProps = {
   operationalMeta: HistoryMeta | null
   operationalPage: number
   handleOperationalPageChange: (direction: 'prev' | 'next') => void
+  pageSize: ShootHistoryPageSize
+  onPageSizeChange: (size: ShootHistoryPageSize) => void
   scheduledContent: React.ReactNode
   completedContent: React.ReactNode
   holdOnContent: React.ReactNode
@@ -196,30 +202,58 @@ function PaginationRow({
   total,
   perPage,
   onChange,
+  pageSize,
+  onPageSizeChange,
 }: {
   page: number
   total: number
   perPage: number
   onChange: (direction: 'prev' | 'next') => void
+  pageSize: ShootHistoryPageSize
+  onPageSizeChange: (size: ShootHistoryPageSize) => void
 }) {
   const totalPages = Math.max(1, Math.ceil(total / Math.max(perPage, 1)))
-  if (totalPages < 2) {
-    return null
-  }
+  const showPageButtons = totalPages >= 2
 
   return (
     <div
       data-shoot-history-pagination
-      className="flex items-center justify-between rounded-xl border bg-card p-3 text-sm max-md:mt-auto max-md:mb-[5px]"
+      className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card p-3 text-sm max-md:mt-auto max-md:mb-[5px]"
     >
-      <div>
-        Page {page} of {totalPages} · {total} records
+      <div className="flex flex-wrap items-center gap-3">
+        {showPageButtons && (
+          <div>
+            Page {page} of {totalPages} · {total} records
+          </div>
+        )}
+        <label className="flex items-center gap-2 text-muted-foreground">
+          <span className="whitespace-nowrap">Per page</span>
+          <Select
+            value={String(pageSize)}
+            onValueChange={(value) => onPageSizeChange(Number(value) as ShootHistoryPageSize)}
+          >
+            <SelectTrigger
+              aria-label="Items per page"
+              className="h-8 w-[4.75rem]"
+              data-shoot-history-page-size
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SHOOT_HISTORY_PAGE_SIZE_OPTIONS.map((option) => (
+                <SelectItem key={option} value={String(option)}>
+                  {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </label>
       </div>
       <div className="flex gap-2">
-        <Button variant="outline" size="sm" onClick={() => onChange('prev')} disabled={page === 1}>
+        <Button variant="outline" size="sm" onClick={() => onChange('prev')} disabled={!showPageButtons || page === 1}>
           Previous
         </Button>
-        <Button variant="outline" size="sm" onClick={() => onChange('next')} disabled={page >= totalPages}>
+        <Button variant="outline" size="sm" onClick={() => onChange('next')} disabled={!showPageButtons || page >= totalPages}>
           Next
         </Button>
       </div>
@@ -431,6 +465,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     operationalMeta,
     operationalPage,
     handleOperationalPageChange,
+    pageSize,
+    onPageSizeChange,
     scheduledContent,
     completedContent,
     holdOnContent,
@@ -738,7 +774,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           <TabsContent key={value} value={value} className={cn('flex w-full flex-1 flex-col gap-6', isCalendarFill && viewMode === 'calendar' && 'min-h-0 gap-0 overflow-hidden')}>
             {viewMode === 'calendar' ? props.calendarContent : content}
             {viewMode !== 'calendar' && operationalMeta && operationalMeta.total > 0 && (
-              <PaginationRow page={operationalPage} total={operationalMeta.total} perPage={operationalMeta.per_page} onChange={handleOperationalPageChange} />
+              <PaginationRow page={operationalPage} total={operationalMeta.total} perPage={operationalMeta.per_page} onChange={handleOperationalPageChange} pageSize={pageSize} onPageSizeChange={onPageSizeChange} />
             )}
           </TabsContent>
         ))}
@@ -862,7 +898,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
               <TabsContent value="all" className={cn('flex w-full flex-1 flex-col gap-6', isCalendarFill && historyFilters.viewAs === 'calendar' && 'min-h-0 gap-0 overflow-hidden')}>
                 {historyFilters.viewAs === 'calendar' && historyFilters.groupBy === 'shoot' ? props.calendarContent : historyContent}
                 {historyFilters.viewAs !== 'calendar' && historyMeta && historyFilters.groupBy === 'shoot' && (
-                  <PaginationRow page={historyMeta.current_page} total={historyMeta.total} perPage={historyMeta.per_page} onChange={handleHistoryPageChange} />
+                  <PaginationRow page={historyMeta.current_page} total={historyMeta.total} perPage={historyMeta.per_page} onChange={handleHistoryPageChange} pageSize={pageSize} onPageSizeChange={onPageSizeChange} />
                 )}
               </TabsContent>
 

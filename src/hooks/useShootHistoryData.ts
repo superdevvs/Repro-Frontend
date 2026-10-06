@@ -40,6 +40,12 @@ import { filterShootByRole } from './shootHistoryRoleFilter'
 import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess'
 import { useShootHistoryMapGeocoding } from '@/hooks/useShootHistoryMapGeocoding'
 import type { ShootHistorySort } from '@/components/shoots/history/shootHistorySorting'
+import {
+  isShootHistoryPageSize,
+  readShootHistoryPageSize,
+  writeShootHistoryPageSize,
+  type ShootHistoryPageSize,
+} from '@/components/shoots/history/shootHistoryPageSize'
 import { useShootHistoryCalendarData } from './useShootHistoryCalendarData'
 import { calendarRangeParams, type ShootCalendarRange } from './shootHistoryCalendarData'
 
@@ -166,6 +172,7 @@ export function useShootHistoryData({
   const [historyMeta, setHistoryMeta] = useState<HistoryMeta | null>(null)
   const [historyPage, setHistoryPage] = useState(1)
   const [operationalPage, setOperationalPage] = useState(1)
+  const [pageSize, setPageSize] = useState<ShootHistoryPageSize>(() => readShootHistoryPageSize(user?.id))
   const [operationalMeta, setOperationalMeta] = useState<{ current_page: number; per_page: number; total: number } | null>(null)
   const [loading, setLoading] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
@@ -215,6 +222,14 @@ export function useShootHistoryData({
   historyFiltersRef.current = historyFilters
   const historyPageRef = useRef(historyPage)
   historyPageRef.current = historyPage
+  const pageSizeRef = useRef(pageSize)
+  pageSizeRef.current = pageSize
+
+  useEffect(() => {
+    const next = readShootHistoryPageSize(user?.id)
+    pageSizeRef.current = next
+    setPageSize(next)
+  }, [user?.id])
   const canViewAllShootsRef = useRef(canViewAllShoots)
   canViewAllShootsRef.current = canViewAllShoots
   const roleRef = useRef(role)
@@ -447,7 +462,7 @@ export function useShootHistoryData({
         tab: backendTab,
         sort: shootSortRef.current,
         page: currentPage,
-        per_page: 12,
+        per_page: pageSizeRef.current,
         include_files: 'false',
         view: 'card',
         include_filters: 'false',
@@ -489,11 +504,11 @@ export function useShootHistoryData({
       if (meta && (meta.current_page !== undefined || meta.total !== undefined || meta.count !== undefined)) {
         setOperationalMeta({
           current_page: meta.current_page ?? currentPage,
-          per_page: 12,
+          per_page: pageSizeRef.current,
           total: meta.total ?? meta.count ?? 0,
         })
       } else {
-        setOperationalMeta({ current_page: currentPage, per_page: 12, total: 0 })
+        setOperationalMeta({ current_page: currentPage, per_page: pageSizeRef.current, total: 0 })
       }
 
         loadedOperationalKey.current = serializedKey
@@ -511,7 +526,7 @@ export function useShootHistoryData({
       })
       if (controller.signal.aborted || scope !== accessScopeRef.current) return
       applyPayload(payload)
-      if ((payload.meta?.total ?? payload.meta?.count ?? 0) > currentPage * 12) {
+      if ((payload.meta?.total ?? payload.meta?.count ?? 0) > currentPage * pageSizeRef.current) {
         const nextParams = { ...params, page: currentPage + 1 }
         void queryClient.prefetchQuery({ queryKey: ['shoot-history', scope, 'operational', nextParams], staleTime: 30_000, gcTime: 300_000,
           queryFn: async ({ signal }) => (await apiClient.get('/shoots', { params: nextParams, signal })).data })
@@ -630,7 +645,7 @@ export function useShootHistoryData({
       const params: Record<string, unknown> = {
         group_by: currentFilters.groupBy,
         page: currentPage,
-        per_page: 12,
+        per_page: pageSizeRef.current,
         sort: shootSortRef.current,
       }
       if (currentFilters.search) params.search = currentFilters.search
@@ -669,7 +684,7 @@ export function useShootHistoryData({
           payload.meta
             ? {
                 current_page: payload.meta.current_page ?? 1,
-                per_page: 12,
+                per_page: pageSizeRef.current,
                 total: payload.meta.total ?? 0,
               }
             : null,
@@ -802,7 +817,7 @@ export function useShootHistoryData({
       historyFetchAbortRef.current?.abort()
       historyFetchAbortRef.current = null
     }
-  }, [historyPage, activeTab, shootSort, canViewHistory, historyFilters, fetchHistoryData, calendarEnabled, accessScope])
+  }, [historyPage, pageSize, activeTab, shootSort, canViewHistory, historyFilters, fetchHistoryData, calendarEnabled, accessScope])
 
   useEffect(() => {
     if (!calendarEnabled && activeTab !== 'history') {
@@ -812,7 +827,7 @@ export function useShootHistoryData({
       operationalFetchAbortRef.current?.abort()
       operationalFetchAbortRef.current = null
     }
-  }, [operationalPage, activeTab, scheduledSubTab, holdSubTab, shootSort, operationalFilters, fetchOperationalData, calendarEnabled, accessScope])
+  }, [operationalPage, pageSize, activeTab, scheduledSubTab, holdSubTab, shootSort, operationalFilters, fetchOperationalData, calendarEnabled, accessScope])
 
   const handleSendToEditing = useCallback(
     async (shoot: Pick<ShootData, 'id' | 'status' | 'workflowStatus'>) => {
@@ -898,6 +913,17 @@ export function useShootHistoryData({
     }
   }, [refreshActiveTabData, selectedShoot, loadShootById, isDetailOpen])
 
+  const handlePageSizeChange = useCallback((size: ShootHistoryPageSize) => {
+    if (!isShootHistoryPageSize(size) || size === pageSizeRef.current) return
+    writeShootHistoryPageSize(user?.id, size)
+    pageSizeRef.current = size
+    setPageSize(size)
+    historyPageRef.current = 1
+    operationalPageRef.current = 1
+    setHistoryPage(1)
+    setOperationalPage(1)
+  }, [user?.id])
+
   const handleHistoryPageChange = useCallback((direction: 'prev' | 'next') => {
     if (!historyMeta) return
     const currentPage = historyPage
@@ -935,7 +961,7 @@ export function useShootHistoryData({
   }, [operationalMeta, operationalPage])
 
   const buildHistoryParams = useCallback(() => {
-    const params: Record<string, unknown> = { group_by: historyFilters.groupBy, page: historyPage, per_page: 12, sort: shootSort }
+    const params: Record<string, unknown> = { group_by: historyFilters.groupBy, page: historyPage, per_page: pageSize, sort: shootSort }
     if (historyFilters.search) params.search = historyFilters.search
     if (!shouldHideClientDetails && historyFilters.clientId) params.client_id = historyFilters.clientId
     if (historyFilters.photographerId) params.photographer_id = historyFilters.photographerId
@@ -960,7 +986,7 @@ export function useShootHistoryData({
       Object.assign(params, calendarRangeParams(calendarRange), { group_by: 'shoot', sort: 'date_asc' })
     }
     return params
-  }, [historyFilters, historyPage, shootSort, shouldHideClientDetails, calendarEnabled, activeTab, calendarRange])
+  }, [historyFilters, historyPage, pageSize, shootSort, shouldHideClientDetails, calendarEnabled, activeTab, calendarRange])
 
   const handleExportHistory = useCallback(async () => {
     try {
@@ -1143,6 +1169,8 @@ export function useShootHistoryData({
     setHistoryPage,
     operationalPage,
     setOperationalPage,
+    pageSize,
+    handlePageSizeChange,
     operationalMeta: calendarEnabled && activeTab !== 'history' ? { current_page: 1, per_page: Math.max(calendar.shoots.length, 1), total: calendar.shoots.length } : operationalMeta,
     setOperationalMeta,
     loading: calendarEnabled ? calendar.loading : loading,

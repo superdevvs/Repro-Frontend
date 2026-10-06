@@ -11,6 +11,7 @@ import { Calendar, Clock } from 'lucide-react'
 import { ShootHistoryView, type ShootHistoryViewProps } from './ShootHistoryView'
 import { ShootHistoryGrid } from './ShootHistoryGrid'
 import type { ShootHistorySort } from './shootHistorySorting'
+import { DEFAULT_SHOOT_HISTORY_PAGE_SIZE, type ShootHistoryPageSize } from './shootHistoryPageSize'
 import { useShootHistoryGridColumns } from '@/hooks/useShootHistoryGridColumns'
 import { CompletedAlbumCard } from './CompletedAlbumCard'
 import { HoldOnShootCard } from './HoldOnShootCard'
@@ -257,6 +258,7 @@ function ViewHarness({
   const gridContainerRef = useRef<HTMLDivElement>(null)
   const [activeTab, setActiveTab] = useState<AvailableTab>(tab)
   const [shootSort, setShootSort] = useState<ShootHistorySort>('date_desc')
+  const [pageSize, setPageSize] = useState<ShootHistoryPageSize>(DEFAULT_SHOOT_HISTORY_PAGE_SIZE)
   const [gridColumns, setGridColumns] = useState<3 | 4>(4)
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'map' | 'calendar'>(
     tab === 'history' ? 'map' : initialView,
@@ -308,9 +310,11 @@ function ViewHarness({
     operationalOptions: emptyOptions,
     operationalServicesSelected: false,
     resetOperationalFilters: noop,
-    operationalMeta: showPagination ? { current_page: 1, per_page: 20, total: paginationTotal } : null,
+    operationalMeta: showPagination ? { current_page: 1, per_page: pageSize, total: paginationTotal } : null,
     operationalPage: 1,
     handleOperationalPageChange: noop,
+    pageSize,
+    onPageSizeChange: setPageSize,
     scheduledContent: null,
     completedContent: showPagination ? <div>Scheduled row</div> : null,
     holdOnContent: null,
@@ -458,11 +462,13 @@ describe('Shoot History mobile chrome', () => {
     expect(tabs?.className ?? '').not.toMatch(/2\.75rem/)
   })
 
-  it('hides pagination when there is only one page of results', () => {
+  it('keeps the page-size control when there is only one page of results', () => {
     const { container } = render(<ViewHarness tab="delivered" showPagination />)
 
-    expect(container.querySelector('[data-shoot-history-pagination]')).toBeNull()
-    expect(screen.queryByRole('button', { name: 'Next' })).not.toBeInTheDocument()
+    expect(container.querySelector('[data-shoot-history-pagination]')).not.toBeNull()
+    expect(container.querySelector('[data-shoot-history-page-size]')).not.toBeNull()
+    expect(screen.getByRole('button', { name: 'Next' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled()
   })
 
   it('shows pagination when there are two or more pages', () => {

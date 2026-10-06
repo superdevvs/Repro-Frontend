@@ -231,6 +231,8 @@ const ShootHistory: React.FC = () => {
     handleUploadComplete,
     handleHistoryPageChange,
     handleOperationalPageChange,
+    pageSize,
+    handlePageSizeChange,
     handleExportHistory,
     handleCopyHistory,
     handlePublishMls,
@@ -993,6 +995,8 @@ const ShootHistory: React.FC = () => {
           operationalMeta={operationalMeta}
           operationalPage={operationalPage}
           handleOperationalPageChange={handleOperationalPageChange}
+          pageSize={pageSize}
+          onPageSizeChange={handlePageSizeChange}
           scheduledContent={scheduledContent}
           completedContent={completedContent}
           holdOnContent={holdOnContent}
