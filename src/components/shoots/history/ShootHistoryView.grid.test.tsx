@@ -401,13 +401,24 @@ describe.each(['delivered', 'history'] as const)('Shoot History controls in %s',
 })
 
 describe('Shoot History ordered grid', () => {
-  it('preserves row and keyboard order even when cards have different heights', () => {
+  it('uses masonry column stacks so cards are not forced to equal height', () => {
     const { container } = render(<ShootHistoryGrid columns={3}>
       {[1, 2, 3, 4, 5].map(id => <button key={id} style={{ height: id * 30 }}>{id}</button>)}
     </ShootHistoryGrid>)
-    expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual(['1', '2', '3', '4', '5'])
-    expect(container.querySelector('[data-shoot-history-grid]')).toHaveStyle({ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' })
-    expect(container.querySelector('.masonry-grid-col')).toBeNull()
+    const grid = container.querySelector('[data-shoot-history-grid]')
+    expect(grid).toHaveClass('masonry-grid')
+    // No equal-row CSS grid — heights pack independently via column stacks.
+    expect(grid).not.toHaveStyle({ display: 'grid' })
+    expect(grid).not.toHaveStyle({ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' })
+    const cols = container.querySelectorAll('.masonry-grid-col')
+    expect(cols).toHaveLength(3)
+    // Round-robin keeps L-R tops in source order (1,2,3) while packing down each stack.
+    expect([...cols[0].querySelectorAll('button')].map((button) => button.textContent)).toEqual(['1', '4'])
+    expect([...cols[1].querySelectorAll('button')].map((button) => button.textContent)).toEqual(['2', '5'])
+    expect([...cols[2].querySelectorAll('button')].map((button) => button.textContent)).toEqual(['3'])
+    // Cards keep their intrinsic heights; the grid does not stretch them to match.
+    expect([...cols[0].querySelectorAll('button')].map((button) => button.style.height)).toEqual(['30px', '120px'])
+    expect([...cols[1].querySelectorAll('button')].map((button) => button.style.height)).toEqual(['60px', '150px'])
   })
 })
 
