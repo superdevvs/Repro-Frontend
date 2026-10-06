@@ -3,7 +3,7 @@ import type { ShootData } from '@/types/shoots';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 
 type Channel = 'email' | 'sms';
-type Contact = { id?: unknown; email?: unknown; phone?: unknown; phonenumber?: unknown };
+type Contact = { id?: unknown; name?: string; email?: string; phone?: unknown; phonenumber?: unknown };
 type NotificationSummary = { sent?: number; queued?: number; failed?: number; skipped?: number; requested?: boolean };
 
 const contact = (value: unknown): Contact => value && typeof value === 'object' ? value as Contact : {};
@@ -12,8 +12,7 @@ const hasContact = (person: Contact, channels: Channel[]) => channels.some((chan
   channel === 'email' ? hasValue(person.email) : hasValue(person.phone) || hasValue(person.phonenumber));
 
 /** Match workflow notification routing: booked-service assignees, with primary as fallback only. */
-export function getHoldNotificationAvailability(shoot: Partial<ShootData> | null, channels: Channel[]) {
-  const client = contact(shoot?.client);
+export function getAssignedNotificationPhotographers(shoot: Partial<ShootData> | null): Contact[] {
   const primary = contact(shoot?.photographer);
   const bookedServices = shoot?.serviceObjects?.length
     ? shoot.serviceObjects
@@ -36,6 +35,13 @@ export function getHoldNotificationAvailability(shoot: Partial<ShootData> | null
       phone: assigned?.phone || assigned?.phonenumber || primary.phone || primary.phonenumber,
     } : assigned ?? {};
   }) : [primary];
+  return photographers.filter((person, index) => person.id != null &&
+    photographers.findIndex((other) => String(other.id) === String(person.id)) === index);
+}
+
+export function getHoldNotificationAvailability(shoot: Partial<ShootData> | null, channels: Channel[]) {
+  const client = contact(shoot?.client);
+  const photographers = getAssignedNotificationPhotographers(shoot);
   return {
     clientAvailable: hasContact(client, channels),
     photographerAvailable: photographers.some((person) =>

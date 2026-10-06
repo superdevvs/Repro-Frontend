@@ -1,5 +1,6 @@
 import { HoldNotificationFields } from './HoldNotificationFields';
 import type { HoldNotificationOptions } from './useHoldNotifications';
+import { getAssignedNotificationPhotographers } from './useHoldNotifications';
 import React, { lazy, Suspense, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getNotificationRecipients } from '@/services/messaging';
@@ -209,7 +210,7 @@ export function ShootDetailsModalDialogs({
   formatTime,
 }: ShootDetailsModalDialogsProps) {
   const shootIdNum = shoot?.id != null ? Number(shoot.id) : NaN;
-  // Admin-only recipients roster. Sales_rep Save confirm falls back to shoot.photographer;
+  // Admin-only recipients roster. Other roles preview effective service assignees;
   // skipping avoids a background 403 that can surface as "I don't have permission."
   const recipientsQuery = useQuery({
     queryKey: ['shoot-notification-recipients', shootIdNum],
@@ -219,8 +220,10 @@ export function ShootDetailsModalDialogs({
     retry: false,
   });
   const notifyPhotographers = useMemo(
-    () => (recipientsQuery.data?.recipients ?? []).filter((row) => row.recipient_type === 'photographer'),
-    [recipientsQuery.data],
+    () => recipientsQuery.data
+      ? recipientsQuery.data.recipients.filter((row) => row.recipient_type === 'photographer')
+      : getAssignedNotificationPhotographers(shoot),
+    [recipientsQuery.data, shoot],
   );
 
   type ShootServiceOption = string | { name?: string; label?: string };
@@ -397,10 +400,10 @@ export function ShootDetailsModalDialogs({
                     ? notifyPhotographers
                         .map((person) => {
                           const contact = person.email?.trim();
-                          return contact ? `${person.name} (${contact})` : person.name;
+                          return contact ? `${person.name || 'Photographer'} (${contact})` : person.name || 'Photographer';
                         })
                         .join(', ')
-                    : (shoot?.photographer?.email || 'No photographer email on file')}
+                    : 'No photographer email on file'}
                 </p>
               </div>
               <Checkbox

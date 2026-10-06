@@ -4,7 +4,7 @@ import {
   ShootDetailsCapabilities,
   ShootDetailsRoleFlags,
 } from './shootDetailsTypes';
-import { getShootAssignedPhotographers } from '@/utils/shootPhotographerAssignments';
+import { getHoldNotificationAvailability } from '../details/useHoldNotifications';
 import {
   canFinaliseShoot,
   isFastForwardFinalise as isNoMediaFinalise,
@@ -104,15 +104,7 @@ export const getShootDetailsCapabilities = ({
   const showMmmPunchoutButtons =
     !getShootUnits(shoot).length && isDelivered && (canStartMmmPunchout || Boolean(mmmRedirectUrl));
   const canNotifyClient = Boolean(shoot?.client?.email);
-  const assignedPhotographers = shoot ? getShootAssignedPhotographers(shoot) : [];
-  const canNotifyPhotographer = assignedPhotographers.some((person) => {
-    if (!person.email) return false;
-    if (!shoot?.client?.id) return true;
-    return String(person.id) !== String(shoot.client.id);
-  }) || Boolean(
-    shoot?.photographer?.email &&
-      (!shoot?.client?.id || shoot?.photographer?.id !== shoot?.client?.id),
-  );
+  const canNotifyPhotographer = getHoldNotificationAvailability(shoot, ['email']).photographerAvailable;
   const isScheduledOrOnHold = Boolean(
     shoot &&
       (shoot.status === 'scheduled' ||
