@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ShootData } from '@/types/shoots';
+import type { MediaFile } from '@/hooks/useShootFiles';
 import { RawUploadSection } from './RawUploadSection';
 import { uploadMediaRequest } from './uploadMediaRequest';
 import { prepareRawUploadBatch } from './prepareRawUploadBatch';
@@ -18,6 +19,36 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 const accepted = (name: string, id: number) => ({ ok: true as const, status: 200, responseText: JSON.stringify({ success_count: 1, uploaded_files: [{ id, filename: name, upload_type: 'raw' }] }) });
 
 describe('raw batch interruption recovery', () => {
+  it('counts only confirmed files in this batch, independently of saved media and refreshes', async () => {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const shoot = { id: '98', services: [] } as ShootData;
+    const saved = Array.from({ length: 100 }, (_, id) => ({ id: String(id), filename: `saved-${id}.CR3` } as MediaFile));
+    const panel = (rawFiles: MediaFile[]) => <QueryClientProvider client={client}><RawUploadSection shoot={shoot} rawFiles={rawFiles} onUploadComplete={vi.fn()} /></QueryClientProvider>;
+    const { rerender } = render(panel(saved));
+    const files = ['first.CR3', 'second.CR3', 'third.CR3'].map((name) => new File(['raw'], name));
+    fireEvent.change(screen.getByTestId('raw-upload-input'), { target: { files } });
+    expect(screen.getByText('0 / 3 uploaded')).toBeVisible();
+    const resolvers: Array<(result: Awaited<ReturnType<typeof uploadMediaRequest>>) => void> = [];
+    vi.mocked(uploadMediaRequest).mockImplementation(() => new Promise((resolve) => { resolvers.push(resolve); }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm & upload' }));
+    let finished!: Promise<unknown>;
+    await act(async () => { finished = mocks.trackUpload.mock.calls[0][0].uploadFn(vi.fn(), new AbortController().signal).catch(() => undefined); });
+    expect(screen.getByText('0 / 3 uploaded')).toBeVisible();
+    await act(async () => { resolvers[0](accepted('first.CR3', 101)); });
+    rerender(panel([...saved, { id: '101', filename: 'first.CR3' } as MediaFile]));
+    expect(screen.getByText('1 / 3 uploaded')).toBeVisible();
+    expect(screen.getByRole('progressbar', { name: 'Batch upload progress' })).toHaveAttribute('aria-valuenow', '33');
+    await act(async () => { resolvers[1]({ ok: false, message: 'Connection lost' }); await finished; });
+    expect(screen.getByText('0 / 2 uploaded')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry Failed' }));
+    await act(async () => { finished = mocks.trackUpload.mock.calls[1][0].uploadFn(vi.fn(), new AbortController().signal).catch(() => undefined); });
+    expect(screen.getByText('0 / 2 uploaded')).toBeVisible();
+    await act(async () => { resolvers[2](accepted('second.CR3', 102)); });
+    expect(screen.getByText('1 / 2 uploaded')).toBeVisible();
+    await act(async () => { resolvers[3](accepted('third.CR3', 103)); await finished; });
+    expect(screen.queryByText('Selected Files (2)')).not.toBeInTheDocument();
+  });
+
   it('waits for an in-flight confirmation after a parallel failure and retains unsent work', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const complete = vi.fn();

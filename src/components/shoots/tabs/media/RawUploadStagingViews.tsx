@@ -358,9 +358,8 @@ export function RawUploadCommitBar({
   stagedGroups,
   stagedServiceLabel,
   stagedServiceIsPhoto,
-  expectedCount,
-  totalRawCount,
-  missingCount,
+  uploadBatchCount,
+  completedFileCount,
   isUploading,
   canUpload,
   onUpload,
@@ -371,14 +370,14 @@ export function RawUploadCommitBar({
   stagedGroups: StagedUploadGroup[];
   stagedServiceLabel: string;
   stagedServiceIsPhoto: boolean;
-  /** Null or 0 both mean "no honest denominator", so no progress bar is shown. */
-  expectedCount: number | null;
-  totalRawCount: number;
-  missingCount: number;
+  uploadBatchCount: number;
+  completedFileCount: number;
   isUploading: boolean;
   canUpload: boolean;
   onUpload: () => void;
 }) {
+  const batchTotal = isUploading ? uploadBatchCount : stagedFileCount;
+  const confirmedCount = isUploading ? Math.min(batchTotal, Math.max(0, completedFileCount)) : 0;
   return (
     <div className="sticky bottom-0 z-10 flex-shrink-0 space-y-2 bg-card pt-2">
       <div className="space-y-1.5">
@@ -435,26 +434,19 @@ export function RawUploadCommitBar({
             shoot-wide control, which cannot express a batch where Exterior is 5x
             and Interior is 3x. Each group card now owns its own picker, next to the
             service it applies to. */}
-        {expectedCount > 0 && (
+        {batchTotal > 0 && (
           <div className="flex min-w-[190px] flex-1 flex-col gap-1">
             <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Progress</span>
             <div className="flex h-9 flex-col justify-center gap-1">
               <Progress
-                value={Math.min(100, Math.round((totalRawCount / expectedCount) * 100))}
+                value={Math.round((confirmedCount / batchTotal) * 100)}
+                aria-label="Batch upload progress"
                 className="h-1.5"
               />
               <span className="truncate text-[11px] leading-none text-muted-foreground">
                 <span className="font-medium tabular-nums text-foreground">
-                  {totalRawCount} / {expectedCount}
+                  {confirmedCount} / {batchTotal} uploaded
                 </span>
-                {missingCount > 0 && (
-                  <>
-                    {' · '}
-                    <span className="tabular-nums text-orange-700 dark:text-orange-300">
-                      {missingCount} missing
-                    </span>
-                  </>
-                )}
               </span>
             </div>
           </div>

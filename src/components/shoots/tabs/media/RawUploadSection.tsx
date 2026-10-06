@@ -98,18 +98,14 @@ export function RawUploadSection({
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const { trackUpload, uploads } = useUpload();
-  /**
-   * One staging group per service. A shoot can book several services to the same
-   * photographer, and each file belongs to exactly one of them. The queue used to
-   * be flat with a single service dropdown, so a three-service shoot had to be
-   * uploaded three times, re-picking the dropdown between passes.
-   */
+  /** Stage one group per service, then upload all groups together. */
   const [groups, setGroups] = useState<StagedUploadGroup[]>([]);
   /** Exactly one group is expanded for filling; the rest collapse to a summary. */
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const [uploadIssues, setUploadIssues] = useState<UploadIssue[]>([]);
   const [uploadLimitHint, setUploadLimitHint] = useState<string | undefined>(buildUploadLimitDescription());
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadBatchCount, setUploadBatchCount] = useState(0);
   const [transferDetail, setTransferDetail] = useState<UploadTransferDetail>();
   const [isUploading, setIsUploading] = useState(false);
   const [notes, setNotes] = useState('');
@@ -225,6 +221,7 @@ export function RawUploadSection({
     setOpenGroupId(null);
     setUploadIssues([]);
     setUploadProgress(0);
+    setUploadBatchCount(0);
     setTransferDetail(undefined);
     setIsUploading(false);
     setNotes('');
@@ -472,6 +469,8 @@ export function RawUploadSection({
 
     setIsUploading(true);
     setUploadProgress(0);
+    setUploadBatchCount(totalFiles);
+    setTransferDetail(undefined);
     if (!retryOnly) {
       setUploadIssues([]);
     }
@@ -962,9 +961,8 @@ export function RawUploadSection({
                 ? serviceTargets.find((target) => target.id === stagedGroups[0].serviceId)?.isPhotoService !== false
                 : true
             }
-            expectedCount={expectedCount}
-            totalRawCount={totalRawCount}
-            missingCount={missingCount}
+            uploadBatchCount={uploadBatchCount}
+            completedFileCount={transferDetail?.completedFileIndexes.length ?? 0}
             isUploading={isUploading}
             canUpload={
               stagedFileCount > 0
