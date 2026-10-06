@@ -186,7 +186,7 @@ function SubTabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium leading-5 transition-colors ${
+      className={`shrink-0 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium leading-5 transition-colors max-sm:min-h-[34px] max-sm:py-1 max-sm:text-xs ${
         active
           ? activeClass
           : 'text-muted-foreground hover:text-foreground hover:bg-muted'

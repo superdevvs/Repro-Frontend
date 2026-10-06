@@ -491,6 +491,10 @@ describe('Shoot History mobile chrome', () => {
     expect(mainTabs?.className).toMatch(/pb-1/)
     expect(all.className).toMatch(/py-1\.5/)
     expect(all.className).not.toMatch(/(?:^|\s)py-2(?:\s|$)/)
+    // Mobile (<sm) matches the Dashboard Shoots card Upcoming/Requested tab height (34px).
+    expect(all.className).toMatch(/(?:^|\s)max-sm:min-h-\[34px\](?:\s|$)/)
+    expect(all.className).toMatch(/(?:^|\s)max-sm:py-1(?:\s|$)/)
+    expect(all.className).toMatch(/(?:^|\s)max-sm:text-xs(?:\s|$)/)
     expect(subRow?.className).toMatch(/pb-2/)
   })
 
