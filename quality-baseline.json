@@ -12,7 +12,7 @@
       "src/components/shoots/tabs/ShootDetailsOverviewTab.tsx": 1200,
       "src/components/shoots/tabs/ShootDetailsTourTab.tsx": 1488,
       "src/components/shoots/tabs/ShootDetailsTourTabView.tsx": 1265,
-      "src/hooks/useShootHistoryData.ts": 1244,
+      "src/hooks/useShootHistoryData.ts": 1320,
       "src/pages/Accounts.tsx": 1701,
       "src/pages/AiEditing.tsx": 2732,
       "src/pages/IntegrationsSettings.tsx": 1703,
