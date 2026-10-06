@@ -18,7 +18,7 @@ export function ShootHistoryDateList({ dates, children }: { dates: (string | nul
       let count = 1
       if (beginsDay) while (index + count < rows.length && (dates[index + count] ?? null) === day) count++
       return <Fragment key={index}>
-        {beginsDay && <h3 data-shoot-date-separator={day ?? 'undated'} className="flex items-center gap-3 pt-3 text-sm font-medium text-muted-foreground">
+        {beginsDay && <h3 data-shoot-date-separator={day ?? 'undated'} className="flex items-center gap-3 pt-3 first:pt-0 text-sm font-medium text-muted-foreground">
           <span>{label} • {count} {count === 1 ? 'shoot' : 'shoots'}</span>
           <span className="h-px flex-1 bg-border/60" />
         </h3>}
