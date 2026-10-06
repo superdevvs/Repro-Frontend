@@ -89,6 +89,7 @@ export function ShootDetailsTourContent({
   iguideLineId,
   cubicasaLineId,
   shoot,
+  editorUser,
   isAdmin,
   isRep = false,
   isClient = false,
@@ -100,6 +101,8 @@ export function ShootDetailsTourContent({
 }: ShootDetailsTourTabProps) {
   const { toast } = useToast();
   const canManageVideoLinks = isAdmin || canEditVideoLinks;
+  const canEditTourAppearance = isAdmin || Boolean(!unitId && isRep && editorUser?.id
+    && String(shoot.assignedRepId ?? '') === String(editorUser.id));
   const updateUrl = `${API_BASE_URL}/api/shoots/${shoot.id}${unitId ? `/units/${unitId}/tour` : ''}`;
   const providerUrl = (provider: string, operation: string) => unitId ? `${API_BASE_URL}/api/shoots/${shoot.id}/units/${unitId}/${provider}/${operation}?shoot_service_id=${provider === 'iguide' ? iguideLineId || '' : cubicasaLineId || ''}` : `${API_BASE_URL}/api/integrations/shoots/${shoot.id}/${provider}/${operation}`;
   const shootTourData = shoot as ShootTourCompat;
@@ -423,12 +426,12 @@ export function ShootDetailsTourContent({
     return toStringMap(savedShoot.tourLinks ?? savedShoot.tour_links);
   };
   const persistTourSettings = async (nextSettings: typeof tourSettings) => {
-    if (!isAdmin) return;
+    if (!canEditTourAppearance) return;
     setIsSavingTourSettings(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const updatedTourLinks = {
-        ...sourceTourLinks,
+        ...(isAdmin ? sourceTourLinks : {}),
         header_position: nextSettings.header_position,
         tour_version: nextSettings.tour_version,
         realtor_info: nextSettings.realtor_info,
@@ -939,13 +942,14 @@ export function ShootDetailsTourContent({
     }
   };
   const saveTourStyle = async (style: string) => {
+    if (!canEditTourAppearance) return;
     setIsSavingTourStyle(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       // Preserve the full existing tour_links payload while updating the style value.
       const currentTourLinks = sourceTourLinks;
       const updatedTourLinks = {
-        ...currentTourLinks,
+        ...(isAdmin ? currentTourLinks : {}),
         tour_style: style,
       };
       const res = await fetch(updateUrl, {
@@ -987,12 +991,13 @@ export function ShootDetailsTourContent({
     }
   };
   const saveTourPalette = async (palette: string) => {
+    if (!canEditTourAppearance) return;
     setIsSavingTourPalette(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const currentTourLinks = sourceTourLinks;
       const updatedTourLinks = {
-        ...currentTourLinks,
+        ...(isAdmin ? currentTourLinks : {}),
         tour_palette: palette,
       };
       const res = await fetch(updateUrl, {
@@ -1334,6 +1339,7 @@ export function ShootDetailsTourContent({
       deleteVideoLink={deleteVideoLink}
       tourLinks={tourLinks}
       isAdmin={isAdmin}
+      canEditTourAppearance={canEditTourAppearance}
       openSections={openSections}
       toggleSection={toggleSection}
       tourStyle={tourStyle}

@@ -46,6 +46,7 @@ export function ShootDetailsTourTabView(props: any) {
     deleteVideoLink,
     tourLinks,
     isAdmin,
+    canEditTourAppearance,
     openSections,
     toggleSection,
     tourStyle,
@@ -376,6 +377,7 @@ export function ShootDetailsTourTabView(props: any) {
           isSavingTourSettings={isSavingTourSettings}
           realtorPicker={realtorPicker}
           isAdmin={isAdmin}
+          canEditAppearance={canEditTourAppearance}
           realtorOnly={tourSettingsRealtorOnly}
         />
       )}

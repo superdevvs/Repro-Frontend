@@ -71,6 +71,7 @@ type ShootTourSettingsSectionProps = {
   isSavingTourSettings: boolean;
   realtorPicker: React.ReactNode;
   isAdmin: boolean;
+  canEditAppearance?: boolean;
   /**
    * Show only the realtor picker. Used for clients, whose one decision here is
    * which linked account's branding fronts the tour; the style, palette and
@@ -115,6 +116,7 @@ export function ShootTourSettingsSection({
   isSavingTourSettings,
   realtorPicker,
   isAdmin,
+  canEditAppearance = isAdmin,
   realtorOnly = false,
 }: ShootTourSettingsSectionProps) {
   const [embedsOpen, setEmbedsOpen] = useState(Boolean(editingEmbedId));
@@ -181,7 +183,7 @@ export function ShootTourSettingsSection({
                     setTourStyle(value);
                     void saveTourStyle(value);
                   }}
-                  disabled={!isAdmin || isSavingTourStyle}
+                  disabled={!canEditAppearance || isSavingTourStyle}
                 >
                   <SelectTrigger className={selectTriggerClassName} aria-label="Tour style">
                     <SelectValue placeholder="Select style" />
@@ -204,7 +206,7 @@ export function ShootTourSettingsSection({
                     setTourPalette(value);
                     void saveTourPalette(value);
                   }}
-                  disabled={!isAdmin || isSavingTourPalette}
+                  disabled={!canEditAppearance || isSavingTourPalette}
                 >
                   <SelectTrigger className={selectTriggerClassName} aria-label="Color palette">
                     <SelectValue placeholder="Select palette" />
@@ -221,7 +223,7 @@ export function ShootTourSettingsSection({
                 <Select
                   value={tourSettings.header_position}
                   onValueChange={(value) => void updateTourSetting('header_position', value)}
-                  disabled={!isAdmin || isSavingTourSettings}
+                  disabled={!canEditAppearance || isSavingTourSettings}
                 >
                   <SelectTrigger className={selectTriggerClassName} aria-label="Header position">
                     <SelectValue placeholder="Select position" />
@@ -238,7 +240,7 @@ export function ShootTourSettingsSection({
                 <Select
                   value={tourSettings.tour_version}
                   onValueChange={(value) => void updateTourSetting('tour_version', value)}
-                  disabled={!isAdmin || isSavingTourSettings}
+                  disabled={!canEditAppearance || isSavingTourSettings}
                 >
                   <SelectTrigger className={selectTriggerClassName} aria-label="Tour version">
                     <SelectValue placeholder="Select version" />
@@ -263,7 +265,7 @@ export function ShootTourSettingsSection({
                   <Switch
                     checked={tourSettings.autoplay}
                     onCheckedChange={(checked) => void updateTourSetting('autoplay', checked)}
-                    disabled={!isAdmin || isSavingTourSettings}
+                    disabled={!canEditAppearance || isSavingTourSettings}
                     className="scale-75"
                     aria-label="Autoplay tour videos"
                   />
@@ -276,7 +278,7 @@ export function ShootTourSettingsSection({
                   <Switch
                     checked={tourSettings.show_garage}
                     onCheckedChange={(checked) => void updateTourSetting('show_garage', checked)}
-                    disabled={!isAdmin || isSavingTourSettings}
+                    disabled={!canEditAppearance || isSavingTourSettings}
                     className="scale-75"
                     aria-label="Show garage information"
                   />

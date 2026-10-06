@@ -5,7 +5,10 @@ import type { ShootData } from '@/types/shoots';
 import { ShootDetailsTourTab } from './ShootUnitTourTab';
 import { OverviewVideoEmbedsSection } from './overview/OverviewVideoEmbedsSection';
 
-vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
+vi.mock('@/hooks/use-toast', () => {
+  const toast = vi.fn();
+  return { useToast: () => ({ toast }) };
+});
 vi.mock('./tours/TourLinkRow', () => ({ TourLinkRow: ({ label, value, placeholder, actions }) => <div>
   <input aria-label={label} value={value} placeholder={placeholder} readOnly />{actions.map(action => <button key={action.key} onClick={action.onSelect} disabled={action.disabled}>{action.label}</button>)}
 </div> }));
@@ -19,12 +22,41 @@ const makeShoot = (): ShootData => ({ id: `video-${++nextId}`, status: 'editing'
 } as unknown as ShootData);
 let request: ReturnType<typeof vi.fn>;
 beforeEach(() => {
-  request = vi.fn(async (_url: string, options: RequestInit) => ({ ok: true, json: async () => ({ data: JSON.parse(String(options.body)) }) }));
+  request = vi.fn(async (_url: string, options: RequestInit) => ({ ok: true, json: async () => ({ data: options.body ? JSON.parse(String(options.body)) : [] }) }));
   vi.stubGlobal('fetch', request);
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('video-only Tours and Overview links', () => {
+  it('lets the assigned rep save appearance without submitting media links', async () => {
+    const shoot = makeShoot();
+    shoot.assignedRepId = '1082';
+    render(<ShootDetailsTourTab shoot={shoot} isAdmin={false} isRep editorUser={{ id: '1082', role: 'salesRep' }} onShootUpdate={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Tour Settings/i }));
+    expect(screen.getByLabelText('Tour style')).toBeEnabled();
+    expect(screen.getByLabelText('Header position')).toBeEnabled();
+    expect(screen.getByRole('switch', { name: 'Autoplay tour videos' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('switch', { name: 'Autoplay tour videos' }));
+    await waitFor(() => expect(request.mock.calls.some(call => call[1]?.method === 'PATCH')).toBe(true));
+    const save = request.mock.calls.find(call => call[1]?.method === 'PATCH')!;
+    const payload = JSON.parse(String(save[1].body));
+    expect(payload.tour_links.autoplay).toBe(true);
+    expect(payload.tour_links).not.toHaveProperty('video_link');
+    expect(payload.tour_links).not.toHaveProperty('matterport_branded');
+    fireEvent.click(screen.getByRole('button', { name: /Embeds/i }));
+    expect(screen.getByLabelText('Embed title')).toBeDisabled();
+  });
+
+  it('keeps appearance controls disabled for another rep', () => {
+    const shoot = makeShoot();
+    shoot.assignedRepId = '1082';
+    render(<ShootDetailsTourTab shoot={shoot} isAdmin={false} isRep editorUser={{ id: '99', role: 'salesRep' }} onShootUpdate={vi.fn()} />);
+    fireEvent.click(screen.getByRole('button', { name: /Tour Settings/i }));
+    expect(screen.getByLabelText('Tour style')).toBeDisabled();
+    expect(screen.getByLabelText('Header position')).toBeDisabled();
+    expect(screen.getByRole('switch', { name: 'Autoplay tour videos' })).toBeDisabled();
+  });
+
   it('shows entry placeholders for unsaved versions even when an embed link exists', async () => {
     render(<ShootDetailsTourTab shoot={makeShoot()} isAdmin={false} editorUser={editor} onShootUpdate={vi.fn()} />);
     for (const placeholder of ['Enter branded link', 'Enter MLS link', 'Enter generic link']) {
