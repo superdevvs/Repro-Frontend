@@ -101,8 +101,9 @@ export function ShootDetailsTourContent({
 }: ShootDetailsTourTabProps) {
   const { toast } = useToast();
   const canManageVideoLinks = isAdmin || canEditVideoLinks;
+  const appearanceRepId = shoot.assignedRepId || shoot.client.rep?.id;
   const canEditTourAppearance = isAdmin || Boolean(!unitId && isRep && editorUser?.id
-    && String(shoot.assignedRepId ?? '') === String(editorUser.id));
+    && String(appearanceRepId ?? '') === String(editorUser.id));
   const updateUrl = `${API_BASE_URL}/api/shoots/${shoot.id}${unitId ? `/units/${unitId}/tour` : ''}`;
   const providerUrl = (provider: string, operation: string) => unitId ? `${API_BASE_URL}/api/shoots/${shoot.id}/units/${unitId}/${provider}/${operation}?shoot_service_id=${provider === 'iguide' ? iguideLineId || '' : cubicasaLineId || ''}` : `${API_BASE_URL}/api/integrations/shoots/${shoot.id}/${provider}/${operation}`;
   const shootTourData = shoot as ShootTourCompat;

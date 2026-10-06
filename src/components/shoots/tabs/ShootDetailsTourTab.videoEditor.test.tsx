@@ -28,9 +28,10 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('video-only Tours and Overview links', () => {
-  it('lets the assigned rep save appearance without submitting media links', async () => {
+  it.each(['shoot', 'client'])('lets the %s rep save appearance without submitting media links', async (assignment) => {
     const shoot = makeShoot();
-    shoot.assignedRepId = '1082';
+    shoot.assignedRepId = assignment === 'shoot' ? '1082' : null;
+    shoot.client.rep = { id: '1082', name: 'Bill' };
     render(<ShootDetailsTourTab shoot={shoot} isAdmin={false} isRep editorUser={{ id: '1082', role: 'salesRep' }} onShootUpdate={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /Tour Settings/i }));
     expect(screen.getByLabelText('Tour style')).toBeEnabled();
@@ -50,6 +51,7 @@ describe('video-only Tours and Overview links', () => {
   it('keeps appearance controls disabled for another rep', () => {
     const shoot = makeShoot();
     shoot.assignedRepId = '1082';
+    shoot.client.rep = { id: '99', name: 'Another rep' };
     render(<ShootDetailsTourTab shoot={shoot} isAdmin={false} isRep editorUser={{ id: '99', role: 'salesRep' }} onShootUpdate={vi.fn()} />);
     fireEvent.click(screen.getByRole('button', { name: /Tour Settings/i }));
     expect(screen.getByLabelText('Tour style')).toBeDisabled();
