@@ -17,6 +17,7 @@ import type { DashboardMetricTile } from "@/components/dashboard/v2/RoleMetricTi
 import type {
   DashboardClientRequest,
   DashboardShootSummary,
+  DashboardStats,
 } from "@/types/dashboard";
 import type { ClientBillingSummary } from "@/types/clientBilling";
 import type { ShootData } from "@/types/shoots";
@@ -24,7 +25,6 @@ import type { EditingRequest } from "@/services/editingRequestService";
 import type { ClientShootRecord } from "@/utils/dashboardDerivedUtils";
 import {
   DELIVERED_STATUS_KEYWORDS,
-  filterDeliveredShoots,
   getStatusKey,
   HOLD_STATUS_KEYWORDS,
   matchesStatus,
@@ -48,18 +48,6 @@ const useDashboardMetricCounters = () => {
   const currentMonthStart = startOfMonth(new Date());
   const currentMonthEnd = endOfMonth(new Date());
 
-  const countSummariesThisMonth = useCallback(
-    (
-      summaries: DashboardShootSummary[],
-      getDate: (summary: DashboardShootSummary) => string | null | undefined = (summary) =>
-        summary.startTime,
-    ) =>
-      summaries.filter((summary) =>
-        isDateWithinRange(getDate(summary), currentMonthStart, currentMonthEnd),
-      ).length,
-    [currentMonthEnd, currentMonthStart],
-  );
-
   const countShootsThisMonth = useCallback(
     (
       sourceShoots: ShootData[],
@@ -72,7 +60,7 @@ const useDashboardMetricCounters = () => {
     [currentMonthEnd, currentMonthStart],
   );
 
-  return { countShootsThisMonth, countSummariesThisMonth };
+  return { countShootsThisMonth };
 };
 
 const useShootHistoryNavigation = (navigate: NavigateFunction) =>
@@ -103,7 +91,8 @@ const useActiveRequestCounts = (
 };
 
 export const useAdminDashboardMetrics = ({
-  allSummaries,
+  overviewStats = null,
+  overviewLoading = false,
   holdRequestCount = 0,
   rescheduleRequestCount = 0,
   cancellationRequestCount,
@@ -112,10 +101,13 @@ export const useAdminDashboardMetrics = ({
   isMobile,
   navigate,
   scrollToDashboardSection,
-  setCancellationDialogOpen,
   setMobileDashboardTab,
 }: {
-  allSummaries: DashboardShootSummary[];
+  overviewStats?: Pick<
+    DashboardStats,
+    "shootsThisMonth" | "deliveriesThisMonth" | "cancelledThisMonth"
+  > | null;
+  overviewLoading?: boolean;
   holdRequestCount?: number;
   rescheduleRequestCount?: number;
   cancellationRequestCount: number;
@@ -124,10 +116,8 @@ export const useAdminDashboardMetrics = ({
   isMobile: boolean;
   navigate: NavigateFunction;
   scrollToDashboardSection: ScrollToDashboardSection;
-  setCancellationDialogOpen: Dispatch<SetStateAction<boolean>>;
   setMobileDashboardTab: Dispatch<SetStateAction<MobileDashboardTab>>;
 }) => {
-  const { countSummariesThisMonth } = useDashboardMetricCounters();
   const openShootHistory = useShootHistoryNavigation(navigate);
   const { activeClientRequestCount, activeEditingRequestCount } = useActiveRequestCounts(
     clientRequests,
@@ -137,13 +127,20 @@ export const useAdminDashboardMetrics = ({
     () => activeClientRequestCount + activeEditingRequestCount + cancellationRequestCount + holdRequestCount + rescheduleRequestCount,
     [activeClientRequestCount, activeEditingRequestCount, cancellationRequestCount, holdRequestCount, rescheduleRequestCount],
   );
-  const adminDeliveredSummaries = useMemo(() => filterDeliveredShoots(allSummaries), [allSummaries]);
+
+  const monthStatValue = useCallback(
+    (value: number | null | undefined): number | string => {
+      if (overviewLoading || value == null) return "—";
+      return value;
+    },
+    [overviewLoading],
+  );
 
   return useMemo<DashboardMetricTile[]>(
     () => [
       {
         id: "admin-total-shoots-month",
-        value: countSummariesThisMonth(allSummaries),
+        value: monthStatValue(overviewStats?.shootsThisMonth),
         label: "Total shoots",
         subtitle: "This month",
         icon: <CalendarDays size={16} />,
@@ -153,10 +150,7 @@ export const useAdminDashboardMetrics = ({
       },
       {
         id: "admin-total-deliveries-month",
-        value: countSummariesThisMonth(
-          adminDeliveredSummaries,
-          (summary) => summary.deliveryDeadline || summary.startTime,
-        ),
+        value: monthStatValue(overviewStats?.deliveriesThisMonth),
         label: "Total deliveries",
         subtitle: "This month",
         icon: <CheckCircle2 size={16} />,
@@ -166,12 +160,13 @@ export const useAdminDashboardMetrics = ({
       },
       {
         id: "admin-cancelled-shoots",
-        value: cancellationRequestCount,
+        value: monthStatValue(overviewStats?.cancelledThisMonth),
         label: "Cancelled shoots",
+        subtitle: "This month",
         icon: <Flag size={16} />,
         accent:
           "from-slate-50 via-rose-50/85 to-fuchsia-100/65 text-rose-900 dark:from-[#2f2438] dark:via-[#1d1828] dark:to-[#0b0f1b] dark:text-white",
-        onClick: () => setCancellationDialogOpen(true),
+        onClick: () => openShootHistory("hold", { range: "mtd" }),
       },
       {
         id: "admin-pending-requests",
@@ -196,14 +191,13 @@ export const useAdminDashboardMetrics = ({
       },
     ],
     [
-      adminDeliveredSummaries,
-      allSummaries,
-      cancellationRequestCount,
-      countSummariesThisMonth,
       isMobile,
+      monthStatValue,
       openShootHistory,
+      overviewStats?.cancelledThisMonth,
+      overviewStats?.deliveriesThisMonth,
+      overviewStats?.shootsThisMonth,
       scrollToDashboardSection,
-      setCancellationDialogOpen,
       setMobileDashboardTab,
       totalAdminPendingRequestCount,
     ],

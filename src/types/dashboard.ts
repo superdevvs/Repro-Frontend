@@ -3,6 +3,13 @@ export interface DashboardStatsResponse {
   scheduled_today: number;
   flagged_shoots: number;
   pending_reviews: number;
+  shoots_this_month?: number | null;
+  deliveries_this_month?: number | null;
+  cancelled_this_month?: number | null;
+  /** ET month bounds the counters cover (ISO 8601); accepted but not rendered. */
+  month_start?: string | null;
+  month_end?: string | null;
+  timezone?: string | null;
 }
 
 export interface DashboardShootServiceTagResponse {
@@ -136,6 +143,12 @@ export interface DashboardStats {
   scheduledToday: number;
   flaggedShoots: number;
   pendingReviews: number;
+  /** ET calendar-month shoot count from overview; null when backend key absent. */
+  shootsThisMonth: number | null;
+  /** ET calendar-month delivery count from overview; null when backend key absent. */
+  deliveriesThisMonth: number | null;
+  /** ET calendar-month cancelled shoot count from overview; null when backend key absent. */
+  cancelledThisMonth: number | null;
 }
 
 export interface DashboardShootServiceTag {

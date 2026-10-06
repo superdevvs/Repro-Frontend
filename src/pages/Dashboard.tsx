@@ -491,16 +491,16 @@ const Dashboard = () => {
   );
 
   const adminMetricTiles = useAdminDashboardMetrics({
+    overviewStats: data?.stats ?? null,
+    overviewLoading: loading && !data,
     holdRequestCount: holdRequests.shoots.length,
     rescheduleRequestCount: rescheduleRequests.pendingCount,
-    allSummaries,
     cancellationRequestCount,
     clientRequests,
     editingRequests,
     isMobile: isCompactDashboardViewport,
     navigate,
     scrollToDashboardSection,
-    setCancellationDialogOpen,
     setMobileDashboardTab,
   });
 

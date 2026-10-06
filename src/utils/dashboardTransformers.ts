@@ -149,11 +149,18 @@ const normalizeWorkflowColumn = (
     : [],
 });
 
+const asOptionalCount = (value: unknown): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+
 const normalizeStats = (stats?: DashboardOverviewResponse['stats'] | null): DashboardStats => ({
   totalShoots: stats?.total_shoots ?? 0,
   scheduledToday: stats?.scheduled_today ?? 0,
   flaggedShoots: stats?.flagged_shoots ?? 0,
   pendingReviews: stats?.pending_reviews ?? 0,
+  // Keep null when keys are absent so admin cards can show loading/empty instead of inventing 0.
+  shootsThisMonth: asOptionalCount(stats?.shoots_this_month),
+  deliveriesThisMonth: asOptionalCount(stats?.deliveries_this_month),
+  cancelledThisMonth: asOptionalCount(stats?.cancelled_this_month),
 });
 
 const shootSortValue = (shoot: DashboardShootSummary) => {
@@ -227,7 +234,15 @@ export const transformDashboardOverview = (
     console.error('Error transforming dashboard overview:', error, response);
     // Return safe defaults
     return {
-      stats: { totalShoots: 0, scheduledToday: 0, flaggedShoots: 0, pendingReviews: 0 },
+      stats: {
+        totalShoots: 0,
+        scheduledToday: 0,
+        flaggedShoots: 0,
+        pendingReviews: 0,
+        shootsThisMonth: null,
+        deliveriesThisMonth: null,
+        cancelledThisMonth: null,
+      },
       upcomingShoots: [],
       photographers: [],
       pendingReviews: [],
