@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { useShootSearch } from './useShootSearch';
+import type { ShootData } from '@/types/shoots';
 
 const { searchShoots } = vi.hoisted(() => ({
   searchShoots: vi.fn(),
@@ -21,12 +22,12 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
-const shoot = (id: string) =>
+const shoot = (id: string): ShootData =>
   ({
     id,
     status: 'scheduled',
     location: { address: `Addr ${id}` },
-  }) as any;
+  }) as ShootData;
 
 describe('useShootSearch', () => {
   beforeEach(() => {
