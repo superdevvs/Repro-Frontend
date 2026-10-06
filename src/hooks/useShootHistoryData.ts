@@ -41,6 +41,7 @@ import {
   type ShootHistoryPageSize,
 } from '@/components/shoots/history/shootHistoryPageSize'
 import { useShootHistoryCalendarData } from './useShootHistoryCalendarData'
+import { useShootHistoryListControls } from './useShootHistoryListControls'
 import { calendarRangeParams, type ShootCalendarRange } from './shootHistoryCalendarData'
 
 type ToastFn = (args: { title: string; description?: string; variant?: 'default' | 'destructive' }) => void
@@ -51,8 +52,6 @@ type PhotographerOption = { id: string | number; name: string; avatar?: string }
 type ShootHistoryRecordWithMls = ShootHistoryRecord & { mls_id?: string | number | null }
 
 const ACTIVE_OPERATIONAL_TABS = ['scheduled', 'completed', 'delivered', 'hold', 'editing', 'edited', 'featured'] as const
-/** Match Support / Calls search debounce so page reset pairs with the debounced term. */
-const SEARCH_DEBOUNCE_MS = 250
 
 const isActiveOperationalTab = (value: AvailableTab): value is ActiveOperationalTab =>
   ACTIVE_OPERATIONAL_TABS.includes(value as ActiveOperationalTab)
@@ -147,34 +146,12 @@ export function useShootHistoryData({
   const loadedOperationalKey = useRef('')
   const loadedHistoryKey = useRef('')
 
-  const [debouncedOperationalSearch, setDebouncedOperationalSearch] = useState(() => operationalFilters.search.trim())
-  const [debouncedHistorySearch, setDebouncedHistorySearch] = useState(() => historyFilters.search.trim())
-  const debouncedOperationalSearchRef = useRef(debouncedOperationalSearch)
-  debouncedOperationalSearchRef.current = debouncedOperationalSearch
-  const debouncedHistorySearchRef = useRef(debouncedHistorySearch)
-  debouncedHistorySearchRef.current = debouncedHistorySearch
-
-  const operationalListFiltersKey = JSON.stringify({
-    clientId: operationalFilters.clientId,
-    photographerId: operationalFilters.photographerId,
-    address: operationalFilters.address,
-    services: operationalFilters.services,
-    dateRange: operationalFilters.dateRange,
-    scheduledStart: operationalFilters.scheduledStart,
-    scheduledEnd: operationalFilters.scheduledEnd,
-  })
-  const historyListFiltersKey = JSON.stringify({
-    clientId: historyFilters.clientId,
-    photographerId: historyFilters.photographerId,
-    services: historyFilters.services,
-    dateRange: historyFilters.dateRange,
-    scheduledStart: historyFilters.scheduledStart,
-    scheduledEnd: historyFilters.scheduledEnd,
-    completedStart: historyFilters.completedStart,
-    completedEnd: historyFilters.completedEnd,
-    groupBy: historyFilters.groupBy,
-    viewAs: historyFilters.viewAs,
-  })
+  const operationalScope = `${activeTab}:${activeTab === 'scheduled' ? scheduledSubTab : activeTab === 'hold' ? holdSubTab : 'all'}:${shootSort}`
+  const {
+    operationalPage, setOperationalPage, operationalPageRef, historyPage, setHistoryPage, historyPageRef,
+    debouncedOperationalSearch, debouncedOperationalSearchRef, debouncedHistorySearch, debouncedHistorySearchRef,
+    operationalListFiltersKey, historyListFiltersKey,
+  } = useShootHistoryListControls(activeTab, operationalScope, operationalFilters, historyFilters)
 
   const calendarEnabled = Boolean(calendarRange) && (activeTab === 'history'
     ? historyFilters.viewAs === 'calendar' && historyFilters.groupBy === 'shoot'
@@ -198,8 +175,6 @@ export function useShootHistoryData({
   const [historyRecords, setHistoryRecords] = useState<ShootHistoryRecord[]>([])
   const [historyAggregates, setHistoryAggregates] = useState<ShootHistoryServiceAggregate[]>([])
   const [historyMeta, setHistoryMeta] = useState<HistoryMeta | null>(null)
-  const [historyPage, setHistoryPage] = useState(1)
-  const [operationalPage, setOperationalPage] = useState(1)
   const [pageSize, setPageSize] = useState<ShootHistoryPageSize>(() => readShootHistoryPageSize(user?.id))
   const [operationalMeta, setOperationalMeta] = useState<{ current_page: number; per_page: number; total: number } | null>(null)
   const [loading, setLoading] = useState(false)
@@ -246,12 +221,8 @@ export function useShootHistoryData({
   holdSubTabRef.current = holdSubTab
   const operationalFiltersRef = useRef(operationalFilters)
   operationalFiltersRef.current = operationalFilters
-  const operationalPageRef = useRef(operationalPage)
-  operationalPageRef.current = operationalPage
   const historyFiltersRef = useRef(historyFilters)
   historyFiltersRef.current = historyFilters
-  const historyPageRef = useRef(historyPage)
-  historyPageRef.current = historyPage
   const pageSizeRef = useRef(pageSize)
   pageSizeRef.current = pageSize
 
@@ -823,61 +794,6 @@ export function useShootHistoryData({
     setOperationalOptions(EMPTY_FILTER_COLLECTION)
 
   }, [accessScope, queryClient])
-
-  const operationalScope = `${activeTab}:${activeTab === 'scheduled' ? scheduledSubTab : activeTab === 'hold' ? holdSubTab : 'all'}:${shootSort}`
-  const lastActiveTabRef = useRef(operationalScope)
-  useEffect(() => {
-    const tabChanged = lastActiveTabRef.current !== operationalScope
-    lastActiveTabRef.current = operationalScope
-
-    if (tabChanged) {
-      if (activeTab === 'history') {
-        historyPageRef.current = 1
-        setHistoryPage(1)
-      } else {
-        operationalPageRef.current = 1
-        setOperationalPage(1)
-      }
-    }
-  }, [activeTab, operationalScope])
-
-  useEffect(() => {
-    const next = operationalFilters.search.trim()
-    if (next === debouncedOperationalSearch) return
-    const timer = window.setTimeout(() => {
-      setDebouncedOperationalSearch(next)
-      operationalPageRef.current = 1
-      setOperationalPage(1)
-    }, SEARCH_DEBOUNCE_MS)
-    return () => window.clearTimeout(timer)
-  }, [operationalFilters.search, debouncedOperationalSearch])
-
-  useEffect(() => {
-    const next = historyFilters.search.trim()
-    if (next === debouncedHistorySearch) return
-    const timer = window.setTimeout(() => {
-      setDebouncedHistorySearch(next)
-      historyPageRef.current = 1
-      setHistoryPage(1)
-    }, SEARCH_DEBOUNCE_MS)
-    return () => window.clearTimeout(timer)
-  }, [historyFilters.search, debouncedHistorySearch])
-
-  const lastOperationalListFiltersKeyRef = useRef(operationalListFiltersKey)
-  useEffect(() => {
-    if (lastOperationalListFiltersKeyRef.current === operationalListFiltersKey) return
-    lastOperationalListFiltersKeyRef.current = operationalListFiltersKey
-    operationalPageRef.current = 1
-    setOperationalPage(1)
-  }, [operationalListFiltersKey])
-
-  const lastHistoryListFiltersKeyRef = useRef(historyListFiltersKey)
-  useEffect(() => {
-    if (lastHistoryListFiltersKeyRef.current === historyListFiltersKey) return
-    lastHistoryListFiltersKeyRef.current = historyListFiltersKey
-    historyPageRef.current = 1
-    setHistoryPage(1)
-  }, [historyListFiltersKey])
 
   useEffect(() => {
     if (!calendarEnabled && activeTab === 'history' && canViewHistory) {
