@@ -15,22 +15,27 @@ function Harness({ initial = row, desktop = true }: { initial?: DayBooking; desk
     onMove={(id, start) => setBookings(current => current.map(value => value.id === id ? { ...value, start, end: new Date(Date.parse(start) + value.duration_minutes * 60000).toISOString() } : value))} />;
 }
 describe('day schedule adjustment', () => {
-  it('moves the shoot by keyboard down to 8 AM and preserves its duration', () => {
+  it('moves the shoot within 7 AM to 9 PM and preserves its duration', () => {
     const scroll = vi.fn(); Element.prototype.scrollTo = scroll;
     render(<Harness />);
     const booking = screen.getByRole('button', { name: /Bradley Lane/ });
-    for (let i = 0; i < 8; i++) fireEvent.keyDown(booking, { key: 'ArrowLeft' });
-    expect(booking).toHaveTextContent('8 AM–10:15 AM');
+    for (let i = 0; i < 12; i++) fireEvent.keyDown(booking, { key: 'ArrowLeft' });
+    expect(booking).toHaveTextContent('7 AM–9:15 AM');
     expect(booking).toHaveClass('target');
     expect(screen.getByLabelText(/booking timeline/)).toHaveClass('horizontal');
-    expect(scroll).toHaveBeenCalledWith({ left: 720, top: 0 });
+    expect(scroll).toHaveBeenCalledWith({ left: 90, top: 0 });
+    for (let i = 0; i < 60; i++) fireEvent.keyDown(booking, { key: 'ArrowRight' });
+    expect(booking).toHaveTextContent('6:45 PM–9 PM');
+    const labels = screen.getByLabelText(/booking timeline/).querySelectorAll('.day-schedule-tick span');
+    expect(Array.from(labels, label => label.textContent)).toEqual(['7 AM','8 AM','9 AM','10 AM','11 AM','12 PM','1 PM','2 PM','3 PM','4 PM','5 PM','6 PM','7 PM','8 PM','9 PM']);
   });
-  it('automatically focuses a 4 AM shoot in the vertical phone layout', () => {
+  it('keeps a 4 AM shoot outside the displayed phone hours while retaining availability context', () => {
     const scroll = vi.fn(); Element.prototype.scrollTo = scroll;
     render(<Harness desktop={false} initial={{ ...row, start: '2026-10-09T08:00:00Z', end: '2026-10-09T10:15:00Z' }} />);
     expect(screen.getByLabelText(/booking timeline/)).toHaveClass('vertical');
-    expect(scroll).toHaveBeenCalledWith({ top: 136.5, left: 0 });
-    expect(screen.getByRole('button')).toHaveTextContent('4 AM–6:15 AM');
+    expect(scroll).toHaveBeenCalledWith({ top: 0, left: 0 });
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    expect(screen.getByText(/Bookings outside these hours still count/)).toBeInTheDocument();
   });
   it('keeps inaccessible existing appointments read only', () => {
     Element.prototype.scrollTo = vi.fn();
