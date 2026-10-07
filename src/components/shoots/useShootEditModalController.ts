@@ -12,6 +12,7 @@ import axios from 'axios';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { hasSalesRepRole } from '@/utils/shootManagementAccess';
+import { canNotifyDistinctPhotographer } from './shootEditNotificationRecipients';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { API_BASE_URL } from '@/config/env';
 import API_ROUTES from '@/lib/api';
@@ -767,13 +768,7 @@ export function useShootEditModalController({
   const travel = useTravelFeasibility({ payload: previewPayload ? shootTravelPayload(unitEdit.source ?? shootDetails, previewPayload, 'approve') : null });
   const canNotifyClient = Boolean(clientEmail);
   const notificationPhotographerId = photographerId || shootDetails?.photographer?.id;
-  const canNotifyPhotographer = Boolean(
-    photographerEmail
-      && (
-        !shootDetails?.client?.id
-        || String(notificationPhotographerId) !== String(shootDetails?.client?.id)
-      )
-  );
+  const canNotifyPhotographer = canNotifyDistinctPhotographer(photographerEmail, notificationPhotographerId, shootDetails?.client?.id);
   const submitApproval = async ({
     notifyClient,
     notifyPhotographer,
