@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getShootDetailsCapabilities } from './shootDetailsCapabilities';
+import { canSendShootManualNotification, getShootDetailsCapabilities } from './shootDetailsCapabilities';
 import type { ShootData } from '@/types/shoots';
 import { hasRestrictedSalesRepRole } from '@/utils/shootManagementAccess';
 const roles = { isAdmin:false, isAdminOrRep:true, isClient:false, isEditor:false,
@@ -9,6 +9,13 @@ const capabilities = (shoot: Partial<ShootData>) => getShootDetailsCapabilities(
   currentUserRole:'salesRep',roleFlags:roles,
 });
 describe('Rep management controls', () => {
+  it.each(['isEditor', 'isPhotographer', 'isClient'] as const)('keeps Notify for a rep whose primary role is %s', primaryFlag => {
+    expect(canSendShootManualNotification({ ...roles, [primaryFlag]: true })).toBe(true);
+    expect(canSendShootManualNotification({ ...roles, isRep: false, [primaryFlag]: true })).toBe(false);
+  });
+  it.each(['isAdmin', 'isEditingManager'] as const)('preserves Notify for %s without a rep role', staffFlag => {
+    expect(canSendShootManualNotification({ ...roles, isRep: false, [staffFlag]: true })).toBe(true);
+  });
   it('allows direct booking edits and cancellation, not production actions', () => {
     const result = capabilities({canManageBooking:true,canManageShootActions:true});
     expect(result.canAdminEdit).toBe(true);

@@ -40,6 +40,7 @@ import { useShootDetailsModalActions } from './modal/useShootDetailsModalActions
 import { useShootDetailsModalPayments } from './modal/useShootDetailsModalPayments';
 import { useShootDetailsModalWorkflow } from './modal/useShootDetailsModalWorkflow';
 import { useShootDetailsModalSave } from './modal/useShootDetailsModalSave';
+import { canSendShootManualNotification } from './modal/shootDetailsCapabilities';
 import {
   getShootDetailsCreatedByLabel,
   getShootDetailsPaymentBadge,
@@ -584,10 +585,9 @@ export function ShootDetailsModal({
   }, [shoot, isEditor, isPhotographer, user?.id]);
   const addressTitle = getShootDetailsAddressTitle(shoot);
 
-  // Admins/superadmins and editing managers (BE enforces manage-able shoots).
+  // Staff and all rep roles (BE enforces shoot access and send permissions).
   // Manual send does not mutate workflow status.
-  const canSendManualNotification =
-    (isAdmin || isEditingManager || isRep) && !isEditor && !isPhotographer && !isClient;
+  const canSendManualNotification = canSendShootManualNotification({ isAdmin, isEditingManager, isRep });
 
   if (loading) {
     return (

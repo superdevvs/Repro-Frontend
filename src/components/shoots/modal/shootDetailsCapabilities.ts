@@ -17,6 +17,11 @@ interface GetShootDetailsCapabilitiesInput {
   userId?: string | number | null;
 }
 
+// A secondary rep role inherits Notify without inheriting production controls.
+export const canSendShootManualNotification = (
+  roles: Pick<ShootDetailsRoleFlags, 'isAdmin' | 'isEditingManager' | 'isRep'>,
+) => roles.isAdmin || roles.isEditingManager || roles.isRep;
+
 export const normalizeShootDetailsStatus = (status?: string | null) => {
   const key = String(status || '').toLowerCase().trim();
   const map: Record<string, string> = {
