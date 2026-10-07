@@ -145,7 +145,7 @@ export function useShootDetailsModalSave({
     let preservePendingUpdates = false;
     try {
       const payload: Record<string, unknown> = {};
-      for (const field of ['travel_override', 'travel_override_reason', 'travel_override_confirmed', 'travel_override_confirmation_version', 'travel_location_confirmed'] as const) {
+      for (const field of ['travel_override', 'travel_override_reason', 'travel_override_confirmed', 'travel_override_confirmation_version', 'travel_location_confirmed', 'schedule_adjustments'] as const) {
         if (hasOwn(updates, field)) payload[field] = (updates as unknown as Record<string, unknown>)[field];
       }
       
@@ -168,11 +168,13 @@ export function useShootDetailsModalSave({
         if (hasOwn(updates.location, 'zip')) payload.zip = normalizeNullableString(updates.location.zip);
       }
 
-      if (notifyOptions?.notifyClient !== undefined) {
-        payload.notify_client = notifyOptions.notifyClient;
+      const notifyClient = notifyOptions?.notifyClient ?? asRecord(updates).notify_client;
+      const notifyPhotographer = notifyOptions?.notifyPhotographer ?? asRecord(updates).notify_photographer;
+      if (typeof notifyClient === 'boolean') {
+        payload.notify_client = canNotifyClient && notifyClient;
       }
-      if (notifyOptions?.notifyPhotographer !== undefined) {
-        payload.notify_photographer = notifyOptions.notifyPhotographer;
+      if (typeof notifyPhotographer === 'boolean') {
+        payload.notify_photographer = canNotifyPhotographer && notifyPhotographer;
       }
       
       // Client and photographer - ensure IDs are numbers and valid
@@ -669,8 +671,8 @@ export function useShootDetailsModalSave({
     travelFailureHandler.current = onTravelFailure;
     setPendingUpdates(updates);
     setServiceDetachConfirmation(null);
-    setNotifyClientOnSave(canNotifyClient);
-    setNotifyPhotographerOnSave(canNotifyPhotographer);
+    setNotifyClientOnSave(canNotifyClient && asRecord(updates).notify_client !== false);
+    setNotifyPhotographerOnSave(canNotifyPhotographer && asRecord(updates).notify_photographer !== false);
     blurActiveElement();
     setIsSaveConfirmOpen(true);
   };

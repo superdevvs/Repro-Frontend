@@ -6,6 +6,7 @@ import type { TravelController } from './useTravelFeasibility';
 
 afterEach(cleanup);
 const controller = (overrides: Partial<TravelController> = {}): TravelController => ({
+  payload: null, notifications: { client: true, photographer: true }, notificationsSupported: false, setNotifications: vi.fn(), onScheduleChange: undefined, scheduleAdjustments: [], setScheduleAdjustments: vi.fn(),
   result: { enabled: true, status: 'conflict', available: false, reason_codes: ['insufficient_travel_time'], can_override: true,
     policy_version: '1', schedule_version: '1', alternatives: [], transitions: [
       { id: 'a', direction: 'incoming', source: 'google_routes', required_minutes: 25, available_minutes: 10, shortfall_minutes: 15, reason_code: 'insufficient_travel_time', attribution: 'Google Maps', drive_minutes: 20, distance_miles: 9.5 },
@@ -17,16 +18,16 @@ const controller = (overrides: Partial<TravelController> = {}): TravelController
 describe('travel explanations and permission controls', () => {
   it('explains both legs, precise shortfall, estimate source, and maps attribution', () => {
     render(<TravelFeasibilityPanel travel={controller()} />);
-    expect(screen.getByText('From previous appointment')).toBeInTheDocument(); expect(screen.getByText('To next appointment')).toBeInTheDocument();
-    expect(screen.getByText('25 min needed · 10 min available · 15 min short')).toBeInTheDocument();
-    expect(screen.getByText('30 min needed · 45 min available')).toBeInTheDocument(); expect(screen.getByText('Google Maps')).toBeInTheDocument();
+    expect(screen.getByText('9.5 miles · Google suggests 20 min')).toBeInTheDocument();
+    expect(screen.getByText('25 min recommended with buffer · 10 min gap · 15 min short')).toBeInTheDocument();
+    expect(screen.getByText('30 min recommended with buffer · 45 min gap')).toBeInTheDocument(); expect(screen.getByText('Google Maps')).toBeInTheDocument();
     expect(screen.getByText('Google Maps')).toHaveAttribute('translate', 'no');
     expect(screen.getByText('Google Maps')).toHaveClass('whitespace-nowrap', 'font-normal', 'not-italic', 'text-xs', 'text-[#5E5E5E]', 'dark:text-white');
-    expect(screen.getByText('Estimated travel based on distance; actual road travel may take longer.')).toBeInTheDocument();
+    expect(screen.getByText('Distance-based estimate')).toBeInTheDocument();
   });
   it('requires an explicit exception action and reason and loads alternatives on demand', () => {
     const travel = controller(); render(<TravelFeasibilityPanel travel={travel} />);
-    expect(screen.getByText(/Saving will ask you to review/)).toBeInTheDocument();
+    expect(screen.getByText(/explicit acknowledgement when saving/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Approve an exception to this travel allowance')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Find up to 3 alternatives' })); expect(travel.loadAlternatives).toHaveBeenCalledOnce();
   });

@@ -22,6 +22,40 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootDetailsModalSave comp forwarding', () => {
+  it('saves the staged day adjustment and separate notification choices through Overview confirmation', async () => {
+    const adjustment = { shoot_id: 43, photographer_id: 9, from_start: '2026-09-01T14:30:00Z',
+      scheduled_at: '2026-09-01T13:00:00Z', expected_edit_version: 'a'.repeat(64) };
+    const { result } = renderHook(() => useShootDetailsModalSave({
+      shoot, setShoot: vi.fn(), setIsEditMode: vi.fn(), refreshShoot: vi.fn().mockResolvedValue(shoot),
+      updateShoot: vi.fn().mockResolvedValue(undefined), toast: vi.fn(),
+      canNotifyClient: true, canNotifyPhotographer: true, isRep: true,
+    }));
+    act(() => result.current.handleSaveRequest({ schedule_adjustments: [adjustment],
+      notify_client: false, notify_photographer: true } as never));
+    expect(result.current.notifyClientOnSave).toBe(false);
+    expect(result.current.notifyPhotographerOnSave).toBe(true);
+    expect(submitShootServiceMutation).not.toHaveBeenCalled();
+    await act(async () => result.current.handleConfirmSave());
+    expect(submitShootServiceMutation).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      payload: { schedule_adjustments: [adjustment], notify_client: false, notify_photographer: true },
+    }));
+  });
+
+  it('does not enable notifications when the user lacks that permission', async () => {
+    const { result } = renderHook(() => useShootDetailsModalSave({
+      shoot, setShoot: vi.fn(), setIsEditMode: vi.fn(), refreshShoot: vi.fn().mockResolvedValue(shoot),
+      updateShoot: vi.fn().mockResolvedValue(undefined), toast: vi.fn(),
+      canNotifyClient: false, canNotifyPhotographer: true,
+    }));
+    act(() => result.current.handleSaveRequest({ notify_client: true, notify_photographer: false } as never));
+    expect(result.current.notifyClientOnSave).toBe(false);
+    expect(result.current.notifyPhotographerOnSave).toBe(false);
+    await act(async () => result.current.handleConfirmSave());
+    expect(submitShootServiceMutation).toHaveBeenCalledWith(expect.objectContaining({
+      payload: { notify_client: false, notify_photographer: false },
+    }));
+  });
+
   it('forwards changed discount inputs without client-computed prices', async () => {
     const { result } = renderHook(() => useShootDetailsModalSave({
       shoot, setShoot: vi.fn(), setIsEditMode: vi.fn(), refreshShoot: vi.fn().mockResolvedValue(shoot),

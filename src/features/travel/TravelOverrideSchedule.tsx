@@ -1,6 +1,8 @@
 import { ArrowDownLeft, ArrowUpRight, Clock3, MapPin, UserRound } from 'lucide-react';
 import type { TravelController } from './useTravelFeasibility';
 import type { TravelTransition } from './types';
+import { sameDayTransitions } from './daySchedule';
+import { TravelRouteSummary } from './TravelRouteSummary';
 
 function scheduleRange(start: string, end?: string, timezone = 'America/New_York') {
   const first = new Date(start), last = end ? new Date(end) : null;
@@ -29,23 +31,12 @@ function NeighborCard({ leg, timezone, showProposedTime }: { leg: TravelTransiti
       <p className="flex items-start gap-1.5 text-xs"><Clock3 aria-hidden="true" className="mt-0.5 h-3 w-3 shrink-0" /><span>{scheduleRange(neighbor.scheduled_at, neighbor.end_at, neighbor.timezone)}</span></p>
     </div> : <p className="text-xs text-muted-foreground">{leg.direction === 'between_proposed' ? 'Review the timing between the proposed visits.' : 'Booking details are not available with your access.'}</p>}
     {showProposedTime && leg.candidate_start && <p className="mt-2 text-xs"><span className="font-medium">Proposed: </span>{scheduleRange(leg.candidate_start, leg.candidate_end, timezone)}</p>}
-    <div className="my-3 grid grid-cols-2 gap-3 border-y border-border/60 py-2">
-      <p className="text-xs text-muted-foreground">Travel needed<span className="mt-0.5 block text-lg font-semibold leading-tight text-foreground">{unknown ? 'Unknown' : <>{leg.required_minutes}<span className="ml-1 text-xs font-normal">min</span></>}</span></p>
-      <p className="text-xs text-muted-foreground">Time available<span className={`mt-0.5 block text-lg font-semibold leading-tight ${shortfall ? 'text-amber-800 dark:text-amber-200' : 'text-foreground'}`}>{Math.max(0, leg.available_minutes)}<span className="ml-1 text-xs font-normal">min</span></span></p>
-    </div>
-    <div className="space-y-1 text-xs text-muted-foreground">
-      {leg.source === 'google_routes' && leg.drive_minutes != null ? <p>Approximate Google drive time {leg.direction === 'outgoing' ? 'to the next booking' : 'to the proposed location'}: <span className="font-medium text-foreground">{Math.ceil(leg.drive_minutes)} min.</span></p>
-        : leg.source === 'fixed' ? <p>Fixed travel gap: {leg.required_minutes} min.</p>
-        : leg.source === 'same_building' ? <p>Same confirmed building; no travel between these units.</p>
-          : leg.source === 'unknown' ? <p>Travel cannot be estimated reliably; staff review required.</p>
-            : <p>Estimated travel based on distance; actual road travel may take longer. Google drive time is unavailable.</p>}
-      {leg.attribution && <p translate="no" className="whitespace-nowrap text-xs font-normal not-italic text-[#5E5E5E] dark:text-white">{leg.attribution}</p>}
-    </div>
+    <TravelRouteSummary leg={leg} />
   </section>;
 }
 
 export function TravelOverrideSchedule({ travel }: { travel: TravelController }) {
-  const legs = travel.result?.transitions ?? [];
+  const legs = sameDayTransitions(travel.result?.transitions ?? [], travel.timezone || travel.result?.visits?.[0]?.timezone || 'America/New_York');
   const first = legs[0];
   const sharedTime = first?.candidate_start && legs.every(leg => leg.candidate_start === first.candidate_start && leg.candidate_end === first.candidate_end);
   return <div className="space-y-3 sm:space-y-4">

@@ -38,13 +38,13 @@ function fakePreview(canOverride = true) {
   return fetcher;
 }
 async function open() {
-  await screen.findByText('Travel needs attention');
+  await screen.findByText('Review travel time');
   fireEvent.click(screen.getByText('Save schedule'));
   await screen.findByRole('dialog');
   expect(screen.queryByRole('slider', { name: 'Shoot duration for Exterior · Unit A' })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole('button', { name: 'Adjust duration' }));
 }
-const swipe = () => screen.getByRole('slider', { name: 'Swipe to confirm travel exception' });
+const swipe = () => screen.getByRole('button', { name: /Confirm.*travel/ });
 function reason() { fireEvent.change(screen.getByLabelText('Travel exception reason'), { target: { value: 'Coordinated with photographer' } }); }
 
 describe('warning-only duration adjustment', () => {
@@ -60,13 +60,13 @@ describe('warning-only duration adjustment', () => {
     expect(applied).toHaveBeenCalledExactlyOnceWith({ 'unit-a:6': 15 });
     expect(save).not.toHaveBeenCalled(); expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
-    await screen.findByText('Travel needs attention');
+    await screen.findByText('Review travel time');
     expect(save).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('Save schedule')); await screen.findByRole('dialog');
     fireEvent.click(screen.getByRole('button', { name: 'Adjust duration' }));
     expect(screen.getByLabelText('Selected duration for Exterior · Unit A')).toHaveTextContent('15 min');
     expect(swipe()).toBeDisabled(); reason();
-    fireEvent.keyDown(swipe(), { key: 'End' }); fireEvent.keyDown(swipe(), { key: 'Enter' });
+    fireEvent.click(swipe());
     await waitFor(() => expect(save).toHaveBeenCalledExactlyOnceWith({ duration: 15, confirmation: {
       travel_override: true, travel_override_confirmed: true, travel_override_reason: 'Coordinated with photographer', travel_override_confirmation_version: 'duration-15',
     } }));
@@ -102,7 +102,7 @@ describe('warning-only duration adjustment', () => {
   it.each(['client', 'unauthorized', 'no-adapter'])('does not expose duration adjustment to %s', async mode => {
     fakePreview(mode !== 'unauthorized');
     render(<Harness save={vi.fn()} applied={vi.fn()} cancelled={vi.fn()} client={mode === 'client'} permitted={mode !== 'no-adapter'} />);
-    await screen.findByText('Travel needs attention'); fireEvent.click(screen.getByText('Save schedule'));
+    await screen.findByText('Review travel time'); fireEvent.click(screen.getByText('Save schedule'));
     expect(screen.queryByRole('region', { name: 'Adjust proposed service duration' })).not.toBeInTheDocument();
   });
 });

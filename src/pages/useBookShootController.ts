@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { canBookOutsideClientServiceGroups } from '@/utils/bookingServiceAccess';
 import { useBookingTravel } from '@/features/travel/useBookingTravel';
+import { bookingDayScheduleHandler } from '@/features/travel/bookingDayScheduleHandler';
 import { buildBookingDurationAdjuster } from './bookShootDurationAdjustment';
 import { resolveServiceShootDuration } from '@/utils/shootDuration';
 import { useMultiUnitBooking } from '@/features/shoot-units/useMultiUnitBooking';
@@ -219,7 +220,8 @@ export const useBookShootController = () => {
   const travel = useBookingTravel({ active: step >= schedulingStep && !isComplete, requestedOnly: isClientAccount,
     shootId: isEditMode ? editShootId : null, clientId: isClientAccount ? user?.id : client, address, city, state, zip, date, time, photographer,
     propertyDetails, sqft: propertySqft, source: editingScheduleSource, selectedServices, servicePhotographers, serviceSchedules,
-    unitPayload: unitBooking.enabled ? unitBooking.payload : undefined });
+    unitPayload: unitBooking.enabled ? unitBooking.payload : undefined,
+    onScheduleChange: bookingDayScheduleHandler({ date, time, setDate, setTime, setServiceSchedules }) });
   const travelDurationAdjuster = buildBookingDurationAdjuster({ role: user?.role, impersonating: isImpersonating,
     canOverride: travel.canOverride, services: selectedServices, sqft: selectedServiceSqft, schedules: serviceSchedules,
     setSchedules: setServiceSchedules, units: unitBooking,

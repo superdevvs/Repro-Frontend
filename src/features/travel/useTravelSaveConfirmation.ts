@@ -27,7 +27,11 @@ export function useTravelSaveConfirmation({ key, result, loading, blocked, reque
     const current = latest.current;
     if (pending.current || current.blocked) return null;
     if (!canConfirmTravelException(current.result, current.requestedOnly)) return current.confirmation;
-    setReason(''); setOpen(true);
+    const legs = current.result?.transitions ?? [];
+    const short = legs.filter(leg => leg.shortfall_minutes != null && leg.shortfall_minutes > 0);
+    setReason(short.length && legs.every(leg => leg.required_minutes != null)
+      ? `I accept the shorter travel gap (${Math.min(...short.map(leg => Math.max(0, leg.available_minutes)))} minutes) and have reviewed this photographer’s schedule.` : '');
+    setOpen(true);
     return new Promise(resolve => { pending.current = { key: current.key, result: current.result!, resolve }; });
   }, []);
   const complete = useCallback(() => {

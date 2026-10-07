@@ -8,7 +8,7 @@ export function prepareShootManagementSave(payload: Record<string, unknown>, sho
     'bedrooms', 'bathrooms', 'sqft', 'timezone', 'listing_type', 'property_status',
     'alternate_scheduled_date', 'alternate_time', 'shoot_notes', 'company_notes',
     'photographer_notes', 'editor_notes', 'approval_notes', 'discount_type',
-    'discount_value', 'admin_adjusted_total_quote', 'expected_edit_version']) {
+    'discount_value', 'admin_adjusted_total_quote', 'expected_edit_version', 'schedule_adjustments']) {
     if (Object.prototype.hasOwnProperty.call(payload, key)) next[key] = payload[key];
   }
   return next;

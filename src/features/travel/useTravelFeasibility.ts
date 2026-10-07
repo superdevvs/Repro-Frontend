@@ -1,10 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
-import { readTravelFeasibility, type TravelConfirmation, type TravelFeasibility, type TravelPayload } from './types';
+import { readTravelFeasibility, type ScheduleAdjustment, type TravelConfirmation, type TravelFeasibility, type TravelPayload } from './types';
+import { getShootSchedule } from '@/utils/shootSchedule';
+import type { ScheduleChange } from './daySchedule';
 import { canConfirmTravelException, useTravelSaveConfirmation } from './useTravelSaveConfirmation';
 
 /** One preview for the selected itinerary, never one Routes lookup per time option. */
-export function useTravelFeasibility({ payload, requestedOnly = false }: { payload: TravelPayload | null; requestedOnly?: boolean }) {
+export function useTravelFeasibility({ payload: originalPayload, requestedOnly = false, onScheduleChange, notificationsSupported = Boolean(onScheduleChange) }: { payload: TravelPayload | null; requestedOnly?: boolean; onScheduleChange?: (change: ScheduleChange) => void; notificationsSupported?: boolean }) {
+  const scope = JSON.stringify([originalPayload?.shoot_id, originalPayload?.photographer_id, getShootSchedule({ scheduled_at: originalPayload?.scheduled_at, timezone: originalPayload?.timezone }).date]);
+  const [dayChanges, setDayChanges] = useState<{ scope: string; changes: ScheduleAdjustment[] }>({ scope: '', changes: [] });
+  const scheduleAdjustments = dayChanges.scope === scope ? dayChanges.changes : [];
+  useEffect(() => { if (dayChanges.scope !== scope && dayChanges.changes.length) setDayChanges({ scope, changes: [] }); }, [scope, dayChanges]);
+  const [notifications, updateNotifications] = useState({ client: true, photographer: true });
+  const [notificationPreference, setNotificationPreference] = useState(false);
+  const setNotifications = (value: { client: boolean; photographer: boolean }) => { updateNotifications(value); setNotificationPreference(true); };
+  const payload: TravelPayload | null = originalPayload && { ...originalPayload, ...(scheduleAdjustments.length ? { schedule_adjustments: scheduleAdjustments } : {}) };
   const key = payload ? JSON.stringify(payload, (field, value: unknown) => payload.shoot_id && field === 'service_lines' && Array.isArray(value) ? value.map(line => line.shoot_service_id ? line : { ...line, client_key: undefined }) : value) : '';
   const requestPayload = useRef(payload);
   requestPayload.current = payload;
@@ -56,7 +66,9 @@ export function useTravelFeasibility({ payload, requestedOnly = false }: { paylo
   const loading = Boolean(key && (loadingKey === key || (!result && error?.key !== key)));
   const confirmation = useMemo<TravelConfirmation>(() => ({
     ...(locationConfirmed ? { travel_location_confirmed: true } : {}),
-  }), [locationConfirmed]);
+    ...(scheduleAdjustments.length ? { schedule_adjustments: scheduleAdjustments } : {}),
+    ...(!requestedOnly && (notificationsSupported || notificationPreference) ? { notify_client: notifications.client, notify_photographer: notifications.photographer } : {}),
+  }), [locationConfirmed, scheduleAdjustments, requestedOnly, notifications, notificationsSupported, notificationPreference]);
   const canOverride = canConfirmTravelException(result, requestedOnly);
   // An unknown feature state is not a successful check. Staff must receive the
   // selected itinerary's response before saving; an explicit disabled result
@@ -72,6 +84,8 @@ export function useTravelFeasibility({ payload, requestedOnly = false }: { paylo
     return true;
   }, [key]);
   return {
+    payload, notifications, notificationsSupported, setNotifications, onScheduleChange, scheduleAdjustments,
+    setScheduleAdjustments: (changes: ScheduleAdjustment[]) => setDayChanges({ scope, changes }),
     result, enabled, loading, requestedOnly, timezone: typeof payload?.timezone === 'string' ? payload.timezone : undefined,
     proposedLocation: [payload?.address, payload?.city, payload?.state, payload?.zip].filter(value => typeof value === 'string' && value).join(', '),
     error: error?.key === key ? error.message : null,

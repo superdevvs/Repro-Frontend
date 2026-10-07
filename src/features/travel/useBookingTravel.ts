@@ -8,6 +8,7 @@ import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { useTravelFeasibility } from './useTravelFeasibility';
 import type { TravelPayload } from './types';
 import { safelyBuildTravelPayload } from './travelPayload';
+import type { ScheduleChange } from './daySchedule';
 
 type Options = {
   active: boolean; requestedOnly: boolean; shootId?: string | null; clientId?: string | number;
@@ -16,6 +17,7 @@ type Options = {
   selectedServices: ServicePackage[]; servicePhotographers: Record<string, string>;
   serviceSchedules: Record<string, { date?: string; time?: string; duration_minutes?: number }>;
   unitPayload?: (timezone: string) => TravelPayload;
+  onScheduleChange?: (change: ScheduleChange) => void;
 };
 export function useBookingTravel(options: Options) {
   const { active, requestedOnly, shootId, clientId, address, city, state, zip, date, time, photographer,
@@ -36,5 +38,5 @@ export function useBookingTravel(options: Options) {
       scheduled_at: buildBookShootServiceSchedule(service.id, serviceSchedules, day, time, { ...source, timezone }),
     })) }),
   } : null);
-  return useTravelFeasibility({ payload, requestedOnly });
+  return useTravelFeasibility({ payload, requestedOnly, notificationsSupported: !requestedOnly, onScheduleChange: unitPayload ? undefined : options.onScheduleChange });
 }

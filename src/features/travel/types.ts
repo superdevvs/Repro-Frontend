@@ -22,6 +22,7 @@ export type TravelAlternative = {
   shifted_visits?: Array<{ photographer_id: number | string; scheduled_at: string; duration_minutes: number }>;
 };
 export type TravelFeasibility = {
+  visits?: Array<{ photographer_id: number; start: string; end: string; scheduled_at: string; duration_minutes: number; timezone: string; is_target?: boolean }>;
   enabled: boolean;
   status: 'available' | 'conflict' | 'review_required';
   available: boolean;
@@ -36,7 +37,8 @@ export type TravelFeasibility = {
   budget?: { used_elements: number; limit_elements: number; remaining_elements: number; usage_percent: number; alert_level: 0 | 75 | 90 | 100; budget_usd: number };
 };
 export type TravelPayload = Record<string, unknown>;
-export type TravelConfirmation = { travel_override?: boolean; travel_override_reason?: string; travel_override_confirmed?: boolean; travel_override_confirmation_version?: string; travel_location_confirmed?: boolean };
+export type ScheduleAdjustment = { shoot_id: number; photographer_id: number; from_start: string; scheduled_at: string; expected_edit_version: string };
+export type TravelConfirmation = { travel_override?: boolean; travel_override_reason?: string; travel_override_confirmed?: boolean; travel_override_confirmation_version?: string; travel_location_confirmed?: boolean; schedule_adjustments?: ScheduleAdjustment[]; notify_client?: boolean; notify_photographer?: boolean };
 
 export function readTravelFeasibility(value: unknown): TravelFeasibility | null {
   if (!value || typeof value !== 'object') return null;

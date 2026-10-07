@@ -1,4 +1,6 @@
 import { useOverviewTravel } from '@/features/travel/useOverviewTravel';
+import { localSchedule, shiftScheduleFields } from '@/features/travel/daySchedule';
+import { getShootSchedule } from '@/utils/shootSchedule';
 import { buildOverviewEditDraft } from './overviewEditDraft';
 import { comparePhotographerDistance } from '@/utils/photographerDistanceSort';
 import { resolveServicePrice } from './shootOverviewServicePricing';
@@ -390,6 +392,12 @@ export function useShootOverviewEditor({
   const travel = useOverviewTravel({ active: isEditMode, draft: editedShoot, shoot, isAdmin, role, omitStandardServices: hasComplimentaryServices,
     selectedServiceIds, serviceSchedules, servicePrices, servicePhotographerPays, serviceQuantities: serviceQuantityChanges,
     perCategoryPhotographers, servicesList, effectiveSqft,
+    onScheduleChange: change => {
+      const next = localSchedule(change.scheduledAt, change.timezone);
+      const base = getShootSchedule({ ...shoot, ...editedShoot });
+      setServiceSchedules(current => shiftScheduleFields(current, base, change));
+      setEditedShoot(current => ({ ...current, scheduledDate: next.date, time: next.time }));
+    },
     assignment: !isEditMode && assignPhotographerOpen && selectedPhotographerId ? buildAssignmentPayload('photographer_id', selectedPhotographerId) : null });
   const handleSave = useCallback(async () => {
     if (!onSave) return;
