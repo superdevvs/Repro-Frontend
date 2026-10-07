@@ -6,6 +6,7 @@ import { ShootNotesTab } from './ShootNotesTab';
 
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock('@/config/env', () => ({ API_BASE_URL: 'https://api.test' }));
+vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: null }) }));
 
 afterEach(() => {
   cleanup();

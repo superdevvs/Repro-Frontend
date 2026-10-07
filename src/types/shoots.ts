@@ -653,6 +653,10 @@ export interface ShootData {
   canViewInvoice?: boolean;
   canFinalizeNoMedia?: boolean;
   canRemoveAllServices?: boolean;
+  canManageBooking?: boolean;
+  canManageShootActions?: boolean;
+  canAdjustShootPricing?: boolean;
+  editVersion?: string;
   can_submit_raw?: boolean;
   can_submit_edits?: boolean;
   can_approve_editing_review?: boolean;

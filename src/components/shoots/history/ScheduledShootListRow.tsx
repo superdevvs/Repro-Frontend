@@ -201,8 +201,8 @@ export const ScheduledShootListRow = ({
   })
   const approvalNotes = getApprovalNotes(shoot.notes)
   const editingNotes = getEditingNotes(shoot.notes)
-  const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || (displayStatus === 'requested' && canManageRequestedShoots(viewerRole)))
-  const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
+  const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep || (displayStatus === 'requested' && canManageRequestedShoots(viewerRole)))
+  const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep || isEditor)
   const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
   const canShowRequestedActions = displayStatus === 'requested' && (isAdmin || isSuperAdmin || canManageRequestedShoots(viewerRole)) && (onApprove || onDecline || onModify)
@@ -610,4 +610,3 @@ export const ScheduledShootListRow = ({
     </Card>
   )
 }
-

@@ -12,6 +12,7 @@ import { normalizeState } from '@/utils/stateUtils';
 import type { AccountFormValues } from '@/components/accounts/AccountForm';
 import { useAuth, type User } from '@/components/auth/AuthProvider';
 import { canBookOutsideClientServiceGroups } from '@/utils/bookingServiceAccess';
+import { hasSalesRepRole } from '@/utils/shootManagementAccess';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
@@ -297,7 +298,7 @@ export const useClientPropertyFormController = ({
 }: ClientPropertyFormProps) => {
   const units = useBookingUnits();
   const { user } = useAuth();
-  const canBookFullCatalog = !isClientAccount && canBookOutsideClientServiceGroups(user?.role);
+  const canBookFullCatalog = !isClientAccount && (hasSalesRepRole(user) || canBookOutsideClientServiceGroups(user?.role));
   const [searchQuery, setSearchQuery] = useState('');
   const [clientSelectOpen, setClientSelectOpen] = useState(false);
   const [isAddingClient, setIsAddingClient] = useState(false);

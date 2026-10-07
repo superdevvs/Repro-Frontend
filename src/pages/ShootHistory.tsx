@@ -29,6 +29,7 @@ import { useShootHistoryData } from '@/hooks/useShootHistoryData'
 import { useShootHistoryViewState } from '@/hooks/useShootHistoryViewState'
 import { useShootHistoryGridColumns } from '@/hooks/useShootHistoryGridColumns'
 import { useAuth } from '@/components/auth/AuthProvider'
+import { hasSalesRepRole } from '@/utils/shootManagementAccess'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { API_BASE_URL } from '@/config/env'
 import { Calendar as CalendarIcon, CheckCircle2, Trash2 } from 'lucide-react'
@@ -95,10 +96,10 @@ const ShootHistory: React.FC = () => {
   const isClient = role === 'client'
   const isPhotographer = role === 'photographer'
   const isEditor = role === 'editor'
-  const isSalesRep = role === 'salesRep'
+  const isSalesRep = hasSalesRepRole(user) || hasSalesRepRole({ role })
   const shouldHideClientDetails = isEditor
   const canViewAllShoots = isSuperAdmin || isAdmin || isEditingManager // Super Admin, Admin, and Editing Manager can see all shoots
-  const canViewHistory = HISTORY_ALLOWED_ROLES.has((role as string) ?? '')
+  const canViewHistory = isSalesRep || HISTORY_ALLOWED_ROLES.has((role as string) ?? '')
   const canViewInvoice = !isPhotographer && !isEditingManager && !isEditor
   const canSendToEditing = isSuperAdmin || isAdmin || isEditingManager
   // Admin already sees paid/unpaid pills on Shoot History list+grid cards; sales reps get the same.
@@ -915,6 +916,7 @@ const ShootHistory: React.FC = () => {
       <ShootHistoryDateList dates={paginatedRecords.map(record => getShootLocalDate(record))}>
         {paginatedRecords.map((record) => (
           <HistoryRow 
+            isSalesRep={isSalesRep}
             key={record.id} 
             record={record} 
             onViewRecord={handleHistoryRecordSelect} 

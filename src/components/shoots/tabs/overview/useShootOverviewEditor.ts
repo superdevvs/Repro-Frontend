@@ -1,4 +1,5 @@
 import { useOverviewTravel } from '@/features/travel/useOverviewTravel';
+import { buildOverviewEditDraft } from './overviewEditDraft';
 import { comparePhotographerDistance } from '@/utils/photographerDistanceSort';
 import { resolveServicePrice } from './shootOverviewServicePricing';
 import { withServiceDurationSnapshot } from './shootOverviewDurations';
@@ -128,7 +129,7 @@ export function useShootOverviewEditor({
     [editPhotographers],
   );
   const photographerAssignments = useMemo(() => getShootPhotographerAssignmentGroups(shoot), [shoot]);
-  const isAdminOrRep = isAdmin || ['rep', 'representative', 'salesrep', 'sales_rep'].includes(role.trim().toLowerCase().replace(/[- ]/g, '_'));
+  const isAdminOrRep = Boolean(shoot.canManageBooking) || isAdmin || ['rep', 'representative', 'salesrep', 'sales_rep'].includes(role.trim().toLowerCase().replace(/[- ]/g, '_'));
   const {
     state: {
       enabled: isCompServiceMode,
@@ -266,27 +267,16 @@ export function useShootOverviewEditor({
     canInitializeServiceSelection,
   );
 
+  const initializedEdit = useRef<string | null>(null);
   useEffect(() => {
-    if (!isEditMode) return;
+    if (!isEditMode) { initializedEdit.current = null; return; }
+    if (initializedEdit.current === String(shoot.id)) return;
+    initializedEdit.current = String(shoot.id);
 
     const legacyShoot = shoot as ShootWithLegacyOverviewFields;
     const propertyDetails = (shoot.propertyDetails ?? legacyShoot.property_details ?? {}) as Record<string, unknown>;
     setServiceSchedules({});
-    setEditedShoot({
-      // Undated on-hold imports must stay empty so Edit shows Select date (not today).
-      scheduledDate: shoot.scheduledDate ? formatDateForInput(shoot.scheduledDate) : '',
-      time: shoot.time,
-      location: {
-        address: shoot.location?.address || '',
-        city: shoot.location?.city || '',
-        state: shoot.location?.state || '',
-        zip: shoot.location?.zip || '',
-        fullAddress: shoot.location?.fullAddress || '',
-      },
-      client: shoot.client ? { ...shoot.client } : undefined,
-      photographer: shoot.photographer ? { ...shoot.photographer } : undefined,
-      payment: shoot.payment ? { ...shoot.payment } : undefined,
-    });
+    setEditedShoot(buildOverviewEditDraft(shoot, shoot.scheduledDate ? formatDateForInput(shoot.scheduledDate) : ''));
     setAddressInput(shoot.location?.address || shoot.location?.fullAddress || legacyShoot.address || '');
     initializeMetricsFromShoot();
     if (shoot.client) setSelectedClientId(String(shoot.client.id));

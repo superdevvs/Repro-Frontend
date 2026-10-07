@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { hasSalesRepRole } from '@/utils/shootManagementAccess';
 import { ShootData } from '@/types/shoots';
 import { getShootClientReleaseAccess } from '../details/shootClientReleaseAccess';
 import { getShootDetailsCapabilities } from './shootDetailsCapabilities';
@@ -29,14 +30,10 @@ export function useShootDetailsController({
     const isEditingManager = normalizedRole === 'editing_manager';
     const isAdmin =
       ['admin', 'superadmin', 'super_admin'].includes(normalizedRole) || isEditingManager;
-    const isRep =
-      normalizedRole === 'salesrep' ||
-      normalizedRole === 'sales_rep' ||
-      normalizedRole === 'rep' ||
-      normalizedRole === 'representative';
+    const isRep = hasSalesRepRole({ role: normalizedRole, secondary_roles: (editorUser as { secondary_roles?: string[] } | null)?.secondary_roles });
     const isPhotographer = normalizedRole === 'photographer';
     const isEditor = normalizedRole === 'editor';
-    const isClient = normalizedRole === 'client';
+    const isClient = normalizedRole === 'client' && !isRep;
 
     return {
       isEditingManager,
@@ -47,10 +44,10 @@ export function useShootDetailsController({
       isEditor,
       isClient,
     };
-  }, [normalizedRole]);
+  }, [normalizedRole, editorUser]);
 
   const shouldHideClientDetails =
-    shouldHideClientDetailsProp || roleFlags.isEditor;
+    shouldHideClientDetailsProp || (roleFlags.isEditor && !roleFlags.isRep);
 
   const isRequestedStatus = useMemo(() => {
     const status = String(shoot?.status || shoot?.workflowStatus || '')

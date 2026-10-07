@@ -173,6 +173,7 @@ export interface ShootDetails {
   timezone?: string | null;
   id: number;
   canRemoveAllServices?: boolean;
+  editVersion?: string;
   can_remove_all_services?: boolean;
   address?: string;
   city?: string;

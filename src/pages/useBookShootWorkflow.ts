@@ -44,6 +44,7 @@ type BookShootWorkflowOptions = {
 };
 
 type EditingScheduleSource = {
+  editVersion?: string;
   units_revision?: number;
   timezone?: string | null;
   scheduled_at?: string;

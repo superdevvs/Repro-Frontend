@@ -9,7 +9,7 @@ import {
   submitShootServiceMutation,
   type ServiceDetachConfirmation,
 } from '@/utils/shootServiceMutation';
-import { slimAssignedRepShootSavePayload } from '@/utils/assignedRepShootSavePayload';
+import { prepareShootManagementSave } from '@/utils/shootManagementSave';
 
 interface UseShootDetailsModalSaveParams {
   shoot: ShootData | null;
@@ -21,7 +21,7 @@ interface UseShootDetailsModalSaveParams {
   toast: ReturnType<typeof useToast>['toast'];
   canNotifyClient: boolean;
   canNotifyPhotographer: boolean;
-  /** When true with isRep, Overview Save is slimmed to AssignedRep editable keys. */
+  /** Booking permissions remain separate from production/media administration. */
   isAdmin?: boolean;
   isRep?: boolean;
 }
@@ -454,8 +454,9 @@ export function useShootDetailsModalSave({
       // Assigned sales_rep Overview drafts re-echo client/address/property/payment
       // context. BE AssignedRepSchedulePayload / repEditableKeys reject many of
       // those keys — slim to photographer/schedule/notify before PATCH.
+      if (updates.editVersion || shoot.editVersion) payload.expected_edit_version = updates.editVersion || shoot.editVersion;
       const requestPayload = isRep && !isAdmin
-        ? slimAssignedRepShootSavePayload(payload, shoot)
+        ? prepareShootManagementSave(payload, shoot)
         : payload;
 
       // Don't send empty payloads
@@ -609,6 +610,7 @@ export function useShootDetailsModalSave({
       }
     } catch (error) {
       if (error instanceof ShootServiceMutationError) travelFailureHandler.current?.(error.data);
+      preservePendingUpdates = true;
       console.error('💾 Save error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Failed to update shoot';
       

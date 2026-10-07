@@ -36,7 +36,7 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
   const [loadedScope, setLoadedScope] = useState<string>('guest');
 
   const currentScope = isAuthenticated && role
-    ? `${user?.id ?? 'unknown'}:${role}`
+    ? `${user?.id ?? 'unknown'}:${role}:${(user?.secondary_roles ?? []).join(',')}`
     : 'guest';
 
   useEffect(() => {
@@ -45,8 +45,10 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
     }
 
     const controller = new AbortController();
+    let requestRevision = 0;
 
-    const loadPermissions = async () => {
+    const loadPermissions = async (background = false) => {
+      const revision = ++requestRevision;
       if (!isAuthenticated || !role) {
         setUserPermissions([]);
         setPermissionIds([]);
@@ -56,15 +58,16 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
       }
 
       const scopeForRequest = currentScope;
-      setIsLoading(true);
+      if (!background) setIsLoading(true);
 
       try {
         const response = await fetchCurrentUserPermissions(controller.signal);
+        if (controller.signal.aborted || revision !== requestRevision) return;
         setUserPermissions(response.permissions || []);
         setPermissionIds(response.permissionIds || []);
         setLoadedScope(scopeForRequest);
       } catch (error) {
-        if (controller.signal.aborted) {
+        if (controller.signal.aborted || revision !== requestRevision) {
           return;
         }
 
@@ -73,15 +76,25 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
         setPermissionIds([]);
         setLoadedScope(scopeForRequest);
       } finally {
-        if (!controller.signal.aborted) {
+        if (!controller.signal.aborted && revision === requestRevision) {
           setIsLoading(false);
         }
       }
     };
 
     void loadPermissions();
+    let lastRefresh = 0;
+    const refreshOnFocus = () => {
+      if (document.visibilityState === 'hidden' || Date.now() - lastRefresh < 30000) return;
+      lastRefresh = Date.now();
+      void loadPermissions(true);
+    };
+    window.addEventListener('focus', refreshOnFocus);
+    document.addEventListener('visibilitychange', refreshOnFocus);
 
     return () => {
+      window.removeEventListener('focus', refreshOnFocus);
+      document.removeEventListener('visibilitychange', refreshOnFocus);
       controller.abort();
     };
   }, [role, user?.id, isAuthenticated, authLoading, currentScope]);

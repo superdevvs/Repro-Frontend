@@ -18,6 +18,7 @@ export const HistoryRow = memo(({
   onPublishMls,
   isSuperAdmin = false,
   isAdmin = false,
+  isSalesRep = false,
   isEditingManager = false,
   isEditor = false,
   onDelete,
@@ -31,6 +32,7 @@ export const HistoryRow = memo(({
   onPublishMls?: (record: ShootHistoryRecord) => void
   isSuperAdmin?: boolean
   isAdmin?: boolean
+  isSalesRep?: boolean
   isEditingManager?: boolean
   isEditor?: boolean
   onDelete?: (record: ShootHistoryRecord) => void
@@ -59,8 +61,8 @@ export const HistoryRow = memo(({
   const statusLabel = (record.status ?? 'scheduled').replace(/_/g, ' ')
   const approvalNotesValue = record.notes?.approvalNotes || record.notes?.approval
   const editingNotesValue = record.notes?.editingNotes || record.notes?.editing
-  const canShowApprovalNotes = Boolean(approvalNotesValue) && (isSuperAdmin || isAdmin || isEditingManager)
-  const canShowEditingNotes = Boolean(editingNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
+  const canShowApprovalNotes = Boolean(approvalNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep)
+  const canShowEditingNotes = Boolean(editingNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep || isEditor)
   const recordStatus = String(record.status ?? '').toLowerCase()
   const canSendToEditing = Boolean(onSendToEditing) && recordStatus === 'uploaded'
 

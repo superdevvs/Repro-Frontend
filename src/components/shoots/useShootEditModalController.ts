@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import axios from 'axios';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { hasSalesRepRole } from '@/utils/shootManagementAccess';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { API_BASE_URL } from '@/config/env';
 import API_ROUTES from '@/lib/api';
@@ -54,6 +55,7 @@ export function useShootEditModalController({
   const { toast } = useToast();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const approvalInFlight = useRef(false);
   const [isLoading, setIsLoading] = useState(false);
   const [shootDetails, setShootDetails] = useState<ShootDetails | null>(null);
   const [availableServices, setAvailableServices] = useState<Service[]>([]);
@@ -76,7 +78,7 @@ export function useShootEditModalController({
   } | null>(null);
   const userRole = user?.role?.toLowerCase() || '';
   const isAdmin = userRole === 'admin' || userRole === 'superadmin' || userRole === 'super_admin';
-  const isRep = ['rep', 'representative', 'salesrep', 'sales_rep'].includes(userRole.replace(/[- ]/g, '_'));
+  const isRep = hasSalesRepRole(user);
   const isAdminOrRep = isAdmin || isRep;
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
@@ -688,6 +690,7 @@ export function useShootEditModalController({
       };
     });
     const payload: Record<string, unknown> = {
+      expected_edit_version: shootDetails?.editVersion,
       address: address.trim(),
       city: city.trim(),
       state: state.trim(),
@@ -782,7 +785,8 @@ export function useShootEditModalController({
     silent: boolean;
     confirmationToken?: string | null;
   }) => {
-    if (isSubmitting || isLoading || travel.blocked) return;
+    if (approvalInFlight.current || isSubmitting || isLoading || travel.blocked) return;
+    approvalInFlight.current = true;
     try {
       const payload = buildApprovalPayload();
       if (!payload) return;
@@ -838,6 +842,7 @@ export function useShootEditModalController({
         variant: 'destructive',
       });
     } finally {
+      approvalInFlight.current = false;
       setIsSubmitting(false);
     }
   };

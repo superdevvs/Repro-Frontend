@@ -115,6 +115,7 @@ export const getShootDetailsCapabilities = ({
         !shoot.photographer?.id),
   );
   const canAdminEdit =
+    (shoot?.canManageBooking ?? true) &&
     Boolean(shoot) &&
     isAdminOrRep &&
     !['cancelled', 'declined'].includes(normalizedStatus) &&
@@ -138,9 +139,10 @@ export const getShootDetailsCapabilities = ({
   );
   const isHoldRequested = Boolean(shoot?.holdRequestedAt);
   const canDirectHold =
+    (shoot?.canManageShootActions ?? true) &&
     isAdminOrRep &&
-    !isEditor &&
-    !isEditingManager &&
+    (!isEditor || isRep) &&
+    (!isEditingManager || isRep) &&
     canPutOnHold &&
     !isHoldRequested;
   const canRequestHold = isClient && canPutOnHold && !isHoldRequested;
@@ -153,7 +155,7 @@ export const getShootDetailsCapabilities = ({
   const holdSubmitLabel = isClient ? 'Submit request' : 'Mark on hold';
   const canResumeFromHold = Boolean(
     isOnHold &&
-      (isAdminOrRep ||
+      ((isAdminOrRep && (shoot?.canManageShootActions ?? true)) ||
         (isPhotographer &&
           shoot?.photographer?.id != null &&
           String(shoot.photographer.id) === String(userId ?? ''))),
@@ -166,35 +168,37 @@ export const getShootDetailsCapabilities = ({
   );
   const canRequestCancellation = Boolean(
     shoot &&
-      (isRep || isClient) &&
+      ((isRep && !shoot.canManageShootActions) || isClient) &&
       !isCancellationRequested &&
       ['scheduled', 'booked', 'on_hold', 'editing', 'uploaded'].includes(normalizedStatus),
   );
   const canCancelShoot = Boolean(
+    (isRep && shoot?.canManageShootActions && !isDelivered && !isCancelledOrDeclined) ||
     (isAdmin &&
       shoot &&
       !['cancelled', 'canceled', 'declined'].includes(normalizedStatus)) ||
       canWithdrawRequestedShoot ||
       canRequestCancellation,
   );
-  const cancelActionLabel = isAdmin
+  const canDirectCancel = isAdmin || (isRep && Boolean(shoot?.canManageShootActions));
+  const cancelActionLabel = canDirectCancel
     ? (isDelivered ? 'Delete shoot' : 'Cancel shoot')
     : canWithdrawRequestedShoot
       ? 'Cancel shoot'
       : 'Request cancellation';
-  const cancelDialogTitle = isAdmin
+  const cancelDialogTitle = canDirectCancel
     ? (isDelivered ? 'Delete Shoot' : 'Cancel Shoot')
     : canWithdrawRequestedShoot
       ? 'Cancel Shoot Request'
       : 'Request Shoot Cancellation';
-  const cancelDialogDescription = isAdmin
+  const cancelDialogDescription = canDirectCancel
     ? (isDelivered
       ? 'This will permanently delete the shoot and all associated data.'
       : 'This will permanently cancel the shoot. The client will be notified of the cancellation.')
     : canWithdrawRequestedShoot
       ? 'This will cancel your unapproved shoot request immediately.'
       : 'Tell us why you want to cancel this scheduled shoot. Your request will be reviewed by an admin.';
-  const cancelSubmitLabel = isAdmin
+  const cancelSubmitLabel = canDirectCancel
     ? (isDelivered ? 'Delete Shoot' : 'Cancel Shoot')
     : canWithdrawRequestedShoot
       ? 'Cancel Shoot'

@@ -134,7 +134,7 @@ describe('useShootDetailsModalSave comp forwarding', () => {
     expect(JSON.stringify(payload.service_items)).not.toContain('photographer_id');
   });
 
-  it('slims assigned sales_rep Overview Save to photographer/notify keys', async () => {
+  it('preserves sales rep client, property and assignment edits without stale price echoes', async () => {
     const { result } = renderHook(() => useShootDetailsModalSave({
       shoot, setShoot: vi.fn(), setIsEditMode: vi.fn(), refreshShoot: vi.fn().mockResolvedValue(shoot),
       updateShoot: vi.fn().mockResolvedValue(undefined), toast: vi.fn(),
@@ -157,6 +157,9 @@ describe('useShootDetailsModalSave comp forwarding', () => {
 
     expect(submitShootServiceMutation).toHaveBeenCalledWith(expect.objectContaining({
       payload: {
+        client_id: 9,
+        address: '42 Service Lane', city: 'Baltimore', state: 'MD', zip: '21201', sqft: 1200,
+        property_details: { presenceOption: 'self', source: 'echo', sqft: 1200, squareFeet: 1200 },
         photographer_id: 1163,
         service_photographers: [{ service_id: 19, photographer_id: 1163 }],
         notify_client: false,

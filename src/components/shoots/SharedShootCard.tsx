@@ -1,6 +1,7 @@
 import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 import { canManageRequestedShoots } from '@/utils/requestedShootPermissions';
+import { isSalesRepRole } from '@/utils/shootManagementAccess';
 import React from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -120,8 +121,8 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   const approvalNotes = getApprovalNotes(shoot.notes);
   const editingNotes = getEditingNotes(shoot.notes);
   const [isSendingToEditing, setIsSendingToEditing] = React.useState(false);
-  const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor || (normalizedStatus === 'requested' && canManageRequestedShoots(role)));
-  const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor);
+  const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor || isSalesRepRole(role) || (normalizedStatus === 'requested' && canManageRequestedShoots(role)));
+  const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor || isSalesRepRole(role));
   const shootStatus = String(shoot.workflowStatus || shoot.status || '').toLowerCase();
   const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded';
 
@@ -157,7 +158,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
       ? `${bracketMode}-bracket · ${shoot.package.expectedDeliveredCount * bracketMode} RAW expected`
       : null;
 
-  const isSalesRep = role === 'salesRep';
+  const isSalesRep = isSalesRepRole(role);
   const canShowPaymentStatus = isSuperAdmin || isAdmin || isClient || isSalesRep;
   const paymentSummary = normalizeShootPaymentSummary(shoot);
   // Clients use this for Pay Now visibility; staff see <ShootPaymentBadge> instead.

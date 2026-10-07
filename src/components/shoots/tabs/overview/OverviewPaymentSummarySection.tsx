@@ -103,7 +103,7 @@ export function OverviewPaymentSummarySection({
   const hasInvoiceAdjustments = Math.abs(invoiceAdjustmentsTotal) > 0.005;
   const hasEditedInvoiceAdjustments = Math.abs(editedInvoiceAdjustmentsTotal) > 0.005;
   const editedPayment = editedShoot.payment ?? shoot.payment;
-  const canEditDiscount = isAdmin && shoot.shootType !== 'complimentary_reshoot';
+  const canEditDiscount = (shoot.canAdjustShootPricing ?? isAdmin) && shoot.shootType !== 'complimentary_reshoot';
   const serviceSubtotal = Number(shoot.payment?.serviceSubtotal ?? shoot.payment?.baseQuote ?? 0) || 0;
   const editedServiceSubtotal = Number(
     editedShoot.payment?.serviceSubtotal
@@ -134,7 +134,7 @@ export function OverviewPaymentSummarySection({
     0,
   );
   const editedOverpaymentAmount = Math.max(paymentTotalPaid - editedOrderTotal, 0);
-  const canAdjustOrderTotal = Boolean(shoot.canRemoveAllServices ?? shoot.can_remove_all_services);
+  const canAdjustOrderTotal = shoot.canAdjustShootPricing ?? Boolean(shoot.canRemoveAllServices ?? shoot.can_remove_all_services);
 
   // Admin and sales reps see the full editable/detailed breakdown.
   const canViewFullBreakdown = isAdmin || isRep;

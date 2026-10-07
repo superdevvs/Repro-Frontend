@@ -7,6 +7,8 @@ import { Building2, Camera, ClipboardCheck, FileText, PenLine, Save, X } from "l
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { hasSalesRepRole } from '@/utils/shootManagementAccess';
 
 interface ShootNotesTabProps {
   shoot: ShootData;
@@ -50,7 +52,8 @@ export function ShootNotesTab({
   const isRealAdmin = role === 'admin' || isSuperAdmin;
   const isEditingManager = role === 'editing_manager';
   const isEditor = role === 'editor';
-  const isRep = ['rep', 'representative', 'salesrep', 'sales_rep'].includes(role.trim().toLowerCase().replace(/[- ]/g, '_'));
+  const { user } = useAuth();
+  const isRep = hasSalesRepRole(user) || hasSalesRepRole({ role });
   
   const [editableNotes, setEditableNotes] = useState<EditableNotesState>({
     shootNotes: '',

@@ -122,7 +122,7 @@ const ShootDetails: React.FC = () => {
   const normalizedRole = role.toLowerCase();
   const isSuperAdmin = normalizedRole === 'superadmin';
   const isAdminOrSuperAdmin = isAdmin;
-  const canReviewHoldRequest = isAdminOrRep && isHoldRequested;
+  const canReviewHoldRequest = isAdminOrRep && (shoot?.canManageShootActions ?? true) && isHoldRequested;
   const workflowBadge = getShootDetailsWorkflowBadge(shoot?.workflowStatus || shoot?.status);
   const paymentBadge = getShootDetailsPaymentBadge(shoot);
   const shootServices = getShootDetailsServiceNames(shoot);

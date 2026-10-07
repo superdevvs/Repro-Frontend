@@ -9,6 +9,8 @@ import { useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import type { Client } from '@/types/clients';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { usePermissions } from '@/context/PermissionsContext';
+import { hasSalesRepRole } from '@/utils/shootManagementAccess';
 import { format } from 'date-fns';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import type { InternalShootType } from '@/components/booking/ClientPropertyForm';
@@ -70,10 +72,12 @@ export const useBookShootController = () => {
   const requestedCompReshootSourceId = queryParams.get('compReshootFrom');
   const additionalWorkSourceId = queryParams.get('reshootOf');
   const { user, isImpersonating } = useAuth();
-  const canAdjustBookingAmount = !isImpersonating && ['admin', 'superadmin', 'super_admin'].includes(String(user?.role ?? '').toLowerCase());
-  const compReshootSourceId = isComplimentaryReshootEnabled && canAdjustBookingAmount ? requestedCompReshootSourceId : null;
+  const { can, isLoading: permissionsLoading } = usePermissions();
+  const canAdjustBookingAmount = can('shoot-pricing', 'update');
+  const canManageCompReshoot = !isImpersonating && ['admin', 'superadmin', 'super_admin'].includes(String(user?.role ?? '').toLowerCase());
+  const compReshootSourceId = isComplimentaryReshootEnabled && canManageCompReshoot ? requestedCompReshootSourceId : null;
   const isCompReshootMode = Boolean(compReshootSourceId && !editShootId);
-  const isClientAccount = Boolean(user && (user.role as string) === 'client');
+  const isClientAccount = Boolean(user && (user.role as string) === 'client' && !hasSalesRepRole(user));
   const roleCanCreateNoProductShoot = !isImpersonating && ['superadmin', 'editing_manager', 'admin', 'salesRep', 'salesrep', 'sales_rep', 'rep'].includes(String(user?.role ?? ''));
   const {
     isEditMode, setIsEditMode, editingScheduleSource, editShootLoading, canRemoveAllServicesForEdit, packages, packagesLoading, setPackagesLoading,
@@ -95,7 +99,7 @@ export const useBookShootController = () => {
     user, isClientAccount, clientIdFromUrl, clientNameFromUrl, clientCompanyFromUrl,
     editShootId, canAdjustBookingAmount,
   });
-  const unitBooking = useMultiUnitBooking({ draft: multiUnitDraft, setDraft: setMultiUnitDraft, catalog: packages, legacyServices: legacySelectedServices, propertySqft, propertyDetails, date, time, photographer, servicePhotographers, serviceSchedules, allowed: !isCompReshootMode, clientGroups: isClientAccount || canBookOutsideClientServiceGroups(user?.role) ? [] : (clients.find(item => item.id === client)?.service_group_ids ?? clients.find(item => item.id === client)?.service_groups?.map(group => group.id) ?? []).map(String) });
+  const unitBooking = useMultiUnitBooking({ draft: multiUnitDraft, setDraft: setMultiUnitDraft, catalog: packages, legacyServices: legacySelectedServices, propertySqft, propertyDetails, date, time, photographer, servicePhotographers, serviceSchedules, allowed: !isCompReshootMode, clientGroups: isClientAccount || hasSalesRepRole(user) || canBookOutsideClientServiceGroups(user?.role) ? [] : (clients.find(item => item.id === client)?.service_group_ids ?? clients.find(item => item.id === client)?.service_groups?.map(group => group.id) ?? []).map(String) });
   const selectedServices = unitBooking.enabled ? unitBooking.summaryServices : legacySelectedServices;
   const remountPropertyForm = React.useCallback(() => {
     setClientPropertyFormKey((current) => current + 1);
@@ -205,10 +209,10 @@ export const useBookShootController = () => {
   const getTax = () => displayPricingBreakdown.taxAmount;
   const getTotal = () => displayPricingBreakdown.totalQuote;
   useEffect(() => {
-    if (!canAdjustBookingAmount && adjustedTotalInput) {
+    if (!permissionsLoading && !canAdjustBookingAmount && adjustedTotalInput) {
       setAdjustedTotalInput('');
     }
-  }, [adjustedTotalInput, canAdjustBookingAmount, setAdjustedTotalInput]);
+  }, [adjustedTotalInput, canAdjustBookingAmount, permissionsLoading, setAdjustedTotalInput]);
   const bookingWizard = getBookingWizardConfig(isCompReshootMode);
   const finalBookingStep = bookingWizard.finalStep;
   const schedulingStep = bookingWizard.schedulingStep;
@@ -309,7 +313,13 @@ export const useBookShootController = () => {
     }
     return true;
   };
+  const bookingSubmitInFlight = React.useRef(false);
   const handleSubmit = async () => {
+    if (bookingSubmitInFlight.current) return;
+    bookingSubmitInFlight.current = true;
+    try { await submitBooking(); } finally { bookingSubmitInFlight.current = false; }
+  };
+  const submitBooking = async () => {
     if (step === finalBookingStep && travel.blocked) { toast({ title: 'Review travel before confirming', description: 'Resolve the travel warning or approve an authorized exception.', variant: 'destructive' }); return; }
     if (isSubmitting) return;
     setFormErrors({});
@@ -566,6 +576,7 @@ export const useBookShootController = () => {
         let responsePayload: unknown;
         if (isEditMode && editShootId) {
           const editPayload = { ...payload } as Record<string, unknown>;
+          if (editingScheduleSource?.editVersion) editPayload.expected_edit_version = editingScheduleSource.editVersion;
           [
             'service_id',
             'shoot_type',
