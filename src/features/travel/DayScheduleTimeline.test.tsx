@@ -23,7 +23,7 @@ describe('day schedule adjustment', () => {
     expect(booking).toHaveTextContent('7 AM–9:15 AM');
     expect(booking).toHaveClass('target');
     expect(screen.getByLabelText(/booking timeline/)).toHaveClass('horizontal');
-    expect(scroll).toHaveBeenCalledWith({ left: 90, top: 0 });
+    expect(scroll).toHaveBeenCalledWith({ left: 112.5, top: 0 });
     for (let i = 0; i < 60; i++) fireEvent.keyDown(booking, { key: 'ArrowRight' });
     expect(booking).toHaveTextContent('6:45 PM–9 PM');
     const labels = screen.getByLabelText(/booking timeline/).querySelectorAll('.day-schedule-tick span');
@@ -43,6 +43,12 @@ describe('day schedule adjustment', () => {
     const booking = screen.getByRole('button');
     fireEvent.keyDown(booking, { key: 'ArrowRight' });
     expect(booking).toHaveAttribute('aria-disabled', 'true'); expect(booking).toHaveTextContent('9 AM–11:15 AM');
+  });
+  it('automatically focuses an afternoon shoot in the phone timeline', () => {
+    const scroll = vi.fn(); Element.prototype.scrollTo = scroll;
+    render(<Harness desktop={false} initial={{ ...row, start: '2026-10-09T20:00:00Z', end: '2026-10-09T22:15:00Z' }} />);
+    expect(scroll).toHaveBeenCalledWith({ top: 346.5, left: 0 });
+    expect(screen.getByRole('button')).toHaveTextContent('4 PM–6:15 PM');
   });
   it('uses instants for overlap checks and refuses nonexistent or ambiguous DST clocks', () => {
     expect(overlaps([row, { ...row, id: 'second', start: '2026-10-09T14:00:00Z' }])).toBe(true);

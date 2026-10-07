@@ -24,8 +24,14 @@ export function DayScheduleTimeline({ bookings, date, timezone, onMove, onDraggi
     const target = initialBookings.current.find(row => row.target);
     if (!target || !viewport.current) return;
     const visible = initialBookings.current.filter(row => minuteOfDay(row.end, timezone) > START && minuteOfDay(row.start, timezone) < END);
-    const earliest = Math.min(...visible.map(row => minuteOfDay(row.start, timezone)), Math.max(START, minuteOfDay(target.start, timezone)));
-    const focus = Math.max(0, Math.min(480, earliest - 45) - START);
+    const targetStart = Math.max(START, minuteOfDay(target.start, timezone));
+    const earliest = Math.max(START, Math.min(...visible.map(row => minuteOfDay(row.start, timezone)), targetStart));
+    const availableMinutes = (horizontal ? viewport.current.clientWidth : viewport.current.clientHeight) / scale;
+    const targetEnd = Math.min(END, targetStart + target.duration_minutes);
+    // Keep nearby bookings visible when they fit; otherwise focus the selected
+    // shoot so afternoon appointments do not open below the phone's fold.
+    const focusStart = targetEnd - earliest + 45 <= availableMinutes ? earliest - 45 : targetStart - 45;
+    const focus = Math.max(0, focusStart - START);
     viewport.current.scrollTo(horizontal ? { left: focus * scale, top: 0 } : { top: focus * scale, left: 0 });
   }, [horizontal, timezone, scale]);
   const move = (row: DayBooking, minutes: number) => {
