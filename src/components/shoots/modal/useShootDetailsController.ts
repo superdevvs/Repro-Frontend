@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { hasSalesRepRole } from '@/utils/shootManagementAccess';
+import { hasRestrictedSalesRepRole } from '@/utils/shootManagementAccess';
 import { ShootData } from '@/types/shoots';
 import { getShootClientReleaseAccess } from '../details/shootClientReleaseAccess';
 import { getShootDetailsCapabilities } from './shootDetailsCapabilities';
@@ -30,7 +30,7 @@ export function useShootDetailsController({
     const isEditingManager = normalizedRole === 'editing_manager';
     const isAdmin =
       ['admin', 'superadmin', 'super_admin'].includes(normalizedRole) || isEditingManager;
-    const isRep = hasSalesRepRole({ role: normalizedRole, secondary_roles: (editorUser as { secondary_roles?: string[] } | null)?.secondary_roles });
+    const isRep = hasRestrictedSalesRepRole({ role: normalizedRole, secondary_roles: (editorUser as { secondary_roles?: string[] } | null)?.secondary_roles });
     const isPhotographer = normalizedRole === 'photographer';
     const isEditor = normalizedRole === 'editor';
     const isClient = normalizedRole === 'client' && !isRep;

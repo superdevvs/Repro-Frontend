@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { prepareShootManagementSave } from './shootManagementSave';
-import { hasSalesRepRole } from './shootManagementAccess';
+import { hasSalesRepRole, hasRestrictedSalesRepRole } from './shootManagementAccess';
 import type { ShootData } from '@/types/shoots';
 
 describe('Scoped shoot management', () => {
@@ -26,6 +26,7 @@ describe('Scoped shoot management', () => {
     expect(hasSalesRepRole({ role: 'photographer' })).toBe(false);
   });
   it.each(['admin', 'superadmin', 'super_admin', 'editing_manager'])('does not demote %s when it also has a rep role', role => {
-    expect(hasSalesRepRole({ role, secondary_roles: ['sales_rep'] })).toBe(false);
+    expect(hasSalesRepRole({ role, secondary_roles: ['sales_rep'] })).toBe(true);
+    expect(hasRestrictedSalesRepRole({ role, secondary_roles: ['sales_rep'] })).toBe(false);
   });
 });
