@@ -20,8 +20,11 @@ describe('photographerPickerDialogClasses', () => {
       expect(cls).toContain('rounded-none')
       expect(cls).toContain('xl:max-w-6xl')
       expect(cls).toContain('xl:w-[96vw]')
-      expect(cls).toContain('xl:left-[50%]')
-      expect(cls).toContain('xl:translate-x-[-50%]')
+      // Desktop must beat the important full-screen tablet defaults in the CSS cascade.
+      expect(cls).toContain('xl:!left-[50%]')
+      expect(cls).toContain('xl:!top-[50%]')
+      expect(cls).toContain('xl:!translate-x-[-50%]')
+      expect(cls).toContain('xl:!translate-y-[-50%]')
       expect(cls).toContain('xl:rounded-lg')
     }
   })
