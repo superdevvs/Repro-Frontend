@@ -49,7 +49,7 @@ export function DayScheduleDialog({ travel, open, onClose }: { travel: TravelCon
     const value = id.startsWith('target') && index ? new Date(Date.parse(start) - (Date.parse(targets[index].start) - Date.parse(target.start))).toISOString() : start;
     setMoves(current => ({ ...current, [id.startsWith('target') ? 'target' : id]: value }));
   };
-  return <Dialog open={open} onOpenChange={value => { if (!value) onClose(); }}><DialogContent className="max-h-[94dvh] w-[calc(100vw-1rem)] max-w-5xl overflow-y-auto rounded-2xl p-4 sm:p-5">
+  return <Dialog open={open} onOpenChange={value => { if (!value) onClose(); }}><DialogContent className="max-h-[94dvh] min-w-0 w-[calc(100vw-1rem)] max-w-5xl grid-cols-[minmax(0,1fr)] overflow-x-hidden overflow-y-auto rounded-2xl p-4 sm:p-5">
     <DialogHeader className="pr-5 text-left"><DialogTitle>Adjust this day</DialogTitle><DialogDescription>{data?.photographer.name || 'Photographer'} · {date} · {timezone}</DialogDescription></DialogHeader>
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {!data && !error && <p role="status" className="text-sm">Loading this day’s bookings…</p>}
@@ -64,7 +64,7 @@ export function DayScheduleDialog({ travel, open, onClose }: { travel: TravelCon
       </div>
       <TravelNotifications value={notifications} onChange={setNotifications} />
       <p className="text-xs text-muted-foreground">Changes to {adjustments.length ? `${adjustments.length} existing booking${adjustments.length === 1 ? '' : 's'} and ` : ''}this shoot are saved together when you save or book the shoot. Calendar updates follow a successful save.</p>
-      <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="button" disabled={!canApply} onClick={() => {
+      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="button" className="h-auto min-h-10 min-w-0 whitespace-normal" disabled={!canApply} onClick={() => {
         if (!canApply || !target || !travel.onScheduleChange) return;
         travel.onScheduleChange({ scheduledAt: moves.target || target.start, offsetMinutes: offset, timezone });
         travel.setScheduleAdjustments(adjustments); travel.setNotifications(notifications); onClose();
