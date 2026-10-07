@@ -45,9 +45,6 @@ export const normalizePhotographerNumericId = (id: string) => {
   );
 };
 
-const randomIdSuffix = (min: number, max: number) =>
-  Math.floor(Math.random() * (max - min + 1)) + min;
-
 export const mapBackendSlots = (
   data: readonly unknown[] | null | undefined,
   photographerId: string
@@ -57,9 +54,9 @@ export const mapBackendSlots = (
     const row = (raw ?? {}) as Record<string, unknown>;
     const rawId = row.id;
     const id =
-      typeof rawId === "number"
+      typeof rawId === "number" || typeof rawId === "string"
         ? rawId
-        : Number(`${normalizedId}${index}${randomIdSuffix(100, 999)}`);
+        : `${normalizedId}-${row.shoot_id ?? 'slot'}-${row.date ?? row.day_of_week ?? ''}-${row.start_time ?? ''}-${row.end_time ?? ''}-${index}`;
     const photographerIdValue =
       typeof row.photographer_id === "number"
         ? row.photographer_id
@@ -72,8 +69,38 @@ export const mapBackendSlots = (
       start_time: String(row.start_time ?? ""),
       end_time: String(row.end_time ?? ""),
       status: row.status as string | undefined,
+      isRandom: Boolean(row.isRandom),
+      shoot_id: row.shoot_id != null && Number.isFinite(Number(row.shoot_id)) ? Number(row.shoot_id) : (row.shoot_details as BackendSlot['shoot_details'])?.id,
+      shoot_details: row.shoot_details as BackendSlot['shoot_details'],
     };
   });
+};
+
+/** One card per exact booked visit, retaining richer authorized detail responses. */
+export const mergeBookedSlots = (rows: readonly BackendSlot[]): BackendSlot[] => {
+  const result: BackendSlot[] = [];
+  for (const row of rows) {
+    if (row.status !== 'booked') { result.push(row); continue; }
+    const shootId = row.shoot_id ?? row.shoot_details?.id;
+    const existing = result.findIndex((slot) => slot.status === 'booked'
+      && slot.photographer_id === row.photographer_id
+      && normalizeAvailabilityDate(slot.date) === normalizeAvailabilityDate(row.date)
+      && slot.start_time.slice(0, 5) === row.start_time.slice(0, 5)
+      && slot.end_time.slice(0, 5) === row.end_time.slice(0, 5)
+      && (shootId != null ? (slot.shoot_id ?? slot.shoot_details?.id) === shootId : slot.id === row.id));
+    if (existing < 0) { result.push(row); continue; }
+    const previous = result[existing];
+    result[existing] = {
+      ...previous, ...row, id: previous.id,
+      shoot_id: shootId ?? previous.shoot_id,
+      shoot_details: previous.shoot_details || row.shoot_details ? {
+        ...previous.shoot_details, ...Object.fromEntries(Object.entries(row.shoot_details ?? {}).filter(([, value]) => value != null && value !== '')),
+        client: row.shoot_details?.client && previous.shoot_details?.client ? { ...previous.shoot_details.client, ...row.shoot_details.client } : row.shoot_details?.client ?? previous.shoot_details?.client,
+        services: row.shoot_details?.services?.length ? row.shoot_details.services : previous.shoot_details?.services,
+      } as BackendSlot['shoot_details'] : undefined,
+    };
+  }
+  return result;
 };
 
 export const uiTimeToHhmm = (t?: string): string => {

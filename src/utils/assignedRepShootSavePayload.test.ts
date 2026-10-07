@@ -64,6 +64,7 @@ describe('slimAssignedRepShootSavePayload', () => {
       photographer_id: 1163,
       time: '15:00:00',
       services: [{ id: 2, scheduled_at: '2026-09-30T19:00:00.000Z' }],
+      service_photographers: [{ service_id: 2, photographer_id: 1163 }],
       notify_photographer: true,
     });
   });
@@ -91,6 +92,7 @@ describe('slimAssignedRepShootSavePayload', () => {
       notify_client: false,
       services: [{ id: 2, scheduled_at: '2026-10-07T13:00:00' }],
       service_items: [{ service_id: 2, scheduled_at: '2026-10-07T13:00:00' }],
+      service_photographers: [{ service_id: 2, photographer_id: 1163 }],
     });
   });
 
@@ -201,4 +203,10 @@ describe('normalizeScheduleStamp', () => {
     expect(normalizeScheduleStamp('2026-10-07T13:00:00')).toBe('2026-10-07T13:00');
     expect(normalizeScheduleStamp('2026-10-07 13:00:00')).toBe('2026-10-07T13:00');
   });
+});
+
+it('keeps a five-minute duration-only edit and ignores stale price echoes', () => {
+  expect(slimAssignedRepShootSavePayload({ photographer_id: 1106,
+    services: [{ id: 17, duration_minutes: 5, price: 999, photographer_pay: 1 }],
+  }, { services: [{ id: 17, duration_minutes: 30 }] })).toEqual({ photographer_id: 1106, services: [{ id: 17, duration_minutes: 5 }] });
 });

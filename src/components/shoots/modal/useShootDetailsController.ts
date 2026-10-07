@@ -23,7 +23,7 @@ export function useShootDetailsController({
   shouldHideClientDetailsProp = false,
 }: UseShootDetailsControllerInput) {
   const currentUserRole = currentRole || authRole || '';
-  const normalizedRole = currentUserRole.trim().toLowerCase();
+  const normalizedRole = currentUserRole.trim().toLowerCase().replace(/[- ]/g, '_');
 
   const roleFlags = useMemo(() => {
     const isEditingManager = normalizedRole === 'editing_manager';

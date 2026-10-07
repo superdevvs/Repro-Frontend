@@ -12,6 +12,9 @@ export const ASSIGNED_REP_SHOOT_SAVE_KEYS = [
   'time',
   'services',
   'service_items',
+  'service_lines',
+  'expected_units_revision',
+  'units',
   'photographer_id',
   'service_photographers',
   'travel_override',
@@ -30,7 +33,7 @@ export const ASSIGNED_REP_SHOOT_SAVE_KEYS = [
 
 const ASSIGNED_REP_SHOOT_SAVE_KEY_SET = new Set<string>(ASSIGNED_REP_SHOOT_SAVE_KEYS);
 
-const SERVICE_LINE_KEYS = new Set(['id', 'service_id', 'scheduled_at', 'price', 'quantity', 'photographer_pay']);
+const SERVICE_LINE_KEYS = new Set(['id', 'service_id', 'scheduled_at', 'duration_minutes', 'quantity']);
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -270,6 +273,23 @@ export function slimAssignedRepShootSavePayload(
   shoot?: ShootLike | null,
 ): Record<string, unknown> {
   const next: Record<string, unknown> = {};
+  const assignments = new Map<string, Record<string, unknown>>();
+  for (const [field, idKey] of [['services', 'id'], ['service_items', 'service_id']] as const) {
+    const rows = payload[field];
+    if (!Array.isArray(rows)) continue;
+    for (const value of rows) {
+      const row = asRecord(value);
+      if (row[idKey] != null && Object.prototype.hasOwnProperty.call(row, 'photographer_id')) {
+        assignments.set(String(row[idKey]), { service_id: row[idKey], photographer_id: row.photographer_id });
+      }
+    }
+  }
+  if (Array.isArray(payload.service_photographers)) {
+    for (const value of payload.service_photographers) {
+      const row = asRecord(value);
+      if (row.service_id != null) assignments.set(String(row.service_id), row);
+    }
+  }
   for (const [key, value] of Object.entries(payload)) {
     if (!ASSIGNED_REP_SHOOT_SAVE_KEY_SET.has(key)) continue;
     if (key === 'services') {
@@ -291,6 +311,24 @@ export function slimAssignedRepShootSavePayload(
     }
     next[key] = value;
   }
+  if (assignments.size) next.service_photographers = [...assignments.values()];
+
+  const storedDurations = new Map<string, unknown>();
+  for (const rows of [shoot?.serviceItems, shoot?.service_items, shoot?.serviceObjects, shoot?.services]) {
+    if (!Array.isArray(rows)) continue;
+    for (const value of rows) {
+      const row = asRecord(value);
+      const id = serviceIdOf(row);
+      if (id && row.duration_minutes != null) storedDurations.set(id, row.duration_minutes);
+    }
+  }
+  const hasDirtyDurations = ['services', 'service_items'].some((field) => {
+    const rows = next[field];
+    return Array.isArray(rows) && rows.some((value) => {
+      const row = asRecord(value);
+      return row.duration_minutes != null && !sameScalar(row.duration_minutes, storedDurations.get(serviceIdOf(row)));
+    });
+  });
 
   const shootDate = normalizeDate(shoot?.scheduledDate ?? shoot?.scheduled_date);
   const shootTime = normalizeTime(shoot?.time);
@@ -323,6 +361,7 @@ export function slimAssignedRepShootSavePayload(
     && !Object.prototype.hasOwnProperty.call(next, 'scheduled_at')
     && !Object.prototype.hasOwnProperty.call(next, 'time')
     && !hasDirtyServiceSchedules(next, shoot)
+    && !hasDirtyDurations
     && !hasDirtyServicePlan(next, shoot);
 
   if (photographerOnly) {

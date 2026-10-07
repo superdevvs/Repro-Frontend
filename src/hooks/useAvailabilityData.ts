@@ -4,7 +4,7 @@ import API_ROUTES from "@/lib/api";
 import { getAuthToken } from "@/utils/authToken";
 import { API_BASE_URL } from "@/config/env";
 import type { BackendSlot, Photographer } from "@/types/availability";
-import { mapBackendSlots, normalizeAvailabilityDate } from "@/lib/availability/utils";
+import { mapBackendSlots, mergeBookedSlots, normalizeAvailabilityDate } from "@/lib/availability/utils";
 import {
   resolveSelectedPhotographer,
   scopePhotographersForViewer,
@@ -19,9 +19,6 @@ type ApiRoutesWithPeople = typeof API_ROUTES & {
 
 const readString = (value: unknown): string | undefined =>
   typeof value === "string" ? value : undefined;
-
-const readNumber = (value: unknown): number | undefined =>
-  typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
 const isAbortError = (error: unknown): boolean =>
   typeof error === "object" && error !== null && (error as { name?: unknown }).name === "AbortError";
@@ -243,23 +240,12 @@ export function useAvailabilityData({
       if (bookedResponse && bookedResponse.ok) {
         const bookedJson = await bookedResponse.json();
         const rawBooked = Array.isArray(bookedJson?.data) ? (bookedJson.data as unknown[]) : [];
-        bookedSlots = rawBooked.map((raw) => {
-          const row = (raw ?? {}) as Record<string, unknown>;
-          const shootId = readNumber(row.shoot_id);
-          return {
-            ...(row as Partial<BackendSlot>),
-            id: (row.id as number | string | undefined) || `shoot_${shootId ?? ''}`,
-            photographer_id: Number(selectedPhotographer),
-            date: normalizeAvailabilityDate(readString(row.date) ?? null),
-            start_time: readString(row.start_time) ?? "",
-            end_time: readString(row.end_time) ?? "",
-          } as BackendSlot;
-        });
+        bookedSlots = mapBackendSlots(rawBooked, selectedPhotographer);
       }
 
       if (signal?.aborted) return;
 
-      setBackendSlots([...availabilitySlots, ...bookedSlots]);
+      setBackendSlots(mergeBookedSlots([...availabilitySlots, ...bookedSlots]));
       setAllBackendSlots([]);
     } catch (error: unknown) {
       if (isAbortError(error)) return;

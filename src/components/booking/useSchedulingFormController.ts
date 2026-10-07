@@ -1,4 +1,5 @@
 import { travelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
+import { comparePhotographerDistance } from '@/utils/photographerDistanceSort';
 import { fetchDurationAwareAvailability } from '@/utils/photographerVisitDuration';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
@@ -973,14 +974,7 @@ export const useSchedulingFormController = ({
       );
     }
     const sorted = [...filtered].sort((a, b) => {
-      const aDistance = a.distance;
-      const bDistance = b.distance;
-      const compareDistance = () => {
-        if (aDistance === undefined && bDistance === undefined) return 0;
-        if (aDistance === undefined) return 1;
-        if (bDistance === undefined) return -1;
-        return aDistance - bDistance;
-      };
+      const compareDistance = () => comparePhotographerDistance(a, b);
       if (sortBy === 'availability') {
         const aMetrics = getAvailabilityMetrics(a);
         const bMetrics = getAvailabilityMetrics(b);

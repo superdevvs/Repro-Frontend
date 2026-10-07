@@ -13,6 +13,12 @@ afterEach(() => {
 });
 
 describe('ShootNotesTab mobile readability', () => {
+  it.each(['salesRep', 'sales_rep', 'sales-rep', 'rep', 'representative'])('allows %s to edit every note category on an unassigned shoot', role => {
+    render(<ShootNotesTab shoot={{ id: 'muted-rep-notes', assignedRepId: null, approval_notes: 'Historical approved decision' } as unknown as ShootData} isAdmin={false} isPhotographer={false} role={role} />);
+    expect(screen.getAllByRole('button', { name: 'Edit' })).toHaveLength(5);
+    expect(screen.getByText(/Historical approval decision \(read-only\)/)).toBeInTheDocument();
+    expect(screen.getByTestId('shoot-note-body-approvalNotes')).not.toHaveTextContent('Historical approved decision');
+  });
   it('renders note bodies as wrapping foreground text (not a muted readonly textarea)', () => {
     const shoot = {
       id: 'notes-mobile-1',

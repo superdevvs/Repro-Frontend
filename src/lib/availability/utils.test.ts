@@ -183,17 +183,20 @@ describe("mapBackendSlots", () => {
         start_time: "09:00",
         end_time: "17:00",
         status: "available",
+        isRandom: false,
+        shoot_id: undefined,
+        shoot_details: undefined,
       },
     ]);
   });
 
-  it("generates a numeric id when absent", () => {
+  it("generates a stable id when absent", () => {
     const result = mapBackendSlots(
       [{ start_time: "09:00", end_time: "17:00", status: "available" }],
       "7"
     );
-    expect(typeof result[0].id).toBe("number");
-    expect(Number.isFinite(result[0].id as number)).toBe(true);
+    expect(typeof result[0].id).toBe("string");
+    expect(result[0].id).toBe(mapBackendSlots([{ start_time: "09:00", end_time: "17:00", status: "available" }], "7")[0].id);
   });
 
   it("falls back to the passed photographerId when photographer_id is missing", () => {

@@ -33,6 +33,12 @@ async function showQueue() {
 }
 
 describe('auth changes during uploads', () => {
+  it.each(['salesRep', 'sales_rep', 'sales-rep', 'sales rep', 'rep', 'representative'])('normalizes %s across all authenticated workflow controls', async role => {
+    localStorage.setItem('user', JSON.stringify({ ...user, role }));
+    function RoleProbe() { const auth = useAuth(); return <div data-testid="canonical-role">{auth.role}</div>; }
+    render(<AuthProvider><RoleProbe /></AuthProvider>);
+    await waitFor(() => expect(screen.getByTestId('canonical-role')).toHaveTextContent('salesRep'));
+  });
   it('aborts on another account and keeps the selected-file tree mounted behind a blocking dialog', async () => {
     await showQueue();
     const abort = vi.fn();

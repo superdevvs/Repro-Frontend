@@ -215,7 +215,7 @@ export function ShootDetailsModalDialogs({
   const recipientsQuery = useQuery({
     queryKey: ['shoot-notification-recipients', shootIdNum],
     queryFn: () => getNotificationRecipients(shootIdNum),
-    enabled: isAdmin && isSaveConfirmOpen && Number.isFinite(shootIdNum) && shootIdNum > 0,
+    enabled: isSaveConfirmOpen && Number.isFinite(shootIdNum) && shootIdNum > 0,
     refetchOnWindowFocus: false,
     retry: false,
   });

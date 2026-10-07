@@ -587,7 +587,7 @@ export function ShootDetailsModal({
   // Admins/superadmins and editing managers (BE enforces manage-able shoots).
   // Manual send does not mutate workflow status.
   const canSendManualNotification =
-    (isAdmin || isEditingManager) && !isEditor && !isPhotographer && !isClient;
+    (isAdmin || isEditingManager || isRep) && !isEditor && !isPhotographer && !isClient;
 
   if (loading) {
     return (

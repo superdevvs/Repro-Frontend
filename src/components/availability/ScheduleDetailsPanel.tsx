@@ -2,7 +2,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useRef } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
 import { availabilityWeekday, formatAvailabilityDate, normalizeAvailabilityDate } from "@/lib/availability/utils";
-import { Ban, CalendarDays, CalendarIcon, ChevronRight, Clock, Edit, MoreVertical, Pencil, Plus, Trash2, User } from "lucide-react";
+import { Ban, CalendarDays, CalendarIcon, Clock, Edit, MoreVertical, Pencil, Plus, Trash2, User } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -85,7 +85,6 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
     allBackendSlots,
     selectedSlotId,
     setSelectedSlotId,
-    expandedBookingDetails,
     setExpandedBookingDetails,
     setEditedAvailability,
     setIsEditDialogOpen,
@@ -194,8 +193,22 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                                   </div>
                                   {slot.date && <div className="text-xs text-muted-foreground mt-1">{formatAvailabilityDate(slot.date, 'MMM d, yyyy')}</div>}
                                   {slot.shootTitle && <div className="text-xs text-muted-foreground mt-1">{slot.shootTitle}</div>}
+                                  {slot.status === 'booked' && slot.shootDetails && (
+                                    <div className="mt-2 space-y-1 text-xs">
+                                      {slot.shootDetails.address && <p>{slot.shootDetails.address}</p>}
+                                      {slot.shootDetails.client && <p className="text-muted-foreground">{slot.shootDetails.client.name}</p>}
+                                      <div className="flex flex-wrap gap-1">
+                                        {slot.shootDetails.services?.map(service => <Badge key={service.id} variant="outline" className="text-[10px]">{service.name}</Badge>)}
+                                      </div>
+                                      {(slot.shoot_id ?? slot.shootDetails.id) && <Button variant="link" size="sm" className="h-7 px-0" onClick={event => {
+                                        event.stopPropagation();
+                                        setSelectedShootId(slot.shoot_id ?? slot.shootDetails!.id);
+                                        setShootDetailsModalOpen(true);
+                                      }}>Open Shoot →</Button>}
+                                    </div>
+                                  )}
                                 </div>
-                                {canEditAvailability && (
+                                {canEditAvailability && slot.status !== 'booked' && (
                                   <div className="flex items-center gap-1">
                                     <Button
                                       variant="outline"
@@ -406,26 +419,8 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
 
                                     {slot.status === 'booked' && slot.shootDetails && (
                                       <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
-                                        <button
-                                          type="button"
-                                          className="flex items-center justify-between w-full text-left text-sm font-semibold text-blue-800 dark:text-blue-200 hover:opacity-80"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setExpandedBookingDetails(prev => {
-                                              const next = new Set(prev);
-                                              if (next.has(slot.id)) {
-                                                next.delete(slot.id);
-                                              } else {
-                                                next.add(slot.id);
-                                              }
-                                              return next;
-                                            });
-                                          }}
-                                        >
-                                          <span>{slot.shootDetails.title}</span>
-                                          <ChevronRight className={cn("h-4 w-4 transition-transform", expandedBookingDetails.has(slot.id) && "rotate-90")} />
-                                        </button>
-                                        {expandedBookingDetails.has(slot.id) && (
+                                        <div className="text-sm font-semibold text-blue-800 dark:text-blue-200">{slot.shootDetails.title}</div>
+                                        {(
                                           <div className="space-y-2 mt-2">
                                             {slot.shootDetails.address && (
                                               <div className="text-xs text-muted-foreground flex items-start gap-1.5">
@@ -459,17 +454,17 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                                                 Status: {slot.shootDetails.shoot_status.replace(/_/g, ' ')}
                                               </div>
                                             )}
-                                            {slot.shoot_id && (
+                                            {(slot.shoot_id ?? slot.shootDetails.id) && (
                                               <button
                                                 type="button"
                                                 className="text-xs text-primary hover:underline inline-flex items-center gap-1 mt-1"
                                                 onClick={(e) => {
                                                   e.stopPropagation();
-                                                  setSelectedShootId(slot.shoot_id!);
+                                                  setSelectedShootId(slot.shoot_id ?? slot.shootDetails!.id);
                                                   setShootDetailsModalOpen(true);
                                                 }}
                                               >
-                                                View Shoot Details →
+                                                Open Shoot →
                                               </button>
                                             )}
                                           </div>

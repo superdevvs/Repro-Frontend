@@ -1,4 +1,5 @@
 import { readOfficePhone } from '@/utils/officePhone';
+import { comparePhotographerDistance } from '@/utils/photographerDistanceSort';
 import { travelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
 import { useTravelFeasibility } from '@/features/travel/useTravelFeasibility';
 import { safelyBuildTravelPayload, shootTravelPayload } from '@/features/travel/travelPayload';
@@ -75,7 +76,7 @@ export function useShootEditModalController({
   } | null>(null);
   const userRole = user?.role?.toLowerCase() || '';
   const isAdmin = userRole === 'admin' || userRole === 'superadmin' || userRole === 'super_admin';
-  const isRep = userRole === 'rep' || userRole === 'salesrep';
+  const isRep = ['rep', 'representative', 'salesrep', 'sales_rep'].includes(userRole.replace(/[- ]/g, '_'));
   const isAdminOrRep = isAdmin || isRep;
   const [address, setAddress] = useState('');
   const [city, setCity] = useState('');
@@ -347,9 +348,7 @@ export function useShootEditModalController({
   const availableServiceCategoryGroups = useMemo(() => {
     const groups = new Map<string, { key: string; name: string; services: Service[]; serviceIds: string[] }>();
     availableServices.forEach((service) => {
-      if (service.photographer_required === false) {
-        return;
-      }
+      if (service.photographer_required === false && !service.name.toLowerCase().includes('virtual staging')) return;
       const serviceId = String(service.id);
       const categoryName =
         typeof service.category === 'string'
@@ -409,18 +408,17 @@ export function useShootEditModalController({
           String(photographer.state || '').toLowerCase().includes(query),
         )
       : photographers;
-    const filtered = showAllPhotographers
+    const offsite = selectedServiceCategoryGroups.find(group => group.key === photographerPickerContext?.categoryKey)?.services.filter(service => selectedServiceIds.has(String(service.id))).every(service => service.photographer_required === false);
+    const filtered = showAllPhotographers || offsite
       ? searched
       : searched.filter((photographer) => (photographerAvailability[String(photographer.id)] || []).length > 0);
     return [...filtered].sort((first, second) => {
       if (sortBy === 'availability') {
         return (photographerAvailability[String(second.id)] || []).length - (photographerAvailability[String(first.id)] || []).length;
       }
-      const firstDistance = typeof first.distance === 'number' ? first.distance : Number.POSITIVE_INFINITY;
-      const secondDistance = typeof second.distance === 'number' ? second.distance : Number.POSITIVE_INFINITY;
-      return firstDistance - secondDistance;
+      return comparePhotographerDistance(first, second);
     });
-  }, [photographerSearchQuery, photographers, photographerAvailability, showAllPhotographers, sortBy]);
+  }, [photographerSearchQuery, photographers, photographerAvailability, showAllPhotographers, sortBy, selectedServiceCategoryGroups, photographerPickerContext, selectedServiceIds]);
   useEffect(() => {
     const availabilityDateValue = scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '';
     if (!isOpen || photographers.length === 0 || !availabilityDateValue) {
@@ -518,11 +516,11 @@ export function useShootEditModalController({
           };
           return {
             ...photographer,
-            distance: Number.isFinite(milesToJob as number) ? milesToJob : (Number.isFinite(parsedDistance as number) ? parsedDistance : undefined),
+            distance: Number.isFinite(parsedDistance as number) ? parsedDistance : (Number.isFinite(milesToJob as number) ? milesToJob : undefined),
             miles_to_job: Number.isFinite(milesToJob as number) ? (milesToJob as number) : (photographer.miles_to_job ?? null),
             map: enrichedRecord.map === null ? null : (enrichedRecord.map ?? photographer.map ?? null),
             job: enrichedRecord.job === null ? null : (enrichedRecord.job ?? topLevelJob ?? photographer.job ?? null),
-            distanceFrom: enriched.distance_from,
+            distanceFrom: Number.isFinite(parsedDistance as number) ? enriched.distance_from : 'home',
             previousShootId: enriched.previous_shoot_id,
             availabilitySlots: enriched.availability_slots || [],
             unavailableSlots: enriched.unavailable_slots || [],
@@ -678,7 +676,7 @@ export function useShootEditModalController({
         quantity: normalizeBookingQuantity(serviceQuantities[id]),
         duration_minutes: resolveServiceShootDuration(service ?? {}, propertySqft, serviceSchedule.duration_minutes),
         scheduled_at: serviceScheduledAt,
-        photographer_id: serviceRequiresPhotographer
+        photographer_id: (serviceRequiresPhotographer || categoryPhotographerId)
           ? (
             categoryPhotographerId && categoryPhotographerId !== 'unassigned'
               ? Number(categoryPhotographerId)
@@ -725,7 +723,7 @@ export function useShootEditModalController({
         const catName = typeof service.category === 'string' ? service.category : service.category?.name || 'Other';
         const catKey = normCatKey(catName);
         const photogId = perCategoryPhotographers[catKey];
-        if (photogId && photogId !== 'unassigned' && service.photographer_required !== false) {
+        if (photogId && photogId !== 'unassigned') {
           servicePhotographerAssignments.push({
             service_id: Number(svcId),
             photographer_id: Number(photogId),

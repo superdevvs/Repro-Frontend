@@ -268,7 +268,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                         const unavailableSlots = photographer.unavailableSlots || [];
                         const distanceLabel = typeof photographer.distance === 'number' && Number.isFinite(photographer.distance)
                           ? `${photographer.distance.toFixed(1)} mi`
-                          : null;
+                          : 'Distance unavailable';
                         const bookedCount = bookedSlots.length;
                         const unavailableCount = unavailableSlots.length;
                         const travelRange = photographer.travel_range;

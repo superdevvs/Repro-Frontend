@@ -211,7 +211,7 @@ export function OverviewPhotographerPickerDialog({
                                       : photographerItem.availabilitySlots || [];
                                     const distanceLabel = typeof photographerItem.distance === 'number' && Number.isFinite(photographerItem.distance)
                                       ? `${photographerItem.distance.toFixed(1)} mi`
-                                      : null;
+                                      : 'Distance unavailable';
                                     const locationLabel =
                                       formatLocationLabel(
                                         photographerItem.originAddress || {

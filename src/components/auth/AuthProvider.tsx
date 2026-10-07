@@ -82,7 +82,7 @@ const buildSession = (token: string, user: UserData, role: Role): AuthSession =>
 
 const normalizeRole = (role?: string | null): Role => {
   if (!role) return 'admin';
-  if (role === 'sales_rep' || role === 'salesrep' || role === 'sales-rep') return 'salesRep';
+  if (['salesrep', 'sales_rep', 'rep', 'representative'].includes(role.trim().toLowerCase().replace(/[- ]/g, '_'))) return 'salesRep';
   return role as Role;
 };
 

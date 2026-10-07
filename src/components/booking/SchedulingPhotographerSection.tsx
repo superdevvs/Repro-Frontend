@@ -259,7 +259,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                   </div>
                   <p className={cn("truncate text-slate-500 dark:text-slate-400", mobileDrawer ? "mt-0.5 text-sm" : "mt-0.5 text-xs") }>
                     {canSeePhotographerAddress
-                      ? (publicLocationLabel || 'Service area unavailable')
+                      ? (distanceLabel ? (publicLocationLabel || 'Service area unavailable') : 'Distance unavailable')
                       : clientDistanceLabel}
                   </p>
                   <PhotographerAvailabilityTimeline

@@ -50,6 +50,7 @@ export function ShootNotesTab({
   const isRealAdmin = role === 'admin' || isSuperAdmin;
   const isEditingManager = role === 'editing_manager';
   const isEditor = role === 'editor';
+  const isRep = ['rep', 'representative', 'salesrep', 'sales_rep'].includes(role.trim().toLowerCase().replace(/[- ]/g, '_'));
   
   const [editableNotes, setEditableNotes] = useState<EditableNotesState>({
     shootNotes: '',
@@ -111,6 +112,7 @@ export function ShootNotesTab({
           company_notes: latestByType.get('company'),
           photographer_notes: latestByType.get('photographer'),
           editor_notes: latestByType.get('editing'),
+          approval_notes: latestByType.get('approval'),
         });
       } catch (e) {
         if (e instanceof DOMException && e.name === 'AbortError') return;
@@ -122,6 +124,7 @@ export function ShootNotesTab({
   }, [shoot?.id]);
 
   const getNotes = useCallback((key: NoteType): string => {
+    if (key === 'approvalNotes' && isRep) return serverNotes?.approval_notes ?? '';
     const resolveApprovalNote = (source?: ShootNotesSource | null): string => {
       if (!source) return '';
 
@@ -205,7 +208,7 @@ export function ShootNotesTab({
     if (typeof shoot.notes === 'string') return shoot.notes;
     const notes = shoot.notes[key as keyof typeof shoot.notes];
     return notes ? String(notes) : '';
-  }, [serverNotes, shoot]);
+  }, [serverNotes, shoot, isRep]);
 
   // Sync editable note state when the loaded shoot or server-backed notes change,
   // while preserving any field the user is actively editing.
@@ -267,13 +270,14 @@ export function ShootNotesTab({
       const token = localStorage.getItem('token') || localStorage.getItem('authToken');
       const noteRequestMap: Partial<Record<NoteType, {
         field: string;
-        type: 'shoot' | 'company' | 'photographer' | 'editing';
+        type: 'shoot' | 'company' | 'photographer' | 'editing' | 'approval';
         visibility: 'internal' | 'photographer_only' | 'client_visible';
       }>> = {
         shootNotes: { field: 'shoot_notes', type: 'shoot', visibility: 'client_visible' },
         photographerNotes: { field: 'photographer_notes', type: 'photographer', visibility: 'photographer_only' },
         companyNotes: { field: 'company_notes', type: 'company', visibility: 'internal' },
         editingNotes: { field: 'editor_notes', type: 'editing', visibility: 'internal' },
+        approvalNotes: { field: 'approval_annotation', type: 'approval', visibility: 'internal' },
       };
       const requestConfig = noteRequestMap[noteType];
       if (!requestConfig) return;
@@ -303,7 +307,7 @@ export function ShootNotesTab({
       const d = json?.data || {};
       setServerNotes({
         shoot_notes: noteType === 'shootNotes' ? content : (d.shoot_notes ?? serverNotes?.shoot_notes),
-        approval_notes: d.approval_notes ?? serverNotes?.approval_notes,
+        approval_notes: noteType === 'approvalNotes' ? content : (d.approval_annotation ?? serverNotes?.approval_notes),
         company_notes: noteType === 'companyNotes' ? content : (d.company_notes ?? serverNotes?.company_notes),
         photographer_notes: noteType === 'photographerNotes' ? content : (d.photographer_notes ?? serverNotes?.photographer_notes),
         editor_notes: noteType === 'editingNotes' ? content : (d.editor_notes ?? serverNotes?.editor_notes),
@@ -332,6 +336,7 @@ export function ShootNotesTab({
 
   // Only real admins can edit all note types. Editing managers are read-only here.
   function canEdit(noteType: NoteType): boolean {
+    if (isRep) return true;
     if (isRealAdmin) {
       return noteType !== 'approvalNotes';
     }
@@ -353,6 +358,7 @@ export function ShootNotesTab({
   // - Photographer: Can see shoot notes, approval notes, photographer notes, editing notes
   // - Client: Can see shoot notes only
   function canView(noteType: NoteType): boolean {
+    if (isRep) return true;
     // Super Admin and Admin can see everything
     if (isRealAdmin) {
       return true;
@@ -537,6 +543,9 @@ export function ShootNotesTab({
             </div>
           )}
         </div>
+        {noteType === 'approvalNotes' && isRep && (shoot as ShootNotesSource).approval_notes && (
+          <p className="mb-2 whitespace-pre-wrap break-words text-sm text-muted-foreground">Historical approval decision (read-only): {(shoot as ShootNotesSource).approval_notes}</p>
+        )}
         {isEditing ? (
           <Textarea
             placeholder={`Add ${getNoteTitle(noteType).toLowerCase()}…`}

@@ -1,4 +1,5 @@
 import { useOverviewTravel } from '@/features/travel/useOverviewTravel';
+import { comparePhotographerDistance } from '@/utils/photographerDistanceSort';
 import { resolveServicePrice } from './shootOverviewServicePricing';
 import { withServiceDurationSnapshot } from './shootOverviewDurations';
 import { useUnitAssignmentPayload } from '@/features/shoot-units/useUnitAssignmentPayload';
@@ -127,7 +128,7 @@ export function useShootOverviewEditor({
     [editPhotographers],
   );
   const photographerAssignments = useMemo(() => getShootPhotographerAssignmentGroups(shoot), [shoot]);
-  const isAdminOrRep = isAdmin || role === 'rep' || role === 'representative';
+  const isAdminOrRep = isAdmin || ['rep', 'representative', 'salesrep', 'sales_rep'].includes(role.trim().toLowerCase().replace(/[- ]/g, '_'));
   const {
     state: {
       enabled: isCompServiceMode,
@@ -767,8 +768,10 @@ export function useShootOverviewEditor({
     formatTimeForInput(String(editedShoot.time ?? legacyScheduleShoot.scheduled_at ?? legacyScheduleShoot.scheduledAt ?? shoot.time ?? ''))
     || '10:00';
 
+  const pickerServices = servicesList.filter(service => selectedServiceIds.includes(service.id) && normalizeShootServiceCategoryKey(deriveServiceCategoryName(service)) === photographerPickerContext?.categoryKey);
+  const isOffsiteArtistPicker = pickerServices.length > 0 && pickerServices.every(service => service.photographer_required === false);
   usePhotographerDistanceAvailability(
-    assignPhotographerOpen,
+    assignPhotographerOpen && !isOffsiteArtistPicker,
     photographers,
     isAdminOrRep,
     getShootLocation,
@@ -813,17 +816,17 @@ export function useShootOverviewEditor({
         || photographer.state?.toLowerCase().includes(query),
       );
     }
-
     const hasAvailablePhotographers = filteredPhotographers.some((photographer) =>
       Boolean(photographer.hasAvailability || photographer.netAvailableSlots?.length),
     );
-    if (!showAllPhotographers && hasAvailablePhotographers) {
+    if (!isOffsiteArtistPicker && !showAllPhotographers && hasAvailablePhotographers) {
       filteredPhotographers = filteredPhotographers.filter((photographer) =>
         Boolean(photographer.hasAvailability || photographer.netAvailableSlots?.length),
       );
     }
 
     filteredPhotographers.sort((first, second) => {
+      if (isOffsiteArtistPicker) return first.name.localeCompare(second.name);
       const firstAvailable = Boolean(first.hasAvailability || first.netAvailableSlots?.length);
       const secondAvailable = Boolean(second.hasAvailability || second.netAvailableSlots?.length);
       if (sortBy === 'availability') {
@@ -833,16 +836,13 @@ export function useShootOverviewEditor({
         if (firstSlots !== secondSlots) return secondSlots - firstSlots;
       }
       if (sortBy === 'distance') {
-        if (first.distance === undefined && second.distance === undefined) return 0;
-        if (first.distance === undefined) return 1;
-        if (second.distance === undefined) return -1;
-        return first.distance - second.distance;
+        return comparePhotographerDistance(first, second);
       }
       return first.name.localeCompare(second.name);
     });
 
     return filteredPhotographers;
-  }, [photographerPickerOptions, searchQuery, showAllPhotographers, sortBy]);
+  }, [photographerPickerOptions, searchQuery, showAllPhotographers, sortBy, isOffsiteArtistPicker]);
 
   const resolvePhotographerDetails = useCallback((photographerId?: string | null) => {
     if (!photographerId) return null;

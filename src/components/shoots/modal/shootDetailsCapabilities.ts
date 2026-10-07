@@ -117,7 +117,8 @@ export const getShootDetailsCapabilities = ({
   const canAdminEdit =
     Boolean(shoot) &&
     isAdminOrRep &&
-    !['cancelled', 'declined'].includes(normalizedStatus);
+    !['cancelled', 'declined'].includes(normalizedStatus) &&
+    (!isRep || ['scheduled', 'uploaded', 'editing', 'review', 'ready', 'requested', 'on_hold'].includes(normalizedStatus));
   const isOnHold = Boolean(
     shoot &&
       (shoot.status === 'on_hold' ||

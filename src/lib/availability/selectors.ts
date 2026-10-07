@@ -12,7 +12,7 @@ import type {
   BackendSlot,
   WeeklyScheduleItem,
 } from "@/types/availability";
-import { normalizeAvailabilityDate, toHhMm, uiTimeToHhmm } from "./utils";
+import { mergeBookedSlots, normalizeAvailabilityDate, toHhMm, uiTimeToHhmm } from "./utils";
 
 const slotCalendarDate = (slot: BackendSlot): string | null =>
   normalizeAvailabilityDate(slot.date ?? null);
@@ -22,9 +22,9 @@ const slotsForPhotographer = (
   backendSlots: BackendSlot[],
   allBackendSlots: BackendSlot[]
 ): BackendSlot[] => {
-  return selectedPhotographer === "all"
+  return mergeBookedSlots(selectedPhotographer === "all"
     ? allBackendSlots
-    : backendSlots.filter((s) => Number(s.photographer_id) === Number(selectedPhotographer));
+    : backendSlots.filter((s) => Number(s.photographer_id) === Number(selectedPhotographer)));
 };
 
 const toAvailability = (s: BackendSlot, dateStr: string, idx: number, specific: BackendSlot[]): Availability => ({
@@ -42,6 +42,7 @@ const toAvailability = (s: BackendSlot, dateStr: string, idx: number, specific: 
   isRandom: Boolean(s.isRandom),
   shoot_id: s.shoot_id,
   shootDetails: s.shoot_details,
+  shootTitle: s.shoot_details?.title ?? s.shoot_details?.address,
 });
 
 export interface SlotSelectorDeps {
