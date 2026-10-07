@@ -26,6 +26,31 @@ beforeEach(() => {
 });
 
 describe('Send to editing without a selection', () => {
+  it('sends external video without dashboard files or source versions', async () => {
+    api.get.mockResolvedValue({ data: { data: { ...plan(), media: [], status: 'scheduled', lanes: {
+      photo: { available: false, sent: false }, video: { available: true, sent: false, external: true },
+    } } } });
+    const onClose = vi.fn();
+    render(<ShootEditingDialog shootId={170} onClose={onClose} />);
+    expect(await screen.findByRole('switch', { name: 'Videos' })).toBeChecked();
+    expect(screen.getByRole('switch', { name: 'Videos' })).toBeEnabled();
+    expect(screen.getByText(/Files shared outside the dashboard/)).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Send to editor' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledWith(true));
+    expect(bodies()[0]).toMatchObject({ mode: 'editor', scope: 'videos', source_versions: {} });
+  });
+
+  it('keeps AI photos blocked when only externally shared files exist', async () => {
+    api.get.mockResolvedValue({ data: { data: { ...plan(), media: [], lanes: {
+      photo: { available: true, sent: false, external: true }, video: { available: true, sent: false, external: true },
+    } } } });
+    render(<ShootEditingDialog shootId={170} onClose={vi.fn()} />);
+    fireEvent.click(await screen.findByRole('button', { name: /^Send to AI editing\s*Photos get/ }));
+    expect(screen.getByRole('note')).toHaveTextContent('Upload photos before using AI editing.');
+    expect(screen.getByRole('button', { name: 'Send to AI editing' })).toBeDisabled();
+    expect(api.post).not.toHaveBeenCalled();
+  });
+
   it('sends photos and videos to their editors by default', async () => {
     const onClose = vi.fn();
     render(<ShootEditingDialog shootId={4} onClose={onClose} />);

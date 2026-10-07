@@ -15,7 +15,7 @@ interface EditingPlan {
   workflows: { id: string; label: string; available: boolean; provider: string; reason?: string }[];
   editors: { id: number; name: string; lanes: string[] }[];
   addons: { preset: string; label: string; fileIds: number[] }[];
-  lanes?: Record<Lane, { available: boolean; sent: boolean }>;
+  lanes?: Record<Lane, { available: boolean; sent: boolean; external?: boolean }>;
   assignments?: { lane: string; editor?: { name: string } | null }[];
   status?: string;
   videoAi: { available: false; reason: string };
@@ -104,6 +104,7 @@ export function ShootEditingDialog({ shootId, fileIds, onClose }: { shootId: str
     ?? (selected && mode === 'ai' && selectedVideo ? plan.videoAi.reason : null)
     ?? (selected && mode === 'ai' ? groups.map(([preset]) => plan.workflows.find(value => value.id === preset)).find(value => value && !value.available)?.reason ?? null : null)
     ?? (!selected && mode === 'ai' && lane('photo').sent ? 'The photos were already sent to editing.' : null)
+    ?? (!selected && mode === 'ai' && (!lane('photo').available || lane('photo').external) ? 'Upload photos before using AI editing.' : null)
     ?? (!selected && mode === 'ai' && !fullShoot?.available ? fullShoot?.reason || 'Full shoot enhancement is not configured.' : null)
     ?? (!selected && mode === 'ai' && addons.some(addon => !targets[addon.preset]?.length) ? 'Select the photos for each add-on before sending.' : null)
     ?? (!selected && mode === 'editor' && !lanes.photo && !lanes.video ? 'Turn on Photos or Videos.' : null);
@@ -152,6 +153,7 @@ export function ShootEditingDialog({ shootId, fileIds, onClose }: { shootId: str
     const disabled = aiPhoto || !state.available || state.sent;
     const checked = aiPhoto ? state.available && !state.sent : lanes[value];
     const note = state.sent ? 'Already sent to editing.' : !state.available ? `No ${laneLabel[value].toLowerCase()} uploaded.`
+      : state.external ? 'Files shared outside the dashboard, such as Dropbox.'
       : aiPhoto ? 'Full shoot enhancement (Fotello).'
         : mode === 'ai' ? 'Goes to the video editor. AI video editing is not available yet.' : `Goes to the ${value} editor.`;
     return <label key={value} className={`flex items-center justify-between gap-3 rounded-lg border p-3 ${disabled && !checked ? 'opacity-60' : ''}`}>
@@ -173,6 +175,7 @@ export function ShootEditingDialog({ shootId, fileIds, onClose }: { shootId: str
             {route('ai', 'Send to AI editing', selected ? 'Choose an AI preset for each photo.' : 'Photos get Full shoot enhancement. Videos go to the video editor.')}
           </div>
           {!selected && <div className="grid gap-2 sm:grid-cols-2">{(['photo', 'video'] as const).map(laneToggle)}</div>}
+          {!selected && mode === 'editor' && (lane('photo').external || lane('video').external) && <p className="text-sm text-muted-foreground">Dashboard uploads are optional when files are shared directly with the editor.</p>}
           {selected && mode === 'editor' && <>
             <ul aria-label="Selected files" className="max-h-40 space-y-1 overflow-auto rounded-lg border p-2 text-sm">{selectedMedia.map(file => <li key={file.id}>{file.name}</li>)}</ul>
             {!selectedVideo && <label className="block text-sm">Editor<select className={selectClass} value={editor} onChange={e => change(() => setEditor(e.target.value))}>
