@@ -65,9 +65,9 @@ export const useBookShootWorkflow = ({
   editShootId,
   canAdjustBookingAmount,
 }: BookShootWorkflowOptions) => {
-  const [isEditMode, setIsEditMode] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(Boolean(editShootId));
   const [editingScheduleSource, setEditingScheduleSource] = useState<EditingScheduleSource | null>(null);
-  const [editShootLoading, setEditShootLoading] = useState(false);
+  const [editShootLoading, setEditShootLoading] = useState(Boolean(editShootId));
   const [canRemoveAllServicesForEdit, setCanRemoveAllServicesForEdit] = useState(false);
   const [packages, setPackages] = useState<ServicePackage[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(true);
@@ -159,7 +159,7 @@ export const useBookShootWorkflow = ({
     return `${dh}:${String(m).padStart(2, '0')} ${mer}`;
   };
   const { fetchShoots } = useShoots();
-  const shouldCacheForm = user && ['admin', 'superadmin', 'rep', 'photographer'].includes(user.role);
+  const shouldCacheForm = !editShootId && user && ['admin', 'superadmin', 'rep', 'photographer'].includes(user.role);
   const CACHE_KEY = BOOKING_FORM_CACHE_KEY;
   const hasRestoredRef = useRef(false);
   const isInitialMountRef = useRef(true);
@@ -645,6 +645,7 @@ export const useBookShootWorkflow = ({
               setServiceSchedules(svcSchedules);
             }
           }
+          setClientPropertyFormKey((current) => current + 1);
           toast({
             title: "Editing Shoot Request",
             description: `Modifying shoot at ${shootData.address || shootData.location?.address || 'unknown address'}`,

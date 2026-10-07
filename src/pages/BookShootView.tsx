@@ -45,6 +45,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
     exitCompDialogOpen, setExitCompDialogOpen, openCompReshootSource,
     confirmExitCompReshoot, convertToAdditionalWork,
   } = controller;
+  if (isEditMode && editShootLoading) return <main className="p-6" role="status">Loading shoot for editing…</main>;
   const wizard = getBookingWizardConfig(isCompReshootMode);
   const finalStep = wizard.finalStep;
   return (

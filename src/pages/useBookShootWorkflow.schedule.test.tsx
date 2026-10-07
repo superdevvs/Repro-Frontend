@@ -36,6 +36,28 @@ it('keeps the sales-rep photographer directory intact for independent service sc
 });
 
 describe('editing a shoot request keeps its stored schedule', () => {
+  it('loads the selected shoot before mounting property fields and preserves the unrelated new-booking draft', async () => {
+    const cached = JSON.stringify({ address: 'Unrelated cached property', client: '2', step: 1 });
+    localStorage.setItem(BOOKING_FORM_CACHE_KEY, cached);
+    mocks.get.mockImplementation(async (url: string) => ({ data: { data: url.endsWith('/services')
+      ? [{ id: 19, name: 'Photography', price: 200, shoot_duration_minutes: 120 }]
+      : url.endsWith('/shoots/86') ? { id: 86, address: '4421 Bradley Lane', client_id: 3,
+        scheduled_at: '2026-10-09T16:00:00Z', timezone: 'America/New_York', services: [{ id: 19 }] } : [] } }));
+    const { result } = renderHook(() => useBookShootWorkflow({
+      user: { id: '1', role: 'admin' } as never, isClientAccount: false,
+      clientIdFromUrl: null, clientNameFromUrl: null, clientCompanyFromUrl: null,
+      editShootId: '86', canAdjustBookingAmount: false,
+    }));
+    expect(result.current.isEditMode).toBe(true);
+    expect(result.current.editShootLoading).toBe(true);
+    expect(result.current.shouldCacheForm).toBe(false);
+    expect(result.current.address).not.toBe('Unrelated cached property');
+    await waitFor(() => expect(result.current.editShootLoading).toBe(false));
+    expect(result.current.address).toBe('4421 Bradley Lane');
+    expect(result.current.client).toBe('3');
+    expect(result.current.clientPropertyFormKey).toBe(1);
+    expect(localStorage.getItem(BOOKING_FORM_CACHE_KEY)).toBe(cached);
+  });
   it.each([
     { timezone: null, scheduled_at: '2026-09-09T10:00:00.000000Z' },
     { timezone: 'America/New_York', scheduled_at: '2026-09-09T14:00:00Z' },
