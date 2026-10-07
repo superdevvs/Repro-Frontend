@@ -134,7 +134,7 @@ export function OverviewPhotographerPickerDialog({
                   : 'Select Photographer'}
               </PickerTitle>
               <PickerDescription className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80 sm:text-[11px] sm:tracking-[0.28em]">
-                {filteredAndSortedPhotographers.length} photographers shown
+                {filteredAndSortedPhotographers.length} {filteredAndSortedPhotographers.length === 1 ? 'photographer' : 'photographers'} shown
               </PickerDescription>
             </PickerHeader>
             <div className="space-y-2 sm:space-y-3">

@@ -229,7 +229,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                       : 'Select Photographer'}
                   </PickerTitle>
                   <PickerDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                    {filteredPhotographers.length} photographers shown
+                    {filteredPhotographers.length} {filteredPhotographers.length === 1 ? 'photographer' : 'photographers'} shown
                   </PickerDescription>
                 </PickerHeader>
                 <div className="space-y-3">
