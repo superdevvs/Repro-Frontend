@@ -543,7 +543,7 @@ export function ShootNotesTab({
             </div>
           )}
         </div>
-        {noteType === 'approvalNotes' && isRep && (shoot as ShootNotesSource).approval_notes && (
+        {noteType === 'approvalNotes' && (isRep || serverNotes?.approval_notes != null) && (shoot as ShootNotesSource).approval_notes && (
           <p className="mb-2 whitespace-pre-wrap break-words text-sm text-muted-foreground">Historical approval decision (read-only): {(shoot as ShootNotesSource).approval_notes}</p>
         )}
         {isEditing ? (
