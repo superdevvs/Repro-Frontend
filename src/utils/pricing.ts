@@ -21,7 +21,12 @@ const TAX_RATES_BY_STATE: Record<string, number> = {
   va: 0.053,
 };
 
-const roundCurrency = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+const roundCurrency = (value: number) => {
+  const cents = value * 100;
+  // Scale the floating-point tolerance with the amount so decimal half-cents
+  // (e.g. 280.25 * 6% = 16.815) round up like the server's currency rounding.
+  return Math.round(cents + Number.EPSILON * Math.abs(cents)) / 100;
+};
 
 export const getTaxRateForState = (state?: string | null) => {
   const normalizedState = String(state || '').trim().toLowerCase();

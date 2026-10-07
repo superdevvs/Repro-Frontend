@@ -192,10 +192,12 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                                     {to12HourDisplay(slot.startTime)} - {to12HourDisplay(slot.endTime)}
                                   </div>
                                   {slot.date && <div className="text-xs text-muted-foreground mt-1">{formatAvailabilityDate(slot.date, 'MMM d, yyyy')}</div>}
-                                  {slot.shootTitle && <div className="text-xs text-muted-foreground mt-1">{slot.shootTitle}</div>}
+                                  {(slot.shootDetails?.address || slot.shootDetails?.title || slot.shootTitle) && (
+                                    <div className="text-sm font-semibold mt-1">{slot.shootDetails?.address || slot.shootDetails?.title || slot.shootTitle}</div>
+                                  )}
                                   {slot.status === 'booked' && slot.shootDetails && (
                                     <div className="mt-2 space-y-1 text-xs">
-                                      {slot.shootDetails.address && <p>{slot.shootDetails.address}</p>}
+                                      {slot.shootDetails.address && (slot.shoot_id ?? slot.shootDetails.id) && <p className="text-muted-foreground">Shoot #{slot.shoot_id ?? slot.shootDetails.id}</p>}
                                       {slot.shootDetails.client && <p className="text-muted-foreground">{slot.shootDetails.client.name}</p>}
                                       <div className="flex flex-wrap gap-1">
                                         {slot.shootDetails.services?.map(service => <Badge key={service.id} variant="outline" className="text-[10px]">{service.name}</Badge>)}
@@ -413,20 +415,16 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                                       <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                                       {formatTimeDisplay(slot.startTime)} - {formatTimeDisplay(slot.endTime)}
                                     </div>
-                                    {slot.shootTitle && (
-                                      <div className="text-sm mt-1 font-medium">{slot.shootTitle}</div>
+                                    {(slot.shootDetails?.address || slot.shootDetails?.title || slot.shootTitle) && (
+                                      <div className="text-sm mt-1 font-semibold">{slot.shootDetails?.address || slot.shootDetails?.title || slot.shootTitle}</div>
                                     )}
 
                                     {slot.status === 'booked' && slot.shootDetails && (
                                       <div className="mt-3 pt-3 border-t border-blue-200 dark:border-blue-700">
-                                        <div className="text-sm font-semibold text-blue-800 dark:text-blue-200">{slot.shootDetails.title}</div>
                                         {(
                                           <div className="space-y-2 mt-2">
-                                            {slot.shootDetails.address && (
-                                              <div className="text-xs text-muted-foreground flex items-start gap-1.5">
-                                                <CalendarIcon className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                                                <span>{slot.shootDetails.address}</span>
-                                              </div>
+                                            {slot.shootDetails.address && (slot.shoot_id ?? slot.shootDetails.id) && (
+                                              <div className="text-xs text-muted-foreground">Shoot #{slot.shoot_id ?? slot.shootDetails.id}</div>
                                             )}
                                             {slot.shootDetails.client && (
                                               <div className="text-xs text-muted-foreground flex items-center gap-1.5">
