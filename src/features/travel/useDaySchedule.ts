@@ -23,7 +23,9 @@ export function useDaySchedule(open: boolean, photographer: number, date: string
 }
 
 export function useDayPreview(payload: TravelPayload | null, dragging: boolean) {
-  const key = payload ? JSON.stringify(payload) : '';
+  // The day editor needs route details even before a booking is moved. Ordinary
+  // unchanged update previews intentionally skip itinerary revalidation.
+  const key = payload ? JSON.stringify({ ...payload, action_mode: payload.action_mode === 'update' ? 'schedule' : payload.action_mode }) : '';
   const [state, setState] = useState<{ key: string; result?: TravelFeasibility; error?: string }>({ key: '' });
   useEffect(() => {
     if (!key || dragging) return;
