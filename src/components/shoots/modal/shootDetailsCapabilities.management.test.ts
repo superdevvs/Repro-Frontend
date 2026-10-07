@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getShootDetailsCapabilities } from './shootDetailsCapabilities';
 import type { ShootData } from '@/types/shoots';
+import { hasSalesRepRole } from '@/utils/shootManagementAccess';
 const roles = { isAdmin:false, isAdminOrRep:true, isClient:false, isEditor:false,
   isEditingManager:false, isPhotographer:false, isRep:true };
 const capabilities = (shoot: Partial<ShootData>) => getShootDetailsCapabilities({
@@ -36,5 +37,14 @@ describe('Rep management controls', () => {
     const result=capabilities({status:'delivered',canManageBooking:false,canManageShootActions:true});
     expect(result.canAdminEdit).toBe(false);
     expect(result.canCancelShoot).toBe(false);
+  });
+  it.each(['admin', 'superadmin', 'editing_manager'])('preserves delivered-shoot staff controls for %s with an additional rep role', role => {
+    const result = getShootDetailsCapabilities({
+      shoot: { id: 'fixture', status: 'delivered', canManageBooking: true } as ShootData,
+      currentUserRole: role,
+      roleFlags: { ...roles, isAdmin: true, isEditingManager: role === 'editing_manager',
+        isRep: hasSalesRepRole({ role, secondary_roles: ['sales_rep'] }) },
+    });
+    expect(result.canAdminEdit).toBe(true);
   });
 });

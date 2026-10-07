@@ -25,4 +25,7 @@ describe('Scoped shoot management', () => {
     expect(hasSalesRepRole({ role: 'photographer', secondary_roles: [role] })).toBe(true);
     expect(hasSalesRepRole({ role: 'photographer' })).toBe(false);
   });
+  it.each(['admin', 'superadmin', 'super_admin', 'editing_manager'])('does not demote %s when it also has a rep role', role => {
+    expect(hasSalesRepRole({ role, secondary_roles: ['sales_rep'] })).toBe(false);
+  });
 });
