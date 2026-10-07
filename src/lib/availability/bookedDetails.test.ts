@@ -20,4 +20,10 @@ describe('booked availability details', () => {
     const base = { photographer_id: 10, date: '2026-10-09', start_time: '11:00', end_time: '12:00', status: 'booked' };
     expect(mergeBookedSlots(mapBackendSlots([{ ...base, shoot_id: 1 }, { ...base, shoot_id: 2 }, { ...base, shoot_id: 1, start_time: '14:00' }], '10'))).toHaveLength(3);
   });
+  it('does not lose rich client details or services when another duplicate is thin', () => {
+    const base = { photographer_id: 10, shoot_id: 1, date: '2026-10-09', start_time: '11:00', end_time: '12:00', status: 'booked' };
+    const rows = mapBackendSlots([{ ...base, shoot_details: { id: 1, address: 'Fixture address', client: { id: 2, name: 'Fixture client', email: 'fixture@example.invalid' }, services: [{ id: 1, name: 'Photos', price: 199 }, { id: 17, name: 'Floor Plans', price: 125 }] } }, { ...base, shoot_details: { id: 1, address: '', client: { id: 2, name: '', email: null }, services: [{ id: 17, name: 'Floor Plans', price: 125 }] } }], '10');
+    expect(mergeBookedSlots(rows)[0].shoot_details).toMatchObject({ address: 'Fixture address', client: { name: 'Fixture client', email: 'fixture@example.invalid' } });
+    expect(mergeBookedSlots(rows)[0].shoot_details?.services).toHaveLength(2);
+  });
 });

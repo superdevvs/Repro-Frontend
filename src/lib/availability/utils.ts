@@ -95,8 +95,8 @@ export const mergeBookedSlots = (rows: readonly BackendSlot[]): BackendSlot[] =>
       shoot_id: shootId ?? previous.shoot_id,
       shoot_details: previous.shoot_details || row.shoot_details ? {
         ...previous.shoot_details, ...Object.fromEntries(Object.entries(row.shoot_details ?? {}).filter(([, value]) => value != null && value !== '')),
-        client: row.shoot_details?.client && previous.shoot_details?.client ? { ...previous.shoot_details.client, ...row.shoot_details.client } : row.shoot_details?.client ?? previous.shoot_details?.client,
-        services: row.shoot_details?.services?.length ? row.shoot_details.services : previous.shoot_details?.services,
+        client: row.shoot_details?.client && previous.shoot_details?.client ? { ...previous.shoot_details.client, ...Object.fromEntries(Object.entries(row.shoot_details.client).filter(([, value]) => value != null && value !== '')) } : row.shoot_details?.client ?? previous.shoot_details?.client,
+        services: [...new Map([...(previous.shoot_details?.services ?? []), ...(row.shoot_details?.services ?? [])].map(service => [service.id, service])).values()],
       } as BackendSlot['shoot_details'] : undefined,
     };
   }
