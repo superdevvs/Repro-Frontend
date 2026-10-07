@@ -170,6 +170,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
                   setBypassPayment={setBypassPayment}
                   sendNotification={sendNotification}
                   setSendNotification={setSendNotification}
+                  notificationControls={controller.travel.notificationsSupported ? { value: controller.travel.notifications, onChange: controller.travel.setNotifications } : undefined}
                   getPackagePrice={getPackagePrice}
                   pricingBreakdown={displayPricingBreakdown}
                   originalPricingBreakdown={pricingBreakdown}

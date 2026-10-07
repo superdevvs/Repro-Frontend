@@ -18,6 +18,7 @@ import type { CompReshootBookingController } from '@/features/complimentary-resh
 import { resolveSelectedServiceSubtotal, type ServicePackage } from '@/pages/bookShootModel';
 import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { selectedServicesRequirePhotographer } from '@/utils/photographerAssignment';
+import { TravelNotifications } from '@/features/travel/TravelNotifications';
 
 interface ReviewFormProps {
   client: string; // Client ID
@@ -44,6 +45,7 @@ interface ReviewFormProps {
   setBypassPayment: (value: boolean) => void;
   sendNotification: boolean;
   setSendNotification: (value: boolean) => void;
+  notificationControls?: React.ComponentProps<typeof TravelNotifications>;
   packagePrice: number; // Changed from getPackagePrice function to packagePrice value
   pricing: PricingBreakdown;
   originalPricing?: PricingBreakdown;
@@ -122,6 +124,7 @@ export function ReviewForm({
   setBypassPayment,
   sendNotification,
   setSendNotification,
+  notificationControls,
   packagePrice,
   pricing,
   originalPricing,
@@ -186,7 +189,7 @@ export function ReviewForm({
 
       {!isCompReshoot && <Separator />}
 
-      <div className="flex items-center justify-between gap-3">
+      {notificationControls ? <TravelNotifications {...notificationControls} /> : <div className="flex items-center justify-between gap-3">
         <div className="space-y-0.5 min-w-0">
           <Label htmlFor="send-notification" className="text-slate-900 dark:text-slate-100">Send Notification</Label>
           <div className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
@@ -198,7 +201,7 @@ export function ReviewForm({
           checked={sendNotification}
           onCheckedChange={setSendNotification}
         />
-      </div>
+      </div>}
     </div>
   ) : null;
 

@@ -59,6 +59,7 @@ interface BookingContentAreaProps {
   setBypassPayment: React.Dispatch<React.SetStateAction<boolean>>;
   sendNotification: boolean;
   setSendNotification: React.Dispatch<React.SetStateAction<boolean>>;
+  notificationControls?: React.ComponentProps<typeof ReviewForm>['notificationControls'];
   getPackagePrice: () => number;
   pricingBreakdown: PricingBreakdown;
   originalPricingBreakdown?: PricingBreakdown;
@@ -120,6 +121,7 @@ export function BookingContentArea({
   setBypassPayment,
   sendNotification,
   setSendNotification,
+  notificationControls,
   getPackagePrice,
   pricingBreakdown,
   originalPricingBreakdown,
@@ -245,6 +247,7 @@ export function BookingContentArea({
           setBypassPayment={setBypassPayment}
           sendNotification={sendNotification}
           setSendNotification={setSendNotification}
+          notificationControls={notificationControls}
           photographers={photographers}
           selectedServices={selectedServices}
           packagePrice={getPackagePrice()}
