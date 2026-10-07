@@ -24,12 +24,13 @@ export const EmptyQueueState = ({ statusLabel, payeePlural }: { statusLabel: str
   </div>
 );
 
-export const DetailShell = ({ invoice, detailLoading, onApprove, onReturn, onOpenInvoice, role }: {
+export const DetailShell = ({ invoice, detailLoading, onApprove, onReturn, onOpenInvoice, onEditInvoice, role }: {
   invoice: WeeklyInvoice | null;
   detailLoading: boolean;
   onApprove: () => void;
   onReturn: () => void;
   onOpenInvoice?: () => void;
+  onEditInvoice?: () => void;
   role: ReviewWorkspaceRole;
 }) => {
   if (detailLoading || !invoice) return <div className="ar-detail flex items-center justify-center p-6 text-center text-sm text-muted-foreground">
@@ -46,7 +47,7 @@ export const DetailShell = ({ invoice, detailLoading, onApprove, onReturn, onOpe
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="text-base font-semibold">{payee?.name || 'Invoice'} <span className="text-xs font-normal text-muted-foreground">W-{invoice.id}</span></h2>
-          <Badge variant="outline" className={getStatusBadgeClassName(invoice.approval_status)}>{getStatusLabel(invoice.approval_status)}</Badge>
+          <Badge variant="outline" className={getStatusBadgeClassName(invoice.approval_status)}>{invoice.payout_review?.label || getStatusLabel(invoice.approval_status)}</Badge>
         </div>
         <p className="mt-1 break-all text-xs text-muted-foreground">{payee?.email || 'No email available'}</p>
         <p className="mt-2 text-xs text-muted-foreground">{formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)} · Updated {formatRelativeTimestamp(invoice.last_activity_at)}</p>
@@ -56,7 +57,7 @@ export const DetailShell = ({ invoice, detailLoading, onApprove, onReturn, onOpe
     <Tabs key={invoice.id} defaultValue="details" className="ar-detail-tabs">
       <div className="ar-detail-tabbar">
         <TabsList className="h-9"><TabsTrigger value="details" className="text-xs">Details</TabsTrigger><TabsTrigger value="history" className="text-xs">Notes &amp; history</TabsTrigger></TabsList>
-        {onOpenInvoice && role === 'photographer' && canReview && <Button variant="outline" size="sm" onClick={onOpenInvoice}>Open invoice</Button>}
+        <div className="flex flex-wrap gap-2">{onEditInvoice && ['pending', 'pending_approval', 'rejected'].includes(invoice.approval_status) && !invoice.is_paid && !invoice.paid_at && Number(invoice.amount_paid) === 0 && <Button variant="outline" size="sm" onClick={onEditInvoice}>Edit invoice</Button>}{onOpenInvoice && <Button variant="outline" size="sm" onClick={onOpenInvoice}>View invoice</Button>}</div>
       </div>
       <TabsContent value="details" className="ar-detail-body">
         <div className="ar-facts">
@@ -84,7 +85,7 @@ export const DetailShell = ({ invoice, detailLoading, onApprove, onReturn, onOpe
         </section>
         <div className="grid gap-3 sm:grid-cols-2">
           <section className="rounded-lg bg-muted/30 p-3 text-xs"><h3 className="mb-2 font-semibold">{role === 'salesRep' ? 'Sales rep' : 'Photographer'} note</h3><p className="whitespace-pre-wrap text-muted-foreground">{invoice.modification_notes || 'No submission note.'}</p></section>
-          <section className="rounded-lg bg-muted/30 p-3 text-xs"><h3 className="mb-2 font-semibold">Return reason</h3><p className="whitespace-pre-wrap text-muted-foreground">{invoice.rejection_reason || 'No return reason recorded.'}</p></section>
+          <section className="rounded-lg bg-muted/30 p-3 text-xs"><h3 className="mb-2 font-semibold">Latest return reason</h3><p className="whitespace-pre-wrap text-muted-foreground">{invoice.payout_review?.last_return_reason || invoice.rejection_reason || 'This invoice has not been returned.'}</p></section>
         </div>
         <section><h3 className="ar-section-title">Linked shoots <span>{invoice.shoots?.length || 0}</span></h3>
           {(invoice.shoots || []).map((shoot) => {

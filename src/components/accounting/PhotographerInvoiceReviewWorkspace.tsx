@@ -40,7 +40,7 @@ import {
 } from '@/services/invoiceService';
 import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
 import { downloadInvoicePdf, downloadInvoicesPdf } from '@/utils/invoiceDownloads';
-import { InvoiceApprovalDialog } from '@/components/invoices/InvoiceApprovalDialog';
+import { PayoutInvoiceEditor } from '@/components/invoices/PayoutInvoiceEditor';
 import { InvoiceDateFilterToolbar, type InvoiceExportFormat } from './InvoiceDateFilterToolbar';
 import {
   DEFAULT_INVOICE_DATE_FILTER,
@@ -88,6 +88,7 @@ export function PhotographerInvoiceReviewWorkspace({
   const [approveDialogOpen, setApproveDialogOpen] = useState(false);
   const [returnDialogOpen, setReturnDialogOpen] = useState(false);
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false);
+  const [editorStartsOpen, setEditorStartsOpen] = useState(false);
   const [returnReason, setReturnReason] = useState('');
   const [warningOverrideReason, setWarningOverrideReason] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -425,7 +426,7 @@ export function PhotographerInvoiceReviewWorkspace({
     setActionLoading(true);
 
     try {
-      await approveWeeklyInvoice(selectedInvoice.id, warnings.length > 0 ? overrideReason : undefined);
+      await approveWeeklyInvoice(selectedInvoice.id, warnings.length > 0 ? overrideReason : undefined, selectedInvoice.payout_review?.revision);
       toast({
         title: 'Invoice approved',
         description: 'The amount was approved. Payment can be marked separately after it is sent.',
@@ -452,7 +453,7 @@ export function PhotographerInvoiceReviewWorkspace({
     setActionLoading(true);
 
     try {
-      await adminRejectWeeklyInvoice(selectedInvoice.id, reason);
+      await adminRejectWeeklyInvoice(selectedInvoice.id, reason, selectedInvoice.payout_review?.revision);
       toast({
         title: 'Invoice returned',
         description: `The ${resolvedShortLabel.toLowerCase()} has been asked to make changes before payout.`,
@@ -525,7 +526,7 @@ export function PhotographerInvoiceReviewWorkspace({
                   <button type="button" className="min-w-0 flex-1 text-left" aria-pressed={invoice.id === selectedInvoiceId} onClick={() => handleSelectInvoice(invoice.id)}>
                     <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1"><span className="truncate text-sm font-semibold">{payee?.name || resolvedShortLabel}</span><span className="text-sm font-semibold tabular-nums">{formatCurrency(invoice.total_amount)}</span></div>
                     <p className="mt-1 text-xs text-muted-foreground">{formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}</p>
-                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-muted-foreground">W-{invoice.id} · {invoice.shoot_count || 0} shoots · {invoice.expense_count || 0} expenses</span><Badge variant="outline" className={cn('text-[10px]', getStatusBadgeClassName(invoice.approval_status))}>{getStatusLabel(invoice.approval_status)}</Badge></div>
+                    <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-muted-foreground">W-{invoice.id} · {invoice.shoot_count || 0} shoots · {invoice.expense_count || 0} expenses</span><Badge variant="outline" className={cn('text-[10px]', getStatusBadgeClassName(invoice.approval_status))}>{invoice.payout_review?.label || getStatusLabel(invoice.approval_status)}</Badge></div>
                   </button>
                   <ReviewInvoiceDownloadMenu invoice={invoice} onDownload={handleInvoiceDownload} />
                 </div>;
@@ -537,7 +538,7 @@ export function PhotographerInvoiceReviewWorkspace({
               <div className="flex gap-1"><Button variant="outline" size="sm" aria-label="Previous invoice page" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={queueLoading || page <= 1}>‹</Button><Button variant="outline" size="sm" aria-label="Next invoice page" onClick={() => setPage((current) => current + 1)} disabled={queueLoading || page >= (queueResponse?.last_page || 1)}>›</Button></div>
             </footer>
           </section>
-          <DetailShell invoice={selectedInvoice?.id === selectedInvoiceId ? selectedInvoice : null} detailLoading={detailLoading || queueLoading} onApprove={() => setApproveDialogOpen(true)} onReturn={() => setReturnDialogOpen(true)} onOpenInvoice={() => setInvoiceModalOpen(true)} role={role} />
+          <DetailShell invoice={selectedInvoice?.id === selectedInvoiceId ? selectedInvoice : null} detailLoading={detailLoading || queueLoading} onApprove={() => setApproveDialogOpen(true)} onReturn={() => setReturnDialogOpen(true)} onOpenInvoice={() => { setEditorStartsOpen(false); setInvoiceModalOpen(true); }} onEditInvoice={() => { setEditorStartsOpen(true); setInvoiceModalOpen(true); }} role={role} />
         </div>
       </TabsContent>
 
@@ -650,20 +651,15 @@ export function PhotographerInvoiceReviewWorkspace({
         </DialogContent>
       </Dialog>
 
-      {role === 'photographer' && selectedInvoice ? (
-        <InvoiceApprovalDialog
-          isOpen={invoiceModalOpen}
-          onClose={() => setInvoiceModalOpen(false)}
+      {selectedInvoice ? (
+        <PayoutInvoiceEditor
+          open={invoiceModalOpen}
+          onClose={() => { setInvoiceModalOpen(false); void handleRefresh(); }}
           invoice={selectedInvoice}
-          mode="admin"
-          onAdminApprove={async (overrideReason) => {
-            await handleApprove(overrideReason);
-            setInvoiceModalOpen(false);
-          }}
-          onAdminReject={async (reason) => {
-            await handleReturnForChanges(reason);
-            setInvoiceModalOpen(false);
-          }}
+          role="admin"
+          initialEdit={editorStartsOpen}
+          onInvoiceChange={setSelectedInvoice}
+          onComplete={handleRefresh}
         />
       ) : null}
     </Tabs>

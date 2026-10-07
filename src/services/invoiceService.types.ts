@@ -104,6 +104,17 @@ export interface WeeklyInvoice {
   warning_override_reason?: string | null;
   warning_override_at?: string | null;
   audit_events?: WeeklyInvoiceAuditEvent[];
+  payout_review?: {
+    revision: number;
+    recovery_required?: { message: string; before_total: number; after_total: number; recalculation_id: number } | null;
+    has_changes: boolean;
+    submission_kind?: 'changes' | 'unchanged' | null;
+    label: string;
+    last_return_reason?: string | null;
+    before_total?: number | null;
+    submitted_total?: number | null;
+    changes?: Array<{ summary: string; metadata?: Record<string, unknown>; created_at?: string }>;
+  } | null;
 }
 
 export interface WeeklyInvoiceItem {

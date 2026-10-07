@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
-import { useShoots } from '@/context/shootsContextState';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
@@ -25,10 +24,8 @@ import {
   fetchSalesRepInvoices,
   addWeeklyInvoiceExpense,
   removeWeeklyInvoiceExpense,
-  submitWeeklyInvoiceChangesForApproval,
-  submitWeeklyInvoiceForApproval,
 } from '@/services/invoiceService';
-import { InvoiceApprovalDialog } from '@/components/invoices/InvoiceApprovalDialog';
+import { PayoutInvoiceEditor } from '@/components/invoices/PayoutInvoiceEditor';
 import {
   InvoiceDateFilterToolbar,
   type InvoiceExportFormat,
@@ -61,14 +58,12 @@ import { WeeklyInvoiceEmptyState, WeeklyInvoiceLoadingState } from './WeeklyInvo
 export const WeeklyInvoiceReview: React.FC = () => {
   const { role } = useAuth();
   const { toast } = useToast();
-  const { shoots } = useShoots();
   const [invoices, setInvoices] = useState<WeeklyInvoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedInvoice, setSelectedInvoice] = useState<WeeklyInvoice | null>(null);
-  const [reviewOpen, setReviewOpen] = useState(false);
   const [approvalDialogOpen, setApprovalDialogOpen] = useState(false);
+  const [editorStartsOpen, setEditorStartsOpen] = useState(false);
   const [expenseOpen, setExpenseOpen] = useState(false);
-  const [reviewNotes, setReviewNotes] = useState('');
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseAmount, setExpenseAmount] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
@@ -82,13 +77,6 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const invoiceRole = normalizeWeeklyInvoiceRole(role);
   const reviewCopy = getWeeklyInvoiceReviewCopy(invoiceRole);
 
-  const shootLookup = React.useMemo(() => {
-    const map = new Map<string, (typeof shoots)[number]>();
-    shoots.forEach((shoot) => {
-      map.set(String(shoot.id), shoot);
-    });
-    return map;
-  }, [shoots]);
 
   const loadInvoices = useCallback(async () => {
     try {
@@ -138,6 +126,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
   const canModify = (invoice: WeeklyInvoice) =>
     invoice.can_edit !== false && ['pending', 'rejected'].includes(invoice.approval_status) &&
     invoice.status !== 'paid' &&
+    Number(invoice.amount_paid) === 0 &&
     !invoice.is_paid &&
     !invoice.paid_at;
 
@@ -145,52 +134,6 @@ export const WeeklyInvoiceReview: React.FC = () => {
   // Once submitted, pending_approval locks editing while the admin reviews it.
   const canReview = canModify;
 
-  const handleSubmitChangesForReview = async (reasonOverride?: string) => {
-    if (!selectedInvoice) return;
-    const reason = (reasonOverride ?? reviewNotes).trim();
-    try {
-      setActionLoading(true);
-      await submitWeeklyInvoiceChangesForApproval(selectedInvoice.id, invoiceRole, reason);
-      toast({
-        title: 'Changes submitted',
-        description: 'The changed invoice is now in the super admin review queue.',
-      });
-      setReviewOpen(false);
-      setApprovalDialogOpen(false);
-      setReviewNotes('');
-      await loadInvoices();
-    } catch (error: unknown) {
-      toast({
-        title: 'Failed to submit changes',
-        description: error instanceof Error ? error.message : 'Unable to send the invoice for review',
-        variant: 'destructive',
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const handleAcceptReview = async (notesOverride?: string) => {
-    if (!selectedInvoice) return;
-    const notes = (notesOverride ?? reviewNotes).trim();
-    try {
-      setActionLoading(true);
-      await submitWeeklyInvoiceForApproval(selectedInvoice.id, invoiceRole, notes || undefined);
-      toast({ title: 'Invoice submitted', description: 'The invoice is now awaiting super admin review.' });
-      setReviewOpen(false);
-      setApprovalDialogOpen(false);
-      setReviewNotes('');
-      await loadInvoices();
-    } catch (error: unknown) {
-      toast({
-        title: 'Failed to submit invoice',
-        description: error instanceof Error ? error.message : 'Unable to send the invoice for review',
-        variant: 'destructive',
-      });
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   const handleAddExpense = async () => {
     if (!selectedInvoice || !expenseDesc || !expenseAmount) return;
@@ -325,34 +268,12 @@ export const WeeklyInvoiceReview: React.FC = () => {
     });
   };
 
-  const openReviewDialog = (invoice: WeeklyInvoice) => {
+  const openReviewDialog = (invoice: WeeklyInvoice, edit = false) => {
     setSelectedInvoice(invoice);
-    setReviewNotes(invoice.modification_notes || '');
-    if (invoiceRole === 'photographer') {
-      setApprovalDialogOpen(true);
-    } else {
-      setReviewOpen(true);
-    }
+    setEditorStartsOpen(edit);
+    setApprovalDialogOpen(true);
   };
 
-  const resolveShootForItem = useCallback(
-    (item: WeeklyInvoiceItem) => {
-      if (!item.shoot_id) return null;
-      const shoot = shootLookup.get(String(item.shoot_id));
-      if (!shoot) return null;
-      const loc = shoot.location;
-      return {
-        id: shoot.id,
-        address: loc?.address,
-        city: loc?.city,
-        state: loc?.state,
-        zip: loc?.zip,
-        scheduled_date: shoot.scheduledDate,
-        completed_at: (shoot as { completedAt?: string }).completedAt,
-      };
-    },
-    [shootLookup],
-  );
 
   const handleApprovalDialogChange = useCallback(
     (next: WeeklyInvoice) => {
@@ -446,7 +367,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
                 <Checkbox checked={selectedInvoiceIds.has(invoice.id)} onCheckedChange={(checked) => toggleInvoiceSelection(invoice.id, checked === true)} aria-label={`Select invoice for ${formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}`} />
                 <button type="button" onClick={() => { setSelectedInvoice(invoice); }} aria-pressed={active} className="min-w-0 flex-1 text-left">
                   <span className="block text-xs font-medium">{formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}</span>
-                  <span className="mt-1 block text-[11px] text-muted-foreground">{invoice.is_paid || invoice.status === 'paid' ? 'Paid' : status.label}</span>
+                  <span className="mt-1 block text-[11px] text-muted-foreground">{invoice.is_paid || invoice.status === 'paid' ? 'Paid' : invoice.payout_review?.label || status.label}</span>
                 </button>
                 <strong className="shrink-0 text-xs tabular-nums">{formatCurrency(getWeeklyInvoiceTotal(invoice))}</strong>
               </div>;
@@ -465,7 +386,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
         {detailInvoice && detailStatusCfg ? <article className="flex h-[32.5rem] min-w-0 flex-col p-4 sm:p-5">
           <div className="flex shrink-0 flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
             <h3 className="text-sm font-semibold">{formatBillingPeriod(detailInvoice.billing_period_start, detailInvoice.billing_period_end)}</h3>
-            <Badge variant="outline" className={cn('text-[10px]', detailStatusCfg.className)}>{detailInvoice.is_paid || detailInvoice.status === 'paid' ? 'Paid' : detailStatusCfg.label}</Badge>
+            <Badge variant="outline" className={cn('text-[10px]', detailStatusCfg.className)}>{detailInvoice.is_paid || detailInvoice.status === 'paid' ? 'Paid' : detailInvoice.payout_review?.label || detailStatusCfg.label}</Badge>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-2 [scrollbar-gutter:stable]" tabIndex={0} aria-label="Weekly invoice detail">
             <div className="grid grid-cols-2 gap-4 py-4 sm:grid-cols-4">
@@ -486,59 +407,24 @@ export const WeeklyInvoiceReview: React.FC = () => {
             </div>
           </div>
           <div className="mt-3 flex shrink-0 flex-wrap justify-end gap-2 border-t border-border/60 pt-3">
-            {invoiceRole === 'photographer' && <Button variant="outline" size="sm" onClick={() => { setSelectedInvoice(detailInvoice); setApprovalDialogOpen(true); }}>View invoice details</Button>}
-            {canReview(detailInvoice) && <><Button variant="outline" size="sm" onClick={() => openReviewDialog(detailInvoice)}>Edit &amp; submit changes</Button><Button size="sm" onClick={() => openReviewDialog(detailInvoice)}>{detailInvoice.approval_status === 'rejected' ? 'Review response' : 'Review & submit'}</Button></>}
+            {canReview(detailInvoice) && <Button variant="outline" size="sm" onClick={() => openReviewDialog(detailInvoice, true)}>Edit invoice</Button>}<Button size="sm" onClick={() => openReviewDialog(detailInvoice)}>View invoice</Button>
           </div>
         </article> : <div className="flex min-h-48 items-center justify-center p-6 text-sm text-muted-foreground">Choose another period to see invoice details.</div>}
       </div>
 
       {/* Photographer invoice approval dialog (replaces simple review dialog for photographers) */}
-      {invoiceRole === 'photographer' && selectedInvoice ? (
-        <InvoiceApprovalDialog
-          isOpen={approvalDialogOpen}
+      {selectedInvoice ? (
+        <PayoutInvoiceEditor
+          open={approvalDialogOpen}
           onClose={() => setApprovalDialogOpen(false)}
           invoice={selectedInvoice}
-          mode="photographer"
-          resolveShoot={resolveShootForItem}
-          onPhotographerApprove={(notes) => handleAcceptReview(notes)}
-          onPhotographerSubmitChanges={(reason) => handleSubmitChangesForReview(reason)}
+          role={invoiceRole}
+          initialEdit={editorStartsOpen}
           onInvoiceChange={handleApprovalDialogChange}
+          onComplete={loadInvoices}
         />
       ) : null}
 
-      {/* Review Dialog */}
-      <Dialog open={reviewOpen} onOpenChange={setReviewOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{reviewCopy.reviewDialogTitle}</DialogTitle>
-            <DialogDescription>
-              {reviewCopy.reviewDialogDescription}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Notes</Label>
-              <Textarea
-                placeholder={reviewCopy.reviewNotesPlaceholder}
-                value={reviewNotes}
-                onChange={(e) => setReviewNotes(e.target.value)}
-                rows={4}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setReviewOpen(false)}>Cancel</Button>
-            <Button variant="outline" onClick={() => handleSubmitChangesForReview()} disabled={actionLoading}>
-              {actionLoading && <Loader2 aria-hidden="true" className="w-4 h-4 mr-2" />}
-              Submit with Changes
-            </Button>
-            <Button onClick={() => handleAcceptReview()} disabled={actionLoading}>
-              {actionLoading && <Loader2 aria-hidden="true" className="w-4 h-4 mr-2" />}
-              Accept
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Add Expense Dialog */}
       <Dialog open={expenseOpen} onOpenChange={setExpenseOpen}>

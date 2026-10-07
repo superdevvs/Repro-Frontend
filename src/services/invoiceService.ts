@@ -600,13 +600,14 @@ export const updateWeeklyInvoiceItem = async (
 export const submitWeeklyInvoiceForApproval = async (
   invoiceId: number,
   role: 'photographer' | 'salesRep',
-  notes?: string
+  notes?: string,
+  expectedRevision?: number
 ): Promise<{ message: string; invoice: WeeklyInvoice }> => {
   const prefix = role === 'photographer' ? 'photographer' : 'salesrep';
   const response = await fetch(`${API_BASE_URL}/api/${prefix}/invoices/${invoiceId}/submit-for-approval`, {
     method: 'POST',
     headers: buildHeaders(),
-    body: JSON.stringify({ notes }),
+    body: JSON.stringify({ notes, expected_revision: expectedRevision }),
   });
 
   if (!response.ok) {
@@ -656,7 +657,7 @@ export const fetchPendingApprovalInvoices = async (params: { page?: number; per_
 
 export const fetchAdminInvoiceReviewQueue = async (params: {
   role?: 'photographer' | 'salesRep';
-  approval_status?: 'pending_approval' | 'approved' | 'accounts_approved' | 'rejected';
+  approval_status?: 'pending' | 'pending_approval' | 'approved' | 'accounts_approved' | 'rejected';
   search?: string;
   start?: string;
   end?: string;
@@ -703,12 +704,13 @@ export const fetchAdminInvoiceReviewDetail = async (invoiceId: number): Promise<
  */
 export const approveWeeklyInvoice = async (
   invoiceId: number,
-  warningOverrideReason?: string
+  warningOverrideReason?: string,
+  expectedRevision?: number,
 ): Promise<{ message: string; invoice: WeeklyInvoice }> => {
   const response = await fetch(`${API_BASE_URL}/api/admin/invoices/${invoiceId}/approve`, {
     method: 'POST',
     headers: buildHeaders(),
-    body: warningOverrideReason ? JSON.stringify({ warning_override_reason: warningOverrideReason }) : undefined,
+    body: JSON.stringify({ warning_override_reason: warningOverrideReason, expected_revision: expectedRevision }),
   });
 
   if (!response.ok) {
@@ -724,12 +726,13 @@ export const approveWeeklyInvoice = async (
  */
 export const adminRejectWeeklyInvoice = async (
   invoiceId: number,
-  reason: string
+  reason: string,
+  expectedRevision?: number
 ): Promise<{ message: string; invoice: WeeklyInvoice }> => {
   const response = await fetch(`${API_BASE_URL}/api/admin/invoices/${invoiceId}/reject`, {
     method: 'POST',
     headers: buildHeaders(),
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify({ reason, expected_revision: expectedRevision }),
   });
 
   if (!response.ok) {

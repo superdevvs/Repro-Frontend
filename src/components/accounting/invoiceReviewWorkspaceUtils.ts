@@ -4,7 +4,7 @@ import type { WeeklyInvoice } from '@/services/invoiceService';
 import { parseInvoiceDateInput } from '@/utils/invoiceDateFilters';
 
 export type ReviewWorkspaceTab = 'review-queue' | 'payout-report';
-export type ReviewStatusFilter = 'all' | 'pending_approval' | 'approved' | 'accounts_approved' | 'rejected';
+export type ReviewStatusFilter = 'all' | 'pending' | 'pending_approval' | 'approved' | 'accounts_approved' | 'rejected';
 export type ReviewWorkspaceRole = 'photographer' | 'salesRep';
 
 export interface InvoiceReviewWorkspaceProps {
@@ -17,6 +17,7 @@ export interface InvoiceReviewWorkspaceProps {
 export const STATUS_OPTIONS: Array<{ value: ReviewStatusFilter; label: string }> = [
   { value: 'all', label: 'All records' },
   { value: 'pending_approval', label: 'Needs review' },
+  { value: 'pending', label: 'Awaiting payee' },
   { value: 'approved', label: 'Approved' },
   { value: 'rejected', label: 'Returned' },
 ];
@@ -47,6 +48,7 @@ export const formatRelativeTimestamp = (value?: string | null) => {
 export const getStatusLabel = (status: string) => {
   switch (status) {
     case 'pending':
+      return 'Awaiting Payee';
     case 'pending_approval': return 'Needs Review';
     case 'approved':
     case 'accounts_approved': return 'Accounts Approved';
