@@ -49,7 +49,23 @@ function formDataFields(body: FormData): Record<string, string> {
 
 function primaryUploadFile(body: FormData): File | null {
   const value = body.get('files[]') ?? body.get('files');
-  return value instanceof File ? value : null;
+  // FormData already guarantees a string or File. An instanceof check can miss
+  // files from another window and incorrectly bypass chunking/byte telemetry.
+  return value !== null && typeof value !== 'string' ? value : null;
+}
+
+/** Preserve every field and filename, but send Blob slices instead of disk-backed
+ * Files. Safari 26 can silently drop multipart bodies when its network process
+ * cannot resolve a File's backing path (WebKit bug 319985). slice() avoids that
+ * path without reading a whole RAW/video into JavaScript memory.
+ */
+function multipartUploadBody(body: FormData): FormData {
+  const transportBody = new FormData();
+  body.forEach((value, key) => {
+    if (typeof value === 'string') transportBody.append(key, value);
+    else transportBody.append(key, value.slice(0, value.size, value.type), value.name);
+  });
+  return transportBody;
 }
 
 function sessionsUrl(uploadUrl: string): string {
@@ -366,7 +382,7 @@ function sendMediaRequest(options: UploadMediaRequestOptions): Promise<MediaRequ
       });
       options.onProgress({ phase: 'transferring', loaded: 0, total: 0 });
       armDeadline();
-      xhr.send(options.body);
+      xhr.send(multipartUploadBody(options.body));
     } catch {
       finish({ ok: false, message: 'The browser could not start the upload. Make sure the selected file is available on this device, then retry.' }, true);
     }

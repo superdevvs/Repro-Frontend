@@ -21,6 +21,39 @@ afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(
 const start = (onProgress = vi.fn()) => uploadMediaRequest({ url: '/upload', body: new FormData(), headers: {}, onProgress });
 
 describe('media upload transport', () => {
+  it('sends Blob slices with original filenames and every repeated field intact', async () => {
+    const first = new File(['camera bytes'], 'IMG_0001.CR3', { type: 'image/x-canon-cr3' });
+    const second = new File(['second camera bytes'], 'IMG_0002.CR3');
+    const slice = vi.spyOn(first, 'slice');
+    const body = new FormData();
+    body.append('files[]', first);
+    body.append('files[]', second);
+    body.append('idempotency_key', 'original-attempt');
+    body.append('upload_batch_id', 'original-batch');
+    body.append('upload_batch_index', '1');
+    body.append('upload_batch_total', '2');
+    body.append('shoot_service_id', '2456');
+    body.append('treatment', 'VS');
+    body.append('tags[]', 'one');
+    body.append('tags[]', 'two');
+    const result = uploadMediaRequest({ url: '/upload', body, headers: {}, onProgress: vi.fn() });
+    const sent = FakeXHR.current.send.mock.calls[0][0] as FormData;
+    expect(sent).not.toBe(body);
+    expect(slice).toHaveBeenCalledWith(0, first.size, first.type);
+    const sentFiles = sent.getAll('files[]') as File[];
+    expect(sentFiles.map(file => [file.name, file.size, file.type])).toEqual([
+      [first.name, first.size, first.type], [second.name, second.size, second.type],
+    ]);
+    expect(sentFiles[0]).not.toBe(first);
+    expect(Array.from(sent.keys())).toEqual(Array.from(body.keys()));
+    for (const key of ['idempotency_key', 'upload_batch_id', 'upload_batch_index', 'upload_batch_total', 'shoot_service_id', 'treatment', 'tags[]']) {
+      expect(sent.getAll(key)).toEqual(body.getAll(key));
+    }
+    expect(body.get('files[]')).toBe(first);
+    FakeXHR.current.dispatchEvent(new Event('load'));
+    expect(await result).toMatchObject({ ok: true });
+  });
+
   it('ends a silent transfer and aborts its request after two idle minutes', async () => {
     const result = start();
     await vi.advanceTimersByTimeAsync(UPLOAD_IDLE_TIMEOUT_MS);
@@ -104,6 +137,22 @@ describe('media upload transport', () => {
 
 
 describe('CDN-oversized media uploads', () => {
+  it('still chunks a large file when it is not an instance of this window File constructor', async () => {
+    const file = new File(['raw bytes'], 'large.CR3');
+    Object.defineProperty(file, 'size', { value: CLOUDFLARE_SAFE_UPLOAD_BYTES + 1 });
+    const body = new FormData();
+    body.append('files[]', file);
+    // A same-origin iframe supplies a different File constructor in browsers.
+    vi.stubGlobal('File', class ForeignFile {});
+    const result = uploadMediaRequest({ url: '/api/shoots/2374/upload', body, headers: {}, onProgress: vi.fn() });
+    expect(FakeXHR.current.open).toHaveBeenCalledWith('POST', '/api/shoots/2374/upload-sessions');
+    FakeXHR.current.status = 422;
+    FakeXHR.current.responseText = '{"message":"fixture session rejected"}';
+    FakeXHR.current.dispatchEvent(new Event('load'));
+    expect(await result).toMatchObject({ ok: false, message: 'fixture session rejected' });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
   it('surfaces a clear message when Cloudflare returns 413 HTML for a single-request body', async () => {
     const body = new FormData();
     body.append('files[]', new File(['small'], 'clip.mp4', { type: 'video/mp4' }));
