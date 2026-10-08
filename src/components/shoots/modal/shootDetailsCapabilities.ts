@@ -1,4 +1,5 @@
 import { ShootData } from '@/types/shoots';
+import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 import {
   ShootDetailsCapabilities,
@@ -93,10 +94,7 @@ export const getShootDetailsCapabilities = ({
   // request flag.
   const isFastForwardFinalise = canFastForwardFinalise;
   const canSendToEditing =
-    isAdmin &&
-    !isDelivered &&
-    !hasEditedWithoutRaw &&
-    normalizedStatus === 'uploaded';
+    isEditingManager && canSendShootToEditing(shoot, currentUserRole);
   const canApproveEditingReview =
     (isAdmin || isEditingManager) &&
     !isDelivered &&

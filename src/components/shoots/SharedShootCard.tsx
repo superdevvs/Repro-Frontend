@@ -1,4 +1,5 @@
 import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
+import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 import { canManageRequestedShoots } from '@/utils/requestedShootPermissions';
 import { isSalesRepRole } from '@/utils/shootManagementAccess';
@@ -123,8 +124,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   const [isSendingToEditing, setIsSendingToEditing] = React.useState(false);
   const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor || isSalesRepRole(role) || (normalizedStatus === 'requested' && canManageRequestedShoots(role)));
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor || isSalesRepRole(role));
-  const shootStatus = String(shoot.workflowStatus || shoot.status || '').toLowerCase();
-  const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded';
+  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot, role);
 
   const handlePrimary = () => {
     const action = shoot.primaryAction || roleDefaultActions[role];
@@ -210,10 +210,11 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
           {canSendToEditing && (
             <Button 
               onClick={handleSendToEditingClick}
-              className="bg-purple-500 hover:bg-purple-600 text-white font-semibold px-3 py-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+              className="bg-purple-500 hover:bg-purple-600 text-white font-semibold px-3 py-1.5 rounded-full shadow-lg opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity"
               size="sm"
               variant="outline"
               title="Send to Editing"
+              aria-label="Send to Editing"
               disabled={isSendingToEditing}
             >
               {isSendingToEditing ? (
@@ -398,6 +399,13 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
         {/* Additional Info & Metadata */}
         <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50">
           <div className="flex flex-wrap items-center gap-2">
+            {!heroImage && canSendToEditing && (
+              <Button onClick={handleSendToEditingClick} size="sm" variant="outline"
+                className="h-8 gap-1.5" title="Send to Editing" disabled={isSendingToEditing}>
+                {isSendingToEditing ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+                Send to Editing
+              </Button>
+            )}
             {bracketSummary && (
               <Badge variant="secondary" className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium">
                 <Layers className="h-3 w-3" />

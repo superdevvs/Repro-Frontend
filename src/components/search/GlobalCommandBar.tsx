@@ -1,4 +1,5 @@
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
+import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   CalendarDays,
@@ -370,11 +371,11 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
               </CommandGroup>
             )}
 
-            {isAdminExperience && filteredShoots.length > 0 && (
+            {(isAdminExperience || role === 'editing_manager') && filteredShoots.length > 0 && (
               <CommandGroup heading="Shoot Actions">
                 {filteredShoots.map((shoot) => (
                   <React.Fragment key={`actions-${shoot.id}`}>
-                    <CommandItem
+                    {canSendShootToEditing(shoot, role) && <CommandItem
                       value={`send to editing ${shootSearchValue(shoot)}`}
                       onSelect={async () => {
                         onOpenChange(false);
@@ -385,7 +386,7 @@ export const GlobalCommandBar: React.FC<GlobalCommandBarProps> = ({ open, onOpen
                         <Sparkles className="h-4 w-4" />
                       </div>
                       <span className="text-sm">Send to Editing · Shoot #{shoot.id}</span>
-                    </CommandItem>
+                    </CommandItem>}
                     {canFinaliseShoot(shoot) && (
                       <CommandItem
                         value={`finalize shoot ${shootSearchValue(shoot)}`}

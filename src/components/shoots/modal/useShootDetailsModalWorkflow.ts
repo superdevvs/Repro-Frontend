@@ -1,3 +1,4 @@
+import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { useHoldNotifications, describeHoldNotifications } from '../details/useHoldNotifications';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { Dispatch, SetStateAction, useState, useRef } from 'react';
@@ -86,7 +87,7 @@ export function useShootDetailsModalWorkflow({
 
     try {
       setIsSendingToEditing(true);
-      const currentStatus = shoot.status || shoot.workflowStatus || 'booked';
+      const currentStatus = shoot.workflowStatus || shoot.status || 'booked';
 
       if (String(currentStatus).toLowerCase() === 'editing') {
         toast({
@@ -97,8 +98,8 @@ export function useShootDetailsModalWorkflow({
         return;
       }
 
-      if (String(currentStatus).toLowerCase() !== 'uploaded') {
-        throw new Error('Shoot must be in Uploaded status before sending to editing');
+      if (!canSendShootToEditing(shoot, 'editing_manager')) {
+        throw new Error('Shoot must be in Scheduled or Uploaded status before sending to editing');
       }
 
       if (!await sendShootToEditing(shoot.id)) return;

@@ -1,3 +1,4 @@
+import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import type { ShootCard } from '@/types/shootCard'
 import { useQueryClient } from '@tanstack/react-query'
 import { downloadBlob, getHistoryDownloadMode } from './shootHistoryDownloadHelpers';
@@ -819,9 +820,8 @@ export function useShootHistoryData({
     async (shoot: Pick<ShootData, 'id' | 'status' | 'workflowStatus'>) => {
       if (!shoot?.id) return
       try {
-        const currentStatus = shoot.status || shoot.workflowStatus || 'booked'
-        if (String(currentStatus).toLowerCase() !== 'uploaded') {
-          throw new Error('Shoot must be in Uploaded status before sending to editing')
+        if (!canSendShootToEditing(shoot, role)) {
+          throw new Error('Editing managers can send only Scheduled or Uploaded shoots to editing')
         }
 
         if (!await sendShootToEditing(shoot.id)) return
@@ -845,7 +845,7 @@ export function useShootHistoryData({
         })
       }
     },
-    [toast, refreshActiveTabData, selectedShoot, loadShootById, isDetailOpen],
+    [toast, refreshActiveTabData, selectedShoot, loadShootById, isDetailOpen, role],
   )
 
   const confirmDeleteShoot = useCallback(async (options?: { deleteMedia?: boolean }) => {

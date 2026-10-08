@@ -538,7 +538,7 @@ export function ShootDetailsModalActionRail({
                 Resume from hold
               </button>
             )}
-            {isAdmin && !isEditMode && canSendToEditing && (
+            {!isEditMode && canSendToEditing && (
               <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
                 onClick={() => {

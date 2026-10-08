@@ -582,7 +582,7 @@ export function ShootDetailsModalBody({
                     <span>Resume from hold</span>
                   </Button>
                 )}
-                {isAdmin && canSendToEditing && (
+                {canSendToEditing && (
                   <Button
                     variant="default"
                     size="sm"
