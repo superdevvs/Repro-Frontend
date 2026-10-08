@@ -49,6 +49,35 @@ describe('photo generation scope and selected versions', () => {
     expect(props.onRefine).toHaveBeenCalledWith({ mediaId: 'a', outputId: 'a-v1', prompt: 'Remove the chair.', customEdit: true });
     expect(props.onGenerate).not.toHaveBeenCalled();
   });
+  it('toggles comparison from the top toolbar and disables it for an original-only photo', () => {
+    const props = makeProps();
+    const { container, rerender } = render(<PhotoWorkspace {...props} />);
+    expect(screen.getByRole('button', { name: 'Compare' })).toBeDisabled();
+    props.workspace.outputs = [{ id: 'a-v1', mediaId: 'a', version: 1, status: 'completed', kind: 'image', url: '/edited.jpg' }];
+    rerender(<PhotoWorkspace {...props} />);
+    const compare = within(container.querySelector('header') as HTMLElement).getByRole('button', { name: 'Compare' });
+    expect(compare).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(compare);
+    expect(screen.queryByRole('slider', { name: 'Before and after comparison position' })).not.toBeInTheDocument();
+    fireEvent.click(compare);
+    expect(screen.getByRole('slider', { name: 'Before and after comparison position' })).toBeVisible();
+  });
+  it('opens mobile instructions above the thumbnail rail outside the photo', () => {
+    vi.stubGlobal('matchMedia', vi.fn().mockReturnValue({ matches: true, addEventListener: vi.fn(), removeEventListener: vi.fn() }));
+    const props = makeProps();
+    props.workspace.outputs = [{ id: 'a-v1', mediaId: 'a', version: 1, status: 'completed', kind: 'image', url: '/edited.jpg' }];
+    const { container } = render(<PhotoWorkspace {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Focus' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Custom edit' }));
+    const field = screen.getByRole('textbox', { name: 'Custom edit' });
+    const composer = container.querySelector('.v4-editor-mobile-content') as HTMLElement;
+    expect(composer).toContainElement(field);
+    expect(composer.nextElementSibling).toHaveClass('v4-editor-filmstrip');
+    expect(container.querySelector('.v4-photo-image-frame')).not.toContainElement(field);
+    expect(screen.getAllByRole('textbox', { name: 'Custom edit' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Close custom edit' }));
+    expect(screen.queryByRole('textbox', { name: 'Custom edit' })).not.toBeInTheDocument();
+  });
   it('switches focused custom controls and saves the explicitly selected version without generating again', async () => {
     const props = makeProps();
     props.workspace.status = 'completed';

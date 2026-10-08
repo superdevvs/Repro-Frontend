@@ -14,6 +14,7 @@ interface EditorShellProps {
   onChangeSource?: () => void;
   modeControl?: ReactNode;
   actions: ReactNode;
+  mobileContent?: ReactNode;
   inspector: ReactNode;
   inspectorFooter?: ReactNode;
   filmstrip: ReactNode;
@@ -23,7 +24,7 @@ interface EditorShellProps {
 }
 
 /** The existing dashboard owns global navigation; this is the single local editor tier. */
-export function EditorShell({ compact = false, title, subtitle, shootLabel, onBack, onChangeSource, modeControl, actions, inspector, inspectorFooter, filmstrip, children, error, status }: EditorShellProps) {
+export function EditorShell({ compact = false, title, subtitle, shootLabel, onBack, onChangeSource, modeControl, actions, mobileContent, inspector, inspectorFooter, filmstrip, children, error, status }: EditorShellProps) {
   return (
     <section className={`v4-editor${compact ? ' v4-editor-compact' : ''}`} aria-label={`${title} workspace`}>
       <header className="v4-editor-toolbar">
@@ -47,6 +48,7 @@ export function EditorShell({ compact = false, title, subtitle, shootLabel, onBa
         <main className="v4-editor-stage">{children}</main>
         <aside className={`v4-editor-inspector${inspectorFooter ? ' v4-editor-inspector-focused' : ''}`} aria-label="Edit settings">{inspector}</aside>
         {inspectorFooter && <div className="v4-editor-inspector-footer">{inspectorFooter}</div>}
+        {mobileContent && <div className="v4-editor-mobile-content">{mobileContent}</div>}
         <div className="v4-editor-filmstrip">{filmstrip}</div>
       </div>
       <footer className="v4-editor-mobile-actions">{actions}</footer>

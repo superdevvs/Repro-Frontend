@@ -4,7 +4,7 @@ import { afterEach, expect, it, vi } from 'vitest';
 import { PhotoComparison } from './PhotoComparison';
 
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
-const props = { name: 'Exterior', originalUrl: '/original.jpg', editedUrl: '/edited.jpg', version: 2, generating: false, comparing: true, onComparingChange: vi.fn(), position: 50, onPositionChange: vi.fn() };
+const props = { name: 'Exterior', originalUrl: '/original.jpg', editedUrl: '/edited.jpg', version: 2, generating: false, comparing: true, position: 50, onPositionChange: vi.fn() };
 
 it('bounds the comparison to the contained photo and exposes its position for keyboard users', () => {
   vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1000);
@@ -18,14 +18,13 @@ it('bounds the comparison to the contained photo and exposes its position for ke
   expect(slider).toHaveAttribute('aria-valuetext', '50% original image visible');
   fireEvent.change(slider, { target: { value: '70' } });
   expect(props.onPositionChange).toHaveBeenCalledWith(70);
-  fireEvent.click(screen.getByRole('button', { name: 'Compare' }));
-  expect(props.onComparingChange).toHaveBeenCalledWith(false);
+  expect(screen.queryByRole('button', { name: 'Compare' })).not.toBeInTheDocument();
 });
 
-it('disables result modes until an edited photo is available', () => {
+it('shows the original without comparison controls until an edited photo is available', () => {
   render(<PhotoComparison {...props} editedUrl={undefined} comparing={false} />);
   expect(screen.queryByRole('button', { name: 'After' })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'Before' })).not.toBeInTheDocument();
-  expect(screen.getByRole('button', { name: 'Compare' })).toBeDisabled();
+  expect(screen.getByAltText('Exterior original')).toBeVisible();
   expect(screen.queryByRole('slider')).not.toBeInTheDocument();
 });
