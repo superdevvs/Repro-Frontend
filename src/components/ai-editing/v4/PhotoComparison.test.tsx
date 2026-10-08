@@ -28,3 +28,13 @@ it('shows the original without comparison controls until an edited photo is avai
   expect(screen.getByAltText('Exterior original')).toBeVisible();
   expect(screen.queryByRole('slider')).not.toBeInTheDocument();
 });
+
+it('clips the full-size original container so different image ratios cannot expose the edit on the before side', () => {
+  const { container, rerender } = render(<PhotoComparison {...props} position={70} />);
+  const original = screen.getByAltText('Original for comparison');
+  expect(original).toHaveAttribute('loading', 'eager');
+  expect(original.parentElement).toHaveClass('v4-photo-original-clip');
+  expect(original.parentElement).toHaveStyle({ clipPath: 'inset(0 30% 0 0)' });
+  rerender(<PhotoComparison {...props} position={0} />);
+  expect(container.querySelector('.v4-photo-original-clip')).toHaveStyle({ clipPath: 'inset(0 100% 0 0)' });
+});

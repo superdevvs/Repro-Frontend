@@ -45,9 +45,14 @@ describe('on-media generation progress', () => {
   });
 
   it('keeps compact overlays non-interactive inside gallery cards', () => {
-    render(<MediaGenerationOverlay label="Photo editing job" progress={20} onRefresh={vi.fn()} compact />);
+    const { container } = render(<MediaGenerationOverlay label="Photo editing job" progress={20} onRefresh={vi.fn()} compact />);
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '20');
+    expect(container.querySelectorAll('.v4-generation-star')).toHaveLength(9);
+    expect(container.querySelector('.v4-generation-edge')).toBeNull();
+    expect(container.querySelector('.v4-generation-robbie')).toBeNull();
+    expect(container.querySelector('.v4-generation-mote')).toBeNull();
+    expect(container.querySelector('.v4-generation-trail')).toBeNull();
   });
 
   it('pauses its decorative animations when the browser is hidden', () => {

@@ -33,7 +33,9 @@ export function PhotoComparison({ name, originalUrl, editedUrl, version, generat
     <div className="v4-photo-image-frame" style={bounds ? { width: bounds.width, height: bounds.height } : undefined}>
       <GenerationPhoto active={generating} progress={progress} label={generationLabel} outcome={outcome} resultKey={editedUrl ? resultKey || `${version}:${editedUrl}` : undefined} onRefresh={onRefresh} loading="eager" src={before ? originalUrl : editedUrl} alt={`${name} ${before ? 'original' : 'edited'}`} onLoad={event => setNaturalSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}>
       {phase => <>{!generating && !phase && comparing && editedUrl && <>
-        <StudioImage className="v4-photo-original-layer" src={originalUrl} alt="Original for comparison" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }} />
+        <div className="v4-photo-original-clip" style={{ clipPath: `inset(0 ${100 - position}% 0 0)` }}>
+          <StudioImage className="v4-photo-original-layer" loading="eager" src={originalUrl} alt="Original for comparison" />
+        </div>
         <BeforeAfterControl className="v4-photo-compare-slider" position={position} onPositionChange={onPositionChange} />
         <span className="v4-photo-compare-handle" style={{ left: `${position}%` }} aria-hidden="true"><ChevronsLeftRight size={16} /></span>
         <span className="v4-compare-label v4-compare-label-before">Before</span>

@@ -37,7 +37,7 @@ export function EditorShell({ compact = false, title, subtitle, shootLabel, onBa
         <Dialog>
           <DialogTrigger asChild><Button variant="outline" size="icon" className="v4-editor-inspector-trigger" aria-label="Edit settings"><SlidersHorizontal /></Button></DialogTrigger>
           <DialogContent className="v4-editor-dialog v4-editor-settings-dialog">
-            <DialogTitle>Edit settings</DialogTitle><DialogDescription>{subtitle}</DialogDescription>
+            <div className="v4-editor-settings-heading"><DialogTitle>Edit settings</DialogTitle><DialogDescription>{subtitle}</DialogDescription></div>
             <div className="v4-editor-settings-content">{inspector}</div>
             {inspectorFooter}
           </DialogContent>

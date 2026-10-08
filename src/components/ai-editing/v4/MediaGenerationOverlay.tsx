@@ -43,15 +43,15 @@ export function MediaGenerationOverlay({ progress, label, detail, compact = fals
   }, []);
   return <div ref={ref} className={`v4-media-generation v4-edge-generation${compact ? ' v4-media-generation-compact' : ''}${revealing ? ' is-revealing' : ''}`} style={bounds}>
     <div className="v4-generation-stars" aria-hidden="true">
-      {stars.map(([x, y, size], i) => <i key={i} className={`v4-generation-star${size <= 5 ? ' distant' : ''}`} style={{ left: `${x}%`, top: `${y}%`, '--star-size': `${size}px`, '--star-duration': `${4.8 + i % 7 * .55}s`, '--star-delay': `${-(i * 1.37 + .8)}s` } as CSSProperties}>{starIcon}</i>)}
+      {(compact ? stars.filter((_, index) => index % 4 === 0) : stars).map(([x, y, size], i) => <i key={i} className={`v4-generation-star${size <= 5 ? ' distant' : ''}`} style={{ left: `${x}%`, top: `${y}%`, '--star-size': `${size}px`, '--star-duration': `${4.8 + i % 7 * .55}s`, '--star-delay': `${-(i * 1.37 + .8)}s` } as CSSProperties}>{starIcon}</i>)}
       {!compact && motes.map(([x, y], i) => <i key={`mote-${i}`} className="v4-generation-mote" style={{ left: `${x}%`, top: `${y}%`, '--star-duration': `${9 + i * .6}s`, '--star-delay': `${-i * 2.1}s` } as CSSProperties} />)}
       {!compact && [[18,27], [67,22], [77,64]].map(([x,y],i) => <i key={`trail-${i}`} className="v4-generation-trail" style={{ left: `${x}%`, top: `${y}%`, '--star-duration': `${10 + i * 2}s`, '--star-delay': `${-(i * 3.7 + 2)}s` } as CSSProperties}>{starIcon}</i>)}
     </div>
-    <div className="v4-generation-robbie" aria-hidden="true"><div className="v4-generation-mark"><ReproAiIcon useSolid /><span className="v4-generation-shimmer"><ReproAiIcon useSolid /></span></div><span>{/photo|stag|edit/i.test(label) ? 'Robbie is editing' : 'Robbie is working'}</span></div>
-    <div className="v4-generation-edge" aria-hidden="true" />
-    <i className="v4-generation-corner a" aria-hidden="true" /><i className="v4-generation-corner b" aria-hidden="true" />
+    {!compact && <div className="v4-generation-robbie" aria-hidden="true"><div className="v4-generation-mark"><ReproAiIcon useSolid /><span className="v4-generation-shimmer"><ReproAiIcon useSolid /></span></div><span>{/photo|stag|edit/i.test(label) ? 'Robbie is editing' : 'Robbie is working'}</span></div>}
+    {!compact && <div className="v4-generation-edge" aria-hidden="true" />}
+    {!compact && <><i className="v4-generation-corner a" aria-hidden="true" /><i className="v4-generation-corner b" aria-hidden="true" /></>}
     {!compact && <div className="v4-generation-working" aria-hidden="true"><i />Working</div>}
-    <div className="v4-generation-hud">
+    <div className={compact ? "sr-only" : "v4-generation-hud"}>
       <div className="v4-generation-progress" role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent ?? undefined} aria-valuetext={percent === null ? 'Progress unavailable' : `${percent}% complete`}>
         <span className="v4-generation-label">{label}</span><strong>{percent === null ? 'Working…' : `${percent}%`}</strong>
         {!compact && <span className="v4-generation-detail">{detail || 'Your original stays available'}</span>}

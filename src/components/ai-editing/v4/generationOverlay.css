@@ -2,7 +2,9 @@
 .v4-media-generation{position:absolute;inset:0;z-index:25;overflow:hidden;isolation:isolate;border-radius:inherit;pointer-events:none;container-type:inline-size}
 .v4-edge-generation{-webkit-backdrop-filter:blur(9px) brightness(.72);backdrop-filter:blur(9px) brightness(.72);transition:backdrop-filter 4.2s cubic-bezier(.42,0,.58,1),-webkit-backdrop-filter 4.2s cubic-bezier(.42,0,.58,1)}
 .v4-edge-generation:before{content:'';position:absolute;inset:0;background:linear-gradient(0deg,#071019b8,transparent 27%);transition:opacity 3s ease 1.2s}
-.v4-generation-edge{position:absolute;inset:0;border-radius:inherit;padding:2px;overflow:hidden;mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor}
+/* Clip a hollow border directly: mixed mask-composite declarations exposed the
+   entire rotating gradient in WebKit (and in browsers without mask support). */
+.v4-generation-edge{position:absolute;inset:0;border-radius:inherit;overflow:hidden;clip-path:polygon(evenodd,0 0,100% 0,100% 100%,0 100%,0 0,2px 2px,2px calc(100% - 2px),calc(100% - 2px) calc(100% - 2px),calc(100% - 2px) 2px,2px 2px)}
 .v4-generation-edge:before{content:'';position:absolute;inset:-80%;background:conic-gradient(from 0deg,transparent 0deg,#6bafff18 45deg,#c2deffcc 83deg,#88bcff 89deg,transparent 110deg,transparent 180deg,#6bafff18 225deg,#c2deffcc 263deg,#88bcff 269deg,transparent 290deg);animation:v4-edge-orbit 8s linear infinite}
 .v4-generation-corner{position:absolute;width:12px;height:12px;border-color:#a2caff77;border-style:solid}
 .v4-generation-corner.a{top:9px;left:9px;border-width:1px 0 0 1px}.v4-generation-corner.b{bottom:9px;right:9px;border-width:0 1px 1px 0}
@@ -39,6 +41,11 @@
 .v4-media-generation-compact .v4-generation-hud{left:12px;right:12px;bottom:12px}.v4-media-generation-compact .v4-generation-label{font-size:10px}.v4-media-generation-compact .v4-generation-progress strong{font-size:10px}
 .v4-media-generation-compact .v4-generation-robbie{gap:6px;top:44%}.v4-media-generation-compact .v4-generation-robbie>span{display:none}.v4-media-generation-compact .v4-generation-mark{width:42px;height:42px}.v4-media-generation-compact .v4-generation-mark>svg{width:32px;height:32px}.v4-media-generation-compact .v4-generation-shimmer{inset:5px}
 .v4-media-generation-compact .v4-generation-star:nth-child(n+19){display:none}.v4-media-generation-compact .v4-generation-corner{display:none}
+/* Grid tiles carry only a few twinkling stars; no orbit, glow, logo or HUD layers. */
+.v4-media-generation-compact{-webkit-backdrop-filter:blur(4px) brightness(.8);backdrop-filter:blur(4px) brightness(.8)}
+.v4-media-generation-compact:before{display:none}.v4-media-generation-compact .v4-generation-star{filter:none}
+.v4-media-generation-compact .v4-generation-stars{transition:opacity .6s ease}
+.v4-media-generation-compact.is-revealing{-webkit-backdrop-filter:blur(0) brightness(1);backdrop-filter:blur(0) brightness(1)}
 .v4-photo-image-frame:has(.v4-media-generation) .v4-custom-edit-trigger,.v4-photo-focus:has(.v4-media-generation) .v4-focus-badge{display:none}
 .v4-video-generation{height:100%;min-height:280px;display:flex;align-items:center;justify-content:center}.v4-video-generation-preview{position:relative;width:100%;max-height:100%;overflow:hidden;border-radius:12px;background:#08121e}.v4-video-generation-preview>img,.v4-video-generation-preview>video{display:block;width:100%;height:100%;object-fit:cover}
 @container(max-width:400px){.v4-generation-mark{width:50px;height:50px}.v4-generation-mark>svg{width:39px;height:39px}.v4-generation-shimmer{inset:5.5px}.v4-generation-robbie{gap:10px}.v4-generation-robbie>span{font-size:11px}.v4-generation-star{scale:.8}.v4-generation-star.distant:nth-child(even),.v4-generation-mote:nth-child(even){display:none}.v4-generation-trail{width:45px}.v4-generation-hud{left:12px;right:12px;bottom:12px}.v4-generation-label{font-size:11px}.v4-generation-detail{font-size:9px}.v4-generation-working{top:10px;right:10px}.v4-generation-refresh{top:8px;right:87px}}
@@ -54,3 +61,4 @@
 @keyframes v4-working-signal{0%,100%{opacity:.4;box-shadow:0 0 4px #8fc3ff20}50%{opacity:1;box-shadow:0 0 12px #8fc3ff75}}
 @keyframes v4-generation-indeterminate{0%,100%{transform:translateX(-100%);opacity:.4}50%{transform:translateX(360%);opacity:1}}
 @media(prefers-reduced-motion:reduce){.v4-media-generation,.v4-media-generation *,.v4-media-generation:before,.v4-media-generation *:before{animation:none!important;transition:none!important}.v4-generation-star{opacity:.25}.v4-generation-mark{opacity:1}.v4-generation-meter>i.is-indeterminate{width:100%;opacity:.35}.v4-generation-shimmer,.v4-generation-trail{display:none}}
+.v4-media-generation-compact .v4-generation-star:nth-child(n+4){animation:none;opacity:.3}
