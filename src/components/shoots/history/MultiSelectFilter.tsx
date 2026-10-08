@@ -21,7 +21,7 @@ export const MultiSelectFilter = ({
   onChange: (next: string[]) => void
 }) => {
   const [search, setSearch] = useState('')
-  const filteredOptions = options.filter(option => option.toLowerCase().includes(search.trim().toLowerCase()))
+  const filteredOptions = Array.from(new Set(options)).filter(option => option.toLowerCase().includes(search.trim().toLowerCase()))
   const toggleValue = (value: string) => {
     if (values.includes(value)) {
       onChange(values.filter((entry) => entry !== value))
@@ -43,7 +43,7 @@ export const MultiSelectFilter = ({
         <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-60 max-w-[calc(100vw-2rem)] p-0" align="start">
           <div className="relative border-b p-2">
             <Search className="absolute left-4 top-5 h-4 w-4 text-muted-foreground" />
-            <Input aria-label={`Search ${label.toLowerCase()}`} placeholder={`Search ${label.toLowerCase()}…`} value={search} onChange={event => setSearch(event.target.value)} className="h-9 pl-8" />
+            <Input aria-label={`Search ${label.toLowerCase()}`} placeholder={`Search ${label.toLowerCase()}...`} value={search} onChange={event => setSearch(event.target.value)} className="h-9 pl-8" />
           </div>
           <div className="max-h-56 overflow-y-auto overscroll-contain p-2" data-service-filter-list>
           {filteredOptions.length === 0 && (

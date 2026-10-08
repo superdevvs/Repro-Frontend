@@ -7,7 +7,7 @@ for (const role of ['admin', 'salesRep']) for (const width of [1440, 390]) {
     const user = { id: 901, name: 'Filter Review', email: 'filters@example.test', role, account_status: 'active', email_verified_at: '2026-01-01', metadata: { terms_accepted_at: '2026-01-01' } };
     await page.addInitScript(user => { localStorage.clear(); localStorage.setItem('authToken', 'local-filter-fixture'); localStorage.setItem('user', JSON.stringify(user)); localStorage.setItem('theme', 'dark'); }, user);
     const queries: URL[] = [];
-    const filters = { clients: [{ id: 20, name: 'Client One' }], photographers: [{ id: 30, name: 'Photographer One' }], salesReps: [{ id: 17, name: 'Alex Sales' }, { id: 18, name: 'Jordan Sales' }], services: ['HDR', 'Premium Video', ...Array.from({ length: 40 }, (_, i) => `Photo service ${i + 1}`)] };
+    const filters = { clients: [{ id: 20, name: 'Client One' }], photographers: [{ id: 30, name: 'Photographer One' }], salesReps: [{ id: 17, name: 'Alex Sales' }, { id: 18, name: 'Jordan Sales' }], services: ['HDR', 'HDR', 'Premium Video', 'Premium Video', ...Array.from({ length: 40 }, (_, i) => `Photo service ${i + 1}`)] };
     await page.route('**/api/**', async route => {
       const url = new URL(route.request().url()); const path = url.pathname.replace(/^\/api/, '');
       const reply = (body: unknown) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
