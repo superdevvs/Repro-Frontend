@@ -13,11 +13,12 @@ export function TravelFeasibilityPanel({ travel, durationAdjuster }: { travel: T
   if (!travel.visible) return null;
   const result = travel.result, timezone = travel.timezone || result?.visits?.[0]?.timezone || 'America/New_York';
   const issue = result && !result.available;
+  const hasError = !travel.loading && Boolean(issue || travel.error);
   const overlap = result?.reason_codes?.some(reason => /overlap/.test(reason));
   const unknownLocation = result?.transitions?.some(leg => leg.source === 'unknown') || result?.reason_codes?.some(code => /location|building|geocod|address/.test(code));
   const canAdjust = Boolean(travel.onScheduleChange && result?.enabled && result.visits?.length);
-  return <><section aria-label="Travel feasibility" className="min-w-0 space-y-3 rounded-xl border bg-muted/30 p-3 text-sm">
-    <div role="status" aria-live="polite"><p className="font-semibold">{travel.loading ? 'Checking travel · time is provisional' : travel.error ? 'Travel check unavailable' : result?.available ? 'Travel time checked' : overlap ? 'Already booked at this time' : 'Review travel time'}</p>
+  return <><section aria-label="Travel feasibility" className={`min-w-0 space-y-3 rounded-xl border p-3 text-sm ${hasError ? 'border-red-500 dark:border-red-400 bg-red-500/5' : 'bg-muted/30'}`}>
+    <div role={hasError ? 'alert' : 'status'} aria-live="polite"><p className={`font-semibold ${hasError ? 'text-red-600 dark:text-red-400' : ''}`}>{travel.loading ? 'Checking travel · time is provisional' : travel.error ? 'Travel check unavailable' : result?.available ? 'Travel time checked' : overlap ? 'Already booked at this time' : 'Review travel time'}</p>
       {travel.error && <p className="mt-1 text-muted-foreground">{travel.error}</p>}
       {overlap && <p className="mt-1 text-muted-foreground">See the booking on this date and move either shoot to a free time.</p>}
       {result?.reason_codes?.some(reason => /working_hours|outside_hours/.test(reason)) && <p className="mt-1 text-muted-foreground">The appointment is outside the photographer’s working hours.</p>}

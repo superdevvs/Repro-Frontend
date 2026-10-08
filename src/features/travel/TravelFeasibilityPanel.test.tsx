@@ -16,6 +16,15 @@ const controller = (overrides: Partial<TravelController> = {}): TravelController
   retry: vi.fn(), loadAlternatives: vi.fn(), alternativesRequested: false, acceptServerError: vi.fn(), ...overrides,
 });
 describe('travel explanations and permission controls', () => {
+  it('marks a conflict as an error and clears the red outline when the schedule becomes valid', () => {
+    const travel = controller();
+    const view = render(<TravelFeasibilityPanel travel={travel} />);
+    expect(screen.getByRole('region', { name: 'Travel feasibility' })).toHaveClass('border-red-500');
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    view.rerender(<TravelFeasibilityPanel travel={{ ...travel, result: { ...travel.result!, available: true, reason_codes: [], transitions: [] } }} />);
+    expect(screen.getByRole('region', { name: 'Travel feasibility' })).not.toHaveClass('border-red-500');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
   it('explains both legs, precise shortfall, estimate source, and maps attribution', () => {
     render(<TravelFeasibilityPanel travel={controller()} />);
     expect(screen.getByText('9.5 miles · Google suggests 20 min')).toBeInTheDocument();
