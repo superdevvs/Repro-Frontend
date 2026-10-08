@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ShootData } from '@/types/shoots';
 import { OverviewServicesTableSection, type OverviewServicesTableSectionProps } from './OverviewServicesTableSection';
@@ -21,22 +21,25 @@ function props(): OverviewServicesTableSectionProps {
   };
 }
 
-describe('inline overview duration picker', () => {
-  it('shows a saved30-minute service and default1hour, then sends numeric edits for the correct service', () => {
+describe('compact overview schedule rows', () => {
+  it('keeps service scheduling controls while hiding inline duration controls', () => {
     const options = props();
     render(<OverviewServicesTableSection {...options} />);
-    expect(screen.getByLabelText('Shoot duration for Photos')).toHaveValue('30');
-    expect(screen.getByLabelText('Shoot duration for Video')).toHaveValue('60');
-    fireEvent.change(screen.getByLabelText('Shoot duration for Photos'), { target: { value: '90' } });
-    expect(options.updateServiceSchedule).toHaveBeenCalledWith('10', 'duration_minutes', 90);
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /custom duration/i })).not.toBeInTheDocument();
+    expect(screen.getByTestId('add-new-service')).toHaveTextContent('Add New');
+    expect(screen.getAllByTestId('service-cell')).toHaveLength(2);
+    expect(options.updateServiceSchedule).not.toHaveBeenCalled();
     expect(options.toggleServiceSelection).not.toHaveBeenCalled();
   });
-  it('uses the matching square-footage tier when no snapshot is saved', () => {
+  it('does not change saved or tier-derived durations when hiding the picker', () => {
     const options = props();
     options.servicesList[1] = { id: '11', name: 'Video', pricing_type: 'variable',
       sqft_ranges: [{ sqft_from: 1000, sqft_to: 3000, duration: 120, price: 100, photographer_pay: null }] };
     render(<OverviewServicesTableSection {...options} />);
-    expect(screen.getByLabelText('Shoot duration for Video')).toHaveValue('120');
+    expect(screen.queryByLabelText('Shoot duration for Video')).not.toBeInTheDocument();
+    expect(options.serviceSchedules['10'].duration_minutes).toBe(30);
+    expect(options.updateServiceSchedule).not.toHaveBeenCalled();
   });
   it('keeps duration controls out of the read-only overview', () => {
     render(<OverviewServicesTableSection {...props()} isEditMode={false} />);

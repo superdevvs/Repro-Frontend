@@ -30,7 +30,7 @@ export function DayScheduleDialog({ travel, open, onClose }: { travel: TravelCon
       start: new Date(Date.parse(row.start) + offset * 60000).toISOString(), end: new Date(Date.parse(row.end) + offset * 60000).toISOString(),
       label: typeof travel.payload?.address === 'string' ? travel.payload.address : travel.proposedLocation || 'Selected property', duration_minutes: row.duration_minutes, photographer_id: row.photographer_id,
       shoot_id: Number(travel.payload?.shoot_id) || null, expected_edit_version: null, can_adjust: true }))];
-  }, [data, moves, targets, offset, travel.scheduleAdjustments, travel.proposedLocation, travel.payload?.shoot_id]);
+  }, [data, moves, targets, offset, travel.scheduleAdjustments, travel.proposedLocation, travel.payload?.shoot_id, travel.payload?.address]);
   const adjustments: ScheduleAdjustment[] = (data?.bookings ?? []).flatMap(original => {
     const next = bookings.find(row => row.id === original.id);
     return next && next.start !== original.start && original.can_adjust && original.shoot_id && original.expected_edit_version
@@ -41,6 +41,8 @@ export function DayScheduleDialog({ travel, open, onClose }: { travel: TravelCon
     ...(travel.locationConfirmed ? { travel_location_confirmed: true } : {}) } : null;
   const preview = useDayPreview(payload, dragging);
   const conflict = overlaps(bookings);
+  const outsideHours = preview.result?.reason_codes?.some(reason => /working_hours|outside_hours/.test(reason));
+  const serverOverlap = preview.result?.reason_codes?.some(reason => /overlap/.test(reason));
   const canApply = !conflict && !moveError && !preview.loading && !preview.error && preview.result?.enabled
     && (preview.result.available || canConfirmTravelException(preview.result, travel.requestedOnly));
   const move = (id: string, start: string) => {
@@ -58,7 +60,11 @@ export function DayScheduleDialog({ travel, open, onClose }: { travel: TravelCon
       <div aria-live="polite" className="space-y-2 text-sm">
         {conflict ? <p className="text-amber-600 dark:text-amber-300">Bookings overlap. Move either shoot to a free time.</p> : preview.loading ? <p>Checking travel for this schedule…</p>
           : preview.error ? <p role="alert" className="text-destructive">{preview.error}</p> : preview.result?.available ? <p className="text-emerald-700 dark:text-emerald-300">This schedule has enough travel time.</p>
-            : <p className="text-amber-600 dark:text-amber-300">{canApply ? 'You can use this schedule and explicitly confirm the shorter travel gap when saving.' : 'Choose another time. This schedule cannot be confirmed.'}</p>}
+            : <p className="text-amber-600 dark:text-amber-300">{outsideHours
+              ? 'This schedule is outside the photographer’s working hours. Move the bookings within their availability.'
+              : serverOverlap ? 'The photographer has another booking at this time. Move either shoot to a free time.'
+                : canApply ? 'You can use this schedule and explicitly confirm the shorter travel gap when saving.'
+                  : 'Travel for this schedule needs approval from an administrator or sales rep.'}</p>}
         {moveError && <p role="alert" className="text-destructive">{moveError}</p>}
         {sameDayTransitions(preview.result?.transitions ?? [], timezone).map(leg => <TravelRouteSummary key={leg.id} leg={leg} />)}
       </div>

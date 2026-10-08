@@ -15,8 +15,6 @@ import {
   ServiceTimePicker,
 } from '@/components/shoots/ServiceSchedulePicker';
 import { ApplyAllServiceScheduleButton } from '@/components/shoots/ApplyAllServiceScheduleButton';
-import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
-import { resolveServiceShootDuration } from '@/utils/shootDuration';
 import type { ServiceScheduleFields } from './shootOverviewEditorSupport';
 import type { ShootData } from '@/types/shoots';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
@@ -589,9 +587,6 @@ function renderEditRows(
                 onChange={(value) => updateServiceSchedule(serviceId, 'time', value)}
                 triggerClassName="h-8 w-full rounded-lg min-w-0"
               />
-              <ServiceDurationPicker serviceName={service.name} durationSource={service}
-                value={resolveServiceShootDuration(service, props.effectiveSqft, schedule.duration_minutes)}
-                onChange={value => updateServiceSchedule(serviceId, 'duration_minutes', value)} />
               <ApplyAllServiceScheduleButton
                 visible={selectedServiceIds.length > 1}
                 onApply={() => applyServiceScheduleToAll?.(serviceId)}

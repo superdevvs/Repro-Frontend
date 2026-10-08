@@ -25,16 +25,17 @@ describe('travel explanations and permission controls', () => {
     expect(screen.getByText('Google Maps')).toHaveClass('whitespace-nowrap', 'font-normal', 'not-italic', 'text-xs', 'text-[#5E5E5E]', 'dark:text-white');
     expect(screen.getByText('Distance-based estimate')).toBeInTheDocument();
   });
-  it('requires an explicit exception action and reason and loads alternatives on demand', () => {
+  it('keeps explicit travel confirmation without offering the removed alternatives search', () => {
     const travel = controller(); render(<TravelFeasibilityPanel travel={travel} />);
     expect(screen.getByText(/explicit acknowledgement when saving/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Approve an exception to this travel allowance')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Find up to 3 alternatives' })); expect(travel.loadAlternatives).toHaveBeenCalledOnce();
+    expect(screen.queryByRole('button', { name: 'Find up to 3 alternatives' })).not.toBeInTheDocument();
+    expect(travel.loadAlternatives).not.toHaveBeenCalled();
   });
-  it('directs manual alternatives to the schedule form without assuming its position', () => {
+  it('does not render alternatives returned by an older response', () => {
     const travel = controller();
     render(<TravelFeasibilityPanel travel={{ ...travel, result: { ...travel.result!, alternatives: [{ scheduled_at: '2026-10-05T15:00:00Z', photographer_id: 9 }] } }} />);
-    expect(screen.getByText('Adjust the visit times in the schedule form to use this option.')).toBeInTheDocument();
+    expect(screen.queryByText('Adjust the visit times in the schedule form to use this option.')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Use this time' })).not.toBeInTheDocument();
   });
   it('shows warnings and no exception control for client requests', () => {

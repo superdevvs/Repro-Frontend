@@ -858,7 +858,6 @@ function ShootDetailsOverviewTabContent({
   return (
     <div className="space-y-2">
       <HistoricalImportSummary shoot={shoot} />
-      {isEditMode && <TravelFeasibilityPanel travel={travel} />}
       <CompReshootOverviewStrip
         shoot={shoot}
         role={role}
@@ -961,6 +960,8 @@ function ShootDetailsOverviewTabContent({
           applyServiceScheduleToAll: applyCompServiceScheduleToAll,
         } : undefined}
       />
+
+      {isEditMode && <TravelFeasibilityPanel travel={travel} />}
 
       <OverviewClientSection
         shoot={shoot}
