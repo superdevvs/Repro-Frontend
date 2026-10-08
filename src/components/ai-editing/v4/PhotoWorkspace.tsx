@@ -40,6 +40,7 @@ export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, o
   const [editPrompts, setEditPrompts] = useState<Record<string, string>>({});
   const [refining, setRefining] = useState(false);
   const [operationMediaId, setOperationMediaId] = useState<string | null>(null);
+  const operationSourceId = useRef<string | undefined>(undefined);
   const mobile = useMediaQuery('(max-width: 767px)');
   const refineLock = useRef(false);
   const [customEditOpen, setCustomEditOpen] = useState(false);
@@ -76,7 +77,12 @@ export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, o
   const selected = media.filter(item => selectedIds.has(item.id));
   const generationBaseline = useRef(new Map(workspace.generation ? [] : [...latest].map(([id, output]) => [id, output.id])));
   useEffect(() => { if (!running) generationBaseline.current = new Map([...latest].map(([id, output]) => [id, output.id])); }, [running, latest]);
-  const photoGenerating = (id: string) => running && (!operationMediaId || operationMediaId === id) && (!selectedIds.size || selectedIds.has(id)) && (!groups?.length || !latest.has(id) || latest.get(id)?.id === generationBaseline.current.get(id));
+  const photoGenerating = (id: string) => {
+    if (!running) return false;
+    const scope = workspace.generationScope;
+    if (scope) return (!scope.mediaIds || scope.mediaIds.includes(id)) && !scope.completedMediaIds.includes(id) && (!scope.mediaIds && !fullShoot ? !selectedIds.size || selectedIds.has(id) : true);
+    return (!operationMediaId || operationMediaId === id) && (!selectedIds.size || selectedIds.has(id)) && (!groups?.length || !latest.has(id) || latest.get(id)?.id === generationBaseline.current.get(id));
+  };
   const activeGenerating = photoGenerating(active?.id);
   const activeVersions = workspace.outputs.filter(output => output.mediaId === active?.id && output.kind === 'image' && output.url && ['completed', 'ready'].includes(output.status)).sort((a, b) => b.version - a.version);
   const activeOutput = activeVersions.find(output => output.id === versionId) || (running || operationMediaId === active?.id ? latest.get(active?.id) : outputs.get(active?.id));
@@ -98,6 +104,12 @@ export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, o
     previousStatus.current = workspace.status;
   }, [workspace.status, latest, active?.id]);
   useEffect(() => { setCustomEditOpen(false); }, [active?.id, workspace.id, view]);
+  useEffect(() => {
+    if (operationMediaId && !running && latest.get(operationMediaId)?.id !== operationSourceId.current) {
+      if (operationMediaId === active?.id) setVersionId(latest.get(operationMediaId)?.id || null);
+      setOperationMediaId(null);
+    }
+  }, [operationMediaId, running, latest, active?.id]);
   useEffect(() => { if (dirty || reviewDirty) setNotice(''); }, [dirty, reviewDirty]);
   useEffect(() => { setRecipe({}); setPreview(null); }, [activeOutput?.id, workspace.id]);
   useEffect(() => {
@@ -117,7 +129,7 @@ export function PhotoWorkspace({ workspace, preset, busy, error, capabilities, o
   const patchAdjustments = (changes: Record<string, string | number | boolean>) => setConfig(current => ({ ...current, adjustments: { ...current.adjustments, ...changes } }));
   const withScope = (): V4Config => ({ ...config, frames: (fullShoot ? sourceMedia : selected).map(item => ({ mediaId: item.id, duration: 5, method: 'fit' })) });
   const perform = async (action: () => Promise<void>) => { setLocalError(''); setNotice(''); try { await action(); } catch (reason) { setLocalError(reason instanceof Error ? reason.message : 'The edit could not be completed. Please try again.'); } };
-  const photoOperation = async (id: string, action: () => Promise<void>) => { setOperationMediaId(id); try { await action(); } catch (reason) { setOperationMediaId(null); throw reason; } };
+  const photoOperation = async (id: string, action: () => Promise<void>) => { operationSourceId.current = latest.get(id)?.id; setOperationMediaId(id); try { await action(); } catch (reason) { setOperationMediaId(null); throw reason; } };
   const openPhoto = (item: V4Media) => { setActiveId(item.id); setVersionId(null); setComparing(true); setView(outputs.has(item.id) ? 'focus' : 'configure'); };
   const toggleScope = (id: string) => {
     const next = new Set(selectedIds); if (next.has(id)) next.delete(id); else next.add(id);

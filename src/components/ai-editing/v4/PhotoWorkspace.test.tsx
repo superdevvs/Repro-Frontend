@@ -223,6 +223,30 @@ describe('photo generation scope and selected versions', () => {
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
   });
 
+  it('uses server scope after reopening a partial grouped re-edit with older results', () => {
+    const props = makeProps();
+    props.preset = { ...props.preset, id: 'full-shoot', name: 'Full Shoot' };
+    const media = [...props.workspace.media, { id: 'b', name: 'Interior', kind: 'image' as const, url: '/b.jpg' }];
+    props.workspace = { ...props.workspace, presetId: 'full-shoot', status: 'generating', media,
+      outputs: media.map(item => ({ id: `${item.id}-v1`, mediaId: item.id, url: `/${item.id}-v1.jpg`, kind: 'image' as const, version: 1, status: 'completed' })),
+      photoGroups: media.map(item => ({ mediaId: item.id, name: item.name, sourceMediaIds: [item.id], sourceFileIds: [] })),
+      generation: { phase: 'generating', total: 2, submitted: 2, completed: 1 },
+      generationScope: { mediaIds: null, completedMediaIds: ['a'] } };
+    render(<PhotoWorkspace {...props} />);
+    expect(within(screen.getByRole('button', { name: 'Open Exterior' })).queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(within(screen.getByRole('button', { name: 'Open Interior' })).getByRole('progressbar')).toBeVisible();
+  });
+
+  it('limits a reopened revision to its server target even outside the original selection', () => {
+    const props = makeProps();
+    props.workspace = { ...props.workspace, status: 'generating', media: [...props.workspace.media, { id: 'b', name: 'Interior', kind: 'image', url: '/b.jpg' }],
+      generationScope: { mediaIds: ['b'], completedMediaIds: [] } };
+    render(<PhotoWorkspace {...props} />);
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Select Interior' }));
+    expect(screen.getByRole('progressbar', { name: 'Editing photos' })).toBeVisible();
+  });
+
   it('never shows a generation overlay on failed or cancelled photo jobs', () => {
     const props = makeProps();
     const { rerender } = render(<PhotoWorkspace {...props} workspace={{ ...props.workspace, status: 'failed' }} />);
