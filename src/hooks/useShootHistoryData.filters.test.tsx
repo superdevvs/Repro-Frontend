@@ -71,8 +71,8 @@ describe('Shoot History search/filter page reset', () => {
     await waitFor(() => expect(result.current.loading).toBe(false))
     act(() => result.current.setOperationalPage(2))
     await waitFor(() => expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ page: 2 }) })))
-    rerender({ ...props, operationalFilters: { ...DEFAULT_OPERATIONAL_FILTERS, salesRepId: '17' } })
-    await waitFor(() => expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ page: 1, tab: activeTab, sales_rep_id: '17' }) })))
+    rerender({ ...props, operationalFilters: { ...DEFAULT_OPERATIONAL_FILTERS, salesRepId: '17', paymentStatus: 'unpaid' as const } })
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ page: 1, tab: activeTab, sales_rep_id: '17', payment_status: 'unpaid' }) })))
     expect(result.current.operationalPage).toBe(1)
   })
 

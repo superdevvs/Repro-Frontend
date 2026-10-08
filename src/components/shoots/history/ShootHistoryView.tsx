@@ -1,3 +1,4 @@
+import { PaymentStatusFilter } from './PaymentStatusFilter'
 import { EmptyState } from '@/components/ui/empty-state';
 import { DASHBOARD_COMPACT_PAGE_X_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel'
 import { cn } from '@/lib/utils'
@@ -509,17 +510,15 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
   const hasOperationalFiltersApplied =
     operationalServicesSelected ||
     Boolean(operationalFilters.search) ||
-    Boolean(operationalFilters.clientId) ||
-    Boolean(operationalFilters.photographerId) ||
-    Boolean(operationalFilters.salesRepId) ||
+    Boolean(operationalFilters.clientId || operationalFilters.photographerId || operationalFilters.salesRepId) ||
+    (operationalFilters.paymentStatus ?? 'all') !== 'all' ||
     Boolean(operationalFilters.address) ||
     operationalFilters.dateRange !== 'all'
   const hasHistoryFiltersApplied =
     historyServicesSelected ||
     Boolean(historyFilters.search) ||
-    Boolean(historyFilters.clientId) ||
-    Boolean(historyFilters.photographerId) ||
-    Boolean(historyFilters.salesRepId) ||
+    Boolean(historyFilters.clientId || historyFilters.photographerId || historyFilters.salesRepId) ||
+    (historyFilters.paymentStatus ?? 'all') !== 'all' ||
     historyFilters.dateRange !== defaultHistoryFilters.dateRange ||
     historyFilters.groupBy !== 'shoot'
   const subTabRailClass =
@@ -683,7 +682,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
             <div className="rounded-2xl border bg-card p-4 mt-2">
               <div className="space-y-4">
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                  <div className="space-y-2 lg:col-span-2">
+                  <div className="space-y-2">
                     <span className="text-sm font-medium text-muted-foreground">Search</span>
                     <Input placeholder="Search by address, client, photographer" value={operationalFilters.search} onChange={(event) => onOperationalFilterChange('search', event.target.value)} />
                   </div>
@@ -695,6 +694,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                     <Input placeholder="Filter by address" value={operationalFilters.address} onChange={(event) => onOperationalFilterChange('address', event.target.value)} />
                   </div>
                   <MultiSelectFilter label="Services" options={operationalOptions.services} values={operationalFilters.services} onChange={(values) => onOperationalFilterChange('services', values)} />
+                  <PaymentStatusFilter value={operationalFilters.paymentStatus} onChange={value => onOperationalFilterChange('paymentStatus', value)} />
                   {viewMode === 'calendar' ? (
                     <p className="self-center text-sm text-muted-foreground">Calendar dates are controlled by the Month, Week and Day navigation.</p>
                   ) : (
@@ -710,9 +710,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                         <SelectItem value="custom">Custom</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-                  )}
-                  {viewMode !== 'calendar' && operationalFilters.dateRange === 'custom' && (
+                  {operationalFilters.dateRange === 'custom' && (
                     <div className="space-y-2">
                       <span className="text-sm font-medium text-muted-foreground">Custom range</span>
                       <DateRangePicker
@@ -727,6 +725,8 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                         placeholder="Choose scheduled range"
                       />
                     </div>
+                  )}
+                  </div>
                   )}
                 </div>
                 {hasOperationalFiltersApplied && (
@@ -768,7 +768,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                         <p className="font-medium">Reporting filters</p>
                         <p className="text-sm text-muted-foreground">Date ranges, grouping and drill-down controls.</p>
                       </div>
-                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                         <div className="space-y-2">
                           <span className="text-sm font-medium text-muted-foreground">Search</span>
                           <Input placeholder="Client, address, company" value={historyFilters.search} onChange={(event) => onHistoryFilterChange('search', event.target.value)} />
@@ -777,6 +777,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                         <SearchablePersonFilter label="Photographer" allLabel="All photographers" options={historyOptions.photographers} value={historyFilters.photographerId} onChange={value => onHistoryFilterChange('photographerId', value)} />
                         <SearchablePersonFilter label="Sales rep" allLabel="All sales reps" options={historyOptions.salesReps ?? []} value={historyFilters.salesRepId ?? ''} onChange={value => onHistoryFilterChange('salesRepId', value)} />
                   <MultiSelectFilter label="Services" options={historyOptions.services} values={historyFilters.services} onChange={(values) => onHistoryFilterChange('services', values)} />
+                        <PaymentStatusFilter value={historyFilters.paymentStatus} onChange={value => onHistoryFilterChange('paymentStatus', value)} />
                         {historyFilters.viewAs === 'calendar' && historyFilters.groupBy === 'shoot' ? (
                           <p className="self-center text-sm text-muted-foreground">Calendar dates are controlled by the Month, Week and Day navigation.</p>
                         ) : (<>

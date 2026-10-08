@@ -42,14 +42,18 @@ for (const role of ['admin', 'salesRep']) for (const width of [1440, 390]) {
       await expect.poll(() => queries.some(url => url.searchParams.get('sales_rep_id') === '18' && [...url.searchParams.values()].includes('Premium Video'))).toBe(true);
       await page.screenshot({ path: `test-results/services-dropdown-${role}-${width}-${tab}.png`, fullPage: true });
       await page.keyboard.press('Escape');
+      await page.getByRole('combobox', { name: 'Payment', exact: true }).click();
+      await page.getByRole('option', { name: 'Unpaid / balance due', exact: true }).click();
+      await expect.poll(() => queries.some(url => url.searchParams.get('tab') === tab && url.searchParams.get('sales_rep_id') === '18' && url.searchParams.get('payment_status') === 'unpaid' && [...url.searchParams.values()].includes('Premium Video'))).toBe(true);
       if (width >= 1024) {
-        const fields = page.locator('main').locator('input[placeholder="Search by address, client, photographer"], input[placeholder="Filter by address"], button[role="combobox"][aria-label="Client"], button[role="combobox"][aria-label="Photographer"], button[role="combobox"][aria-label="Sales rep"]');
+        const fields = page.locator('main').locator('input[placeholder="Search by address, client, photographer"], input[placeholder="Filter by address"], button[role="combobox"][aria-label="Client"], button[role="combobox"][aria-label="Photographer"], button[role="combobox"][aria-label="Sales rep"], button[role="combobox"][aria-label="Payment"]');
         const tops = await fields.evaluateAll(elements => elements.map(el => Math.round(el.getBoundingClientRect().top)));
         expect(new Set(tops).size).toBe(2);
       }
       await page.screenshot({ path: `test-results/rep-filters-${role}-${width}-${tab}.png`, fullPage: true });
       await page.getByRole('button', { name: 'Clear filters', exact: true }).click();
       await expect(rep).toContainText('All sales reps');
+      await expect(page.getByRole('combobox', { name: 'Payment', exact: true })).toContainText('All payments');
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
       expect(overflow).toBe(false);
     }

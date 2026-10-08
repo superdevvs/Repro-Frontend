@@ -28,6 +28,7 @@ export type OperationalFiltersState = {
   clientId: string
   photographerId: string
   salesRepId?: string
+  paymentStatus?: 'all' | 'paid' | 'unpaid'
   address: string
   services: string[]
   dateRange: 'all' | 'this_week' | 'this_month' | 'this_quarter' | 'custom'
@@ -40,6 +41,7 @@ export type HistoryFiltersState = {
   clientId: string
   photographerId: string
   salesRepId?: string
+  paymentStatus?: 'all' | 'paid' | 'unpaid'
   services: string[]
   dateRange: 'all' | 'q1' | 'q2' | 'q3' | 'q4' | 'this_month' | 'this_quarter' | 'custom'
   scheduledStart: string
@@ -278,6 +280,7 @@ export const DEFAULT_OPERATIONAL_FILTERS: OperationalFiltersState = {
   clientId: '',
   photographerId: '',
   salesRepId: '',
+  paymentStatus: 'all',
   address: '',
   services: [],
   dateRange: 'all',
@@ -290,6 +293,7 @@ export const DEFAULT_HISTORY_FILTERS: HistoryFiltersState = {
   clientId: '',
   photographerId: '',
   salesRepId: '',
+  paymentStatus: 'all',
   services: [],
   dateRange: 'this_quarter',
   scheduledStart: '',
