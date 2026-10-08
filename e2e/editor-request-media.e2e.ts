@@ -37,7 +37,7 @@ for (const width of [1440, 390]) for (const lane of ['edited', 'uploaded'] as co
     if (width < 640) await page.getByRole('tab', { name: 'Media', exact: true }).click();
     const mediaTab = page.getByRole('tab', { name: lane === 'edited' ? /^Edited \(/ : /^Raw.*\(/ });
     await expect(mediaTab).toHaveAttribute('aria-selected', 'true');
-    await expect(page.locator('.ring-orange-500:visible').filter({ hasText: 'Requested.jpg' }).first()).toBeVisible();
+    await expect(page.locator('.border-orange-500:visible').filter({ hasText: 'Requested.jpg' }).first()).toBeVisible();
     await page.screenshot({ path: `test-results/request-media-${lane}-${width}.png`, fullPage: true });
     expect(writes.filter(path => /\/issues/.test(path))).toEqual([]);
   });

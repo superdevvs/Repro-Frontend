@@ -32,7 +32,7 @@ export function TaggedRequestPhoto({ shootId, file, onPreview }: {
   };
   return <div className="flex items-center gap-1.5">
     <button type="button" onClick={onPreview} aria-label={`Preview ${file.filename}`}
-      className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border-2 border-orange-500 bg-muted">
+      className="h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-orange-500 bg-muted">
       {file.thumbnail || file.url ? <img src={file.thumbnail || file.url} alt={file.filename} className="h-full w-full object-cover" />
         : <span className="text-xs break-all">{file.filename}</span>}
     </button>
