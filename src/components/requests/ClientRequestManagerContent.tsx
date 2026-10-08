@@ -349,7 +349,7 @@ export const ClientRequestManagerContent: React.FC = () => {
     }
 
     closeModal();
-    navigate(`/shoots/${shootId}#requests`);
+    navigate(`/shoots/${shootId}?requestMedia=${request.mediaFiles?.[0]?.workflowStage === "todo" ? "uploaded" : "edited"}#requests`);
   };
 
   const resultSummary = `${visibleRequests.length} of ${

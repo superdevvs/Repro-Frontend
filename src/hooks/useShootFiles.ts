@@ -26,6 +26,7 @@ export interface MediaFile {
   content_version?: number;
   pending_version_id?: string | null;
   /** File-level deletion permission, evaluated by the server for the current user. */
+  has_open_request?: boolean;
   can_delete?: boolean;
   /** Monotonic shoot media revision from mutation responses / list payloads. */
   media_revision?: number;
@@ -164,6 +165,7 @@ export const normalizeShootMediaFile = (payload: Record<string, unknown>): Media
   const value = payload as ShootMediaPayload;
   return ({
   id: String(value.id),
+  has_open_request: value.has_open_request === true,
   shoot_id: value.shoot_id ?? value.shootId,
   shoot_service_id: value.shoot_service_id ?? value.shootServiceId ?? null,
   shootServiceId: value.shootServiceId ?? value.shoot_service_id ?? null,

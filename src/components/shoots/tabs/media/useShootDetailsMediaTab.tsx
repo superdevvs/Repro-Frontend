@@ -3,13 +3,6 @@ import { EmptyStateArtwork } from '@/components/ui/empty-state';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 
 import { Button } from '@/components/ui/button';
-
-
-
-
-
-
-
 import { Upload } from 'lucide-react';
 
 import { ShootData } from '@/types/shoots';
@@ -69,6 +62,7 @@ import { useShootFileScanStatusRenderer } from './useShootFileScanStatusRenderer
 import { useUnitMediaScope, useScopedShootFiles } from '@/features/shoot-units/useUnitMediaScope';
 
 interface ShootDetailsMediaTabProps {
+  requestMediaFocus?: boolean;
   shoot: ShootData;
   isAdmin: boolean;
   isPhotographer: boolean;
@@ -150,6 +144,7 @@ export function useShootDetailsMediaTab({
   isExpanded = false,
   onToggleExpand,
   onSelectionChange,
+  requestMediaFocus = false,
   displayTab: controlledDisplayTab,
   onDisplayTabChange,
 }: ShootDetailsMediaTabProps) {
@@ -160,13 +155,13 @@ export function useShootDetailsMediaTab({
   const { user: authUser } = useAuth();
   // Video-only editors (video_editor_id / editing_capabilities:video) stay on Edited + Video.
   const isVideoOnlyEditor = useMemo(
-    () => isVideoOnlyEditorOnShoot(shoot, authUser ?? { id: undefined, role }),
-    [authUser, role, shoot],
+    () => !requestMediaFocus && isVideoOnlyEditorOnShoot(shoot, authUser ?? { id: undefined, role }),
+    [authUser, role, shoot, requestMediaFocus],
   );
   // Photo-only editors (editor_id / editing_capabilities:photo) keep Photos; hide Video lane.
   const isPhotoOnlyEditor = useMemo(
-    () => isPhotoOnlyEditorOnShoot(shoot, authUser ?? { id: undefined, role }),
-    [authUser, role, shoot],
+    () => !requestMediaFocus && isPhotoOnlyEditorOnShoot(shoot, authUser ?? { id: undefined, role }),
+    [authUser, role, shoot, requestMediaFocus],
   );
   // Default tab: clients → edited; video-only editors → Raw Uploads (video lane); else uploaded
   const defaultTab = isClient ? 'edited' : 'uploaded';

@@ -27,6 +27,7 @@ import { useShootFiles, type MediaFile } from '@/hooks/useShootFiles';
 import { MediaViewer } from './media/MediaViewer';
 import { getMediaImageUrl, getMediaSrcSet } from './media/mediaPreviewUtils';
 import { getShootClientReleaseAccess } from '../details/shootClientReleaseAccess';
+import { TaggedRequestPhoto } from './TaggedRequestPhoto';
 import { useAuth } from '@/components/auth/AuthProvider';
 
 interface ShootDetailsIssuesTabProps {
@@ -49,6 +50,7 @@ interface Request {
     filename: string;
     url?: string;
     thumbnail?: string;
+    canDownload?: boolean;
   }>;
   raisedBy: {
     id: string;
@@ -477,44 +479,10 @@ export function ShootDetailsIssuesTab({
                     <p className="text-xs font-semibold text-muted-foreground mb-2">
                       Tagged Photos ({request.mediaFiles.length}):
                     </p>
-                    <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                    <div className="flex flex-wrap gap-3">
                       {request.mediaFiles.map((mediaFile) => (
-                        <div
-                          key={mediaFile.id}
-                          className="relative aspect-square rounded-lg overflow-hidden border border-border bg-muted group cursor-pointer hover:border-primary transition-colors"
-                          title={mediaFile.filename}
-                          onClick={() => {
-                            openTaggedMediaViewer(request, mediaFile.id);
-                          }}
-                        >
-                          {mediaFile.thumbnail || mediaFile.url ? (
-                            <img
-                              src={mediaFile.thumbnail || mediaFile.url}
-                              alt={mediaFile.filename}
-                              className="w-full h-full object-cover"
-                              onError={(e) => {
-                                // Fallback to a placeholder if image fails to load
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                const parent = target.parentElement;
-                                if (parent) {
-                                  const fallback = document.createElement('div');
-                                  fallback.className = 'w-full h-full flex items-center justify-center text-xs text-muted-foreground p-1 text-center';
-                                  fallback.textContent = mediaFile.filename;
-                                  parent.appendChild(fallback);
-                                }
-                              }}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground p-1 text-center break-words">
-                              {mediaFile.filename}
-                            </div>
-                          )}
-                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                          <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[10px] p-1 truncate opacity-0 group-hover:opacity-100 transition-opacity">
-                            {mediaFile.filename}
-                          </div>
-                        </div>
+                        <TaggedRequestPhoto key={mediaFile.id} shootId={shoot.id} file={mediaFile}
+                          onPreview={() => openTaggedMediaViewer(request, mediaFile.id)} />
                       ))}
                     </div>
                   </div>

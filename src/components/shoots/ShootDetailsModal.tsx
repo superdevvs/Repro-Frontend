@@ -75,6 +75,7 @@ export function ShootDetailsModal({
   onModify,
   photographers = [],
   initialTab = 'overview',
+  initialMediaDisplayTab,
   openDownloadDialog = false,
   shouldHideClientDetails: shouldHideClientDetailsProp = false,
   initialFocus,
@@ -257,8 +258,8 @@ export function ShootDetailsModal({
       return;
     }
 
-    setActiveMediaDisplayTab(isClient ? 'edited' : 'uploaded');
-  }, [isClient, isOpen, shootId]);
+    setActiveMediaDisplayTab(initialMediaDisplayTab ?? (isClient ? 'edited' : 'uploaded'));
+  }, [isClient, isOpen, shootId, initialMediaDisplayTab]);
 
   const clientReleaseAccess = useMemo(
     () => getShootClientReleaseAccess(shoot, isClient),
@@ -811,6 +812,7 @@ export function ShootDetailsModal({
         />
 
         <ShootDetailsModalBody
+          requestMediaFocus={initialMediaDisplayTab !== undefined}
           shoot={shoot}
           canSubmitRaw={canSubmitRawAction}
           canSubmitEdits={canSubmitEditsAction}

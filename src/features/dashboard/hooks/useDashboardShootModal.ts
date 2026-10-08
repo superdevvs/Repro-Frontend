@@ -33,10 +33,12 @@ export const useDashboardShootModal = ({
     useState<DashboardShootModalTab>("overview");
   const [shootModalInitialFocus, setShootModalInitialFocus] =
     useState<"schedule_assignments" | undefined>(undefined);
+  const [shootModalInitialMediaDisplayTab, setShootModalInitialMediaDisplayTab] = useState<"uploaded" | "edited" | undefined>();
   const [openDownloadOnSelect, setOpenDownloadOnSelect] = useState(false);
 
   const handleSelectShoot = useCallback(
     (shoot: DashboardShootSummary, weather?: WeatherInfo | null) => {
+      setShootModalInitialMediaDisplayTab(undefined);
       setShootModalInitialTab("overview");
       setShootModalInitialFocus(undefined);
       setSelectedShoot(shoot);
@@ -49,6 +51,7 @@ export const useDashboardShootModal = ({
     setSelectedShoot(null);
     setSelectedShootWeather(null);
     setOpenDownloadOnSelect(false);
+    setShootModalInitialMediaDisplayTab(undefined);
     setShootModalInitialTab("overview");
     setShootModalInitialFocus(undefined);
   }, []);
@@ -74,6 +77,7 @@ export const useDashboardShootModal = ({
       {
         initialTab = "overview",
         initialFocus,
+        initialMediaDisplayTab,
         missingToast = {
           title: "Shoot unavailable",
           description: "We could not load this shoot right now.",
@@ -88,6 +92,7 @@ export const useDashboardShootModal = ({
       const normalizedShootId = String(shootId);
 
       const openSummary = (summary: DashboardShootSummary) => {
+        setShootModalInitialMediaDisplayTab(initialMediaDisplayTab);
         setShootModalInitialTab(initialTab);
         setShootModalInitialFocus(initialFocus);
         setSelectedShoot(summary);
@@ -176,6 +181,7 @@ export const useDashboardShootModal = ({
     selectedShootWeather,
     shootModalInitialTab,
     shootModalInitialFocus,
+    shootModalInitialMediaDisplayTab,
     openDownloadOnSelect,
     setSelectedShoot,
     setOpenDownloadOnSelect,

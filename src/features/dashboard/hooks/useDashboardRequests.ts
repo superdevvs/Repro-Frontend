@@ -140,6 +140,7 @@ export const useDashboardRequests = ({
 
       return openShootInModalById(requestShootId, {
         initialTab: "issues",
+        initialMediaDisplayTab: request.mediaFiles?.[0]?.workflowStage === "todo" ? "uploaded" : request.mediaFiles?.length ? "edited" : undefined,
         missingToast: null,
         authToast: null,
         onMissing: () => removeDeletedClientRequest(requestId),

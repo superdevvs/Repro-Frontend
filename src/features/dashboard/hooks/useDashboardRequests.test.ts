@@ -27,3 +27,12 @@ describe('client request reviewer identity', () => {
     expect(result.current.clientRequests.map((request) => request.id)).toEqual(['9']);
   });
 });
+
+
+it.each(['verified', 'completed', 'todo'])('opens a requested %s photo in its own media lane', async (workflowStage) => {
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: [] }) }));
+  renderHook(() => useDashboardRequests({ ...params, canViewDashboardClientRequests: true, viewerScope: 'editor:9' }));
+  const handler = (params.registerShootOpenHandler.mock.calls as unknown as Array<[(request: unknown) => Promise<unknown>]>).at(-1)![0];
+  await act(async () => { await handler({ id: 'request-1', shootId: 42, mediaFiles: [{ id: '1', workflowStage }] }); });
+  expect(params.openShootInModalById).toHaveBeenCalledWith(42, expect.objectContaining({ initialTab: 'issues', initialMediaDisplayTab: workflowStage === 'todo' ? 'uploaded' : 'edited' }));
+});

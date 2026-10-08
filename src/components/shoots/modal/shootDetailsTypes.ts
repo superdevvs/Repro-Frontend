@@ -25,6 +25,7 @@ export interface ShootDetailsModalProps {
   initialTab?: ShootDetailsTabId;
   openDownloadDialog?: boolean;
   shouldHideClientDetails?: boolean;
+  initialMediaDisplayTab?: 'uploaded' | 'edited';
   initialFocus?: 'schedule_assignments';
 }
 

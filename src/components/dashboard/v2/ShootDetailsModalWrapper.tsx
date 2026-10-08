@@ -13,6 +13,7 @@ interface ShootDetailsModalWrapperProps {
   initialTab?: 'overview' | 'notes' | 'issues' | 'tours' | 'settings';
   openDownloadDialog?: boolean;
   useLegacyOverview?: boolean;
+  initialMediaDisplayTab?: 'uploaded' | 'edited';
   initialFocus?: 'schedule_assignments';
 }
 
@@ -27,6 +28,7 @@ export const ShootDetailsModalWrapper: React.FC<ShootDetailsModalWrapperProps> =
   onShootUpdate,
   onViewInvoice,
   initialTab,
+  initialMediaDisplayTab,
   openDownloadDialog,
   useLegacyOverview = false,
   initialFocus,
@@ -53,6 +55,7 @@ export const ShootDetailsModalWrapper: React.FC<ShootDetailsModalWrapperProps> =
       initialWeather={weather}
       onShootUpdate={onShootUpdate}
       initialTab={initialTab}
+      initialMediaDisplayTab={initialMediaDisplayTab}
       openDownloadDialog={openDownloadDialog}
       initialFocus={initialFocus}
     />

@@ -220,7 +220,7 @@ export function MediaGrid({
           }
         }}
         className={`relative rounded-xl overflow-hidden border cursor-pointer transition-all group bg-card flex flex-col ${
-          isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/50'
+          (stack?.files ?? [file]).some(f => f.has_open_request) ? 'border-orange-500 ring-2 ring-orange-500' : isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/50'
         } ${isExtraSection ? 'opacity-90' : ''} ${isDragging ? 'opacity-50 scale-95' : ''} ${isDragOver ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${isManualSortEnabled && !isExtraSection ? 'cursor-grab active:cursor-grabbing' : ''}`}
         onClick={() => {
           onFileClick(actualIndex, sortedFiles);
@@ -453,7 +453,7 @@ export function MediaGrid({
         {({ attributes, listeners, isDragging }) => (
           <div
             className={`relative rounded-xl overflow-hidden border transition-all group select-none bg-card flex flex-col ${
-              isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/50'
+              file.has_open_request ? 'border-orange-500 ring-2 ring-orange-500' : isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:border-primary/50'
             } ${isDragging ? 'opacity-60 scale-95 shadow-xl' : ''}`}
             onClick={() => onFileClick(actualIndex, sortedFiles)}
           >
@@ -616,7 +616,7 @@ export function MediaGrid({
         onDrop={(e) => handleDrop(e, file.id)}
         onDragEnd={handleDragEnd}
         className={`flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border cursor-pointer transition-all group hover:bg-muted/50 ${
-          isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
+          file.has_open_request ? 'border-orange-500 ring-2 ring-orange-500' : isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
         } ${isExtraSection ? 'opacity-90' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${isManualSortEnabled && !isExtraSection ? 'cursor-grab active:cursor-grabbing' : ''}`}
         onClick={() => {
           onFileClick(actualIndex, sortedFiles);
@@ -790,7 +790,7 @@ export function MediaGrid({
         {({ attributes, listeners, isDragging }) => (
           <div
             className={`flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border transition-all group select-none ${
-              isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
+              file.has_open_request ? 'border-orange-500 ring-2 ring-orange-500' : isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
             } ${isDragging ? 'opacity-60 shadow-lg bg-muted/50' : ''}`}
             onClick={() => onFileClick(actualIndex, sortedFiles)}
           >

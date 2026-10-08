@@ -293,6 +293,7 @@ const Dashboard = () => {
     selectedShootWeather,
     shootModalInitialTab,
     shootModalInitialFocus,
+    shootModalInitialMediaDisplayTab,
     openDownloadOnSelect,
     setSelectedShoot,
     setOpenDownloadOnSelect,
@@ -335,6 +336,7 @@ const Dashboard = () => {
           onViewInvoice={handleViewInvoice}
           initialTab={shootModalInitialTab}
           initialFocus={shootModalInitialFocus}
+          initialMediaDisplayTab={shootModalInitialMediaDisplayTab}
           openDownloadDialog={openDownloadOnSelect}
         />
       </Suspense>

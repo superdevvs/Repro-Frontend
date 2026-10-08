@@ -46,3 +46,11 @@ describe('media grid file download buttons', () => {
     expect(screen.queryByTitle('Like image')).toBeNull();
   });
 });
+
+
+it.each([['grid', false], ['list', false], ['grid', true]] as const)('marks requested media in orange in %s view (manual %s)', (viewMode, manualSortActive) => {
+  render(<MediaGrid {...props} files={[{ ...files[0], has_open_request: true }, files[1]]}
+    viewMode={viewMode} sortOrder={manualSortActive ? 'manual' : 'time'} manualSortActive={manualSortActive} />);
+  expect(screen.getByText('first.jpg').closest('.border')?.className).toContain('ring-orange-500');
+  expect(screen.getByText('extra.jpg').closest('.border')?.className).not.toContain('ring-orange-500');
+});

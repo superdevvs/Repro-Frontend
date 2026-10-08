@@ -40,6 +40,7 @@ type VisibleTabId =
   | 'media';
 
 interface ShootDetailsModalBodyProps {
+  requestMediaFocus?: boolean;
   shoot: ShootData;
   activeTab: VisibleTabId;
   activeMediaDisplayTab: 'uploaded' | 'edited';
@@ -175,6 +176,7 @@ export function ShootDetailsModalBody({
   shoot,
   activeTab,
   activeMediaDisplayTab,
+  requestMediaFocus,
   visibleTabs,
   currentUserRole,
   editorUser,
@@ -444,6 +446,7 @@ export function ShootDetailsModalBody({
               role={currentUserRole}
               onShootUpdate={refreshShootAndParent}
               onSelectionChange={setSelectedFileIds}
+              requestMediaFocus={requestMediaFocus}
               displayTab={activeMediaDisplayTab}
               onDisplayTabChange={setActiveMediaDisplayTab}
               isExpanded
@@ -468,6 +471,7 @@ export function ShootDetailsModalBody({
                 role={currentUserRole}
                 onShootUpdate={refreshShootAndParent}
                 onSelectionChange={setSelectedFileIds}
+                requestMediaFocus={requestMediaFocus}
                 displayTab={activeMediaDisplayTab}
                 onDisplayTabChange={setActiveMediaDisplayTab}
                 isExpanded={isMediaExpanded}

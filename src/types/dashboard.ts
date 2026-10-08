@@ -199,6 +199,8 @@ export interface DashboardIssueItem {
 }
 
 export interface DashboardClientRequest {
+  mediaIds?: string[];
+  mediaFiles?: Array<{ id: string; filename: string; workflowStage?: string; canDownload?: boolean; url?: string; thumbnail?: string }>;
   canOpenShoot?: boolean;
   canUpdate?: boolean;
   id: string;

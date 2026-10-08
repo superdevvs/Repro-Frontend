@@ -63,6 +63,7 @@ const ShootDetails: React.FC = () => {
   const { user, role: authRole } = useAuth();
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const [activeTab, setActiveTab] = useState('media');
+  useEffect(() => { const lane = new URLSearchParams(location.search).get('requestMedia'); if (lane === 'edited' || lane === 'uploaded') setActiveMediaDisplayTab(lane); }, [location.search]);
   const [isLoadingInvoice, setIsLoadingInvoice] = useState(false);
   const [isSendingToEditing, setIsSendingToEditing] = useState(false);
   const [isFinalising, setIsFinalising] = useState(false);
