@@ -1,3 +1,4 @@
+import { shootHistoryPersonParams } from './shootHistoryPersonFilters'
 import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import type { ShootCard } from '@/types/shootCard'
 import { useQueryClient } from '@tanstack/react-query'
@@ -477,9 +478,7 @@ export function useShootHistoryData({
         params.hold_status = holdSubTabRef.current
       }
       if (debouncedOperationalSearchRef.current) params.search = debouncedOperationalSearchRef.current
-      if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
-      if (currentFilters.photographerId) params.photographer_id = currentFilters.photographerId
-      if (currentFilters.salesRepId) params.sales_rep_id = currentFilters.salesRepId
+      Object.assign(params, shootHistoryPersonParams(currentFilters, currentHideClient))
       if (currentFilters.address) params.address = currentFilters.address
       if (currentFilters.services.length) params.services = currentFilters.services
       if (currentFilters.dateRange !== 'all') {
@@ -656,9 +655,7 @@ export function useShootHistoryData({
         sort: shootSortRef.current,
       }
       if (debouncedHistorySearchRef.current) params.search = debouncedHistorySearchRef.current
-      if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
-      if (currentFilters.photographerId) params.photographer_id = currentFilters.photographerId
-      if (currentFilters.salesRepId) params.sales_rep_id = currentFilters.salesRepId
+      Object.assign(params, shootHistoryPersonParams(currentFilters, currentHideClient))
       if (currentFilters.services.length) params.services = currentFilters.services
       if (currentFilters.dateRange && currentFilters.dateRange !== 'all') {
         if (currentFilters.dateRange === 'custom') {
@@ -953,9 +950,7 @@ export function useShootHistoryData({
   const buildHistoryParams = useCallback(() => {
     const params: Record<string, unknown> = { group_by: historyFilters.groupBy, page: historyPage, per_page: pageSize, sort: shootSort }
     if (debouncedHistorySearch) params.search = debouncedHistorySearch
-    if (!shouldHideClientDetails && historyFilters.clientId) params.client_id = historyFilters.clientId
-    if (historyFilters.photographerId) params.photographer_id = historyFilters.photographerId
-      if (historyFilters.salesRepId) params.sales_rep_id = historyFilters.salesRepId
+    Object.assign(params, shootHistoryPersonParams(historyFilters, shouldHideClientDetails))
     if (historyFilters.services.length) params.services = historyFilters.services
     if (historyFilters.dateRange) {
       if (historyFilters.dateRange === 'custom') {

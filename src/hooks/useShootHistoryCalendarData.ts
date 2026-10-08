@@ -1,3 +1,4 @@
+import { shootHistoryPersonParams } from './shootHistoryPersonFilters'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { apiClient } from '@/services/api'
 import type { AvailableTab, FilterCollections, HistoryFiltersState, OperationalFiltersState } from '@/components/shoots/history/shootHistoryUtils'
@@ -40,9 +41,7 @@ function requestForCalendar(args: CalendarDataArgs) {
   const range = calendarRangeParams(args.range)
   const params: Record<string, unknown> = { ...range, sort: 'date_asc', per_page: isHistory ? 200 : 50 }
   if (filters.search) params.search = filters.search
-  if (!args.shouldHideClientDetails && filters.clientId) params.client_id = filters.clientId
-  if (filters.photographerId) params.photographer_id = filters.photographerId
-      if (filters.salesRepId) params.sales_rep_id = filters.salesRepId
+  Object.assign(params, shootHistoryPersonParams(filters, args.shouldHideClientDetails))
   if (filters.services.length) params.services = filters.services
   if (isHistory) {
     params.group_by = 'shoot'
