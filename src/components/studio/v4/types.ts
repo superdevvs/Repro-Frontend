@@ -34,7 +34,7 @@ export interface PhotoEditRecipe {
   crop?: V4Region; blur?: V4Region[]; marks?: (V4Region & { kind: 'pin' | 'boundary'; label?: string })[];
 }
 export interface PhotoEditTarget { mediaId: string; outputId: string }
-export interface V4Feedback { mediaId: string; prompt: string; region?: V4Region; drawing?: { x: number; y: number }[][]; referenceMediaIds?: string[] }
+export interface V4Feedback { customEdit?: boolean; outputId?: string; mediaId: string; prompt: string; region?: V4Region; drawing?: { x: number; y: number }[][]; referenceMediaIds?: string[] }
 export interface V4Segment { id: string; label: string; region: V4Region }
 export interface V4WorkspaceProps {
   workspace: V4Workspace; preset: V4Preset; busy: boolean; error: string | null;

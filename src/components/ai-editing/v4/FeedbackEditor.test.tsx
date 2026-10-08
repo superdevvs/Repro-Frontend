@@ -5,12 +5,30 @@ import { FeedbackEditor } from './FeedbackEditor';
 import type { V4Feedback } from '@/components/studio/v4/types';
 
 beforeEach(() => {
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null);
   vi.stubGlobal('ResizeObserver', class { observe() {} disconnect() {} unobserve() {} });
   localStorage.setItem('authToken', crypto.randomUUID());
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); localStorage.clear(); });
 
 describe('suggested-area photo feedback', () => {
+  it('measures the portal selection surface when it mounts, before any resize event', () => {
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(1000);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(600);
+    render(<FeedbackEditor mediaId="portal-measurement" name="Exterior" imageUrl="/original.jpg" busy={false} onDetect={vi.fn()} onSubmit={vi.fn()} onClose={vi.fn()} />);
+    const image = screen.getByAltText('Exterior');
+    Object.defineProperties(image, { naturalWidth: { value: 1600 }, naturalHeight: { value: 900 } });
+    fireEvent.load(image);
+    expect(screen.getByLabelText('Draw feedback on the image')).toHaveStyle({ width: '1000px', height: '562.5px' });
+  });
+  it('keeps manual selection available when automatic detection is not configured', () => {
+    const onDetect = vi.fn();
+    render(<FeedbackEditor mediaId="no-detection" name="Exterior" imageUrl="/original.jpg" busy={false} detectionReady={false} onDetect={onDetect} onSubmit={vi.fn()} onClose={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Find objects' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Select area' })).toBeEnabled();
+    expect(screen.getByRole('status')).toHaveTextContent('Automatic detection is unavailable');
+    expect(onDetect).not.toHaveBeenCalled();
+  });
   it('starts a scene repair with editable direction and submits through the revision workflow', async () => {
     const onSubmit = vi.fn().mockResolvedValue(undefined);
     const prompt = 'Add a subtle fire inside the existing fireplace.';

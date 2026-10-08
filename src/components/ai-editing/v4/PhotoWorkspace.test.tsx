@@ -16,6 +16,27 @@ const makeProps = (): V4WorkspaceProps => ({
 beforeEach(() => { vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe('photo generation scope and selected versions', () => {
+  it('shows custom instructions below the photo and preserves them when refinement fails', async () => {
+    const props = makeProps();
+    props.workspace.outputs = [{ id: 'a-v1', mediaId: 'a', version: 1, status: 'completed', kind: 'image', url: '/edited.jpg' }];
+    props.capabilities = { presets: {}, revision: { ready: true, referenceImages: false }, upscale: { ready: false }, outpaint: { ready: false } };
+    props.onRefine = vi.fn().mockRejectedValueOnce(new Error('Retry this edit.')).mockResolvedValue(undefined);
+    render(<PhotoWorkspace {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Focus' }));
+    expect(screen.queryByRole('button', { name: 'Before' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'After' })).not.toBeInTheDocument();
+    expect(screen.getByRole('slider', { name: 'Before and after comparison position' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Detect areas' })).not.toBeInTheDocument();
+    const field = screen.getByRole('textbox', { name: 'Custom edit' });
+    fireEvent.change(field, { target: { value: 'Remove the chair.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Apply custom edit' }));
+    await screen.findByText('Retry this edit.');
+    expect(field).toHaveValue('Remove the chair.');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply custom edit' }));
+    await waitFor(() => expect(field).toHaveValue(''));
+    expect(props.onRefine).toHaveBeenCalledWith({ mediaId: 'a', outputId: 'a-v1', prompt: 'Remove the chair.', customEdit: true });
+    expect(props.onGenerate).not.toHaveBeenCalled();
+  });
   it('switches focused custom controls and saves the explicitly selected version without generating again', async () => {
     const props = makeProps();
     props.workspace.status = 'completed';

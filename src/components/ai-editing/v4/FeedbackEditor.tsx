@@ -15,6 +15,7 @@ const detectionCache = new Map<string, Promise<V4Segment[]>>();
 let detectionAccount: string | null = null;
 interface FeedbackEditorProps {
   initialPrompt?: string;
+  detectionReady?: boolean; detectionUnavailableReason?: string;
   mediaId: string; name: string; imageUrl: string; busy: boolean;
   detectOnOpen?: boolean;
   referenceMedia?: V4Media[]; referenceImagesEnabled?: boolean;
@@ -23,7 +24,7 @@ interface FeedbackEditorProps {
   onDetect: (mediaId: string) => Promise<V4Segment[]>;
 }
 
-export function FeedbackEditor({ mediaId, name, imageUrl, busy, initialPrompt = '', detectOnOpen = false, referenceMedia = [], referenceImagesEnabled = false, revisionReady = true, unavailableReason, onClose, onSubmit, onDetect }: FeedbackEditorProps) {
+export function FeedbackEditor({ mediaId, name, imageUrl, busy, initialPrompt = '', detectionReady = true, detectionUnavailableReason, detectOnOpen = false, referenceMedia = [], referenceImagesEnabled = false, revisionReady = true, unavailableReason, onClose, onSubmit, onDetect }: FeedbackEditorProps) {
   const [tool, setTool] = useState<'box' | 'draw' | 'objects'>('box');
   const [prompt, setPrompt] = useState(initialPrompt);
   const [referenceMediaIds, setReferenceMediaIds] = useState<string[]>([]);
@@ -35,19 +36,20 @@ export function FeedbackEditor({ mediaId, name, imageUrl, busy, initialPrompt = 
   const [error, setError] = useState('');
   const [imageSize, setImageSize] = useState({ width: 1, height: 1 });
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const surface = useRef<HTMLDivElement>(null), canvas = useRef<HTMLCanvasElement>(null);
+  const canvas = useRef<HTMLCanvasElement>(null);
+  const surfaceObserver = useRef<ResizeObserver | null>(null);
   const promptInput = useRef<HTMLTextAreaElement>(null);
   const autoDetected = useRef(false);
   const start = useRef<Point | null>(null), activePointer = useRef<number | null>(null);
   const rect = containRect(size.width, size.height, imageSize.width, imageSize.height);
 
-  useEffect(() => {
-    const element = surface.current;
+  const attachSurface = useCallback((element: HTMLDivElement | null) => {
+    surfaceObserver.current?.disconnect();
+    surfaceObserver.current = null;
     if (!element) return;
     const update = () => setSize({ width: element.clientWidth, height: element.clientHeight });
     update();
-    const observer = new ResizeObserver(update); observer.observe(element);
-    return () => observer.disconnect();
+    if (typeof ResizeObserver !== 'undefined') { surfaceObserver.current = new ResizeObserver(update); surfaceObserver.current.observe(element); }
   }, []);
 
   useEffect(() => {
@@ -95,6 +97,7 @@ export function FeedbackEditor({ mediaId, name, imageUrl, busy, initialPrompt = 
     activePointer.current = null; start.current = null;
   };
   const detect = useCallback(async () => {
+    if (!detectionReady) { setTool('box'); setError(detectionUnavailableReason || 'Automatic detection is unavailable. Draw an area instead.'); return; }
     setDetecting(true); setError('');
     const account = localStorage.getItem('authToken') || localStorage.getItem('token');
     if (account !== detectionAccount) { detectionCache.clear(); detectionAccount = account; }
@@ -105,11 +108,11 @@ export function FeedbackEditor({ mediaId, name, imageUrl, busy, initialPrompt = 
         detectionCache.set(key, onDetect(mediaId));
       }
       const result = await detectionCache.get(key)!;
-      setSegments(result); setTool('objects');
+      setSegments(result); setTool(result.length ? 'objects' : 'box');
       if (!result.length) setError('No suggested areas found. Select an area or draw your feedback.');
-    } catch (reason) { detectionCache.delete(key); setError(reason instanceof Error ? reason.message : 'Could not find suggested areas. You can draw an area instead.'); }
+    } catch (reason) { detectionCache.delete(key); setTool('box'); setError(reason instanceof Error ? reason.message : 'Could not find suggested areas. You can draw an area instead.'); }
     finally { setDetecting(false); }
-  }, [mediaId, imageUrl, onDetect]);
+  }, [mediaId, imageUrl, onDetect, detectionReady, detectionUnavailableReason]);
   useEffect(() => {
     if (detectOnOpen && !busy && !autoDetected.current) { autoDetected.current = true; void detect(); }
   }, [detectOnOpen, busy, detect]);
@@ -125,8 +128,9 @@ export function FeedbackEditor({ mediaId, name, imageUrl, busy, initialPrompt = 
 
   return <Dialog open onOpenChange={open => { if (!open && !sending) onClose(); }}><DialogContent className="v4-editor-dialog v4-feedback-dialog"><DialogTitle>Refine {name}</DialogTitle><DialogDescription>Mark an area and describe the change. Your original stays available.</DialogDescription>
     <div className="v4-feedback-scroll">
-    <div className="v4-feedback-tools"><Button variant="outline" aria-pressed={tool === 'box'} onClick={() => setTool('box')}><BoxSelect />Select area</Button><Button variant="outline" aria-pressed={tool === 'draw'} onClick={() => setTool('draw')}><Brush />Draw</Button><Button variant="outline" aria-pressed={tool === 'objects'} disabled={detecting || busy} onClick={() => void detect()}>{detecting ? <Loader2 aria-hidden="true" className="" /> : <ScanSearch />}Find objects</Button><Button variant="ghost" disabled={!region && !drawing.length} onClick={() => { if (drawing.length) setDrawing(previous => previous.slice(0, -1)); else setRegion(undefined); }}><Undo2 />Undo</Button></div>
-    <div className="v4-feedback-image" ref={surface}><StudioImage src={imageUrl} alt={name} onLoad={event => setImageSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} />
+    <div className="v4-feedback-tools"><Button variant="outline" aria-pressed={tool === 'box'} onClick={() => setTool('box')}><BoxSelect />Select area</Button><Button variant="outline" aria-pressed={tool === 'draw'} onClick={() => setTool('draw')}><Brush />Draw</Button><Button variant="outline" aria-pressed={tool === 'objects'} disabled={!detectionReady || detecting || busy} title={detectionReady ? undefined : detectionUnavailableReason || 'Automatic detection is unavailable; draw an area instead.'} onClick={() => void detect()}>{detecting ? <Loader2 aria-hidden="true" className="" /> : <ScanSearch />}Find objects</Button><Button variant="ghost" disabled={!region && !drawing.length} onClick={() => { if (drawing.length) setDrawing(previous => previous.slice(0, -1)); else setRegion(undefined); }}><Undo2 />Undo</Button></div>
+    {!detectionReady && <p className="v4-workspace-notice" role="status">{detectionUnavailableReason || 'Automatic detection is unavailable. Select an area or draw your feedback.'}</p>}
+    <div className="v4-feedback-image" ref={attachSurface}><StudioImage src={imageUrl} alt={name} onLoad={event => setImageSize({ width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })} />
       <div className="v4-feedback-drawing" data-tool={tool} style={{ left: rect.x, top: rect.y, width: rect.width, height: rect.height }} onPointerDown={pointerDown} onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerCancel={pointerUp} aria-label="Draw feedback on the image"><canvas ref={canvas} />{tool === 'objects' && segments.map(segment => <button type="button" className="v4-object-area" key={segment.id} aria-label={`Select suggested ${segment.label} area`} aria-pressed={region === segment.region} onClick={() => chooseSegment(segment)} style={{ left: `${segment.region.x * 100}%`, top: `${segment.region.y * 100}%`, width: `${segment.region.width * 100}%`, height: `${segment.region.height * 100}%` }}><span>{segment.label}</span></button>)}{region && <span className="v4-feedback-region" style={{ left: `${region.x * 100}%`, top: `${region.y * 100}%`, width: `${region.width * 100}%`, height: `${region.height * 100}%` }} />}</div>
     </div>
     {tool === 'draw' && <p className="v4-muted" role="status">{drawing.length >= MAX_DRAWING_STROKES ? '20 strokes added. Undo a stroke to draw more.' : `${drawing.length} of ${MAX_DRAWING_STROKES} strokes used`}</p>}

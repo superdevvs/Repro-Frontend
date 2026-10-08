@@ -4,6 +4,8 @@ export interface StudioServiceAvailability { ready: boolean; reason?: string }
 export interface StudioCapabilities {
   presets: Record<string, StudioServiceAvailability>;
   revision: StudioServiceAvailability & { referenceImages: boolean };
+  customRevision?: StudioServiceAvailability & { referenceImages: boolean };
+  detection?: StudioServiceAvailability;
   upscale: StudioServiceAvailability;
   outpaint: StudioServiceAvailability;
 }
