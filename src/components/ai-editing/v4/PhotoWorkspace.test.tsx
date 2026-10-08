@@ -226,7 +226,7 @@ describe('photo generation scope and selected versions', () => {
   it('uses server scope after reopening a partial grouped re-edit with older results', () => {
     const props = makeProps();
     props.preset = { ...props.preset, id: 'full-shoot', name: 'Full Shoot' };
-    const media = [...props.workspace.media, { id: 'b', name: 'Interior', kind: 'image' as const, url: '/b.jpg' }];
+    const media = [...props.workspace.media, { id: 'b', name: 'Interior', kind: 'image' as const, url: '/b.jpg', thumbnailUrl: '/b.jpg' }];
     props.workspace = { ...props.workspace, presetId: 'full-shoot', status: 'generating', media,
       outputs: media.map(item => ({ id: `${item.id}-v1`, mediaId: item.id, url: `/${item.id}-v1.jpg`, kind: 'image' as const, version: 1, status: 'completed' })),
       photoGroups: media.map(item => ({ mediaId: item.id, name: item.name, sourceMediaIds: [item.id], sourceFileIds: [] })),
@@ -239,7 +239,7 @@ describe('photo generation scope and selected versions', () => {
 
   it('limits a reopened revision to its server target even outside the original selection', () => {
     const props = makeProps();
-    props.workspace = { ...props.workspace, status: 'generating', media: [...props.workspace.media, { id: 'b', name: 'Interior', kind: 'image', url: '/b.jpg' }],
+    props.workspace = { ...props.workspace, status: 'generating', media: [...props.workspace.media, { id: 'b', name: 'Interior', kind: 'image', url: '/b.jpg', thumbnailUrl: '/b.jpg' }],
       generationScope: { mediaIds: ['b'], completedMediaIds: [] } };
     render(<PhotoWorkspace {...props} />);
     expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
