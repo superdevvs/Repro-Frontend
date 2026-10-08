@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } 
 import './workspace.css';
 
 interface EditorShellProps {
+  compact?: boolean;
   title: string;
   subtitle: string;
   shootLabel: string;
@@ -14,6 +15,7 @@ interface EditorShellProps {
   modeControl?: ReactNode;
   actions: ReactNode;
   inspector: ReactNode;
+  inspectorFooter?: ReactNode;
   filmstrip: ReactNode;
   children: ReactNode;
   error?: string | null;
@@ -21,13 +23,13 @@ interface EditorShellProps {
 }
 
 /** The existing dashboard owns global navigation; this is the single local editor tier. */
-export function EditorShell({ title, subtitle, shootLabel, onBack, onChangeSource, modeControl, actions, inspector, filmstrip, children, error, status }: EditorShellProps) {
+export function EditorShell({ compact = false, title, subtitle, shootLabel, onBack, onChangeSource, modeControl, actions, inspector, inspectorFooter, filmstrip, children, error, status }: EditorShellProps) {
   return (
-    <section className="v4-editor" aria-label={`${title} workspace`}>
+    <section className={`v4-editor${compact ? ' v4-editor-compact' : ''}`} aria-label={`${title} workspace`}>
       <header className="v4-editor-toolbar">
         <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to AI editing"><ArrowLeft /></Button>
-        {onChangeSource ? <Button variant="outline" className="v4-editor-source" onClick={onChangeSource}><span>{shootLabel}</span><ChevronDown /></Button> : <span className="v4-editor-source-label">{shootLabel}</span>}
-        <div className="v4-editor-heading"><h1>{title}</h1><p>{subtitle}</p></div>
+        {compact ? <span className="v4-editor-source-label">{shootLabel}</span> : onChangeSource ? <Button variant="outline" className="v4-editor-source" onClick={onChangeSource}><span>{shootLabel}</span><ChevronDown /></Button> : <span className="v4-editor-source-label">{shootLabel}</span>}
+        <div className={`v4-editor-heading${compact ? ' sr-only' : ''}`}><h1>{title}</h1>{!compact && <p>{subtitle}</p>}</div>
         <div className="v4-editor-mode">{modeControl}</div>
         <span className="v4-editor-status" aria-live="polite">{status}</span>
         <div className="v4-editor-desktop-actions">{actions}</div>
@@ -36,13 +38,15 @@ export function EditorShell({ title, subtitle, shootLabel, onBack, onChangeSourc
           <DialogContent className="v4-editor-dialog v4-editor-settings-dialog">
             <DialogTitle>Edit settings</DialogTitle><DialogDescription>{subtitle}</DialogDescription>
             <div className="v4-editor-settings-content">{inspector}</div>
+            {inspectorFooter}
           </DialogContent>
         </Dialog>
       </header>
       {error && <div className="v4-editor-error" role="alert">{error}</div>}
       <div className="v4-editor-body">
         <main className="v4-editor-stage">{children}</main>
-        <aside className="v4-editor-inspector" aria-label="Edit settings">{inspector}</aside>
+        <aside className={`v4-editor-inspector${inspectorFooter ? ' v4-editor-inspector-focused' : ''}`} aria-label="Edit settings">{inspector}</aside>
+        {inspectorFooter && <div className="v4-editor-inspector-footer">{inspectorFooter}</div>}
         <div className="v4-editor-filmstrip">{filmstrip}</div>
       </div>
       <footer className="v4-editor-mobile-actions">{actions}</footer>

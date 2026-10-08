@@ -25,6 +25,15 @@ export interface V4Workspace {
   createdAt: string; updatedAt: string;
 }
 export interface V4Region { x: number; y: number; width: number; height: number }
+export interface PhotoEditRecipe {
+  logo?: { id: string; x: number; y: number; width: number; opacity?: number };
+  color?: Partial<Record<'red' | 'orange' | 'yellow' | 'green' | 'aqua' | 'blue' | 'purple' | 'magenta', { hue?: number; saturation?: number; lightness?: number }>>;
+  exposure?: number; contrast?: number; temperature?: number; tint?: number; saturation?: number;
+  highlights?: number; shadows?: number; whites?: number; blacks?: number;
+  sharpen?: number; denoise?: number; rotation?: number; flip?: boolean; caption?: string;
+  crop?: V4Region; blur?: V4Region[]; marks?: (V4Region & { kind: 'pin' | 'boundary'; label?: string })[];
+}
+export interface PhotoEditTarget { mediaId: string; outputId: string }
 export interface V4Feedback { mediaId: string; prompt: string; region?: V4Region; drawing?: { x: number; y: number }[][]; referenceMediaIds?: string[] }
 export interface V4Segment { id: string; label: string; region: V4Region }
 export interface V4WorkspaceProps {
@@ -37,6 +46,7 @@ export interface V4WorkspaceProps {
   onPrepare: (config: V4Config) => Promise<void>;
   onRefine: (feedback: V4Feedback) => Promise<void>;
   onUpscale?: (mediaId: string, outputId: string) => Promise<void>;
+  onApplyEdits?: (edits: PhotoEditRecipe, targets: PhotoEditTarget[]) => Promise<void>;
   onCancel: () => Promise<void>; onRefresh: () => void;
   onDetect: (mediaId: string) => Promise<V4Segment[]>;
 }

@@ -1,6 +1,6 @@
 import { apiClient } from './api';
 import { studioService, type SourceMedia, type StudioShootRef, type WorkflowId, type UploadProgressHandler } from './studioService';
-import type { V4Config, V4Feedback, V4Media, V4Segment, V4Workspace } from '@/components/studio/v4/types';
+import type { PhotoEditRecipe, PhotoEditTarget, V4Config, V4Feedback, V4Media, V4Segment, V4Workspace } from '@/components/studio/v4/types';
 
 const base = '/studio/workspaces';
 const path = (id: string) => `${base}/${encodeURIComponent(id)}`;
@@ -22,6 +22,16 @@ export const studioWorkspaceService = {
   },
   async upscale(id: string, mediaId: string, outputId: string): Promise<V4Workspace> {
     return (await apiClient.post(`${path(id)}/upscale`, { mediaId, outputId })).data.data;
+  },
+  async applyEdits(id: string, edits: PhotoEditRecipe, targets: PhotoEditTarget[]): Promise<V4Workspace> {
+    return (await apiClient.post(`${path(id)}/edits`, { edits, targets })).data.data;
+  },
+  async previewEdits(id: string, edits: PhotoEditRecipe, target: PhotoEditTarget, signal: AbortSignal): Promise<Blob> {
+    return (await apiClient.post(`${path(id)}/edit-preview`, { edits, ...target }, { responseType: 'blob', signal })).data;
+  },
+  async uploadPhotoLogo(id: string, file: File): Promise<{ id: string; url: string }> {
+    const body = new FormData(); body.append('logo', file);
+    return (await apiClient.post(`${path(id)}/photo-logo`, body, { headers: { 'Content-Type': 'multipart/form-data' } })).data.data;
   },
   async detect(id: string, mediaId: string): Promise<V4Segment[]> {
     return (await apiClient.post(`${path(id)}/segments`, { mediaId })).data.data;

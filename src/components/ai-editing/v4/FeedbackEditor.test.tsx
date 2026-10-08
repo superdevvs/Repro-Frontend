@@ -11,6 +11,14 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); localStorage.clear(); });
 
 describe('suggested-area photo feedback', () => {
+  it('starts a scene repair with editable direction and submits through the revision workflow', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined);
+    const prompt = 'Add a subtle fire inside the existing fireplace.';
+    render(<FeedbackEditor mediaId="base" name="Living room" imageUrl="https://media.test/living.jpg" initialPrompt={prompt} busy={false} onDetect={vi.fn()} onSubmit={onSubmit} onClose={vi.fn()} />);
+    expect(screen.getByLabelText('Describe the change')).toHaveValue(prompt);
+    fireEvent.click(screen.getByRole('button', { name: 'Generate revision' }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ mediaId: 'base', prompt })));
+  });
   it('sends at most four existing workspace reference IDs and preserves them after a failed request', async () => {
     const media = Array.from({ length: 5 }, (_, index) => ({ id: `ref-${index}`, name: `Reference ${index + 1}`, kind: 'image' as const, url: 'https://media.test/reference.jpg', thumbnailUrl: 'https://media.test/reference.jpg' }));
     const onSubmit = vi.fn().mockRejectedValue(new Error('Try again.'));

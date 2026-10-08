@@ -151,13 +151,14 @@ export default function AiEditing() {
     onGenerate: config => saveAndRun(config, 'generate'), onPrepare: config => saveAndRun(config, 'prepare'),
     onRefine: feedback => mutate(() => studioWorkspaceService.revise(workspace.id, feedback)),
     onUpscale: (mediaId, outputId) => mutate(() => studioWorkspaceService.upscale(workspace.id, mediaId, outputId)),
+    onApplyEdits: (edits, targets) => mutate(() => studioWorkspaceService.applyEdits(workspace.id, edits, targets)),
     onCancel: () => mutate(() => studioWorkspaceService.run(workspace.id, 'cancel')),
     onRefresh: () => void refreshWorkspace(workspace.id), onDetect: mediaId => studioWorkspaceService.detect(workspace.id, mediaId),
   } : null;
   return <DashboardLayout hideFooter>
     <div className={workspaceId ? 'flex h-full min-h-0 flex-col' : 'min-w-0'}>
       {capabilitiesError && <div role="status" className="mx-auto mb-3 flex w-full max-w-[1132px] items-center gap-3 rounded-lg border p-3 text-sm"><span className="flex-1">Additional editing options could not be checked.</span><Button variant="ghost" size="sm" onClick={() => void refreshCapabilities()}>Retry</Button></div>}
-      {workspace?.shootId && <nav aria-label="Shoot editing projects" className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2 text-xs">
+      {workspace?.shootId && findPreset(workspace.presetId).kind === 'video' && <nav aria-label="Shoot editing projects" className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2 text-xs">
         <span className="font-medium">Shoot #{workspace.shootId}</span>
         {history.filter(project => project.shootId === workspace.shootId).sort((a, b) => Number(Boolean(a.parentWorkspaceId)) - Number(Boolean(b.parentWorkspaceId))).map(project => <Button key={project.id} size="sm" variant={project.id === workspace.id ? 'secondary' : 'ghost'} onClick={() => openWorkspace(project.id)}>{project.parentWorkspaceId ? 'Subproject: ' : ''}{findPreset(project.presetId).name} - {project.status}</Button>)}
         <span className="text-muted-foreground">{workspace.presetId === 'full-shoot' && workspace.requiresReview !== false ? 'Full-shoot photos require review and approval.' : "Finished AI photos are saved in the shoot's Edited tab."}</span>

@@ -14,6 +14,7 @@ type Point = { x: number; y: number };
 const detectionCache = new Map<string, Promise<V4Segment[]>>();
 let detectionAccount: string | null = null;
 interface FeedbackEditorProps {
+  initialPrompt?: string;
   mediaId: string; name: string; imageUrl: string; busy: boolean;
   detectOnOpen?: boolean;
   referenceMedia?: V4Media[]; referenceImagesEnabled?: boolean;
@@ -22,9 +23,9 @@ interface FeedbackEditorProps {
   onDetect: (mediaId: string) => Promise<V4Segment[]>;
 }
 
-export function FeedbackEditor({ mediaId, name, imageUrl, busy, detectOnOpen = false, referenceMedia = [], referenceImagesEnabled = false, revisionReady = true, unavailableReason, onClose, onSubmit, onDetect }: FeedbackEditorProps) {
+export function FeedbackEditor({ mediaId, name, imageUrl, busy, initialPrompt = '', detectOnOpen = false, referenceMedia = [], referenceImagesEnabled = false, revisionReady = true, unavailableReason, onClose, onSubmit, onDetect }: FeedbackEditorProps) {
   const [tool, setTool] = useState<'box' | 'draw' | 'objects'>('box');
-  const [prompt, setPrompt] = useState('');
+  const [prompt, setPrompt] = useState(initialPrompt);
   const [referenceMediaIds, setReferenceMediaIds] = useState<string[]>([]);
   const [region, setRegion] = useState<V4Region>();
   const [drawing, setDrawing] = useState<Point[][]>([]);

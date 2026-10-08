@@ -19,6 +19,6 @@ export function initialConfig(preset: V4Preset, media: V4Media[], prompt = ''): 
   const frames = media.filter(m => m.kind !== 'video').slice(0, preset.kind === 'image' ? undefined : preset.id === 'social-teaser' ? 3 : 6).map(m => ({ mediaId: m.id, method: 'extend' as const, duration: 5 }));
   return { prompt, ratio: preset.kind === 'video' ? '9:16' : '16:9', duration: preset.kind === 'video' ? Math.max(5, frames.length * 5) : 30, transition: 'none', transitionDuration: 0.5,
     text: { title: '', subtitle: '', style: 'none', position: 'bottom' }, adjustments: preset.id === 'virtual-staging'
-      ? { preserveStructure: true, strength: 50, roomType: 'living', furnitureStyle: 'modern', removal: 'off', addFurniture: true, variationCount: 1, watermark: false, resolution: 'default', useDetectedMask: false }
-      : { preserveStructure: true, strength: 50, roomType: 'living-room', furnitureStyle: 'modern' }, frames };
+      ? { roomType: 'living', furnitureStyle: 'modern', removal: 'off', addFurniture: true, variationCount: 1, watermark: false, resolution: 'default', useDetectedMask: false }
+      : {}, frames };
 }

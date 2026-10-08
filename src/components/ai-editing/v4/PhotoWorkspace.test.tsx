@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { V4WorkspaceProps } from '@/components/studio/v4/types';
 import { PhotoWorkspace } from './PhotoWorkspace';
 import { downloadWorkspaceOutput } from './downloadOutput';
+import { studioWorkspaceService } from '@/services/studioWorkspaceService';
 
 vi.mock('./downloadOutput', () => ({ downloadWorkspaceOutput: vi.fn().mockResolvedValue(undefined) }));
 
@@ -15,6 +16,36 @@ const makeProps = (): V4WorkspaceProps => ({
 beforeEach(() => { vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe('photo generation scope and selected versions', () => {
+  it('switches focused custom controls and saves the explicitly selected version without generating again', async () => {
+    const props = makeProps();
+    props.workspace.status = 'completed';
+    props.workspace.outputs = [1, 2].map(version => ({ id: `a-v${version}`, mediaId: 'a', version, status: 'completed', url: `https://media.test/v${version}.jpg`, kind: 'image' }));
+    props.onApplyEdits = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(studioWorkspaceService, 'previewEdits').mockReturnValue(new Promise(() => {}));
+    render(<PhotoWorkspace {...props} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Version 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Light & color' }));
+    fireEvent.change(screen.getByRole('slider', { name: 'Exposure' }), { target: { value: '1.2' } });
+    expect(screen.queryByRole('slider', { name: 'Highlights' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Tone' }));
+    expect(screen.queryByRole('slider', { name: 'Exposure' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole('slider', { name: 'Shadows' }), { target: { value: '20' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save new version' }));
+    await waitFor(() => expect(props.onApplyEdits).toHaveBeenCalledWith({ exposure: 1.2, shadows: 20 }, [{ mediaId: 'a', outputId: 'a-v1' }]));
+    expect(props.onGenerate).not.toHaveBeenCalled();
+    expect(props.onRefine).not.toHaveBeenCalled();
+  });
+
+  it('sends only relevant provider settings and keeps scene controls in a separate panel', () => {
+    const props = makeProps();
+    render(<PhotoWorkspace {...props} />);
+    expect(screen.queryByRole('slider', { name: 'Window recovery' })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Window recovery').tagName).toBe('SELECT');
+    expect(screen.queryByLabelText('TV screens')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Scene details' }));
+    expect(screen.getByLabelText('TV screens')).toBeVisible();
+    expect(screen.queryByLabelText('Window recovery')).not.toBeInTheDocument();
+  });
   it('makes completed shoot AI outputs ready without requiring manual review', () => {
     const props = makeProps();
     props.workspace = { ...props.workspace, shootId: 42, status: 'completed', outputs: [{ id: 'out-1', mediaId: 'a', url: 'https://media.test/edited.jpg', kind: 'image', version: 1, status: 'completed' }] };
