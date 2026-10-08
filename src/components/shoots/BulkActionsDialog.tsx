@@ -1,3 +1,4 @@
+import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { usePermission } from '@/hooks/usePermission';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -73,7 +74,7 @@ const isEditing = (shoot: ShootData) => {
 const isEligibleForAction = (shoot: ShootData, action: BulkAction) => {
   if (action === 'delete') return true;
   if (action === 'pay') return isUnpaid(shoot);
-  if (action === 'editing') return isUploaded(shoot);
+  if (action === 'editing') return canSendShootToEditing(shoot);
   return canFinaliseShoot(shoot);
 };
 

@@ -1,3 +1,4 @@
+import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import React, { memo, useState } from 'react'
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation'
@@ -214,8 +215,7 @@ export const CompletedShootListRow = ({
   const statusLabel = formatWorkflowStatus(statusValue)
   const editingNotes = getEditingNotes(shoot.notes)
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
-  const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
-  const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
+  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot)
   const isApprovedFeatured = isFeaturedShoot(shoot)
   const canApproveFeatured = Boolean(onApproveFeatured) && (isSuperAdmin || isAdmin) && isFeaturedPendingShoot(shoot)
   // `ready` shoots sit in the delivered/edited buckets but are not delivered

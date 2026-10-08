@@ -1,3 +1,4 @@
+import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 import React, { memo, useState } from 'react'
@@ -203,8 +204,7 @@ export const HoldOnShootCard = ({
   const displayTime = shoot.time && shoot.time !== 'TBD' ? formatTime(shoot.time) : 'Awaiting confirmation'
   const editingNotes = getEditingNotes(shoot.notes)
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
-  const shootStatus = rawShootStatus
-  const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
+  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot)
   const paymentSummary = normalizeShootPaymentSummary(shoot)
   // Parent passes the same History gate (admin/superadmin/client/salesRep).
   const canShowPaymentStatus = Boolean(showPaymentStatus)

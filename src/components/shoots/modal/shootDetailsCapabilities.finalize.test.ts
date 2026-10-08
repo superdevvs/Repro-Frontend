@@ -29,7 +29,7 @@ describe('scheduled shoot with directly uploaded edits', () => {
 
       expect(capabilities.canFinalise).toBe(true);
       expect(capabilities.canFastForwardFinalise).toBe(false);
-      expect(capabilities.canSendToEditing).toBe(false);
+      expect(capabilities.canSendToEditing).toBe(true);
     }
   });
 

@@ -1,3 +1,4 @@
+import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import { canManageRequestedShoots } from '@/utils/requestedShootPermissions';
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
@@ -203,8 +204,7 @@ export const ScheduledShootListRow = ({
   const editingNotes = getEditingNotes(shoot.notes)
   const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep || (displayStatus === 'requested' && canManageRequestedShoots(viewerRole)))
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep || isEditor)
-  const shootStatus = String(shoot.status ?? shoot.workflowStatus ?? '').toLowerCase()
-  const canSendToEditing = Boolean(onSendToEditing) && shootStatus === 'uploaded'
+  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot)
   const canShowRequestedActions = displayStatus === 'requested' && (isAdmin || isSuperAdmin || canManageRequestedShoots(viewerRole)) && (onApprove || onDecline || onModify)
   const hasBottomActions = Boolean(
     (clientHasPendingPayment && onPayNow) ||

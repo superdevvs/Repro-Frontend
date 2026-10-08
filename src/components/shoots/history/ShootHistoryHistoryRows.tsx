@@ -1,3 +1,4 @@
+import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import React, { memo, useState } from 'react'
 import { formatServiceCount, groupServiceItems } from '@/utils/groupServiceItems'
 import { Button } from '@/components/ui/button'
@@ -63,8 +64,7 @@ export const HistoryRow = memo(({
   const editingNotesValue = record.notes?.editingNotes || record.notes?.editing
   const canShowApprovalNotes = Boolean(approvalNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep)
   const canShowEditingNotes = Boolean(editingNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep || isEditor)
-  const recordStatus = String(record.status ?? '').toLowerCase()
-  const canSendToEditing = Boolean(onSendToEditing) && recordStatus === 'uploaded'
+  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(record)
 
   const handlePublishMls = async (e: React.MouseEvent) => {
     e.stopPropagation()
