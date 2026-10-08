@@ -1,5 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { V4WorkspaceProps } from '@/components/studio/v4/types';
 import { PhotoWorkspace } from './PhotoWorkspace';
@@ -14,7 +14,7 @@ const makeProps = (): V4WorkspaceProps => ({
       onBack: vi.fn(), onChangeMedia: vi.fn(), onSave: vi.fn().mockResolvedValue(undefined), onGenerate: vi.fn(), onPrepare: vi.fn(), onRefine: vi.fn(), onCancel: vi.fn(), onRefresh: vi.fn(), onDetect: vi.fn(),
 });
 beforeEach(() => { vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null); });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe('photo generation scope and selected versions', () => {
   it('opens custom instructions on demand and preserves drafts through closing and failed refinement', async () => {
     const props = makeProps();
@@ -175,6 +175,44 @@ describe('photo generation scope and selected versions', () => {
     expect(card).toContainElement(screen.getByRole('progressbar', { name: 'Photo editing job' }));
     expect(card.querySelectorAll('button')).toHaveLength(0);
     expect(container.querySelector('.v4-generation-banner')).toBeNull();
+  });
+
+  it('keeps focus visible while a completed, loaded photo unblurs, then restores comparison', () => {
+    vi.useFakeTimers();
+    const props = makeProps();
+    props.workspace = { ...props.workspace, status: 'generating', progress: 50 };
+    const { container, rerender } = render(<PhotoWorkspace {...props} />);
+    const output = { id: 'a-v1', mediaId: 'a', url: '/edited.jpg', kind: 'image' as const, version: 1, status: 'completed' };
+    rerender(<PhotoWorkspace {...props} workspace={{ ...props.workspace, status: 'completed', progress: 100, outputs: [output] }} />);
+    expect(container.querySelector('.v4-photo-focus')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Loading edited photo' })).toBeVisible();
+    fireEvent.load(screen.getByAltText('Exterior edited'));
+    expect(container.querySelector('.is-revealing')).toBeInTheDocument();
+    expect(screen.queryByRole('slider', { name: 'Before and after comparison position' })).not.toBeInTheDocument();
+    act(() => vi.advanceTimersByTime(4200));
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(screen.getByRole('slider', { name: 'Before and after comparison position' })).toBeVisible();
+  });
+
+  it('animates a grouped re-edit despite older outputs and reveals each new group as it arrives', () => {
+    vi.useFakeTimers();
+    const props = makeProps();
+    props.preset = { ...props.preset, id: 'full-shoot', name: 'Full Shoot' };
+    const media = [...props.workspace.media, { id: 'b', name: 'Interior', kind: 'image' as const, url: '/b.jpg', thumbnailUrl: '/b.jpg' }];
+    const oldOutputs = media.map(item => ({ id: `${item.id}-v1`, mediaId: item.id, url: `/${item.id}-v1.jpg`, kind: 'image' as const, version: 1, status: 'completed' }));
+    props.workspace = { ...props.workspace, presetId: 'full-shoot', status: 'completed', media, outputs: oldOutputs, photoGroups: media.map(item => ({ mediaId: item.id, name: item.name, sourceMediaIds: [item.id], sourceFileIds: [] })) };
+    const { rerender } = render(<PhotoWorkspace {...props} />);
+    const running = { ...props.workspace, status: 'generating' as const, progress: 37, generation: { phase: 'generating' as const, total: 2, submitted: 2, completed: 0 } };
+    rerender(<PhotoWorkspace {...props} workspace={running} />);
+    expect(screen.getAllByRole('progressbar', { name: 'Photo editing job' })).toHaveLength(2);
+    const newOutput = { ...oldOutputs[0], id: 'a-v2', url: '/a-v2.jpg', version: 2 };
+    rerender(<PhotoWorkspace {...props} workspace={{ ...running, outputs: [...oldOutputs, newOutput], generation: { ...running.generation, completed: 1 } }} />);
+    fireEvent.load(within(screen.getByRole('button', { name: 'Open Exterior' })).getByAltText('Exterior'));
+    expect(screen.getByRole('progressbar', { name: 'Ready to review' })).toBeVisible();
+    expect(screen.getByRole('progressbar', { name: 'Photo editing job' })).toBeVisible();
+    act(() => vi.advanceTimersByTime(4200));
+    expect(screen.queryByRole('progressbar', { name: 'Ready to review' })).not.toBeInTheDocument();
+    expect(screen.getByRole('progressbar', { name: 'Photo editing job' })).toBeVisible();
   });
 
   it('does not suggest an unselected source photo is being edited', () => {
