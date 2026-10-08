@@ -821,7 +821,7 @@ export function useShootHistoryData({
       if (!shoot?.id) return
       try {
         if (!canSendShootToEditing(shoot, role)) {
-          throw new Error('Editing managers can send only Uploaded or Requested shoots to editing')
+          throw new Error('Editing managers can send only Scheduled or Uploaded shoots to editing')
         }
 
         if (!await sendShootToEditing(shoot.id)) return

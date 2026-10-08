@@ -23,10 +23,12 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('externally shared editing intake', () => {
-  it.each(['shared card', 'album card', 'in-progress row', 'scheduled row'])('opens Send to Editing from %s with no dashboard RAWs', async view => {
+  it.each(['shared card', 'album card', 'in-progress row', 'scheduled row'].flatMap(view =>
+    ['scheduled', 'uploaded'].map(status => ({ view, status }))))('opens Send to Editing from $view in $status with no dashboard RAWs', async ({ view, status }) => {
     const send = vi.fn();
     const select = vi.fn();
-    const props = { shoot, onSelect: select, onSendToEditing: send };
+    const currentShoot = { ...shoot, status, workflowStatus: status };
+    const props = { shoot: currentShoot, onSelect: select, onSendToEditing: send };
     render(<UserPreferencesProvider>
       {view === 'shared card' ? <SharedShootCard {...props} role="editing_manager" />
         : view === 'album card' ? <CompletedAlbumCard {...props} isEditingManager viewerRole="editing_manager" />
@@ -40,7 +42,7 @@ describe('externally shared editing intake', () => {
     } else {
       await user.click(screen.getByTitle('Send to Editing'));
     }
-    expect(send).toHaveBeenCalledWith(shoot);
+    expect(send).toHaveBeenCalledWith(currentShoot);
     expect(select).not.toHaveBeenCalled();
   });
 
@@ -52,8 +54,8 @@ describe('externally shared editing intake', () => {
         isEditingManager: role === 'editing_manager', isRep: role === 'salesRep',
         isPhotographer: role === 'photographer', isEditor: role === 'editor', isClient: role === 'client' },
     });
-    for (const status of ['requested', 'uploaded', 'raw_uploaded', 'photos_uploaded', 'completed']) expect(capabilities(status).canSendToEditing).toBe(role === 'editing_manager');
-    for (const status of ['scheduled', 'booked', 'editing', 'on_hold', 'cancelled', 'declined', 'delivered', 'review']) expect(capabilities(status).canSendToEditing).toBe(false);
+    for (const status of ['scheduled', 'booked', 'uploaded', 'raw_uploaded', 'photos_uploaded', 'completed']) expect(capabilities(status).canSendToEditing).toBe(role === 'editing_manager');
+    for (const status of ['requested', 'editing', 'on_hold', 'cancelled', 'declined', 'delivered', 'review']) expect(capabilities(status).canSendToEditing).toBe(false);
   });
 
   it('keeps a cancelled workflow closed even if the base shoot status is uploaded', () => {
@@ -66,16 +68,16 @@ describe('externally shared editing intake', () => {
     expect(screen.queryByTitle('Send to Editing')).not.toBeInTheDocument();
   });
 
-  it.each(['editing', 'scheduled'])('hides the card handoff in %s for editing managers', status => {
+  it.each(['editing', 'requested'])('hides the card handoff in %s for editing managers', status => {
     render(<UserPreferencesProvider><SharedShootCard shoot={{ ...shoot, status, workflowStatus: status }} role="editing_manager" onSendToEditing={vi.fn()} /></UserPreferencesProvider>);
     expect(screen.queryByTitle('Send to Editing')).not.toBeInTheDocument();
   });
 
-  it('opens the requested card handoff for an editing manager without RAWs', async () => {
+  it('keeps requested shoots in the approval flow for editing managers', () => {
     const requested = { ...shoot, status: 'requested', workflowStatus: 'requested' };
     const send = vi.fn();
     render(<UserPreferencesProvider><SharedShootCard shoot={requested} role="editing_manager" onSendToEditing={send} /></UserPreferencesProvider>);
-    await userEvent.setup().click(screen.getByTitle('Send to Editing'));
-    expect(send).toHaveBeenCalledWith(requested);
+    expect(screen.queryByTitle('Send to Editing')).not.toBeInTheDocument();
+    expect(send).not.toHaveBeenCalled();
   });
 });

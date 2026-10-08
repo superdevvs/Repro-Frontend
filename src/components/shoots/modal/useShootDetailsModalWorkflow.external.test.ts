@@ -9,7 +9,7 @@ vi.mock('@/services/shootEditingDispatch', () => ({ sendShootToEditing: vi.fn() 
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('external editing handoff handler', () => {
-  it.each(['uploaded', 'requested'])('opens the dispatch dialog for %s without dashboard RAWs', async status => {
+  it.each(['scheduled', 'uploaded'])('opens the dispatch dialog for %s without dashboard RAWs', async status => {
     const shoot = { id: '123', status, workflowStatus: status, rawPhotoCount: 0, files: [] } as ShootData;
     const refreshShoot = vi.fn().mockResolvedValue(shoot);
     vi.mocked(sendShootToEditing).mockResolvedValue(true);
@@ -20,6 +20,19 @@ describe('external editing handoff handler', () => {
     await act(async () => { await result.current.handleSendToEditing(); });
     expect(sendShootToEditing).toHaveBeenCalledWith('123');
     expect(refreshShoot).toHaveBeenCalledOnce();
+  });
+
+  it('does not dispatch a requested shoot before approval', async () => {
+    const shoot = { id: '123', status: 'requested', workflowStatus: 'requested', rawPhotoCount: 0, files: [] } as ShootData;
+    const toast = vi.fn();
+    const { result } = renderHook(() => useShootDetailsModalWorkflow({
+      shoot, isClient: false, canWithdrawRequestedShoot: false, canRequestCancellation: false,
+      isWithinCancellationFeeWindow: false, refreshShoot: vi.fn().mockResolvedValue(shoot),
+      setShoot: vi.fn(), updateShoot: vi.fn(), toast,
+    }));
+    await act(async () => { await result.current.handleSendToEditing(); });
+    expect(sendShootToEditing).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenCalledWith(expect.objectContaining({ description: 'Shoot must be in Scheduled or Uploaded status before sending to editing' }));
   });
 
   it('does not dispatch an already editing shoot even with a stale Uploaded status', async () => {

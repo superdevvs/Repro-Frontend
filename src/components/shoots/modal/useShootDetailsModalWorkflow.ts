@@ -99,7 +99,7 @@ export function useShootDetailsModalWorkflow({
       }
 
       if (!canSendShootToEditing(shoot, 'editing_manager')) {
-        throw new Error('Shoot must be in Uploaded or Requested status before sending to editing');
+        throw new Error('Shoot must be in Scheduled or Uploaded status before sending to editing');
       }
 
       if (!await sendShootToEditing(shoot.id)) return;

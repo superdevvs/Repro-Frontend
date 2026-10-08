@@ -475,14 +475,6 @@ export function ShootDetailsModalBody({
               />
             )}
           </div>
-          {!isEditMode && isRequestedStatus && canSendToEditing && (
-            <div className="hidden sm:flex justify-end border-t px-3 py-2.5">
-              <Button onClick={handleSendToEditing} disabled={isSendingToEditing} size="sm">
-                <Send className="h-3.5 w-3.5 mr-1.5" />
-                {isSendingToEditing ? 'Sending...' : 'Send to Editing'}
-              </Button>
-            </div>
-          )}
           {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canApproveEditingReview || canFinalise || showDesktopSubmitActions || showDesktopDeleteAction || showDesktopPrintAction || showDesktopNotifyAction || showDesktopAiEditAction || Boolean(onRenameMedia) || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
             <div className="hidden sm:flex border-t bg-background/95 backdrop-blur px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-end gap-2 w-full">
