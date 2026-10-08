@@ -5,9 +5,9 @@ for (const role of ['admin', 'salesRep']) for (const width of [1440, 390]) {
     if (!baseURL || !['localhost', '127.0.0.1'].includes(new URL(baseURL).hostname)) throw new Error('Local fixtures only');
     await page.setViewportSize({ width, height: 900 });
     const user = { id: 901, name: 'Filter Review', email: 'filters@example.test', role, account_status: 'active', email_verified_at: '2026-01-01', metadata: { terms_accepted_at: '2026-01-01' } };
-    await page.addInitScript(user => { localStorage.clear(); localStorage.setItem('authToken', 'local-filter-fixture'); localStorage.setItem('user', JSON.stringify(user)); localStorage.setItem('theme', 'light'); }, user);
+    await page.addInitScript(user => { localStorage.clear(); localStorage.setItem('authToken', 'local-filter-fixture'); localStorage.setItem('user', JSON.stringify(user)); localStorage.setItem('theme', 'dark'); }, user);
     const queries: URL[] = [];
-    const filters = { clients: [{ id: 20, name: 'Client One' }], photographers: [{ id: 30, name: 'Photographer One' }], salesReps: [{ id: 17, name: 'Alex Sales' }, { id: 18, name: 'Jordan Sales' }], services: ['HDR'] };
+    const filters = { clients: [{ id: 20, name: 'Client One' }], photographers: [{ id: 30, name: 'Photographer One' }], salesReps: [{ id: 17, name: 'Alex Sales' }, { id: 18, name: 'Jordan Sales' }], services: ['HDR', 'Premium Video', ...Array.from({ length: 40 }, (_, i) => `Photo service ${i + 1}`)] };
     await page.route('**/api/**', async route => {
       const url = new URL(route.request().url()); const path = url.pathname.replace(/^\/api/, '');
       const reply = (body: unknown) => route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
@@ -31,6 +31,17 @@ for (const role of ['admin', 'salesRep']) for (const width of [1440, 390]) {
       await page.getByRole('option', { name: /Jordan Sales/ }).click();
       await expect.poll(() => queries.some(url => url.searchParams.get('tab') === tab && url.searchParams.get('sales_rep_id') === '18')).toBe(true);
       await expect(rep).toContainText('Jordan Sales');
+      await page.getByRole('button', { name: 'Services', exact: true }).click();
+      const list = page.locator('[data-service-filter-list]');
+      const metrics = await list.evaluate(el => ({ height: el.clientHeight, scroll: el.scrollHeight }));
+      expect(metrics.height).toBeLessThanOrEqual(224);
+      expect(metrics.scroll).toBeGreaterThan(metrics.height);
+      await page.getByRole('textbox', { name: 'Search services', exact: true }).fill('Premium');
+      await expect(list.locator('label')).toHaveCount(1);
+      await list.getByRole('checkbox').check();
+      await expect.poll(() => queries.some(url => url.searchParams.get('sales_rep_id') === '18' && [...url.searchParams.values()].includes('Premium Video'))).toBe(true);
+      await page.screenshot({ path: `test-results/services-dropdown-${role}-${width}-${tab}.png`, fullPage: true });
+      await page.keyboard.press('Escape');
       if (width >= 1024) {
         const fields = page.locator('main').locator('input[placeholder="Search by address, client, photographer"], input[placeholder="Filter by address"], button[role="combobox"][aria-label="Client"], button[role="combobox"][aria-label="Photographer"], button[role="combobox"][aria-label="Sales rep"]');
         const tops = await fields.evaluateAll(elements => elements.map(el => Math.round(el.getBoundingClientRect().top)));

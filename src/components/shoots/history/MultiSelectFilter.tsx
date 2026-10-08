@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { ChevronsUpDown, Search } from 'lucide-react'
+import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -17,6 +20,8 @@ export const MultiSelectFilter = ({
   values: string[]
   onChange: (next: string[]) => void
 }) => {
+  const [search, setSearch] = useState('')
+  const filteredOptions = options.filter(option => option.toLowerCase().includes(search.trim().toLowerCase()))
   const toggleValue = (value: string) => {
     if (values.includes(value)) {
       onChange(values.filter((entry) => entry !== value))
@@ -28,17 +33,23 @@ export const MultiSelectFilter = ({
   return (
     <div className="space-y-2">
       <span className="text-sm font-medium text-muted-foreground">{label}</span>
-      <Popover>
+      <Popover onOpenChange={() => setSearch('')}>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="justify-between w-full">
-            {values.length ? `${values.length} selected` : 'All'}
+          <Button variant="outline" aria-label={label} className="justify-between w-full font-normal">
+            <span className="truncate">{values.length === 1 ? values[0] : values.length ? `${values.length} selected` : `All ${label.toLowerCase()}`}</span>
+            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-56 p-2 space-y-1" align="start">
-          {options.length === 0 && (
-            <p className="text-sm text-muted-foreground px-2 py-1">No options available</p>
+        <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-60 max-w-[calc(100vw-2rem)] p-0" align="start">
+          <div className="relative border-b p-2">
+            <Search className="absolute left-4 top-5 h-4 w-4 text-muted-foreground" />
+            <Input aria-label={`Search ${label.toLowerCase()}`} placeholder={`Search ${label.toLowerCase()}…`} value={search} onChange={event => setSearch(event.target.value)} className="h-9 pl-8" />
+          </div>
+          <div className="max-h-56 overflow-y-auto overscroll-contain p-2" data-service-filter-list>
+          {filteredOptions.length === 0 && (
+            <p className="text-sm text-muted-foreground px-2 py-1">No matching services</p>
           )}
-          {options.map((option) => (
+          {filteredOptions.map((option) => (
             <label
               key={option}
               className="flex items-center gap-2 rounded-md px-2 py-1 text-sm hover:bg-muted cursor-pointer"
@@ -50,6 +61,11 @@ export const MultiSelectFilter = ({
               <span>{option}</span>
             </label>
           ))}
+          </div>
+          <div className="flex items-center justify-between border-t px-3 py-2 text-xs text-muted-foreground">
+            <span>{values.length ? `${values.length} selected` : 'All services'}</span>
+            <Button variant="ghost" size="sm" className="h-7" disabled={!values.length} onClick={() => onChange([])}>Clear selection</Button>
+          </div>
         </PopoverContent>
       </Popover>
     </div>
