@@ -1,3 +1,4 @@
+import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
 import { useCallback, useEffect } from 'react'
@@ -423,9 +424,8 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
   const handleSendToEditing = useCallback(async (shoot: ShootData) => {
     if (!shoot?.id) return
     try {
-      const currentStatus = shoot.status || shoot.workflowStatus || 'booked'
-      if (String(currentStatus).toLowerCase() !== 'uploaded') {
-        throw new Error('Shoot must be in Uploaded status before sending to editing')
+      if (!canSendShootToEditing(shoot, role)) {
+        throw new Error('Editing managers can send only Uploaded or Requested shoots to editing')
       }
 
       if (!await sendShootToEditing(shoot.id)) return
@@ -438,7 +438,7 @@ export function useShootHistoryActions(args: UseShootHistoryActionsArgs) {
     } catch (error) {
       toast({ title: 'Error', description: getErrorMessage(error, 'Failed to send to editing'), variant: 'destructive' })
     }
-  }, [toast, refreshActiveTabData, selectedShoot, loadShootById, isDetailOpen])
+  }, [toast, refreshActiveTabData, selectedShoot, loadShootById, isDetailOpen, role])
 
   const confirmDeleteShoot = useCallback(async () => {
     if (!deleteShootId && deleteShootId !== 0) return

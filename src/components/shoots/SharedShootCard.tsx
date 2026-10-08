@@ -124,7 +124,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   const [isSendingToEditing, setIsSendingToEditing] = React.useState(false);
   const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor || isSalesRepRole(role) || (normalizedStatus === 'requested' && canManageRequestedShoots(role)));
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor || isSalesRepRole(role));
-  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot);
+  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot, role);
 
   const handlePrimary = () => {
     const action = shoot.primaryAction || roleDefaultActions[role];

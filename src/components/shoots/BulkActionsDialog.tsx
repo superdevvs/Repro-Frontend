@@ -71,10 +71,10 @@ const isEditing = (shoot: ShootData) => {
   return statusKey === 'editing' || statusKey.includes('editing');
 };
 
-const isEligibleForAction = (shoot: ShootData, action: BulkAction) => {
+const isEligibleForAction = (shoot: ShootData, action: BulkAction, role?: string) => {
   if (action === 'delete') return true;
   if (action === 'pay') return isUnpaid(shoot);
-  if (action === 'editing') return canSendShootToEditing(shoot);
+  if (action === 'editing') return canSendShootToEditing(shoot, role);
   return canFinaliseShoot(shoot);
 };
 
@@ -158,7 +158,7 @@ export function BulkActionsDialog({
       if (filterMode === 'unpaid' && !isUnpaid(shoot)) return false;
       if (filterMode === 'uploaded' && !isUploaded(shoot)) return false;
       if (filterMode === 'editing' && !isEditing(shoot)) return false;
-      if (filterMode === 'eligible' && !isEligibleForAction(shoot, activeAction)) return false;
+      if (filterMode === 'eligible' && !isEligibleForAction(shoot, activeAction, role)) return false;
 
       if (!lowered) return true;
       const address = resolveAddress(shoot).toLowerCase();
@@ -170,7 +170,7 @@ export function BulkActionsDialog({
         shootId.includes(lowered)
       );
     });
-  }, [shoots, searchTerm, filterMode, activeAction]);
+  }, [shoots, searchTerm, filterMode, activeAction, role]);
 
   const selectedShootsData = useMemo(
     () => shoots.filter((shoot) => selectedShoots.has(String(shoot.id))),
@@ -178,8 +178,8 @@ export function BulkActionsDialog({
   );
 
   const eligibleShoots = useMemo(
-    () => selectedShootsData.filter((shoot) => isEligibleForAction(shoot, activeAction)),
-    [selectedShootsData, activeAction],
+    () => selectedShootsData.filter((shoot) => isEligibleForAction(shoot, activeAction, role)),
+    [selectedShootsData, activeAction, role],
   );
 
   const totalDue = useMemo(
@@ -548,14 +548,14 @@ export function BulkActionsDialog({
 
           <div className="flex flex-col gap-5 overflow-hidden">
             <div className="grid gap-2">
-              <Button
+              {role === 'editing_manager' && <Button
                 variant={activeAction === 'editing' ? 'default' : 'outline'}
                 className="justify-start gap-2"
                 onClick={() => setActiveAction('editing')}
               >
                 <Edit3 className="h-4 w-4" />
                 Send to Editing
-              </Button>
+              </Button>}
               <Button
                 variant={activeAction === 'delete' ? 'destructive' : 'outline'}
                 className="justify-start gap-2"

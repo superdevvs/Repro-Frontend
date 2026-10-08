@@ -204,7 +204,7 @@ export const HoldOnShootCard = ({
   const displayTime = shoot.time && shoot.time !== 'TBD' ? formatTime(shoot.time) : 'Awaiting confirmation'
   const editingNotes = getEditingNotes(shoot.notes)
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
-  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot)
+  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot, viewerRole)
   const paymentSummary = normalizeShootPaymentSummary(shoot)
   // Parent passes the same History gate (admin/superadmin/client/salesRep).
   const canShowPaymentStatus = Boolean(showPaymentStatus)

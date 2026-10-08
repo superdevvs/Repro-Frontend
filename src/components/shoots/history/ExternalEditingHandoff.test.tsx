@@ -15,7 +15,7 @@ vi.mock('@/hooks/useTheme', () => ({ useTheme: () => ({ theme: 'light' }) }));
 afterEach(cleanup);
 
 const shoot = {
-  id: '2385', status: 'scheduled', workflowStatus: 'scheduled',
+  id: '2385', status: 'uploaded', workflowStatus: 'uploaded',
   scheduledDate: '2026-10-07', time: '14:30:00', rawPhotoCount: 0,
   location: { address: '5 Sunnydale Way', city: 'Reisterstown', state: 'MD', zip: '21136' },
   client: { name: 'Example Client' }, photographer: { name: 'Example Photographer' },
@@ -28,10 +28,10 @@ describe('externally shared editing intake', () => {
     const select = vi.fn();
     const props = { shoot, onSelect: select, onSendToEditing: send };
     render(<UserPreferencesProvider>
-      {view === 'shared card' ? <SharedShootCard {...props} role="admin" />
-        : view === 'album card' ? <CompletedAlbumCard {...props} isAdmin viewerRole="admin" />
-          : view === 'in-progress row' ? <CompletedShootListRow {...props} isAdmin viewerRole="admin" />
-            : <ScheduledShootListRow {...props} isAdmin viewerRole="admin" />}
+      {view === 'shared card' ? <SharedShootCard {...props} role="editing_manager" />
+        : view === 'album card' ? <CompletedAlbumCard {...props} isEditingManager viewerRole="editing_manager" />
+          : view === 'in-progress row' ? <CompletedShootListRow {...props} isEditingManager viewerRole="editing_manager" />
+            : <ScheduledShootListRow {...props} isEditingManager viewerRole="editing_manager" />}
     </UserPreferencesProvider>);
     const user = userEvent.setup();
     if (view === 'scheduled row') {
@@ -52,12 +52,30 @@ describe('externally shared editing intake', () => {
         isEditingManager: role === 'editing_manager', isRep: role === 'salesRep',
         isPhotographer: role === 'photographer', isEditor: role === 'editor', isClient: role === 'client' },
     });
-    for (const status of ['scheduled', 'uploaded', 'editing']) expect(capabilities(status).canSendToEditing).toBe(staff);
-    for (const status of ['requested', 'on_hold', 'cancelled', 'declined', 'delivered', 'review']) expect(capabilities(status).canSendToEditing).toBe(false);
+    for (const status of ['requested', 'uploaded', 'raw_uploaded', 'photos_uploaded', 'completed']) expect(capabilities(status).canSendToEditing).toBe(role === 'editing_manager');
+    for (const status of ['scheduled', 'booked', 'editing', 'on_hold', 'cancelled', 'declined', 'delivered', 'review']) expect(capabilities(status).canSendToEditing).toBe(false);
   });
 
-  it('keeps a cancelled workflow closed even if the base shoot status is scheduled', () => {
-    render(<UserPreferencesProvider><SharedShootCard shoot={{ ...shoot, workflowStatus: 'cancelled' }} role="admin" onSendToEditing={vi.fn()} /></UserPreferencesProvider>);
+  it('keeps a cancelled workflow closed even if the base shoot status is uploaded', () => {
+    render(<UserPreferencesProvider><SharedShootCard shoot={{ ...shoot, workflowStatus: 'cancelled' }} role="editing_manager" onSendToEditing={vi.fn()} /></UserPreferencesProvider>);
     expect(screen.queryByTitle('Send to Editing')).not.toBeInTheDocument();
+  });
+
+  it.each(['editing', 'scheduled', 'requested'])('hides the card handoff in %s for admins', status => {
+    render(<UserPreferencesProvider><SharedShootCard shoot={{ ...shoot, status, workflowStatus: status }} role="admin" onSendToEditing={vi.fn()} /></UserPreferencesProvider>);
+    expect(screen.queryByTitle('Send to Editing')).not.toBeInTheDocument();
+  });
+
+  it.each(['editing', 'scheduled'])('hides the card handoff in %s for editing managers', status => {
+    render(<UserPreferencesProvider><SharedShootCard shoot={{ ...shoot, status, workflowStatus: status }} role="editing_manager" onSendToEditing={vi.fn()} /></UserPreferencesProvider>);
+    expect(screen.queryByTitle('Send to Editing')).not.toBeInTheDocument();
+  });
+
+  it('opens the requested card handoff for an editing manager without RAWs', async () => {
+    const requested = { ...shoot, status: 'requested', workflowStatus: 'requested' };
+    const send = vi.fn();
+    render(<UserPreferencesProvider><SharedShootCard shoot={requested} role="editing_manager" onSendToEditing={send} /></UserPreferencesProvider>);
+    await userEvent.setup().click(screen.getByTitle('Send to Editing'));
+    expect(send).toHaveBeenCalledWith(requested);
   });
 });

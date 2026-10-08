@@ -204,7 +204,7 @@ export const ScheduledShootListRow = ({
   const editingNotes = getEditingNotes(shoot.notes)
   const canShowApprovalNotes = Boolean(approvalNotes) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep || (displayStatus === 'requested' && canManageRequestedShoots(viewerRole)))
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep || isEditor)
-  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot)
+  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot, viewerRole)
   const canShowRequestedActions = displayStatus === 'requested' && (isAdmin || isSuperAdmin || canManageRequestedShoots(viewerRole)) && (onApprove || onDecline || onModify)
   const hasBottomActions = Boolean(
     (clientHasPendingPayment && onPayNow) ||

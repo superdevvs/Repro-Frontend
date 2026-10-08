@@ -101,7 +101,7 @@ const ShootHistory: React.FC = () => {
   const canViewAllShoots = isSuperAdmin || isAdmin || isEditingManager // Super Admin, Admin, and Editing Manager can see all shoots
   const canViewHistory = isSalesRep || HISTORY_ALLOWED_ROLES.has((role as string) ?? '')
   const canViewInvoice = !isPhotographer && !isEditingManager && !isEditor
-  const canSendToEditing = isSuperAdmin || isAdmin || isEditingManager
+  const canSendToEditing = isEditingManager
   // Admin already sees paid/unpaid pills on Shoot History list+grid cards; sales reps get the same.
   const canShowShootPaymentStatus = isSuperAdmin || isAdmin || isClient || isSalesRep
   

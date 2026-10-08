@@ -64,7 +64,7 @@ export const HistoryRow = memo(({
   const editingNotesValue = record.notes?.editingNotes || record.notes?.editing
   const canShowApprovalNotes = Boolean(approvalNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep)
   const canShowEditingNotes = Boolean(editingNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep || isEditor)
-  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(record)
+  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(record, isEditingManager ? 'editing_manager' : undefined)
 
   const handlePublishMls = async (e: React.MouseEvent) => {
     e.stopPropagation()

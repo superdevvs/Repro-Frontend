@@ -215,7 +215,7 @@ export const CompletedShootListRow = ({
   const statusLabel = formatWorkflowStatus(statusValue)
   const editingNotes = getEditingNotes(shoot.notes)
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
-  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot)
+  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot, viewerRole)
   const isApprovedFeatured = isFeaturedShoot(shoot)
   const canApproveFeatured = Boolean(onApproveFeatured) && (isSuperAdmin || isAdmin) && isFeaturedPendingShoot(shoot)
   // `ready` shoots sit in the delivered/edited buckets but are not delivered

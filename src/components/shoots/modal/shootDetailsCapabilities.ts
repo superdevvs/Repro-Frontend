@@ -94,7 +94,7 @@ export const getShootDetailsCapabilities = ({
   // request flag.
   const isFastForwardFinalise = canFastForwardFinalise;
   const canSendToEditing =
-    (isAdmin || isEditingManager) && canSendShootToEditing(shoot);
+    isEditingManager && canSendShootToEditing(shoot, currentUserRole);
   const canApproveEditingReview =
     (isAdmin || isEditingManager) &&
     !isDelivered &&

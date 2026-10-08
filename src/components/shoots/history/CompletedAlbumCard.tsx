@@ -219,7 +219,7 @@ export const CompletedAlbumCard = ({
   const statusLabel = formatWorkflowStatus(statusValue)
   const editingNotes = getEditingNotes(shoot.notes)
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
-  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot)
+  const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(shoot, viewerRole)
   const isApprovedFeatured = isFeaturedShoot(shoot)
   const canApproveFeatured = Boolean(onApproveFeatured) && (isSuperAdmin || isAdmin) && isFeaturedPendingShoot(shoot)
 
