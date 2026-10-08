@@ -27,6 +27,7 @@ export type OperationalFiltersState = {
   search: string
   clientId: string
   photographerId: string
+  salesRepId?: string
   address: string
   services: string[]
   dateRange: 'all' | 'this_week' | 'this_month' | 'this_quarter' | 'custom'
@@ -38,6 +39,7 @@ export type HistoryFiltersState = {
   search: string
   clientId: string
   photographerId: string
+  salesRepId?: string
   services: string[]
   dateRange: 'all' | 'q1' | 'q2' | 'q3' | 'q4' | 'this_month' | 'this_quarter' | 'custom'
   scheduledStart: string
@@ -62,6 +64,7 @@ export type FilterOption = {
 export type FilterCollections = {
   clients: FilterOption[]
   photographers: FilterOption[]
+  salesReps?: FilterOption[]
   services: string[]
 }
 
@@ -274,6 +277,7 @@ export const DEFAULT_OPERATIONAL_FILTERS: OperationalFiltersState = {
   search: '',
   clientId: '',
   photographerId: '',
+  salesRepId: '',
   address: '',
   services: [],
   dateRange: 'all',
@@ -285,6 +289,7 @@ export const DEFAULT_HISTORY_FILTERS: HistoryFiltersState = {
   search: '',
   clientId: '',
   photographerId: '',
+  salesRepId: '',
   services: [],
   dateRange: 'this_quarter',
   scheduledStart: '',

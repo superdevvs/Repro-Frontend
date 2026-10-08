@@ -224,7 +224,7 @@ export const useShootHistoryFilters = ({
     key: K,
     value: OperationalFiltersState[K],
   ) => {
-    if ((key === 'clientId' || key === 'photographerId') && value === 'all') {
+    if ((key === 'clientId' || key === 'photographerId' || key === 'salesRepId') && value === 'all') {
       setOperationalFilters((prev) => ({ ...prev, [key]: '' as OperationalFiltersState[K] }))
     } else {
       setOperationalFilters((prev) => ({ ...prev, [key]: value }))
@@ -235,7 +235,7 @@ export const useShootHistoryFilters = ({
     key: K,
     value: HistoryFiltersState[K],
   ) => {
-    const processedValue = (key === 'clientId' || key === 'photographerId') && value === 'all'
+    const processedValue = (key === 'clientId' || key === 'photographerId' || key === 'salesRepId') && value === 'all'
       ? ('' as HistoryFiltersState[K])
       : value
     setHistoryFilters((prev) => {

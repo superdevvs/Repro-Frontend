@@ -3,6 +3,7 @@ import { DASHBOARD_COMPACT_PAGE_X_CLASS } from '@/features/dashboard/utils/dashb
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/hooks/use-media-query'
 import React from 'react'
+import { SearchablePersonFilter } from './SearchablePersonFilter'
 import { Tabs, TabsContent } from '@/components/ui/tabs'
 import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs'
 import { Button } from '@/components/ui/button'
@@ -510,6 +511,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     Boolean(operationalFilters.search) ||
     Boolean(operationalFilters.clientId) ||
     Boolean(operationalFilters.photographerId) ||
+    Boolean(operationalFilters.salesRepId) ||
     Boolean(operationalFilters.address) ||
     operationalFilters.dateRange !== 'all'
   const hasHistoryFiltersApplied =
@@ -517,6 +519,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
     Boolean(historyFilters.search) ||
     Boolean(historyFilters.clientId) ||
     Boolean(historyFilters.photographerId) ||
+    Boolean(historyFilters.salesRepId) ||
     historyFilters.dateRange !== defaultHistoryFilters.dateRange ||
     historyFilters.groupBy !== 'shoot'
   const subTabRailClass =
@@ -679,39 +682,14 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
           <CollapsibleContent>
             <div className="rounded-2xl border bg-card p-4 mt-2">
               <div className="space-y-4">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  <div className="space-y-2">
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-2 lg:col-span-2">
                     <span className="text-sm font-medium text-muted-foreground">Search</span>
                     <Input placeholder="Search by address, client, photographer" value={operationalFilters.search} onChange={(event) => onOperationalFilterChange('search', event.target.value)} />
                   </div>
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Client</span>
-                    <Select value={operationalFilters.clientId || 'all'} onValueChange={(value) => onOperationalFilterChange('clientId', value)}>
-                      <SelectTrigger><SelectValue placeholder="All clients" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All clients</SelectItem>
-                        {operationalOptions.clients.filter((client) => client.id || client.name).map((client) => (
-                          <SelectItem key={client.id ?? client.name ?? ''} value={String(client.id ?? client.name ?? '')}>
-                            {client.name ?? 'Unknown'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <span className="text-sm font-medium text-muted-foreground">Photographer</span>
-                    <Select value={operationalFilters.photographerId || 'all'} onValueChange={(value) => onOperationalFilterChange('photographerId', value)}>
-                      <SelectTrigger><SelectValue placeholder="All photographers" /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All photographers</SelectItem>
-                        {operationalOptions.photographers.filter((photographer) => photographer.id || photographer.name).map((photographer) => (
-                          <SelectItem key={photographer.id ?? photographer.name ?? ''} value={String(photographer.id ?? photographer.name ?? '')}>
-                            {photographer.name ?? 'Unknown'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  <SearchablePersonFilter label="Client" allLabel="All clients" options={operationalOptions.clients} value={operationalFilters.clientId} onChange={value => onOperationalFilterChange('clientId', value)} />
+                  <SearchablePersonFilter label="Photographer" allLabel="All photographers" options={operationalOptions.photographers} value={operationalFilters.photographerId} onChange={value => onOperationalFilterChange('photographerId', value)} />
+                  <SearchablePersonFilter label="Sales rep" allLabel="All sales reps" options={operationalOptions.salesReps ?? []} value={operationalFilters.salesRepId ?? ''} onChange={value => onOperationalFilterChange('salesRepId', value)} />
                   <div className="space-y-2">
                     <span className="text-sm font-medium text-muted-foreground">Address</span>
                     <Input placeholder="Filter by address" value={operationalFilters.address} onChange={(event) => onOperationalFilterChange('address', event.target.value)} />
@@ -790,40 +768,15 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                         <p className="font-medium">Reporting filters</p>
                         <p className="text-sm text-muted-foreground">Date ranges, grouping and drill-down controls.</p>
                       </div>
-                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                         <div className="space-y-2">
                           <span className="text-sm font-medium text-muted-foreground">Search</span>
                           <Input placeholder="Client, address, company" value={historyFilters.search} onChange={(event) => onHistoryFilterChange('search', event.target.value)} />
                         </div>
-                        <div className="space-y-2">
-                          <span className="text-sm font-medium text-muted-foreground">Client</span>
-                          <Select value={historyFilters.clientId || 'all'} onValueChange={(value) => onHistoryFilterChange('clientId', value)}>
-                            <SelectTrigger><SelectValue placeholder="All clients" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All clients</SelectItem>
-                              {historyOptions.clients.filter((client) => client.id || client.name).map((client) => (
-                                <SelectItem key={client.id ?? client.name ?? ''} value={String(client.id ?? client.name ?? '')}>
-                                  {client.name ?? 'Unknown'}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-2">
-                          <span className="text-sm font-medium text-muted-foreground">Photographer</span>
-                          <Select value={historyFilters.photographerId || 'all'} onValueChange={(value) => onHistoryFilterChange('photographerId', value)}>
-                            <SelectTrigger><SelectValue placeholder="All photographers" /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="all">All photographers</SelectItem>
-                              {historyOptions.photographers.filter((photographer) => photographer.id || photographer.name).map((photographer) => (
-                                <SelectItem key={photographer.id ?? photographer.name ?? ''} value={String(photographer.id ?? photographer.name ?? '')}>
-                                  {photographer.name ?? 'Unknown'}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <MultiSelectFilter label="Services" options={historyOptions.services} values={historyFilters.services} onChange={(values) => onHistoryFilterChange('services', values)} />
+                        <SearchablePersonFilter label="Client" allLabel="All clients" options={historyOptions.clients} value={historyFilters.clientId} onChange={value => onHistoryFilterChange('clientId', value)} />
+                        <SearchablePersonFilter label="Photographer" allLabel="All photographers" options={historyOptions.photographers} value={historyFilters.photographerId} onChange={value => onHistoryFilterChange('photographerId', value)} />
+                        <SearchablePersonFilter label="Sales rep" allLabel="All sales reps" options={historyOptions.salesReps ?? []} value={historyFilters.salesRepId ?? ''} onChange={value => onHistoryFilterChange('salesRepId', value)} />
+                  <MultiSelectFilter label="Services" options={historyOptions.services} values={historyFilters.services} onChange={(values) => onHistoryFilterChange('services', values)} />
                         {historyFilters.viewAs === 'calendar' && historyFilters.groupBy === 'shoot' ? (
                           <p className="self-center text-sm text-muted-foreground">Calendar dates are controlled by the Month, Week and Day navigation.</p>
                         ) : (<>

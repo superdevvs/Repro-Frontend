@@ -6,13 +6,14 @@ describe('complete calendar pages', () => {
     const rows = Array.from({ length: 25 }, (_, id) => ({ id: id + 1 }))
     const page = vi.fn(async (current: number) => ({
       data: rows.slice((current - 1) * 12, current * 12),
-      meta: { count: 25, current_page: current, per_page: 12, filters: { clients: [{ id: current, name: `Client ${current}` }], photographers: [], services: ['Photo'] } },
+      meta: { count: 25, current_page: current, per_page: 12, filters: { clients: [{ id: current, name: `Client ${current}` }], photographers: [], salesReps: [{ id: 17, name: 'Sales Rep' }], services: ['Photo'] } },
     }))
     const result = await fetchCalendarPages(page, new AbortController().signal)
     expect(result.rows).toEqual(rows)
     expect(page.mock.calls.map(([number]) => number)).toEqual([1, 2, 3])
     expect(result.filters.clients).toHaveLength(3)
     expect(result.filters.services).toEqual(['Photo'])
+    expect(result.filters.salesReps).toEqual([{ id: 17, name: 'Sales Rep' }])
   })
 
   it.each(['missing metadata', 'premature empty page', 'duplicate page', 'changed total'])(

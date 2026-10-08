@@ -157,7 +157,7 @@ const ShootHistory: React.FC = () => {
   ) => {
     setOperationalFilters((prev) => ({
       ...prev,
-      [key]: value ?? (Array.isArray(prev[key]) ? [] : ''),
+      [key]: value === 'all' && ['clientId', 'photographerId', 'salesRepId'].includes(key) ? '' : value ?? (Array.isArray(prev[key]) ? [] : ''),
     }))
   }
 
@@ -172,7 +172,7 @@ const ShootHistory: React.FC = () => {
   ) => {
     setHistoryFilters((prev) => ({
       ...prev,
-      [key]: value ?? (Array.isArray(prev[key]) ? [] : ''),
+      [key]: value === 'all' && ['clientId', 'photographerId', 'salesRepId'].includes(key) ? '' : value ?? (Array.isArray(prev[key]) ? [] : ''),
     }))
   }
 

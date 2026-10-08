@@ -42,6 +42,7 @@ function requestForCalendar(args: CalendarDataArgs) {
   if (filters.search) params.search = filters.search
   if (!args.shouldHideClientDetails && filters.clientId) params.client_id = filters.clientId
   if (filters.photographerId) params.photographer_id = filters.photographerId
+      if (filters.salesRepId) params.sales_rep_id = filters.salesRepId
   if (filters.services.length) params.services = filters.services
   if (isHistory) {
     params.group_by = 'shoot'

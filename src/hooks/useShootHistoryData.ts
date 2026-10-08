@@ -479,6 +479,7 @@ export function useShootHistoryData({
       if (debouncedOperationalSearchRef.current) params.search = debouncedOperationalSearchRef.current
       if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
       if (currentFilters.photographerId) params.photographer_id = currentFilters.photographerId
+      if (currentFilters.salesRepId) params.sales_rep_id = currentFilters.salesRepId
       if (currentFilters.address) params.address = currentFilters.address
       if (currentFilters.services.length) params.services = currentFilters.services
       if (currentFilters.dateRange !== 'all') {
@@ -521,10 +522,12 @@ export function useShootHistoryData({
       else if (loadedOperationalKey.current !== serializedKey) setOperationalData([])
       setLoading(!cached && loadedOperationalKey.current !== serializedKey)
       if (force) await queryClient.invalidateQueries({ queryKey, exact: true, refetchType: 'none' })
+      // Cached queries share a request across callers. Only React Query owns its
+      // network signal; the local controller below guards against stale results.
       const payload = await queryClient.fetchQuery<Payload>({
         queryKey, staleTime: 30_000, gcTime: 300_000,
         queryFn: async ({ signal }) => (await apiClient.get('/shoots', {
-          params: { ...params, ...(force ? { no_cache: 'true' } : {}) }, signal: AbortSignal.any([signal, controller.signal]),
+          params: { ...params, ...(force ? { no_cache: 'true' } : {}) }, signal,
         })).data,
       })
       if (controller.signal.aborted || scope !== accessScopeRef.current || fetchGeneration !== operationalFetchGenerationRef.current) return
@@ -655,6 +658,7 @@ export function useShootHistoryData({
       if (debouncedHistorySearchRef.current) params.search = debouncedHistorySearchRef.current
       if (!currentHideClient && currentFilters.clientId) params.client_id = currentFilters.clientId
       if (currentFilters.photographerId) params.photographer_id = currentFilters.photographerId
+      if (currentFilters.salesRepId) params.sales_rep_id = currentFilters.salesRepId
       if (currentFilters.services.length) params.services = currentFilters.services
       if (currentFilters.dateRange && currentFilters.dateRange !== 'all') {
         if (currentFilters.dateRange === 'custom') {
@@ -709,7 +713,7 @@ export function useShootHistoryData({
       }
       setLoading(!cached && loadedHistoryKey.current !== JSON.stringify(queryKey))
       const payload = await queryClient.fetchQuery<HistoryPayload>({ queryKey, staleTime: 30_000, gcTime: 300_000,
-        queryFn: async ({ signal }) => (await apiClient.get('/shoots/history', { params, signal: AbortSignal.any([signal, controller.signal]) })).data })
+        queryFn: async ({ signal }) => (await apiClient.get('/shoots/history', { params, signal })).data })
       if (scope !== accessScopeRef.current || controller.signal.aborted || fetchGeneration !== historyFetchGenerationRef.current) return
       loadedHistoryKey.current = JSON.stringify(queryKey)
       applyPayload(payload)
@@ -951,6 +955,7 @@ export function useShootHistoryData({
     if (debouncedHistorySearch) params.search = debouncedHistorySearch
     if (!shouldHideClientDetails && historyFilters.clientId) params.client_id = historyFilters.clientId
     if (historyFilters.photographerId) params.photographer_id = historyFilters.photographerId
+      if (historyFilters.salesRepId) params.sales_rep_id = historyFilters.salesRepId
     if (historyFilters.services.length) params.services = historyFilters.services
     if (historyFilters.dateRange) {
       if (historyFilters.dateRange === 'custom') {

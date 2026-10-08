@@ -65,6 +65,17 @@ const QueryWrapper = ({ children }: { children: React.ReactNode }) => {
 }
 
 describe('Shoot History search/filter page reset', () => {
+  it.each(['scheduled', 'completed', 'delivered'] as const)('sends the rep filter and resets pagination for %s', async activeTab => {
+    const props = { ...baseArgs, activeTab }
+    const { result, rerender } = renderHook(useShootHistoryData, { wrapper: QueryWrapper, initialProps: props })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    act(() => result.current.setOperationalPage(2))
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ page: 2 }) })))
+    rerender({ ...props, operationalFilters: { ...DEFAULT_OPERATIONAL_FILTERS, salesRepId: '17' } })
+    await waitFor(() => expect(mocks.get).toHaveBeenCalledWith('/shoots', expect.objectContaining({ params: expect.objectContaining({ page: 1, tab: activeTab, sales_rep_id: '17' }) })))
+    expect(result.current.operationalPage).toBe(1)
+  })
+
   it('debounces search 250ms, resets to page 1, and does not spam the API while typing', async () => {
     const { result, rerender } = renderHook((args: UseShootHistoryDataArgs) => useShootHistoryData(args), {
       wrapper: QueryWrapper,

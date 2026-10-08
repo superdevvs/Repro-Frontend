@@ -17,12 +17,14 @@ export function useShootHistoryListControls(activeTab: AvailableTab, scope: stri
   debouncedHistorySearchRef.current = debouncedHistorySearch
   const operationalListFiltersKey = JSON.stringify({
     clientId: operationalFilters.clientId, photographerId: operationalFilters.photographerId,
+    salesRepId: operationalFilters.salesRepId,
     address: operationalFilters.address, services: operationalFilters.services,
     dateRange: operationalFilters.dateRange, scheduledStart: operationalFilters.scheduledStart,
     scheduledEnd: operationalFilters.scheduledEnd,
   })
   const historyListFiltersKey = JSON.stringify({
     clientId: historyFilters.clientId, photographerId: historyFilters.photographerId,
+    salesRepId: historyFilters.salesRepId,
     services: historyFilters.services, dateRange: historyFilters.dateRange,
     scheduledStart: historyFilters.scheduledStart, scheduledEnd: historyFilters.scheduledEnd,
     completedStart: historyFilters.completedStart, completedEnd: historyFilters.completedEnd,

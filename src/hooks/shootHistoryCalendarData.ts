@@ -24,6 +24,7 @@ export async function fetchCalendarPages(
   const ids = new Set<string>()
   const clients = new Map<string, FilterCollections['clients'][number]>()
   const photographers = new Map<string, FilterCollections['photographers'][number]>()
+  const salesReps = new Map<string, FilterCollections['clients'][number]>()
   const services = new Set<string>()
   let total: number | undefined
   let perPage: number | undefined
@@ -51,8 +52,9 @@ export async function fetchCalendarPages(
     }
     for (const client of meta.filters?.clients ?? []) clients.set(String(client.id ?? client.name), client)
     for (const person of meta.filters?.photographers ?? []) photographers.set(String(person.id ?? person.name), person)
+    for (const rep of meta.filters?.salesReps ?? []) salesReps.set(String(rep.id), rep)
     for (const service of meta.filters?.services ?? []) services.add(service)
-    if (rows.length === total) return { rows, filters: { clients: [...clients.values()], photographers: [...photographers.values()], services: [...services].sort() } }
+    if (rows.length === total) return { rows, filters: { clients: [...clients.values()], photographers: [...photographers.values()], services: [...services].sort(), ...(salesReps.size ? { salesReps: [...salesReps.values()] } : {}) } }
     if (!response.data.length || rows.length > total || page >= Math.ceil(total / perPage)) throw new Error(incompleteMessage)
   }
 }

@@ -33,12 +33,12 @@ describe('calendar range data integration', () => {
   it('loads all pages atomically using actual page sizes and keeps existing status filters', async () => {
     const second = deferred<ReturnType<typeof payload>>()
     mocks.get.mockImplementation((_path, config) => config.params.page === 1 ? Promise.resolve(payload(Array.from({ length: 12 }, (_, i) => shoot(i + 1)), 13)) : second.promise)
-    const props = { ...args, scheduledSubTab: 'requested' as const, operationalFilters: { ...DEFAULT_OPERATIONAL_FILTERS, search: 'Main', photographerId: '7', services: ['HDR'], dateRange: 'custom' as const, scheduledStart: '2025-01-01', scheduledEnd: '2025-01-02' } }
+    const props = { ...args, scheduledSubTab: 'requested' as const, operationalFilters: { ...DEFAULT_OPERATIONAL_FILTERS, search: 'Main', photographerId: '7', salesRepId: '9', services: ['HDR'], dateRange: 'custom' as const, scheduledStart: '2025-01-01', scheduledEnd: '2025-01-02' } }
     const { result } = renderHook(() => useShootHistoryData(props), { wrapper: QueryWrapper })
     await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(2))
     expect(result.current.loading).toBe(true)
     expect(result.current.calendarShoots).toEqual([])
-    expect(mocks.get.mock.calls[0][1].params).toMatchObject({ page: 1, per_page: 50, tab: 'scheduled', scheduled_status: 'requested', sort: 'date_asc', scheduled_start: range.start, scheduled_end: range.end, search: 'Main', photographer_id: '7', services: ['HDR'], include_files: 'false' })
+    expect(mocks.get.mock.calls[0][1].params).toMatchObject({ page: 1, per_page: 50, tab: 'scheduled', scheduled_status: 'requested', sort: 'date_asc', scheduled_start: range.start, scheduled_end: range.end, search: 'Main', photographer_id: '7', sales_rep_id: '9', services: ['HDR'], include_files: 'false' })
     await act(async () => { second.resolve(payload([shoot(13)], 13, 2)); await second.promise })
     await waitFor(() => expect(result.current.loading).toBe(false))
     expect(result.current.operationalData).toHaveLength(13)
