@@ -16,7 +16,7 @@ const makeProps = (): V4WorkspaceProps => ({
 beforeEach(() => { vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe('photo generation scope and selected versions', () => {
-  it('shows custom instructions below the photo and preserves them when refinement fails', async () => {
+  it('opens custom instructions on demand and preserves drafts through closing and failed refinement', async () => {
     const props = makeProps();
     props.workspace.outputs = [{ id: 'a-v1', mediaId: 'a', version: 1, status: 'completed', kind: 'image', url: '/edited.jpg' }];
     props.capabilities = { presets: {}, revision: { ready: true, referenceImages: false }, upscale: { ready: false }, outpaint: { ready: false } };
@@ -27,13 +27,25 @@ describe('photo generation scope and selected versions', () => {
     expect(screen.queryByRole('button', { name: 'After' })).not.toBeInTheDocument();
     expect(screen.getByRole('slider', { name: 'Before and after comparison position' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Detect areas' })).not.toBeInTheDocument();
-    const field = screen.getByRole('textbox', { name: 'Custom edit' });
+    expect(screen.queryByRole('textbox', { name: 'Custom edit' })).not.toBeInTheDocument();
+    const trigger = screen.getByRole('button', { name: 'Custom edit' });
+    fireEvent.click(trigger);
+    let field = screen.getByRole('textbox', { name: 'Custom edit' });
+    expect(field).toHaveFocus();
     fireEvent.change(field, { target: { value: 'Remove the chair.' } });
+    fireEvent.keyDown(field, { key: 'Escape' });
+    expect(screen.queryByRole('textbox', { name: 'Custom edit' })).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    fireEvent.click(trigger);
+    field = screen.getByRole('textbox', { name: 'Custom edit' });
+    expect(field).toHaveValue('Remove the chair.');
     fireEvent.click(screen.getByRole('button', { name: 'Apply custom edit' }));
     await screen.findByText('Retry this edit.');
     expect(field).toHaveValue('Remove the chair.');
     fireEvent.click(screen.getByRole('button', { name: 'Apply custom edit' }));
-    await waitFor(() => expect(field).toHaveValue(''));
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Custom edit' })).not.toBeInTheDocument());
+    fireEvent.click(trigger);
+    expect(screen.getByRole('textbox', { name: 'Custom edit' })).toHaveValue('');
     expect(props.onRefine).toHaveBeenCalledWith({ mediaId: 'a', outputId: 'a-v1', prompt: 'Remove the chair.', customEdit: true });
     expect(props.onGenerate).not.toHaveBeenCalled();
   });
