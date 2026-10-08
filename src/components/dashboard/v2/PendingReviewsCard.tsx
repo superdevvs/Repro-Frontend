@@ -170,6 +170,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   const displayClientRequests = showClientTab;
 
   const handleDismissClientRequest = async (request: DashboardClientRequest) => {
+    if (request.canUpdate === false) return;
     const shootId = request.shootId || request.shoot?.id;
     if (!shootId) {
       toast({
@@ -394,7 +395,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
                                 <Badge className={cn('text-[9px] font-semibold border whitespace-nowrap px-1.5 py-0', severityBadge(severityFromStatus(request.status)))}>
                                   {request.status}
                                 </Badge>
-                                {isResolved && (
+                                {isResolved && request.canUpdate !== false && (
                                   <span
                                     role="button"
                                     tabIndex={0}

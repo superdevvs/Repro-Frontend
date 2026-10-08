@@ -211,6 +211,7 @@ export const ClientRequestManagerContent: React.FC = () => {
     null;
 
   const handleMarkResolved = async (request: DashboardClientRequest) => {
+    if (request.canUpdate === false) return;
     const shootId = request.shootId || request.shoot?.id;
     if (!shootId) {
       toast({
@@ -262,6 +263,7 @@ export const ClientRequestManagerContent: React.FC = () => {
   };
 
   const handleDismissResolved = async (request: DashboardClientRequest) => {
+    if (request.canUpdate === false) return;
     const shootId = request.shootId || request.shoot?.id;
     if (!shootId) {
       toast({
@@ -321,6 +323,7 @@ export const ClientRequestManagerContent: React.FC = () => {
   };
 
   const handleViewShoot = async (request: DashboardClientRequest) => {
+    if (request.canOpenShoot === false) return;
     const result = await openRequestShoot(request);
     if (result === 'opened') {
       closeModal();
@@ -640,16 +643,18 @@ export const ClientRequestManagerContent: React.FC = () => {
 
                 <div className="shrink-0 border-t border-border/70 bg-background/95 px-4 py-3 sm:px-6">
                   <div className="mx-auto grid max-w-2xl grid-cols-2 gap-2 sm:flex sm:items-center">
-                    <Button
+                    {selectedRequest.canOpenShoot !== false && <Button
                       type="button"
                       className="col-span-2 sm:flex-1"
                       onClick={() => void handleViewShoot(selectedRequest)}
                     >
                       <ExternalLink className="mr-2 h-4 w-4" />
                       Open shoot
-                    </Button>
+                    </Button>}
 
-                    {normalizeStatus(selectedRequest.status) === 'resolved' ? (
+                    {selectedRequest.canUpdate === false ? (
+                      <p className="col-span-2 text-sm text-muted-foreground">View only. Updates are available to the assigned editor or office staff.</p>
+                    ) : normalizeStatus(selectedRequest.status) === 'resolved' ? (
                       <Button
                         type="button"
                         variant="outline"
@@ -673,7 +678,7 @@ export const ClientRequestManagerContent: React.FC = () => {
                       </Button>
                     )}
 
-                    <DropdownMenu>
+                    {selectedRequest.canUpdate !== false && <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button type="button" variant="outline" className="w-full sm:w-auto sm:px-3">
                           <Bell className="mr-2 h-4 w-4" />
@@ -691,7 +696,7 @@ export const ClientRequestManagerContent: React.FC = () => {
                           Notify management
                         </DropdownMenuItem>
                       </DropdownMenuContent>
-                    </DropdownMenu>
+                    </DropdownMenu>}
                   </div>
                 </div>
               </>

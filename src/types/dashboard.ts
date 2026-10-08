@@ -199,6 +199,8 @@ export interface DashboardIssueItem {
 }
 
 export interface DashboardClientRequest {
+  canOpenShoot?: boolean;
+  canUpdate?: boolean;
   id: string;
   note: string;
   status: 'open' | 'in-progress' | 'in_progress' | 'resolved' | 'dismissed';

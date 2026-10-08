@@ -85,6 +85,15 @@ describe('RequestManagerModal', () => {
 
   afterEach(() => cleanup());
 
+  it('shows shared editor requests as view only when shoot access is unavailable', () => {
+    managerState.requests = [{ ...requests[0], canOpenShoot: false, canUpdate: false }];
+    render(<RequestManagerModal />);
+    expect(screen.getByRole('region', { name: 'Request details' })).toHaveTextContent(requests[0].note);
+    expect(screen.getByText(/View only/)).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Open shoot' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Resolve' })).not.toBeInTheDocument();
+  });
+
   it('separates the active queue from resolved history', () => {
     render(<RequestManagerModal />);
 
