@@ -37,6 +37,10 @@ export function SystemTelemetryProvider({ children }: PropsWithChildren) {
       trackTelemetrySessionEnd();
     };
 
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') void flushTelemetry(true);
+    };
+
     const handleError = (event: ErrorEvent) => {
       trackTelemetryError(event.message, 'ErrorEvent', {
         kind: 'ErrorEvent',
@@ -52,12 +56,14 @@ export function SystemTelemetryProvider({ children }: PropsWithChildren) {
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('error', handleError);
     window.addEventListener('unhandledrejection', handleUnhandledRejection);
 
     return () => {
       stopTelemetryHeartbeat();
       window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('error', handleError);
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
       void flushTelemetry();
