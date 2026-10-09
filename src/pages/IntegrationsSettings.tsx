@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { useAuth } from '@/components/auth/AuthProvider';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 
 // Import these conditionally or use them only in the full page component
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -17,9 +17,11 @@ import { AddressLookupTester } from '@/components/settings/AddressLookupTester';
 import { useToast } from '@/hooks/use-toast';
 import { apiClient } from '@/services/api';
 import API_ROUTES from '@/lib/api';
-import { CheckCircle2, XCircle, Home, Layers, Settings2, Building2, KeyRound } from 'lucide-react';
+import { CheckCircle2, XCircle } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
+import { CopilotIntegration } from '@/components/integrations/CopilotIntegration';
+import { IntegrationTabs } from '@/components/integrations/IntegrationTabs';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 
@@ -232,6 +234,8 @@ const normalizeBrightMlsSettings = (value?: Partial<BrightMlsSettings> | null): 
 
 // Export the content component for use in Settings page
 export const IntegrationsSettingsContent = () => {
+  const [searchParams] = useSearchParams();
+  const [integrationTab, setIntegrationTab] = useState(searchParams.get('integration') === 'copilot' ? 'copilot' : 'zillow');
   const { toast } = useToast();
 
   // Zillow/Bridge Settings
@@ -560,30 +564,10 @@ export const IntegrationsSettingsContent = () => {
 
   return (
     <div className="space-y-6">
-        <Tabs defaultValue="zillow" className="w-full">
-            <TabsList className="grid w-full max-w-6xl grid-cols-5">
-              <TabsTrigger value="zillow">
-                <Home className="mr-2 h-4 w-4" />
-                Zillow
-              </TabsTrigger>
-              <TabsTrigger value="bright_mls">
-                <Layers className="mr-2 h-4 w-4" />
-                Bright MLS
-              </TabsTrigger>
-              <TabsTrigger value="iguide">
-                <Settings2 className="mr-2 h-4 w-4" />
-                iGUIDE
-              </TabsTrigger>
-              <TabsTrigger value="mmm">
-                <Building2 className="mr-2 h-4 w-4" />
-                MMM
-              </TabsTrigger>
-              <TabsTrigger value="repro_api">
-                <KeyRound className="mr-2 h-4 w-4" />
-                Repro API
-              </TabsTrigger>
-            </TabsList>
+        <Tabs value={integrationTab} onValueChange={setIntegrationTab} className="w-full">
+            <IntegrationTabs value={integrationTab} />
 
+            <TabsContent value="copilot" className="mt-6"><CopilotIntegration /></TabsContent>
             {/* Zillow/Bridge Settings */}
             <TabsContent value="zillow" className="mt-6">
               <Card>
@@ -1477,7 +1461,7 @@ export const IntegrationsSettingsContent = () => {
 
           </Tabs>
 
-          <div className="flex justify-end gap-4 pt-6">
+          {integrationTab !== 'copilot' && <div className="flex justify-end gap-4 pt-6">
             <Button variant="outline" onClick={loadSettings}>
               Reset
             </Button>
@@ -1491,7 +1475,7 @@ export const IntegrationsSettingsContent = () => {
                 'Save Settings'
               )}
             </Button>
-          </div>
+          </div>}
     </div>
   );
 };
@@ -1520,4 +1504,3 @@ const IntegrationsSettings = () => {
 };
 
 export default IntegrationsSettings;
-
