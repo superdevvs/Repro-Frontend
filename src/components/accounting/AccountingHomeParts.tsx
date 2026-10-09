@@ -1,22 +1,5 @@
 import React,{useEffect,useRef,useState} from 'react';
-import {Moon,Sun} from 'lucide-react';
-import {Button} from '@/components/ui/button';
-import {useTheme} from '@/hooks/useTheme';
 import {money,useReducedMotion} from './accountingHomeHelpers';
-export function HomeThemeToggle() {
-  const { theme, setTheme } = useTheme();
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-      onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-    >
-      {theme === "dark" ? <Sun className="mr-2 h-4 w-4" /> : <Moon className="mr-2 h-4 w-4" />}
-      <span className="home-theme-label">{theme === "dark" ? "Light mode" : "Dark mode"}</span>
-    </Button>
-  );
-}
 export function HomeAmount({ value, className = "" }: { value: number; className?: string }) {
   const reduced = useReducedMotion(),
     ref = useRef<HTMLSpanElement>(null),

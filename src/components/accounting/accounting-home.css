@@ -902,16 +902,6 @@
     font-size: 12px;
     padding: 0 10px;
   }
-  .accounting-page:has(.accounting-home-v1) .accounting-header button:has(.home-theme-label) {
-    width: 36px;
-    padding: 0;
-  }
-  .home-theme-label {
-    display: none;
-  }
-  .accounting-page:has(.accounting-home-v1) .accounting-header button:has(.home-theme-label) svg {
-    margin: 0;
-  }
   .home-hero-number {
     font-size: clamp(30px, 10vw, 43px);
   }

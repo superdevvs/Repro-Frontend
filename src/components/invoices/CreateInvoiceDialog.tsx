@@ -7,13 +7,32 @@ import { mapInvoiceResponse } from "@/services/invoiceService";
 import type { InvoiceData } from "@/types/invoice";
 import { downloadInvoicePdf } from "@/utils/invoiceDownloads";
 import { SendInvoiceDialog } from "./SendInvoiceDialog";
-import { BRAND_NAME, BRAND_EMAIL, BRAND_ADDRESS_LINES } from "@/config/brand";
+import { Logo } from "@/components/layout/Logo";
+import { BRAND_NAME, BRAND_EMAIL, BRAND_PHONE, BRAND_ADDRESS_LINES } from "@/config/brand";
+import { resolveInvoicePricingDisplay } from "@/utils/invoicePricingSummary";
 import "./invoice-composer.css";
 type Line = { description: string; quantity: number; price: number };
 type Client = { id: number; name: string; email: string };
-type Shoot = { id: number; address: string; date: string; existing_invoice: string | null; lines: Line[] };
+type Shoot = {
+  id: number;
+  address: string;
+  date: string;
+  existing_invoice: string | null;
+  lines: Line[];
+};
 const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 const today = () => new Date().toLocaleDateString("en-CA");
+const invoiceDate = (value: string) => {
+  const [year, month, day] = value.slice(0, 10).split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  return Number.isNaN(date.getTime())
+    ? "Not available"
+    : new Intl.DateTimeFormat("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      }).format(date);
+};
 export function CreateInvoiceDialog({
   isOpen,
   onClose,
@@ -49,7 +68,10 @@ export function CreateInvoiceDialog({
       setLoading(true);
       apiClient
         .get("/admin/accounting-home/invoice-options", {
-          params: { q: client ? shootSearch : clientSearch, ...(client ? { client_id: client.id } : {}) },
+          params: {
+            q: client ? shootSearch : clientSearch,
+            ...(client ? { client_id: client.id } : {}),
+          },
           signal: controller.signal,
         })
         .then((r) => (client ? setShoots(r.data.data) : setClients(r.data.data)))
@@ -67,6 +89,28 @@ export function CreateInvoiceDialog({
     discountCents = Math.round(discount * 100),
     taxCents = Math.round(((subtotal - discountCents) * tax) / 100),
     total = (subtotal - discountCents + taxCents) / 100;
+  const previewPricing = resolveInvoicePricingDisplay(
+    saved ?? {
+      subtotal: (subtotal - discountCents) / 100,
+      subtotalBeforeDiscount: subtotal / 100,
+      discountAmount: discountCents / 100,
+      tax: taxCents / 100,
+      total,
+    },
+  );
+  const previewLines = saved?.items?.length
+    ? saved.items.map((item) => ({
+        description: item.description || String(item.meta?.service_name || "Service"),
+        quantity: item.quantity ?? 1,
+        price: item.unit_amount ?? 0,
+        amount: item.total_amount ?? (item.unit_amount ?? 0) * (item.quantity ?? 1),
+      }))
+    : lines.map((line) => ({
+        ...line,
+        amount: (Math.round(line.price * 100) * line.quantity) / 100,
+      }));
+  const previewIssue = saved?.issueDate ?? saved?.date ?? issue;
+  const previewDue = saved?.dueDate ?? due;
   const change = (i: number, key: keyof Line, value: string | number) =>
     setLines((rows) => rows.map((row, index) => (index === i ? { ...row, [key]: value } : row)));
   const reset = () => {
@@ -168,7 +212,13 @@ export function CreateInvoiceDialog({
                       onClick={() => {
                         if (shoot) {
                           setAddress("");
-                          setLines([{ description: "Photography", quantity: 1, price: 0 }]);
+                          setLines([
+                            {
+                              description: "Photography",
+                              quantity: 1,
+                              price: 0,
+                            },
+                          ]);
                         }
                         setClient(null);
                         setShoot(null);
@@ -217,7 +267,17 @@ export function CreateInvoiceDialog({
                           onClick={() => {
                             setShoot(s);
                             setAddress(s.address);
-                            setLines(s.lines.length ? s.lines : [{ description: "Service", quantity: 1, price: 0 }]);
+                            setLines(
+                              s.lines.length
+                                ? s.lines
+                                : [
+                                    {
+                                      description: "Service",
+                                      quantity: 1,
+                                      price: 0,
+                                    },
+                                  ],
+                            );
                             setError("");
                           }}
                         >
@@ -329,57 +389,79 @@ export function CreateInvoiceDialog({
               </fieldset>
             </form>
             <section className="composer-preview" aria-label="Invoice preview">
-              <header>
-                <b>{BRAND_NAME}</b>
-                <small>{BRAND_ADDRESS_LINES.join(", ")}</small>
-                <small>{BRAND_EMAIL}</small>
+              <header className="composer-invoice-header">
+                <div className="composer-invoice-brand">
+                  <Logo variant="dark" className="composer-invoice-logo" />
+                  <div>
+                    <b>{BRAND_NAME}</b>
+                    <small>Phone: {BRAND_PHONE}</small>
+                    <small>Email: {BRAND_EMAIL}</small>
+                  </div>
+                </div>
+                <div className="composer-invoice-reference">
+                  <h2>INVOICE</h2>
+                  <b>{saved ? `#${saved.number.replace(/^#/, "")}` : "Draft preview"}</b>
+                  <span>{invoiceDate(previewIssue)}</span>
+                  <small>{saved?.property || address || "Property address"}</small>
+                </div>
               </header>
-              <h2>
-                INVOICE <small>{saved?.number ?? "Draft preview"}</small>
-              </h2>
-              <p>
-                <b>{client?.name ?? "Select client"}</b>
-                <br />
-                {client?.email}
-                <br />
-                {address || "Property address"}
-              </p>
-              <div className="composer-preview-dates">
-                <span>Issued {issue}</span>
-                <span>Due {due}</span>
+              <div className="composer-invoice-to">
+                <div>
+                  <h3>Invoice To</h3>
+                  <b>{saved?.client || client?.name || "Select client"}</b>
+                  <small>{saved?.clientProfile?.email || client?.email}</small>
+                </div>
+                <div className="composer-invoice-due">
+                  <span>Due {invoiceDate(previewDue)}</span>
+                  <small>{saved?.status || "Draft"}</small>
+                </div>
               </div>
               <table>
                 <thead>
                   <tr>
-                    <th>Description</th>
-                    <th>Qty</th>
+                    <th>Service(s)</th>
                     <th>Rate</th>
-                    <th>Amount</th>
+                    <th>Quantity</th>
+                    <th>Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {lines.map((l, i) => (
+                  {previewLines.map((l, i) => (
                     <tr key={i}>
                       <td>{l.description}</td>
-                      <td>{l.quantity}</td>
                       <td>{money(l.price)}</td>
-                      <td>{money((Math.round(l.price * 100) * l.quantity) / 100)}</td>
+                      <td>{l.quantity}</td>
+                      <td>{money(l.amount)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               <dl>
-                <dt>Service subtotal</dt>
-                <dd>{money(subtotal / 100)}</dd>
-                <dt>Discount</dt>
-                <dd>−{money(discount)}</dd>
-                <dt>Tax ({tax}%)</dt>
-                <dd>{money(taxCents / 100)}</dd>
-                <dt>Total (USD)</dt>
-                <dd>{money(total)}</dd>
+                {previewPricing.rows.map((row) => (
+                  <div key={row.key}>
+                    <dt>{row.label}</dt>
+                    <dd>{money(row.amount)}</dd>
+                  </div>
+                ))}
+                <div className="composer-invoice-total">
+                  <dt>Total Due:</dt>
+                  <dd>{money(previewPricing.total)}</dd>
+                </div>
               </dl>
-              {notes && <p>{notes}</p>}
-              <small>{saved ? `Saved ${saved.status} · no payment recorded` : "Preview · invoice number assigned when saved"}</small>
+              {(saved?.notes || notes) && (
+                <div className="composer-invoice-notes">
+                  <h3>Notes</h3>
+                  <p>{saved?.notes || notes}</p>
+                </div>
+              )}
+              <footer className="composer-document-footer">
+                {BRAND_ADDRESS_LINES.map((line) => (
+                  <small key={line}>{line}</small>
+                ))}
+                <small>
+                  {saved ? `Saved ${saved.status} · no payment recorded` : "Draft preview · invoice number assigned when saved"}
+                </small>
+              </footer>
             </section>
           </div>
           {error && (
@@ -409,7 +491,18 @@ export function CreateInvoiceDialog({
           </footer>
         </DialogContent>
       </Dialog>
-      {saved && <SendInvoiceDialog invoice={saved} isOpen={send} onClose={() => setSend(false)} onSent={() => { const issued = { ...saved, status: 'sent' as const }; setSaved(issued); onInvoiceCreate(issued); }} />}
+      {saved && (
+        <SendInvoiceDialog
+          invoice={saved}
+          isOpen={send}
+          onClose={() => setSend(false)}
+          onSent={() => {
+            const issued = { ...saved, status: "sent" as const };
+            setSaved(issued);
+            onInvoiceCreate(issued);
+          }}
+        />
+      )}
     </>
   );
 }

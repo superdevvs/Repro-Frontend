@@ -91,63 +91,134 @@
   margin-top: 8px;
 }
 .composer-preview {
-  padding: 26px;
+  padding: 24px;
   background: white;
-  color: #15202c;
+  color: #262626;
   align-self: start;
   border: 1px solid #d6dde5;
-  border-radius: 10px;
+  border-radius: 8px;
   overflow-wrap: anywhere;
   font-size: 12px;
 }
-.composer-preview header {
+.composer-invoice-header {
   display: grid;
-  gap: 4px;
-  padding-bottom: 20px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.6fr);
+  align-items: start;
+  gap: 16px;
+  padding-bottom: 24px;
 }
-.composer-preview header b {
-  font-size: 22px;
-}
-.composer-preview h2 {
+.composer-invoice-brand {
   display: flex;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: 10px;
-  margin: 0 0 20px;
-  font-size: 18px;
+  min-width: 0;
 }
-.composer-preview h2 small {
+.composer-invoice-logo {
+  width: 64px;
+  height: 28px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+.composer-invoice-brand b {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 16px;
+  line-height: 1.25;
+}
+.composer-preview small {
+  display: block;
+  color: #737373;
+  line-height: 1.55;
   font-size: 11px;
 }
-.composer-preview p {
-  margin: 16px 0;
-  line-height: 1.7;
+.composer-invoice-reference {
+  display: grid;
+  gap: 4px;
+  text-align: right;
 }
-.composer-preview-dates {
+.composer-invoice-reference h2 {
+  margin: 0;
+  color: #737373;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+}
+.composer-invoice-reference b {
+  font-size: 12px;
+}
+.composer-invoice-reference span {
+  font-size: 11px;
+}
+.composer-invoice-to {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 16px;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.composer-invoice-to > div {
+  min-width: 0;
+}
+.composer-invoice-to b {
+  font-size: 14px;
+  font-weight: 500;
+}
+.composer-preview h3 {
+  margin: 0 0 6px;
+  color: #737373;
+  font-size: 11px;
+  font-weight: 600;
+}
+.composer-invoice-due {
+  text-align: right;
+  font-size: 11px;
+}
+.composer-invoice-due small {
+  text-transform: capitalize;
 }
 .composer-preview table {
   width: 100%;
   border-collapse: collapse;
   table-layout: fixed;
+  border-top: 1px solid #d6dde5;
+  border-bottom: 1px solid #d6dde5;
 }
 .composer-preview th {
   text-align: left;
-  font-size: 10px;
-  border-bottom: 1px solid #abb8c8;
-  padding: 8px 4px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border-bottom: 1px solid #d6dde5;
+  padding: 12px 4px;
 }
 .composer-preview td {
   border-bottom: 1px solid #e0e5ec;
-  padding: 9px 4px;
+  padding: 13px 4px;
   vertical-align: top;
+  font-size: 11px;
+}
+.composer-preview tbody tr:last-child td {
+  border-bottom: 0;
+}
+.composer-preview td:first-child {
+  font-weight: 500;
 }
 .composer-preview th:first-child {
   width: 43%;
 }
 .composer-preview th:nth-child(2) {
-  width: 10%;
+  width: 21%;
+}
+.composer-preview th:nth-child(3) {
+  width: 15%;
+}
+.composer-preview th:nth-child(2),
+.composer-preview td:nth-child(2) {
+  text-align: right;
+}
+.composer-preview th:nth-child(3),
+.composer-preview td:nth-child(3) {
+  text-align: center;
 }
 .composer-preview th:last-child,
 .composer-preview td:last-child {
@@ -155,16 +226,48 @@
 }
 .composer-preview dl {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 9px;
-  margin-top: 20px;
+  gap: 8px;
+  width: min(100%, 280px);
+  margin: 20px 0 0 auto;
 }
-.composer-preview dl dt:last-of-type,
-.composer-preview dl dd:last-of-type {
+.composer-preview dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: baseline;
+}
+.composer-preview dt {
+  color: #737373;
+}
+.composer-preview dd {
+  margin: 0;
+  text-align: right;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.composer-preview dl .composer-invoice-total {
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 2px solid #d6dde5;
+}
+.composer-invoice-total dt,
+.composer-invoice-total dd {
+  color: #262626;
   font-weight: 700;
-  font-size: 16px;
-  padding-top: 9px;
-  border-top: 1px solid #abb8c8;
+  font-size: 14px;
+}
+.composer-invoice-notes {
+  margin-top: 24px;
+}
+.composer-invoice-notes p {
+  margin: 0;
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+.composer-document-footer {
+  margin-top: 24px;
+  border-top: 1px solid #d6dde5;
+  padding-top: 10px;
 }
 .composer-footer {
   display: flex;
@@ -185,6 +288,43 @@
   }
   .composer-preview {
     padding: 16px;
+  }
+  .composer-invoice-header {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+    padding-bottom: 20px;
+  }
+  .composer-invoice-reference {
+    grid-template-columns: minmax(0, 1fr) auto;
+    text-align: left;
+    align-items: baseline;
+  }
+  .composer-invoice-reference b {
+    text-align: right;
+  }
+  .composer-invoice-reference small {
+    grid-column: 1 / -1;
+  }
+  .composer-invoice-to {
+    gap: 12px;
+    margin-bottom: 20px;
+  }
+  .composer-preview th,
+  .composer-preview td {
+    padding-left: 3px;
+    padding-right: 3px;
+  }
+  .composer-preview th {
+    font-size: 8px;
+  }
+  .composer-preview th:first-child {
+    width: 37%;
+  }
+  .composer-preview th:nth-child(2) {
+    width: 23%;
+  }
+  .composer-preview th:nth-child(3) {
+    width: 17%;
   }
   .composer-footer {
     position: sticky;

@@ -1,4 +1,3 @@
-import {HomeThemeToggle} from '@/components/accounting/AccountingHomeParts';
 import { AccountingHome } from '@/components/accounting/AccountingHome';
 import { useQuery } from '@tanstack/react-query';
 import { type FetchInvoicesParams } from '@/services/invoiceService';
@@ -471,7 +470,7 @@ const AccountingPage = () => {
             showTabs={!isEditingManagerAccounting && accountingMode === 'admin'}
             daysWindow={isEditingManagerAccounting ? undefined : daysWindow}
             onDaysWindowChange={isEditingManagerAccounting ? undefined : setDaysWindow}
-            reportingControl={accountingMode === 'admin' && activeTab === 'home' ? <><HomeThemeToggle/><AccountingDateRangeControl value={reportingRange} period={reportingPeriod} label="Reporting period" onChange={(range, period) => { setReportingRange(range); setReportingPeriod(period); }} /></> : !isEditingManagerAccounting && accountingMode !== 'admin' ? <AccountingDateRangeControl value={reportingRange} period={reportingPeriod} label={accountingMode === 'client' ? 'Paid reporting period' : 'Reporting period'} onChange={(range, period) => { setReportingRange(range); setReportingPeriod(period); }} /> : undefined}
+            reportingControl={accountingMode === 'admin' && activeTab === 'home' ? <AccountingDateRangeControl value={reportingRange} period={reportingPeriod} label="Reporting period" onChange={(range, period) => { setReportingRange(range); setReportingPeriod(period); }} /> : !isEditingManagerAccounting && accountingMode !== 'admin' ? <AccountingDateRangeControl value={reportingRange} period={reportingPeriod} label={accountingMode === 'client' ? 'Paid reporting period' : 'Reporting period'} onChange={(range, period) => { setReportingRange(range); setReportingPeriod(period); }} /> : undefined}
             payoutActions={null}
           />
             );
