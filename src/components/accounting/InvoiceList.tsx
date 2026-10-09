@@ -401,8 +401,8 @@ export function InvoiceList({
     <div className="w-full">
 {sendInvoice&&<SendInvoiceDialog invoice={sendInvoice} isOpen onClose={()=>setSendInvoice(null)} onSent={()=>triggerInvoicesRefresh()}/>}
       <Card className="mb-6">
-        <div className="flex flex-wrap items-center gap-2 border-b p-3">
-          {server && <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+        <div className="accounting-invoice-toolbar flex flex-wrap items-center gap-2 border-b p-3">
+          {server && <div className="invoice-sort-controls flex items-center justify-between gap-3 text-xs text-muted-foreground">
         <span>Export includes this page or selected rows.</span>
         <select aria-label="Sort invoices" value={server.params.sort ?? 'date_desc'} onChange={(event) => server.onChange({ ...server.params, page: 1, sort: event.target.value as FetchInvoicesParams['sort'] })}>
           <option value="date_desc">Newest first</option><option value="date_asc">Oldest first</option><option value="amount_desc">Amount: high to low</option><option value="amount_asc">Amount: low to high</option>

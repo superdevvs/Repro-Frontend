@@ -430,6 +430,13 @@
   height: 100%;
   gap: 6px;
 }
+.home-service-chart button b {
+  font-size: 10px;
+  white-space: nowrap;
+}
+.home-service-chart button small {
+  font-size: 10px;
+}
 .home-service-chart i {
   display: block;
   background: linear-gradient(hsl(var(--primary)), hsl(var(--primary) / 0.2));
@@ -917,4 +924,11 @@
   .home-hero-context button {
     padding: 4px 0;
   }
+}
+@media (max-width: 640px) {
+  .accounting-home-v1 .accounting-invoice-toolbar { gap: 6px; padding: 10px; }
+  .accounting-home-v1 .invoice-sort-controls > span { display: none; }
+  .accounting-home-v1 .invoice-sort-controls { flex: 1; }
+  .accounting-home-v1 .invoice-sort-controls select { width: 100%; height: 32px; font-size: 12px; }
+  .accounting-home-v1 .home-service-chart button { flex: 0 0 76px; min-width: 76px; }
 }
