@@ -59,8 +59,8 @@ export function SettingsNavigation({ availableTabs, activeTab, onTabChange, show
       <TabsList aria-label={`${current.label} options`} className={cn('flex h-auto w-full justify-start gap-1 overflow-x-auto rounded-lg bg-muted/60 p-1', current.tabs.length === 1 && 'sr-only')}>
         {current.tabs.map(tab => <TabsTrigger key={tab.value} value={tab.value} aria-label={tab.label} className="min-h-11 shrink-0 rounded-md px-3 text-xs sm:text-sm md:min-h-9"><span className="md:hidden">{tab.value === 'profile' ? 'Details' : tab.value === 'account' ? 'Security' : tab.label}</span><span className="hidden md:inline">{tab.label}</span></TabsTrigger>)}
       </TabsList>
-      {activeTab === 'branding' && <p className="text-xs text-muted-foreground">Your portfolio · Appearance for this account.</p>}
-      {activeTab === 'watermark' && <p className="text-xs text-muted-foreground">Shared setting · Watermarks for photos across the dashboard.</p>}
+      {activeTab === 'branding' && <p className="text-xs text-muted-foreground">Your portfolio - Appearance for this account.</p>}
+      {activeTab === 'watermark' && <p className="text-xs text-muted-foreground">Shared setting - Watermarks for photos across the dashboard.</p>}
       <div className={styles.content} data-settings-content>{children}</div>
     </div>
   </div>;

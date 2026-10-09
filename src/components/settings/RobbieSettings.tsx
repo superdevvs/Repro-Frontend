@@ -322,13 +322,13 @@ What would you like to configure?`;
         <CardContent>
           <Tabs defaultValue="chat" className="space-y-4">
             <TabsList>
-              <TabsTrigger value="chat" className="gap-2">
+              <TabsTrigger value="chat" aria-label="Chat Config" className="min-w-0 gap-1 px-2 sm:gap-2 sm:px-3">
                 <Sparkles className="h-4 w-4" />
-                Chat Config
+                <span className="sm:hidden">Chat</span><span className="hidden sm:inline">Chat Config</span>
               </TabsTrigger>
-              <TabsTrigger value="manual" className="gap-2">
+              <TabsTrigger value="manual" aria-label="Manual Config" className="min-w-0 gap-1 px-2 sm:gap-2 sm:px-3">
                 <Settings2 className="h-4 w-4" />
-                Manual Config
+                <span className="sm:hidden">Manual</span><span className="hidden sm:inline">Manual Config</span>
               </TabsTrigger>
             </TabsList>
 
@@ -346,7 +346,7 @@ What would you like to configure?`;
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="flex flex-col h-[400px]">
+                    <div className="flex h-[260px] flex-col sm:h-[320px] xl:h-[400px]">
                       <div className="flex-1 overflow-y-auto space-y-3 mb-4 p-3 bg-muted/30 rounded-lg">
                         {chatMessages.length === 0 && (
                           <div className="text-center text-muted-foreground text-sm py-8">

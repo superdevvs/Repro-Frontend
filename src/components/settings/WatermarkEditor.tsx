@@ -519,11 +519,11 @@ export default function WatermarkEditor() {
                       <Button
                         key={preset.value}
                         variant={settings.logo_position === preset.value ? 'default' : 'outline'}
-                        className="flex flex-col h-auto py-3"
+                        className="flex h-auto min-h-16 min-w-0 flex-col whitespace-normal px-1 py-2 sm:py-3"
                         onClick={() => updateSetting('logo_position', preset.value)}
                       >
                         <span className="text-lg">{preset.icon}</span>
-                        <span className="text-xs mt-1">{preset.label}</span>
+                        <span className="mt-1 text-center text-[10px] leading-tight sm:text-xs">{preset.label}</span>
                       </Button>
                     ))}
                   </div>
