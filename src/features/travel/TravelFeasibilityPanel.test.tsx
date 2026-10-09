@@ -64,3 +64,28 @@ describe('travel explanations and permission controls', () => {
     expect(screen.getByText(new RegExp(`${alert_level}% threshold reached`))).toBeInTheDocument();
   });
 });
+
+
+describe('booking issues-only panel', () => {
+  it('removes the entire panel when a conflict clears and while checking another date', () => {
+    const travel = controller({ notificationsSupported: true });
+    const view = render(<TravelFeasibilityPanel issuesOnly travel={travel} />);
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByLabelText('Notify client')).toBeInTheDocument();
+    view.rerender(<TravelFeasibilityPanel issuesOnly travel={{ ...travel, loading: true }} />);
+    expect(screen.queryByRole('region', { name: 'Travel feasibility' })).not.toBeInTheDocument();
+    view.rerender(<TravelFeasibilityPanel issuesOnly travel={{ ...travel, result: { ...travel.result!, available: true, reason_codes: [], transitions: [] } }} />);
+    expect(screen.queryByRole('region', { name: 'Travel feasibility' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Notify client')).not.toBeInTheDocument();
+    expect(screen.queryByText('Availability is checked again when you save.')).not.toBeInTheDocument();
+    view.rerender(<TravelFeasibilityPanel issuesOnly travel={{ ...travel, result: null }} />);
+    expect(screen.queryByRole('region', { name: 'Travel feasibility' })).not.toBeInTheDocument();
+  });
+  it('shows a failed check and allows retry even when the last result was available', () => {
+    const travel = controller();
+    render(<TravelFeasibilityPanel issuesOnly travel={{ ...travel, error: 'Unable to check travel.', result: { ...travel.result!, available: true } }} />);
+    expect(screen.getByRole('alert')).toHaveTextContent('Travel check unavailable');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry travel check' }));
+    expect(travel.retry).toHaveBeenCalledOnce();
+  });
+});

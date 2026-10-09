@@ -8,7 +8,7 @@ import { sameDayTransitions } from './daySchedule';
 import type { TravelController } from './useTravelFeasibility';
 import type { TravelDurationAdjuster } from './TravelDurationAdjustment';
 
-export function TravelFeasibilityPanel({ travel, durationAdjuster }: { travel: TravelController; durationAdjuster?: TravelDurationAdjuster }) {
+export function TravelFeasibilityPanel({ travel, durationAdjuster, issuesOnly = false }: { travel: TravelController; durationAdjuster?: TravelDurationAdjuster; issuesOnly?: boolean }) {
   const [adjusting, setAdjusting] = useState(false);
   if (!travel.visible) return null;
   const result = travel.result, timezone = travel.timezone || result?.visits?.[0]?.timezone || 'America/New_York';
@@ -17,7 +17,7 @@ export function TravelFeasibilityPanel({ travel, durationAdjuster }: { travel: T
   const overlap = result?.reason_codes?.some(reason => /overlap/.test(reason));
   const unknownLocation = result?.transitions?.some(leg => leg.source === 'unknown') || result?.reason_codes?.some(code => /location|building|geocod|address/.test(code));
   const canAdjust = Boolean(travel.onScheduleChange && result?.enabled && result.visits?.length);
-  return <><section aria-label="Travel feasibility" className={`min-w-0 space-y-3 rounded-xl border p-3 text-sm ${hasError ? 'border-red-500 dark:border-red-400 bg-red-500/5' : 'bg-muted/30'}`}>
+  return <>{(!issuesOnly || hasError) && <section aria-label="Travel feasibility" className={`min-w-0 space-y-3 rounded-xl border p-3 text-sm ${hasError ? 'border-red-500 dark:border-red-400 bg-red-500/5' : 'bg-muted/30'}`}>
     <div role={hasError ? 'alert' : 'status'} aria-live="polite"><p className={`font-semibold ${hasError ? 'text-red-600 dark:text-red-400' : ''}`}>{travel.loading ? 'Checking travel · time is provisional' : travel.error ? 'Travel check unavailable' : result?.available ? 'Travel time checked' : overlap ? 'Already booked at this time' : 'Review travel time'}</p>
       {travel.error && <p className="mt-1 text-muted-foreground">{travel.error}</p>}
       {overlap && <p className="mt-1 text-muted-foreground">See the booking on this date and move either shoot to a free time.</p>}
@@ -35,5 +35,5 @@ export function TravelFeasibilityPanel({ travel, durationAdjuster }: { travel: T
     {travel.scheduleAdjustments?.length > 0 && <p className="text-xs text-violet-600 dark:text-violet-300">{travel.scheduleAdjustments.length} existing booking(s) will move with this shoot when you save.</p>}
     {result?.budget && result.budget.alert_level > 0 && <p role="status" className="rounded-lg border border-amber-500/40 p-2 text-xs">Route lookup budget: {result.budget.alert_level}% threshold reached ({result.budget.used_elements.toLocaleString()} of {result.budget.limit_elements.toLocaleString()} elements).{result.budget.alert_level === 100 ? ' Google route lookups are paused until usage drops below the limit.' : ''}</p>}
     {result?.enabled && !travel.loading && <p className="text-xs text-muted-foreground">Availability is checked again when you save.</p>}
-  </section>{adjusting && <DayScheduleDialog travel={travel} open onClose={() => setAdjusting(false)} />}<TravelOverrideDialog travel={travel} durationAdjuster={durationAdjuster} /></>;
+  </section>}{adjusting && <DayScheduleDialog travel={travel} open onClose={() => setAdjusting(false)} />}<TravelOverrideDialog travel={travel} durationAdjuster={durationAdjuster} /></>;
 }
