@@ -81,6 +81,7 @@ const normalizeManualTime = (value: string): string | null => {
   const period = match[3]?.toUpperCase();
 
   if (!Number.isFinite(hour) || !Number.isFinite(minute) || minute < 0 || minute > 59) return null;
+  if (period && (hour < 1 || hour > 12)) return null;
   if (period === 'AM' && hour === 12) hour = 0;
   if (period === 'PM' && hour !== 12) hour += 12;
   if (hour < 0 || hour > 23) return null;
@@ -328,6 +329,7 @@ export function ServiceTimePicker({
     .map((option) => option.label);
   const handleTimeChange = (nextValue: string) => {
     const normalized = normalizeManualTime(nextValue);
+    if (!nextValue) { onChange(''); return; }
     if (!normalized) return;
     const option = options.find((item) => item.value === normalized);
     if (option?.disabled || isTimeDisabled?.(normalized)) return;
@@ -342,12 +344,12 @@ export function ServiceTimePicker({
         triggerClassName,
       )}
     >
-      <Clock className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      {showIcon ? <Clock className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
       <span className="truncate">{selectedLabel}</span>
     </Button>
   );
   const picker = (footerAction?: React.ReactNode) => (
-    <div className="rounded-2xl border border-border/70 bg-background/80 p-2">
+    <div className="rounded-2xl bg-background/80">
       <TimeSelect
         value={pickerValue}
         onChange={handleTimeChange}
@@ -379,12 +381,6 @@ export function ServiceTimePicker({
           </DrawerHeader>
 
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-2">
-            <div className="mb-3 rounded-xl border border-border/70 bg-muted/20 p-3">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                Schedule Time
-              </p>
-              <p className="mt-1 text-sm font-semibold text-foreground">{selectedLabel}</p>
-            </div>
             {picker()}
           </div>
 
@@ -406,14 +402,8 @@ export function ServiceTimePicker({
       <PopoverContent
         align="start"
         sideOffset={8}
-        className="z-[180] w-[min(82vw,16rem)] rounded-2xl border-border/80 bg-background/95 p-3 shadow-2xl backdrop-blur-md"
+        className="z-[180] w-[min(92vw,20rem)] rounded-2xl border-border/80 bg-background/95 p-1 shadow-2xl backdrop-blur-md"
       >
-        <div className="mb-3 rounded-xl border border-border/70 bg-muted/20 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-            Schedule Time
-          </p>
-          <p className="mt-1 text-sm font-semibold text-foreground">{selectedLabel}</p>
-        </div>
         {picker(
           <Button type="button" size="sm" className="h-8 rounded-xl px-4" onClick={() => setOpen(false)}>
             Select
