@@ -1,0 +1,7 @@
+{
+  "resource": "https://reprodashboard.com/api/copilot/mcp",
+  "authorization_servers": ["https://reprodashboard.com"],
+  "scopes_supported": ["repro.read", "repro.write", "repro.finance"],
+  "bearer_methods_supported": ["header"],
+  "resource_name": "Repro Copilot"
+}
