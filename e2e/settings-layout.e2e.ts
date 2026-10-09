@@ -176,7 +176,7 @@ for (const width of [320, 768, 1024]) {
 }
 
 for (const viewport of [{ width: 390, height: 600 }, { width: 320, height: 568 }, { width: 667, height: 375 }]) {
-  test(`expanding tabs and save controls remain usable on ${viewport.width}x${viewport.height}`, async ({ page, baseURL }) => {
+  test(`compact navigation and save controls remain usable on ${viewport.width}x${viewport.height}`, async ({ page, baseURL }) => {
     await page.setViewportSize(viewport);
     const state = await fixture(page, baseURL, 'superadmin', 'dark');
     await page.goto('/settings');

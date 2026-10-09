@@ -15,7 +15,8 @@ Use this checklist when changing Settings. Record local and deployed evidence se
 
 ## Compact and responsive layout
 
-- [ ] Both navigation levels use compact icon tabs, expanding the selected or hovered label on desktop and phone.
+- [ ] Primary navigation uses compact icon tabs, expanding the selected or hovered label on desktop and phone.
+- [ ] Subsections use text tabs with a clear active underline, no pill background or icons; compact phone labels retain their full accessible names.
 - [ ] Primary tabs remain a single horizontally scrolling row; a single-subsection group hides its redundant second row.
 - [ ] Small subsection lists remain usable through horizontal scrolling without page overflow.
 - [ ] Related contact fields use two columns when space allows and one column on phones.
