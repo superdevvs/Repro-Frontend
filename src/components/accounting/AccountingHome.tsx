@@ -128,8 +128,7 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
     approved = (data.recipients.photographer?.unpaid ?? 0) + (data.recipients.rep?.unpaid ?? 0),
     overdue = Object.entries(data.aging)
       .filter(([k]) => k !== "Current")
-      .reduce((n, [, v]) => n + v, 0),
-    ratio = data.collected + data.open ? (data.collected / (data.collected + data.open)) * 100 : 0;
+      .reduce((n, [, v]) => n + v, 0);
   const filteredLedger = data.ledger.filter(
     (r) =>
       (category === "all" || r.category === category) &&
@@ -198,11 +197,11 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
           </div>
         </div>
         <div className="home-position-label">
-          <span>Client collection position</span>
-          <span>Current balances · all issue dates</span>
+          <span>Receipts & client balances</span>
+          <span>{day(start)}–{day(end)} · balances as of {day(end)}</span>
         </div>
         <div className="home-collection-strip">
-          <button className="collected" onClick={() => jump("Client invoices", "paid")}>
+          <button className="collected" onClick={() => { jump("Cash movement & reports"); setCategory("client"); }}>
             <Check size={14} />
             Collected <HomeAmount value={data.collected} />
           </button>
@@ -310,21 +309,18 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
             </span>
           </div>
         </Module>
-        <Module title="Client collections" context="Current issued balances">
-          <div className="home-collection-rate">
-            <b>Collection rate</b>
-            <strong>{Math.round(ratio)}%</strong>
-          </div>
-          <div className="home-progress">
-            <i style={{ width: ratio + "%" }} />
-          </div>
+        <Module title="Client collections" context={`Receipt dates / issue dates · balances as of ${day(end)}`}>
           <div className="home-small-metrics">
-            <button onClick={() => jump("Client invoices", "paid")}>
-              <small>Collected to date</small>
+            <button onClick={() => { jump("Cash movement & reports"); setCategory("client"); }}>
+              <small>Received in selected period</small>
               <b>{money(data.collected)}</b>
             </button>
+            <button onClick={() => jump("Client invoices", "pending")}>
+              <small>Issued in period · outstanding</small>
+              <b>{money(data.open)}</b>
+            </button>
             <button onClick={() => jump("Client invoices", "overdue")}>
-              <small>Overdue</small>
+              <small>Past due as of {day(end)}</small>
               <b>{money(overdue)}</b>
             </button>
           </div>
@@ -460,7 +456,7 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
               <button className="home-recipient-amount home-recipient-unpaid" onClick={() => jump(tab as (typeof workspaceTabs)[number])}>
                 <small>{key === "editor" ? "Earnings to pay" : "Ready to pay"}</small>
                 <HomeAmount value={r.unpaid} />
-                <small>{key === "editor" ? "Completed work · not paid" : "Approved payouts · not paid"}</small>
+                <small>{key === "editor" ? "Selected work dates · not paid" : "Selected earning period · approved, not paid"}</small>
               </button>
             </section>
           );
@@ -490,7 +486,7 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
           <button className="home-recipient-amount home-recipient-unpaid" onClick={() => jump("Equipment")}>
             <small>Awaiting verification</small>
             <strong>{data.equipment.pending}</strong>
-            <small>Verification creates no payment</small>
+            <small>Selected assignment dates · not a payment</small>
           </button>
         </section>
       </div>
@@ -605,7 +601,7 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
           </div>
           {!data.services.length && <p className="home-empty">No service sales in this period.</p>}
         </Module>
-        <Module title="Listing Studio subscriptions" context="Current plans · recurring value is not cash">
+        <Module title="Listing Studio subscriptions" context="Selected billing periods · current plan status">
           <div className="home-small-metrics">
             <div>
               <small>Active plans</small>
@@ -663,14 +659,14 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
                 <ChevronRight size={14} />
               </button>
             ))}
-            {!data.subscriptions.length && <p className="home-empty">No subscription records available.</p>}
+            {!data.subscriptions.length && <p className="home-empty">No subscription billing periods overlap these dates.</p>}
           </div>
         </Module>
       </div>
       <div ref={records} className="home-workspaces">
         <header>
           <h2>Accounting records</h2>
-          <small>Full registers and reports, here on Home</small>
+          <small>{day(start)}–{day(end)} · registers and reports</small>
         </header>
         <div role="tablist" aria-label="Accounting records" className="home-record-tabs">
           {workspaceTabs.map((tab, index) => (
@@ -713,13 +709,13 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
             {workspace === "Client invoices" ? (
               invoices
             ) : workspace === "Recipient payouts" ? (
-              <Photographers />
+              <Photographers reportingRange={{ startDate: start, endDate: end }} />
             ) : workspace === "Sales rep payouts" ? (
-              <Reps />
+              <Reps reportingRange={{ startDate: start, endDate: end }} />
             ) : workspace === "Editor earnings" ? (
-              <Editors mode="admin" />
+              <Editors mode="admin" startDate={start} endDate={end} />
             ) : workspace === "Equipment" ? (
-              <Equipment />
+              <Equipment reportingRange={{ startDate: start, endDate: end }} />
             ) : workspace === "Expenses" ? (
               <>
                 <div className="home-toolbar">
@@ -836,7 +832,7 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
                 </div>
                 <div className="home-toolbar">
                   <small>
-                    {report === "Cash movement" ? `${day(start)}–${day(end)} · payment dates` : "Current balances / selected expense dates"}
+                    {day(start)}–{day(end)} · {report === "Cash movement" ? "payment dates" : report === "Client aging" ? `invoice issue dates · balances as of ${day(end)}` : report === "Recipient payouts" ? `earning periods · unpaid as of ${day(end)}` : "expense dates"}
                   </small>
                   <Button
                     size="sm"

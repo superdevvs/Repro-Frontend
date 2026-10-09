@@ -5,6 +5,7 @@ import { AlertTriangle, Clock3, DollarSign, Download, FileText, MessageSquareMor
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { PayoutReportPanel } from '@/components/accounting/PayoutReportPanel';
+import type { AccountingDateRange } from './accountingDateRange';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -73,12 +74,18 @@ export function PhotographerInvoiceReviewWorkspace({
   title,
   shortLabel,
   pluralLabel,
-}: InvoiceReviewWorkspaceProps) {
+  reportingRange,
+}: InvoiceReviewWorkspaceProps & { reportingRange?: AccountingDateRange }) {
   const { toast } = useToast();
   const [workspaceTab, setWorkspaceTab] = useState<ReviewWorkspaceTab>('review-queue');
   const [statusFilter, setStatusFilter] = useState<ReviewStatusFilter>('pending_approval');
   const [search, setSearch] = useState('');
-  const [dateFilter, setDateFilter] = useState<InvoiceDateFilter>(DEFAULT_INVOICE_DATE_FILTER);
+  const [localDateFilter, setDateFilter] = useState<InvoiceDateFilter>(DEFAULT_INVOICE_DATE_FILTER);
+  const reportingStart = reportingRange?.startDate;
+  const reportingEnd = reportingRange?.endDate;
+  const dateFilter = useMemo<InvoiceDateFilter>(() => reportingStart !== undefined && reportingEnd !== undefined
+    ? { preset: 'custom', customRange: { startDate: reportingStart, endDate: reportingEnd } }
+    : localDateFilter, [localDateFilter, reportingStart, reportingEnd]);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(6);
   const [queueResponse, setQueueResponse] = useState<WeeklyInvoiceReviewQueueResponse | null>(null);
@@ -502,7 +509,7 @@ export function PhotographerInvoiceReviewWorkspace({
         </div>
         <div className="ar-period-toolbar">
           <p className="text-xs font-medium text-muted-foreground">Billing period · invoices overlapping your dates</p>
-          <InvoiceDateFilterToolbar filter={dateFilter} onFilterChange={setDateFilter}
+          <InvoiceDateFilterToolbar filter={dateFilter} onFilterChange={setDateFilter} hideDateFilter={Boolean(reportingRange)}
             resultCount={queueResponse?.total || 0} selectedCount={selectedDownloadInvoices.size}
             onClearSelection={() => setSelectedDownloadInvoices(new Map())} onExport={handleExport}
             onBulkPdf={handleBulkInvoiceDownload} exporting={exporting} exportDisabled={queueLoading} resultNoun="invoice" />
@@ -546,6 +553,7 @@ export function PhotographerInvoiceReviewWorkspace({
 
       <TabsContent value="payout-report" className="flex flex-col gap-4">
         <PayoutReportPanel
+          reportingRange={reportingRange}
           role={role}
           title={`${resolvedPluralLabel} Report`}
           description={`Export payout totals and weekly summaries for ${resolvedPluralLabel.toLowerCase()}.`}

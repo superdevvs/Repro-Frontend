@@ -143,7 +143,13 @@ const AccountingPage = () => {
     });
   }, []);
 
-  const [invoiceParams, setInvoiceParams] = useState<FetchInvoicesParams>({ page: 1, per_page: 25, sort: 'date_desc', role: accountingMode === 'admin' ? 'client' : undefined });
+  const [invoiceParams, setInvoiceParams] = useState<FetchInvoicesParams>({ page: 1, per_page: 25, sort: 'date_desc', role: accountingMode === 'admin' ? 'client' : undefined, ...(accountingMode === 'admin' ? { start: reportingRange.startDate, end: reportingRange.endDate } : {}) });
+  useEffect(() => {
+    if (accountingMode !== 'admin' || activeTab !== 'home') return;
+    setInvoiceParams(current => current.start === reportingRange.startDate && current.end === reportingRange.endDate
+      ? current
+      : { ...current, page: 1, start: reportingRange.startDate, end: reportingRange.endDate });
+  }, [accountingMode, activeTab, reportingRange.startDate, reportingRange.endDate]);
   const invoiceAccessScope = `${user?.id ?? ''}:${role}:${getImpersonatedUserId() ?? ''}`;
   const invoiceQuery = useQuery({
     queryKey: ['accounting-performance', invoiceAccessScope, 'list', invoiceParams],
@@ -490,7 +496,7 @@ const AccountingPage = () => {
               {/* Home Tab Content */}
               {(activeTab === 'home' || accountingMode !== 'admin') && (
                 accountingMode === 'admin' ? (
-                  <AccountingHome start={reportingRange.startDate} end={reportingRange.endDate} onView={handleViewInvoice} canCreateExpense={can('accounting', 'view')} onFilterInvoices={status => setInvoiceParams(current => ({ ...current, page: 1, role: 'client', status: status as FetchInvoicesParams['status'] }))} invoices={<InvoiceList server={serverInvoices} data={{invoices: filteredInvoices}} onView={handleViewInvoice} onEdit={handleEditInvoice} onDownload={handleDownloadInvoice} onDownloadMultiple={handleDownloadInvoices} onPay={handlePayInvoice} onSendReminder={handleSendReminder} isAdmin={isAdmin} isSuperAdmin={canMarkAsPaid} role={role || ''} loading={loading} />} />
+                  <AccountingHome start={reportingRange.startDate} end={reportingRange.endDate} onView={handleViewInvoice} canCreateExpense={can('accounting', 'view')} onFilterInvoices={status => setInvoiceParams(current => ({ ...current, page: 1, role: 'client', status: status as FetchInvoicesParams['status'] }))} invoices={<InvoiceList reportingRange={reportingRange} server={serverInvoices} data={{invoices: filteredInvoices}} onView={handleViewInvoice} onEdit={handleEditInvoice} onDownload={handleDownloadInvoice} onDownloadMultiple={handleDownloadInvoices} onPay={handlePayInvoice} onSendReminder={handleSendReminder} isAdmin={isAdmin} isSuperAdmin={canMarkAsPaid} role={role || ''} loading={loading} />} />
                 ) : accountingMode === 'rep' ? (
                   <div className="min-w-0 space-y-5">
                     <nav aria-label="Sales page sections" className="mobile-sticky-tabs flex gap-1 overflow-x-auto border-b pb-2 text-xs text-muted-foreground">{[['sales-overview', 'Overview'], ['sales-clients', 'Clients'], ['weekly-review', 'Reviews'], ['invoice-activity', 'Invoices']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-md px-3 py-2 hover:bg-muted hover:text-foreground">{label}</a>)}</nav>

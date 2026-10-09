@@ -50,6 +50,13 @@ const renderToolbar = (overrides: Partial<React.ComponentProps<typeof InvoiceDat
 };
 
 describe('InvoiceDateFilterToolbar', () => {
+  it('keeps exports and selection while hiding conflicting local dates in controlled Home mode', () => {
+    renderToolbar({ hideDateFilter: true, filter: { preset: 'custom', customRange: { startDate: '2026-10-01', endDate: '2026-10-09' } } });
+    expect(screen.queryByRole('combobox', { name: 'Filter invoices by date' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Choose custom dates' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export invoices' })).toBeEnabled();
+    expect(screen.getByText('2 selected')).toBeInTheDocument();
+  });
   it('renders every date preset and reports a controlled preset change', async () => {
     const user = userEvent.setup();
     const { onFilterChange } = renderToolbar({

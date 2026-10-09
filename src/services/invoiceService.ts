@@ -756,12 +756,14 @@ export const adminRejectWeeklyInvoice = async (
 export const fetchPayoutReport = async (params: {
   start?: string;
   end?: string;
+  exact_range?: boolean;
   role?: 'all' | 'photographer' | 'salesRep' | 'editor';
 } = {}): Promise<PayoutReport> => {
   const queryParams = new URLSearchParams();
   if (params.start) queryParams.append('start', params.start);
   if (params.end) queryParams.append('end', params.end);
   if (params.role) queryParams.append('role', params.role);
+  if (params.exact_range) queryParams.append('exact_range', '1');
 
   const url = `${API_BASE_URL}/api/admin/payout-report${queryParams.toString() ? `?${queryParams}` : ''}`;
   const response = await fetch(url, { headers: buildHeaders() });
@@ -780,12 +782,14 @@ export const fetchPayoutReport = async (params: {
 export const downloadPayoutReport = async (params: {
   start?: string;
   end?: string;
+  exact_range?: boolean;
   role?: 'all' | 'photographer' | 'salesRep' | 'editor';
 } = {}): Promise<void> => {
   const queryParams = new URLSearchParams();
   if (params.start) queryParams.append('start', params.start);
   if (params.end) queryParams.append('end', params.end);
   if (params.role) queryParams.append('role', params.role);
+  if (params.exact_range) queryParams.append('exact_range', '1');
 
   const url = `${API_BASE_URL}/api/admin/payout-report/download${queryParams.toString() ? `?${queryParams}` : ''}`;
   const response = await fetch(url, { headers: buildHeaders() });
@@ -808,6 +812,7 @@ export const downloadPayoutReport = async (params: {
 export const sendPayoutReport = async (params: {
   start?: string;
   end?: string;
+  exact_range?: boolean;
   role?: 'all' | 'photographer' | 'salesRep' | 'editor';
 } = {}): Promise<{ message: string; sent_count: number }> => {
   const response = await fetch(`${API_BASE_URL}/api/admin/payout-report/send`, {

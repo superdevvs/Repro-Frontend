@@ -34,6 +34,14 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 describe('Accounts review queue', () => {
+  it('uses the Home reporting period and preserves the review status when dates change', async () => {
+    const { rerender } = render(<PhotographerInvoiceReviewWorkspace reportingRange={{ startDate: '2026-09-10', endDate: '2026-10-09' }} />);
+    await waitFor(() => expect(fetchAdminInvoiceReviewQueue).toHaveBeenLastCalledWith(expect.objectContaining({ start: '2026-09-10', end: '2026-10-09', approval_status: 'pending_approval' })));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Review status' }), { target: { value: 'approved' } });
+    await waitFor(() => expect(fetchAdminInvoiceReviewQueue).toHaveBeenLastCalledWith(expect.objectContaining({ approval_status: 'approved' })));
+    rerender(<PhotographerInvoiceReviewWorkspace reportingRange={{ startDate: '2026-10-01', endDate: '2026-10-09' }} />);
+    await waitFor(() => expect(fetchAdminInvoiceReviewQueue).toHaveBeenLastCalledWith(expect.objectContaining({ start: '2026-10-01', end: '2026-10-09', approval_status: 'approved', page: 1 })));
+  });
   it('omits the status parameter for All records and sends row-count changes to server pagination', async () => {
     render(<PhotographerInvoiceReviewWorkspace />);
     await screen.findByText('Selected detail 1');

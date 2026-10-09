@@ -2,6 +2,7 @@ import {Input} from '@/components/ui/input';
 import {SendInvoiceDialog} from '@/components/invoices/SendInvoiceDialog';
 import {triggerInvoicesRefresh} from '@/realtime/realtimeRefreshBus';
 import type { FetchInvoicesParams } from '@/services/invoiceService';
+import { accountingRangeLabel, type AccountingDateRange } from './accountingDateRange';
 import { EmptyState } from '@/components/ui/empty-state';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -114,6 +115,7 @@ export const isSettleableInvoice = (
 };
 
 interface InvoiceListProps {
+  reportingRange?: AccountingDateRange;
   server?: { page: number; perPage: number; total: number; params: FetchInvoicesParams; onChange: (params: FetchInvoicesParams) => void };
   data: {
     invoices: InvoiceData[];
@@ -131,6 +133,7 @@ interface InvoiceListProps {
 }
 
 export function InvoiceList({
+  reportingRange,
   server,
   data, 
   onView, 
@@ -165,7 +168,12 @@ export function InvoiceList({
   });
   const [hasExplicitViewMode, setHasExplicitViewMode] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [dateFilter, setDateFilter] = useState<InvoiceDateFilter>(DEFAULT_INVOICE_DATE_FILTER);
+  const [localDateFilter, setDateFilter] = useState<InvoiceDateFilter>(DEFAULT_INVOICE_DATE_FILTER);
+  const reportingStart = reportingRange?.startDate;
+  const reportingEnd = reportingRange?.endDate;
+  const dateFilter = useMemo<InvoiceDateFilter>(() => reportingStart !== undefined && reportingEnd !== undefined
+    ? { preset: 'custom', customRange: { startDate: reportingStart, endDate: reportingEnd } }
+    : localDateFilter, [localDateFilter, reportingStart, reportingEnd]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [exporting, setExporting] = useState(false);
 
@@ -402,6 +410,7 @@ export function InvoiceList({
 {sendInvoice&&<SendInvoiceDialog invoice={sendInvoice} isOpen onClose={()=>setSendInvoice(null)} onSent={()=>triggerInvoicesRefresh()}/>}
       <Card className="mb-6">
         <div className="accounting-invoice-toolbar flex flex-wrap items-center gap-2 border-b p-3">
+          {reportingRange && <p className="ml-auto text-right text-[11px] text-muted-foreground">Issued {accountingRangeLabel(reportingRange)} · current invoice balances</p>}
           {server && <div className="invoice-sort-controls flex items-center justify-between gap-3 text-xs text-muted-foreground">
         <span>Export includes this page or selected rows.</span>
         <select aria-label="Sort invoices" value={server.params.sort ?? 'date_desc'} onChange={(event) => server.onChange({ ...server.params, page: 1, sort: event.target.value as FetchInvoicesParams['sort'] })}>
@@ -464,6 +473,7 @@ export function InvoiceList({
           </div>
 <Input aria-label="Search invoices" placeholder="Search client, address or invoice" className="h-8 w-full sm:w-64" value={search} onChange={e=>setSearch(e.target.value)}/>
           <InvoiceDateFilterToolbar
+            hideDateFilter={Boolean(reportingRange)}
             filter={dateFilter}
             onFilterChange={setDateFilter}
             resultCount={filteredInvoices.length}

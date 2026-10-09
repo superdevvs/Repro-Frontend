@@ -1,6 +1,6 @@
 import * as React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 
@@ -11,13 +11,14 @@ import { InvoiceList } from './InvoiceList';
 interface MockToolbarProps {
   onFilterChange: (filter: InvoiceDateFilter) => void;
   resultCount: number;
+  hideDateFilter?: boolean;
 }
 
 vi.mock('@/components/accounting/InvoiceDateFilterToolbar', () => ({
-  InvoiceDateFilterToolbar: ({ onFilterChange, resultCount }: MockToolbarProps) => (
+  InvoiceDateFilterToolbar: ({ onFilterChange, resultCount, hideDateFilter }: MockToolbarProps) => (
     <div aria-label="Test invoice date toolbar">
       <span data-testid="filtered-result-count">{resultCount}</span>
-      <button
+      {!hideDateFilter && <button
         type="button"
         onClick={() => onFilterChange({
           preset: 'custom',
@@ -25,7 +26,7 @@ vi.mock('@/components/accounting/InvoiceDateFilterToolbar', () => ({
         })}
       >
         Filter September 1
-      </button>
+      </button>}
     </div>
   ),
 }));
@@ -55,6 +56,17 @@ const makeInvoice = (overrides: Partial<InvoiceData>): InvoiceData => ({
 });
 
 describe('InvoiceList date-filter integration', () => {
+  it('inherits Home dates without clearing the selected status, and resets server pagination on a range change', async () => {
+    const onChange = vi.fn();
+    const server = { page: 3, perPage: 25, total: 75, params: { page: 3, status: 'pending' as const, start: '2026-09-10', end: '2026-10-09' }, onChange };
+    const callbacks = { onView: vi.fn(), onEdit: vi.fn(), onDownload: vi.fn(), onPay: vi.fn(), onSendReminder: vi.fn() };
+    const { rerender } = render(<InvoiceList {...callbacks} server={server} reportingRange={{ startDate: '2026-09-10', endDate: '2026-10-09' }} data={{ invoices: [] }} />);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Filter September 1' })).not.toBeInTheDocument();
+    rerender(<InvoiceList {...callbacks} server={server} reportingRange={{ startDate: '2026-10-01', endDate: '2026-10-09' }} data={{ invoices: [] }} />);
+    await waitFor(() => expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ start: '2026-10-01', end: '2026-10-09', status: 'pending', page: 1 })));
+    expect(onChange.mock.calls.every(([params]) => params.start && params.end && params.status === 'pending')).toBe(true);
+  });
   it('keeps a weekly invoice whose billing period overlaps the selected day', async () => {
     const user = userEvent.setup();
     const crossingPeriod = makeInvoice({

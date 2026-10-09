@@ -1,6 +1,6 @@
 import { EmptyState } from '@/components/ui/empty-state';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,8 +43,10 @@ import {
   updateAdminPhotographerEquipment,
   uploadAdminEquipmentPhotos,
 } from "@/services/photographerEquipmentService";
-import { Check, Edit, Eye, Mail, MoreHorizontal, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight, Download, Edit, Eye, Mail, MoreHorizontal, Plus, RefreshCw, Trash2, Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { accountingRangeLabel, type AccountingDateRange } from "./accountingDateRange";
+import { exportRowsAsCsv } from "@/utils/accountingExports";
 
 type PhotographerOption = {
   id: string;
@@ -76,17 +78,18 @@ const emptyForm = {
 type EquipmentFormState = typeof emptyForm;
 
 const getApiErrorMessage = (error: unknown, fallback: string) => {
-  const apiMessage = (error as any)?.response?.data?.message;
+  const apiMessage = (error as { response?: { data?: { message?: unknown } } })?.response?.data?.message;
   return typeof apiMessage === "string" && apiMessage.trim() ? apiMessage : fallback;
 };
 
-export function PhotographerEquipmentWorkspace() {
+export function PhotographerEquipmentWorkspace({ reportingRange }: { reportingRange?: AccountingDateRange } = {}) {
   const { toast } = useToast();
   const [equipments, setEquipments] = useState<PhotographerEquipment[]>([]);
   const [photographers, setPhotographers] = useState<PhotographerOption[]>([]);
   const [photographerFilter, setPhotographerFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const searchValue = useRef("");
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(emptyForm);
@@ -100,27 +103,35 @@ export function PhotographerEquipmentWorkspace() {
   const [rowPhotos, setRowPhotos] = useState<Record<number, File[]>>({});
   const [busyId, setBusyId] = useState<number | null>(null);
   const [verificationEquipment, setVerificationEquipment] = useState<PhotographerEquipment | null>(null);
+  const [page, setPage] = useState(1);
+  const equipmentRequest = useRef(0);
 
   const loadPhotographers = async () => {
-    const response = await apiClient.get("/admin/photographers");
+    const response = await apiClient.get<{ data?: PhotographerOption[]; photographers?: PhotographerOption[] }>("/admin/photographers");
     const raw = response.data?.data || response.data?.photographers || [];
-    setPhotographers(raw.map((photographer: any) => ({
+    setPhotographers(raw.map((photographer) => ({
       id: String(photographer.id),
       name: photographer.name || photographer.email,
       email: photographer.email || "",
     })));
   };
 
-  const loadEquipments = async () => {
+  const loadEquipments = useCallback(async () => {
+    const requestId = ++equipmentRequest.current;
     setLoading(true);
     try {
       const data = await listAdminPhotographerEquipments({
         photographer_id: photographerFilter === "all" ? undefined : photographerFilter,
         status: statusFilter === "all" ? undefined : statusFilter,
-        search: search.trim() || undefined,
+        search: searchValue.current.trim() || undefined,
+        start_date: reportingRange?.startDate,
+        end_date: reportingRange?.endDate,
       });
+      if (requestId !== equipmentRequest.current) return;
       setEquipments(data);
+      setPage(1);
     } catch (error) {
+      if (requestId !== equipmentRequest.current) return;
       console.error("Failed to load photographer equipments", error);
       toast({
         title: "Unable to load equipments",
@@ -128,9 +139,9 @@ export function PhotographerEquipmentWorkspace() {
         variant: "destructive",
       });
     } finally {
-      setLoading(false);
+      if (requestId === equipmentRequest.current) setLoading(false);
     }
-  };
+  }, [photographerFilter, statusFilter, reportingRange?.startDate, reportingRange?.endDate, toast]);
 
   const loadUnassignedEquipments = async () => {
     try {
@@ -149,9 +160,27 @@ export function PhotographerEquipmentWorkspace() {
 
   useEffect(() => {
     loadEquipments();
-  }, [photographerFilter, statusFilter]);
+  }, [loadEquipments]);
 
   const filteredEquipments = useMemo(() => equipments, [equipments]);
+  const visibleEquipments = reportingRange ? filteredEquipments.slice((page - 1) * 8, page * 8) : filteredEquipments;
+  const totalPages = Math.max(1, Math.ceil(filteredEquipments.length / 8));
+  const exportEquipments = () => {
+    exportRowsAsCsv(
+      `equipment-${reportingRange?.startDate}-${reportingRange?.endDate}`,
+      [
+        { key: "name", label: "Equipment" }, { key: "photographer", label: "Photographer" },
+        { key: "serial", label: "Serial number" }, { key: "assignment_date", label: "Assignment date (created date fallback)" },
+        { key: "status", label: "Current verification status" }, { key: "expense_id", label: "Linked expense" },
+        { key: "range_start", label: "Range start" }, { key: "range_end", label: "Range end" },
+      ],
+      filteredEquipments.map((equipment) => ({
+        name: equipment.name, photographer: equipment.photographer?.name || "Unassigned", serial: equipment.serial_number || "",
+        assignment_date: equipment.issue_date || equipment.created_at?.slice(0, 10) || "", status: equipmentStatusLabel(equipment.status),
+        expense_id: equipment.expense_id || "", range_start: reportingRange?.startDate || "", range_end: reportingRange?.endDate || "",
+      })),
+    );
+  };
   const selectedExistingEquipment = useMemo(
     () => unassignedEquipments.find((equipment) => String(equipment.id) === selectedExistingEquipmentId) || null,
     [selectedExistingEquipmentId, unassignedEquipments],
@@ -470,8 +499,14 @@ export function PhotographerEquipmentWorkspace() {
       <Card>
         <CardHeader className="space-y-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle>Equipments</CardTitle>
+            <div className="min-w-0">
+              <CardTitle>Equipments</CardTitle>
+              {reportingRange && <p className="mt-1 text-xs text-muted-foreground">Assignment dates · {accountingRangeLabel(reportingRange)} · Created date fallback; current verification status.</p>}
+            </div>
             <div className="flex flex-wrap gap-2">
+              {reportingRange && <Button variant="outline" onClick={exportEquipments} disabled={loading || filteredEquipments.length === 0}>
+                <Download className="mr-2 h-4 w-4" />CSV
+              </Button>}
               <Button variant="outline" onClick={loadEquipments} disabled={loading}>
                 {loading ? <InlineSpinner aria-hidden="true" className="mr-2 h-4 w-4" /> : <RefreshCw className="mr-2 h-4 w-4" />}
                 Refresh
@@ -485,7 +520,7 @@ export function PhotographerEquipmentWorkspace() {
           <div className="grid gap-3 md:grid-cols-[1fr,220px,220px,auto]">
             <Input
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => { setSearch(event.target.value); searchValue.current = event.target.value; }}
               onKeyDown={(event) => {
                 if (event.key === "Enter") loadEquipments();
               }}
@@ -525,7 +560,7 @@ export function PhotographerEquipmentWorkspace() {
           ) : filteredEquipments.length === 0 ? (
             <EmptyState icon="equipment" title={<>No equipments found.</>} size="compact" />
           ) : (
-            filteredEquipments.map((equipment) => {
+            visibleEquipments.map((equipment) => {
               const referencePhotos = equipment.photos.filter((photo) => photo.type === "admin_reference");
               const verificationPhotos = equipment.photos.filter((photo) => photo.type === "photographer_verification");
               const rowSelectedPhotos = rowPhotos[equipment.id] || [];
@@ -640,6 +675,14 @@ export function PhotographerEquipmentWorkspace() {
               );
             })
           )}
+          {reportingRange && filteredEquipments.length > 0 && !loading && <div className="flex items-center justify-between gap-3 border-t pt-3 text-xs text-muted-foreground">
+            <span>{(page - 1) * 8 + 1}–{Math.min(page * 8, filteredEquipments.length)} of {filteredEquipments.length}</span>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" aria-label="Previous equipment page" disabled={page <= 1} onClick={() => setPage((value) => value - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+              <span>Page {page} / {totalPages}</span>
+              <Button variant="outline" size="icon" aria-label="Next equipment page" disabled={page >= totalPages} onClick={() => setPage((value) => value + 1)}><ChevronRight className="h-4 w-4" /></Button>
+            </div>
+          </div>}
         </CardContent>
       </Card>
 

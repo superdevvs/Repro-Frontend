@@ -55,18 +55,21 @@ interface EditorEarningsWorkspaceProps {
 }
 
 export function EditorEarningsWorkspace({ mode = 'admin', startDate, endDate }: EditorEarningsWorkspaceProps) {
-  return mode === 'self' ? <EditorSelfBillingWorkspace startDate={startDate} endDate={endDate} /> : <EditorAdminEarningsWorkspace />;
+  return mode === 'self' ? <EditorSelfBillingWorkspace startDate={startDate} endDate={endDate} /> : <EditorAdminEarningsWorkspace startDate={startDate} endDate={endDate} />;
 }
 
-function EditorAdminEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorkspaceProps) {
+function EditorAdminEarningsWorkspace({ mode = 'admin', startDate: reportingStart, endDate: reportingEnd }: EditorEarningsWorkspaceProps) {
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const isAdmin = mode === 'admin';
   const [status, setStatus] = useState<'paid' | 'unpaid' | ''>('unpaid');
   const [search, setSearch] = useState('');
   const [serviceType, setServiceType] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [localStartDate, setStartDate] = useState('');
+  const [localEndDate, setEndDate] = useState('');
+  const startDate = reportingStart ?? localStartDate;
+  const endDate = reportingEnd ?? localEndDate;
+  const controlledDates = reportingStart !== undefined && reportingEnd !== undefined;
   const [loading, setLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [summaryResponse, setSummaryResponse] = useState<EditorEarningsAdminResponse | null>(null);
@@ -74,6 +77,7 @@ function EditorAdminEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorkspac
   const [editorPage, setEditorPage] = useState(1);
   const [editorPageSize, setEditorPageSize] = useState(5);
   const detailRequestRef = useRef(0);
+  const summaryRequestRef = useRef(0);
   const [detail, setDetail] = useState<EditorEarningsDetail | null>(null);
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [sendLoading, setSendLoading] = useState(false);
@@ -86,12 +90,14 @@ function EditorAdminEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorkspac
   const [shootMediaCache, setShootMediaCache] = useState<Record<number, ShootMediaState>>({});
   const shootMediaInFlightRef = useRef<Set<number>>(new Set());
   const deferredSearch = useDeferredValue(search.trim());
+  useEffect(() => { setEditorPage(1); setShootListPage(1); }, [reportingStart, reportingEnd]);
 
   const loadSummary = useCallback(async () => {
     if (!isAdmin) {
       return;
     }
 
+    const request = ++summaryRequestRef.current;
     setLoading(true);
     try {
       const response = await fetchAdminEditorEarnings({
@@ -101,6 +107,7 @@ function EditorAdminEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorkspac
         end: endDate || undefined,
         service_type: serviceType || undefined,
       });
+      if (request !== summaryRequestRef.current) return;
       setSummaryResponse(response);
       setEditorPage((page) => Math.min(page, Math.max(1, Math.ceil(response.data.length / editorPageSize))));
       setSelectedEditorId((current) => {
@@ -110,6 +117,7 @@ function EditorAdminEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorkspac
           : response.data[0].editor.id;
       });
     } catch (error) {
+      if (request !== summaryRequestRef.current) return;
       toast({
         title: 'Failed to load editor earnings',
         description: error instanceof Error ? error.message : 'Unable to load editor earnings.',
@@ -118,7 +126,7 @@ function EditorAdminEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorkspac
       setSummaryResponse(null);
       setSelectedEditorId(null);
     } finally {
-      setLoading(false);
+      if (request === summaryRequestRef.current) setLoading(false);
     }
   }, [deferredSearch, endDate, isAdmin, serviceType, startDate, status, toast, editorPageSize]);
 
@@ -570,7 +578,7 @@ function EditorAdminEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorkspac
 
       {isAdmin ? (
       <Card className="border-border/70 bg-card/80">
-        <CardContent className="grid gap-2 p-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.1fr)_repeat(2,minmax(0,0.6fr))_minmax(0,1fr)_auto]">
+        <CardContent className={cn("grid gap-2 p-3 sm:grid-cols-2", controlledDates ? "xl:grid-cols-[minmax(0,1.1fr)_repeat(2,minmax(0,0.6fr))_auto]" : "xl:grid-cols-[minmax(0,1.1fr)_repeat(2,minmax(0,0.6fr))_minmax(0,1fr)_auto]")}>
           {isAdmin ? (
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -606,13 +614,13 @@ function EditorAdminEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorkspac
             <option value="virtual_staging">Virtual Staging</option>
             <option value="floorplan">Floorplan</option>
           </select>
-          <DateRangePicker
+          {!controlledDates && <DateRangePicker
             value={{ startDate, endDate }}
             onChange={({ startDate: nextStartDate, endDate: nextEndDate }) => {
               setStartDate(nextStartDate);
               setEndDate(nextEndDate);
             }}
-          />
+          />}
           <Button variant="outline" onClick={() => loadSummary()} disabled={loading || detailLoading}>
             <RefreshCw className="mr-2 h-4 w-4" />
             Refresh

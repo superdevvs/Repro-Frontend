@@ -33,6 +33,7 @@ export interface InvoiceDateFilterToolbarProps {
   exporting?: boolean;
   resultNoun?: string;
   className?: string;
+  hideDateFilter?: boolean;
 }
 
 const countLabel = (count: number, noun: string) =>
@@ -52,6 +53,7 @@ export function InvoiceDateFilterToolbar({
   exporting = false,
   resultNoun = 'invoice',
   className,
+  hideDateFilter = false,
 }: InvoiceDateFilterToolbarProps) {
   const exportUnavailable = disabled || exportDisabled || exporting || resultCount === 0;
   const pluralResultNoun = resultNoun.endsWith('s') ? resultNoun : `${resultNoun}s`;
@@ -64,7 +66,7 @@ export function InvoiceDateFilterToolbar({
         className,
       )}
     >
-      <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
+      {!hideDateFilter && <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center">
         <div role="group" aria-label={`Filter ${pluralResultNoun} by date`}>
           <select aria-label={`Filter ${pluralResultNoun} by date`} value={filter.preset} disabled={disabled} onChange={event => onFilterChange({ ...filter, preset: event.target.value as InvoiceDateFilter['preset'] })} className="h-9 max-w-full rounded-md border bg-background px-3 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             {INVOICE_DATE_PRESETS.map(preset => <option key={preset.value} value={preset.value}>{preset.value === 'all' ? 'All dates' : preset.label}</option>)}
@@ -83,7 +85,7 @@ export function InvoiceDateFilterToolbar({
             />
           </div>
         ) : null}
-      </div>
+      </div>}
 
       <div className="flex flex-wrap items-center justify-between gap-2 sm:justify-end">
         <div className="flex min-h-8 items-center gap-2 text-xs text-muted-foreground" aria-live="polite">

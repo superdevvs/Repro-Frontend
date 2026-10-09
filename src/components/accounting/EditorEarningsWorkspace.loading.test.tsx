@@ -31,6 +31,26 @@ beforeEach(() => { vi.clearAllMocks(); mocks.summary.mockResolvedValue(empty); m
 afterEach(cleanup);
 
 describe('admin editor empty and loading states', () => {
+  it('ignores an old-period summary that finishes after the new-period results', async () => {
+    let resolveOld!: (value: EditorEarningsAdminResponse) => void;
+    mocks.summary.mockReturnValueOnce(new Promise<EditorEarningsAdminResponse>(resolve => { resolveOld = resolve; })).mockResolvedValue(empty);
+    const { rerender } = render(<EditorEarningsWorkspace mode="admin" startDate="2026-09-10" endDate="2026-10-09" />);
+    await waitFor(() => expect(mocks.summary).toHaveBeenCalled());
+    rerender(<EditorEarningsWorkspace mode="admin" startDate="2026-10-01" endDate="2026-10-09" />);
+    await screen.findByText('No editor earnings were found for the current filters.');
+    await act(async () => { resolveOld(populated); });
+    expect(screen.queryByRole('button', { name: /Editor A/ })).not.toBeInTheDocument();
+    expect(mocks.detail).not.toHaveBeenCalled();
+  });
+  it('requests summary and detail for the inherited Home dates when the reporting period changes', async () => {
+    mocks.summary.mockResolvedValue(populated);
+    const { rerender } = render(<EditorEarningsWorkspace mode="admin" startDate="2026-09-10" endDate="2026-10-09" />);
+    await waitFor(() => expect(mocks.summary).toHaveBeenLastCalledWith(expect.objectContaining({ start: '2026-09-10', end: '2026-10-09', status: 'unpaid' })));
+    await waitFor(() => expect(mocks.detail).toHaveBeenLastCalledWith(9, expect.objectContaining({ start: '2026-09-10', end: '2026-10-09' })));
+    rerender(<EditorEarningsWorkspace mode="admin" startDate="2026-10-01" endDate="2026-10-09" />);
+    await waitFor(() => expect(mocks.summary).toHaveBeenLastCalledWith(expect.objectContaining({ start: '2026-10-01', end: '2026-10-09', status: 'unpaid' })));
+    await waitFor(() => expect(mocks.detail).toHaveBeenLastCalledWith(9, expect.objectContaining({ start: '2026-10-01', end: '2026-10-09' })));
+  });
   it('settles an empty queue without requesting detail or showing a permanent loader', async () => {
     render(<EditorEarningsWorkspace mode="admin" />);
     await waitFor(() => expect(mocks.summary).toHaveBeenCalled());

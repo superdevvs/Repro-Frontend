@@ -42,13 +42,15 @@ export const buildAccountingReport = (d: AccountingHomeData,report:string): Reco
     report === "Cash movement"
       ? d.ledger.map((r) => ({ ...r, amount: r.category === "client" ? r.amount : -r.amount }))
       : report === "Client aging"
-        ? Object.entries(d.aging).map(([aging, balance]) => ({ aging, balance, basis: "Current outstanding issued balances" }))
+        ? Object.entries(d.aging).map(([aging, balance]) => ({ aging, balance, issue_date_start: d.start, issue_date_end: d.end, balance_as_of: d.end }))
         : report === "Recipient payouts"
           ? Object.entries(d.recipients).map(([recipient, r]) => ({
               recipient,
               paid_in_period: r.paid,
-              unpaid_current: r.unpaid,
+              unpaid_at_period_end: r.unpaid,
               awaiting_review: r.review,
+              earning_period_start: d.start,
+              earning_period_end: d.end,
             }))
           : report === "Equipment expenses"
             ? d.expenses

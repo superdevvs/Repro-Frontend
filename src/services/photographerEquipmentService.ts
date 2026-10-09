@@ -84,6 +84,8 @@ export const listAdminPhotographerEquipments = async (filters?: {
   photographer_id?: string;
   status?: string;
   search?: string;
+  start_date?: string;
+  end_date?: string;
 }) => {
   const response = await apiClient.get<EquipmentListResponse>("/admin/photographer-equipments", {
     params: filters,
