@@ -16,6 +16,27 @@ const baseProps = {
 };
 
 describe("CalendarSyncModal Google disconnect", () => {
+  it("shows a permission error and lets the user reconnect when OAuth is configured", async () => {
+    const onConnect = vi.fn();
+    render(
+      <CalendarSyncModal
+        {...baseProps}
+        onGoogleCalendarConnect={onConnect}
+        googleCalendarStatus={{
+          available: true,
+          connected: false,
+          sync_enabled: false,
+          last_error: "Calendar permission was not granted. Please reconnect.",
+        }}
+      />,
+    );
+    expect(screen.getByText("Calendar permission was not granted. Please reconnect.")).toBeInTheDocument();
+    const connectButton = screen.getByRole("button", { name: /google calendar.*connect with google/i });
+    expect(connectButton).toBeEnabled();
+    await userEvent.setup().click(connectButton);
+    expect(onConnect).toHaveBeenCalledTimes(1);
+  });
+
   it("shows Disconnect when connected and a disconnect handler is provided", () => {
     render(
       <CalendarSyncModal

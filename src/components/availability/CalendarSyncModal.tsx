@@ -374,7 +374,7 @@ export function CalendarSyncModal({
     ? "Admin must pick one photographer"
     : googleCalendarStatus?.connected
       ? googleCalendarStatus.provider_email || "Primary Google Calendar linked"
-      : googleCalendarStatus?.last_error && !googleCalendarStatus.available
+      : googleCalendarStatus?.last_error
         ? googleCalendarStatus.last_error
         : undefined;
   const googleIsConnected = Boolean(googleCalendarStatus?.connected);
@@ -697,4 +697,3 @@ export function CalendarSyncModal({
     </Dialog>
   );
 }
-
