@@ -111,6 +111,8 @@ export function CreateInvoiceDialog({
       }));
   const previewIssue = saved?.issueDate ?? saved?.date ?? issue;
   const previewDue = saved?.dueDate ?? due;
+  const previewPaid = Math.max(0, saved?.amountPaid ?? 0);
+  const previewBalance = Math.max(0, saved?.balance ?? previewPricing.total - previewPaid);
   const change = (i: number, key: keyof Line, value: string | number) =>
     setLines((rows) => rows.map((row, index) => (index === i ? { ...row, [key]: value } : row)));
   const reset = () => {
@@ -443,9 +445,21 @@ export function CreateInvoiceDialog({
                     <dd>{money(row.amount)}</dd>
                   </div>
                 ))}
+                {previewPaid > 0 && (
+                  <>
+                    <div>
+                      <dt>Invoice total:</dt>
+                      <dd>{money(previewPricing.total)}</dd>
+                    </div>
+                    <div>
+                      <dt>Prior payment:</dt>
+                      <dd>{money(-previewPaid)}</dd>
+                    </div>
+                  </>
+                )}
                 <div className="composer-invoice-total">
                   <dt>Total Due:</dt>
-                  <dd>{money(previewPricing.total)}</dd>
+                  <dd>{money(previewBalance)}</dd>
                 </div>
               </dl>
               {(saved?.notes || notes) && (
@@ -459,7 +473,9 @@ export function CreateInvoiceDialog({
                   <small key={line}>{line}</small>
                 ))}
                 <small>
-                  {saved ? `Saved ${saved.status} · no payment recorded` : "Draft preview · invoice number assigned when saved"}
+                  {saved
+                    ? `Saved ${saved.status} · ${previewPaid > 0 ? `${money(previewPaid)} paid` : "no payment recorded"}`
+                    : "Draft preview · invoice number assigned when saved"}
                 </small>
               </footer>
             </section>

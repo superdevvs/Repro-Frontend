@@ -157,6 +157,7 @@ export const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: strin
         .map((item: InvoiceItem) => item.description)
         .filter((description): description is string => Boolean(description))
     : invoice.services || [];
+  const documentNotes = invoice.items?.find(item => typeof item.meta?.document_notes === 'string')?.meta?.document_notes;
 
   return {
     id: String(invoice.id || fallbackId || ''),
@@ -192,7 +193,7 @@ export const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: strin
     paidAt: invoice.paid_at,
     paymentMethod: invoice.payment_method || invoice.paymentMethod || 'N/A',
     paymentDetails: invoice.payment_details || invoice.paymentDetails || undefined,
-    notes: invoice.notes || undefined,
+    notes: (invoice.notes ?? (typeof documentNotes === 'string' ? documentNotes : undefined)) || undefined,
     role: invoice.role,
     payee,
     shootsCount: toNumber(invoice.shoots_count, Array.isArray(invoice.shoots) ? invoice.shoots.length : 0),

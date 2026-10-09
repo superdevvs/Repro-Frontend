@@ -49,6 +49,23 @@ const invoice00030 = record({
 });
 
 describe('mapInvoiceResponse — status is never inferred from a zero balance', () => {
+  it('preserves saved manual invoice notes and property from line metadata for documents and editing', () => {
+    const mapped = mapInvoiceResponse(record({
+      status: 'draft', total: '313.94', subtotal: '290.01', tax: '23.93',
+      items: [{ description: 'Photography', quantity: 3, unit_amount: '100.01', total_amount: '300.03', meta: { source: 'manual_invoice', document_notes: 'Payment due within seven days.', property_address: '124 Maple Avenue' } }],
+    }));
+    expect(mapped.notes).toBe('Payment due within seven days.');
+    expect(mapped.property).toBe('124 Maple Avenue');
+    expect(mapped.total).toBe(313.94);
+    expect(mapped.tax).toBe(23.93);
+  });
+
+  it('uses explicit invoice notes in preference to older line metadata, including cleared notes', () => {
+    const payload = record({ notes: 'Updated note', items: [{ meta: { document_notes: 'Old note' } }] });
+    expect(mapInvoiceResponse(payload).notes).toBe('Updated note');
+    expect(mapInvoiceResponse(record({ ...payload, notes: '' })).notes).toBeUndefined();
+  });
+
   it('preserves invoice calendar dates while leaving payment instants unchanged', () => {
     const mapped = mapInvoiceResponse(record({
       issue_date: '2026-09-28T00:00:00.000000Z', due_date: '2026-10-28T00:00:00.000000Z',
