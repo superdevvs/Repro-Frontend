@@ -81,7 +81,7 @@ export function CopilotIntegration() {
   return <Card>
     <CardHeader><div className="flex flex-wrap items-start justify-between gap-4">
       <div className="min-w-0"><CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5" />Repro Copilot</CardTitle>
-        <CardDescription className="mt-2">Control how ChatGPT can work with Repro.</CardDescription></div>
+        <CardDescription className="mt-2">Manage Copilot access and features for all Repro accounts. The connections below belong to your account.</CardDescription></div>
       {draft && <div className="flex items-center gap-3"><Label htmlFor="copilot-enabled">{draft.enabled ? 'Enabled' : 'Off'}{dirty ? ' (unsaved)' : ''}</Label>
         <Switch id="copilot-enabled" aria-label="Enable Repro Copilot" checked={draft.enabled} disabled={!editable || saving}
           onCheckedChange={enabled => setDraft({ ...draft, enabled })} /></div>}
