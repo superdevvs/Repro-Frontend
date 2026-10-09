@@ -78,7 +78,7 @@ export interface InvoiceData {
   date: string;
   dueDate: string;
   amount: number;
-  status: "paid" | "pending" | "overdue" | "no_payment_required";
+  status: "paid" | "pending" | "overdue" | "no_payment_required" | "sent" | "draft" | "partial" | "void" | "cancelled" | "canceled" | "refunded";
   services: string[];
   paymentMethod: string;
   paymentDetails?: PaymentDetails;
