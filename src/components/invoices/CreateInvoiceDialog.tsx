@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,11 +61,25 @@ export function CreateInvoiceDialog({
     [send, setSend] = useState(false),
     [loading, setLoading] = useState(false);
   const operation = useRef(crypto.randomUUID());
+  const searchGeneration = useRef(0);
+  const pendingSearch = useRef<AbortController | null>(null);
+  const clearSearchResults = useCallback((nextLoading: boolean) => {
+    searchGeneration.current += 1;
+    pendingSearch.current?.abort();
+    pendingSearch.current = null;
+    setClients([]);
+    setShoots([]);
+    setLoading(nextLoading);
+  }, []);
   useEffect(() => {
-    if (!isOpen) return;
+    clearSearchResults(isOpen && !saved);
+    if (!isOpen || saved) return;
+    const generation = searchGeneration.current;
     const controller = new AbortController();
+    pendingSearch.current = controller;
+    const isCurrentSearch = () => searchGeneration.current === generation && !controller.signal.aborted;
     const timeout = setTimeout(() => {
-      setLoading(true);
+      if (!isCurrentSearch()) return;
       apiClient
         .get("/admin/accounting-home/invoice-options", {
           params: {
@@ -74,17 +88,26 @@ export function CreateInvoiceDialog({
           },
           signal: controller.signal,
         })
-        .then((r) => (client ? setShoots(r.data.data) : setClients(r.data.data)))
-        .catch((e) => {
-          if (!controller.signal.aborted) setError(e.response?.data?.message ?? "Search could not load. Try again.");
+        .then((r) => {
+          if (isCurrentSearch()) {
+            if (client) setShoots(r.data.data);
+            else setClients(r.data.data);
+          }
         })
-        .finally(() => setLoading(false));
+        .catch((e) => {
+          if (isCurrentSearch()) setError(e.response?.data?.message ?? "Search could not load. Try again.");
+        })
+        .finally(() => {
+          if (isCurrentSearch()) setLoading(false);
+        });
     }, 200);
     return () => {
       clearTimeout(timeout);
       controller.abort();
+      if (searchGeneration.current === generation) searchGeneration.current += 1;
+      if (pendingSearch.current === controller) pendingSearch.current = null;
     };
-  }, [isOpen, client, clientSearch, shootSearch]);
+  }, [isOpen, client, clientSearch, shootSearch, saved, clearSearchResults]);
   const subtotal = lines.reduce((n, l) => n + Math.round(Number(l.price) * 100) * Number(l.quantity), 0),
     discountCents = Math.round(discount * 100),
     taxCents = Math.round(((subtotal - discountCents) * tax) / 100),
@@ -116,6 +139,7 @@ export function CreateInvoiceDialog({
   const change = (i: number, key: keyof Line, value: string | number) =>
     setLines((rows) => rows.map((row, index) => (index === i ? { ...row, [key]: value } : row)));
   const reset = () => {
+    clearSearchResults(true);
     setSaved(null);
     setClient(null);
     setShoot(null);
@@ -129,12 +153,17 @@ export function CreateInvoiceDialog({
     setError("");
     operation.current = crypto.randomUUID();
   };
+  const close = () => {
+    if (busy) return;
+    clearSearchResults(false);
+    onClose();
+  };
   return (
     <>
       <Dialog
         open={isOpen}
         onOpenChange={(open) => {
-          if (!open && !busy) onClose();
+          if (!open) close();
         }}
       >
         <DialogContent className="invoice-composer-dialog">
@@ -172,6 +201,7 @@ export function CreateInvoiceDialog({
                     notes,
                   });
                   const invoice = mapInvoiceResponse(result.data.data);
+                  clearSearchResults(false);
                   setSaved(invoice);
                   onInvoiceCreate(invoice);
                 } catch (err) {
@@ -192,6 +222,7 @@ export function CreateInvoiceDialog({
                     placeholder="Client name or email"
                     value={clientSearch}
                     onChange={(e) => {
+                      clearSearchResults(true);
                       if (shoot) {
                         setAddress("");
                         setLines([{ description: "Photography", quantity: 1, price: 0 }]);
@@ -212,6 +243,7 @@ export function CreateInvoiceDialog({
                       variant="outline"
                       size="sm"
                       onClick={() => {
+                        clearSearchResults(true);
                         if (shoot) {
                           setAddress("");
                           setLines([
@@ -235,7 +267,10 @@ export function CreateInvoiceDialog({
                       <button
                         type="button"
                         key={c.id}
+                        disabled={loading}
                         onClick={() => {
+                          if (loading) return;
+                          clearSearchResults(true);
                           setClient(c);
                           setShoot(null);
                           setError("");
@@ -256,7 +291,10 @@ export function CreateInvoiceDialog({
                         aria-label="Search shoots"
                         placeholder="Property address"
                         value={shootSearch}
-                        onChange={(e) => setShootSearch(e.target.value)}
+                        onChange={(e) => {
+                          clearSearchResults(true);
+                          setShootSearch(e.target.value);
+                        }}
                       />
                     </label>
                     <div className="composer-search-results" aria-label="Shoot search results">
@@ -264,9 +302,10 @@ export function CreateInvoiceDialog({
                         <button
                           type="button"
                           key={s.id}
-                          disabled={Boolean(s.existing_invoice)}
+                          disabled={loading || Boolean(s.existing_invoice)}
                           aria-pressed={shoot?.id === s.id}
                           onClick={() => {
+                            if (loading) return;
                             setShoot(s);
                             setAddress(s.address);
                             setLines(
@@ -486,7 +525,7 @@ export function CreateInvoiceDialog({
             </p>
           )}
           <footer className="composer-footer">
-            <Button variant="outline" onClick={onClose} disabled={busy}>
+            <Button variant="outline" onClick={close} disabled={busy}>
               Close
             </Button>
             {saved ? (
