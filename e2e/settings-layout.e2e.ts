@@ -188,6 +188,7 @@ for (const viewport of [{ width: 390, height: 600 }, { width: 320, height: 568 }
       await categories.getByRole('tab', { name, exact: true }).click();
       await expect(categories.getByRole('tab', { name, exact: true })).toHaveAttribute('aria-selected', 'true');
       await noOverflow(page);
+      if (name === 'Integrations' || name === 'Robbie AI') await expect(page.getByRole('tablist', { name: `${name} options`, exact: true })).toHaveCount(0);
     }
     await categories.getByRole('tab', { name: 'My Account', exact: true }).click();
     await page.getByRole('tab', { name: 'Personal details', exact: true }).click();

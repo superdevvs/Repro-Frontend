@@ -43,7 +43,7 @@ export function SettingsNavigation({ availableTabs, activeTab, onTabChange, show
       <Tabs value={activeTab} onValueChange={onTabChange} className="min-w-0 space-y-2">
         <AutoExpandingTabsList ariaLabel={`${current.label} options`} value={activeTab}
           tabs={current.tabs.map(tab => ({ ...tab, icon: childIcons[tab.value] }))}
-          className={current.tabs.length === 1 ? 'sr-only' : navigationSize} />
+          className={current.tabs.length === 1 ? 'hidden' : navigationSize} />
         {activeTab === 'branding' && <p className="text-xs text-muted-foreground">Your portfolio - Appearance for this account.</p>}
         {activeTab === 'watermark' && <p className="text-xs text-muted-foreground">Shared setting - Watermarks for photos across the dashboard.</p>}
         <div className={styles.content} data-settings-content>{children}</div>
