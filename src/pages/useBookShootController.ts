@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { canBookOutsideClientServiceGroups } from '@/utils/bookingServiceAccess';
+import { useBookingMainSchedule } from './useBookingMainSchedule';
 import { useBookingTravel } from '@/features/travel/useBookingTravel';
 import { bookingDayScheduleHandler } from '@/features/travel/bookingDayScheduleHandler';
 import { buildBookingDurationAdjuster } from './bookShootDurationAdjustment';
@@ -83,7 +84,7 @@ export const useBookShootController = () => {
   const {
     isEditMode, setIsEditMode, editingScheduleSource, editShootLoading, canRemoveAllServicesForEdit, packages, packagesLoading, setPackagesLoading,
     clients, setClients, client, setClient, address, setAddress, city, setCity, state,
-    setState, zip, setZip, date, setDate, time, setTime, photographer, setPhotographer,
+    setState, zip, setZip, date, setDate: setRawDate, time, setTime: setRawTime, photographer, setPhotographer,
     servicePhotographers, setServicePhotographers, serviceSchedules, setServiceSchedules,
     selectedServices: legacySelectedServices, setSelectedServices, multiUnitDraft, setMultiUnitDraft, shootType, setShootType, propertyDetails,
     setPropertyDetails, propertySqft, setPropertySqft, handleSelectedServicesChange,
@@ -102,6 +103,7 @@ export const useBookShootController = () => {
   });
   const unitBooking = useMultiUnitBooking({ draft: multiUnitDraft, setDraft: setMultiUnitDraft, catalog: packages, legacyServices: legacySelectedServices, propertySqft, propertyDetails, date, time, photographer, servicePhotographers, serviceSchedules, allowed: !isCompReshootMode, clientGroups: isClientAccount || hasSalesRepRole(user) || canBookOutsideClientServiceGroups(user?.role) ? [] : (clients.find(item => item.id === client)?.service_group_ids ?? clients.find(item => item.id === client)?.service_groups?.map(group => group.id) ?? []).map(String) });
   const selectedServices = unitBooking.enabled ? unitBooking.summaryServices : legacySelectedServices;
+  const { setDate, setTime } = useBookingMainSchedule({ date, time, setDate: setRawDate, setTime: setRawTime, setServiceSchedules, selectedServices, multiUnit: unitBooking.enabled });
   const remountPropertyForm = React.useCallback(() => {
     setClientPropertyFormKey((current) => current + 1);
   }, [setClientPropertyFormKey]);
@@ -204,9 +206,7 @@ export const useBookShootController = () => {
     [isCompReshootMode, pricingBreakdown, parsedAdjustedTotal, state]
   );
   const getPackagePrice = () => serviceSubtotal;
-  const getPhotographerRate = () => {
-    return 0;
-  };
+  const getPhotographerRate = () => 0;
   const getTax = () => displayPricingBreakdown.taxAmount;
   const getTotal = () => displayPricingBreakdown.totalQuote;
   useEffect(() => {
@@ -221,7 +221,7 @@ export const useBookShootController = () => {
     shootId: isEditMode ? editShootId : null, clientId: isClientAccount ? user?.id : client, address, city, state, zip, date, time, photographer,
     propertyDetails, sqft: propertySqft, source: editingScheduleSource, selectedServices, servicePhotographers, serviceSchedules,
     unitPayload: unitBooking.enabled ? unitBooking.payload : undefined,
-    onScheduleChange: bookingDayScheduleHandler({ date, time, setDate, setTime, setServiceSchedules }) });
+    onScheduleChange: bookingDayScheduleHandler({ date, time, setDate: setRawDate, setTime: setRawTime, setServiceSchedules }) });
   const travelDurationAdjuster = buildBookingDurationAdjuster({ role: user?.role, impersonating: isImpersonating,
     canOverride: travel.canOverride, services: selectedServices, sqft: selectedServiceSqft, schedules: serviceSchedules,
     setSchedules: setServiceSchedules, units: unitBooking,

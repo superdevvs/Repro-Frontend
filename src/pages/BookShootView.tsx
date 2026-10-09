@@ -128,8 +128,9 @@ export function BookShootView({ controller }: { controller: BookShootController 
                     Times shown in Eastern Time ({NEW_BOOKING_TIMEZONE}).
                   </p>
                 )}
-                {step >= wizard.schedulingStep && <div className="mb-4"><TravelFeasibilityPanel travel={controller.travel} durationAdjuster={controller.travelDurationAdjuster} /></div>}
+                {step > wizard.schedulingStep && <div className="mb-4"><TravelFeasibilityPanel travel={controller.travel} durationAdjuster={controller.travelDurationAdjuster} /></div>}
                 <BookingContentArea
+                  afterCalendar={<TravelFeasibilityPanel travel={controller.travel} durationAdjuster={controller.travelDurationAdjuster} />}
                   hybridTravelEnabled={controller.travel.enabled}
                   enforceNewBookingEligibility={!isEditMode && !isCompReshootMode}
                   step={step}

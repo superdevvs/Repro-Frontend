@@ -12,7 +12,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, D
 import { SchedulingPhotographerSection } from './SchedulingPhotographerSection';
 import type { SchedulingFormController } from './useSchedulingFormController';
 
-export function SchedulingFormView({ controller }: { controller: SchedulingFormController }) {
+export function SchedulingFormView({ controller, afterCalendar }: { controller: SchedulingFormController; afterCalendar?: React.ReactNode }) {
   const {
     date, time, formErrors, handleSubmit, goBack, sameDayAddressWarningMessage,
     disabledDates, today, isMobile, timeDialogOpen, tempTime, availabilityPanel,
@@ -82,6 +82,7 @@ export function SchedulingFormView({ controller }: { controller: SchedulingFormC
             <p className="text-sm font-medium text-destructive mt-1">{formErrors['date']}</p>
           )}
         </div>
+        {afterCalendar}
         {sameDayAddressWarningMessage && (
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 shadow-sm dark:text-amber-100">
             <div className="flex items-start gap-2">
