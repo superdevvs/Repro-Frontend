@@ -944,3 +944,7 @@
   .accounting-home-v1 .home-cash-bottom details { grid-column: 1 / -1; width: 100%; margin: 0; }
   .accounting-home-v1 .home-cash-bottom summary { display: flex; align-items: center; min-height: 44px; font-size: 11px; line-height: 1.4; cursor: pointer; }
 }
+@media (max-width: 359px) {
+  .accounting-home-v1 .home-cash-bottom { gap: 10px; }
+  .accounting-home-v1 .home-cash-bottom .home-amount { font-size: 13px; }
+}
