@@ -19,10 +19,10 @@ describe('remaining integration settings', () => {
   });
   afterEach(cleanup);
 
-  it('preserves the five other provider tabs without a Dropbox connection surface or request', async () => {
+  it('preserves the five other providers and adds ChatGPT without a Dropbox connection surface or request', async () => {
     render(<MemoryRouter initialEntries={['/settings?tab=integrations&dropbox=connected']}><IntegrationsSettingsContent /></MemoryRouter>);
     await waitFor(() => expect(mocks.get).toHaveBeenCalledTimes(6));
-    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Zillow', 'Bright MLS', 'iGUIDE', 'MMM', 'Repro API']);
+    expect(screen.getAllByRole('tab').map(tab => tab.getAttribute('aria-label'))).toEqual(['Zillow', 'Bright MLS', 'iGUIDE', 'MMM', 'Repro API', 'ChatGPT']);
     expect(screen.queryByText(/dropbox/i)).not.toBeInTheDocument();
     expect(screen.getByRole('tab', { name: 'Zillow' })).toHaveAttribute('aria-selected', 'true');
     expect(mocks.get.mock.calls.every(([url]) => !String(url).toLowerCase().includes('dropbox'))).toBe(true);
