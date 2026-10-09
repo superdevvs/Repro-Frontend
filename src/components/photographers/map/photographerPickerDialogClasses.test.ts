@@ -25,7 +25,7 @@ describe('photographerPickerDialogClasses', () => {
       expect(cls).toContain('xl:!top-[50%]')
       expect(cls).toContain('xl:!translate-x-[-50%]')
       expect(cls).toContain('xl:!translate-y-[-50%]')
-      expect(cls).toContain('xl:rounded-lg')
+      expect(cls).toContain('xl:rounded-2xl')
     }
   })
 
@@ -34,3 +34,4 @@ describe('photographerPickerDialogClasses', () => {
     expect(PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_COMPACT).toContain('xl:h-[min(88dvh,48rem)]')
   })
 })
+
