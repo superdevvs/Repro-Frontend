@@ -1,3 +1,4 @@
+import {triggerInvoicesRefresh} from '@/realtime/realtimeRefreshBus';
 import { PhotographerInvoiceReviewWorkspace } from '@/components/accounting/PhotographerInvoiceReviewWorkspace';
 
 export function SalesRepInvoiceReviewWorkspace() {

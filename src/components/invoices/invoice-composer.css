@@ -1,0 +1,206 @@
+.invoice-composer-dialog {
+  width: calc(100vw - 24px);
+  max-width: 1120px;
+  max-height: 92dvh;
+  overflow-y: auto;
+  gap: 14px;
+  padding: 20px;
+}
+.invoice-composer-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+}
+.invoice-composer-form fieldset {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.invoice-composer-form label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+.composer-search-results {
+  max-height: 156px;
+  overflow-y: auto;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+}
+.composer-search-results button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 9px 12px;
+  width: 100%;
+  border-bottom: 1px solid hsl(var(--border));
+  font-size: 12px;
+}
+.composer-search-results button:hover,
+.composer-search-results button[aria-pressed="true"] {
+  background: hsl(var(--accent));
+}
+.composer-search-results button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.composer-search-results small,
+.composer-selected small {
+  display: block;
+  color: hsl(var(--muted-foreground));
+}
+.composer-search-results p {
+  font-size: 12px;
+  padding: 10px;
+}
+.composer-selected {
+  padding: 8px;
+  border-radius: 8px;
+  background: hsl(var(--muted));
+  display: grid;
+  grid-template-columns: 1fr auto;
+  font-size: 13px;
+}
+.composer-selected small {
+  grid-row: 2;
+}
+.composer-selected button {
+  grid-column: 2;
+  grid-row: 1 / 3;
+}
+.composer-date-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.composer-lines {
+  display: grid;
+  gap: 12px;
+}
+.composer-lines > div {
+  padding: 10px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+}
+.composer-lines > div > div {
+  display: grid;
+  grid-template-columns: 70px 1fr auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 8px;
+}
+.composer-preview {
+  padding: 26px;
+  background: white;
+  color: #15202c;
+  align-self: start;
+  border: 1px solid #d6dde5;
+  border-radius: 10px;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.composer-preview header {
+  display: grid;
+  gap: 4px;
+  padding-bottom: 20px;
+}
+.composer-preview header b {
+  font-size: 22px;
+}
+.composer-preview h2 {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 20px;
+  font-size: 18px;
+}
+.composer-preview h2 small {
+  font-size: 11px;
+}
+.composer-preview p {
+  margin: 16px 0;
+  line-height: 1.7;
+}
+.composer-preview-dates {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.composer-preview table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+.composer-preview th {
+  text-align: left;
+  font-size: 10px;
+  border-bottom: 1px solid #abb8c8;
+  padding: 8px 4px;
+}
+.composer-preview td {
+  border-bottom: 1px solid #e0e5ec;
+  padding: 9px 4px;
+  vertical-align: top;
+}
+.composer-preview th:first-child {
+  width: 43%;
+}
+.composer-preview th:nth-child(2) {
+  width: 10%;
+}
+.composer-preview th:last-child,
+.composer-preview td:last-child {
+  text-align: right;
+}
+.composer-preview dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 9px;
+  margin-top: 20px;
+}
+.composer-preview dl dt:last-of-type,
+.composer-preview dl dd:last-of-type {
+  font-weight: 700;
+  font-size: 16px;
+  padding-top: 9px;
+  border-top: 1px solid #abb8c8;
+}
+.composer-footer {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  border-top: 1px solid hsl(var(--border));
+  padding-top: 12px;
+}
+@media (max-width: 700px) {
+  .invoice-composer-dialog {
+    padding: 14px;
+    gap: 10px;
+  }
+  .invoice-composer-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+  .composer-preview {
+    padding: 16px;
+  }
+  .composer-footer {
+    position: sticky;
+    bottom: -14px;
+    background: hsl(var(--background));
+    padding: 10px 0;
+    margin-bottom: -4px;
+  }
+  .composer-footer button {
+    flex: 1;
+  }
+  .composer-lines > div > div {
+    grid-template-columns: 60px 1fr auto;
+  }
+  .composer-lines button {
+    padding: 0 8px;
+    font-size: 11px;
+  }
+}

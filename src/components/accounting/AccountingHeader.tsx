@@ -39,7 +39,7 @@ export function AccountingHeader({
     { id: 'editors', label: 'Editors' }, { id: 'sales-reps', label: 'Sales reps' },
     { id: 'equipments', label: 'Equipment' },
   ];
-  return <header className="space-y-5 max-md:contents">
+  return <header className="accounting-header space-y-5 max-md:contents">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
       <div className="min-w-0"><h1 className="text-3xl font-semibold tracking-tight">{title}</h1><p className="mt-2 text-sm text-muted-foreground">{description}</p></div>
       <div className="flex min-w-0 flex-wrap items-center gap-3 sm:justify-end">

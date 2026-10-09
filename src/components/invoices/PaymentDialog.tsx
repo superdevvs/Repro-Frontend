@@ -23,6 +23,7 @@ export interface InvoicePaymentCompletePayload {
 }
 
 interface PaymentDialogProps {
+  initialMethod?:'stripe'|'manual';
   invoice: InvoiceData | null;
   isOpen: boolean;
   onClose: () => void;
@@ -35,7 +36,8 @@ interface PaymentDialogProps {
   shootId?: string | number;
 }
 
-export function PaymentDialog({ 
+export function PaymentDialog({
+  initialMethod='stripe', 
   invoice, 
   isOpen, 
   onClose, 
@@ -70,9 +72,9 @@ export function PaymentDialog({
 
   useEffect(() => {
     if (isOpen) {
-      setPaymentMethod('stripe');
+      setPaymentMethod(initialMethod);
     }
-  }, [isOpen]);
+  }, [isOpen,initialMethod]);
 
   if (!invoice) return null;
 

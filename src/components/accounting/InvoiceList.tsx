@@ -1,3 +1,6 @@
+import {Input} from '@/components/ui/input';
+import {SendInvoiceDialog} from '@/components/invoices/SendInvoiceDialog';
+import {triggerInvoicesRefresh} from '@/realtime/realtimeRefreshBus';
 import type { FetchInvoicesParams } from '@/services/invoiceService';
 import { EmptyState } from '@/components/ui/empty-state';
 
@@ -150,8 +153,11 @@ export function InvoiceList({
     isAdmin ||
     isSuperAdmin ||
     ['salesrep', 'sales_rep', 'sales-rep', 'rep', 'editing_manager'].includes(normalizedRole);
+  const [sendInvoice,setSendInvoice]=useState<InvoiceData|null>(null);
   const { toast } = useToast();
   const isMobile = useIsMobile();
+  const [search,setSearch]=useState(server?.params.search??'');
+  useEffect(()=>{if(!server)return;const timeout=setTimeout(()=>{if(search!==(server.params.search??''))server.onChange({...server.params,search,page:1})},250);return()=>clearTimeout(timeout)},[search,server]);
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'paid' | 'overdue'>('all');
   const [viewMode, setViewMode] = useState<'list' | 'grid'>(() => {
     if (typeof window === 'undefined') return 'list';
@@ -168,10 +174,11 @@ export function InvoiceList({
     const range = resolveInvoiceDateFilterRange(dateFilter);
     const start = range.start ? format(range.start, 'yyyy-MM-dd') : undefined;
     const end = range.end ? format(range.end, 'yyyy-MM-dd') : undefined;
-    if ((server.params.status ?? 'all') !== activeTab || server.params.start !== start || server.params.end !== end) {
-      server.onChange({ ...server.params, page: 1, status: activeTab, start, end });
+    if (server.params.start !== start || server.params.end !== end) {
+      server.onChange({ ...server.params, page: 1, status: server.params.status ?? activeTab, start, end });
     }
   }, [activeTab, dateFilter, server]);
+  useEffect(()=>{if(server)setActiveTab(server.params.status??'all')},[server]);
   const dateFilteredInvoices = useMemo(
     () => filterInvoiceItemsByDate(data.invoices, dateFilter, (invoice) => (
       invoice.billingPeriodStart || invoice.billingPeriodEnd
@@ -186,6 +193,7 @@ export function InvoiceList({
   const filteredInvoices = useMemo(
     () => {
       if (server) return data.invoices;
+      if(search)return dateFilteredInvoices.filter(i=>[i.client,i.property,i.number].some(v=>v?.toLowerCase().includes(search.toLowerCase())));
       if (activeTab === 'all') return dateFilteredInvoices;
       if (activeTab === 'pending') {
         return dateFilteredInvoices.filter((invoice) => (
@@ -194,7 +202,7 @@ export function InvoiceList({
       }
       return dateFilteredInvoices.filter((invoice) => invoice.status === activeTab);
     },
-    [activeTab, dateFilteredInvoices, server, data.invoices],
+    [activeTab, dateFilteredInvoices, server, data.invoices,search],
   );
 
   const [itemsPerPage, setItemsPerPage] = useState(server?.perPage ?? 5);
@@ -359,20 +367,9 @@ export function InvoiceList({
     }
   };
 
-  const handleSendInvoice = (invoice: InvoiceData) => {
-    if (!isAdmin) return;
-    toast({
-      title: "Invoice sent",
-      description: `Invoice #${invoice.number} has been sent to ${invoice.client}.`
-    });
-  };
+  const handleSendInvoice = (invoice:InvoiceData)=>{if(isAdmin)setSendInvoice(invoice)};
 
-  const handlePrintInvoice = (invoice: InvoiceData) => {
-    toast({
-      title: "Printing invoice",
-      description: `Invoice #${invoice.number} sent to printer.`
-    });
-  };
+  const handlePrintInvoice = (invoice:InvoiceData)=>{void onDownload(invoice,'pdf')};
 
   const handleEditInvoice = (invoice: InvoiceData) => {
     if (!isAdmin) return;
@@ -383,14 +380,7 @@ export function InvoiceList({
     onEdit(invoice);
   };
 
-  const handleDeleteInvoice = (invoice: InvoiceData) => {
-    if (!isAdmin) return;
-    toast({
-      title: "Invoice deleted",
-      description: `Invoice #${invoice.number} has been deleted.`,
-      variant: "destructive"
-    });
-  };
+  const handleDeleteInvoice = ()=>{};
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -409,6 +399,7 @@ export function InvoiceList({
 
   return (
     <div className="w-full">
+{sendInvoice&&<SendInvoiceDialog invoice={sendInvoice} isOpen onClose={()=>setSendInvoice(null)} onSent={()=>triggerInvoicesRefresh()}/>}
       <Card className="mb-6">
         <div className="flex flex-wrap items-center gap-2 border-b p-3">
           {server && <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -420,7 +411,7 @@ export function InvoiceList({
       <InvoiceStatusTabs
             value={activeTab}
             className="min-w-0 flex-1 sm:flex-none"
-            onValueChange={setActiveTab}
+            onValueChange={value=>{setActiveTab(value);if(server)server.onChange({...server.params,status:value,page:1})}}
           />
 
           <div className="ml-auto flex shrink-0 items-center gap-1 text-xs lg:order-last lg:ml-0">
@@ -471,6 +462,7 @@ export function InvoiceList({
               </Button>
             </div>
           </div>
+<Input aria-label="Search invoices" placeholder="Search client, address or invoice" className="h-8 w-full sm:w-64" value={search} onChange={e=>setSearch(e.target.value)}/>
           <InvoiceDateFilterToolbar
             filter={dateFilter}
             onFilterChange={setDateFilter}
@@ -537,6 +529,7 @@ export function InvoiceList({
                           View
                         </Button>
                         <InvoiceDownloadMenu invoice={invoice} onDownload={handleDownloadInvoice} />
+{isAdmin&&<Button variant="outline" size="sm" onClick={()=>handleSendInvoice(invoice)}>Send</Button>}
                         {showMarkAsPaid && (
                           <Button
                             variant="accent"
@@ -558,8 +551,8 @@ export function InvoiceList({
                             Send reminder
                           </Button>
                         )}
-                        {isAdmin && (
-                          <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => handleEditInvoice(invoice)}>
+                        {isAdmin && String(invoice.status)==="draft" && (
+ <Button variant="outline" size="sm" className="h-8 px-3 text-xs" onClick={() => handleEditInvoice(invoice)}>
                             Edit
                           </Button>
                         )}
@@ -585,11 +578,11 @@ export function InvoiceList({
                         />
                       </th>
                       <th className="px-3 py-2 text-left">Invoice #</th>
-                      <th className="px-3 py-2 text-left">Client</th>
+                      <th className="px-3 py-2 text-left">Client / property</th>
                       <th className="px-3 py-2 text-left">Status</th>
                       <th className="px-3 py-2 text-left">Amount</th>
                       <th className="px-3 py-2 text-left">Date</th>
-                      <th className="px-3 py-2 text-left">Actions</th>
+                      <th className="px-3 py-2 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -603,12 +596,12 @@ export function InvoiceList({
                           />
                         </td>
                         <td className="px-3 py-2 font-medium text-xs">#{invoice.number}</td>
-                        <td className="px-3 py-2 text-xs">{invoice.client || '—'}</td>
+                        <td className="px-3 py-2 text-xs"><b>{invoice.client || '—'}</b><div className="mt-1 flex items-center gap-2"><span className="rounded bg-primary/10 px-1.5 py-1 text-[10px] font-semibold text-primary">{invoice.property.replace(/^\d+\s*/,'').split(/\s+/).slice(0,2).map(w=>w[0]).join('').toUpperCase()}</span><span className="max-w-[180px] truncate text-muted-foreground" title={invoice.property}>{invoice.property}</span></div></td>
                         <td className="px-3 py-2">
                           <span className={`rounded px-2 py-0.5 text-xs font-semibold ${getStatusColor(invoice.status)}`}>{invoice.status}</span>
                         </td>
                         <td className="px-3 py-2 text-xs">
-                          <div>{usdCurrencyFormatter.format(invoice.amount || 0)}</div>
+                          <div className="font-semibold">{usdCurrencyFormatter.format(invoice.amount || 0)}</div><small className="text-muted-foreground">{usdCurrencyFormatter.format(invoice.amountPaid??0)} collected · {usdCurrencyFormatter.format(invoice.balance??invoice.amount)} remaining</small>
                           {getInvoiceOverpayment(invoice) > 0 && (
                             <div className="mt-0.5 font-medium text-amber-700 dark:text-amber-300">
                               Refund/credit {usdCurrencyFormatter.format(getInvoiceOverpayment(invoice))}
@@ -617,7 +610,7 @@ export function InvoiceList({
                         </td>
                         <td className="px-3 py-2 text-xs">{formatInvoiceDate(invoice.date)}</td>
                         <td className="px-3 py-2">
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap justify-end gap-1">
                             <Button 
                               variant="outline" 
                               size="sm" 
@@ -628,6 +621,7 @@ export function InvoiceList({
                               View
                             </Button>
                             <InvoiceDownloadMenu invoice={invoice} onDownload={handleDownloadInvoice} />
+{isAdmin&&<Button variant="outline" size="sm" onClick={()=>handleSendInvoice(invoice)}>Send</Button>}
                             {isSuperAdmin && isSettleableInvoice(invoice) && (
                               <Button
                                 variant="accent"
@@ -653,8 +647,8 @@ export function InvoiceList({
                                 Send reminder
                               </Button>
                             )}
-                            {isAdmin && (
-                              <Button 
+                            {isAdmin && String(invoice.status)==="draft" && (
+ <Button 
                                 variant="outline" 
                                 size="sm" 
                                 onClick={() => handleEditInvoice(invoice)} 
@@ -901,8 +895,8 @@ function InvoiceGridCard({
             Mark Paid
           </Button>
         )}
-        {isAdmin && (
-          <Button variant="outline" size="sm" onClick={() => onEdit(invoice)}>
+        {isAdmin && String(invoice.status)==="draft" && (
+ <Button variant="outline" size="sm" onClick={() => onEdit(invoice)}>
             Edit
           </Button>
         )}
@@ -918,14 +912,12 @@ function InvoiceGridCard({
             <DropdownMenuItem onClick={() => onView(invoice)}>View</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onDownload(invoice, 'pdf')}>Download PDF</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onDownload(invoice, 'csv')}>Download CSV</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => onPrint(invoice)}>Print</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onPrint(invoice)}>Download printable PDF</DropdownMenuItem>
             {isAdmin && (
               <>
                 <DropdownMenuItem onClick={() => onSend(invoice)}>Send</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => onDelete(invoice)} className="text-red-500">
-                  Delete
-                </DropdownMenuItem>
+
               </>
             )}
           </DropdownMenuContent>

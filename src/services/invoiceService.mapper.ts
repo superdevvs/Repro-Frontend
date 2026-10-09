@@ -120,7 +120,7 @@ export const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: strin
   const overdue = hasOutstandingBalance
     && parsedDueDate !== null
     && endOfDay(parsedDueDate).getTime() < Date.now();
-  const normalizedStatus = isPaid
+  const normalizedStatus = ['draft','void','cancelled','canceled','refunded'].includes(rawStatus)?rawStatus:isPaid
     ? 'paid'
     : overdue
       ? 'overdue'
@@ -148,6 +148,7 @@ export const mapInvoiceResponse = (invoice: InvoiceApiRecord, fallbackId?: strin
   const property =
     fullAddress ||
     invoice.property ||
+    String(invoice.items?.find(item=>item.meta?.property_address)?.meta?.property_address ?? '') ||
     (typeof shoot?.location === 'string' ? shoot.location : '') ||
     'N/A';
 

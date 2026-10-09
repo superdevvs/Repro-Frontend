@@ -1,3 +1,4 @@
+import {triggerInvoicesRefresh} from '@/realtime/realtimeRefreshBus';
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertTriangle, Clock3, DollarSign, Download, FileText, MessageSquareMore, RefreshCw, Search } from 'lucide-react';
@@ -434,6 +435,7 @@ export function PhotographerInvoiceReviewWorkspace({
       setApproveDialogOpen(false);
       setWarningOverrideReason('');
       await handleRefresh();
+      triggerInvoicesRefresh();
     } catch (error) {
       toast({
         title: 'Approval failed',

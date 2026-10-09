@@ -1,13 +1,14 @@
+import {HomeThemeToggle} from '@/components/accounting/AccountingHomeParts';
+import { AccountingHome } from '@/components/accounting/AccountingHome';
 import { useQuery } from '@tanstack/react-query';
-import { fetchInvoiceSummary, type FetchInvoicesParams } from '@/services/invoiceService';
+import { type FetchInvoicesParams } from '@/services/invoiceService';
 import { getImpersonatedUserId } from '@/services/api';
 import { usePageLoading } from '@/hooks/use-page-loading';
 
-import React, { lazy, Suspense, useState, useMemo, useEffect, useCallback } from 'react';
+import React, { lazy, Suspense, useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AccountingHeader, type AccountingTab } from '@/components/accounting/AccountingHeader';
-import { OverviewCards } from '@/components/accounting/OverviewCards';
 import { AccountingDateRangeControl } from '@/components/accounting/AccountingDateRangeControl';
 import { accountingRangeForPeriod, accountingRangeDays, type AccountingPeriod } from '@/components/accounting/accountingDateRange';
 import { PhotographerEarningsOverview } from '@/components/accounting/PhotographerEarningsOverview';
@@ -16,7 +17,6 @@ import { ClientBillingOverviewCards } from '@/components/accounting/ClientBillin
 import { ClientBillingSidePanel } from '@/components/accounting/ClientBillingSidePanel';
 import { ClientBillingList } from '@/components/accounting/ClientBillingList';
 import { PhotographerShootsTable } from '@/components/accounting/PhotographerShootsTable';
-import { PaymentsSummary } from '@/components/accounting/PaymentsSummary';
 import { ShootData } from '@/types/shoots';
 import type { InvoicePaymentCompletePayload } from '@/components/invoices/PaymentDialog';
 import type { InvoiceData } from '@/types/invoice';
@@ -25,7 +25,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { usePermission } from '@/hooks/usePermission';
 import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig';
 import { downloadInvoiceCsv, fetchInvoices, markInvoiceAsPaid, sendInvoicePaymentReminder } from '@/services/invoiceService';
-import { registerInvoicesRefresh } from '@/realtime/realtimeRefreshBus';
+import { registerInvoicesRefresh, triggerInvoicesRefresh } from '@/realtime/realtimeRefreshBus';
 import { useClientBilling } from '@/hooks/useClientBilling';
 import {
   emptyClientBillingSummary,
@@ -40,14 +40,10 @@ import { shootDataToSummary } from '@/utils/dashboardDerivedUtils';
 import { useSalesRepSummary } from '@/hooks/useSalesRepSummary';
 import { cn } from '@/lib/utils';
 import {
-  isInvoiceInDaysWindow,
   toInvoiceViewDialogInvoice,
   type ViewableInvoice,
 } from './accountingPageUtils';
 
-const LazyRevenueCharts = lazy(() =>
-  import('@/components/accounting/RevenueCharts').then((module) => ({ default: module.RevenueCharts })),
-);
 const LazyClientBillingCharts = lazy(() =>
   import('@/components/accounting/ClientBillingCharts').then((module) => ({ default: module.ClientBillingCharts })),
 );
@@ -148,18 +144,12 @@ const AccountingPage = () => {
     });
   }, []);
 
-  const [invoiceParams, setInvoiceParams] = useState<FetchInvoicesParams>({ page: 1, per_page: 25, sort: 'date_desc' });
+  const [invoiceParams, setInvoiceParams] = useState<FetchInvoicesParams>({ page: 1, per_page: 25, sort: 'date_desc', role: accountingMode === 'admin' ? 'client' : undefined });
   const invoiceAccessScope = `${user?.id ?? ''}:${role}:${getImpersonatedUserId() ?? ''}`;
   const invoiceQuery = useQuery({
     queryKey: ['accounting-performance', invoiceAccessScope, 'list', invoiceParams],
     enabled: Boolean(user?.id) && accountingMode !== 'client' && accountingMode !== 'editor',
     queryFn: ({ signal }) => fetchInvoices(invoiceParams, signal), staleTime: 30_000, gcTime: 300_000,
-  });
-  const summaryParams = { status: invoiceParams.status, start: invoiceParams.start, end: invoiceParams.end };
-  const invoiceSummaryQuery = useQuery({
-    queryKey: ['accounting-performance', invoiceAccessScope, 'summary', summaryParams],
-    enabled: Boolean(user?.id) && accountingMode === 'admin',
-    queryFn: ({ signal }) => fetchInvoiceSummary(summaryParams, signal), staleTime: 30_000, gcTime: 300_000,
   });
   useEffect(() => { commitLoadedInvoices(invoiceQuery.data?.data ?? []); }, [invoiceQuery.data, commitLoadedInvoices, invoiceAccessScope]);
   useEffect(() => { setLoading(invoiceQuery.isLoading); }, [invoiceQuery.isLoading]);
@@ -167,12 +157,10 @@ const AccountingPage = () => {
     if (invoiceQuery.error) toast({ title: 'Unable to load invoices', description: invoiceQuery.error.message, variant: 'destructive' });
   }, [invoiceQuery.error, toast]);
   const { refetch: refetchInvoices } = invoiceQuery;
-  const { refetch: refetchInvoiceSummary } = invoiceSummaryQuery;
   const loadInvoices = useCallback(async () => {
     if (accountingMode === 'client' || accountingMode === 'editor') return;
     await refetchInvoices();
-    if (accountingMode === 'admin') await refetchInvoiceSummary();
-  }, [accountingMode, refetchInvoices, refetchInvoiceSummary]);
+  }, [accountingMode, refetchInvoices]);
   useEffect(() => registerInvoicesRefresh(loadInvoices), [loadInvoices]);
   const serverInvoices = {
     page: invoiceParams.page ?? 1, perPage: invoiceParams.per_page ?? 25,
@@ -220,13 +208,6 @@ const AccountingPage = () => {
     });
   }, [accountingMode, clientBillingError, toast]);
 
-  const adminWindowInvoices = useMemo(() => {
-    if (accountingMode !== 'admin') {
-      return filteredInvoices;
-    }
-
-    return (invoiceSummaryQuery.data ?? []).filter((invoice) => isInvoiceInDaysWindow(invoice, daysWindow));
-  }, [filteredInvoices, accountingMode, daysWindow, invoiceSummaryQuery.data]);
 
   // Fetch shoots and editing jobs based on role
   // TODO: Replace with actual API calls
@@ -315,9 +296,11 @@ const AccountingPage = () => {
     setSelectedPhotographerShoot(shootDataToSummary(shoot));
   };
 
+  const paymentOperation=useRef(crypto.randomUUID());
   const handlePayInvoice = (invoice: InvoiceData) => {
     if (!canMarkAsPaid) return; // Use permission check
     setSelectedInvoice(invoice);
+    paymentOperation.current=crypto.randomUUID();
     setPaymentDialogOpen(true);
   };
 
@@ -340,9 +323,10 @@ const AccountingPage = () => {
     try {
       const markPaidPayload = {
         ...(amount !== undefined ? { amount_paid: amount } : {}),
-        ...(paymentDate ? { paid_at: paymentDate } : {}),
+        paid_at: paymentDate || new Date().toISOString(),
         payment_method: paymentMethod,
         payment_details: paymentDetails ?? null,
+        ...(accountingMode==='admin'?{operation_key:paymentOperation.current}:{}),
       };
       const updatedInvoice = await markInvoiceAsPaid(invoiceId, markPaidPayload);
       const normalizedInvoice: InvoiceData = {
@@ -365,28 +349,26 @@ const AccountingPage = () => {
         setSelectedInvoice(normalizedInvoice);
       }
 
-      toast({
-        title: "Payment Successful",
-        description: `Invoice ${invoiceId} has been marked as paid.`,
-        variant: "default",
-      });
       setPaymentDialogOpen(false);
-      void loadInvoices();
+      triggerInvoicesRefresh();
     } catch (error) {
+      if ((error as { status?: number }).status === 422) paymentOperation.current = crypto.randomUUID();
       console.error('Failed to mark invoice as paid:', error);
       toast({
         title: "Payment Failed",
         description: error instanceof Error ? error.message : 'Failed to mark invoice as paid',
         variant: "destructive",
       });
+      throw error;
     }
   };
 
   const handleCreateInvoice = (newInvoice: InvoiceData) => {
-    setInvoices(prevInvoices => [newInvoice, ...prevInvoices]);
+    setInvoices(prevInvoices => [newInvoice, ...prevInvoices.filter(invoice => String(invoice.id) !== String(newInvoice.id))]);
+    triggerInvoicesRefresh();
     toast({
-      title: "Invoice Created",
-      description: `Invoice ${newInvoice.id} has been created successfully.`,
+      title: newInvoice.status === 'sent' ? "Invoice Sent" : "Invoice Created",
+      description: `Invoice ${newInvoice.number || newInvoice.id} ${newInvoice.status === 'sent' ? 'was sent to the client' : 'has been saved'}.`,
       variant: "default",
     });
   };
@@ -436,6 +418,7 @@ const AccountingPage = () => {
       )
     );
     setEditDialogOpen(false);
+    triggerInvoicesRefresh();
   };
 
   return (
@@ -470,7 +453,7 @@ const AccountingPage = () => {
             return (
           <AccountingHeader
             onCreateInvoice={() => canCreateInvoice && setCreateDialogOpen(true)}
-            onCreateBatch={() => canCreateInvoice && setBatchDialogOpen(true)}
+            onCreateBatch={undefined}
             title={isEditingManagerAccounting ? 'Editing Accounting' : accountingMode === 'admin' ? activeAdminCopy.title : config.pageTitle}
             description={
               isEditingManagerAccounting ? 'Verify editor work against linked invoices' :
@@ -488,7 +471,7 @@ const AccountingPage = () => {
             showTabs={!isEditingManagerAccounting && accountingMode === 'admin'}
             daysWindow={isEditingManagerAccounting ? undefined : daysWindow}
             onDaysWindowChange={isEditingManagerAccounting ? undefined : setDaysWindow}
-            reportingControl={!isEditingManagerAccounting && accountingMode !== 'admin' ? <AccountingDateRangeControl value={reportingRange} period={reportingPeriod} label={accountingMode === 'client' ? 'Paid reporting period' : 'Reporting period'} onChange={(range, period) => { setReportingRange(range); setReportingPeriod(period); }} /> : undefined}
+            reportingControl={accountingMode === 'admin' && activeTab === 'home' ? <><HomeThemeToggle/><AccountingDateRangeControl value={reportingRange} period={reportingPeriod} label="Reporting period" onChange={(range, period) => { setReportingRange(range); setReportingPeriod(period); }} /></> : !isEditingManagerAccounting && accountingMode !== 'admin' ? <AccountingDateRangeControl value={reportingRange} period={reportingPeriod} label={accountingMode === 'client' ? 'Paid reporting period' : 'Reporting period'} onChange={(range, period) => { setReportingRange(range); setReportingPeriod(period); }} /> : undefined}
             payoutActions={null}
           />
             );
@@ -507,7 +490,9 @@ const AccountingPage = () => {
             <>
               {/* Home Tab Content */}
               {(activeTab === 'home' || accountingMode !== 'admin') && (
-                accountingMode === 'rep' ? (
+                accountingMode === 'admin' ? (
+                  <AccountingHome start={reportingRange.startDate} end={reportingRange.endDate} onView={handleViewInvoice} canCreateExpense={can('accounting', 'view')} onFilterInvoices={status => setInvoiceParams(current => ({ ...current, page: 1, role: 'client', status: status as FetchInvoicesParams['status'] }))} invoices={<InvoiceList server={serverInvoices} data={{invoices: filteredInvoices}} onView={handleViewInvoice} onEdit={handleEditInvoice} onDownload={handleDownloadInvoice} onDownloadMultiple={handleDownloadInvoices} onPay={handlePayInvoice} onSendReminder={handleSendReminder} isAdmin={isAdmin} isSuperAdmin={canMarkAsPaid} role={role || ''} loading={loading} />} />
+                ) : accountingMode === 'rep' ? (
                   <div className="min-w-0 space-y-5">
                     <nav aria-label="Sales page sections" className="mobile-sticky-tabs flex gap-1 overflow-x-auto border-b pb-2 text-xs text-muted-foreground">{[['sales-overview', 'Overview'], ['sales-clients', 'Clients'], ['weekly-review', 'Reviews'], ['invoice-activity', 'Invoices']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-md px-3 py-2 hover:bg-muted hover:text-foreground">{label}</a>)}</nav>
                     <Suspense fallback={null}>
@@ -552,20 +537,17 @@ const AccountingPage = () => {
                       <Suspense fallback={null}><LazyEditorEarningsWorkspace mode="self" startDate={reportingRange.startDate} endDate={reportingRange.endDate} /></Suspense>
                       <Suspense fallback={null}><LazyEditorRateSettings className="min-h-0 max-h-[min(72vh,38rem)]" /></Suspense>
                     </>}
-                    {accountingMode === 'admin' && invoiceSummaryQuery.isLoading && <p role="status">Loading financial summary…</p>}
-                    {accountingMode === 'admin' && invoiceSummaryQuery.isError && <p role="alert">Financial summary could not load. <button onClick={() => void invoiceSummaryQuery.refetch()}>Retry</button></p>}
-                    {config.showOverviewCards && accountingMode === 'admin' && invoiceSummaryQuery.data && <OverviewCards invoices={adminWindowInvoices} timeFilter={timeFilter} daysWindow={daysWindow} />}
                     {accountingMode === 'client' && <>
                       {config.showOverviewCards && <ClientBillingOverviewCards summary={clientBillingSummary} items={clientBillingItems} daysWindow={daysWindow} paidDateRange={reportingRange} />}
                       {config.showInvoiceTable && <ClientBillingList items={clientBillingItems} loading={clientBillingLoading} onView={handleViewClientBillingItem} onPay={handlePayClientBillingItem} onDownload={handleDownloadClientBillingItem} onDownloadMultiple={handleDownloadClientBillingItems} />}
                     </>}
-                    {config.showRevenueChart && ((accountingMode === 'admin' && Boolean(invoiceSummaryQuery.data)) || accountingMode === 'client') && (
+                    {config.showRevenueChart && accountingMode === 'client' && (
                       <div className="grid min-w-0 grid-cols-1 items-stretch gap-4 lg:grid-cols-3">
                         <div className="min-w-0 lg:col-span-2"><Suspense fallback={null}>
-                          {accountingMode === 'admin' ? <LazyRevenueCharts invoices={adminWindowInvoices} timeFilter={timeFilter} onTimeFilterChange={setTimeFilter} role={role} /> : <LazyClientBillingCharts items={clientBillingItems} timeFilter={timeFilter} onTimeFilterChange={setTimeFilter} />}
+                          <LazyClientBillingCharts items={clientBillingItems} timeFilter={timeFilter} onTimeFilterChange={setTimeFilter} />
                         </Suspense></div>
-                        {(config.showPaymentsSummary || config.showLatestTransactions) && <div className={cn('flex min-h-0 min-w-0 flex-col gap-3 lg:col-span-1', accountingMode === 'admin' && 'lg:h-[max(54.875rem,calc(100vh-11.125rem))] lg:max-h-[max(54.875rem,calc(100vh-11.125rem))]')}>
-                          {accountingMode === 'admin' ? <PaymentsSummary invoices={adminWindowInvoices} className="min-h-0" /> : <ClientBillingSidePanel items={clientBillingItems} summary={clientBillingSummary} onView={handleViewClientBillingItem} />}
+                        {(config.showPaymentsSummary || config.showLatestTransactions) && <div className={cn('flex min-h-0 min-w-0 flex-col gap-3 lg:col-span-1')}>
+                          <ClientBillingSidePanel items={clientBillingItems} summary={clientBillingSummary} onView={handleViewClientBillingItem} />
                         </div>}
                       </div>
                     )}
@@ -654,6 +636,7 @@ const AccountingPage = () => {
       {!isEditingManagerAccounting && paymentDialogOpen && selectedInvoice && canMarkAsPaid && (
         <Suspense fallback={null}>
           <LazyPaymentDialog
+              initialMethod={accountingMode==='admin'?'manual':'stripe'}
             isOpen={paymentDialogOpen}
             onClose={closePaymentDialog}
             invoice={selectedInvoice as InvoiceData}
@@ -712,5 +695,3 @@ const AccountingPage = () => {
 };
 
 export default AccountingPage;
-
-

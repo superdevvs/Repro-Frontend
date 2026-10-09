@@ -1,3 +1,4 @@
+import {triggerInvoicesRefresh} from '@/realtime/realtimeRefreshBus';
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, ChevronLeft, ChevronRight, Download, Filter as FilterIcon, LayoutGrid, List as ListIcon, ListChecks, NotebookPen, Receipt, RefreshCw, Search, Send, Wallet } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -314,6 +315,7 @@ function EditorAdminEarningsWorkspace({ mode = 'admin' }: EditorEarningsWorkspac
     try {
       setMarkingPaid(true);
       await markAdminEditorPayoutsPaid(unpaidLineItems.map((item) => item.id));
+      triggerInvoicesRefresh();
       toast({
         title: 'Editor earnings marked paid',
         description: 'The selected earnings were recorded in the payout ledger.',

@@ -57,6 +57,8 @@ const buildHeaders = () => {
 };
 
 export interface FetchInvoicesParams {
+  role?: 'client';
+  search?:string;
   status?: 'all' | 'pending' | 'paid' | 'overdue';
   sort?: 'date_desc' | 'date_asc' | 'amount_desc' | 'amount_asc';
   page?: number;
@@ -85,6 +87,8 @@ export const fetchInvoices = async (params: FetchInvoicesParams = {}, signal?: A
   }
 
   const queryParams = new URLSearchParams();
+  if(params.search)queryParams.append('search',params.search);
+  if (params.role) queryParams.append('role',params.role);
   if (params.status) queryParams.append('status', params.status);
   if (params.sort) queryParams.append('sort', params.sort);
   if (params.page) queryParams.append('page', params.page.toString());
@@ -249,6 +253,7 @@ export const downloadInvoiceCsv = async (invoiceId: string | number): Promise<st
 export const markInvoiceAsPaid = async (
   invoiceId: string | number,
   data: {
+    operation_key?: string;
     amount_paid?: number;
     paid_at?: string;
     payment_method?: string;
@@ -260,7 +265,7 @@ export const markInvoiceAsPaid = async (
     throw new Error('Authentication required');
   }
 
-  const response = await fetch(`${API_BASE_URL}/api/admin/invoices/${invoiceId}/mark-paid`, {
+  const response = await fetch(`${API_BASE_URL}/api/admin/${data.operation_key?'accounting-home/invoices/'+invoiceId+'/payment':'invoices/'+invoiceId+'/mark-paid'}`, {
     method: 'POST',
     headers: buildHeaders(),
     body: JSON.stringify(data),
@@ -271,7 +276,7 @@ export const markInvoiceAsPaid = async (
       throw new Error('You do not have permission to mark invoices as paid');
     }
     const error = await response.json().catch(() => ({}));
-    throw new Error(error.message || `Failed to mark invoice as paid: ${response.statusText}`);
+    throw Object.assign(new Error(error.message || `Failed to mark invoice as paid: ${response.statusText}`), { status: response.status });
   }
 
   const json = await response.json();

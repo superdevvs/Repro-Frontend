@@ -1,241 +1,415 @@
-import { ServicePickerField } from '@/components/booking/ServicePickerField';
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { useEffect, useRef, useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { CalendarIcon, FileTextIcon, Plus, Minus } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format } from "date-fns";
-import { InvoiceData } from '@/utils/invoiceUtils';
-import { useToast } from '@/hooks/use-toast';
-
-interface CreateInvoiceDialogProps {
+import { apiClient } from "@/services/api";
+import { mapInvoiceResponse } from "@/services/invoiceService";
+import type { InvoiceData } from "@/types/invoice";
+import { downloadInvoicePdf } from "@/utils/invoiceDownloads";
+import { SendInvoiceDialog } from "./SendInvoiceDialog";
+import { BRAND_NAME, BRAND_EMAIL, BRAND_ADDRESS_LINES } from "@/config/brand";
+import "./invoice-composer.css";
+type Line = { description: string; quantity: number; price: number };
+type Client = { id: number; name: string; email: string };
+type Shoot = { id: number; address: string; date: string; existing_invoice: string | null; lines: Line[] };
+const money = (n: number) => new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+const today = () => new Date().toLocaleDateString("en-CA");
+export function CreateInvoiceDialog({
+  isOpen,
+  onClose,
+  onInvoiceCreate,
+}: {
   isOpen: boolean;
   onClose: () => void;
   onInvoiceCreate: (invoice: InvoiceData) => void;
-}
-
-export function CreateInvoiceDialog({ isOpen, onClose, onInvoiceCreate }: CreateInvoiceDialogProps) {
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  
-  const [client, setClient] = useState('');
-  const [property, setProperty] = useState('');
-  const [amount, setAmount] = useState('');
-  const [date, setDate] = useState<Date>(new Date());
-  const [dueDate, setDueDate] = useState<Date>(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000));
-  const [services, setServices] = useState<string[]>(['Photography']);
-  
-  const handleAddService = () => {
-    setServices([...services, '']);
-  };
-  
-  const handleRemoveService = (index: number) => {
-    setServices(services.filter((_, i) => i !== index));
-  };
-  
-  const handleServiceChange = (index: number, value: string) => {
-    const updatedServices = [...services];
-    updatedServices[index] = value;
-    setServices(updatedServices);
-  };
-
-  const handleCreateInvoice = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!client || !property || !amount || !services.length || services.some(service => !service)) {
-      toast({
-        title: "Validation Error",
-        description: "Please fill out all required fields",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    setLoading(true);
-    
-    const randomNum = Math.floor(Math.random() * 900) + 100;
-    const invoiceId = `INV-${randomNum}`;
-    
-    const formattedDate = format(date, 'yyyy-MM-dd');
-    const formattedDueDate = format(dueDate, 'yyyy-MM-dd');
-    
-    const newInvoice: InvoiceData = {
-      id: invoiceId,
-      number: invoiceId,
-      client: client,
-      property: property,
-      date: formattedDate,
-      dueDate: formattedDueDate,
-      amount: parseFloat(amount),
-      status: 'pending' as const,
-      services: services.filter(service => service !== ''),
-      paymentMethod: 'Pending'
+}) {
+  const [clientSearch, setClientSearch] = useState(""),
+    [shootSearch, setShootSearch] = useState(""),
+    [clients, setClients] = useState<Client[]>([]),
+    [shoots, setShoots] = useState<Shoot[]>([]),
+    [client, setClient] = useState<Client | null>(null),
+    [shoot, setShoot] = useState<Shoot | null>(null),
+    [address, setAddress] = useState(""),
+    [lines, setLines] = useState<Line[]>([{ description: "Photography", quantity: 1, price: 0 }]),
+    [issue, setIssue] = useState(today),
+    [due, setDue] = useState(today),
+    [discount, setDiscount] = useState(0),
+    [tax, setTax] = useState(0),
+    [notes, setNotes] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [saved, setSaved] = useState<InvoiceData | null>(null),
+    [send, setSend] = useState(false),
+    [loading, setLoading] = useState(false);
+  const operation = useRef(crypto.randomUUID());
+  useEffect(() => {
+    if (!isOpen) return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      setLoading(true);
+      apiClient
+        .get("/admin/accounting-home/invoice-options", {
+          params: { q: client ? shootSearch : clientSearch, ...(client ? { client_id: client.id } : {}) },
+          signal: controller.signal,
+        })
+        .then((r) => (client ? setShoots(r.data.data) : setClients(r.data.data)))
+        .catch((e) => {
+          if (!controller.signal.aborted) setError(e.response?.data?.message ?? "Search could not load. Try again.");
+        })
+        .finally(() => setLoading(false));
+    }, 200);
+    return () => {
+      clearTimeout(timeout);
+      controller.abort();
     };
-    
-    setTimeout(() => {
-      setLoading(false);
-      onInvoiceCreate(newInvoice);
-      toast({
-        title: "Invoice Created",
-        description: `Invoice ${invoiceId} has been created successfully.`,
-        variant: "default",
-      });
-      
-      setClient('');
-      setProperty('');
-      setAmount('');
-      setDate(new Date());
-      setDueDate(new Date(Date.now() + 15 * 24 * 60 * 60 * 1000));
-      setServices(['Photography']);
-      
-      onClose();
-    }, 1000);
+  }, [isOpen, client, clientSearch, shootSearch]);
+  const subtotal = lines.reduce((n, l) => n + Math.round(Number(l.price) * 100) * Number(l.quantity), 0),
+    discountCents = Math.round(discount * 100),
+    taxCents = Math.round(((subtotal - discountCents) * tax) / 100),
+    total = (subtotal - discountCents + taxCents) / 100;
+  const change = (i: number, key: keyof Line, value: string | number) =>
+    setLines((rows) => rows.map((row, index) => (index === i ? { ...row, [key]: value } : row)));
+  const reset = () => {
+    setSaved(null);
+    setClient(null);
+    setShoot(null);
+    setClientSearch("");
+    setShootSearch("");
+    setAddress("");
+    setLines([{ description: "Photography", quantity: 1, price: 0 }]);
+    setDiscount(0);
+    setTax(0);
+    setNotes("");
+    setError("");
+    operation.current = crypto.randomUUID();
   };
-
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md md:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Create New Invoice</DialogTitle>
-          <DialogDescription>
-            Fill out the form below to create a new invoice
-          </DialogDescription>
-        </DialogHeader>
-        
-        <form onSubmit={handleCreateInvoice} className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="client">Client Name</Label>
-            <Input 
-              id="client" 
-              placeholder="Enter client name" 
-              value={client}
-              onChange={(e) => setClient(e.target.value)}
-              required 
-            />
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="property">Property Address</Label>
-            <Input 
-              id="property" 
-              placeholder="Enter property address" 
-              value={property}
-              onChange={(e) => setProperty(e.target.value)}
-              required 
-            />
-          </div>
-          
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Invoice Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {date ? format(date, "PPP") : "Select date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={date}
-                    onSelect={(date) => date && setDate(date)}
-                    initialFocus
+    <>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (!open && !busy) onClose();
+        }}
+      >
+        <DialogContent className="invoice-composer-dialog">
+          <DialogHeader>
+            <DialogTitle>{saved ? "Invoice saved" : "Create invoice"}</DialogTitle>
+            <DialogDescription>
+              {saved
+                ? "Saved to accounting. Download the invoice or send it to the registered client."
+                : "Choose a client and an unbilled shoot, or enter a manual property invoice. USD."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="invoice-composer-columns">
+            <form
+              id="invoice-composer"
+              className="invoice-composer-form"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                if (!client || !address || discountCents > subtotal || total <= 0) {
+                  setError("Select a client, enter an address and check line amounts and discount.");
+                  return;
+                }
+                setBusy(true);
+                setError("");
+                try {
+                  const result = await apiClient.post("/admin/accounting-home/invoices", {
+                    operation_key: operation.current,
+                    client_id: client.id,
+                    shoot_id: shoot?.id ?? null,
+                    address,
+                    issue_date: issue,
+                    due_date: due,
+                    lines,
+                    discount,
+                    tax_rate: tax,
+                    notes,
+                  });
+                  const invoice = mapInvoiceResponse(result.data.data);
+                  setSaved(invoice);
+                  onInvoiceCreate(invoice);
+                } catch (err) {
+                  setError(
+                    (err as { response?: { data?: { message?: string } } }).response?.data?.message ??
+                      "Invoice could not save. Check the fields and retry.",
+                  );
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              <fieldset disabled={busy || Boolean(saved)}>
+                <label>
+                  Search clients
+                  <Input
+                    aria-label="Search clients"
+                    placeholder="Client name or email"
+                    value={clientSearch}
+                    onChange={(e) => {
+                      if (shoot) {
+                        setAddress("");
+                        setLines([{ description: "Photography", quantity: 1, price: 0 }]);
+                      }
+                      setClientSearch(e.target.value);
+                      setClient(null);
+                      setShoot(null);
+                      setShootSearch("");
+                    }}
                   />
-                </PopoverContent>
-              </Popover>
-            </div>
-            
-            <div className="space-y-2">
-              <Label>Due Date</Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {dueDate ? format(dueDate, "PPP") : "Select date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0">
-                  <Calendar
-                    mode="single"
-                    selected={dueDate}
-                    onSelect={(date) => date && setDueDate(date)}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Services</Label>
-            {services.map((service, index) => (
-              <div key={index} className="flex items-center space-x-2">
-                <ServicePickerField label="Choose invoice service" value={service}
-                  onValueChange={value => handleServiceChange(index, value)} hidePrices
-                  options={['Photography', 'Videography', 'Drone', 'Virtual Staging', 'Floorplans', '3D Tour'].map(name => ({ id: name, name, category: name }))} />
+                </label>
+                {client ? (
+                  <div className="composer-selected">
+                    <b>{client.name}</b>
+                    <small>{client.email}</small>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        if (shoot) {
+                          setAddress("");
+                          setLines([{ description: "Photography", quantity: 1, price: 0 }]);
+                        }
+                        setClient(null);
+                        setShoot(null);
+                      }}
+                    >
+                      Change client
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="composer-search-results" aria-label="Client search results">
+                    {clients.map((c) => (
+                      <button
+                        type="button"
+                        key={c.id}
+                        onClick={() => {
+                          setClient(c);
+                          setShoot(null);
+                          setError("");
+                        }}
+                      >
+                        <b>{c.name}</b>
+                        <small>{c.email}</small>
+                      </button>
+                    ))}
+                    {loading ? <p role="status">Searching…</p> : !clients.length && <p>No matching clients.</p>}
+                  </div>
+                )}
+                {client && (
+                  <>
+                    <label>
+                      Search shoots
+                      <Input
+                        aria-label="Search shoots"
+                        placeholder="Property address"
+                        value={shootSearch}
+                        onChange={(e) => setShootSearch(e.target.value)}
+                      />
+                    </label>
+                    <div className="composer-search-results" aria-label="Shoot search results">
+                      {shoots.map((s) => (
+                        <button
+                          type="button"
+                          key={s.id}
+                          disabled={Boolean(s.existing_invoice)}
+                          aria-pressed={shoot?.id === s.id}
+                          onClick={() => {
+                            setShoot(s);
+                            setAddress(s.address);
+                            setLines(s.lines.length ? s.lines : [{ description: "Service", quantity: 1, price: 0 }]);
+                            setError("");
+                          }}
+                        >
+                          <b>{s.address}</b>
+                          <small>
+                            {s.date} ·{" "}
+                            {s.existing_invoice
+                              ? "Already invoiced: " + s.existing_invoice
+                              : "Unbilled · " + s.lines.length + " service lines"}
+                          </small>
+                        </button>
+                      ))}
+                      {loading ? (
+                        <p role="status">Searching…</p>
+                      ) : (
+                        !shoots.length && <p>No matching unbilled shoots. Enter a manual property below.</p>
+                      )}
+                    </div>
+                    {shoot && (
+                      <Button type="button" size="sm" variant="outline" onClick={() => setShoot(null)}>
+                        Use manual invoice instead
+                      </Button>
+                    )}
+                  </>
+                )}
+                <label>
+                  Property address
+                  <Input required value={address} onChange={(e) => setAddress(e.target.value)} maxLength={2000} />
+                </label>
+                <div className="composer-date-fields">
+                  <label>
+                    Issue date
+                    <Input type="date" required value={issue} onChange={(e) => setIssue(e.target.value)} />
+                  </label>
+                  <label>
+                    Due date
+                    <Input type="date" required min={issue} value={due} onChange={(e) => setDue(e.target.value)} />
+                  </label>
+                </div>
+                <div className="composer-lines">
+                  {lines.map((l, i) => (
+                    <div key={i}>
+                      <label>
+                        Service / description
+                        <Input required maxLength={500} value={l.description} onChange={(e) => change(i, "description", e.target.value)} />
+                      </label>
+                      <div>
+                        <label>
+                          Qty
+                          <Input
+                            type="number"
+                            required
+                            min="1"
+                            max="10000"
+                            step="1"
+                            value={l.quantity}
+                            onChange={(e) => change(i, "quantity", Number(e.target.value))}
+                          />
+                        </label>
+                        <label>
+                          Unit price (USD)
+                          <Input
+                            type="number"
+                            required
+                            min="0"
+                            max="1000000"
+                            step=".01"
+                            value={l.price}
+                            onChange={(e) => change(i, "price", Number(e.target.value))}
+                          />
+                        </label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          aria-label={"Remove line " + (i + 1)}
+                          disabled={lines.length === 1}
+                          onClick={() => setLines((rows) => rows.filter((_, index) => index !== i))}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handleRemoveService(index)}
-                  disabled={services.length <= 1}
+                  variant="outline"
+                  size="sm"
+                  disabled={lines.length >= 50}
+                  onClick={() => setLines((rows) => [...rows, { description: "", quantity: 1, price: 0 }])}
                 >
-                  <Minus className="h-4 w-4" />
+                  Add line
                 </Button>
+                <div className="composer-date-fields">
+                  <label>
+                    Discount (USD)
+                    <Input type="number" min="0" step=".01" value={discount} onChange={(e) => setDiscount(Number(e.target.value))} />
+                  </label>
+                  <label>
+                    Tax (%)
+                    <Input type="number" min="0" max="100" step=".01" value={tax} onChange={(e) => setTax(Number(e.target.value))} />
+                  </label>
+                </div>
+                <label>
+                  Notes
+                  <Input maxLength={5000} value={notes} onChange={(e) => setNotes(e.target.value)} />
+                </label>
+              </fieldset>
+            </form>
+            <section className="composer-preview" aria-label="Invoice preview">
+              <header>
+                <b>{BRAND_NAME}</b>
+                <small>{BRAND_ADDRESS_LINES.join(", ")}</small>
+                <small>{BRAND_EMAIL}</small>
+              </header>
+              <h2>
+                INVOICE <small>{saved?.number ?? "Draft preview"}</small>
+              </h2>
+              <p>
+                <b>{client?.name ?? "Select client"}</b>
+                <br />
+                {client?.email}
+                <br />
+                {address || "Property address"}
+              </p>
+              <div className="composer-preview-dates">
+                <span>Issued {issue}</span>
+                <span>Due {due}</span>
               </div>
-            ))}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-2"
-              onClick={handleAddService}
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add Service
-            </Button>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Description</th>
+                    <th>Qty</th>
+                    <th>Rate</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {lines.map((l, i) => (
+                    <tr key={i}>
+                      <td>{l.description}</td>
+                      <td>{l.quantity}</td>
+                      <td>{money(l.price)}</td>
+                      <td>{money((Math.round(l.price * 100) * l.quantity) / 100)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <dl>
+                <dt>Service subtotal</dt>
+                <dd>{money(subtotal / 100)}</dd>
+                <dt>Discount</dt>
+                <dd>−{money(discount)}</dd>
+                <dt>Tax ({tax}%)</dt>
+                <dd>{money(taxCents / 100)}</dd>
+                <dt>Total (USD)</dt>
+                <dd>{money(total)}</dd>
+              </dl>
+              {notes && <p>{notes}</p>}
+              <small>{saved ? `Saved ${saved.status} · no payment recorded` : "Preview · invoice number assigned when saved"}</small>
+            </section>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="amount">Invoice Amount ($)</Label>
-            <Input 
-              id="amount" 
-              type="number" 
-              step="0.01"
-              min="0"
-              placeholder="0.00" 
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              required 
-            />
-          </div>
-          
-          <DialogFooter className="pt-4">
-            <Button variant="outline" type="button" onClick={onClose}>Cancel</Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? (
-                <>Processing...</>
-              ) : (
-                <>
-                  <FileTextIcon className="h-4 w-4 mr-2" />
-                  Create Invoice
-                </>
-              )}
+          {error && (
+            <p role="alert" className="text-destructive">
+              {error}
+            </p>
+          )}
+          <footer className="composer-footer">
+            <Button variant="outline" onClick={onClose} disabled={busy}>
+              Close
             </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+            {saved ? (
+              <>
+                <Button variant="outline" onClick={() => void downloadInvoicePdf(saved)}>
+                  Download PDF
+                </Button>
+                <Button onClick={() => setSend(true)}>Send invoice</Button>
+                <Button variant="outline" onClick={reset}>
+                  New invoice
+                </Button>
+              </>
+            ) : (
+              <Button type="submit" form="invoice-composer" disabled={busy || !client}>
+                {busy ? "Saving…" : "Create invoice"}
+              </Button>
+            )}
+          </footer>
+        </DialogContent>
+      </Dialog>
+      {saved && <SendInvoiceDialog invoice={saved} isOpen={send} onClose={() => setSend(false)} onSent={() => { const issued = { ...saved, status: 'sent' as const }; setSaved(issued); onInvoiceCreate(issued); }} />}
+    </>
   );
 }
