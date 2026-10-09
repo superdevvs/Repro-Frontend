@@ -5,10 +5,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { to12Hour, to24Hour, formatTimeForDisplay } from '@/utils/availabilityUtils';
-import { getDayAvailability } from '@/utils/availabilityProvider';
+import { useSchedulingDayAvailability } from './useSchedulingDayAvailability';
 import { buildTimeOptionsForRange as buildTimeOptionsForRangePure, nextAutoFilledBookingTime } from '@/utils/suggestedTimeSlots';
 import { isBookingIntervalDisabled } from '@/utils/bookingIntervalAvailability';
-import { derivePanelState } from '@/utils/availabilityPanelState';
 import { FRONTEND_FALLBACK_HOURS_DISPLAY_ONLY } from '@/config/availabilityDefaults';
 import API_ROUTES from '@/lib/api';
 import { getCategorySpecialtyId, hasCategorySpecialty } from '@/utils/photographerSpecialties';
@@ -30,7 +29,6 @@ import {
 import { readBookingJobCoords } from '@/components/photographers/map/photographerMapFields';
 import type { ShootMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 import { useAuth } from '@/components/auth';
-import { CANONICAL_TIMEZONE } from '@/utils/timezone';
 
 
 /** Client-side ceiling so Confirm cannot hang forever if for-booking/geocode never settles. */
@@ -274,67 +272,11 @@ export const useSchedulingFormController = ({
     }
     return Array.from(byId.values());
   }, [canUseProtectedAvailability, photographers, photographersWithDistance]);
-  useEffect(() => {
-    const requestId = ++latestRequestRef.current;
-    // Hours and blocks belong to one photographer/day. Do not apply the last
-    // selection's response while the next selection is being checked.
-    setDayAvailability(null);
-    if (!photographer || !date) {
-      setAvailabilityPanel(null); // idle: no selection yet
-      return;
-    }
-    const controller = new AbortController();
-    setAvailabilityPanel(derivePanelState({ loading: true, aborted: false, error: null, result: null }));
-    if (!canUseProtectedAvailability) {
-      if (availabilityDataDate !== defaultServiceDate) {
-        setDayAvailability(null);
-        setAvailabilityPanel(null);
-        return;
-      }
-      const selected = photographerOptions.find((item) => String(item.id) === String(photographer));
-      const bookable = selected?.availabilitySlots ?? [];
-      const blocked = [...(selected?.bookedSlots ?? []), ...(selected?.unavailableSlots ?? [])]
-        .filter((slot) => Boolean(slot.start_time && slot.end_time))
-        .map((slot) => ({ start: slot.start_time, end: slot.end_time }));
-      const starts = bookable.map((slot) => slot.start_time).filter(Boolean).sort();
-      const ends = bookable.map((slot) => slot.end_time).filter(Boolean).sort();
-      const workingHours = starts.length > 0 && ends.length > 0
-        ? { start: starts[0], end: ends[ends.length - 1] }
-        : null;
-      const result = {
-        status: workingHours ? 'success' as const : blocked.length > 0 ? 'empty' as const : 'not-configured' as const,
-        day: {
-          workingHours,
-          blocked,
-          fromConfig: workingHours !== null,
-          timezone: CANONICAL_TIMEZONE,
-        },
-      };
-      setDayAvailability(result.day);
-      setAvailabilityPanel(derivePanelState({ loading: false, aborted: false, error: null, result }));
-      return;
-    }
-    (async () => {
-      try {
-        const result = await getDayAvailability(photographer, date, controller.signal);
-        if (requestId !== latestRequestRef.current) return; // stale → drop (Req 6.2)
-        setDayAvailability(result.day);
-        setAvailabilityPanel(
-          derivePanelState({ loading: false, aborted: false, error: null, result }),
-        );
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        if (requestId !== latestRequestRef.current) return; // stale → drop (Req 6.2)
-        setDayAvailability(null);
-        setAvailabilityPanel(
-          derivePanelState({ loading: false, aborted: false, error: err as Error, result: null }),
-        );
-      }
-    })();
-    return () => {
-      controller.abort();
-    };
-  }, [availabilityDataDate, canUseProtectedAvailability, date, defaultServiceDate, latestRequestRef, photographer, photographerOptions, setAvailabilityPanel, setDayAvailability]);
+  useSchedulingDayAvailability({
+    date, photographer, canUseProtectedAvailability, availabilityDataDate,
+    defaultServiceDate, photographerOptions, latestRequestRef,
+    setAvailabilityPanel, setDayAvailability,
+  });
   const getPhotographerScheduleData = useCallback((photographerId?: string | number) => {
     if (!photographerId) return null;
     return photographerOptions.find((item) => String(item.id) === String(photographerId)) ?? null;

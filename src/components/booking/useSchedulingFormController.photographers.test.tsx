@@ -58,6 +58,32 @@ describe('per-service booking photographer availability', () => {
     expect(props.handleSubmit).toHaveBeenCalledOnce();
   });
 
+  it('keeps one day check through roster enrichment, time changes and equivalent date objects', async () => {
+    mocks.role = 'admin';
+    let finish!: (value: unknown) => void;
+    mocks.getDayAvailability.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ data: [{ id: 9, name: 'Pat' }] }) })));
+    const props = eligibilityProps();
+    const { result, rerender } = renderHook(p => useSchedulingFormController(p), { initialProps: props });
+    await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
+    expect(mocks.getDayAvailability).toHaveBeenCalledTimes(1);
+    const signal = mocks.getDayAvailability.mock.calls[0][2] as AbortSignal;
+    rerender({ ...props, time: '11:00', date: new Date('2026-10-05T00:00:00'), photographers: [...props.photographers!] });
+    await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
+    expect(signal.aborted).toBe(false);
+    expect(mocks.getDayAvailability).toHaveBeenCalledTimes(1);
+    await act(async () => finish({ status: 'success', day: { workingHours: { start: '09:00', end: '17:00' }, blocked: [], fromConfig: true, timezone: 'America/New_York' } }));
+    expect(result.current.availabilityPanel?.kind).toBe('success');
+    rerender({ ...props, photographers: [{ id: '9', name: 'Pat updated' }] });
+    expect(result.current.availabilityPanel?.kind).toBe('success');
+    expect(mocks.getDayAvailability).toHaveBeenCalledTimes(1);
+    rerender({ ...props, date: new Date('2026-10-06T12:00:00') });
+    expect(signal.aborted).toBe(true);
+    expect(result.current.dayAvailability).toBeNull();
+    expect(result.current.availabilityPanel?.kind).toBe('loading');
+    expect(mocks.getDayAvailability).toHaveBeenCalledTimes(2);
+  });
+
   it('clears the previous photographer working hours while the new day check is pending', async () => {
     mocks.role = 'admin';
     mocks.getDayAvailability.mockImplementation((id: string) => id === '9'
