@@ -4,6 +4,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { CheckCircle2, Copy, Download, KeyRound, Laptop2, LogOut, RefreshCw, Settings, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { QRCodeSVG } from 'qrcode.react';
+import { Link } from 'react-router-dom';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -352,6 +353,7 @@ export function ProfileSecurityCard() {
             <Settings className="h-5 w-5" /> Security
           </CardTitle>
           <CardDescription>Password, authenticator, and signed-in devices</CardDescription>
+          <Link to="/copilot/connections" className="text-sm underline">Manage connected ChatGPT apps</Link>
         </CardHeader>
         <CardContent>
           {isLoading ? (

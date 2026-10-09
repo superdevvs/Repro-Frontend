@@ -47,6 +47,8 @@ import { renderDevOnlyPublicRoutes } from './app/devOnlyPublicRoutes';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const BookShoot = lazy(() => import('./pages/BookShoot'));
+const CopilotConnect = lazy(() => import('./pages/CopilotConnect'));
+const CopilotConnections = lazy(() => import('./pages/CopilotConnections'));
 const Invoices = lazy(() => import('./pages/Invoices'));
 const Settings = lazy(() => import('./pages/Settings'));
 const SchedulingSettings = lazy(() => import('./pages/SchedulingSettings'));
@@ -383,6 +385,8 @@ const AppRoutes = () => {
         </PageTransition>
       } />
       <Route path="/login" element={<Navigate to="/" replace />} />
+      <Route path="/copilot/connect" element={<ProtectedRoute><CopilotConnect /></ProtectedRoute>} />
+      <Route path="/copilot/connections" element={<ProtectedRoute><CopilotConnections /></ProtectedRoute>} />
       {import.meta.env.DEV ? renderDevOnlyPublicRoutes() : null}
 
       {/* Legacy paths preserve client bookmarks; source IDs resolve on the server. */}
