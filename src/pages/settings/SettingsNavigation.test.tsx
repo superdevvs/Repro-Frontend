@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest';
 import { useState } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -22,26 +22,29 @@ describe('grouped settings navigation', () => {
   afterEach(cleanup);
   it('has six primary sections and remembers a selected subsection when returning', async () => {
     render(<Harness />);
-    expect(within(screen.getByRole('navigation', { name: 'Settings sections' })).getAllByRole('button')).toHaveLength(6);
+    expect(within(screen.getByRole('tablist', { name: 'Settings sections' })).getAllByRole('tab')).toHaveLength(6);
     await userEvent.click(screen.getByRole('tab', { name: 'Notifications' }));
     expect(screen.getByText('notifications panel')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Business' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Business' }));
     expect(screen.getByText('coupons panel')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'My Account' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'My Account' }));
     expect(screen.getByRole('tab', { name: 'Notifications' })).toHaveAttribute('aria-selected', 'true');
   });
-  it('filters groups and child controls to the exact available permissions', () => {
+  it('filters groups and child controls to the exact available permissions', async () => {
     const available: SettingsTab[] = ['profile', 'account', 'notifications', 'desktop-editing'];
     render(<Harness tabs={available} monitor={false} />);
-    expect(screen.queryByRole('button', { name: 'Business' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'Business' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'System Monitor' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Editing' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Editing' }));
     expect(screen.queryByRole('tab', { name: 'AI providers' })).not.toBeInTheDocument();
     expect(screen.getByText('desktop-editing panel')).toBeVisible();
   });
-  it('switches through the mobile section selector', () => {
+  it('keeps collapsed icons named and expands the selected category', async () => {
     render(<Harness />);
-    fireEvent.change(screen.getByLabelText('Settings section', { exact: true }), { target: { value: 'branding' } });
+    const branding = screen.getByRole('tab', { name: 'Branding' });
+    expect(within(branding).queryByText('Branding')).not.toBeInTheDocument();
+    await userEvent.click(branding);
+    expect(within(branding).getByText('Branding')).toBeVisible();
     expect(screen.getByText('branding panel')).toBeVisible();
   });
   it('preserves every legacy deep link and resolves new group links only to allowed children', () => {

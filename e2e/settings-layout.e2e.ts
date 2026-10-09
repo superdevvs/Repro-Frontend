@@ -61,26 +61,17 @@ for (const width of [390, 1280]) {
     const state = await fixture(page, baseURL);
     await page.goto('/settings');
     await expect(page.getByLabel('Full Name', { exact: true })).toBeVisible();
-    if (width < 768) {
-      await expect(page.getByLabel('Settings section', { exact: true }).locator('option')).toHaveText(sectionNames);
-      expect(await page.getByLabel('Settings section', { exact: true }).evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
-    } else {
-      await expect(page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button')).toHaveText(sectionNames);
-    }
+    const categories = page.getByRole('tablist', { name: 'Settings sections', exact: true });
+    expect(await categories.getByRole('tab').evaluateAll(tabs => tabs.map(tab => tab.getAttribute('aria-label')))).toEqual(sectionNames);
+    if (width < 768) expect(await categories.getByRole('tab').first().evaluate(element => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(44);
     await noOverflow(page);
     await expect(page.getByRole('button', { name: 'Save Changes', exact: true })).toBeInViewport();
     await capture(page, `personal-${width}`);
-    if (width < 768) await page.getByLabel('Settings section', { exact: true }).selectOption('business');
-    else await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Business' }).click();
+    await categories.getByRole('tab', { name: 'Business', exact: true }).click();
     await page.getByRole('tab', { name: 'Service Areas', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Service Area Assignment', exact: true })).toBeVisible();
-    if (width < 768) {
-      await page.getByLabel('Settings section', { exact: true }).selectOption('my-account');
-      await page.getByLabel('Settings section', { exact: true }).selectOption('business');
-    } else {
-      await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'My Account' }).click();
-      await page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button', { name: 'Business' }).click();
-    }
+    await categories.getByRole('tab', { name: 'My Account', exact: true }).click();
+    await categories.getByRole('tab', { name: 'Business', exact: true }).click();
     await expect(page.getByRole('tab', { name: 'Service Areas', exact: true })).toHaveAttribute('aria-selected', 'true');
 
     for (const [tab, marker] of [
@@ -141,8 +132,7 @@ for (const width of [390, 1280]) {
     await page.goto('/settings?tab=desktop-editing');
     await expect(page.getByRole('heading', { name: 'Desktop editing', exact: true })).toBeVisible();
     const expected = ['My Account', 'Editing'];
-    if (width < 768) await expect(page.getByLabel('Settings section', { exact: true }).locator('option')).toHaveText(expected);
-    else await expect(page.getByRole('navigation', { name: 'Settings sections' }).getByRole('button')).toHaveText(expected);
+    expect(await page.getByRole('tablist', { name: 'Settings sections', exact: true }).getByRole('tab').evaluateAll(tabs => tabs.map(tab => tab.getAttribute('aria-label')))).toEqual(expected);
     await expect(page.locator('html')).toHaveClass(/dark/);
     await noOverflow(page);
     await capture(page, `editing-manager-dark-${width}`);
@@ -152,6 +142,12 @@ for (const width of [390, 1280]) {
 test('subsection keyboard navigation and automatic email verification disclosure', async ({ page, baseURL }) => {
   await fixture(page, baseURL);
   await page.goto('/settings');
+  const categories = page.getByRole('tablist', { name: 'Settings sections', exact: true });
+  await categories.getByRole('tab', { name: 'My Account', exact: true }).focus();
+  await page.keyboard.press('ArrowRight');
+  await expect(categories.getByRole('tab', { name: 'Branding', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await page.keyboard.press('ArrowLeft');
+  await expect(categories.getByRole('tab', { name: 'My Account', exact: true })).toHaveAttribute('aria-selected', 'true');
   await page.getByRole('tab', { name: 'Personal details' }).focus();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('tab', { name: 'Account & security' })).toHaveAttribute('aria-selected', 'true');
@@ -176,5 +172,38 @@ for (const width of [320, 768, 1024]) {
     await capture(page, `robbie-dark-${width}`);
     expect(state.errors).toEqual([]);
     expect(state.writes).toEqual([]);
+  });
+}
+
+for (const viewport of [{ width: 390, height: 600 }, { width: 320, height: 568 }, { width: 667, height: 375 }]) {
+  test(`expanding tabs and save controls remain usable on ${viewport.width}x${viewport.height}`, async ({ page, baseURL }) => {
+    await page.setViewportSize(viewport);
+    const state = await fixture(page, baseURL, 'superadmin', 'dark');
+    await page.goto('/settings');
+    await expect(page.getByLabel('Full Name', { exact: true })).toBeVisible();
+    const categories = page.getByRole('tablist', { name: 'Settings sections', exact: true });
+    const initialHeight = await page.locator('[data-settings-layout] > div').first().evaluate(element => element.getBoundingClientRect().height);
+    expect(initialHeight).toBeLessThanOrEqual(50);
+    for (const name of sectionNames) {
+      await categories.getByRole('tab', { name, exact: true }).click();
+      await expect(categories.getByRole('tab', { name, exact: true })).toHaveAttribute('aria-selected', 'true');
+      await noOverflow(page);
+    }
+    await categories.getByRole('tab', { name: 'My Account', exact: true }).click();
+    await page.getByRole('tab', { name: 'Personal details', exact: true }).click();
+    const save = page.getByRole('button', { name: 'Save Changes', exact: true });
+    await save.scrollIntoViewIfNeeded();
+    await expect(save).toBeInViewport();
+    await page.getByRole('tab', { name: 'Account & security', exact: true }).click();
+    await page.getByRole('button', { name: 'Update Account', exact: true }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole('button', { name: 'Update Account', exact: true })).toBeInViewport();
+    await page.getByRole('tab', { name: 'Notifications', exact: true }).click();
+    await page.getByRole('button', { name: 'Save Preferences', exact: true }).scrollIntoViewIfNeeded();
+    await expect(page.getByRole('button', { name: 'Save Preferences', exact: true })).toBeInViewport();
+    await page.getByRole('tab', { name: 'Personal details', exact: true }).click();
+    await categories.scrollIntoViewIfNeeded();
+    await capture(page, `short-height-${viewport.width}x${viewport.height}`);
+    expect(state.writes).toEqual([]);
+    expect(state.errors).toEqual([]);
   });
 }

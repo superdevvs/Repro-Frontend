@@ -15,6 +15,7 @@ interface AutoExpandingTabsListProps {
   tabs: AutoExpandingTab[]
   value: string
   className?: string
+  ariaLabel?: string
   variant?: 'default' | 'compact'
   desktopExpanded?: boolean
   onTabInteraction?: (value: string) => void
@@ -24,6 +25,7 @@ export function AutoExpandingTabsList({
   tabs,
   value,
   className,
+  ariaLabel,
   variant = 'default',
   desktopExpanded = false,
   onTabInteraction,
@@ -32,7 +34,7 @@ export function AutoExpandingTabsList({
 
   return (
     <div className={cn("flex min-w-0 max-w-full gap-2 overflow-x-auto overscroll-x-contain pb-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]", className)}>
-      <TabsPrimitive.List className="flex w-max min-w-max gap-2">
+      <TabsPrimitive.List aria-label={ariaLabel} className="flex w-max min-w-max gap-2">
         {tabs.map((tab) => {
           const isActive = value === tab.value
           const isHovered = hoveredTab === tab.value
@@ -93,6 +95,7 @@ export function AutoExpandingTabsList({
                     : "bg-muted text-muted-foreground"
                 )}
                 title={tab.label}
+                aria-label={tab.label}
               >
                 <Icon className="flex-shrink-0 h-4 w-4" />
                 {shouldRenderLabel && (

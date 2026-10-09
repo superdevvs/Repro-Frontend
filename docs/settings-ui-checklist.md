@@ -15,21 +15,21 @@ Use this checklist when changing Settings. Record local and deployed evidence se
 
 ## Compact and responsive layout
 
-- [ ] Desktop uses a narrow section menu and flexible content column.
-- [ ] Phones use one labelled section selector, with no wrapping rows of primary tabs.
+- [ ] Both navigation levels use compact icon tabs, expanding the selected or hovered label on desktop and phone.
+- [ ] Primary tabs remain a single horizontally scrolling row; a single-subsection group hides its redundant second row.
 - [ ] Small subsection lists remain usable through horizontal scrolling without page overflow.
 - [ ] Related contact fields use two columns when space allows and one column on phones.
 - [ ] Profile identity and personal fields share a card; the save action is visible in the initial 900px-high test viewport.
 - [ ] Card spacing and headings are consistent; normal input sizes remain intact.
 - [ ] Password controls and service-area diagnostic tools use accessible disclosures.
 - [ ] Long labels, existing provider controls, empty states and loaded data stay within the content width.
-- [ ] Check desktop, tablet, narrow phone and normal phone widths, plus light and dark themes.
+- [ ] Check desktop, tablet, narrow phone and normal phone widths, plus light and dark themes. Include 390x600, 320x568 and 667x375 landscape; navigation must not grow into a vertical menu.
 
 ## Accessibility and behavior
 
 - [ ] New navigation controls have accessible names, visible focus and selected-state feedback.
 - [ ] Phone section and subsection controls have 44px targets; the full profile avatar is clickable.
-- [ ] Arrow keys switch subsections; Tab reaches fields and save actions.
+- [ ] Arrow keys switch both categories and subsections; Tab reaches fields and save actions. On short-height phones, every save action remains reachable by scrolling.
 - [ ] Editing email automatically reveals current-password verification.
 - [ ] Profile, account and notification forms send the original payload shapes and retain saved values after reload.
 - [ ] Existing notification opt-outs, provider restrictions and account/security rules remain intact.
