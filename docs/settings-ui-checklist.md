@@ -9,8 +9,10 @@ Use this checklist when changing Settings. Record local and deployed evidence se
 - [ ] Personal details, account/security and notification preferences remain easy to reach.
 - [ ] Personal portfolio branding and shared photo watermarks have explicit scope labels.
 - [ ] AI photo providers and Robbie assistant configuration remain separate workflows.
-- [ ] System Monitor is a separate route; superadmin secondary roles retain access, and impersonation blocks it.
-- [ ] Existing `?tab=` links open the correct subsection. `?tab=overview&view=server` redirects to the monitor and retains the view.
+- [ ] System Monitor has no sidebar or mobile shortcut and is hidden until five consecutive Account & security tab clicks reveal its underline tab inside My Account.
+- [ ] Unlock persists for the current browser session and authenticated user only; superadmin secondary roles retain access, and impersonation blocks it.
+- [ ] Other tab/category interactions reset an unfinished click sequence. Four clicks do not reveal monitoring, and the fifth leaves Account selected.
+- [ ] Existing `?tab=` links open the correct subsection. Locked overview links cannot bypass the unlock; `/system-monitor?view=server` returns to Settings and retains the view after unlocking.
 - [ ] Changing categories remembers the last subsection during the current visit.
 
 ## Compact and responsive layout
@@ -44,5 +46,5 @@ Use this checklist when changing Settings. Record local and deployed evidence se
 - [ ] Verify the deployed commit, index and hashed assets.
 - [ ] Inspect the real signed-in Settings page on desktop and phone, every section, and System Monitor navigation.
 - [ ] Keep production save actions out of visual verification; exercise saves with isolated local fixtures.
-- [ ] Preserve screenshots and an acceptance report in workspace `output/`.
+- [ ] Preserve temporary screenshots and acceptance reports outside the workspace, under `C:\Users\shubh\Desktop\Projects\ui exploration\time picker\repro-settings\`.
 - [ ] Remove only clean release worktrees whose commits are contained in `origin/main`.

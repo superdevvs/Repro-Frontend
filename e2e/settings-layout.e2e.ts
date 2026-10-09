@@ -24,6 +24,7 @@ async function fixture(page: Page, baseURL: string | undefined, role = 'superadm
     const req = route.request(); const pathname = new URL(req.url()).pathname;
     let body: unknown = { data: [] };
     if (pathname === '/api/user') body = actor;
+    if (pathname === '/api/admin/system-overview/snapshot') body = { data: null };
     if (pathname.includes('/voice/browser/config')) body = { ready: false, blockers: [], presence_verification: 'provider' };
     if (pathname === '/api/me/permissions') body = { permissions: resources.flatMap(resource => ['view', 'create', 'update'].map(action => ({ resource, action }))), permissionIds: [] };
     if (pathname.endsWith('/branding')) body = { data: { branding: {} } };
@@ -124,6 +125,43 @@ for (const width of [390, 1280]) {
     await page.goto('/system-monitor');
     await expect(page).toHaveURL(/\/settings$/);
     await expect(page.getByLabel('Full Name', { exact: true })).toBeVisible();
+    for (let click = 0; click < 6; click++) await page.getByRole('tab', { name: 'Account & security', exact: true }).click();
+    await expect(page.getByRole('tab', { name: 'System Monitor', exact: true })).toHaveCount(0);
+  });
+
+  test(`monitor requires five consecutive Account clicks and stays inside Settings at ${width}px`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 600 });
+    const state = await fixture(page, baseURL);
+    await page.goto('/system-monitor?view=server');
+    await expect(page).toHaveURL(/\/settings\?view=server&tab=account$/);
+    await expect(page.getByRole('heading', { name: 'Account & security', exact: true })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'System Monitor', exact: true })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'System Monitor', exact: true })).toHaveCount(0);
+    await page.goto('/settings?tab=overview');
+    await expect(page.getByLabel('Full Name', { exact: true })).toBeVisible();
+    const account = page.getByRole('tab', { name: 'Account & security', exact: true });
+    for (let click = 0; click < 4; click++) await account.click();
+    await expect(page.getByRole('tab', { name: 'System Monitor', exact: true })).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Notifications', exact: true }).click();
+    for (let click = 0; click < 4; click++) await account.click();
+    await expect(page.getByRole('tab', { name: 'System Monitor', exact: true })).toHaveCount(0);
+    await page.getByRole('tab', { name: 'Branding', exact: true }).click();
+    await page.getByRole('tab', { name: 'My Account', exact: true }).click();
+    for (let click = 0; click < 4; click++) await account.click();
+    await expect(page.getByRole('tab', { name: 'System Monitor', exact: true })).toHaveCount(0);
+    await account.click();
+    await expect(page.getByRole('tab', { name: 'System Monitor', exact: true })).toBeVisible();
+    await expect(account).toHaveAttribute('aria-selected', 'true');
+    await page.reload();
+    await expect(page.getByRole('tab', { name: 'System Monitor', exact: true })).toBeVisible();
+    await page.getByRole('tab', { name: 'System Monitor', exact: true }).click();
+    await expect(page).toHaveURL(/\/settings\?tab=overview$/);
+    await expect(page.getByRole('tablist', { name: 'Overview views', exact: true })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'System Monitor', exact: true })).toHaveCount(0);
+    await noOverflow(page);
+    await capture(page, `hidden-monitor-unlocked-${width}`);
+    expect(state.writes).toEqual([]);
+    expect(state.errors).toEqual([]);
   });
 
   test(`editing manager only sees allowed categories and dark mode remains compact at ${width}px`, async ({ page, baseURL }) => {

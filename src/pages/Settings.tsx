@@ -28,6 +28,8 @@ import { API_BASE_URL } from '@/config/env';
 import WatermarkEditor from '@/components/settings/WatermarkEditor';
 import { RobbieSettings } from '@/components/settings/RobbieSettings';
 import { hasMonitorRole } from '@/features/server-monitor/client';
+import OverviewWithServer from '@/features/server-monitor/OverviewWithServer';
+import { useHiddenSystemMonitor } from '@/pages/settings/useHiddenSystemMonitor';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
 import { ServiceAreaAssignmentTool } from '@/components/photographers/ServiceAreaAssignmentTool';
 import { TestShootPanel } from '@/components/photographers/TestShootPanel';
@@ -98,7 +100,10 @@ const Settings = () => {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [avatarDrawerOpen, setAvatarDrawerOpen] = useState(false);
-  const showSystemOverviewTab = !isImpersonating && hasMonitorRole(role || user?.role, user?.secondary_roles);
+  const monitorAccess = useHiddenSystemMonitor(user?.id,
+    !isImpersonating && hasMonitorRole(role || user?.role, user?.secondary_roles),
+    () => toast({ title: 'System Monitor unlocked', description: 'The monitor tab is now available in Settings for this session.' }));
+  const showSystemOverviewTab = monitorAccess.unlocked;
 
   // Compute the onboarding block directly from the authenticated user without
   // calling useDashboardOnboarding (avoids duplicate sidebar-state emissions).
@@ -151,8 +156,9 @@ const Settings = () => {
     if (canViewServiceAreas) {
       tabs.push('service-areas');
     }
+    if (showSystemOverviewTab) tabs.push('overview');
     return tabs;
-  }, [canViewCoupons, canViewIntegrations, canViewRobbieSettings, canViewServiceAreas, canViewWatermark, role]);
+  }, [canViewCoupons, canViewIntegrations, canViewRobbieSettings, canViewServiceAreas, canViewWatermark, role, showSystemOverviewTab]);
 
   const getValidTab = React.useCallback(
     (tabParam: string | null): TabValue => {
@@ -228,6 +234,7 @@ const Settings = () => {
   }, [availableTabs, searchParams, setSearchParams]);
 
   const handleTabChange = (value: string) => {
+    if (value !== 'account') monitorAccess.recordInteraction(value);
     const nextTab = getValidTab(value);
     setActiveTab(nextTab);
 
@@ -423,7 +430,8 @@ const Settings = () => {
         />
 
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-            <SettingsNavigation availableTabs={availableTabs} activeTab={activeTab} onTabChange={handleTabChange} showMonitor={showSystemOverviewTab}>
+            <SettingsNavigation availableTabs={availableTabs} activeTab={activeTab} onTabChange={handleTabChange} onTabInteraction={monitorAccess.recordInteraction}>
+            {showSystemOverviewTab && <TabsContent value="overview"><OverviewWithServer /></TabsContent>}
             <TabsContent value="profile" className="space-y-4">
               <form onSubmit={handleSaveProfile} className="space-y-4">
                 {/* Avatar + Identity Card */}
@@ -794,14 +802,8 @@ const Settings = () => {
 };
 
 function SettingsPage() {
-  const { user, role, isImpersonating } = useAuth();
+  const { user, role } = useAuth();
   const [searchParams] = useSearchParams();
-  if (searchParams.get('tab') === 'overview' && !isImpersonating && hasMonitorRole(role || user?.role, user?.secondary_roles)) {
-    const monitorParams = new URLSearchParams(searchParams);
-    monitorParams.delete('tab');
-    const query = monitorParams.toString();
-    return <Navigate to={`/system-monitor${query ? `?${query}` : ''}`} replace />;
-  }
   if ((role || user?.role) === 'photographer' && !hasMonitorRole(role || user?.role, user?.secondary_roles)) {
     return <Navigate to={photographerSettingsDestination(searchParams)} replace />;
   }

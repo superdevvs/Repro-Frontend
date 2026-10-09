@@ -9,10 +9,10 @@ import { SettingsNavigation } from './SettingsNavigation';
 import { resolveSettingsTab, SETTINGS_GROUPS, visibleSettingsGroups, type SettingsTab } from './settingsSections';
 
 const allTabs = SETTINGS_GROUPS.flatMap(group => group.tabs.map(tab => tab.value));
-function Harness({ tabs = allTabs, monitor = true }: { tabs?: SettingsTab[]; monitor?: boolean }) {
+function Harness({ tabs = allTabs }: { tabs?: SettingsTab[] }) {
   const [active, setActive] = useState<SettingsTab>('profile');
   return <MemoryRouter><Tabs value={active} onValueChange={value => setActive(value as SettingsTab)}>
-    <SettingsNavigation activeTab={active} availableTabs={tabs} onTabChange={value => setActive(value as SettingsTab)} showMonitor={monitor}>
+    <SettingsNavigation activeTab={active} availableTabs={tabs} onTabChange={value => setActive(value as SettingsTab)}>
       {tabs.map(tab => <TabsContent key={tab} value={tab}>{tab} panel</TabsContent>)}
     </SettingsNavigation>
   </Tabs></MemoryRouter>;
@@ -32,7 +32,7 @@ describe('grouped settings navigation', () => {
   });
   it('filters groups and child controls to the exact available permissions', async () => {
     const available: SettingsTab[] = ['profile', 'account', 'notifications', 'desktop-editing'];
-    render(<Harness tabs={available} monitor={false} />);
+    render(<Harness tabs={available} />);
     expect(screen.queryByRole('tab', { name: 'Business' })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'System Monitor' })).not.toBeInTheDocument();
     await userEvent.click(screen.getByRole('tab', { name: 'Editing' }));

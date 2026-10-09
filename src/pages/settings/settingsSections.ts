@@ -3,6 +3,7 @@ export const SETTINGS_GROUPS = [
     { value: 'profile', label: 'Personal details' },
     { value: 'account', label: 'Account & security' },
     { value: 'notifications', label: 'Notifications' },
+    { value: 'overview', label: 'System Monitor' },
   ] },
   { id: 'branding', label: 'Branding', description: 'Portfolio appearance and photo watermark settings.', tabs: [
     { value: 'branding', label: 'Portfolio' }, { value: 'watermark', label: 'Watermark' },
