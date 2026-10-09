@@ -82,7 +82,7 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
     {!panel && !error && <p className="text-sm text-muted-foreground">Checking Aryeo Flow…</p>}
     {panel && !panel.configured && <p className="text-sm text-muted-foreground">Aryeo Flow is not connected for this client yet.</p>}
     {panel?.connections.map(c => <p key={c.id} className="text-xs text-muted-foreground">{c.name}: {c.online ? 'Online' : 'Offline'} · Last seen {date(c.last_seen_at)}{!c.processing_enabled || !c.shoot_enabled ? ' · Read-only' : !c.executor_ready ? ' · Worker setup required' : ''}</p>)}
-    {panel?.configured && panel.orders.length === 0 && <p className="text-sm text-muted-foreground">{panel.connections.every(c => !c.last_seen_at) ? 'Waiting for the Mac to sync Showcase requests.' : 'No Showcase request matched to this shoot yet.'}</p>}
+    {panel?.configured && panel.orders.length === 0 && <p className="text-sm text-muted-foreground">{panel.connections.every(c => !c.last_seen_at) ? 'Waiting for the Mac to sync Aryeo requests.' : 'No Aryeo request matched to this shoot yet.'}</p>}
     {panel?.orders.map(order => {
       const c = panel.connections.find(c => c.id === order.connection_id);
       const job = order.jobs[0];
@@ -93,7 +93,7 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
       const inventoryFresh = inventoryKnown && Date.now() - Date.parse(order.inventory_checked_at!) < 120000;
       const canProcess = Boolean(c?.online && c.processing_enabled && c.shoot_enabled && c.executor_ready && order.request_id && !error);
       return <div key={order.id} className="space-y-3 border-t pt-3">
-        <p className="text-sm font-medium">Showcase request received</p>
+        <p className="text-sm font-medium">Aryeo request received</p>
         <div className="flex flex-wrap justify-between gap-2 text-sm"><span className="font-medium">Order {order.request_id ?? 'awaiting Aryeo verification'}</span><span>{job?.receipt ? (job.status === 'completed' ? (sameDelivered ? 'Delivered' : 'Update available') : 'Delivered · follow-up pending') : job ? readable(job.status) : order.readiness.eligible ? 'Ready to process' : 'Waiting'}</span></div>
         <p className="text-xs text-muted-foreground">{order.discovery.address} · {order.discovery.requester_email}{order.listing_id ? ` · Listing ${order.listing_id}` : ''}</p>
         {order.readiness.dashboard && <p className="text-xs text-muted-foreground">Dashboard: {order.readiness.dashboard.paid ? 'Paid' : 'Awaiting payment'} · {order.readiness.dashboard.delivered ? 'Delivered' : 'Awaiting delivery'} · Summary email not required</p>}

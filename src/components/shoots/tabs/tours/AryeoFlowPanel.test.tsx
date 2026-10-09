@@ -18,7 +18,7 @@ describe('Aryeo Flow panel', () => {
     vi.stubGlobal('fetch', fetch);
     render(<AryeoFlowPanel shootId={4} unitId={7} />);
     await screen.findByText('Order order-42');
-    expect(screen.getByText('Showcase request received')).toBeVisible();
+    expect(screen.getByText('Aryeo request received')).toBeVisible();
     expect(screen.getAllByText('Unknown')).toHaveLength(8);
     expect(fetch).toHaveBeenCalledTimes(1);
     expect(fetch.mock.calls[0][0]).toContain('/shoots/4/aryeo?unit_id=7');
