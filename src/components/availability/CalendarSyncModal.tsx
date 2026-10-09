@@ -55,6 +55,7 @@ interface CalendarSyncModalProps {
   availabilitySlots: AvailabilitySlot[];
   photographerName?: string;
   onGoogleCalendarConnect?: () => Promise<void> | void;
+  allowGoogleCalendarReconnect?: boolean;
   isGoogleCalendarConnecting?: boolean;
   onGoogleCalendarDisconnect?: () => Promise<void> | void;
   isGoogleCalendarDisconnecting?: boolean;
@@ -95,6 +96,7 @@ export function CalendarSyncModal({
   availabilitySlots,
   photographerName = "Your",
   onGoogleCalendarConnect,
+  allowGoogleCalendarReconnect = false,
   isGoogleCalendarConnecting = false,
   onGoogleCalendarDisconnect,
   isGoogleCalendarDisconnecting = false,
@@ -336,7 +338,7 @@ export function CalendarSyncModal({
       return;
     }
 
-    if (googleCalendarStatus?.connected) {
+    if (googleCalendarStatus?.connected && !allowGoogleCalendarReconnect) {
       return;
     }
 
@@ -366,7 +368,7 @@ export function CalendarSyncModal({
     : isGoogleCalendarStatusLoading
       ? "Checking status..."
       : googleCalendarStatus?.connected
-        ? "Connected"
+        ? allowGoogleCalendarReconnect ? "Reconnect with Google" : "Connected"
         : googleCalendarStatus && !googleCalendarStatus.available
           ? "OAuth not configured"
           : "Connect with Google";
@@ -384,7 +386,7 @@ export function CalendarSyncModal({
     || isGoogleCalendarStatusLoading
     || requiresPhotographerSelection
     || (googleCalendarStatus ? !googleCalendarStatus.available : false)
-    || googleIsConnected
+    || (googleIsConnected && !allowGoogleCalendarReconnect)
   );
   const showGoogleDisconnect = Boolean(googleIsConnected && onGoogleCalendarDisconnect);
 

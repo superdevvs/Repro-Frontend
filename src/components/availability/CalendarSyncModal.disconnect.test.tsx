@@ -16,6 +16,15 @@ const baseProps = {
 };
 
 describe("CalendarSyncModal Google disconnect", () => {
+  it("can reconnect an existing account in the opt-in verification flow without disconnecting", async () => {
+    const onConnect = vi.fn();
+    const onDisconnect = vi.fn();
+    render(<CalendarSyncModal {...baseProps} allowGoogleCalendarReconnect onGoogleCalendarConnect={onConnect}
+      onGoogleCalendarDisconnect={onDisconnect} googleCalendarStatus={{available:true, connected:true, sync_enabled:true, provider_email:"demo@example.com"}} />);
+    await userEvent.setup().click(screen.getByRole("button", {name:/google calendar.*reconnect with google/i}));
+    expect(onConnect).toHaveBeenCalledTimes(1);
+    expect(onDisconnect).not.toHaveBeenCalled();
+  });
   it("shows a permission error and lets the user reconnect when OAuth is configured", async () => {
     const onConnect = vi.fn();
     render(

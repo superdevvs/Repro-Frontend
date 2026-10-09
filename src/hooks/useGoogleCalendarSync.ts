@@ -60,6 +60,9 @@ export function useGoogleCalendarSync({
         headers: authHeaders(),
         body: JSON.stringify({
           source: "availability",
+          ...(new URLSearchParams(window.location.search).get("calendar_scope_preview") === "owned"
+            ? { owned_scope_preview: true }
+            : {}),
           ...(isAdminManagedConnect && selectedPhotographerRecord
             ? { user_id: Number(selectedPhotographerRecord.id) }
             : {}),

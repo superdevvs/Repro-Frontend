@@ -963,6 +963,7 @@ export default function Availability() {
         isOpen={isSyncModalOpen}
         onClose={() => setIsSyncModalOpen(false)}
         onGoogleCalendarConnect={fetchGoogleCalendarAuthorizationUrl}
+        allowGoogleCalendarReconnect={new URLSearchParams(window.location.search).get("calendar_scope_preview") === "owned"}
         isGoogleCalendarConnecting={isGoogleCalendarConnecting}
         onGoogleCalendarDisconnect={isPhotographer ? disconnectGoogleCalendar : undefined}
         isGoogleCalendarDisconnecting={isGoogleCalendarDisconnecting}

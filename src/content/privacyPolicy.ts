@@ -166,7 +166,7 @@ export const privacySections: PrivacySection[] = [
       {
         title: 'How shoot synchronization uses Google Calendar',
         paragraphs: [
-          'We send assigned-shoot information to the connected Google calendar to create and maintain appointment events. Depending on the appointment, this may include dates, times, timezones, property addresses, client or on-site contact information, service details, relevant shoot and access instructions, reminders, and a link to the shoot in the Platform. We update these events when the dashboard schedule changes and remove events that no longer apply to the connected photographer. Cancelled appointments may remain in the calendar with a cancellation label.',
+          'We send assigned-shoot information to the connected Google calendar to create and maintain appointment events. Depending on the appointment, this may include dates, times, timezones, property addresses, client or on-site contact information, service details, relevant shoot and access instructions, reminders, and a link to the shoot in the Platform. We update these events when the dashboard schedule changes and remove events that no longer apply to the connected photographer. When an appointment is cancelled or placed on hold, the Platform attempts to remove its synchronized calendar event. If synchronization cannot complete, the event may remain until the removal succeeds or is performed manually.',
           'Changes flow from the Platform to Google Calendar. This integration does not import unrelated personal Google Calendar events into the Platform.',
         ],
       },
