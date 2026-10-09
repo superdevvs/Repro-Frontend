@@ -51,6 +51,7 @@ const CopilotConnect = lazy(() => import('./pages/CopilotConnect'));
 const CopilotConnections = lazy(() => import('./pages/CopilotConnections'));
 const Invoices = lazy(() => import('./pages/Invoices'));
 const Settings = lazy(() => import('./pages/Settings'));
+const SystemMonitor = lazy(() => import('./pages/SystemMonitor'));
 const SchedulingSettings = lazy(() => import('./pages/SchedulingSettings'));
 const TourBranding = lazy(() => import('./pages/TourBranding'));
 const Accounts = lazy(() => import('./pages/Accounts'));
@@ -598,6 +599,9 @@ const AppRoutes = () => {
         <PermissionRoute resource="settings">
           <Settings />
         </PermissionRoute>
+      } />
+      <Route path="/system-monitor" element={
+        <PermissionRoute resource="settings"><SystemMonitor /></PermissionRoute>
       } />
       <Route path="/chat-with-reproai" element={
         <PermissionRoute resource="robbie">

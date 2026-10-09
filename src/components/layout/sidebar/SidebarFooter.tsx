@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { NavLink } from './NavLink';
-import { HelpCircle, SettingsIcon, LogOutIcon, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { Activity, HelpCircle, SettingsIcon, LogOutIcon, PanelLeftClose, PanelLeft } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import {
@@ -14,11 +14,12 @@ import {
 
 interface SidebarFooterProps {
   isCollapsed: boolean;
+  showMonitor?: boolean;
   logout: () => void;
   onToggleCollapse?: () => void;
 }
 
-export function SidebarFooter({ isCollapsed, logout, onToggleCollapse }: SidebarFooterProps) {
+export function SidebarFooter({ isCollapsed, logout, onToggleCollapse, showMonitor = false }: SidebarFooterProps) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
   const [onboardingState, setOnboardingState] =
@@ -62,6 +63,7 @@ export function SidebarFooter({ isCollapsed, logout, onToggleCollapse }: Sidebar
           </Button>
         </div>
       )}
+      {showMonitor && <NavLink to="/system-monitor" icon={<Activity className="h-5 w-5" />} label="System Monitor" isCollapsed={isCollapsed} isActive={pathname === '/system-monitor'} />}
       <NavLink
         to="/settings"
         icon={<SettingsIcon className="h-5 w-5" />}

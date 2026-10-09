@@ -86,7 +86,7 @@ export function SettingsBrandingTab({
     <TabsContent value="branding" className="space-y-4">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <CardTitle>Branding</CardTitle>
               <CardDescription>Upload your company logo and branding images</CardDescription>
@@ -107,7 +107,7 @@ export function SettingsBrandingTab({
           </div>
         </CardHeader>
         <CardContent>
-          <form onSubmit={onSubmit} className="space-y-6">
+          <form onSubmit={onSubmit} className="space-y-4">
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">Company Logo</h3>
@@ -239,7 +239,7 @@ export function SettingsBrandingTab({
 
               <div className="mt-2 border-t pt-4">
                 <h3 className="mb-3 text-lg font-medium">Social Links</h3>
-                <div className="space-y-3">
+                <div className="grid gap-3 lg:grid-cols-3">
                   {[
                     ['facebook_url', 'Facebook URL', facebookUrl, onFacebookUrlChange, 'https://facebook.com/yourpage'],
                     ['linkedin_url', 'LinkedIn URL', linkedinUrl, onLinkedinUrlChange, 'https://linkedin.com/in/yourprofile'],
@@ -269,11 +269,12 @@ export function SettingsBrandingTab({
                   <label className="relative inline-flex cursor-pointer items-center">
                     <input
                       type="checkbox"
+                      aria-label="Show map in portfolio contact"
                       className="peer sr-only"
                       checked={showMap}
                       onChange={(event) => onShowMapChange(event.target.checked)}
                     />
-                    <div className="h-6 w-11 rounded-full bg-muted-foreground after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full" />
+                    <div className="h-6 w-11 rounded-full bg-muted-foreground after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-primary peer-checked:after:translate-x-full peer-checked:after:border-white rtl:peer-checked:after:-translate-x-full peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2" />
                   </label>
                 </div>
               </div>

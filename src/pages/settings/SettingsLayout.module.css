@@ -1,0 +1,15 @@
+/* Compact spacing is limited to Settings; controls retain their normal sizes. */
+.content :global(.p-6) { padding: 1rem; }
+.content :global(.p-6.pt-0) { padding-top: 0; }
+.content :global(.p-6.pt-4) { padding-top: 1rem; }
+.content :global(.px-6) { padding-left: 1rem; padding-right: 1rem; }
+.content :global(.pt-6) { padding-top: 1rem; }
+.content :global(.pb-6) { padding-bottom: 1rem; }
+.content :global(.space-y-6) > :not([hidden]) ~ :not([hidden]),
+.content :global(.space-y-8) > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+.content :global(.gap-6) { gap: 1rem; }
+.content :global(.text-2xl) { font-size: 1rem; line-height: 1.5rem; }
+.content :global(.tracking-tight) { letter-spacing: normal; }
+.content > [role='tabpanel'] { min-width: 0; }
+
+.content h2, .content h3 { font-size: 1rem; line-height: 1.5rem; }

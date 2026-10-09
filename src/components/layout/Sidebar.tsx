@@ -4,6 +4,7 @@ import { useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useMediaQuery } from '@/hooks/use-media-query';
+import { hasMonitorRole } from '@/features/server-monitor/client';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { motion } from 'framer-motion';
 import MobileMenu from './MobileMenu';
@@ -35,7 +36,7 @@ export function Sidebar({ className }: SidebarProps) {
     const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
     return stored === null ? null : stored === 'true';
   });
-  const { user, role, logout } = useAuth();
+  const { user, role, logout, isImpersonating } = useAuth();
 
   // Track whether the viewport is below the small-desktop breakpoint.
   useEffect(() => {
@@ -146,7 +147,7 @@ export function Sidebar({ className }: SidebarProps) {
           <SidebarLinks isCollapsed={isCollapsed} role={role} />
         </ScrollArea>
         
-        <SidebarFooter isCollapsed={isCollapsed} logout={logout} onToggleCollapse={toggleCollapse} />
+        <SidebarFooter showMonitor={!isImpersonating && hasMonitorRole(role || user?.role, user?.secondary_roles)} isCollapsed={isCollapsed} logout={logout} onToggleCollapse={toggleCollapse} />
         {canViewOldDashboard(role) && (
           <div className="mt-2">
             <OldDashboardLink placement="sidebar" isCollapsed={isCollapsed} />

@@ -1,11 +1,12 @@
 import { usePageLoading } from '@/hooks/use-page-loading';
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
-import { AutoExpandingTabsList, type AutoExpandingTab } from '@/components/ui/auto-expanding-tabs';
+import { SettingsNavigation } from '@/pages/settings/SettingsNavigation';
+import { resolveSettingsTab, type SettingsTab } from '@/pages/settings/settingsSections';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,13 +21,12 @@ import { IntegrationsSettingsContent } from '@/pages/IntegrationsSettings';
 import { ToursSection } from '@/components/integrations/sections/ToursSection';
 import { CouponsList } from '@/components/coupons/CouponsList';
 import { CreateCouponDialog } from '@/components/coupons/CreateCouponDialog';
-import { User, Settings as SettingsIcon, Palette, Bell, Plug, MessageSquare, Droplets, Ticket, Plus, Bot, Camera, MapPin, ExternalLink } from 'lucide-react';
+import { MessageSquare, Plus, Camera } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 import WatermarkEditor from '@/components/settings/WatermarkEditor';
 import { RobbieSettings } from '@/components/settings/RobbieSettings';
-import OverviewWithServer from '@/features/server-monitor/OverviewWithServer';
 import { hasMonitorRole } from '@/features/server-monitor/client';
 import { useSelfProfileSave } from '@/hooks/useSelfProfileSave';
 import { ServiceAreaAssignmentTool } from '@/components/photographers/ServiceAreaAssignmentTool';
@@ -50,16 +50,7 @@ const BASE_TABS = ['profile', 'account', 'branding', 'notifications', 'desktop-e
 // a RoleKey only when it is one of these values.
 const ONBOARDED_ROLES: RoleKey[] = ['client', 'photographer', 'salesRep', 'editing_manager', 'editor'];
 
-type TabValue =
-  | (typeof BASE_TABS)[number]
-  | 'coupons'
-  | 'integrations'
-  | 'watermark'
-  | 'robbie'
-  | 'ai-editing'
-  | 'service-areas'
-  | 'overview';
-
+type TabValue = SettingsTab;
 
 const Settings = () => {
   const { user, role, isImpersonating } = useAuth();
@@ -160,18 +151,12 @@ const Settings = () => {
     if (canViewServiceAreas) {
       tabs.push('service-areas');
     }
-    if (showSystemOverviewTab) {
-      tabs.push('overview');
-    }
     return tabs;
-  }, [canViewCoupons, canViewIntegrations, canViewRobbieSettings, canViewServiceAreas, canViewWatermark, role, showSystemOverviewTab]);
+  }, [canViewCoupons, canViewIntegrations, canViewRobbieSettings, canViewServiceAreas, canViewWatermark, role]);
 
   const getValidTab = React.useCallback(
     (tabParam: string | null): TabValue => {
-      if (tabParam && availableTabs.includes(tabParam as TabValue)) {
-        return tabParam as TabValue;
-      }
-      return 'profile';
+      return resolveSettingsTab(tabParam, availableTabs);
     },
     [availableTabs]
   );
@@ -236,7 +221,9 @@ const Settings = () => {
     }
 
     const nextParams = new URLSearchParams(searchParams);
-    nextParams.delete('tab');
+    const resolved = resolveSettingsTab(requestedTab, availableTabs);
+    if (resolved === 'profile') nextParams.delete('tab');
+    else nextParams.set('tab', resolved);
     setSearchParams(nextParams, { replace: true });
   }, [availableTabs, searchParams, setSearchParams]);
 
@@ -426,104 +413,35 @@ const Settings = () => {
     setBrandBanner(url);
   };
 
-  // Auto-expanding tabs configuration
-  const tabsConfig: AutoExpandingTab[] = useMemo(() => {
-    const tabMeta: Record<Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'ai-editing' | 'service-areas' | 'overview'>, { icon: typeof User; label: string }> = {
-      profile: { icon: User, label: 'Profile' },
-      account: { icon: SettingsIcon, label: 'Account' },
-      branding: { icon: Palette, label: 'Branding' },
-      notifications: { icon: Bell, label: 'Notifications' },
-      'desktop-editing': { icon: Camera, label: 'Desktop editing' },
-      coupons: { icon: Ticket, label: 'Discounts' },
-    };
-
-    const mappedTabs: AutoExpandingTab[] = availableTabs
-      .filter((tab) => tab !== 'integrations' && tab !== 'watermark' && tab !== 'robbie' && tab !== 'ai-editing' && tab !== 'service-areas' && tab !== 'overview')
-      .map((tab) => ({
-        value: tab,
-        icon: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'ai-editing' | 'service-areas' | 'overview'>].icon,
-        label: tabMeta[tab as Exclude<TabValue, 'integrations' | 'watermark' | 'robbie' | 'ai-editing' | 'service-areas' | 'overview'>].label,
-      }));
-
-    if (availableTabs.includes('integrations')) {
-      mappedTabs.push({
-        value: 'integrations',
-        icon: Plug,
-        label: 'Integrations',
-      });
-    }
-
-    if (availableTabs.includes('watermark')) {
-      mappedTabs.push({
-        value: 'watermark',
-        icon: Droplets,
-        label: 'Watermark',
-      });
-    }
-
-    if (availableTabs.includes('robbie')) {
-      mappedTabs.push({
-        value: 'robbie',
-        icon: Bot,
-        label: 'Robbie AI',
-      });
-    }
-
-    if (availableTabs.includes('ai-editing')) mappedTabs.push({ value: 'ai-editing', icon: Camera, label: 'AI Editing' });
-    if (availableTabs.includes('service-areas')) {
-      mappedTabs.push({
-        value: 'service-areas',
-        icon: MapPin,
-        label: 'Service Areas',
-      });
-    }
-
-    if (availableTabs.includes('overview')) {
-      mappedTabs.push({
-        value: 'overview',
-        icon: ExternalLink,
-        label: 'Overview',
-      });
-    }
-
-    return mappedTabs;
-  }, [availableTabs]);
-
   return (
     <DashboardLayout>
-      <div className="space-y-4 sm:space-y-6">
+      <div className="space-y-3 md:space-y-4">
         <PageHeader
           title="Settings"
-          description="Manage your account settings and preferences"
+          description="Account preferences and dashboard configuration."
           compactTitleOnMobile
         />
 
           <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-4">
-            <div className="mobile-sticky-tabs">
-              <AutoExpandingTabsList 
-                tabs={tabsConfig} 
-                value={activeTab}
-                className="mb-6"
-              />
-            </div>
-
+            <SettingsNavigation availableTabs={availableTabs} activeTab={activeTab} onTabChange={handleTabChange} showMonitor={showSystemOverviewTab}>
             <TabsContent value="profile" className="space-y-4">
               <form onSubmit={handleSaveProfile} className="space-y-4">
                 {/* Avatar + Identity Card */}
                 <Card>
-                  <CardContent className="pt-6">
-                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
+                  <CardHeader className="p-4">
+                    <div className="flex items-center gap-4">
                       <div className="relative group shrink-0">
-                        <Avatar className="h-24 w-24 border-2 border-muted ring-4 ring-background shadow-lg">
+                        <Avatar className="h-14 w-14 border border-muted">
                           <AvatarImage src={avatar || user?.avatar} alt={user?.name} />
                           <AvatarFallback className="text-2xl">{user?.name?.charAt(0) || 'U'}</AvatarFallback>
                         </Avatar>
                         <button
                           type="button"
                           onClick={() => setAvatarDrawerOpen(true)}
-                          className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
+                          aria-label="Change profile picture"
+                          className="absolute inset-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                         >
-                          <Camera className="h-5 w-5 text-white" />
+                          <span className="absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full border bg-background shadow-sm"><Camera className="h-4 w-4" /></span>
                         </button>
                         <Drawer open={avatarDrawerOpen} onOpenChange={setAvatarDrawerOpen}>
                           <DrawerContent className="max-h-[80dvh]">
@@ -539,27 +457,17 @@ const Settings = () => {
                           </DrawerContent>
                         </Drawer>
                       </div>
-                      <div className="flex-1 text-center sm:text-left space-y-1 min-w-0">
-                        <h2 className="text-xl font-semibold truncate">{name || user?.name || 'Your Name'}</h2>
+                      <div className="flex-1 space-y-1 min-w-0">
+                        <h2 className="text-base font-semibold truncate">{name || user?.name || 'Your Name'}</h2>
                         <p className="text-sm text-muted-foreground truncate">{user?.email}</p>
                         <span className="inline-block mt-1 text-xs font-medium px-2.5 py-0.5 rounded-full bg-primary/10 text-primary capitalize">
                           {formatUserRoleLabel(role, user)}
                         </span>
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-
-                {/* Details Card */}
-                <Card>
-                  <CardHeader className="pb-4">
-                    <CardTitle className="text-base">Personal Information</CardTitle>
-                    <CardDescription>
-                      Update the name and bio visible to your team.
-                    </CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
+                    <div className="space-y-2">
                       <div className="space-y-2">
                         <label htmlFor="name" className="text-sm font-medium">
                           Full Name
@@ -570,22 +478,6 @@ const Settings = () => {
                           onChange={(e) => setName(e.target.value)}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <label htmlFor="profile-email" className="text-sm font-medium">
-                          Email
-                        </label>
-                        <Input
-                          id="profile-email"
-                          type="email"
-                          value={user?.email || ''}
-                          readOnly
-                          aria-readonly="true"
-                          className="bg-muted/50"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Email changes are managed in the Account tab and require your current password.
-                        </p>
-                      </div>
                     </div>
                     <div className="space-y-2">
                       <label htmlFor="bio" className="text-sm font-medium">
@@ -593,7 +485,8 @@ const Settings = () => {
                       </label>
                       <Textarea
                         id="bio"
-                        rows={3}
+                        className="min-h-[64px]"
+                        rows={2}
                         value={bio}
                         placeholder="Write a short bio about yourself"
                         onChange={(e) => setBio(e.target.value)}
@@ -631,14 +524,14 @@ const Settings = () => {
             <TabsContent value="account" className="space-y-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Account</CardTitle>
+                  <CardTitle className="text-base">Account & security</CardTitle>
                   <CardDescription>
-                    Update your account settings
+                    Contact details, timezone and password.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <form onSubmit={handleSaveAccountSettings} className="space-y-6">
-                    <div className="space-y-4">
+                  <form onSubmit={handleSaveAccountSettings} className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2">
                       <div className="space-y-2">
                         <label htmlFor="email" className="text-sm font-medium">
                           Email Address
@@ -704,6 +597,10 @@ const Settings = () => {
                         </select>
                       </div>
 
+                    </div>
+                    <details className="rounded-lg border p-3" open={accountForm.email !== user?.email || undefined}>
+                      <summary className="cursor-pointer text-sm font-medium">Change password or verify an email change</summary>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2">
                       <div className="space-y-2">
                         <label htmlFor="current-password" className="text-sm font-medium">
                           Current Password
@@ -717,7 +614,7 @@ const Settings = () => {
                         />
                       </div>
 
-                      <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="grid gap-3 sm:col-span-2 sm:grid-cols-2">
                         <div className="space-y-2">
                           <label htmlFor="new-password" className="text-sm font-medium">
                             New Password
@@ -744,6 +641,7 @@ const Settings = () => {
                         </div>
                       </div>
                     </div>
+                    </details>
 
                     <div className="flex justify-end">
                       <Button type="submit" disabled={isSaving}>
@@ -819,26 +717,7 @@ const Settings = () => {
 
             {canViewIntegrations && (
               <TabsContent value="integrations" className="space-y-6">
-                <div className="space-y-8">
-                  <Card className="border-primary/20">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Plug className="h-5 w-5 text-primary" />
-                        Integration Controls
-                      </CardTitle>
-                      <CardDescription>
-                        This page now uses the API-backed integrations editor as the single source of truth.
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                      <p className="text-sm text-muted-foreground">
-                        Summary cards stay read-only unless the underlying integration has real saved settings.
-                        Configure providers below so tours, storage, and external sync behavior stay consistent
-                        across admin and client views.
-                      </p>
-                    </CardContent>
-                  </Card>
-
+                <div className="space-y-4">
                   <ShortLinkSettings />
 
                   <ToursSection
@@ -850,7 +729,7 @@ const Settings = () => {
                   {/* SMS / Telnyx Settings Card */}
                   <Card className="border-primary/20">
                     <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
+                        <CardTitle className="flex items-center gap-2 text-base">
                           <MessageSquare className="h-5 w-5 text-primary" />
                           SMS Settings (Telnyx)
                         </CardTitle>
@@ -859,9 +738,6 @@ const Settings = () => {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          Manage your Telnyx SMS integration including sender configuration and messaging settings.
-                        </p>
                       <Button onClick={() => navigate('/messaging/settings')}>
                         <MessageSquare className="mr-2 h-4 w-4" />
                         Open SMS Settings
@@ -870,11 +746,11 @@ const Settings = () => {
                   </Card>
 
                   {/* API Integrations Section */}
-                  <div id="api-integrations" className="space-y-6 pt-8 border-t">
+                  <div id="api-integrations" className="space-y-4 border-t pt-4">
                     <div>
                       <h3 className="text-lg font-semibold mb-2">API Integrations</h3>
-                      <p className="text-sm text-muted-foreground mb-6">
-                        Configure API credentials for Zillow, Bright MLS, and iGUIDE integrations.
+                      <p className="text-sm text-muted-foreground">
+                        Manage property data, publishing, tours and external API access.
                       </p>
                     </div>
                     <IntegrationsSettingsContent />
@@ -906,15 +782,11 @@ const Settings = () => {
                   </p>
                 </div>
                 <ServiceAreaAssignmentTool />
-                <TestShootPanel />
+                <details className="rounded-lg border p-4"><summary className="cursor-pointer text-sm font-medium">Test service-area matching</summary><div className="mt-3"><TestShootPanel /></div></details>
               </TabsContent>
             )}
 
-            {showSystemOverviewTab && (
-              <TabsContent value="overview" className="space-y-6">
-                <OverviewWithServer />
-              </TabsContent>
-            )}
+            </SettingsNavigation>
           </Tabs>
       </div>
     </DashboardLayout>
@@ -922,8 +794,14 @@ const Settings = () => {
 };
 
 function SettingsPage() {
-  const { user, role } = useAuth();
+  const { user, role, isImpersonating } = useAuth();
   const [searchParams] = useSearchParams();
+  if (searchParams.get('tab') === 'overview' && !isImpersonating && hasMonitorRole(role || user?.role, user?.secondary_roles)) {
+    const monitorParams = new URLSearchParams(searchParams);
+    monitorParams.delete('tab');
+    const query = monitorParams.toString();
+    return <Navigate to={`/system-monitor${query ? `?${query}` : ''}`} replace />;
+  }
   if ((role || user?.role) === 'photographer' && !hasMonitorRole(role || user?.role, user?.secondary_roles)) {
     return <Navigate to={photographerSettingsDestination(searchParams)} replace />;
   }

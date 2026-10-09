@@ -167,10 +167,10 @@ function NotificationPreferencesForm({ user }: { user: UserData | null }) {
                 />
               </div>
               {!preferences.notificationSMS && <p role="status" className="text-sm text-muted-foreground">All text messages are turned off.</p>}
-              <fieldset disabled={isSaving || !preferences.notificationSMS} className="space-y-3">
+              <fieldset disabled={isSaving || !preferences.notificationSMS} className="grid gap-2 lg:grid-cols-2">
                 <legend className="mb-3 text-sm font-medium">Text message types</legend>
                 {SMS_CATEGORIES.map(({ key, label, description }) => (
-                  <div key={key} className={`flex items-center justify-between gap-4 rounded-lg border p-4 ${preferences.notificationSMS ? '' : 'opacity-60'}`}>
+                  <div key={key} className={`flex items-center justify-between gap-4 rounded-lg border p-3 ${preferences.notificationSMS ? '' : 'opacity-60'}`}>
                     <div className="space-y-1">
                       <Label htmlFor={`settings-sms-${key}`}>{label}</Label>
                       <p id={`settings-sms-${key}-description`} className="text-sm text-muted-foreground">{description}</p>
@@ -188,7 +188,7 @@ function NotificationPreferencesForm({ user }: { user: UserData | null }) {
                   </div>
                 ))}
                 {showWeeklySummaries && (
-                  <div className={`flex items-center justify-between gap-4 rounded-lg border p-4 ${preferences.notificationSMS ? '' : 'opacity-60'}`}>
+                  <div className={`flex items-center justify-between gap-4 rounded-lg border p-3 ${preferences.notificationSMS ? '' : 'opacity-60'}`}>
                     <div className="space-y-1">
                       <Label htmlFor="settings-weekly-summaries">Weekly sales summaries</Label>
                       <p id="settings-weekly-summaries-description" className="text-sm text-muted-foreground">Text updates from weekly sales reports. These also follow your Other text messages choice.</p>
@@ -208,7 +208,7 @@ function NotificationPreferencesForm({ user }: { user: UserData | null }) {
           )}
           <section aria-labelledby="email-notifications-heading" className="space-y-3">
             <h3 id="email-notifications-heading" className="font-semibold">Email notifications</h3>
-            <div className="flex items-center justify-between gap-4 rounded-lg border p-4">
+            <div className="flex items-center justify-between gap-4 rounded-lg border p-3">
               <div className="space-y-1">
                 <Label htmlFor="settings-notification-email">Email Notifications</Label>
                 <p id="settings-notification-email-description" className="text-sm text-muted-foreground">Email me when I receive a new internal dashboard message.</p>
