@@ -16,6 +16,7 @@ import { ServiceDatePicker, ServiceTimePicker, buildServiceTimeOptions } from '@
 import { ApplyAllServiceScheduleButton } from '@/components/shoots/ApplyAllServiceScheduleButton';
 import type { SchedulingFormController } from './useSchedulingFormController';
 import { PhotographerPickerMapShell } from '@/components/photographers/map/PhotographerPickerMapShell';
+import { PhotographerSelectionFooter } from '@/components/photographers/PhotographerSelectionFooter';
 import { PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_BOOK } from '@/components/photographers/map/photographerPickerDialogClasses';
 
 export function SchedulingPhotographerSection({ controller }: { controller: SchedulingFormController }) {
@@ -63,15 +64,15 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
       : `Assign a photographer for ${primaryAssignment.serviceName}.`
     : null;
   const renderPhotographerFilters = (mobileDrawer = false) => (
-    <div className={cn("space-y-3", mobileDrawer && "space-y-2") }>
-      <div className={cn("flex items-center gap-2", mobileDrawer && "flex-col items-stretch") }>
+    <div className={cn("shrink-0 space-y-2") }>
+      <div className={cn("flex flex-col items-stretch gap-2") }>
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={canSeePhotographerAddress ? 'Search by name or area...' : 'Search by name...'}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className={cn("pl-9 h-9 rounded-full bg-slate-50 dark:bg-slate-900/50", mobileDrawer && "h-9")}
+            className={cn("pl-9 h-10 rounded-xl border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900/50", mobileDrawer && "h-9")}
           />
         </div>
         <div
@@ -82,6 +83,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
         >
           <button
             type="button"
+            aria-pressed={sortBy === 'distance'}
             onClick={() => {
               setSortBy('distance');
             }}
@@ -96,6 +98,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
           </button>
           <button
             type="button"
+            aria-pressed={sortBy === 'availability'}
             onClick={() => {
               setSortBy('availability');
             }}
@@ -199,9 +202,10 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
             <button
               key={photographerItem.id}
               type="button"
+              aria-pressed={isSelected}
               onClick={() => setPhotographer?.(photographerItem.id)}
               className={cn(
-                "w-full max-w-full min-w-0 text-left border transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40",
+                "w-full max-w-full min-w-0 text-left border transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40",
                 mobileDrawer ? "rounded-xl px-3 py-2.5" : "rounded-2xl px-4 py-3",
                 isSelected
                   ? "border-blue-500/70 bg-blue-50/60 dark:border-blue-500/50 dark:bg-blue-950/30"
@@ -222,8 +226,8 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                   <AvatarFallback>{photographerItem.name?.charAt(0)}</AvatarFallback>
                 </Avatar>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <p className={cn("font-semibold text-slate-900 dark:text-slate-100 truncate", mobileDrawer ? "text-base" : "text-sm") }>
+                  <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+                    <p className={cn("min-w-0 font-semibold text-slate-900 dark:text-slate-100 break-words", mobileDrawer ? "text-base" : "text-sm") }>
                       {photographerItem.name}
                     </p>
                     {canSeePhotographerAddress && distanceLabel ? (
@@ -332,8 +336,8 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
       <DrawerContent className="flex h-[88dvh] max-h-[88dvh] flex-col overflow-hidden">
         <DrawerHeader className="gap-0.5 px-3 pb-1.5 pt-1.5 text-left">
           <DrawerTitle className="text-base text-slate-900 dark:text-slate-100">Select Photographer</DrawerTitle>
-          <DrawerDescription className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">
-            {filteredAndSortedPhotographers.length} photographers shown
+          <DrawerDescription className="text-xs font-normal text-muted-foreground">
+            {!filteredAndSortedPhotographers.length && (isCalculatingDistances || isLoadingAvailability) ? 'Checking photographers...' : `${filteredAndSortedPhotographers.length} photographers shown`}
           </DrawerDescription>
         </DrawerHeader>
         <div className="flex min-h-0 flex-1 flex-col px-3 pb-2">
@@ -388,65 +392,20 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
               className="min-h-0"
               list={
                 <>
-                  <DialogHeader className="shrink-0 space-y-1 text-left items-start">
+                  <DialogHeader className="m-0 shrink-0 space-y-1 text-left items-start pr-9 pt-1">
                     <DialogTitle className="text-xl text-slate-900 dark:text-slate-100 [@media(orientation:landscape)_and_(max-height:900px)]:text-lg">Select Photographer</DialogTitle>
-                    <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                      {filteredAndSortedPhotographers.length} photographers shown
+                    <DialogDescription className="text-xs font-normal text-muted-foreground">
+                      {!filteredAndSortedPhotographers.length && (isCalculatingDistances || isLoadingAvailability) ? 'Checking photographers...' : `${filteredAndSortedPhotographers.length} photographers shown`}
                     </DialogDescription>
                   </DialogHeader>
                   {renderPhotographerFilters(false)}
-                  <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+                  <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain overflow-x-hidden pr-1 pb-1 [scrollbar-gutter:stable]">
                     {renderPhotographerResults(false)}
                   </div>
-                  <div className="shrink-0 border-t border-slate-200/70 bg-white pt-4 dark:border-slate-800/70 dark:bg-slate-950">
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex min-w-0 items-center gap-3">
-                        <Avatar className={cn(
-                          "h-10 w-10 shrink-0",
-                          selectedPhotographerDetails
-                            ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
-                            : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                        )}>
-                          {selectedPhotographerDetails ? (
-                            <>
-                              <AvatarImage
-                                src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
-                                alt={selectedPhotographerDetails.name}
-                              />
-                              <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
-                            </>
-                          ) : (
-                            <AvatarFallback>
-                              <User className="h-4 w-4" />
-                            </AvatarFallback>
-                          )}
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">Selected specialist</p>
-                          <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {selectedPhotographerDetails?.name || 'None selected'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 gap-2">
-                        <Button
-                          variant="ghost"
-                          onClick={() => setPhotographerDialogOpen(false)}
-                        >
-                          Discard
-                        </Button>
-                        <Button
-                          onClick={handleConfirmPhotographer}
-                          disabled={!canConfirmPhotographer}
-                        >
-                          Confirm Assignment
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </>
+                  </>
               }
             />
+            <PhotographerSelectionFooter photographer={selectedPhotographerDetails} canConfirm={canConfirmPhotographer} onConfirm={handleConfirmPhotographer} onCancel={() => setPhotographerDialogOpen(false)} />
           </div>
         </div>
       </DialogContent>
@@ -609,8 +568,8 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                       <DrawerTitle className="text-base text-slate-900 dark:text-slate-100">
                         Select Photographer{activeServiceNameForPicker ? ` for ${activeServiceNameForPicker}` : ''}
                       </DrawerTitle>
-                      <DrawerDescription className="text-[10px] uppercase tracking-[0.2em] text-blue-500/80">
-                        {filteredAndSortedPhotographers.length} photographers shown
+                      <DrawerDescription className="text-xs font-normal text-muted-foreground">
+                        {!filteredAndSortedPhotographers.length && (isCalculatingDistances || isLoadingAvailability) ? 'Checking photographers...' : `${filteredAndSortedPhotographers.length} photographers shown`}
                       </DrawerDescription>
                     </DrawerHeader>
                     <div className="flex min-h-0 flex-1 flex-col px-3 pb-2">
@@ -671,72 +630,22 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                           className="min-h-0"
                           list={
                             <>
-                              <DialogHeader className="shrink-0 space-y-1 text-left items-start">
+                              <DialogHeader className="m-0 shrink-0 space-y-1 text-left items-start pr-9 pt-1">
                                 <DialogTitle className="text-xl text-slate-900 dark:text-slate-100 [@media(orientation:landscape)_and_(max-height:900px)]:text-lg">
                                   Select Photographer{activeServiceNameForPicker ? ` for ${activeServiceNameForPicker}` : ''}
                                 </DialogTitle>
-                                <DialogDescription className="text-[11px] uppercase tracking-[0.28em] text-blue-500/80">
-                                  {filteredAndSortedPhotographers.length} photographers shown
+                                <DialogDescription className="text-xs font-normal text-muted-foreground">
+                                  {!filteredAndSortedPhotographers.length && (isCalculatingDistances || isLoadingAvailability) ? 'Checking photographers...' : `${filteredAndSortedPhotographers.length} photographers shown`}
                                 </DialogDescription>
                               </DialogHeader>
                               {renderPhotographerFilters(false)}
-                              <div className="min-h-0 flex-1 overflow-y-auto pr-2">
+                              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain overflow-x-hidden pr-1 pb-1 [scrollbar-gutter:stable]">
                                 {renderPhotographerResults(false)}
                               </div>
-                              <div className="shrink-0 border-t border-slate-200/70 bg-white pt-4 dark:border-slate-800/70 dark:bg-slate-950">
-                                <div className="flex items-center justify-between gap-3">
-                                  <div className="flex min-w-0 items-center gap-3">
-                                    <Avatar className={cn(
-                                      "h-10 w-10 shrink-0",
-                                      selectedPhotographerDetails
-                                        ? "ring-2 ring-blue-500/70 ring-offset-2 ring-offset-white dark:ring-offset-slate-950"
-                                        : "bg-slate-200 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
-                                    )}>
-                                      {selectedPhotographerDetails ? (
-                                        <>
-                                          <AvatarImage
-                                            src={getAvatarUrl(selectedPhotographerDetails.avatar, 'photographer', undefined, selectedPhotographerDetails.id)}
-                                            alt={selectedPhotographerDetails.name}
-                                          />
-                                          <AvatarFallback>{selectedPhotographerDetails.name?.charAt(0)}</AvatarFallback>
-                                        </>
-                                      ) : (
-                                        <AvatarFallback>
-                                          <User className="h-4 w-4" />
-                                        </AvatarFallback>
-                                      )}
-                                    </Avatar>
-                                    <div className="min-w-0">
-                                      <p className="text-[10px] uppercase tracking-[0.28em] text-blue-500/80">
-                                        {activeServiceNameForPicker ? `Photographer for ${activeServiceNameForPicker}` : 'Selected specialist'}
-                                      </p>
-                                      <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">
-                                        {selectedPhotographerDetails?.name || 'None selected'}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="flex shrink-0 gap-2">
-                                    <Button
-                                      variant="ghost"
-                                      onClick={() => {
-                                        setPhotographerDialogOpen(false);
-                                        setActiveServiceForPicker(null);
-                                      }}
-                                    >
-                                      Discard
-                                    </Button>
-                                    <Button
-                                      onClick={handleConfirmServicePhotographer}
-                                      disabled={!canConfirmPhotographer}
-                                    >
-                                      Confirm Assignment
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            </>
+                              </>
                           }
                         />
+            <PhotographerSelectionFooter photographer={selectedPhotographerDetails} canConfirm={canConfirmPhotographer} onConfirm={handleConfirmServicePhotographer} onCancel={() => { setPhotographerDialogOpen(false); setActiveServiceForPicker(null); }} />
                       </div>
                     </div>
                   </DialogContent>

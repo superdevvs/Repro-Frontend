@@ -13,8 +13,8 @@
 
 /** Book flow (SchedulingPhotographerSection) — 52rem desktop height cap. */
 export const PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_BOOK =
-  'flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 p-0 !left-0 !top-0 !translate-x-0 !translate-y-0 xl:!left-[50%] xl:!top-[50%] xl:h-[min(88dvh,52rem)] xl:max-h-[92dvh] xl:w-[96vw] xl:max-w-6xl xl:!translate-x-[-50%] xl:!translate-y-[-50%] xl:rounded-lg'
+  'flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 p-0 !left-0 !top-0 !translate-x-0 !translate-y-0 xl:!left-[50%] xl:!top-[50%] xl:h-[min(88dvh,52rem)] xl:max-h-[92dvh] xl:w-[96vw] xl:max-w-6xl xl:!translate-x-[-50%] xl:!translate-y-[-50%] xl:rounded-2xl'
 
 /** Approve / Modify / Overview — 48rem desktop height cap. */
 export const PHOTOGRAPHER_PICKER_DIALOG_DESKTOP_H_COMPACT =
-  'flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 p-0 !left-0 !top-0 !translate-x-0 !translate-y-0 xl:!left-[50%] xl:!top-[50%] xl:h-[min(88dvh,48rem)] xl:max-h-[92dvh] xl:w-[96vw] xl:max-w-6xl xl:!translate-x-[-50%] xl:!translate-y-[-50%] xl:rounded-lg'
+  'flex h-[100dvh] max-h-[100dvh] w-screen max-w-none flex-col overflow-hidden rounded-none border-0 p-0 !left-0 !top-0 !translate-x-0 !translate-y-0 xl:!left-[50%] xl:!top-[50%] xl:h-[min(88dvh,48rem)] xl:max-h-[92dvh] xl:w-[96vw] xl:max-w-6xl xl:!translate-x-[-50%] xl:!translate-y-[-50%] xl:rounded-2xl'

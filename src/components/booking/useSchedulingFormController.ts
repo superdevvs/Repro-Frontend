@@ -694,7 +694,7 @@ export const useSchedulingFormController = ({
         setIsLoadingAvailability(false);
         clearEligibilityTimeout();
         let rawAvailabilityByPhotographer: AvailabilityByPhotographer = {};
-        if (canUseProtectedAvailability) try {
+        if (canUseProtectedAvailability && initialPhotographers.some(p => p.availabilitySlots == null || p.netAvailableSlots == null)) try {
           const bulkResponse = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
             method: 'POST',
             headers,

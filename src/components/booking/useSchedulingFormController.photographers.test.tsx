@@ -242,6 +242,22 @@ describe('per-service booking photographer availability', () => {
   });
 
 
+  it('does not refetch bulk hours when booking eligibility already includes complete hours', async () => {
+    mocks.role = 'admin';
+    mocks.getDayAvailability.mockResolvedValue({ status: 'error' });
+    const fetchMock = vi.fn(async (_url: string) => ({ ok: true, json: async () => ({ data: [{
+      id: 9, name: 'Pat', availability_slots: [], net_available_slots: [],
+    }] }) }));
+    vi.stubGlobal('fetch', fetchMock);
+    const props = eligibilityProps();
+    const { result } = renderHook(() => useSchedulingFormController(props));
+    await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
+    // The month-calendar request remains; no second, single-day enrichment request.
+    expect(fetchMock.mock.calls.filter(([url]) => url.includes('bulk-index'))).toHaveLength(1);
+    expect(fetchMock.mock.calls.some(([url]) => url.includes('for-booking'))).toBe(true);
+    expect(result.current.photographersWithDistance[0].netAvailableSlots).toEqual([]);
+  });
+
   it('unblocks Confirm with a retryable error when eligibility never resolves client-side', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {

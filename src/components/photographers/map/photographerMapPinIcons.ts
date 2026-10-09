@@ -15,15 +15,21 @@ export const PIN_COLORS = {
 export const PROFILE_PIN_SIZE = 56
 export const PROFILE_PIN_SIZE_SELECTED = 64
 
-/** Teardrop pin with a house glyph — property / job location. */
+/** Isometric property marker: roof, shaded walls and a precise ground anchor. */
 export function jobHomePinIcon(selected = true): string {
-  const size = selected ? 36 : 30
-  const height = selected ? 46 : 40
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${height}" viewBox="0 0 32 42">
-<path fill="${PIN_COLORS.job}" stroke="#fff" stroke-width="2" d="M16 1C7.7 1 1 7.7 1 16c0 11 15 25 15 25s15-14 15-25C31 7.7 24.3 1 16 1Z"/>
-<path fill="#fff" d="M16 10.2 9.5 15.2v8.3h4.1v-4.2h4.8v4.2h4.1v-8.3L16 10.2zm0 2.2 5.2 4v5.1h-1.7v-4.2h-7v4.2h-1.7v-5.1l5.2-4z"/>
-</svg>`
-  return encodeSvg(svg)
+  const size = selected ? 56 : 46
+  return encodeSvg(`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 64 64">
+<defs><linearGradient id="roof" x2="0.8" y2="1"><stop stop-color="#67e8f9"/><stop offset="1" stop-color="#0284c7"/></linearGradient><linearGradient id="wall" x2="0" y2="1"><stop stop-color="#fff"/><stop offset="1" stop-color="#dbeafe"/></linearGradient></defs>
+<ellipse cx="32" cy="53" rx="24" ry="7" fill="#0f172a" opacity=".22"/>
+<path d="M8 46 30 35 56 48 34 60Z" fill="#059669" stroke="#d1fae5" stroke-width="1.5"/>
+<path d="M13 28 33 18 51 28 51 44 32 54 13 44Z" fill="url(#wall)" stroke="#f8fafc" stroke-width="1.2"/>
+<path d="M32 34 51 25 51 44 32 54Z" fill="#93c5fd"/>
+<path d="M9 29 26 8 46 18 32 40Z" fill="url(#roof)" stroke="#e0f2fe" stroke-width="1.2" stroke-linejoin="round"/>
+<path d="M26 8 46 18 56 31 51 34 42 24 32 40Z" fill="#075985" stroke="#bae6fd" stroke-width="1.2" stroke-linejoin="round"/>
+<path d="M18 36 25 39 25 50 18 46Z" fill="#334155"/>
+<path d="M36 38 42 35 42 41 36 44Z M45 34 49 32 49 38 45 40Z" fill="#fef3c7" stroke="#eff6ff" stroke-width="1"/>
+<path d="M33 58 32 62 31 58" fill="#fff"/>
+</svg>`)
 }
 
 /** Classic teardrop for last / next / photographer-home (selected route). */

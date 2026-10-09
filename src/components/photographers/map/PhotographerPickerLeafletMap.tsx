@@ -57,10 +57,10 @@ function markerDivIcon(entry: PhotographerMapMarker) {
   if (entry.kind === 'job' || entry.appearance === 'home') {
     return divIcon({
       className: 'photographer-picker-job-marker',
-      html: `<img src="${jobHomePinIcon(true)}" alt="" width="36" height="46" />`,
-      iconAnchor: [18, 46],
-      iconSize: [36, 46],
-      popupAnchor: [0, -40],
+      html: `<img src="${jobHomePinIcon(true)}" alt="" width="56" height="56" />`,
+      iconAnchor: [28, 56],
+      iconSize: [56, 56],
+      popupAnchor: [0, -50],
     })
   }
   const kind = entry.kind === 'last' || entry.kind === 'next' ? entry.kind : 'photographer'

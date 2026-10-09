@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom/vitest'
 import React from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { PhotographerPickerMapShell } from './PhotographerPickerMapShell'
 
 vi.mock('./PhotographerPickerMap', () => ({
@@ -82,6 +82,16 @@ describe('PhotographerPickerMapShell', () => {
       'data-compact-chrome',
       'true',
     )
+  })
+
+  it('defers the mobile map until requested and keeps it mounted when switching back', () => {
+    mockMatchMedia(() => false)
+    render(<PhotographerPickerMapShell isMobile list={<div>Photographers</div>} />)
+    expect(screen.queryByTestId('photographer-picker-map')).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Map' }))
+    expect(screen.getByTestId('photographer-picker-map')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'List' }))
+    expect(screen.getByTestId('photographer-picker-map')).toBeInTheDocument()
   })
 
   it('forces tabs when parent reports mobile (including phone landscape)', () => {

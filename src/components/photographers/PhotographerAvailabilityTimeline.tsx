@@ -131,7 +131,7 @@ export function PhotographerAvailabilityTimeline({
         {to12Hour(slot.start_time)}-{to12Hour(slot.end_time)}
       </>
     );
-    const showPillLabel = clampedWidth >= 8;
+    const showPillLabel = clampedWidth >= 20;
     return (
       <AvailabilityTimelineSlot
         key={key}
@@ -142,11 +142,11 @@ export function PhotographerAvailabilityTimeline({
         interaction={label === 'Booked' ? 'popover' : 'adaptive'}
         contentClassName={label === 'Booked' ? 'w-72 p-3' : undefined}
       >
-        {showPillLabel ? (
-          <span className="pointer-events-none truncate px-1 text-[9px] font-semibold leading-none tracking-wide text-white">
+        {(
+          <span className={showPillLabel ? "pointer-events-none truncate px-1 text-[9px] font-semibold leading-none tracking-wide text-white" : "sr-only"}>
             {label}
           </span>
-        ) : null}
+        )}
       </AvailabilityTimelineSlot>
     );
   };

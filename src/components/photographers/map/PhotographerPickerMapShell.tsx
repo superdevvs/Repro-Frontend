@@ -69,6 +69,7 @@ export function PhotographerPickerMapShell({
 }: PhotographerPickerMapShellProps) {
   const [compactTab, setCompactTab] = React.useState<'map' | 'list'>('list')
   const useTabs = isMobile
+  const [mapVisited, setMapVisited] = React.useState(false)
   const isLandscape = useMatchMedia(PICKER_LANDSCAPE_QUERY)
   const compactChrome = useMatchMedia(PICKER_COMPACT_LANDSCAPE_QUERY)
   /** Desktop Dialog path in landscape → always side-by-side (even under xl). */
@@ -113,7 +114,7 @@ export function PhotographerPickerMapShell({
               : 'text-slate-600 hover:bg-slate-200/80 dark:text-slate-300',
           )}
           aria-pressed={compactTab === 'map'}
-          onClick={() => setCompactTab('map')}
+          onClick={() => { setMapVisited(true); setCompactTab('map') }}
         >
           Map
         </button>
@@ -166,7 +167,7 @@ export function PhotographerPickerMapShell({
                   ),
           )}
         >
-          {map}
+          {(!useTabs || mapVisited) ? map : null}
         </div>
         <div
           className={cn(
