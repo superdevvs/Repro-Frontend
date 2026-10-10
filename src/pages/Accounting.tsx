@@ -46,6 +46,7 @@ import {
 const LazyClientBillingCharts = lazy(() =>
   import('@/components/accounting/ClientBillingCharts').then((module) => ({ default: module.ClientBillingCharts })),
 );
+const LazyAccountingAiUsage = lazy(() => import('@/components/accounting/AccountingAiUsage').then(module => ({ default: module.AccountingAiUsage })));
 const LazyEditorRateSettings = lazy(() =>
   import('@/components/accounting/EditorRateSettings').then((module) => ({ default: module.EditorRateSettings })),
 );
@@ -116,6 +117,9 @@ const AccountingPage = () => {
   const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'quarter' | 'year'>('month');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AccountingTab>('home');
+  useEffect(() => {
+    if (role !== 'superadmin' && activeTab === 'ai-usage') setActiveTab('home');
+  }, [role, activeTab]);
   const [daysWindow, setDaysWindow] = useState<number>(30);
   const { shoots: contextShoots, isInitialLoading: shootsLoading } = useShoots();
   const [reportingPeriod, setReportingPeriod] = useState<AccountingPeriod>('30');
@@ -447,6 +451,7 @@ const AccountingPage = () => {
                 title: 'Photographer Equipments',
                 description: 'Manage assigned equipment, verification status, and reminder emails.',
               },
+              'ai-usage': { title: 'AI Usage', description: 'Track daily OpenAI API calls, tokens, and estimated costs.' },
               'sales-reps': {
                 title: 'Sales Rep Accounting',
                 description: 'Review commission invoices, payout totals, exports, and weekly reports.',
@@ -474,9 +479,10 @@ const AccountingPage = () => {
             activeTab={activeTab}
             onTabChange={setActiveTab}
             showTabs={!isEditingManagerAccounting && accountingMode === 'admin'}
+            showAiUsage={role === 'superadmin'}
             daysWindow={isEditingManagerAccounting ? undefined : daysWindow}
             onDaysWindowChange={isEditingManagerAccounting ? undefined : setDaysWindow}
-            reportingControl={accountingMode === 'admin' && activeTab === 'home' ? <AccountingDateRangeControl value={reportingRange} period={reportingPeriod} label="Reporting period" onChange={(range, period) => { setReportingRange(range); setReportingPeriod(period); }} /> : !isEditingManagerAccounting && accountingMode !== 'admin' ? <AccountingDateRangeControl value={reportingRange} period={reportingPeriod} label={accountingMode === 'client' ? 'Paid reporting period' : 'Reporting period'} onChange={(range, period) => { setReportingRange(range); setReportingPeriod(period); }} /> : undefined}
+            reportingControl={accountingMode === 'admin' && (activeTab === 'home' || activeTab === 'ai-usage') ? <AccountingDateRangeControl value={reportingRange} period={reportingPeriod} label="Reporting period" onChange={(range, period) => { setReportingRange(range); setReportingPeriod(period); }} /> : !isEditingManagerAccounting && accountingMode !== 'admin' ? <AccountingDateRangeControl value={reportingRange} period={reportingPeriod} label={accountingMode === 'client' ? 'Paid reporting period' : 'Reporting period'} onChange={(range, period) => { setReportingRange(range); setReportingPeriod(period); }} /> : undefined}
             payoutActions={null}
           />
             );
@@ -617,6 +623,7 @@ const AccountingPage = () => {
                 </div>
               )}
 
+              {activeTab === 'ai-usage' && role === 'superadmin' && <Suspense fallback={null}><LazyAccountingAiUsage start={reportingRange.startDate} end={reportingRange.endDate} /></Suspense>}
               {activeTab === 'sales-reps' && accountingMode === 'admin' && (
                 <div className="flex flex-col gap-4 sm:gap-6">
                   <Suspense fallback={null}>

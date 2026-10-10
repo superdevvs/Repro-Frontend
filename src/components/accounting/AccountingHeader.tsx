@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { SegmentedDays } from './OverviewCards';
 
-type AccountingTab = 'home' | 'photographers' | 'equipments' | 'editors' | 'sales-reps';
+type AccountingTab = 'home' | 'photographers' | 'equipments' | 'editors' | 'sales-reps' | 'ai-usage';
 
 interface AccountingHeaderProps {
   onCreateInvoice: () => void;
@@ -16,6 +16,7 @@ interface AccountingHeaderProps {
   activeTab?: AccountingTab;
   onTabChange?: (tab: AccountingTab) => void;
   showTabs?: boolean;
+  showAiUsage?: boolean;
   daysWindow?: number;
   onDaysWindowChange?: (v: number) => void;
   onExport?: (format: 'csv' | 'excel' | 'pdf') => void;
@@ -31,13 +32,14 @@ interface AccountingHeaderProps {
 export function AccountingHeader({
   onCreateInvoice, onCreateBatch, title = 'Accounting', description = 'Manage your finances, invoices, and payments',
   showCreateButton = true, activeTab = 'home', onTabChange, showTabs = false,
-  daysWindow, onDaysWindowChange, onExport, payoutActions, reportingControl,
+  daysWindow, onDaysWindowChange, onExport, payoutActions, reportingControl, showAiUsage = false,
 }: AccountingHeaderProps) {
   const showPayout = activeTab === 'photographers' && payoutActions;
   const tabs: { id: AccountingTab; label: string }[] = [
     { id: 'home', label: 'Home' }, { id: 'photographers', label: 'Photographers' },
     { id: 'editors', label: 'Editors' }, { id: 'sales-reps', label: 'Sales reps' },
     { id: 'equipments', label: 'Equipment' },
+    ...(showAiUsage ? [{ id: 'ai-usage' as const, label: 'AI usage' }] : []),
   ];
   return <header className="accounting-header space-y-5 max-md:contents">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
