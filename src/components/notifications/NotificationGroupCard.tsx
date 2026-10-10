@@ -2,6 +2,7 @@ import { AlertCircle, Check, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { NotificationGroup } from '@/utils/notificationGroups';
 import { cn } from '@/lib/utils';
+import { NotificationCategoryPills } from './NotificationCategoryPills';
 
 interface Props {
   group: NotificationGroup;
@@ -24,7 +25,7 @@ export function NotificationGroupCard({ group, formatDate, onTimeline, onOpen, o
     </div>}
     <p className="text-xs text-muted-foreground">Latest: {group.latest.title}</p>
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]">
-      {group.unreadCount > 0 && <span className="font-medium text-primary">{group.unreadCount} new {group.unreadCount === 1 ? 'update' : 'updates'}</span>}
+      <NotificationCategoryPills events={group.events} />
       <span className="text-muted-foreground">{group.events.length} {group.events.length === 1 ? 'event' : 'events'}</span>
     </div>
     <div className="flex flex-wrap items-center gap-1">
