@@ -256,7 +256,7 @@ const Index = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.05 }}
             >
-              <div className={`w-full max-w-md mx-auto space-y-6 text-[15px] ${isLogin ? '' : 'pb-8 pt-2'}`}>
+              <div className={`w-full mx-auto space-y-6 text-[15px] ${isLogin ? '' : 'max-w-md pb-8 pt-2'}`}>
                 <LoginForm onTabChange={handleTabChange} />
               </div>
             </motion.div>

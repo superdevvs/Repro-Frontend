@@ -232,7 +232,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
 
   return (
     <motion.div
-      className={`w-full mx-auto ${isMobile ? 'max-w-md' : desktopFormWidthClass} ${
+      className={`w-full mx-auto ${isMobile ? (isRegister ? 'max-w-md' : 'max-w-none') : desktopFormWidthClass} ${
         isMobile
           ? `${isRegister ? 'rounded-[28px] overflow-hidden' : 'rounded-b-[28px] rounded-t-none'} shadow-[0_24px_60px_rgba(1,3,9,0.68)] bg-[#03060B]`
           : ''
@@ -249,7 +249,7 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
             : 'border-none bg-transparent'
         }`}
       >
-        <CardContent className={`${isMobile ? `${isRegister ? 'flex min-h-0 h-full flex-col overflow-hidden p-4 sm:p-6' : 'p-4 sm:p-6'} relative z-10` : isRegister ? 'px-0 py-3' : 'p-0'}`}>
+        <CardContent className={`${isMobile ? `${isRegister ? 'flex min-h-0 h-full flex-col overflow-hidden p-4 sm:p-6' : 'mx-auto w-full max-w-[38rem] p-4 sm:p-6'} relative z-10` : isRegister ? 'px-0 py-3' : 'p-0'}`}>
           {/* Top header (logo + heading + subtext) */}
           <div className={`${isMobile ? 'text-left mb-5 space-y-2.5' : isRegister ? 'text-center mb-7 pt-2' : 'text-center mb-8'}`}>
             <div className={`h-[34px] mb-4 flex items-center ${isMobile ? 'justify-start mt-[10px]' : 'justify-center'}`}>
