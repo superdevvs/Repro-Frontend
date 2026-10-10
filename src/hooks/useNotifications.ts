@@ -8,12 +8,12 @@ import { useEmailRealtime, type EmailRealtimeMessage } from './use-email-realtim
 import { useShootRealtime, type ShootActivityEvent } from './use-shoot-realtime';
 import { toast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
+import { countUnreadGroups, isAttentionNotification } from '@/utils/notificationGroups';
 import {
   canAccessNotificationSms,
   normalizeNotificationRole,
 } from '@/utils/notificationRole';
 import {
-  countUnread,
   getReadIds,
   isNotificationRead,
   loadReadState,
@@ -37,6 +37,8 @@ export interface NotificationItem {
   shootId?: number;
   action?: string;
   metadata?: Record<string, unknown>;
+  address?: string;
+  isOwnAction?: boolean;
 }
 
 const STORAGE_KEY_PREFIX = 'repro_read_notifications_';
@@ -96,14 +98,20 @@ const SHOOT_ACTIVITY_TITLES: Record<string, string> = {
   hold_rejected: 'Hold Rejected',
   shoot_editing_started: 'Editing Started',
   shoot_submitted_for_review: 'Submitted for Review',
+  shoot_submitted_for_editing_review: 'Submitted for Review',
   shoot_submitted_edited: 'Edited Files Submitted',
   shoot_submitted_raw: 'Raw Files Submitted',
   payment_done: 'Payment Received',
   payment_marked_paid: 'Payment Marked Paid',
   payment_received: 'Payment Received',
+  payment_completed: 'Payment Received',
+  payment_failed: 'Payment Failed',
+  payment_refunded: 'Payment Refunded',
   invoice_created: 'Invoice Created',
   invoice_sent: 'Invoice Sent',
   media_uploaded: 'Media Uploaded',
+  upload_failed: 'Upload Failed',
+  media_upload_failed: 'Upload Failed',
   cancellation_requested: 'Cancellation Requested',
   cancellation_approved: 'Cancellation Approved',
   cancellation_rejected: 'Cancellation Rejected',
@@ -175,13 +183,15 @@ const normalizeActivity = (
     title,
     message: activity.message,
     type,
-    isRead: isNotificationRead(id, activity.timestamp, readIds, lastSeenAt),
+    isRead: Boolean(activity.isOwnAction && !actionHint.endsWith('_failed')) || isNotificationRead(id, activity.timestamp, readIds, lastSeenAt),
     date: activity.timestamp || new Date().toISOString(),
     actionUrl: activity.shootId ? `/shoots/${activity.shootId}` : activity.actionUrl || undefined,
     actionLabel: activity.shootId ? 'View' : activity.actionLabel || undefined,
     shootId: activity.shootId ?? undefined,
     action: activity.action || undefined,
     metadata: activity.metadata,
+    address: activity.address || undefined,
+    isOwnAction: activity.isOwnAction,
   };
 };
 
@@ -212,6 +222,7 @@ const buildSmsNotification = (
     date: now,
     actionUrl: threadId ? `/messaging/sms?thread=${encodeURIComponent(String(threadId))}` : undefined,
     actionLabel: 'Open thread',
+    metadata: { thread_id: `sms:${threadId}` },
   };
 };
 
@@ -247,6 +258,7 @@ const buildEmailNotification = (
     date,
     actionUrl: isInternal ? `/messaging/email/inbox?message=${event.id}` : '/messaging/email/inbox',
     actionLabel: isInternal ? 'View message' : 'View Email',
+    metadata: { thread_id: event.thread_id },
   };
 };
 
@@ -271,6 +283,8 @@ const buildShootActivityNotification = (
     actionLabel: 'View Shoot',
     shootId: event.shootId,
     action: event.activityType,
+    address: event.address,
+    metadata: event.metadata,
   };
 };
 
@@ -282,7 +296,7 @@ const buildShootActivityNotification = (
 const fetchNotifications = async (
   token: string,
   impersonatedUserId?: string | number | null
-): Promise<DashboardActivityItem[]> => {
+): Promise<{ activityLog: DashboardActivityItem[]; readState?: { lastSeenAt: number | null; readIds: Record<string, number> } }> => {
   const headers: Record<string, string> = {
     Accept: 'application/json',
     Authorization: `Bearer ${token}`,
@@ -303,8 +317,10 @@ const fetchNotifications = async (
   }
 
   const json = await res.json();
-  return json.data?.activity_log || [];
+  return { activityLog: json.data?.activity_log || [], readState: json.data?.read_state };
 };
+
+const EMPTY_ACTIVITY: DashboardActivityItem[] = [];
 
 // Polling interval increased from 30s to 60s
 const POLL_INTERVAL = 60000;
@@ -337,11 +353,12 @@ export const useNotifications = () => {
     lastSeenAtRef.current = stored.lastSeenAt;
     previousActivityLogRef.current = '';
     setNotifications([]);
+    setReadSyncError(null);
   }, [notificationContextKey, storageKey]);
 
   // Use React Query for fetching notifications with smart polling
   const {
-    data: activityLog = [],
+    data: feed,
     isLoading: loading,
     isFetched,
     error: queryError,
@@ -372,7 +389,43 @@ export const useNotifications = () => {
 
   // Local state for notifications (includes real-time updates)
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [readSyncError, setReadSyncError] = useState<string | null>(null);
   const previousActivityLogRef = useRef<string>('');
+  const currentContextRef = useRef(notificationContextKey);
+  currentContextRef.current = notificationContextKey;
+  const activityLog = feed?.activityLog ?? EMPTY_ACTIVITY;
+
+  const syncReadState = useCallback(async (ids: string[], watermark: number | null) => {
+    const context = notificationContextKey;
+    const token = getToken(isImpersonating ? null : session?.accessToken);
+    if (!token) return;
+    try {
+      // Batched updates are additive on the server, including concurrent devices.
+      const chunks = ids.length ? Array.from({ length: Math.ceil(ids.length / 1000) }, (_, i) => ids.slice(i * 1000, (i + 1) * 1000)) : [[]];
+      for (const chunk of chunks) {
+        if (currentContextRef.current !== context) return;
+        const response = await fetch(`${API_BASE_URL}/api/notifications/read-state`, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${token}`,
+            ...(isImpersonating ? { 'X-Impersonate-User-Id': String(user?.id) } : {}),
+          },
+          body: JSON.stringify({ ids: chunk, lastSeenAt: watermark }),
+        });
+        if (!response.ok) throw new Error('Read status could not sync');
+        const { data } = await response.json();
+        if (currentContextRef.current !== context) return;
+        Object.keys(data?.readIds ?? {}).forEach(id => readIdsRef.current.add(id));
+        if (typeof data?.lastSeenAt === 'number') lastSeenAtRef.current = Math.max(lastSeenAtRef.current ?? 0, data.lastSeenAt);
+        setNotifications(prev => prev.map(item => ({ ...item, isRead: item.isRead || isNotificationRead(item.id, item.date, readIdsRef.current, lastSeenAtRef.current) })));
+      }
+      if (currentContextRef.current === context) setReadSyncError(null);
+    } catch {
+      if (currentContextRef.current === context) setReadSyncError('Read status is saved on this device. Sync is pending.');
+    }
+  }, [notificationContextKey, isImpersonating, session?.accessToken, user?.id]);
+
+  const retryReadSync = useCallback(() => syncReadState([...readIdsRef.current], lastSeenAtRef.current), [syncReadState]);
 
   // Merge activity notifications with local state - only when activityLog actually changes
   useEffect(() => {
@@ -381,7 +434,7 @@ export const useNotifications = () => {
     }
 
     // Create a stable key from activityLog to detect actual changes
-    const activityLogKey = JSON.stringify(activityLog.map(a => a.id));
+    const activityLogKey = JSON.stringify([activityLog, feed?.readState]);
     
     // Only update if the activity log actually changed
     if (previousActivityLogRef.current === activityLogKey) {
@@ -391,8 +444,9 @@ export const useNotifications = () => {
     previousActivityLogRef.current = activityLogKey;
 
     const now = Date.now();
+    const remoteWatermark = feed?.readState?.lastSeenAt;
     const lastSeenAt = seedLastSeenAt(
-      lastSeenAtRef.current,
+      typeof remoteWatermark === 'number' ? Math.max(lastSeenAtRef.current ?? 0, remoteWatermark) : lastSeenAtRef.current,
       activityLog.map((item) => item.timestamp),
       now,
     );
@@ -403,6 +457,7 @@ export const useNotifications = () => {
 
     const feedIds = new Set(activityLog.map((item) => String(item.id)));
     readIdsRef.current = getReadIds(storageKey, feedIds, now);
+    Object.keys(feed?.readState?.readIds ?? {}).forEach(id => readIdsRef.current.add(id));
     persistReadReceipts(readIdsRef.current, storageKey, feedIds);
 
     const activityNotifications = activityLog.map((item) =>
@@ -410,7 +465,11 @@ export const useNotifications = () => {
     );
 
     setNotifications((prev) => mergeNotificationLists(prev, activityNotifications, now));
-  }, [activityLog, isFetched, storageKey]);
+    // Migrate existing browser receipts once, then retry only when the server is missing local reads.
+    if (feed?.readState && (remoteWatermark !== lastSeenAt || [...readIdsRef.current].some(id => feedIds.has(id) && !feed.readState?.readIds[id]))) {
+      void syncReadState([...readIdsRef.current].filter(id => feedIds.has(id)), lastSeenAt);
+    }
+  }, [activityLog, feed?.readState, isFetched, storageKey, syncReadState]);
 
   const mergeNotifications = useCallback((incoming: NotificationItem[]) => {
     setNotifications((prev) => {
@@ -445,26 +504,23 @@ export const useNotifications = () => {
     [mergeNotifications],
   );
 
-  const markAsRead = useCallback((id: string) => {
+  const markManyAsRead = useCallback((ids: string[]) => {
+    ids.forEach(id => readIdsRef.current.add(id));
     setNotifications((prev) => {
-      readIdsRef.current.add(id);
       persistReadReceipts(readIdsRef.current, storageKey, feedIdsFrom(prev));
       return prev.map((notification) =>
-        notification.id === id ? { ...notification, isRead: true } : notification,
+        readIdsRef.current.has(notification.id) ? { ...notification, isRead: true } : notification,
       );
     });
-  }, [storageKey]);
+    void syncReadState(ids, lastSeenAtRef.current);
+  }, [storageKey, syncReadState]);
+
+  const markAsRead = useCallback((id: string) => markManyAsRead([id]), [markManyAsRead]);
 
   const markAllAsRead = useCallback(() => {
-    setNotifications((prev) => {
-      const now = Date.now();
-      prev.forEach((notification) => readIdsRef.current.add(notification.id));
-      lastSeenAtRef.current = now;
-      saveLastSeenAt(storageKey, now);
-      persistReadReceipts(readIdsRef.current, storageKey, feedIdsFrom(prev));
-      return prev.map((notification) => ({ ...notification, isRead: true }));
-    });
-  }, [storageKey]);
+    // Acknowledges the displayed snapshot, never an event arriving after this click.
+    markManyAsRead(notifications.map(notification => notification.id));
+  }, [notifications, markManyAsRead]);
 
   const refresh = useCallback(async () => {
     await refetch();
@@ -505,12 +561,15 @@ export const useNotifications = () => {
     userId: user?.id,
     onActivity: (event) => {
       const notification = buildShootActivityNotification(event, readIdsRef.current, lastSeenAtRef.current);
-      addNotification(notification, { showToast: true });
+      notification.isOwnAction = event.userId != null && Number(event.userId) === Number(user?.id);
+      const quietOwnAction = notification.isOwnAction && !event.activityType.endsWith('_failed');
+      notification.isRead ||= Boolean(quietOwnAction);
+      addNotification(notification, { showToast: !quietOwnAction && isAttentionNotification(notification) });
     },
   });
 
   const unreadCount = useMemo(
-    () => countUnread(notifications, readIdsRef.current, lastSeenAtRef.current),
+    () => countUnreadGroups(notifications),
     [notifications],
   );
 
@@ -522,6 +581,9 @@ export const useNotifications = () => {
     refresh,
     addNotification,
     markAsRead,
+    markManyAsRead,
     markAllAsRead,
+    readSyncError,
+    retryReadSync,
   };
 };

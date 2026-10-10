@@ -174,6 +174,7 @@ export interface DashboardPhotographerSummary {
 }
 
 export interface DashboardActivityItem {
+  isOwnAction?: boolean;
   id: number | string;
   message: string;
   action?: string;

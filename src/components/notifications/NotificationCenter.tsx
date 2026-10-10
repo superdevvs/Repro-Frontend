@@ -23,16 +23,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { BellIcon, CheckIcon, CameraIcon, ClockIcon, MessageSquare, CalendarPlus, CalendarCheck, Play, CheckCircle2, XCircle, PauseCircle, Pencil, Eye, DollarSign, Upload, AlertCircle, RefreshCw } from "lucide-react";
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { format, isToday, isYesterday, differenceInMinutes } from 'date-fns';
 import { useNotifications, NotificationItem } from '@/hooks/useNotifications';
 import { cn } from '@/lib/utils';
 import { formatBadgeCount } from '@/utils/formatBadgeCount';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { DashboardShootModalNavigationState } from '@/types/dashboard';
+import { groupNotifications } from '@/utils/notificationGroups';
+import { NotificationGroupCard } from './NotificationGroupCard';
+import { NotificationTimelineDialog } from './NotificationTimelineDialog';
 
 // Notification types
-type NotificationType = 'all' | 'unread' | 'shoots' | 'messages' | 'system';
+type NotificationType = 'all' | 'unread' | 'shoots' | 'messages' | 'system' | 'attention';
 
 // Check if notification is within the last 30 minutes
 const isRecent = (dateString: string | null | undefined): boolean => {
@@ -53,10 +56,15 @@ export function NotificationCenter() {
   const location = useLocation();
   const { toast } = useToast();
   const isMobile = useIsMobile();
-  const { notifications, unreadCount, loading, error, refresh, markAsRead, markAllAsRead } =
+  const { notifications, unreadCount, loading, error, refresh, markAsRead, markManyAsRead, markAllAsRead, readSyncError, retryReadSync } =
     useNotifications();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<NotificationType>('shoots');
+  const [timelineId, setTimelineId] = useState<string | null>(null);
+  const groups = useMemo(() => groupNotifications(notifications), [notifications]);
+  const attentionCount = groups.filter(group => group.attention.length > 0).length;
+  const visibleGroups = groups.filter(group => activeTab === 'all' || (activeTab === 'unread' ? group.unreadCount > 0 : activeTab === 'attention' ? group.attention.length > 0 : group.type === activeTab))
+    .sort((a, b) => Number(b.attention.length > 0) - Number(a.attention.length > 0));
   const [cancellationDialogOpen, setCancellationDialogOpen] = useState(false);
   const [cancellationShootId, setCancellationShootId] = useState<number | null>(null);
   const [cancellationProcessing, setCancellationProcessing] = useState(false);
@@ -268,8 +276,7 @@ export function NotificationCenter() {
         return;
       }
     }
-    const isCancellation =
-      notificationAction.includes('cancellation') || notificationTitle.includes('cancellation');
+    const isCancellation = notificationAction === 'cancellation_requested';
     const isHoldRequest =
       notificationAction.includes('hold_requested') ||
       notificationAction.includes('hold-requested') ||
@@ -311,31 +318,6 @@ export function NotificationCenter() {
       refresh();
     }
   }, [isOpen, refresh]);
-
-  // Filter notifications based on active tab
-  const filteredNotifications = useMemo(() => {
-    return notifications.filter(notification => {
-      if (activeTab === 'all') return true;
-      if (activeTab === 'unread') return !notification.isRead;
-      return notification.type === activeTab;
-    });
-  }, [notifications, activeTab]);
-
-  // Separate recent (last 30 min) from older notifications
-  const { recentNotifications, olderNotifications } = useMemo(() => {
-    const recent: NotificationItem[] = [];
-    const older: NotificationItem[] = [];
-    
-    filteredNotifications.forEach(notification => {
-      if (isRecent(notification.date)) {
-        recent.push(notification);
-      } else {
-        older.push(notification);
-      }
-    });
-    
-    return { recentNotifications: recent, olderNotifications: older };
-  }, [filteredNotifications]);
 
   // Format notification date
   const formatNotificationDate = (dateString: string) => {
@@ -613,6 +595,7 @@ export function NotificationCenter() {
           variant="ghost" 
           size="icon" 
           className="relative"
+          aria-label={unreadCount ? `Notifications, ${unreadCount} unread groups` : 'Notifications'}
           onClick={() => setIsOpen(true)}
         >
           <BellIcon className="h-5 w-5" />
@@ -630,7 +613,7 @@ export function NotificationCenter() {
           "p-0 flex flex-col",
           isMobile
             ? "w-full max-h-[95vh] rounded-b-2xl [&>button]:hidden"
-            : "w-[380px] sm:w-[540px]"
+            : "w-[380px] sm:w-[540px] sm:max-w-[540px]"
         )}
       >
         <SheetHeader className="px-6 py-4 border-b">
@@ -655,10 +638,11 @@ export function NotificationCenter() {
             <div className="flex items-center gap-1 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {[
                 { value: 'shoots', label: 'Shoots', count: null },
+                { value: 'attention', label: 'Needs attention', count: attentionCount },
                 { value: 'unread', label: 'Unread', count: unreadCount },
                 { value: 'messages', label: 'Messages', count: null },
                 { value: 'system', label: 'System', count: null },
-                { value: 'all', label: 'All', count: notifications.length },
+                { value: 'all', label: 'All', count: groups.length },
               ].map((tab) => (
                 <button
                   key={tab.value}
@@ -679,6 +663,8 @@ export function NotificationCenter() {
             </div>
           </div>
           
+          <p className="px-4 pt-2 text-[11px] text-muted-foreground">Unread counts show updated shoots and conversations.</p>
+          {readSyncError && <div role="status" className="px-4 pt-2 text-xs text-amber-700 dark:text-amber-400">{readSyncError} <Button type="button" variant="link" className="h-auto px-1 text-xs" onClick={() => void retryReadSync()}>Retry sync</Button></div>}
           <div className="flex-1 overflow-hidden">
             <ScrollArea className={cn(isMobile ? "h-[calc(95vh-210px)]" : "h-[calc(100vh-180px)]", "p-4")} style={{ background: 'transparent' }}>
               {loading ? (
@@ -688,43 +674,14 @@ export function NotificationCenter() {
                 </div>
               ) : error ? (
                 <div role="alert" className="py-8 text-center text-sm text-destructive"><p>Could not load notifications.</p><Button variant="outline" className="mt-3" onClick={() => void refresh()}>Try Again</Button></div>
-              ) : filteredNotifications.length > 0 ? (
+              ) : visibleGroups.length > 0 ? (
                 <div className="space-y-2">
-                  {/* Recent notifications section */}
-                  {recentNotifications.length > 0 && (
-                    <div className="space-y-1.5">
-                      <div className="flex items-center gap-2 px-1">
-                        <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
-                          New
-                        </span>
-                        <div className="flex-1 h-px bg-blue-200 dark:bg-blue-800" />
-                      </div>
-                      <AnimatePresence initial={false}>
-                        {recentNotifications.map((notification) => 
-                          renderNotification(notification, true)
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  )}
-                  
-                  {/* Older notifications section */}
-                  {olderNotifications.length > 0 && (
-                    <div className="space-y-1.5">
-                      {recentNotifications.length > 0 && (
-                        <div className="flex items-center gap-2 px-1 pt-2">
-                          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                            Earlier
-                          </span>
-                          <div className="flex-1 h-px bg-border" />
-                        </div>
-                      )}
-                      <AnimatePresence initial={false}>
-                        {olderNotifications.map((notification) => 
-                          renderNotification(notification, false)
-                        )}
-                      </AnimatePresence>
-                    </div>
-                  )}
+                  {visibleGroups.map(group => group.shootId || group.events.length > 1 ? <NotificationGroupCard
+                    key={group.id} group={group} formatDate={formatNotificationDate}
+                    onTimeline={() => setTimelineId(group.id)}
+                    onOpen={() => handleNotificationClick({ ...group.latest, action: undefined, title: group.title })}
+                    onRead={() => markManyAsRead(group.events.map(event => event.id))}
+                  /> : renderNotification(group.latest, isRecent(group.latest.date)))}
                 </div>
               ) : (
                 <EmptyState icon="notifications" title="No notifications" description="You’re all caught up. New updates will appear here." className="min-h-60" />
@@ -747,6 +704,11 @@ export function NotificationCenter() {
         )}
       </SheetContent>
 
+      <NotificationTimelineDialog
+        group={groups.find(group => group.id === timelineId)}
+        onClose={() => setTimelineId(null)} onRead={markManyAsRead}
+        onOpen={handleNotificationClick} formatDate={formatNotificationDate}
+      />
       {/* Cancellation Approval Dialog */}
       <Dialog open={cancellationDialogOpen} onOpenChange={setCancellationDialogOpen}>
         <DialogContent className="sm:max-w-md">
