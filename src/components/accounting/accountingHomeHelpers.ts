@@ -2,6 +2,7 @@ import type {AccountingHomeData} from '@/services/accountingHomeService';
 import {useEffect,useState,type ReactNode} from 'react';
 import {exportRowsAsCsv as writeCsv} from '@/utils/accountingExports';
 import type {InvoiceData} from '@/types/invoice';
+import type {AccountingTab} from './AccountingHeader';
 export const exportRowsAsCsv = (rows: Record<string, unknown>[], name: string) =>
   writeCsv(
     name,
@@ -23,18 +24,16 @@ export function useReducedMotion() {
 export const workspaceTabs = [
   "Client invoices",
   "Cash movement & reports",
-  "Recipient payouts",
-  "Sales rep payouts",
-  "Editor earnings",
   "Expenses",
-  "Equipment",
 ] as const;
+export type HomeWorkspaceTarget = (typeof workspaceTabs)[number] | "Recipient payouts" | "Sales rep payouts" | "Editor earnings" | "Equipment";
 export interface Props {
   start: string;
   end: string;
   invoices: ReactNode;
   onView: (i: InvoiceData) => void;
   onFilterInvoices: (status?: string) => void;
+  onNavigateTab: (tab: AccountingTab) => void;
   canCreateExpense: boolean;
 }
 

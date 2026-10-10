@@ -1,8 +1,8 @@
 import {buildAccountingReport} from './accountingHomeHelpers';
 import {HomeAmount,Module} from './AccountingHomeParts';
-import {day,money,exportRowsAsCsv,useReducedMotion,workspaceTabs,type Props} from './accountingHomeHelpers';
+import {day,money,exportRowsAsCsv,useReducedMotion,workspaceTabs,type Props,type HomeWorkspaceTarget} from './accountingHomeHelpers';
 import { registerInvoicesRefresh } from "@/realtime/realtimeRefreshBus";
-import React, { lazy, Suspense, useEffect, useRef, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
@@ -29,13 +29,7 @@ import { createAccountingExpense } from "@/services/accountingExpenseService";
 import { mapInvoiceResponse } from "@/services/invoiceService";
 import type { InvoiceData } from "@/types/invoice";
 import "./accounting-home.css";
-const Photographers = lazy(() =>
-  import("./PhotographerInvoiceReviewWorkspace").then((m) => ({ default: m.PhotographerInvoiceReviewWorkspace })),
-);
-const Reps = lazy(() => import("./SalesRepInvoiceReviewWorkspace").then((m) => ({ default: m.SalesRepInvoiceReviewWorkspace })));
-const Editors = lazy(() => import("./EditorEarningsWorkspace").then((m) => ({ default: m.EditorEarningsWorkspace })));
-const Equipment = lazy(() => import("./PhotographerEquipmentWorkspace").then((m) => ({ default: m.PhotographerEquipmentWorkspace })));
-export function AccountingHome({ start, end, invoices, onView, onFilterInvoices, canCreateExpense }: Props) {
+export function AccountingHome({ start, end, invoices, onView, onFilterInvoices, onNavigateTab, canCreateExpense }: Props) {
   const { user, role } = useAuth(),
     { toast } = useToast(),
     reduced = useReducedMotion();
@@ -63,7 +57,11 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
     [saving, setSaving] = useState(false),
     [saveError, setSaveError] = useState("");
   const records = useRef<HTMLDivElement>(null);
-  const jump = (tab: (typeof workspaceTabs)[number], status?: string) => {
+  const jump = (tab: HomeWorkspaceTarget, status?: string) => {
+    if (tab === "Recipient payouts") { onNavigateTab("photographers"); return; }
+    if (tab === "Sales rep payouts") { onNavigateTab("sales-reps"); return; }
+    if (tab === "Editor earnings") { onNavigateTab("editors"); return; }
+    if (tab === "Equipment") { onNavigateTab("equipments"); return; }
     setWorkspace(tab);
     setSearch("");
     setCategory("all");
@@ -444,7 +442,7 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
             I = Icon as typeof Camera;
           return (
             <section key={String(key)}>
-              <button className="home-recipient-title" onClick={() => jump(tab as (typeof workspaceTabs)[number])}>
+              <button className="home-recipient-title" onClick={() => jump(tab as HomeWorkspaceTarget)}>
                 <I size={15} />
                 {String(name)}
                 <ArrowUpRight size={13} />
@@ -453,7 +451,7 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
                 <small>Paid in selected period</small>
                 <HomeAmount value={r.paid} />
               </button>
-              <button className="home-recipient-amount home-recipient-unpaid" onClick={() => jump(tab as (typeof workspaceTabs)[number])}>
+              <button className="home-recipient-amount home-recipient-unpaid" onClick={() => jump(tab as HomeWorkspaceTarget)}>
                 <small>{key === "editor" ? "Earnings to pay" : "Ready to pay"}</small>
                 <HomeAmount value={r.unpaid} />
                 <small>{key === "editor" ? "Selected work dates · not paid" : "Selected earning period · approved, not paid"}</small>
@@ -708,14 +706,6 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
           <Suspense fallback={<p role="status">Loading records…</p>}>
             {workspace === "Client invoices" ? (
               invoices
-            ) : workspace === "Recipient payouts" ? (
-              <Photographers reportingRange={{ startDate: start, endDate: end }} />
-            ) : workspace === "Sales rep payouts" ? (
-              <Reps reportingRange={{ startDate: start, endDate: end }} />
-            ) : workspace === "Editor earnings" ? (
-              <Editors mode="admin" startDate={start} endDate={end} />
-            ) : workspace === "Equipment" ? (
-              <Equipment reportingRange={{ startDate: start, endDate: end }} />
             ) : workspace === "Expenses" ? (
               <>
                 <div className="home-toolbar">

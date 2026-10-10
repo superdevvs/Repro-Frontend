@@ -117,6 +117,15 @@ const AccountingPage = () => {
   const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'quarter' | 'year'>('month');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AccountingTab>('home');
+  const navigateHomeWorkspace = useCallback((tab: AccountingTab) => {
+    setActiveTab(tab);
+    requestAnimationFrame(() => {
+      document.querySelector('.accounting-page')?.scrollIntoView({ behavior: 'instant', block: 'start' });
+      const section = document.querySelector<HTMLButtonElement>('.accounting-header nav[aria-label="Accounting sections"] button[aria-current="page"]');
+      section?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'nearest' });
+      section?.focus({ preventScroll: true });
+    });
+  }, []);
   useEffect(() => {
     if (role !== 'superadmin' && activeTab === 'ai-usage') setActiveTab('home');
   }, [role, activeTab]);
@@ -502,7 +511,7 @@ const AccountingPage = () => {
               {/* Home Tab Content */}
               {(activeTab === 'home' || accountingMode !== 'admin') && (
                 accountingMode === 'admin' ? (
-                  <AccountingHome start={reportingRange.startDate} end={reportingRange.endDate} onView={handleViewInvoice} canCreateExpense={can('accounting', 'view')} onFilterInvoices={status => setInvoiceParams(current => ({ ...current, page: 1, role: 'client', status: status as FetchInvoicesParams['status'] }))} invoices={<InvoiceList reportingRange={reportingRange} server={serverInvoices} data={{invoices: filteredInvoices}} onView={handleViewInvoice} onEdit={handleEditInvoice} onDownload={handleDownloadInvoice} onDownloadMultiple={handleDownloadInvoices} onPay={handlePayInvoice} onSendReminder={handleSendReminder} isAdmin={isAdmin} isSuperAdmin={canMarkAsPaid} role={role || ''} loading={loading} />} />
+                  <AccountingHome start={reportingRange.startDate} end={reportingRange.endDate} onView={handleViewInvoice} onNavigateTab={navigateHomeWorkspace} canCreateExpense={can('accounting', 'view')} onFilterInvoices={status => setInvoiceParams(current => ({ ...current, page: 1, role: 'client', status: status as FetchInvoicesParams['status'] }))} invoices={<InvoiceList reportingRange={reportingRange} server={serverInvoices} data={{invoices: filteredInvoices}} onView={handleViewInvoice} onEdit={handleEditInvoice} onDownload={handleDownloadInvoice} onDownloadMultiple={handleDownloadInvoices} onPay={handlePayInvoice} onSendReminder={handleSendReminder} isAdmin={isAdmin} isSuperAdmin={canMarkAsPaid} role={role || ''} loading={loading} />} />
                 ) : accountingMode === 'rep' ? (
                   <div className="min-w-0 space-y-5">
                     <nav aria-label="Sales page sections" className="mobile-sticky-tabs flex gap-1 overflow-x-auto border-b pb-2 text-xs text-muted-foreground">{[['sales-overview', 'Overview'], ['sales-clients', 'Clients'], ['weekly-review', 'Reviews'], ['invoice-activity', 'Invoices']].map(([id, label]) => <a key={id} href={`#${id}`} className="rounded-md px-3 py-2 hover:bg-muted hover:text-foreground">{label}</a>)}</nav>
