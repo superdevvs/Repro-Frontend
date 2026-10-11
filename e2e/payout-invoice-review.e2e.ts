@@ -14,6 +14,7 @@ async function fixture(page: Page, baseURL: string | undefined, role: string) {
     const body = req.postDataJSON() as Record<string, unknown> | null;
     if (req.method() !== 'GET') writes.push({ path: p, body: body || {} });
     if (p === '/user') return reply(route, user);
+    if (p === '/admin/accounting-home') return reply(route, { data: { start: '2026-09-27', end: '2026-10-03', received: 0, prior_received: 0, paid: 0, open: 0, collected: 0, accounts: 0, open_count: 0, aging: {}, recipients: { photographer: { paid: 0, unpaid: 0, review: 1 }, rep: { paid: 0, unpaid: 0, review: 0 }, editor: { paid: 0, unpaid: 0, review: 0 } }, daily: [], ledger: [], attention: [], methods: {}, services: [], expenses: [], equipment: { pending: 0, linked: 0 }, subscriptions: [], cash_basis_note: 'Local payout review fixture.' } });
     if (p === '/me/permissions') { const permissions = ['view', 'manage', 'create', 'edit', 'approve'].map(action => ({ resource: 'accounting', action })).concat(['dashboard', 'shoots', 'accounts', 'availability', 'settings'].map(resource => ({ resource, action: 'view' }))); return reply(route, { permissions, permissionIds: permissions.map(x => `${x.resource}:${x.action}`) }); }
     if (p.endsWith('/shoot-candidates')) return reply(route, { data: [{ shoot_id: 641, shoot_service_id: 743, address: '3325 Dudley Avenue', service_name: '25 HDR Photos', amount: 78.75, scheduled_date: '2026-10-04', completed_date: '2026-10-05', earning_week: '2026-10-04 – 2026-10-10', outside_period: true, eligible: true }] });
     if (p.endsWith('/edit')) return reply(route, { invoice });
@@ -136,7 +137,7 @@ for (const width of [1440, 390]) for (const role of ['photographer', 'salesRep',
       await expect(dialog.getByText('Shoot #641 - 3325 Dudley Avenue - 25 HDR Photos', { exact: true })).toBeVisible();
     }
     expect(await dialog.evaluate(node => node.getBoundingClientRect().width <= innerWidth)).toBe(true);
-    await page.screenshot({ path: path.resolve('test-results', `payout-${role}-${width}.png`) });
+    await page.screenshot({ path: path.resolve(process.env.E2E_ARTIFACT_DIR || 'test-results', `payout-${role}-${width}.png`) });
     if (role === 'admin') await dialog.getByRole('button', { name: 'Approve amount' }).click();
     else {
       await expect(dialog.getByRole('button', { name: 'Submit changes' })).toBeDisabled();
@@ -147,6 +148,30 @@ for (const width of [1440, 390]) for (const role of ['photographer', 'salesRep',
     expect(writes.filter(x => /invoices/.test(x.path))).toHaveLength(2);
     expect(writes.find(x => /submit-for-approval|approve/.test(x.path))?.body.expected_revision).toBe(1);
     expect(errors).toEqual([]);
+  });
+}
+
+for (const width of [1440, 768, 390, 320]) {
+  test(`Reconciliation evidence and pending work ${width}px`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const { invoice, writes } = await fixture(page, baseURL, 'photographer');
+    Object.assign(invoice.payout_review, { before_total: 716.4, submitted_total: 851.4, reconciliation: {
+      pending_count: 2, pending_total: 135, unallocated_count: 0, unallocated_total: 0, unallocated_lines: [],
+      pending_lines: Array.from({ length: 20 }, (_, index) => ({ shoot_id: 2000 + index % 2, shoot_service_id: 3000 + index, address: `Pending property ${index % 2}`, service_name: `Service line ${index}`, work_date: '2026-10-10', amount: 6.75, reason: 'Awaiting photographer submission' })),
+    } });
+    Object.assign(invoice.items[0], { meta: { payout_basis: { service_name: '25 HDR', booked_price: 175, photo_count: 25, pay_type: 'percent', percent: 45, unit_pay: 78.75, quantity: 1 } } });
+    await page.goto('/accounting');
+    await page.getByRole('button', { name: 'View invoice', exact: true }).first().click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByText(/2 shoots pending photographer completion/)).toContainText('$135.00');
+    await expect(dialog.getByText(/Booked 25 HDR/)).toContainText('$175.00');
+    await dialog.getByText('See pending work and reasons', { exact: true }).click();
+    const list = dialog.locator('section[aria-label="Payout reconciliation"] ul');
+    expect(await list.evaluate(node => node.scrollHeight > node.clientHeight)).toBe(true);
+    expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: path.resolve(process.env.E2E_ARTIFACT_DIR || 'test-results', `reconciliation-${width}.png`) });
+    expect(writes.filter(x => /invoices/.test(x.path))).toHaveLength(0);
   });
 }
 
@@ -178,7 +203,7 @@ for (const width of [1440, 390]) for (const role of ['photographer', 'salesRep',
     await expect(lines.nth(2)).toContainText('Sep 27, 2026');
     expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth)).toBe(true);
     expect(writes.filter(write => /invoices/.test(write.path))).toHaveLength(0);
-    await page.screenshot({ path: path.resolve('test-results', `invoice-dates-${role}-${width}.png`) });
+    await page.screenshot({ path: path.resolve(process.env.E2E_ARTIFACT_DIR || 'test-results', `invoice-dates-${role}-${width}.png`) });
   });
 }
 

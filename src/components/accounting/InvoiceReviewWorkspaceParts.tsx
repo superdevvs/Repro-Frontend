@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { WeeklyInvoice } from '@/services/invoiceService';
 import { InvoiceAccountsNote } from './InvoiceAccountsNote';
 import { payoutInvoiceLines } from '@/components/invoices/payoutInvoiceLinePresentation';
+import { PayoutBasisSummary, PayoutReconciliationSummary } from '@/components/invoices/PayoutReconciliationSummary';
 import {
   formatBillingPeriod, formatCurrency, formatRelativeTimestamp, getInvoiceWarnings,
   getSalesRepCommissionSummary, getStatusBadgeClassName, getStatusLabel, type ReviewWorkspaceRole,
@@ -61,6 +62,7 @@ export const DetailShell = ({ invoice, detailLoading, onApprove, onReturn, onOpe
         <div className="flex flex-wrap gap-2">{onEditInvoice && ['pending', 'pending_approval', 'rejected'].includes(invoice.approval_status) && !invoice.is_paid && !invoice.paid_at && Number(invoice.amount_paid) === 0 && <Button variant="outline" size="sm" onClick={onEditInvoice}>Edit invoice</Button>}{onOpenInvoice && <Button variant="outline" size="sm" onClick={onOpenInvoice}>View invoice</Button>}</div>
       </div>
       <TabsContent value="details" className="ar-detail-body">
+        <PayoutReconciliationSummary invoice={invoice} />
         <div className="ar-facts">
           <span><strong>{invoice.shoot_count ?? invoice.shoots?.length ?? 0}</strong> shoots</span>
           <span><strong>{invoice.charge_count ?? items.filter((item) => item.type === 'charge').length}</strong> charges</span>
@@ -81,7 +83,7 @@ export const DetailShell = ({ invoice, detailLoading, onApprove, onReturn, onOpe
         </div>}
         <section><h3 className="ar-section-title">Line items <span>{items.length}</span></h3>
           <div className="ar-table-scroll"><table className="ar-table"><thead><tr><th>Date</th><th>Description</th><th>Type</th><th className="text-right">Amount</th></tr></thead>
-            <tbody>{payoutInvoiceLines(invoice).map(({ item, dateLabel }) => <tr key={item.id}><td className="whitespace-nowrap text-muted-foreground">{dateLabel}</td><td>{item.description}</td><td className="capitalize text-muted-foreground">{item.type}</td><td className="text-right font-medium tabular-nums">{formatCurrency(item.total_amount)}</td></tr>)}</tbody>
+            <tbody>{payoutInvoiceLines(invoice).map(({ item, dateLabel }) => <tr key={item.id}><td className="whitespace-nowrap text-muted-foreground">{dateLabel}</td><td>{item.description}<PayoutBasisSummary item={item} /></td><td className="capitalize text-muted-foreground">{item.type}</td><td className="text-right font-medium tabular-nums">{formatCurrency(item.total_amount)}</td></tr>)}</tbody>
           </table></div>{!items.length && <p className="ar-empty">No line items are available.</p>}
         </section>
         <div className="grid gap-3 sm:grid-cols-2">

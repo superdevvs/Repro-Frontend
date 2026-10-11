@@ -105,6 +105,14 @@ export interface WeeklyInvoice {
   warning_override_at?: string | null;
   audit_events?: WeeklyInvoiceAuditEvent[];
   payout_review?: {
+    reconciliation?: {
+      pending_count: number;
+      pending_total: number;
+      pending_lines: PayoutReconciliationLine[];
+      unallocated_count: number;
+      unallocated_total: number;
+      unallocated_lines: PayoutReconciliationLine[];
+    } | null;
     revision: number;
     recovery_required?: { message: string; before_total: number; after_total: number; recalculation_id: number } | null;
     has_changes: boolean;
@@ -115,6 +123,17 @@ export interface WeeklyInvoice {
     submitted_total?: number | null;
     changes?: Array<{ summary: string; metadata?: Record<string, unknown>; created_at?: string }>;
   } | null;
+}
+
+export interface PayoutReconciliationLine {
+  shoot_id: number;
+  shoot_service_id?: number;
+  address: string;
+  service_name: string;
+  work_date: string;
+  amount: number;
+  reason?: string | null;
+  late_work?: boolean;
 }
 
 export interface WeeklyInvoiceItem {
@@ -188,6 +207,13 @@ export interface WeeklyInvoiceReviewQueueResponse {
 }
 
 export interface PayoutSummary {
+  pending_count?: number;
+  pending_total?: number;
+  pending_lines?: PayoutReconciliationLine[];
+  unallocated_count?: number;
+  unallocated_total?: number;
+  invoice_basis?: 'reconciled_invoices' | 'calculated_preview';
+  late_count?: number;
   id: number;
   name: string;
   email: string;

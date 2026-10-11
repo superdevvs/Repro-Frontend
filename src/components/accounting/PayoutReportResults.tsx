@@ -53,10 +53,19 @@ export function PayoutReportResults({ rows }: { rows: PayoutReportRow[] }) {
               <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Shoots</dt><dd>{selected.shoot_count}</dd></div>
               {selected.group === 'editor' && <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Services</dt><dd>{selected.service_count || 0}</dd></div>}
               {selected.group === 'photographer' && <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Average per shoot</dt><dd>{formatCurrency(selected.average_value)}</dd></div>}
+              {selected.group === 'photographer' && <>
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Pending completion · excluded</dt><dd className="text-right">{selected.pending_count ?? 0} shoots · {formatCurrency(selected.pending_total ?? 0)}</dd></div>
+                {!!selected.unallocated_count && <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Awaiting reconciliation</dt><dd className="text-right">{selected.unallocated_count} lines · {formatCurrency(selected.unallocated_total ?? 0)}</dd></div>}
+                {!!selected.late_count && <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Earlier-week lines included</dt><dd>{selected.late_count}</dd></div>}
+              </>}
               {selected.group === 'salesRep' && <><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Gross total</dt><dd>{formatCurrency(selected.gross_total)}</dd></div><div className="flex justify-between gap-3"><dt className="text-muted-foreground">Commission rate</dt><dd>{selected.commission_rate == null ? 'Not recorded' : `${selected.commission_rate}%`}</dd></div></>}
               {selected.paid_amount != null && <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Paid</dt><dd>{formatCurrency(selected.paid_amount)}</dd></div>}
               {selected.unpaid_amount != null && <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Unpaid</dt><dd>{formatCurrency(selected.unpaid_amount)}</dd></div>}
             </dl>
+            {selected.group === 'photographer' && <>
+              <p className="text-xs text-muted-foreground">{selected.invoice_basis === 'reconciled_invoices' ? 'Total uses saved invoice lines, including reviewed corrections and reimbursements.' : 'Calculated preview: reconcile to create invoice lines before sending a recap.'}</p>
+              {!!selected.pending_lines?.length && <details><summary className="cursor-pointer text-xs font-medium">Pending work and reasons</summary><ul className="mt-2 max-h-48 space-y-2 overflow-y-auto text-xs">{selected.pending_lines.map((line, index) => <li key={`${line.shoot_id}-${index}`} className="border-t pt-2"><p className="break-words font-medium">{line.work_date} · {line.address} · {formatCurrency(line.amount)}</p><p className="text-muted-foreground">{line.service_name} · {line.reason}</p></li>)}</ul></details>}
+            </>}
             <p className="border-t pt-4 text-xs leading-relaxed text-muted-foreground">Report amounts come from the selected billing weeks. Record approvals and payments through the invoice workflow.</p>
           </div>
         </> : <p className="ar-empty p-5">Select a payee to inspect the payout breakdown.</p>}

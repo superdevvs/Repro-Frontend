@@ -11,6 +11,7 @@ import { fetchPayoutEditor, removePayoutInvoiceItem, savePayoutInvoiceItem, type
 import { PayoutShootPicker } from './PayoutShootPicker';
 import { PayoutWorkForm } from './PayoutWorkForm';
 import { payoutInvoiceLines } from './payoutInvoiceLinePresentation';
+import { PayoutBasisSummary, PayoutReconciliationSummary } from './PayoutReconciliationSummary';
 
 const money = (value: number | string | undefined | null) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value ?? 0));
 interface Props {
@@ -93,13 +94,14 @@ export function PayoutInvoiceEditor({ open, onClose, invoice, role, initialEdit 
     <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-1.5rem)] max-w-4xl flex-col overflow-hidden p-0">
       <DialogHeader className="shrink-0 border-b px-5 py-4 pr-12">
         <DialogTitle>{editing ? 'Edit invoice' : 'View invoice'} · W-{invoice.id}</DialogTitle>
-        <DialogDescription>{invoice.billing_period_start.slice(0, 10)} – {invoice.billing_period_end.slice(0, 10)} · Sunday–Saturday · Based on shoot dates; completed / verified work only</DialogDescription>
+        <DialogDescription>{invoice.billing_period_start.slice(0, 10)} – {invoice.billing_period_end.slice(0, 10)} · Sunday–Saturday · Original shoot dates; submitted / uploaded or completed photographer work</DialogDescription>
       </DialogHeader>
       {loading ? <div className="flex min-h-40 items-center justify-center gap-2"><InlineSpinner /> Loading invoice…</div> : !loaded ? <div className="p-5 text-sm text-muted-foreground">Invoice unavailable. Close and reopen it to try again.</div> : <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div><p className="text-sm font-medium">{current.photographer?.name || current.salesRep?.name || 'Weekly payout'}</p><Badge variant="outline" className="mt-2">{current.payout_review?.label || current.approval_status}</Badge></div>
           <div className="text-right"><p className="text-xs text-muted-foreground">Invoice total</p><p className="text-2xl font-semibold tabular-nums">{money(current.total_amount)}</p>{current.payout_review?.before_total != null && <p className="text-xs text-muted-foreground">Before edits {money(current.payout_review.before_total)}</p>}</div>
         </div>
+        <PayoutReconciliationSummary invoice={current} />
         {lastReturn && <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm"><strong>Previous return reason</strong><p className="mt-1 whitespace-pre-wrap">{lastReturn}</p></div>}
         {recovery && editing && role === 'admin' && <label className="flex items-start gap-2 rounded-lg border border-amber-500/30 p-3 text-sm"><input type="checkbox" className="mt-1" checked={reconcileHistory} onChange={(event) => setReconcileHistory(event.target.checked)} />I reconciled every historical edit against the original work and previous payouts. Record this acknowledgement with my next saved correction.</label>}
         {current.modification_notes && <div className="rounded-lg bg-muted/40 p-3 text-sm"><strong>Submission explanation</strong><p className="mt-1 whitespace-pre-wrap">{current.modification_notes}</p></div>}
@@ -111,7 +113,7 @@ export function PayoutInvoiceEditor({ open, onClose, invoice, role, initialEdit 
             <div className="grid grid-cols-2 gap-3"><div><Label htmlFor={`line-amount-${item.id}`}>Unit amount</Label><Input id={`line-amount-${item.id}`} type="number" min="0" step="0.01" value={itemDraft.amount} onChange={(event) => setItemDraft({ ...itemDraft, amount: event.target.value })} /></div><div><Label htmlFor={`line-quantity-${item.id}`}>Quantity</Label><Input id={`line-quantity-${item.id}`} type="number" min="1" step="1" value={itemDraft.quantity} onChange={(event) => setItemDraft({ ...itemDraft, quantity: event.target.value })} /></div></div>
             {role === 'admin' && item.meta?.source === 'external_work' && <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={itemDraft.verified} onChange={(event) => setItemDraft({ ...itemDraft, verified: event.target.checked })} />Accounts verified this external work</label>}
             <div className="flex gap-2"><Button size="sm" disabled={busy} onClick={saveItem}>Save correction</Button><Button size="sm" variant="ghost" onClick={() => setEditItem(null)}>Cancel</Button></div>
-          </div> : <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><p className="mb-1 text-xs font-medium text-muted-foreground">{dateLabel}</p><p className="break-words text-sm font-medium">{item.description}</p><p className="mt-1 text-xs text-muted-foreground">{item.type} · {item.quantity} × {money(item.unit_amount)}{showShootNumber ? ` · Shoot #${item.shoot_id}` : ''}</p>{item.meta?.source === 'external_work' && <p className="mt-1 text-xs text-amber-600 dark:text-amber-300">External work · {String(item.meta.reference ?? '')} · {item.meta.verified ? 'Verified by accounts' : 'Awaiting accounts verification'}</p>}</div>
+          </div> : <div className="flex flex-wrap items-start justify-between gap-3"><div className="min-w-0 flex-1"><p className="mb-1 text-xs font-medium text-muted-foreground">{dateLabel}</p><p className="break-words text-sm font-medium">{item.description}</p><p className="mt-1 text-xs text-muted-foreground">{item.type} · {item.quantity} × {money(item.unit_amount)}{showShootNumber ? ` · Shoot #${item.shoot_id}` : ''}</p><PayoutBasisSummary item={item} />{item.meta?.source === 'external_work' && <p className="mt-1 text-xs text-amber-600 dark:text-amber-300">External work · {String(item.meta.reference ?? '')} · {item.meta.verified ? 'Verified by accounts' : 'Awaiting accounts verification'}</p>}</div>
             <div className="text-right"><strong className="text-sm tabular-nums">{money(item.total_amount)}</strong>{editing && canEdit && <div className="mt-2 flex flex-wrap gap-1"><Button size="sm" variant="outline" disabled={busy} onClick={() => { setEditItem(item); setItemDraft({ description: item.description, amount: String(item.unit_amount), quantity: String(item.quantity), verified: Boolean(item.meta?.verified) }); }}>Edit line</Button><Button size="sm" variant="ghost" disabled={busy} onClick={() => run(async () => { apply((await removePayoutInvoiceItem(role, current, item.id, reason)).invoice); })}>Remove</Button></div>}</div>
           </div>}
         </div>)}</div>
