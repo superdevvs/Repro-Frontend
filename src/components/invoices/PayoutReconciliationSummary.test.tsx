@@ -17,7 +17,7 @@ it('separates pending work from invoice amount and preserves before/after correc
   expect(screen.getByText(/4610 Old Court Road/)).toBeInTheDocument();
 });
 it('shows a saved package and a reviewed correction without silently changing its basis', () => {
-  render(<PayoutBasisSummary item={{ total_amount: 89.55, meta: { late_work: true,
+  render(<PayoutBasisSummary item={{ id: 1, invoice_id: 2, type: 'charge', description: '25 HDR', quantity: 1, unit_amount: 89.55, total_amount: 89.55, meta: { late_work: true,
     payout_basis: { service_name: '25 HDR', booked_price: 175, photo_count: 25, unit_pay: 78.75, quantity: 1, pay_type: 'percent', percent: 45 },
   } } as WeeklyInvoiceItem} />);
   expect(screen.getByText(/Booked 25 HDR/)).toHaveTextContent('$175.00');
