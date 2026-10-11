@@ -57,7 +57,7 @@ export function PayoutInvoiceEditor({ open, onClose, invoice, role, initialEdit 
   const canApprove = loaded && role === 'admin' && !paid && ['pending', 'pending_approval'].includes(current.approval_status);
   const lastReturn = current.payout_review?.last_return_reason || current.rejection_reason;
   const recovery = current.payout_review?.recovery_required;
-  const warnings = [...(current.unresolved_warnings || []), ...(recovery && !current.unresolved_warnings?.some(warning => warning.code === 'historical_edit_recovery') ? [{ code: 'historical_edit_recovery', message: `${recovery.message} Before regeneration ${money(recovery.before_total)}; after ${money(recovery.after_total)}.` }] : [])];
+  const warnings = [...(current.unresolved_warnings || []), ...(current.payout_review?.reconciliation?.basis_warnings || []), ...(recovery && !current.unresolved_warnings?.some(warning => warning.code === 'historical_edit_recovery') ? [{ code: 'historical_edit_recovery', message: `${recovery.message} Before regeneration ${money(recovery.before_total)}; after ${money(recovery.after_total)}.` }] : [])];
 
   const apply = (result: WeeklyInvoice) => { setCurrent(result); onInvoiceChange(result); };
   const run = async (operation: () => Promise<void>) => {

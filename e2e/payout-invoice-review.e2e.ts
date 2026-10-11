@@ -175,6 +175,22 @@ for (const width of [1440, 768, 390, 320]) {
   });
 }
 
+test('Accounts can explain a booking change without rewriting the submitted invoice', async ({ page, baseURL }) => {
+  const { invoice, writes } = await fixture(page, baseURL, 'admin');
+  Object.assign(invoice.payout_review, { reconciliation: { pending_count: 0, pending_total: 0, pending_lines: [], unallocated_count: 0, unallocated_total: 0, unallocated_lines: [], basis_warnings: [{ code: 'booking_changed_after_invoice', message: 'Booking package changed after submission. Saved amount retained.' }] } });
+  await page.goto('/accounting');
+  await page.getByRole('navigation', { name: 'Accounting sections' }).getByRole('button', { name: 'Photographers', exact: true }).click();
+  await page.getByRole('button', { name: 'View invoice', exact: true }).first().click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Booking package changed after submission. Saved amount retained.', { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Approve amount' }).click();
+  expect(writes.filter(x => x.path.endsWith('/approve'))).toHaveLength(0);
+  await dialog.getByLabel('Accounts override reason').fill('Verified original agreed payout; retain it despite the later booking change.');
+  await dialog.getByRole('button', { name: 'Approve amount' }).click();
+  expect(writes.find(x => x.path.endsWith('/approve'))?.body.warning_override_reason).toContain('Verified original agreed payout');
+  expect(invoice.total_amount).toBe(438.3);
+});
+
 for (const width of [1440, 390]) for (const role of ['photographer', 'salesRep', 'admin']) {
   test(`Shoot dates newest first with one shoot number ${role} ${width}px`, async ({ page, baseURL }) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });

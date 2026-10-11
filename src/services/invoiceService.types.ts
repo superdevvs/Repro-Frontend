@@ -106,6 +106,7 @@ export interface WeeklyInvoice {
   audit_events?: WeeklyInvoiceAuditEvent[];
   payout_review?: {
     reconciliation?: {
+      basis_warnings?: WeeklyInvoiceWarning[];
       pending_count: number;
       pending_total: number;
       pending_lines: PayoutReconciliationLine[];

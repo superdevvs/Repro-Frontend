@@ -68,7 +68,7 @@ export const getStatusBadgeClassName = (status: string) => {
   }
 };
 
-export const getInvoiceWarnings = (invoice: WeeklyInvoice | null) => invoice?.unresolved_warnings || [];
+export const getInvoiceWarnings = (invoice: WeeklyInvoice | null) => [...(invoice?.unresolved_warnings || []), ...(invoice?.payout_review?.reconciliation?.basis_warnings || [])];
 
 const numberFromRecord = (record: Record<string, unknown> | null | undefined, key: string) => {
   const value = record?.[key];
