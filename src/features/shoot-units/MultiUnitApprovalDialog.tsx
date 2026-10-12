@@ -2,7 +2,7 @@ import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel
 import { useTravelFeasibility, type TravelController } from '@/features/travel/useTravelFeasibility';
 import { approvalScheduleChanges } from './approvalScheduleChanges';
 import { shootTravelPayload } from '@/features/travel/travelPayload';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Minus, Plus } from 'lucide-react';
 import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -31,6 +31,9 @@ export function MultiUnitApprovalDialog({ open, onClose, source, photographers, 
   const [busy, setBusy] = useState(false);
   const [durationValidity, setDurationValidity] = useState<Record<string, boolean>>({});
   const [page, setPage] = useState(0);
+  useEffect(() => {
+    setChanges({}); setNotes(''); setError(''); setDurationValidity({}); setPage(0);
+  }, [open, shoot.id]);
   const lines = allUnitLines(shoot).map(line => ({ ...line, ...changes[String(line.shoot_service_id ?? line.shootServiceId)] }));
   const serviceLinesPayload = lines.map(unitLinePayload);
   const firstStart = serviceLinesPayload.map(line => line.scheduled_at).filter((value): value is string => typeof value === 'string' && Number.isFinite(Date.parse(value))).sort((a, b) => Date.parse(a) - Date.parse(b))[0];

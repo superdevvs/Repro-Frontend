@@ -145,4 +145,21 @@ describe('large property approval', () => {
     expect(JSON.parse(String(vi.mocked(fetch).mock.calls.at(-1)?.[1]?.body)).service_lines[0].duration_minutes).toBe(90);
     expect(post).not.toHaveBeenCalled();
   });
+
+  it('discards staged service times when the approval dialog closes and reopens', async () => {
+    const source = { id: 98769, units_revision: 1, timezone: 'America/New_York',
+      units: [{ id: 1, label: 'Unit 1', kind: 'unit', sqft: 900 }],
+      service_lines: [{ shoot_service_id: 1, client_key: 'line-1', service_id: 7, shoot_unit_id: 1,
+        name: 'Photos', price: 100, quantity: 1, duration_minutes: 75, photographer_id: 9,
+        scheduled_at: '2026-10-13T17:30:00Z' }],
+    };
+    const props = { source, photographers: [{ id: 9, name: 'Alex' }], onClose: vi.fn() };
+    const view = render(<MultiUnitApprovalDialog open {...props} />);
+    fireEvent.change(screen.getByLabelText('Photos time'), { target: { value: '15:00' } });
+    expect(screen.getByLabelText('Photos time')).toHaveValue('15:00');
+    view.rerender(<MultiUnitApprovalDialog open={false} {...props} />);
+    view.rerender(<MultiUnitApprovalDialog open {...props} />);
+    expect(screen.getByLabelText('Photos time')).toHaveValue('13:30');
+    expect(post).not.toHaveBeenCalled();
+  });
 });
