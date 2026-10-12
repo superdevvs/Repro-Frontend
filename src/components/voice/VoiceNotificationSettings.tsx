@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { DashboardInstallButton } from '@/components/dashboard/DashboardInstallButton';
+import { useDashboardInstall } from '@/hooks/useDashboardInstall';
 import { getVoicePhoneSettings, updateVoicePhoneSettings, requestVoicePhoneVerification, verifyVoicePhone, removeVoicePhone } from '@/services/voice';
 import { clearLocalVoicePush, deleteVoicePushDevice, enableVoicePush, getVoicePushDelivery, getVoicePushSettings, localVoicePushIdentity, pushSupport, testVoicePushDevice, updateVoicePushPreferences, type VoicePushIdentity } from '@/services/voicePush';
 
@@ -28,6 +30,7 @@ export function VoiceNotificationSettings() {
   const [code, setCode] = useState('');
   const [deliveryId, setDeliveryId] = useState<string | null>(null);
   const support = pushSupport();
+  const install = useDashboardInstall();
   const delivery = useQuery({ queryKey: ['voice-push-delivery', user?.id, deliveryId], queryFn: () => getVoicePushDelivery(deliveryId!), enabled: allowed && Boolean(deliveryId), refetchInterval: (query) => ['queued', 'retrying'].includes(query.state.data?.status ?? 'queued') ? 2000 : false });
   const thisDevice = local?.user_id === String(user?.id) && push.data?.devices.some((device) => device.id === local.id) ? local : null;
   useEffect(() => {
@@ -50,6 +53,9 @@ export function VoiceNotificationSettings() {
   return <section className="space-y-6" aria-label="Call alerts and receiving devices">
     <div className="rounded-2xl border bg-card p-5 space-y-4">
       <div className="flex items-start gap-3"><Bell className="h-5 w-5 mt-0.5" /><div><h3 className="font-semibold">Call alerts on this device</h3><p className="text-sm text-muted-foreground">See incoming calls while working in another tab or using the installed phone app. Open the alert, then choose Answer.</p></div></div>
+      {!install.installed && <div className="flex flex-col items-start gap-3 rounded-xl bg-muted/50 p-3 sm:flex-row sm:items-center sm:justify-between"><p className="min-w-0 flex-1 text-sm">{install.ios ? 'First add REPro to your Home Screen. Open it there to enable background call alerts.' : 'Add REPro to your Home Screen for quick access to your dashboard and calls.'}</p><DashboardInstallButton forCalls /></div>}
+      {install.installed && !thisDevice && <p className="rounded-xl bg-muted/50 p-3 text-sm">REPro is open as an app. Choose Enable this device below and allow notifications, then send a test alert.</p>}
+      {thisDevice && push.data?.preferences.incoming_calls === false && <p role="status" className="text-sm text-amber-700 dark:text-amber-300">Call alerts are paused. Turn on Incoming call alerts on my devices to receive them.</p>}
       {push.isLoading ? <p className="text-sm">Checking notification setup…</p> : push.isError ? <p role="alert" className="text-sm text-destructive">Could not check call alert settings. <button className="underline" onClick={() => void push.refetch()}>Try again</button></p> : <>
         {push.data?.blockers.map((blocker) => <p key={blocker} className="text-sm text-amber-700 dark:text-amber-300">{blocker}</p>)}
         {!support.supported && <p className="text-sm text-muted-foreground">{support.reason}</p>}

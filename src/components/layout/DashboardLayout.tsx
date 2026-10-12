@@ -17,6 +17,7 @@ import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
 import { isSupportInbox } from '@/pages/messaging/messagingSupport';
 import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 import { PhotographerHelpProvider } from '@/features/dashboard/components/PhotographerHelpProvider';
+import { DashboardInstallBanner } from '@/components/dashboard/DashboardInstallBanner';
 
 const ListingStudioDialog = React.lazy(() => import('@/components/listing-studio/ListingStudioDialog'));
 
@@ -150,6 +151,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             </div>
           )}
           {!hideNavbar && <Navbar />}
+          {isDashboardRoute && !isImpersonating && <DashboardInstallBanner />}
           {/* Main content area (single scrollbar) */}
           <ErrorBoundary>
             <PageLoadingBoundary key={`${location.pathname}:${user?.id ?? 'guest'}:${role}`} bottomInset={compactBottomInset}>
