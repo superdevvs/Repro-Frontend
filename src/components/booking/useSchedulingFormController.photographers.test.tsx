@@ -3,13 +3,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { BOOKING_ELIGIBILITY_TIMEOUT_MS, useSchedulingFormController } from './useSchedulingFormController';
 import type { SchedulingFormProps } from './schedulingModel';
 
-const mocks = vi.hoisted(() => ({ role: 'client', getDayAvailability: vi.fn() }));
+const mocks = vi.hoisted(() => ({ role: 'client', getDayAvailability: vi.fn(), geocode: vi.fn() }));
 vi.mock('@/components/auth', () => ({ useAuth: () => ({ user: { role: mocks.role } }) }));
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false }));
 vi.mock('@/utils/availabilityProvider', () => ({ getDayAvailability: mocks.getDayAvailability }));
-vi.mock('@/utils/distanceUtils', () => ({ getCoordinatesFromAddress: vi.fn().mockResolvedValue(null), calculateDistance: vi.fn() }));
+vi.mock('@/utils/distanceUtils', () => ({ getCoordinatesFromAddress: mocks.geocode, calculateDistance: vi.fn() }));
 
-beforeEach(() => { mocks.role = 'client'; mocks.getDayAvailability.mockReset(); });
+beforeEach(() => { mocks.role = 'client'; mocks.getDayAvailability.mockReset(); mocks.geocode.mockReset().mockResolvedValue(null); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const eligibilityProps = (): SchedulingFormProps => ({
@@ -23,6 +23,34 @@ const eligibilityProps = (): SchedulingFormProps => ({
 });
 
 describe('per-service booking photographer availability', () => {
+  it('requests authoritative eligibility immediately even when geocoding never finishes', async () => {
+    mocks.role = 'admin';
+    mocks.geocode.mockReturnValue(new Promise(() => {}));
+    mocks.getDayAvailability.mockResolvedValue({ status: 'error' });
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ data: [{
+      id: 9, name: 'Pat', availability_slots: [], net_available_slots: [],
+    }], job: { latitude: 39, longitude: -77 } }) })));
+    const props = eligibilityProps();
+    const { result } = renderHook(() => useSchedulingFormController(props));
+    await waitFor(() => expect(result.current.canConfirmPhotographer).toBe(true));
+    expect(result.current.bookingJobCoords).toEqual({ lat: 39, lng: -77 });
+    expect(result.current.isLoadingAvailability).toBe(false);
+  });
+
+  it('allows browsing while pending but removes excluded photographers before confirming', async () => {
+    let finish!: (value: Response) => void;
+    vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(resolve => { finish = resolve; })));
+    const props = eligibilityProps();
+    const { result } = renderHook(() => useSchedulingFormController(props));
+    expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['10', '9']);
+    expect(result.current.canConfirmPhotographer).toBe(false);
+    act(() => result.current.handleSubmit());
+    expect(props.handleSubmit).not.toHaveBeenCalled();
+    await act(async () => finish({ ok: true, json: async () => ({ data: [{ id: 10, name: 'Alex' }] }) } as Response));
+    await waitFor(() => expect(result.current.filteredAndSortedPhotographers.map(p => p.id)).toEqual(['10']));
+    expect(result.current.canConfirmPhotographer).toBe(false);
+  });
+
   it.each([
     { netSlots: [{ start_time: '09:00', end_time: '10:00' }, { start_time: '11:00', end_time: '12:00' }] },
     { netSlots: [] },

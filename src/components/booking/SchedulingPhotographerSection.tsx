@@ -142,7 +142,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 text-muted-foreground" />
           <span className="ml-2 text-sm text-muted-foreground">
-            {isCalculatingDistances ? 'Calculating distances...' : 'Checking availability...'}
+            Checking eligibility and availability...
           </span>
         </div>
       );
@@ -172,6 +172,12 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
       );
     }
     return (
+      <>
+      {isLoadingAvailability && (
+        <p role="status" className="mb-2 text-xs text-muted-foreground">
+          Checking eligibility and availability. You can browse now; confirmation will unlock when the check finishes.
+        </p>
+      )}
       <div className={cn("grid", mobileDrawer ? "gap-2.5 pb-1 px-0.5" : "gap-3") }>
         {filteredAndSortedPhotographers.map((photographerItem) => {
           const isSelected = photographer === photographerItem.id;
@@ -197,7 +203,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
             ? photographerItem.distanceFrom === 'previous_shoot'
               ? `${distanceLabel} from previous shoot`
               : `${distanceLabel} away`
-            : 'Distance unavailable';
+            : isLoadingAvailability ? 'Distance pending' : 'Distance unavailable';
           return (
             <button
               key={photographerItem.id}
@@ -263,7 +269,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                   </div>
                   <p className={cn("truncate text-slate-500 dark:text-slate-400", mobileDrawer ? "mt-0.5 text-sm" : "mt-0.5 text-xs") }>
                     {canSeePhotographerAddress
-                      ? (distanceLabel ? (publicLocationLabel || 'Service area unavailable') : 'Distance unavailable')
+                      ? (distanceLabel ? (publicLocationLabel || 'Service area unavailable') : isLoadingAvailability ? 'Distance pending' : 'Distance unavailable')
                       : clientDistanceLabel}
                   </p>
                   <PhotographerAvailabilityTimeline
@@ -291,6 +297,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
           );
         })}
       </div>
+      </>
     );
   };
   const photographerTrigger = (

@@ -593,34 +593,19 @@ export const useSchedulingFormController = ({
         }
         return;
       }
-      setBookingEligiblePhotographerIds(new Set());
-      setIsCalculatingDistances(true);
+      // Show the roster for browsing while the authoritative eligibility check runs.
+      // Confirmation remains disabled until the response supplies eligible IDs.
+      setBookingEligiblePhotographerIds(null);
+      setIsCalculatingDistances(false);
       setPhotographersWithDistance([]);
       setPhotographerAvailability(new Map());
       try {
         const token = localStorage.getItem('authToken');
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (token) headers['Authorization'] = `Bearer ${token}`;
-        // Resolve shoot coords before for-booking so BE can populate map.job / top-level job,
-        // and so the map shell has a job pin even when photographer home metadata is missing.
-        let shootLat: number | undefined;
-        let shootLng: number | undefined;
-        try {
-          const bookingCoords = await awaitUnlessAborted(
-            getCoordinatesFromAddress(address, city, state, zip || ''),
-            abortController.signal,
-          );
-          if (bookingCoords && !isCancelled) {
-            shootLat = bookingCoords.lat;
-            shootLng = bookingCoords.lon;
-            setBookingJobCoords({ lat: bookingCoords.lat, lng: bookingCoords.lon });
-          }
-        } catch (geocodeError: unknown) {
-          if (isAbortError(geocodeError) || abortController.signal.aborted) throw geocodeError;
-          // Fail open — for-booking still works on address alone.
-        }
-        if (isCancelled) return;
-        const response = await fetchDurationAwareAvailability(API_ROUTES.photographerAvailability.forBooking, {
+        // AddressLookupService resolves distance and map pins server-side. A separate
+        // browser geocode must never delay the authoritative booking request.
+        const response = await awaitUnlessAborted(fetchDurationAwareAvailability(API_ROUTES.photographerAvailability.forBooking, {
           method: 'POST',
           headers,
           signal: abortController.signal,
@@ -632,19 +617,16 @@ export const useSchedulingFormController = ({
             shoot_city: city,
             shoot_state: state,
             shoot_zip: zip || '',
-            ...(typeof shootLat === 'number' && typeof shootLng === 'number'
-              ? { shoot_latitude: shootLat, shoot_longitude: shootLng }
-              : {}),
             photographer_ids: photographers.map(p => Number(p.id)),
             service_ids: photographerRequiredServices(selectedServices).map(service => Number(service.id)).filter(Number.isFinite),
             require_all_services: false, // Each service can have its own specialist.
           }),
-        }, JSON.parse(availabilityDurationKey));
+        }, JSON.parse(availabilityDurationKey)), abortController.signal);
         if (isCancelled) return;
         if (!response.ok) {
           throw new Error(`Photographer eligibility request failed (${response.status})`);
         }
-        const json: unknown = await response.json();
+        const json: unknown = await awaitUnlessAborted(response.json(), abortController.signal);
         if (isCancelled) return;
         if (!isRecord(json) || !Array.isArray(json.data)) throw new Error('Invalid photographer eligibility response');
         setHybridEnabledByApi(json.hybrid_travel_enabled === true);

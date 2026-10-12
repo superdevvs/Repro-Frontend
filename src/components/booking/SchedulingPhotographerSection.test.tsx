@@ -66,6 +66,15 @@ const mixedSelection = {
 };
 
 describe('booking photographer picker', () => {
+  it.each([false, true])('lets users browse pending results without confirming (mobile=%s)', async mobile => {
+    render(<Picker mobile={mobile} overrides={{ isLoadingAvailability: true, canConfirmPhotographer: false }} />);
+    await userEvent.click(screen.getByText('Select a photographer'));
+    expect(screen.getAllByRole('status').some(element => element.textContent?.includes('You can browse now'))).toBe(true);
+    await userEvent.click(screen.getByRole('button', { name: /Pat Photographer/ }));
+    expect(screen.getByRole('button', { name: 'Confirm Assignment' })).toBeDisabled();
+    expect(screen.queryByText('Calculating distances...')).not.toBeInTheDocument();
+  });
+
   it('shows a failed eligibility check with retry and disables confirmation', async () => {
     const retry = vi.fn();
     render(<Picker overrides={{
