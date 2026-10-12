@@ -104,6 +104,11 @@ const formatScheduleDateLabel = (value?: string) => {
   return date ? format(date, 'dd MMM yyyy') : 'Select date';
 };
 
+// A closing picker must not pull focus out of the next picker opened immediately afterward.
+const preserveActivePickerFocus = (event: Event) => {
+  if (document.querySelector('[data-service-schedule-picker][data-state="open"]')) event.preventDefault();
+};
+
 export function ServiceDatePicker({
   ariaLabel,
   value,
@@ -308,6 +313,8 @@ export function ServiceDatePicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
+        data-service-schedule-picker="date"
+        onCloseAutoFocus={preserveActivePickerFocus}
         style={{ animation: 'none' }}
         align="start"
         sideOffset={8}
@@ -410,6 +417,8 @@ export function ServiceTimePicker({
         {trigger}
       </PopoverTrigger>
       <PopoverContent
+        data-service-schedule-picker="time"
+        onCloseAutoFocus={preserveActivePickerFocus}
         style={{ animation: 'none' }}
         align="start"
         sideOffset={8}
