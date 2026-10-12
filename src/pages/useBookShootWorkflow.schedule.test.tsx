@@ -1,6 +1,6 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { BOOKING_FORM_CACHE_KEY } from '@/utils/bookingDraftReset';
+import { BOOKING_FORM_CACHE_KEY, bookingDraftCacheKey } from '@/utils/bookingDraftReset';
 import { useBookShootWorkflow } from './useBookShootWorkflow';
 import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { resolveServiceShootDuration } from '@/utils/shootDuration';
@@ -15,6 +15,27 @@ vi.mock('@/context/shootsContextState', () => ({
 }));
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
+
+it('restores and immediately saves the client’s own draft without staff-only settings or another user’s draft', async () => {
+  const staffDraft = JSON.stringify({ address: 'Staff property', bypassPayment: true });
+  localStorage.setItem(BOOKING_FORM_CACHE_KEY, staffDraft);
+  const key = bookingDraftCacheKey('101', true);
+  localStorage.setItem(key, JSON.stringify({ address: 'Client property', companyNotes: 'Staff only', editorNotes: 'Staff only',
+    bypassPayment: true, serviceSchedules: { '6': { date: '2026-10-20', time: '14:00' } },
+    bookingNotifications: { client: true, photographer: false } }));
+  mocks.get.mockResolvedValue({ data: { data: [] } });
+  const { result } = renderHook(() => useBookShootWorkflow({ user: { id: '101', role: 'client' } as never,
+    isClientAccount: true, clientIdFromUrl: null, clientNameFromUrl: null, clientCompanyFromUrl: null,
+    editShootId: null, canAdjustBookingAmount: false }));
+  await waitFor(() => expect(result.current.address).toBe('Client property'));
+  expect(result.current.companyNotes).toBe(''); expect(result.current.editorNotes).toBe('');
+  expect(result.current.bypassPayment).toBe(false);
+  expect(result.current.bookingNotifications).toEqual({ client: true, photographer: false });
+  act(() => result.current.setAddress('Updated client property'));
+  await waitFor(() => expect(JSON.parse(localStorage.getItem(key)!).address).toBe('Updated client property'));
+  expect(localStorage.getItem(BOOKING_FORM_CACHE_KEY)).toBe(staffDraft);
+  expect(localStorage.getItem(bookingDraftCacheKey('102', true))).toBeNull();
+});
 
 it('keeps the sales-rep photographer directory intact for independent service schedule checks', async () => {
   localStorage.setItem('authToken', 'test-token');

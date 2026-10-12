@@ -21,7 +21,6 @@ import { buildNormalizedPropertyDetails } from '@/utils/addressLookup';
 import { normalizeState, STATE_OPTIONS } from '@/utils/stateUtils';
 import { AccountForm } from '@/components/accounts/AccountForm';
 import { EmailHealthBadge } from '@/components/accounts/EmailHealthBadge';
-import { Badge } from '@/components/ui/badge';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { cn } from '@/lib/utils';
 import { ServiceSelectionDialog } from '@/components/booking/ServiceSelectionDialog';
@@ -29,6 +28,7 @@ import type { ClientPropertyFormController, PackageOption, PresenceOption } from
 import { ClientPropertyFormActions } from './ClientPropertyFormActions';
 import { MobileClientPicker } from './MobileClientPicker';
 import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
+import { formatPrice } from '@/utils/servicePricing';
 export const ClientPropertyFormView = ({ controller }: { controller: ClientPropertyFormController }) => {
   const {
     form, isClientAccount, allClients, selectedClient, isSearching, visibleClients,
@@ -745,10 +745,11 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                 </p>
               )
             ) : (
-              <div className="flex flex-wrap gap-2">
+              <div className="space-y-2">
                 {selectedServices.map(service => (
-                  <Badge key={service.id} variant="secondary" className="flex items-center gap-2 py-1 px-3 text-sm">
-                    {service.name}{normalizeBookingQuantity(service.quantity) > 1 ? ` × ${normalizeBookingQuantity(service.quantity)}` : ''}
+                  <div key={service.id} className="flex min-w-0 items-center gap-2 rounded-lg border bg-muted/30 pl-3 text-sm">
+                    <span className="min-w-0 flex-1 break-words">{service.name}{normalizeBookingQuantity(service.quantity) > 1 ? ` × ${normalizeBookingQuantity(service.quantity)}` : ''}</span>
+                    {!isCompReshootMode && <span className="shrink-0 font-semibold">{formatPrice(Number(service.booked_price ?? service.price ?? 0) * normalizeBookingQuantity(service.quantity))}</span>}
                     {isCompReshootMode && (
                       <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800 dark:bg-amber-900/60 dark:text-amber-200">
                         Client $0
@@ -759,11 +760,11 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                       onClick={() => handleRemoveService(service.id)}
                       disabled={!canCreateNoProductShoot && selectedServices.length === 1}
                       title={!canCreateNoProductShoot && selectedServices.length === 1 ? 'At least one service is required for your role.' : 'Remove service'}
-                      className="text-xs text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
+                      className="h-11 w-11 shrink-0 text-base text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       ×
                     </button>
-                  </Badge>
+                  </div>
                 ))}
               </div>
             )}
@@ -904,6 +905,9 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                 </FormItem>
               )}
             />
+            {!isClientAccount && <details open={!isMobile} className="col-span-full rounded-lg border border-border p-3">
+              <summary className="cursor-pointer text-sm font-semibold">Internal notes</summary>
+              <div className="grid gap-3 pt-3 lg:grid-cols-2">
             {!isClientAccount && (
               <FormField
                 control={form.control}
@@ -964,6 +968,8 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                 )}
               />
             )}
+              </div>
+            </details>}
           </div>
         </div>
         </>}

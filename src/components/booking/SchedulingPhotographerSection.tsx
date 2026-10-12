@@ -32,7 +32,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
     getServiceSchedule, updateServiceSchedules, buildConflictAwareServiceTimeOptions,
     getPhotographerForService, isPhotographerTimeDisabled, selectedServices,
     formatScheduleLine, handlePhotographerDialogOpen, handleConfirmServicePhotographer,
-    formatLocationLabel, availabilityCardWindow,
+    formatLocationLabel, availabilityCardWindow, requiresPhotographerAssignment,
     formErrors, showPhotographerAddress, bookingEligibilityError, retryBookingEligibility, canConfirmPhotographer,
     bookingJobCoords,
   } = controller;
@@ -294,21 +294,13 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
     );
   };
   const photographerTrigger = (
-    <div
+    <button type="button"
       className={cn(
-        "bg-gray-50 dark:bg-card/60 rounded-lg p-3 sm:p-4 flex justify-between items-center transition-colors border border-gray-100 dark:border-muted/40",
-        time ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-card/70" : "opacity-60 cursor-not-allowed"
+        "bg-gray-50 dark:bg-card/60 rounded-lg p-3 sm:p-4 w-full min-h-11 text-left flex justify-between items-center transition-colors border border-gray-100 dark:border-muted/40",
+        "cursor-pointer hover:bg-gray-100 dark:hover:bg-card/70"
       )}
       onClick={() => {
-        if (!time) {
-          toast({
-            title: "Select time first",
-            description: "Please choose a time before selecting a photographer.",
-            variant: "destructive",
-          });
-          return;
-        }
-        setPhotographerDialogOpen(true);
+        handlePhotographerDialogOpen(true);
       }}
     >
       <div className="flex items-center min-w-0">
@@ -328,7 +320,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
         )}
       </div>
       <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 shrink-0" />
-    </div>
+    </button>
   );
   const singlePhotographerPicker = isMobile ? (
     <Drawer open={photographerDialogOpen} onOpenChange={handlePhotographerDialogOpen}>
@@ -413,12 +405,12 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
   );
   return (
     <>
-        <section
+        {requiresPhotographerAssignment && <section
           aria-labelledby={photographerHeadingId}
           className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-2 border border-slate-200 dark:border-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]"
         >
           <h2 id={photographerHeadingId} className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white mb-3 sm:mb-4">
-            {requiresPerServiceAssignment ? 'Photographers' : 'Photographer'}
+            {requiresPerServiceAssignment ? 'Service schedules & photographers' : 'Service schedule & photographer'}
           </h2>
           {requiresPerServiceAssignment && (
             <p className="text-xs text-slate-500 dark:text-slate-400 -mt-1 mb-2">
@@ -430,36 +422,29 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
               {singleModeHint}
             </p>
           )}
+          {bookingEligibilityError && <div role="alert" className="space-y-2 rounded-lg border border-destructive/40 p-3 text-sm text-destructive"><p>{bookingEligibilityError}</p><Button type="button" variant="outline" size="sm" onClick={retryBookingEligibility}>Try again</Button></div>}
           {requiresPerServiceAssignment && (
             <div className="space-y-3">
               {assignmentGroups.map(({ key, serviceId, serviceName, categoryName }) => {
                 const svcPhotographer = getPhotographerDetailsForService(serviceId);
                 return (
-                  <div key={key} className="min-w-0 space-y-1">
-                    <p className="truncate text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <section key={key} aria-label={`${serviceName} schedule`} className="min-w-0 space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider break-words">
                       {serviceName}
                       <span className="ml-1.5 font-normal normal-case tracking-normal text-slate-400">
                         ({categoryName})
                       </span>
                     </p>
                     <div className="grid grid-cols-1 gap-2 xl:grid-cols-2">
-                      <div
+                      <button type="button"
                         className={cn(
-                          "bg-gray-50 dark:bg-card/60 rounded-lg p-3 sm:p-4 flex justify-between items-center transition-colors border border-gray-100 dark:border-muted/40",
-                          time ? "cursor-pointer hover:bg-gray-100 dark:hover:bg-card/70" : "opacity-60 cursor-not-allowed"
+                          "bg-gray-50 dark:bg-card/60 rounded-lg p-3 sm:p-4 w-full min-h-11 text-left flex justify-between items-center transition-colors border border-gray-100 dark:border-muted/40",
+                          "cursor-pointer hover:bg-gray-100 dark:hover:bg-card/70"
                         )}
                         onClick={() => {
-                          if (!time) {
-                            toast({
-                              title: "Select time first",
-                              description: "Please choose a time before selecting a photographer.",
-                              variant: "destructive",
-                            });
-                            return;
-                          }
                           setActiveServiceForPicker(serviceId);
                           const currentId = getPhotographerForService(serviceId);
-                          if (currentId) setPhotographer?.(currentId);
+                          setPhotographer?.(currentId || '');
                           setPhotographerDialogOpen(true);
                         }}
                       >
@@ -480,14 +465,15 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                           )}
                         </div>
                         <ChevronRight className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400 shrink-0" />
-                      </div>
-                      <div className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40 sm:grid-cols-[minmax(0,1fr)_124px] xl:grid-cols-[minmax(0,1fr)_140px]">
+                      </button>
+                      <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40 sm:grid-cols-[minmax(0,1fr)_124px] xl:grid-cols-[minmax(0,1fr)_140px]">
                         <div className="min-w-0 space-y-1">
                           <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule</p>
                           <ServiceDatePicker
                             value={getServiceSchedule(serviceId).date}
                             onChange={(value) => updateServiceSchedules([serviceId], { date: value })}
-                            triggerClassName="h-9"
+                            triggerClassName="h-11 px-2"
+                            showIcon={false}
                           />
                         </div>
                         <div className="min-w-0 space-y-1">
@@ -502,13 +488,15 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                             value={getServiceSchedule(serviceId).time}
                             options={buildConflictAwareServiceTimeOptions(getPhotographerForService(serviceId), getServiceSchedule(serviceId).time, serviceId)}
                             onChange={(value) => updateServiceSchedules([serviceId], { time: value })}
-                            triggerClassName="h-9"
+                            triggerClassName="h-11 px-2"
+                            showIcon={false}
                             isTimeDisabled={(value) => isPhotographerTimeDisabled(getPhotographerForService(serviceId), value, serviceId)}
                           />
                         </div>
                       </div>
                     </div>
-                  </div>
+                    {(formErrors[`service.${serviceId}.date`] || formErrors[`service.${serviceId}.time`]) && <p role="alert" className="text-sm text-destructive">{formErrors[`service.${serviceId}.date`] || formErrors[`service.${serviceId}.time`]}</p>}
+                  </section>
                 );
               })}
             </div>
@@ -516,7 +504,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
           {!requiresPerServiceAssignment && (
             <div className="min-w-0 space-y-1">
               {primaryAssignment && (
-                <p className="truncate text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider break-words">
                   {primaryAssignment.serviceName}
                   <span className="ml-1.5 font-normal normal-case tracking-normal text-slate-400">
                     ({primaryAssignment.categoryName})
@@ -526,13 +514,14 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
               <div className={cn("grid grid-cols-1 gap-2", primaryAssignment && "xl:grid-cols-2")}>
                 {singlePhotographerPicker}
                 {primaryAssignment && (
-                  <div className="grid grid-cols-1 gap-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40 sm:grid-cols-[minmax(0,1fr)_124px] xl:grid-cols-[minmax(0,1fr)_140px]">
+                  <div className="grid grid-cols-2 gap-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40 sm:grid-cols-[minmax(0,1fr)_124px] xl:grid-cols-[minmax(0,1fr)_140px]">
                     <div className="min-w-0 space-y-1">
                       <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">Schedule</p>
                       <ServiceDatePicker
                         value={getServiceSchedule(primaryAssignment.serviceId).date}
                         onChange={(value) => updateServiceSchedules([primaryAssignment.serviceId], { date: value })}
-                        triggerClassName="h-9"
+                        triggerClassName="h-11 px-2"
+                        showIcon={false}
                       />
                     </div>
                     <div className="min-w-0 space-y-1">
@@ -547,13 +536,15 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                         value={getServiceSchedule(primaryAssignment.serviceId).time}
                         options={buildConflictAwareServiceTimeOptions(photographer, getServiceSchedule(primaryAssignment.serviceId).time, primaryAssignment.serviceId)}
                         onChange={(value) => updateServiceSchedules([primaryAssignment.serviceId], { time: value })}
-                        triggerClassName="h-9"
+                        triggerClassName="h-11 px-2"
+                        showIcon={false}
                         isTimeDisabled={(value) => isPhotographerTimeDisabled(photographer, value, primaryAssignment.serviceId)}
                       />
                     </div>
                   </div>
                 )}
               </div>
+              {primaryAssignment && (formErrors[`service.${primaryAssignment.serviceId}.date`] || formErrors[`service.${primaryAssignment.serviceId}.time`]) && <p role="alert" className="text-sm text-destructive">{formErrors[`service.${primaryAssignment.serviceId}.date`] || formErrors[`service.${primaryAssignment.serviceId}.time`]}</p>}
             </div>
           )}
           {requiresPerServiceAssignment && (
@@ -656,7 +647,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
           {formErrors['photographer'] && (
             <p className="pt-1 text-sm font-medium text-destructive">{formErrors['photographer']}</p>
           )}
-        </section>
+        </section>}
         {servicesWithoutPhotographer.length > 0 && (
           <section
             aria-labelledby={otherSchedulesHeadingId}
@@ -664,32 +655,34 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
           >
             <div>
               <h2 id={otherSchedulesHeadingId} className="text-lg sm:text-xl font-semibold text-slate-900 dark:text-white">
-                Other service schedules
+                {requiresPhotographerAssignment ? 'Other service schedules' : 'Service schedules'}
               </h2>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                No photographer is needed for these. Change a date or time only if it differs from the shoot.
+                No photographer is needed. Choose a date and time for each service.
               </p>
             </div>
             <div className="space-y-2 rounded-lg border border-slate-200/70 bg-white p-3 dark:border-slate-800/70 dark:bg-slate-900/40">
               {servicesWithoutPhotographer.map((service) => {
                 const schedule = getServiceSchedule(service.id);
                 return (
-                  <div key={service.id} className="grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1fr)_150px_120px] sm:items-center">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">{service.name}</p>
+                  <section key={service.id} aria-label={`${service.name} schedule`} className="grid grid-cols-2 gap-2 sm:grid-cols-[minmax(0,1fr)_150px_120px] sm:items-center">
+                    <div className="min-w-0 col-span-2 sm:col-span-1">
+                      <p className="break-words text-sm font-medium text-slate-900 dark:text-slate-100">{service.name}</p>
                       <p className="truncate text-xs text-slate-500 dark:text-slate-400">{formatScheduleLine(service.id)}</p>
                     </div>
                     <ServiceDatePicker
                       value={schedule.date}
                       onChange={(value) => updateServiceSchedules([service.id], { date: value })}
-                      triggerClassName="h-9"
+                      triggerClassName="h-11 px-2"
+                      showIcon={false}
                     />
                     <div className="flex flex-col items-stretch gap-0.5">
                       <ServiceTimePicker
                         value={schedule.time}
                         options={buildServiceTimeOptions(schedule.time)}
                         onChange={(value) => updateServiceSchedules([service.id], { time: value })}
-                        triggerClassName="h-9"
+                        triggerClassName="h-11 px-2"
+                        showIcon={false}
                       />
                       <ApplyAllServiceScheduleButton
                         visible={showApplyAllSchedules}
@@ -697,7 +690,8 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                         className="self-end"
                       />
                     </div>
-                  </div>
+                    {(formErrors[`service.${service.id}.date`] || formErrors[`service.${service.id}.time`]) && <p role="alert" className="text-sm text-destructive">{formErrors[`service.${service.id}.date`] || formErrors[`service.${service.id}.time`]}</p>}
+                  </section>
                 );
               })}
             </div>

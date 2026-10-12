@@ -14,6 +14,7 @@ import { to24Hour, formatTimeForDisplay } from '@/utils/availabilityUtils';
 import type { DayAvailability } from '@/utils/availabilityProvider';
 import type { AvailabilityPanelState } from '@/utils/availabilityPanelState';
 import { useAuth } from '@/components/auth';
+import { selectedServicesRequirePhotographer } from '@/utils/photographerAssignment';
 
 type SchedulingBaseOptions = Pick<
   SchedulingFormProps,
@@ -133,8 +134,8 @@ export const useSchedulingBase = ({
   );
   const getServiceSchedule = (serviceId: string) => ({
     duration_minutes: serviceSchedules[serviceId]?.duration_minutes,
-    date: serviceSchedules[serviceId]?.date || defaultServiceDate,
-    time: serviceSchedules[serviceId]?.time || defaultServiceTime,
+    date: serviceSchedules[serviceId]?.date ?? defaultServiceDate,
+    time: serviceSchedules[serviceId]?.time ?? defaultServiceTime,
   });
   const updateServiceSchedules = (
     serviceIds: string[],
@@ -262,10 +263,11 @@ export const useSchedulingBase = ({
       setCalendarMonth(date);
     }
   }, [date]);
+  const hasCaptureServices = selectedServicesRequirePhotographer(selectedServices);
   useEffect(() => {
     const abortController = new AbortController();
     const fetchCalendarAvailability = async () => {
-      if (!canUseProtectedAvailability || photographers.length === 0) {
+      if (!canUseProtectedAvailability || photographers.length === 0 || !hasCaptureServices) {
         setCalendarAvailability({
           availableDates: new Set(),
           unavailableDates: new Set(),
@@ -346,7 +348,7 @@ export const useSchedulingBase = ({
     };
     fetchCalendarAvailability();
     return () => abortController.abort();
-  }, [buildDateKeysInRange, calendarMonth, canUseProtectedAvailability, getDateKey, getMonthBounds, normalizeDayOfWeek, photographers, today]);
+  }, [buildDateKeysInRange, calendarMonth, canUseProtectedAvailability, getDateKey, getMonthBounds, normalizeDayOfWeek, photographers, hasCaptureServices, today]);
   const calendarAvailableDays = useMemo(
     () => Array.from(calendarAvailability.availableDates).map(dateKey => new Date(`${dateKey}T12:00:00`)),
     [calendarAvailability.availableDates],

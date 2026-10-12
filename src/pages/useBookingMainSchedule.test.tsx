@@ -31,7 +31,7 @@ function useHarness(initial: ServiceScheduleMap, multiple = false, multiUnit = f
 const settle = () => act(async () => { await vi.advanceTimersByTimeAsync(350); });
 
 it('moves a restored stale single-service date through Oct 10, 11, 13 and back to the real conflict on Oct 9', async () => {
-  const { result } = renderHook(() => useHarness({ '84': { date: '2026-10-09', time: '', duration_minutes: 135 } }));
+  const { result } = renderHook(() => useHarness({ '84': { date: '2026-10-09', duration_minutes: 135 } }));
   await settle();
   expect(result.current.travel.result?.available).toBe(false);
   for (const day of [10, 11, 13, 9]) {

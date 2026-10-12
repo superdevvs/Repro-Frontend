@@ -22,6 +22,12 @@
  */
 export const BOOKING_FORM_CACHE_KEY = 'bookShoot_form_cache';
 
+/** Clients recover only their own drafts; staff retain the existing cache key. */
+export function bookingDraftCacheKey(userId: string | number | undefined, isClientAccount: boolean, reshootSource?: string | null): string {
+  const key = isClientAccount ? `${BOOKING_FORM_CACHE_KEY}:client:${userId}` : BOOKING_FORM_CACHE_KEY;
+  return reshootSource ? `${key}:reshoot:${reshootSource}` : key;
+}
+
 /**
  * Working booking entry route used after a reset. This replaces the broken
  * `/shoots` target whose route-match failure produced console errors on

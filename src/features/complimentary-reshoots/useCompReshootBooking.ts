@@ -21,6 +21,13 @@ import {
 
 type SetState<T> = React.Dispatch<React.SetStateAction<T>>;
 
+type CompReshootDraft = {
+  sourceShootId: string; idempotencyKey: string; reasonCode: CompReshootReasonCode | ''; reasonNote: string;
+  serviceMappings: Record<string, CompReshootServiceMapping>; responsibilityDirtyIds: string[];
+  photographerMode: CompensationMode | null; serviceCompensations: Record<string, CompReshootServiceCompensation>;
+  repMode: CompensationMode | null; repCustomAmount: string; compensationDirty: boolean;
+};
+
 type UseCompReshootBookingOptions = {
   enabled: boolean;
   sourceShootId: string | null;
@@ -42,6 +49,8 @@ type UseCompReshootBookingOptions = {
   setBypassPayment: SetState<boolean>;
   setAdjustedTotalInput: SetState<string>;
   remountPropertyForm: () => void;
+  draftCacheKey?: string;
+  draftActive?: boolean;
 };
 
 const parseSqft = (details?: Record<string, unknown> | null) => {
@@ -73,6 +82,8 @@ export const useCompReshootBooking = ({
   setBypassPayment,
   setAdjustedTotalInput,
   remountPropertyForm,
+  draftCacheKey,
+  draftActive = true,
 }: UseCompReshootBookingOptions) => {
   const [template, setTemplate] = React.useState<CompReshootTemplate | null>(null);
   const [isLoading, setIsLoading] = React.useState(false);
@@ -120,19 +131,22 @@ export const useCompReshootBooking = ({
 
         if (initializedSourceRef.current !== sourceShootId) {
           initializedSourceRef.current = sourceShootId;
-          setIdempotencyKey(uuidv4());
-          setSelectedServices([]);
-          setServicePhotographers({});
-          setServiceSchedules({});
-          setReasonCode('');
-          setReasonNote('');
-          setServiceMappings({});
-          setResponsibilityDirtyIds(new Set());
-          setPhotographerModeState(null);
-          setServiceCompensations({});
-          setRepModeState(null);
-          setRepCustomAmountState('');
-          setCompensationDirty(false);
+          let saved: CompReshootDraft | null = null;
+          try {
+            const value = draftCacheKey ? JSON.parse(localStorage.getItem(draftCacheKey) || '{}').compReshootDraft : null;
+            if (value?.sourceShootId === sourceShootId) saved = value;
+          } catch { /* Keep the fresh form editable when browser storage is unavailable. */ }
+          setIdempotencyKey(saved?.idempotencyKey || uuidv4());
+          if (!saved) { setSelectedServices([]); setServicePhotographers({}); setServiceSchedules({}); }
+          setReasonCode(saved?.reasonCode || '');
+          setReasonNote(saved?.reasonNote || '');
+          setServiceMappings(saved?.serviceMappings || {});
+          setResponsibilityDirtyIds(new Set(saved?.responsibilityDirtyIds || []));
+          setPhotographerModeState(saved?.photographerMode ?? null);
+          setServiceCompensations(saved?.serviceCompensations || {});
+          setRepModeState(saved?.repMode ?? null);
+          setRepCustomAmountState(saved?.repCustomAmount || '');
+          setCompensationDirty(saved?.compensationDirty || false);
         }
         remountPropertyForm();
       })
@@ -150,6 +164,7 @@ export const useCompReshootBooking = ({
     };
   }, [
     enabled,
+    draftCacheKey,
     reloadToken,
     remountPropertyForm,
     setAddress,
@@ -167,6 +182,18 @@ export const useCompReshootBooking = ({
     setZip,
     sourceShootId,
   ]);
+
+  React.useEffect(() => {
+    if (!enabled || !draftActive || !draftCacheKey || !template || initializedSourceRef.current !== sourceShootId) return;
+    try {
+      const previous = JSON.parse(localStorage.getItem(draftCacheKey) || '{}');
+      const compReshootDraft: CompReshootDraft = { sourceShootId: sourceShootId!, idempotencyKey, reasonCode, reasonNote,
+        serviceMappings, responsibilityDirtyIds: [...responsibilityDirtyIds], photographerMode, serviceCompensations,
+        repMode, repCustomAmount, compensationDirty };
+      localStorage.setItem(draftCacheKey, JSON.stringify({ ...previous, compReshootDraft }));
+    } catch { /* Saving may fail in private browsing; the in-memory draft stays intact. */ }
+  }, [enabled, draftActive, draftCacheKey, template, sourceShootId, idempotencyKey, reasonCode, reasonNote, serviceMappings,
+    responsibilityDirtyIds, photographerMode, serviceCompensations, repMode, repCustomAmount, compensationDirty]);
 
   const suggestedPolicy = reasonCode
     ? getCompReshootSuggestedPolicy(reasonCode, template?.reasonOptions)

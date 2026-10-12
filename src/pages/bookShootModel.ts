@@ -140,13 +140,24 @@ export const getSchedulingStepErrors = (input: {
   selectedServices: Array<Pick<ServicePackage, 'id' | 'name' | 'photographer_required'>>;
   photographer?: string | null;
   servicePhotographers?: Record<string, string> | null;
+  serviceSchedules?: ServiceScheduleMap;
 }): Record<string, string> => {
   const errors: Record<string, string> = {};
-  if (!input.date) {
+  if (!input.date && !input.selectedServices.length) {
     errors.date = 'Please select a date';
   }
-  if (!input.time) {
+  if (!input.time && !input.selectedServices.length) {
     errors.time = 'Please select a time';
+  }
+  if (input.serviceSchedules) {
+    input.selectedServices.forEach(service => {
+      const schedule = input.serviceSchedules?.[service.id];
+      if (!(schedule?.date ?? input.date)) errors[`service.${service.id}.date`] = `Choose a date for ${service.name}`;
+      if (!(schedule?.time ?? input.time)) errors[`service.${service.id}.time`] = `Choose a time for ${service.name}`;
+    });
+  } else {
+    if (!input.date) errors.date = 'Please select a date';
+    if (!input.time) errors.time = 'Please select a time';
   }
   const photographerError = photographerAssignmentIssue(
     input.selectedServices,
@@ -171,6 +182,7 @@ export const getBookingSubmissionPreflightIssue = (input: {
   selectedServices: Array<Pick<ServicePackage, 'id' | 'name' | 'photographer_required'>>;
   photographer?: string | null;
   servicePhotographers?: Record<string, string> | null;
+  serviceSchedules?: ServiceScheduleMap;
   isCompReshootMode: boolean;
   canCreateNoProductShoot: boolean;
 }): { title: string; description: string; errors?: Record<string, string> } | null => {
@@ -182,12 +194,13 @@ export const getBookingSubmissionPreflightIssue = (input: {
       errors: schedulingErrors,
     };
   }
+  if (Object.keys(schedulingErrors).length) return { title: 'Review service schedules', description: Object.values(schedulingErrors)[0], errors: schedulingErrors };
 
   const clientValid = input.isClientAccount || Boolean(input.client);
   const requiresServices = input.isCompReshootMode || input.isClientAccount || !input.canCreateNoProductShoot;
   const missingRequired =
     !clientValid || !input.address || !input.city || !input.state || !input.zip ||
-    !input.date || !input.time || (requiresServices && input.selectedServices.length === 0);
+    ((!input.serviceSchedules || input.selectedServices.length === 0) && (!input.date || !input.time)) || (requiresServices && input.selectedServices.length === 0);
   if (!missingRequired) return null;
 
   const onlyProductMissing =

@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
+import { formatTimeForDisplay } from '@/utils/availabilityUtils';
 
 export type ServiceTimeOption = {
   value: string;
@@ -43,6 +44,7 @@ type ServiceTimePickerProps = {
   showIcon?: boolean;
 };
 
+// eslint-disable-next-line react-refresh/only-export-components -- Existing booking and overview screens share this time-option builder.
 export const buildServiceTimeOptions = (ensure?: string | null): ServiceTimeOption[] => {
   const options: ServiceTimeOption[] = [];
 
@@ -322,7 +324,7 @@ export function ServiceTimePicker({
 }: ServiceTimePickerProps) {
   const [open, setOpen] = useState(false);
   const isMobile = useIsMobile();
-  const selectedLabel = options.find((option) => option.value === value)?.label || value || 'Select time';
+  const selectedLabel = options.find((option) => option.value === value)?.label || (value ? formatTimeForDisplay(value) : 'Select time');
   const pickerValue = value ? selectedLabel : '';
   const availableTimes = options
     .filter((option) => !option.disabled && !isTimeDisabled?.(option.value))

@@ -48,6 +48,70 @@ export function BookShootView({ controller }: { controller: BookShootController 
   if (isEditMode && editShootLoading) return <main className="p-6" role="status">Loading shoot for editing…</main>;
   const wizard = getBookingWizardConfig(isCompReshootMode);
   const finalStep = wizard.finalStep;
+  const bookingContent = (
+<BookingContentArea
+                  afterCalendar={<TravelFeasibilityPanel issuesOnly travel={controller.travel} durationAdjuster={controller.travelDurationAdjuster} />}
+                  hybridTravelEnabled={controller.travel.enabled}
+                  enforceNewBookingEligibility={!isEditMode && !isCompReshootMode}
+                  step={step}
+                  formErrors={formErrors}
+                  setFormErrors={setFormErrors}
+                  clientPropertyFormData={clientPropertyFormData}
+                  onAddressFieldsChange={handleAddressFieldsChange}
+                  onClientChange={handleClientChange}
+                  onPropertyDraftChange={handlePropertyDraftChange}
+                  date={date}
+                  setDate={setDate}
+                  time={time}
+                  setTime={setTime}
+                  selectedServices={selectedServices}
+                  onSelectedServicesChange={handleSelectedServicesChange}
+                  shootType={shootType}
+                  onShootTypeChange={handleShootTypeChange}
+                  canCreateNoProductShoot={canCreateNoProductShoot}
+                  notes={notes}
+                  setNotes={setNotes}
+                  packages={packages}
+                  packagesLoading={packagesLoading}
+                  client={client}
+                  address={address}
+                  city={city}
+                  state={state}
+                  zip={zip}
+                  setAddress={setAddress}
+                  setCity={setCity}
+                  setState={setState}
+                  setZip={setZip}
+                  photographer={photographer}
+                  setPhotographer={setPhotographer}
+                  servicePhotographers={servicePhotographers}
+                  setServicePhotographers={setServicePhotographers}
+                  serviceSchedules={serviceSchedules}
+                  setServiceSchedules={setServiceSchedules}
+                  bypassPayment={bypassPayment}
+                  setBypassPayment={setBypassPayment}
+                  sendNotification={sendNotification}
+                  setSendNotification={setSendNotification}
+                  notificationControls={controller.travel.notificationsSupported ? { value: controller.travel.notifications, onChange: controller.travel.setNotifications } : undefined}
+                  getPackagePrice={getPackagePrice}
+                  pricingBreakdown={displayPricingBreakdown}
+                  originalPricingBreakdown={pricingBreakdown}
+                  canAdjustAmount={canAdjustBookingAmount}
+                  adjustedTotalInput={adjustedTotalInput}
+                  setAdjustedTotalInput={setAdjustedTotalInput}
+                  getPhotographerRate={getPhotographerRate}
+                  clients={clients}
+                  photographers={photographers}
+                  schedulingPhotographers={photographers}
+                  handleSubmit={handleSubmit}
+                  goBack={goBack}
+                  sameDayAddressWarningMessage={sameDayAddressWarningMessage}
+                  showClearSavedData={shouldCacheForm && hasCachedData}
+                  onClearSavedData={handleClearCache}
+                  compReshoot={compReshoot}
+                  propertySqft={propertySqft}
+                />
+  );
   return (
     <MultiUnitBookingContext.Provider value={controller.unitBooking}>
       <BookingUnitManager photographers={photographers} />
@@ -120,82 +184,28 @@ export function BookShootView({ controller }: { controller: BookShootController 
                 className={`grid grid-cols-1 ${{
                   true: 'lg:grid-cols-[minmax(0,1.85fr)_minmax(320px,0.95fr)]',
                   false: 'lg:grid-cols-1',
-                }[String(!isMobile || step === finalStep) as 'true' | 'false']} gap-8 mt-2 items-start`}
+                }[String(!isMobile && step !== finalStep) as 'true' | 'false']} gap-8 mt-2 items-start`}
               >
-                <div className="order-2 lg:order-1 w-full">
+                <div className={step === finalStep ? "hidden" : "order-2 lg:order-1 min-w-0 w-full"}>
                 {!isEditMode && step >= wizard.schedulingStep && (
                   <p className="mb-3 text-xs text-muted-foreground">
                     Times shown in Eastern Time ({NEW_BOOKING_TIMEZONE}).
                   </p>
                 )}
-                {step > wizard.schedulingStep && <div className="mb-4"><TravelFeasibilityPanel issuesOnly travel={controller.travel} durationAdjuster={controller.travelDurationAdjuster} /></div>}
-                <BookingContentArea
-                  afterCalendar={<TravelFeasibilityPanel issuesOnly travel={controller.travel} durationAdjuster={controller.travelDurationAdjuster} />}
-                  hybridTravelEnabled={controller.travel.enabled}
-                  enforceNewBookingEligibility={!isEditMode && !isCompReshootMode}
-                  step={step}
-                  formErrors={formErrors}
-                  setFormErrors={setFormErrors}
-                  clientPropertyFormData={clientPropertyFormData}
-                  onAddressFieldsChange={handleAddressFieldsChange}
-                  onClientChange={handleClientChange}
-                  onPropertyDraftChange={handlePropertyDraftChange}
-                  date={date}
-                  setDate={setDate}
-                  time={time}
-                  setTime={setTime}
-                  selectedServices={selectedServices}
-                  onSelectedServicesChange={handleSelectedServicesChange}
-                  shootType={shootType}
-                  onShootTypeChange={handleShootTypeChange}
-                  canCreateNoProductShoot={canCreateNoProductShoot}
-                  notes={notes}
-                  setNotes={setNotes}
-                  packages={packages}
-                  packagesLoading={packagesLoading}
-                  client={client}
-                  address={address}
-                  city={city}
-                  state={state}
-                  zip={zip}
-                  setAddress={setAddress}
-                  setCity={setCity}
-                  setState={setState}
-                  setZip={setZip}
-                  photographer={photographer}
-                  setPhotographer={setPhotographer}
-                  servicePhotographers={servicePhotographers}
-                  setServicePhotographers={setServicePhotographers}
-                  serviceSchedules={serviceSchedules}
-                  setServiceSchedules={setServiceSchedules}
-                  bypassPayment={bypassPayment}
-                  setBypassPayment={setBypassPayment}
-                  sendNotification={sendNotification}
-                  setSendNotification={setSendNotification}
-                  notificationControls={controller.travel.notificationsSupported ? { value: controller.travel.notifications, onChange: controller.travel.setNotifications } : undefined}
-                  getPackagePrice={getPackagePrice}
-                  pricingBreakdown={displayPricingBreakdown}
-                  originalPricingBreakdown={pricingBreakdown}
-                  canAdjustAmount={canAdjustBookingAmount}
-                  adjustedTotalInput={adjustedTotalInput}
-                  setAdjustedTotalInput={setAdjustedTotalInput}
-                  getPhotographerRate={getPhotographerRate}
-                  clients={clients}
-                  photographers={photographers}
-                  schedulingPhotographers={photographers}
-                  handleSubmit={handleSubmit}
-                  goBack={goBack}
-                  sameDayAddressWarningMessage={sameDayAddressWarningMessage}
-                  showClearSavedData={shouldCacheForm && hasCachedData}
-                  onClearSavedData={handleClearCache}
-                  compReshoot={compReshoot}
-                  propertySqft={propertySqft}
-                />
+                {step > wizard.schedulingStep && step !== finalStep && <div className="mb-4"><TravelFeasibilityPanel issuesOnly travel={controller.travel} durationAdjuster={controller.travelDurationAdjuster} /></div>}
+                {step !== finalStep && bookingContent}
                 </div>
                 {(!isMobile || step === finalStep) && (
-                  <div className="order-1 lg:order-2 lg:sticky lg:top-4 lg:max-w-sm w-full">
+                  <div className={step === finalStep ? "order-1 w-full min-w-0 max-w-3xl mx-auto" : "order-1 lg:order-2 lg:sticky lg:top-4 lg:max-w-sm min-w-0 w-full"}>
+                    {step === finalStep && <TravelFeasibilityPanel issuesOnly showNotifications={false} travel={controller.travel} durationAdjuster={controller.travelDurationAdjuster} />}
                     <BookingSummary
                       summaryInfo={summaryInfo}
+                      propertyDetails={propertyDetails} notes={notes}
+                      photographer={photographer} servicePhotographers={servicePhotographers} photographers={photographers}
+                      footerContent={step === finalStep ? bookingContent : undefined}
+                      submissionError={controller.submissionError}
+                      timezoneLabel={isEditMode ? controller.travel.timezone : 'Eastern Time (America/New_York)'}
+                      onEdit={section => controller.editBookingStep(section === 'property' ? (isCompReshootMode ? wizard.servicesStep : 1) : section === 'services' ? wizard.servicesStep : wizard.schedulingStep)}
                       selectedServices={selectedServices}
                       serviceSchedules={serviceSchedules}
                       onSubmit={step === finalStep ? handleSubmit : undefined}
@@ -208,7 +218,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
                       originalTotalQuote={pricingBreakdown.totalQuote}
                       showRepName={user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'photographer'}
                       weather={{ temperature: parsedTemperature, condition }}
-                      isMobile={isMobile}
+                      isMobile={isMobile || step === finalStep}
                       isComplimentaryReshoot={isCompReshootMode}
                     />
                   </div>

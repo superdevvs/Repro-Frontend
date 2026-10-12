@@ -12,7 +12,7 @@ import { FRONTEND_FALLBACK_HOURS_DISPLAY_ONLY } from '@/config/availabilityDefau
 import API_ROUTES from '@/lib/api';
 import { getCategorySpecialtyId, hasCategorySpecialty } from '@/utils/photographerSpecialties';
 import { resolveBookingAvailabilityRows } from '@/pages/bookShootAvailabilityMatch';
-import { buildAssignmentGroups, photographerRequiredServices, requiresPerServiceAssignment as computeRequiresPerServiceAssignment, resolveServicePhotographerId, selectedServicesRequirePhotographer } from '@/utils/photographerAssignment';
+import { buildAssignmentGroups, photographerRequiredServices, requiresPerServiceAssignment as computeRequiresPerServiceAssignment, resolveServicePhotographerId, selectedServicesRequirePhotographer, serviceRequiresPhotographer } from '@/utils/photographerAssignment';
 import { buildServiceTimeOptions } from '@/components/shoots/ServiceSchedulePicker';
 import { useSchedulingBase } from './useSchedulingBase';
 import { useBookingIntervalAvailability } from './useBookingIntervalAvailability';
@@ -67,9 +67,9 @@ export const useSchedulingFormController = ({
   setCity,
   setState,
   setZip,
-  photographer = '',
+  photographer: bookingPhotographer = '',
   photographers = [],
-  setPhotographer,
+  setPhotographer: setBookingPhotographer,
   servicePhotographers = {},
   setServicePhotographers,
   serviceSchedules = {},
@@ -78,6 +78,9 @@ export const useSchedulingFormController = ({
   sameDayAddressWarningMessage = '',
 }: SchedulingFormProps) => {
   const { user } = useAuth();
+  const primaryService = photographerRequiredServices(selectedServices)[0];
+  const primaryPhotographer = primaryService ? resolveServicePhotographerId(primaryService, servicePhotographers, bookingPhotographer) || '' : '';
+  const [pickerPhotographer, setPhotographer] = useState(primaryPhotographer);
   const canUseProtectedAvailability = canUseProtectedAvailabilityRoutes(user);
     const [bookingJobCoords, setBookingJobCoords] = useState<ShootMapCoordinates | null>(null);
   const [bookingEligiblePhotographerIds, setBookingEligiblePhotographerIds] = useState<Set<string> | null>(null);
@@ -100,14 +103,19 @@ export const useSchedulingFormController = ({
     canScrollSuggestedTimesLeft, setCanScrollSuggestedTimesLeft,
     canScrollSuggestedTimesRight, setCanScrollSuggestedTimesRight, calendarMonth,
     setCalendarMonth, calendarAvailability, formatLocationLabel, normalizeSlotTime,
-    defaultServiceDate, defaultServiceTime, getServiceSchedule, updateServiceSchedules,
+    defaultServiceDate, defaultServiceTime, getServiceSchedule, updateServiceSchedules: updateServiceSchedulesBase,
     formatScheduleLine, timeToMinutes, minutesToTime, availabilityStats,
     calendarAvailableDays, calendarUnavailableDays, handleGetCurrentLocation,
   } = useSchedulingBase({
-    date, time, address, city, state, zip, photographer, photographers,
+    date, time, address, city, state, zip, photographer: primaryPhotographer, photographers,
     serviceSchedules, setServiceSchedules, selectedServices,
     setAddress, setCity, setState, setZip,
   });
+  const photographer = photographerDialogOpen ? pickerPhotographer : primaryPhotographer;
+  const updateServiceSchedules = (ids: string[], patch: Partial<{ date: string; time: string; duration_minutes: number }>) => {
+    updateServiceSchedulesBase(ids, patch);
+    setFormErrors(previous => Object.fromEntries(Object.entries(previous).filter(([key]) => !ids.some(id => key.startsWith(`service.${id}.`)))));
+  };
   const onDateChange = (newDate: Date | undefined) => {
     if (newDate) {
       const year = newDate.getFullYear();
@@ -183,14 +191,7 @@ export const useSchedulingFormController = ({
     }
   };
   const handlePhotographerDialogOpen = (open: boolean) => {
-    if (open && !time) {
-      toast({
-        title: "Select time first",
-        description: "Please choose a time before selecting a photographer.",
-        variant: "destructive",
-      });
-      return;
-    }
+    if (open) setPhotographer(primaryPhotographer);
     setPhotographerDialogOpen(open);
   };
   const handleConfirmPhotographer = () => {
@@ -203,6 +204,8 @@ export const useSchedulingFormController = ({
       });
       return;
     }
+    if (primaryService) setServicePhotographers?.(previous => ({ ...previous, [primaryService.id]: photographer }));
+    setBookingPhotographer?.(photographer);
     setPhotographerDialogOpen(false);
   };
   const selectedPhotographer = photographers.find(p => p.id === photographer);
@@ -215,6 +218,7 @@ export const useSchedulingFormController = ({
     [selectedServices],
   );
   const requiresPhotographerAssignment = selectedServicesRequirePhotographer(selectedServices);
+  const showStandaloneTime = selectedServices.length === 0;
   const requiresPerServiceAssignment = computeRequiresPerServiceAssignment(selectedServices);
   const [activeServiceForPicker, setActiveServiceForPicker] = useState<string | null>(null);
   const pickerServiceId = activeServiceForPicker || (!requiresPerServiceAssignment ? assignmentGroups[0]?.serviceId : null);
@@ -273,8 +277,8 @@ export const useSchedulingFormController = ({
     return Array.from(byId.values());
   }, [canUseProtectedAvailability, photographers, photographersWithDistance]);
   useSchedulingDayAvailability({
-    date, photographer, canUseProtectedAvailability, availabilityDataDate,
-    defaultServiceDate, photographerOptions, latestRequestRef,
+    date: bookingAvailabilityDate ? new Date(`${bookingAvailabilityDate}T12:00:00`) : date, photographer, canUseProtectedAvailability, availabilityDataDate,
+    defaultServiceDate: bookingAvailabilityDate, photographerOptions, latestRequestRef,
     setAvailabilityPanel, setDayAvailability,
   });
   const getPhotographerScheduleData = useCallback((photographerId?: string | number) => {
@@ -290,7 +294,7 @@ export const useSchedulingFormController = ({
         return { start, end };
       }
     }
-    if (availabilityDataDate !== defaultServiceDate) return null;
+    if (availabilityDataDate !== bookingAvailabilityDate) return null;
     const collectSlots = (): Array<{ start_time?: string; end_time?: string }> => {
       if (photographer) {
         const selected = getPhotographerScheduleData(photographer);
@@ -317,7 +321,7 @@ export const useSchedulingFormController = ({
     }
     if (minStart < maxEnd) return { start: minStart, end: maxEnd };
     return null;
-  }, [availabilityDataDate, dayAvailability, defaultServiceDate, getPhotographerScheduleData, photographer, photographerOptions, timeToMinutes]);
+  }, [availabilityDataDate, dayAvailability, bookingAvailabilityDate, getPhotographerScheduleData, photographer, photographerOptions, timeToMinutes]);
   const availabilityCardWindow = useMemo(() => {
     if (workingWindowMinutes) {
       return {
@@ -386,6 +390,7 @@ export const useSchedulingFormController = ({
   }, [suggestedTimesRailRef]);
   useEffect(() => {
     if (!date) return;
+    if (selectedServices.length) return;
     // Never replace a time the user already chose. A conflict or a late slot
     // such as 11:50 PM used to snap the form back to the first suggestion (9:00 AM)
     // and that 9:00 AM was what the book request stored.
@@ -398,7 +403,7 @@ export const useSchedulingFormController = ({
       const { time: _, ...rest } = previousErrors;
       return rest;
     });
-  }, [date, setFormErrors, setTempTime, setTime, suggestedTimes, time]);
+  }, [date, selectedServices.length, setFormErrors, setTempTime, setTime, suggestedTimes, time]);
   useEffect(() => {
     updateSuggestedTimesScrollState();
   }, [suggestedTimes, updateSuggestedTimesScrollState]);
@@ -439,7 +444,10 @@ export const useSchedulingFormController = ({
     && !isCalculatingDistances && !isLoadingAvailability && !bookingEligibilityError
     && (bookingEligiblePhotographerIds === null || bookingEligiblePhotographerIds.has(String(photographer)))
     && (filteredPhotographersForService === null || filteredPhotographersForService.some(p => String(p.id) === String(photographer)));
-  const getPhotographerForService = (serviceId: string): string => servicePhotographers[serviceId] || '';
+  const getPhotographerForService = (serviceId: string): string => {
+    const service = selectedServices.find(item => item.id === serviceId);
+    return service ? resolveServicePhotographerId(service, servicePhotographers, bookingPhotographer) || '' : '';
+  };
   const getPhotographerDetailsForService = (serviceId: string) => {
     const photographerId = getPhotographerForService(serviceId);
     if (!photographerId) return null;
@@ -456,12 +464,15 @@ export const useSchedulingFormController = ({
     setServicePhotographers(prev => ({ ...prev, [activeServiceForPicker]: photographer }));
     setPhotographerDialogOpen(false);
     setActiveServiceForPicker(null);
-    if (!selectedPhotographer) {
-      setPhotographer?.(photographer);
-    }
+    if (activeServiceForPicker === primaryService?.id) setBookingPhotographer?.(photographer);
   };
   useEffect(() => {
     let isCancelled = false;
+    if (!requiresPhotographerAssignment) {
+      setIsCalculatingDistances(false); setIsLoadingAvailability(false); setBookingEligibilityError(null);
+      setBookingEligiblePhotographerIds(null);
+      return;
+    }
     let hasLoadedEligibility = false;
     let timedOut = false;
     const abortController = new AbortController();
@@ -841,7 +852,7 @@ export const useSchedulingFormController = ({
       setIsCalculatingDistances(false);
     };
   }, [
-    address, city, state, zip, photographers, date,
+    address, city, state, zip, photographers, date, requiresPhotographerAssignment,
     normalizeDayOfWeek, canUseProtectedAvailability, selectedServices, bookingEligibilityRetry, bookingAvailabilityDate, bookingAvailabilityTime, bookingAvailabilityDuration, availabilityDurationKey,
     setIsCalculatingDistances, setIsLoadingAvailability, setPhotographerAvailability,
     setPhotographersWithDistance,
@@ -971,7 +982,7 @@ export const useSchedulingFormController = ({
     onDateChange, onTimeChange, handleTimeDialogOpen, handleTimeConfirm,
     handleQuickTimeSelect, handlePhotographerDialogOpen, handleConfirmPhotographer,
     handleGetCurrentLocation, selectedPhotographer, selectedPhotographerDetails,
-    fullAddress, assignmentGroups, requiresPhotographerAssignment, requiresPerServiceAssignment, activeServiceForPicker,
+    fullAddress, assignmentGroups, requiresPhotographerAssignment, showStandaloneTime, requiresPerServiceAssignment, activeServiceForPicker,
     setActiveServiceForPicker, activeServiceNameForPicker, activeServiceCapabilityForPicker,
     photographerOptions,
     getPhotographerScheduleData, workingWindowMinutes, availabilityCardWindow,

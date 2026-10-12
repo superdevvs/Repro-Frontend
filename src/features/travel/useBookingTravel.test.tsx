@@ -59,4 +59,13 @@ describe('booking preview uses the booked service itinerary', () => {
     expect(unitPayload).toHaveBeenCalledWith('America/New_York');
     expect(payload.timezone).toBe('America/New_York');
   });
+  it('uses the first resolved capture line in a fresh unit draft with no hidden header time', async () => {
+    const service_lines = [{ unit_client_key: 'a', service_id: '6', duration_minutes: 15,
+      scheduled_at: '2026-10-05T15:30:00Z', photographer_id: '10' }];
+    renderHook(() => useBookingTravel({ ...base, time: '', photographer: '9', unitPayload: () => ({ service_lines }) }));
+    const payload = await run();
+    expect(payload.scheduled_at).toBe('2026-10-05T15:30:00.000Z');
+    expect(payload.photographer_id).toBe('10');
+    expect(payload.service_lines).toEqual(service_lines);
+  });
 });

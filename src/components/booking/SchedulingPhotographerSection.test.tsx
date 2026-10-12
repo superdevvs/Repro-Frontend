@@ -29,13 +29,13 @@ function Picker({ mobile = false, time = '10:00', overrides = {} }: PickerProps)
   const controller = {
     time, date: new Date('2026-10-05T12:00:00'), isMobile: mobile,
     photographerDialogOpen: open, setPhotographerDialogOpen: setOpen,
-    handlePhotographerDialogOpen: (value: boolean) => { if (!value || time) setOpen(value); },
+    handlePhotographerDialogOpen: (value: boolean) => { setOpen(value); },
     photographer, setPhotographer, canConfirmPhotographer: Boolean(photographer),
     selectedPhotographer: photographer ? person : undefined,
     selectedPhotographerDetails: photographer ? person : undefined,
     handleConfirmPhotographer: () => setOpen(false),
     toast: vi.fn(), selectedServices: [], assignmentGroups: [],
-    requiresPerServiceAssignment: false,
+    requiresPerServiceAssignment: false, requiresPhotographerAssignment: true,
     formErrors: {},
     getServiceSchedule: () => ({ date: '2026-09-18', time: '10:15' }),
     updateServiceSchedules: vi.fn(),
@@ -88,16 +88,16 @@ describe('booking photographer picker', () => {
     expect(screen.getByTestId('selection-state')).toHaveTextContent('9:false');
   });
 
-  it('requires a time before opening', async () => {
+  it('allows choosing a photographer before choosing a service time', async () => {
     render(<Picker time="" />);
     await userEvent.click(screen.getByText('Select a photographer'));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   it('ties the photographer to the only service that needs one and lists the rest separately', () => {
     render(<Picker overrides={mixedSelection} />);
 
-    const photographerCard = screen.getByRole('region', { name: 'Photographer' });
+    const photographerCard = screen.getByRole('region', { name: 'Service schedule & photographer' });
     expect(within(photographerCard).getByText('Only 25 Flash Photos needs a photographer.')).toBeInTheDocument();
     expect(within(photographerCard).getByText('25 Flash Photos')).toBeInTheDocument();
     expect(within(photographerCard).getByText('Select a photographer')).toBeInTheDocument();
@@ -114,7 +114,7 @@ describe('booking photographer picker', () => {
   it('keeps a single photographer-only booking to the photographer card', () => {
     render(<Picker overrides={{ selectedServices: [flashPhotos], assignmentGroups: mixedSelection.assignmentGroups }} />);
 
-    const photographerCard = screen.getByRole('region', { name: 'Photographer' });
+    const photographerCard = screen.getByRole('region', { name: 'Service schedule & photographer' });
     expect(within(photographerCard).getByText('Assign a photographer for 25 Flash Photos.')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Other service schedules' })).not.toBeInTheDocument();
   });
@@ -175,7 +175,7 @@ describe('booking photographer picker', () => {
   it('shows the photographer validation error inside the photographer card', () => {
     render(<Picker overrides={{ ...mixedSelection, formErrors: { photographer: 'Please select a photographer' } }} />);
 
-    const photographerCard = screen.getByRole('region', { name: 'Photographer' });
+    const photographerCard = screen.getByRole('region', { name: 'Service schedule & photographer' });
     expect(within(photographerCard).getByText('Please select a photographer')).toBeInTheDocument();
   });
 

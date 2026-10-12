@@ -56,7 +56,7 @@ export function DayScheduleTimeline({ bookings, date, timezone, onMove, onDraggi
             style={horizontal ? { left: (visibleStart - START) * scale, top: row.target ? 100 : 32, width: Math.min((END - visibleStart) * scale, Math.max(65, (visibleEnd - visibleStart) * scale)), height: 54 }
               : { top: (visibleStart - START) * scale + 3, left: row.target ? 'calc(50% + 22px)' : 54, width: 'calc(50% - 33px)', height: Math.min((END - visibleStart) * scale, Math.max(48, (visibleEnd - visibleStart) * scale - 6)) }}
             aria-label={`${row.target ? 'This shoot: ' : ''}${row.label}, ${clock(start)}–${clock(end)}, ${editable ? 'use arrow keys to move' : 'read only'}`}
-            aria-disabled={!editable} title={editable ? 'Drag or use arrow keys to move by 15 minutes' : 'Open this booking separately to change its schedule'}
+            aria-disabled={!editable} title={`${row.label} · ${clock(start)}–${clock(end)} · ${editable ? 'Drag or use arrow keys to move by 15 minutes' : 'Read only'}`}
             onPointerDown={event => {
               if (!editable || event.button !== 0) return;
               drag.current = { id: row.id, pointer: event.pointerId, origin: horizontal ? event.clientX : event.clientY, minute: start };

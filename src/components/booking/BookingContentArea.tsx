@@ -4,7 +4,7 @@ import React from 'react';
 
 import { ClientPropertyForm, type InternalShootType } from './ClientPropertyForm';
 import { SchedulingForm } from './SchedulingForm';
-import { ReviewForm } from './ReviewForm';
+import { BookingReviewControls } from './BookingReviewControls';
 import type { PricingBreakdown } from '@/utils/pricing';
 import type { Client } from '@/types/clients';
 import type { ClientPropertyFormProps } from './useClientPropertyFormController';
@@ -60,7 +60,7 @@ interface BookingContentAreaProps {
   setBypassPayment: React.Dispatch<React.SetStateAction<boolean>>;
   sendNotification: boolean;
   setSendNotification: React.Dispatch<React.SetStateAction<boolean>>;
-  notificationControls?: React.ComponentProps<typeof ReviewForm>['notificationControls'];
+  notificationControls?: React.ComponentProps<typeof BookingReviewControls>['notificationControls'];
   getPackagePrice: () => number;
   pricingBreakdown: PricingBreakdown;
   originalPricingBreakdown?: PricingBreakdown;
@@ -231,44 +231,11 @@ export function BookingContentArea({
       )}
       
       {step === wizard.finalStep && (
-        <ReviewForm
-          client={client}
-          clientName={clients.find(c => c.id === client)?.name || undefined}
-          address={address}
-          city={city}
-          state={state}
-          zip={zip}
-          date={date}
-          time={time}
-          photographer={photographer}
-          setPhotographer={setPhotographer}
-          servicePhotographers={servicePhotographers}
-          setServicePhotographers={setServicePhotographers}
-          serviceSchedules={serviceSchedules}
-          bypassPayment={bypassPayment}
-          setBypassPayment={setBypassPayment}
-          sendNotification={sendNotification}
-          setSendNotification={setSendNotification}
-          notificationControls={notificationControls}
-          photographers={photographers}
-          selectedServices={selectedServices}
-          packagePrice={getPackagePrice()}
-          pricing={pricingBreakdown}
-          originalPricing={originalPricingBreakdown}
-          canAdjustAmount={canAdjustAmount}
-          adjustedTotalInput={adjustedTotalInput}
-          setAdjustedTotalInput={setAdjustedTotalInput}
-          photographerRate={getPhotographerRate()}
-          additionalNotes={notes}
-          setAdditionalNotes={setNotes}
-          onConfirm={handleSubmit}
-          onBack={goBack}
-          bedrooms={clientPropertyFormData.initialData?.bedRooms || 0}
-          bathrooms={clientPropertyFormData.initialData?.bathRooms || 0}
-          sqft={clientPropertyFormData.initialData?.sqft || 0}
-          area={Number(clientPropertyFormData.initialData?.sqft) || 0}
-          compReshoot={compReshoot}
-        />
+        <BookingReviewControls bypassPayment={bypassPayment} setBypassPayment={setBypassPayment}
+          sendNotification={sendNotification} setSendNotification={setSendNotification} notificationControls={notificationControls}
+          onBack={goBack} compReshoot={compReshoot} selectedServices={selectedServices}
+          nominalServiceTotal={originalPricingBreakdown?.serviceSubtotal ?? getPackagePrice()}
+          photographer={photographer} servicePhotographers={servicePhotographers} photographers={photographers} />
       )}
     </div>
   );

@@ -11,6 +11,7 @@ import { UnitManagerDialog } from './UnitManagerDialog';
 import { useBookingUnits } from './useMultiUnitBooking';
 import { draftUnitKey, lineTotal } from './model';
 import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
+import { BookingUnitReview } from './BookingUnitReview';
 
 export function BookingUnitManager({ photographers = [] }: { photographers?: Array<{ id: string; name: string }> }) {
   const units = useBookingUnits();
@@ -28,10 +29,11 @@ export function BookingUnitsPropertyControl() {
   if (!units.enabled) return <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="h-4 w-4 accent-blue-600" checked={false} onChange={units.enable} />Several units or common areas at this address</label>;
   return <div className="rounded-lg border bg-background p-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><strong className="text-sm">{units.draft.units.length} units and common areas</strong><p className="text-xs text-muted-foreground">{Object.keys(units.errors).length} need attention · dimensions and access are per unit</p></div><Button type="button" variant="outline" onClick={() => units.setManagerOpen(true)}>Manage units</Button></div></div>;
 }
-export function BookingUnitsSummary() {
+export function BookingUnitsSummary({ review = false, photographers = [] }: { review?: boolean; photographers?: Array<{ id: string; name: string }> }) {
   const units = useBookingUnits();
+  const [reviewOpen, setReviewOpen] = React.useState(false);
   if (!units?.enabled) return null;
-  return <div className="my-3 rounded-lg border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{units.draft.units.length} units · {units.draft.lines.length} service lines</strong><Button size="sm" variant="ghost" onClick={() => units.setManagerOpen(true)}>View breakdown</Button></div>{Object.keys(units.errors).length > 0 && <p className="text-xs text-destructive">{Object.keys(units.errors).length} units need attention.</p>}</div>;
+  return <><div className="my-3 rounded-lg border border-blue-200 bg-blue-50/50 p-3 dark:border-blue-900 dark:bg-blue-950/20"><div className="flex flex-wrap items-center justify-between gap-2"><strong className="text-sm">{units.draft.units.length} units · {units.draft.lines.length} service lines</strong><Button type="button" size="sm" variant="ghost" onClick={() => review ? setReviewOpen(true) : units.setManagerOpen(true)}>View breakdown</Button></div>{Object.keys(units.errors).length > 0 && <p className="text-xs text-destructive">{Object.keys(units.errors).length} units need attention.</p>}</div>{reviewOpen && <BookingUnitReview open onClose={() => setReviewOpen(false)} photographers={photographers} />}</>;
 }
 export function BookingUnitsScheduleNotice() {
   const units = useBookingUnits();

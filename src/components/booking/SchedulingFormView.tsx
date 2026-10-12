@@ -66,7 +66,7 @@ export function SchedulingFormView({ controller, afterCalendar }: { controller: 
                 cell: "relative p-0 text-center text-sm sm:text-base focus-within:relative focus-within:z-20 [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md flex-1",
               }}
             />
-            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
+            {controller.requiresPhotographerAssignment && <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-500 dark:text-slate-400">
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-px w-4 rounded-full bg-emerald-400" />
                 Availability
@@ -76,7 +76,7 @@ export function SchedulingFormView({ controller, afterCalendar }: { controller: 
                 No availability
               </span>
               {calendarAvailability.loading && <span>Checking dates...</span>}
-            </div>
+            </div>}
           </div>
           {formErrors['date'] && (
             <p className="text-sm font-medium text-destructive mt-1">{formErrors['date']}</p>
@@ -91,7 +91,7 @@ export function SchedulingFormView({ controller, afterCalendar }: { controller: 
             </div>
           </div>
         )}
-        <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-3 sm:space-y-4 border border-slate-200 dark:border-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
+        {controller.showStandaloneTime && <div className="bg-white dark:bg-card/40 rounded-2xl p-3 sm:p-6 space-y-3 sm:space-y-4 border border-slate-200 dark:border-border shadow-[0_1px_2px_rgba(15,23,42,0.08)]">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Time</h2>
             <span className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -154,13 +154,13 @@ export function SchedulingFormView({ controller, afterCalendar }: { controller: 
                 </div>
                 <div
                   className={cn(
-                    "pointer-events-none absolute inset-y-0 left-0 z-10 w-24 bg-gradient-to-r from-white from-0% via-white via-70% to-transparent dark:from-[#090e13] dark:from-0% dark:via-[#090e13] dark:via-70% dark:to-transparent",
+                    "pointer-events-none absolute inset-y-0 left-0 z-10 w-6 bg-gradient-to-r from-white to-transparent dark:from-[#090e13] dark:to-transparent",
                     !canScrollSuggestedTimesLeft && "opacity-0"
                   )}
                 />
                 <div
                   className={cn(
-                    "pointer-events-none absolute inset-y-0 right-0 z-10 w-24 bg-gradient-to-l from-white from-0% via-white via-70% to-transparent dark:from-[#090e13] dark:from-0% dark:via-[#090e13] dark:via-70% dark:to-transparent",
+                    "pointer-events-none absolute inset-y-0 right-0 z-10 w-6 bg-gradient-to-l from-white to-transparent dark:from-[#090e13] dark:to-transparent",
                     !canScrollSuggestedTimesRight && "opacity-0"
                   )}
                 />
@@ -281,8 +281,8 @@ export function SchedulingFormView({ controller, afterCalendar }: { controller: 
           {formErrors['time'] && (
             <p className="text-sm font-medium text-destructive mt-1">{formErrors['time']}</p>
           )}
-        </div>
-        {controller.requiresPhotographerAssignment ? (
+        </div>}
+        {controller.selectedServices.length > 0 ? (
           <SchedulingPhotographerSection controller={controller} />
         ) : null}
       </div>
@@ -291,7 +291,7 @@ export function SchedulingFormView({ controller, afterCalendar }: { controller: 
           type="button"
           variant="outline"
           onClick={goBack}
-          className="h-14 min-w-[150px] border-slate-200 bg-white text-base font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:border-muted/40 dark:bg-card/60 dark:text-slate-300 dark:hover:bg-card/80 dark:hover:text-white"
+          className="h-12 min-w-[100px] border-slate-200 bg-white text-base font-semibold text-slate-700 hover:bg-slate-50 hover:text-slate-900 dark:border-muted/40 dark:bg-card/60 dark:text-slate-300 dark:hover:bg-card/80 dark:hover:text-white"
         >
           <ChevronLeft className="mr-2 h-5 w-5" />
           Back
@@ -299,8 +299,11 @@ export function SchedulingFormView({ controller, afterCalendar }: { controller: 
         <Button
           type="button"
           onClick={handleSubmit}
-          className="h-14 flex-1 text-xl font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
+          disabled={controller.requiresPhotographerAssignment && (controller.isCalculatingDistances || controller.isLoadingAvailability)}
+          aria-busy={controller.requiresPhotographerAssignment && (controller.isCalculatingDistances || controller.isLoadingAvailability)}
+          className="h-12 min-w-0 flex-1 text-base font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
         >
+          {controller.requiresPhotographerAssignment && (controller.isCalculatingDistances || controller.isLoadingAvailability) && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}
           CONFIRM
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>

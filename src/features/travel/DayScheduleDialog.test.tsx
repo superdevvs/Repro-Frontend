@@ -43,7 +43,7 @@ it('explains a server overlap even when the visible timeline has no overlapping 
 it('allows staging a shorter travel gap when the server grants explicit confirmation', () => {
   const { travel, close } = setup('insufficient_travel_time', true);
   fireEvent.click(screen.getByRole('button', { name: 'Use schedule · review travel on save' }));
-  expect(travel.onScheduleChange).toHaveBeenCalledWith({ scheduledAt: '2026-10-10T12:15:00Z', offsetMinutes: 0, timezone: 'America/New_York' });
+  expect(travel.onScheduleChange).toHaveBeenCalledWith(expect.objectContaining({ scheduledAt: '2026-10-10T12:15:00Z', offsetMinutes: 0, timezone: 'America/New_York', photographerId: 989, fromStart: '2026-10-10T12:15:00Z' }));
   expect(travel.setNotifications).toHaveBeenCalledWith({ client: false, photographer: false });
   expect(close).toHaveBeenCalledOnce();
 });

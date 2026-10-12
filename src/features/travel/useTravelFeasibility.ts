@@ -6,14 +6,23 @@ import type { ScheduleChange } from './daySchedule';
 import { canConfirmTravelException, useTravelSaveConfirmation } from './useTravelSaveConfirmation';
 
 /** One preview for the selected itinerary, never one Routes lookup per time option. */
-export function useTravelFeasibility({ payload: originalPayload, requestedOnly = false, onScheduleChange, notificationsSupported = Boolean(onScheduleChange) }: { payload: TravelPayload | null; requestedOnly?: boolean; onScheduleChange?: (change: ScheduleChange) => void; notificationsSupported?: boolean }) {
-  const scope = JSON.stringify([originalPayload?.shoot_id, originalPayload?.photographer_id, getShootSchedule({ scheduled_at: originalPayload?.scheduled_at, timezone: originalPayload?.timezone }).date]);
+export function useTravelFeasibility({ payload: originalPayload, requestedOnly = false, onScheduleChange, initialNotifications, onNotificationsChange, notificationsSupported = Boolean(onScheduleChange) }: { payload: TravelPayload | null; requestedOnly?: boolean; onScheduleChange?: (change: ScheduleChange) => void; notificationsSupported?: boolean; initialNotifications?: { client: boolean; photographer: boolean }; onNotificationsChange?: (value: { client: boolean; photographer: boolean }) => void }) {
+  const itinerary = originalPayload?.service_items ?? originalPayload?.service_lines;
+  const scope = JSON.stringify([originalPayload?.shoot_id, originalPayload?.photographer_id, getShootSchedule({ scheduled_at: originalPayload?.scheduled_at, timezone: originalPayload?.timezone }).date,
+    Array.isArray(itinerary) ? itinerary.map(row => [row.service_id, row.photographer_id, getShootSchedule({ scheduled_at: row.scheduled_at, timezone: originalPayload?.timezone }).date]) : []]);
   const [dayChanges, setDayChanges] = useState<{ scope: string; changes: ScheduleAdjustment[] }>({ scope: '', changes: [] });
-  const scheduleAdjustments = dayChanges.scope === scope ? dayChanges.changes : [];
+  const scheduleAdjustments = useMemo(() => dayChanges.scope === scope ? dayChanges.changes : [], [dayChanges, scope]);
   useEffect(() => { if (dayChanges.scope !== scope && dayChanges.changes.length) setDayChanges({ scope, changes: [] }); }, [scope, dayChanges]);
-  const [notifications, updateNotifications] = useState({ client: true, photographer: true });
+  const [notifications, updateNotifications] = useState(initialNotifications ?? { client: true, photographer: true });
   const [notificationPreference, setNotificationPreference] = useState(false);
-  const setNotifications = (value: { client: boolean; photographer: boolean }) => { updateNotifications(value); setNotificationPreference(true); };
+  const setNotifications = (value: { client: boolean; photographer: boolean }) => { updateNotifications(value); setNotificationPreference(true); onNotificationsChange?.(value); };
+  const initialClientNotification = initialNotifications?.client;
+  const initialPhotographerNotification = initialNotifications?.photographer;
+  useEffect(() => {
+    if (initialClientNotification !== undefined && initialPhotographerNotification !== undefined) {
+      updateNotifications({ client: initialClientNotification, photographer: initialPhotographerNotification });
+    }
+  }, [initialClientNotification, initialPhotographerNotification]);
   const payload: TravelPayload | null = originalPayload && { ...originalPayload, ...(scheduleAdjustments.length ? { schedule_adjustments: scheduleAdjustments } : {}) };
   const key = payload ? JSON.stringify(payload, (field, value: unknown) => payload.shoot_id && field === 'service_lines' && Array.isArray(value) ? value.map(line => line.shoot_service_id ? line : { ...line, client_key: undefined }) : value) : '';
   const requestPayload = useRef(payload);

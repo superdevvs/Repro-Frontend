@@ -7,6 +7,8 @@ import { buildBookingDurationAdjuster } from './bookShootDurationAdjustment';
 import { resolveServiceShootDuration } from '@/utils/shootDuration';
 import { useMultiUnitBooking } from '@/features/shoot-units/useMultiUnitBooking';
 import { bookingSummaryInfo } from './bookingSummaryInfo';
+import { bookingPrimarySchedule } from '@/utils/bookingPrimarySchedule';
+import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 import type { Client } from '@/types/clients';
@@ -90,7 +92,7 @@ export const useBookShootController = () => {
     setPropertyDetails, propertySqft, setPropertySqft, handleSelectedServicesChange,
     handleShootTypeChange, notes, setNotes, companyNotes, setCompanyNotes, photographerNotes,
     setPhotographerNotes, editorNotes, setEditorNotes, bypassPayment, setBypassPayment,
-    sendNotification, setSendNotification, adjustedTotalInput, setAdjustedTotalInput, step,
+    sendNotification, setSendNotification, bookingNotifications, setBookingNotifications, adjustedTotalInput, setAdjustedTotalInput, step,
     setStep, isComplete, setIsComplete, completedBooking, setCompletedBooking, isSubmitting,
     setIsSubmitting, duplicateLocationDialogOpen, setDuplicateLocationDialogOpen,
     createdShootId, setCreatedShootId, formErrors, setFormErrors, clientPropertyFormKey,
@@ -99,16 +101,23 @@ export const useBookShootController = () => {
     CACHE_KEY, hasCachedData, setHasCachedData, clearBookingDraftState,
   } = useBookShootWorkflow({
     user, isClientAccount, clientIdFromUrl, clientNameFromUrl, clientCompanyFromUrl,
-    editShootId, canAdjustBookingAmount,
+    editShootId, canAdjustBookingAmount, draftScope: compReshootSourceId,
   });
   const unitBooking = useMultiUnitBooking({ draft: multiUnitDraft, setDraft: setMultiUnitDraft, catalog: packages, legacyServices: legacySelectedServices, propertySqft, propertyDetails, date, time, photographer, servicePhotographers, serviceSchedules, allowed: !isCompReshootMode, clientGroups: isClientAccount || hasSalesRepRole(user) || canBookOutsideClientServiceGroups(user?.role) ? [] : (clients.find(item => item.id === client)?.service_group_ids ?? clients.find(item => item.id === client)?.service_groups?.map(group => group.id) ?? []).map(String) });
   const selectedServices = unitBooking.enabled ? unitBooking.summaryServices : legacySelectedServices;
+  const primaryUnit = unitBooking.schedule.lines.find(line => line.photographer_id) ?? unitBooking.schedule.lines[0];
+  const primarySchedule = unitBooking.enabled && primaryUnit
+    ? { date: primaryUnit.scheduled_date, time: primaryUnit.start_time, photographer: primaryUnit.photographer_id || null }
+    : bookingPrimarySchedule(selectedServices, serviceSchedules, date, time, photographer, servicePhotographers);
+  const bookingDate = parseLocalYmd(primarySchedule.date) ?? undefined;
+  const bookingTime = primarySchedule.time;
   const { setDate, setTime } = useBookingMainSchedule({ date, time, setDate: setRawDate, setTime: setRawTime, setServiceSchedules, selectedServices, multiUnit: unitBooking.enabled });
   const remountPropertyForm = React.useCallback(() => {
     setClientPropertyFormKey((current) => current + 1);
   }, [setClientPropertyFormKey]);
   const compReshoot = useCompReshootBooking({
     enabled: isCompReshootMode,
+    draftCacheKey: CACHE_KEY, draftActive: !isComplete,
     sourceShootId: compReshootSourceId,
     selectedServices, photographerId: photographer, servicePhotographers, propertySqft,
     setClient,
@@ -142,13 +151,14 @@ export const useBookShootController = () => {
     : roleCanCreateNoProductShoot;
   const [positiveChargeDialogOpen, setPositiveChargeDialogOpen] = React.useState(false);
   const [exitCompDialogOpen, setExitCompDialogOpen] = React.useState(false);
+  const [submissionError, setSubmissionError] = React.useState('');
   const {
     duplicateLocationWarningAcceptedRef, largeHomePackageWarningAcceptedRef, isFormComplete,
     sameDayAddressShoot, sameAddressScheduledDates, addressScheduledWarningMessage,
     sameDayAddressWarningMessage, duplicateLocationWarningShoot,
     duplicateLocationPopupMessage, showAddressScheduledWarning,
   } = useBookShootDuplicateWarnings({
-    user, shoots, fetchShoots, formatDate, address, city, state, zip, date, time, step,
+    user, shoots, fetchShoots, formatDate, address, city, state, zip, date: bookingDate, time: bookingTime, step,
     editShootId, selectedServices, isClientAccount, client, canCreateNoProductShoot,
     to12Hour,
   });
@@ -217,11 +227,15 @@ export const useBookShootController = () => {
   const bookingWizard = getBookingWizardConfig(isCompReshootMode);
   const finalBookingStep = bookingWizard.finalStep;
   const schedulingStep = bookingWizard.schedulingStep;
+  const onBookingNotificationsChange = React.useCallback((value: { client: boolean; photographer: boolean }) => {
+    setBookingNotifications(value); setSendNotification(value.client || value.photographer);
+  }, [setBookingNotifications, setSendNotification]);
   const travel = useBookingTravel({ active: step >= schedulingStep && !isComplete, requestedOnly: isClientAccount,
     shootId: isEditMode ? editShootId : null, clientId: isClientAccount ? user?.id : client, address, city, state, zip, date, time, photographer,
-    propertyDetails, sqft: propertySqft, source: editingScheduleSource, selectedServices, servicePhotographers, serviceSchedules,
+    propertyDetails, sqft: propertySqft, source: editingScheduleSource, selectedServices, servicePhotographers, serviceSchedules, photographers,
+    initialNotifications: bookingNotifications ?? { client: sendNotification, photographer: sendNotification }, onNotificationsChange: onBookingNotificationsChange,
     unitPayload: unitBooking.enabled ? unitBooking.payload : undefined,
-    onScheduleChange: bookingDayScheduleHandler({ date, time, setDate: setRawDate, setTime: setRawTime, setServiceSchedules }) });
+    onScheduleChange: bookingDayScheduleHandler({ date, time, setDate: setRawDate, setTime: setRawTime, setServiceSchedules, services: selectedServices, assignments: servicePhotographers, photographer }) });
   const travelDurationAdjuster = buildBookingDurationAdjuster({ role: user?.role, impersonating: isImpersonating,
     canOverride: travel.canOverride, services: selectedServices, sqft: selectedServiceSqft, schedules: serviceSchedules,
     setSchedules: setServiceSchedules, units: unitBooking,
@@ -300,6 +314,7 @@ export const useBookShootController = () => {
         selectedServices,
         photographer,
         servicePhotographers,
+        serviceSchedules,
       });
       if (Object.keys(errors).length > 0) {
         setFormErrors(errors);
@@ -326,11 +341,12 @@ export const useBookShootController = () => {
     if (isSubmitting) return;
     setFormErrors({});
     if (step === finalBookingStep) {
+      setSubmissionError('');
       if (unitBooking.enabled && !unitBooking.valid) { toast({ title: 'Review all units', description: Object.values(unitBooking.errors).flat()[0] || unitBooking.schedule.errors[0], variant: 'destructive' }); return; }
       setIsSubmitting(true);
       const preflightIssue = getBookingSubmissionPreflightIssue({
-        isClientAccount, client, address, city, state, zip, date, time, selectedServices: unitBooking.enabled ? selectedServices.map(service => ({ ...service, photographer_required: false })) : selectedServices,
-        photographer, servicePhotographers, isCompReshootMode, canCreateNoProductShoot,
+        isClientAccount, client, address, city, state, zip, date: unitBooking.enabled ? bookingDate : date, time: unitBooking.enabled ? bookingTime : time, selectedServices: unitBooking.enabled ? selectedServices.map(service => ({ ...service, photographer_required: false })) : selectedServices,
+        photographer, servicePhotographers, serviceSchedules: unitBooking.enabled ? undefined : serviceSchedules, isCompReshootMode, canCreateNoProductShoot,
       });
       if (preflightIssue) {
         const { errors, ...notice } = preflightIssue;
@@ -393,8 +409,8 @@ export const useBookShootController = () => {
         return;
       }
       let time24Hour = '00:00:00';
-      if (time) {
-        const match = time.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      if (bookingTime) {
+        const match = bookingTime.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
         if (match) {
           let hours = parseInt(match[1], 10);
           const minutes = parseInt(match[2], 10);
@@ -403,7 +419,7 @@ export const useBookShootController = () => {
           if (period === 'AM' && hours === 12) hours = 0;
           time24Hour = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:00`;
         } else {
-          const time24Match = time.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+          const time24Match = bookingTime.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
           if (time24Match) {
             const h = parseInt(time24Match[1], 10);
             const m = parseInt(time24Match[2], 10);
@@ -412,10 +428,10 @@ export const useBookShootController = () => {
           }
         }
       }
-      const shootDate = date ? new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
+      const shootDate = bookingDate ? new Date(
+        bookingDate.getFullYear(),
+        bookingDate.getMonth(),
+        bookingDate.getDate(),
         12
       ) : new Date();
       const pricingForSubmission = isCompReshootMode
@@ -429,8 +445,8 @@ export const useBookShootController = () => {
       const taxAmount = pricingForSubmission.taxAmount;
       const totalQuote = pricingForSubmission.totalQuote;
       const sqft = propertySqft ?? propertyDetails?.sqft ?? propertyDetails?.livingArea ?? null;
-      const orderDate = date ? toDateInputValue(date) : shootDate.toISOString().split('T')[0];
-      const orderTime = time24Hour || toBackendTime(time);
+      const orderDate = bookingDate ? toDateInputValue(bookingDate) : shootDate.toISOString().split('T')[0];
+      const orderTime = time24Hour || toBackendTime(bookingTime);
       try {
       const scheduleSource = isEditMode ? editingScheduleSource : null;
       const bookingTimezone = resolveBookingTimezone({
@@ -449,7 +465,7 @@ export const useBookShootController = () => {
           quantity: service.quantity ?? 1,
           duration_minutes: resolveServiceShootDuration(service, sqft, serviceSchedules[service.id]?.duration_minutes),
           photographer_id: assignedPhotographerId,
-          scheduled_at: buildBookShootServiceSchedule(service.id, serviceSchedules, orderDate, orderTime || time, { ...(scheduleSource || {}), timezone: bookingTimezone }),
+          scheduled_at: buildBookShootServiceSchedule(service.id, serviceSchedules, date ? toDateInputValue(date) : orderDate, time, { ...(scheduleSource || {}), timezone: bookingTimezone }),
           is_deliverable: true,
         };
         // Keep the stored unit price on existing lines; the picker controls the
@@ -503,7 +519,7 @@ export const useBookShootController = () => {
             ? 'zero_dollar_product'
             : 'has_product';
       const isNoChargeShoot = totalQuote <= 0.01 || effectiveShootType !== 'standard';
-      const scheduledAt = date && time24Hour 
+      const scheduledAt = bookingDate && time24Hour
         ? buildShootScheduleTimestamp(orderDate, time24Hour, bookingTimezone,
             scheduleSource?.scheduled_at || scheduleSource?.scheduledAt || scheduleSource?.start_time)
         : null;
@@ -521,7 +537,7 @@ export const useBookShootController = () => {
         scheduled_date: orderDate, // YYYY-MM-DD format (legacy support)
         time: time24Hour, // 24-hour format for backend
         timezone: bookingTimezone,
-        photographer_id: selectedServicesRequirePhotographer(selectedServices) ? photographer || null : null,
+        photographer_id: primarySchedule.photographer,
         ...(!unitBooking.enabled ? { service_photographers: buildServicePhotographerAssignments(selectedServices, servicePhotographers), service_id: primaryServiceId } : {}),
         ...(unitBooking.enabled ? { ...unitBooking.payload(bookingTimezone), ...(isEditMode ? { expected_units_revision: editingScheduleSource?.units_revision } : {}) } : { services: servicesPayload, service_items: serviceItemsPayload }),
         service_category: selectedServices[0]?.category?.name || undefined,
@@ -666,8 +682,8 @@ export const useBookShootController = () => {
           ? shootData.id
           : undefined;
         const completedSnapshot: CompletedBookingSnapshot = {
-          date,
-          time,
+          date: bookingDate,
+          time: bookingTime,
           shootId: savedShootId,
           totalAmount: getTotal(),
           pricing: pricingForSubmission,
@@ -703,6 +719,10 @@ export const useBookShootController = () => {
           statusText: errorResponse.statusText,
         });
         const validationErrors = asRecord(responseData.errors);
+        const failureMessage = Object.keys(validationErrors).length
+          ? Object.values(validationErrors).flatMap(value => Array.isArray(value) ? value.map(String) : [String(value)]).join('. ')
+          : typeof responseData.message === 'string' ? responseData.message : error instanceof Error ? error.message : 'The booking could not be saved.';
+        setSubmissionError(failureMessage);
         if (Object.keys(validationErrors).length > 0) {
           const errorMessages = Object.values(validationErrors).flatMap((value) =>
             Array.isArray(value) ? value.map(String) : [String(value)],
@@ -946,7 +966,7 @@ export const useBookShootController = () => {
     return bookingWizard.steps[step - 1] || { title: '', description: '' };
   };
   const currentStepContent = getCurrentStepContent();
-  const canSubmitBooking = !travel.blocked && isFormComplete && (!unitBooking.enabled || unitBooking.valid) && (!isCompReshootMode || compReshoot.isValid);
+  const canSubmitBooking = !travel.blocked && isFormComplete && (unitBooking.enabled ? unitBooking.valid : !Object.keys(getSchedulingStepErrors({ date, time, selectedServices, photographer, servicePhotographers, serviceSchedules })).length) && (!isCompReshootMode || compReshoot.isValid);
   const openCompReshootSource = React.useCallback(() => {
     if (compReshoot.sourceShootId) navigate(`/shoots/${compReshoot.sourceShootId}`);
   }, [compReshoot.sourceShootId, navigate]);
@@ -984,7 +1004,7 @@ export const useBookShootController = () => {
     clearBookingDraftState, selectedClientData, selectedServiceSqft, serviceSubtotal,
     pricingBreakdown, parsedAdjustedTotal, displayPricingBreakdown, getPackagePrice,
     getPhotographerRate, getTax, getTotal, validateCurrentStep,
-    handleSubmit, goBack, resetForm, handleAddressFieldsChange, handleClientChange,
+    handleSubmit, goBack, submissionError, editBookingStep: (nextStep: number) => { setFormErrors({}); setSubmissionError(''); setStep(nextStep); }, resetForm, handleAddressFieldsChange, handleClientChange,
     handlePropertyDraftChange, updateClientCompanyNotes, handleClearCache,
     clientPropertyFormData, getSummaryInfo, parsedTemperature, condition, summaryInfo,
     currentStepContent,

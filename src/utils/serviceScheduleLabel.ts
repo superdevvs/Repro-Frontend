@@ -27,8 +27,8 @@ export function getServiceScheduleLabel(
   fallbackTime?: string,
 ): string {
   const serviceSchedule = serviceSchedules[serviceId];
-  const scheduleDate = serviceSchedule?.date || fallbackDate;
-  const scheduleTime = serviceSchedule?.time || fallbackTime;
+  const scheduleDate = serviceSchedule?.date ?? fallbackDate;
+  const scheduleTime = serviceSchedule?.time ?? fallbackTime;
   const timeLabel = scheduleTime ? formatTimeForDisplay(scheduleTime) : '';
   return [scheduleDate, timeLabel].filter(Boolean).join(' at ');
 }

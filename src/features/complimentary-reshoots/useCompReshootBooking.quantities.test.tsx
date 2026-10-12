@@ -6,7 +6,7 @@ import { getComplimentaryReshootTemplate } from './api';
 import { useCompReshootBooking } from './useCompReshootBooking';
 
 vi.mock('./api', () => ({ getComplimentaryReshootTemplate: vi.fn() }));
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); localStorage.clear(); });
 
 const options = (selectedServices: ServicePackage[], enabled = false) => ({
   selectedServices, enabled, sourceShootId: enabled ? '42' : null, photographerId: '9', servicePhotographers: {}, propertySqft: 2000,
@@ -17,6 +17,26 @@ const options = (selectedServices: ServicePackage[], enabled = false) => ({
 const service: ServicePackage = { id: '10', name: 'Photos', description: '', price: 100, photographer_pay: 75, quantity: 3 };
 
 describe('complimentary return-visit quantity compensation', () => {
+  it('restores the reason, custom compensation and retry key without clearing saved services', async () => {
+    const draftCacheKey = 'booking-reshoot-test';
+    localStorage.setItem(draftCacheKey, JSON.stringify({ address: 'Saved property', compReshootDraft: {
+      sourceShootId: '42', idempotencyKey: 'same-retry-key', reasonCode: 'other', reasonNote: 'Saved reason',
+      photographerMode: 'custom', serviceCompensations: { '10': { mode: 'custom', customAmount: '110' } },
+      repMode: 'none', compensationDirty: true,
+    } }));
+    vi.mocked(getComplimentaryReshootTemplate).mockResolvedValue(normalizeCompReshootTemplate({
+      source: { id: 42 }, client: { id: 8 }, source_service_items: [{ id: 501, service_id: 10, name: 'Photos' }],
+    }));
+    const props = { ...options([service], true), draftCacheKey };
+    const { result } = renderHook(() => useCompReshootBooking(props));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.reasonCode).toBe('other'); expect(result.current.reasonNote).toBe('Saved reason');
+    expect(result.current.idempotencyKey).toBe('same-retry-key'); expect(result.current.photographerMode).toBe('custom');
+    expect(props.setSelectedServices).not.toHaveBeenCalledWith([]);
+    act(() => result.current.setReasonNote('Updated reason'));
+    expect(JSON.parse(localStorage.getItem(draftCacheKey)!).compReshootDraft.reasonNote).toBe('Updated reason');
+    expect(JSON.parse(localStorage.getItem(draftCacheKey)!).address).toBe('Saved property');
+  });
   it('multiplies the standard unit rate and keeps a custom line total exact', () => {
     const props = options([service]);
     const { result } = renderHook(() => useCompReshootBooking(props));

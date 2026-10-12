@@ -496,6 +496,7 @@ describe('per-service booking photographer availability', () => {
     const { result } = renderHook(() => useSchedulingFormController(props));
 
     expect(result.current.requiresPhotographerAssignment).toBe(false);
+    expect(result.current.showStandaloneTime).toBe(false);
     expect(result.current.assignmentGroups).toEqual([]);
   });
 
@@ -515,6 +516,24 @@ describe('per-service booking photographer availability', () => {
     const { result } = renderHook(() => useSchedulingFormController(props));
 
     expect(result.current.requiresPhotographerAssignment).toBe(true);
+    expect(result.current.showStandaloneTime).toBe(false);
     expect(result.current.assignmentGroups.map((group) => group.serviceId)).toEqual(['1']);
+  });
+
+  it.each([undefined, true])('hides the separate time card for photographer services (required=%s)', photographerRequired => {
+    const props = { ...eligibilityProps(), selectedServices: [
+      { id: '1', name: 'HDR Photos', price: 100, photographer_required: photographerRequired },
+      { id: '2', name: 'Video', price: 100, photographer_required: true },
+    ] };
+    const { result } = renderHook(() => useSchedulingFormController(props));
+    expect(result.current.showStandaloneTime).toBe(false);
+  });
+
+  it('preserves independent row times without writing a hidden booking time', () => {
+    const props = { ...eligibilityProps(), time: '', serviceSchedules: {
+      '1': { date: '2026-10-05', time: '13:15' },
+    } };
+    renderHook(() => useSchedulingFormController(props));
+    expect(props.setTime).not.toHaveBeenCalled();
   });
 });

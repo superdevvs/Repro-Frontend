@@ -15,7 +15,7 @@ import { API_BASE_URL } from '@/config/env';
 import { normalizeState, isValidState } from '@/utils/stateUtils';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
 import {
-  BOOKING_FORM_CACHE_KEY,
+  bookingDraftCacheKey,
   createInitialBookingDraftState,
   clearBookingFormCache,
 } from '@/utils/bookingDraftReset';
@@ -31,6 +31,7 @@ import { serviceRequiresPhotographer, syncPhotographerRequiredFromCatalog } from
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
+import { restoreBookingServiceSchedules } from '@/utils/bookingPrimarySchedule';
 import { emptyMultiUnitDraft, hydrateUnitDraft, type MultiUnitDraft } from '@/features/shoot-units/model';
 
 type BookShootWorkflowOptions = {
@@ -41,6 +42,7 @@ type BookShootWorkflowOptions = {
   clientCompanyFromUrl: string | null;
   editShootId: string | null;
   canAdjustBookingAmount: boolean;
+  draftScope?: string | null;
 };
 
 type EditingScheduleSource = {
@@ -64,6 +66,7 @@ export const useBookShootWorkflow = ({
   clientCompanyFromUrl,
   editShootId,
   canAdjustBookingAmount,
+  draftScope,
 }: BookShootWorkflowOptions) => {
   const [isEditMode, setIsEditMode] = useState(Boolean(editShootId));
   const [editingScheduleSource, setEditingScheduleSource] = useState<EditingScheduleSource | null>(null);
@@ -139,6 +142,7 @@ export const useBookShootWorkflow = ({
   const [editorNotes, setEditorNotes] = useState('');
   const [bypassPayment, setBypassPayment] = useState(false);
   const [sendNotification, setSendNotification] = useState(true);
+  const [bookingNotifications, setBookingNotifications] = useState<{ client: boolean; photographer: boolean } | undefined>();
   const [adjustedTotalInput, setAdjustedTotalInput] = useState('');
   const [step, setStep] = useState(1);
   const [isComplete, setIsComplete] = useState(false);
@@ -159,10 +163,10 @@ export const useBookShootWorkflow = ({
     return `${dh}:${String(m).padStart(2, '0')} ${mer}`;
   };
   const { fetchShoots } = useShoots();
-  const shouldCacheForm = !editShootId && user && ['admin', 'superadmin', 'rep', 'photographer'].includes(user.role);
-  const CACHE_KEY = BOOKING_FORM_CACHE_KEY;
+  const shouldCacheForm = !editShootId && Boolean(user);
+  const CACHE_KEY = bookingDraftCacheKey(user?.id, isClientAccount, draftScope);
   const hasRestoredRef = useRef(false);
-  const isInitialMountRef = useRef(true);
+  const [draftRestored, setDraftRestored] = useState(false);
   const [hasCachedData, setHasCachedData] = useState(false);
   const clearBookingDraftState = React.useCallback(() => {
     const initial = createInitialBookingDraftState<ServicePackage, ServiceScheduleMap>();
@@ -178,6 +182,7 @@ export const useBookShootWorkflow = ({
     setPhotographer(initial.photographer);
     setServicePhotographers(initial.servicePhotographers);
     setServiceSchedules(initial.serviceSchedules);
+    setBookingNotifications(undefined);
     setSelectedServices(initial.selectedServices);
     setMultiUnitDraft(emptyMultiUnitDraft());
     setShootType('standard');
@@ -210,7 +215,6 @@ export const useBookShootWorkflow = ({
   useEffect(() => {
     if (!user) return;
     if (!shouldCacheForm || hasRestoredRef.current) {
-      isInitialMountRef.current = false;
       return;
     }
     hasRestoredRef.current = true;
@@ -233,9 +237,10 @@ export const useBookShootWorkflow = ({
         }
         if (typeof parsed.time === 'string') setTime(parsed.time);
         if (typeof parsed.photographer === 'string') setPhotographer(parsed.photographer);
+        if (typeof parsed.bookingNotifications?.client === 'boolean' && typeof parsed.bookingNotifications?.photographer === 'boolean') setBookingNotifications(parsed.bookingNotifications);
         if (parsed.servicePhotographers) setServicePhotographers(parsed.servicePhotographers);
         if (parsed.serviceSchedules) {
-          const schedules = parsed.serviceSchedules as ServiceScheduleMap;
+          const schedules = restoreBookingServiceSchedules(parsed.serviceSchedules as ServiceScheduleMap, parsed.bookingScheduleVersion);
           setServiceSchedules(editShootId ? schedules : Object.fromEntries(Object.entries(schedules)
             .map(([id, schedule]) => [id, withoutDraftDurationOverride(schedule)])));
         }
@@ -252,10 +257,10 @@ export const useBookShootWorkflow = ({
           });
         }
         if (typeof parsed.notes === 'string') setNotes(parsed.notes);
-        if (typeof parsed.companyNotes === 'string') setCompanyNotes(parsed.companyNotes);
+        if (!isClientAccount && typeof parsed.companyNotes === 'string') setCompanyNotes(parsed.companyNotes);
         if (typeof parsed.photographerNotes === 'string') setPhotographerNotes(parsed.photographerNotes);
-        if (typeof parsed.editorNotes === 'string') setEditorNotes(parsed.editorNotes);
-        if (parsed.bypassPayment !== undefined) setBypassPayment(parsed.bypassPayment);
+        if (!isClientAccount && typeof parsed.editorNotes === 'string') setEditorNotes(parsed.editorNotes);
+        if (!isClientAccount && typeof parsed.bypassPayment === 'boolean') setBypassPayment(parsed.bypassPayment);
         if (parsed.sendNotification !== undefined) setSendNotification(parsed.sendNotification);
         if (typeof parsed.adjustedTotalInput === 'string') setAdjustedTotalInput(parsed.adjustedTotalInput);
         if (Object.prototype.hasOwnProperty.call(parsed, 'propertyDetails')) {
@@ -275,15 +280,16 @@ export const useBookShootWorkflow = ({
     } catch (error) {
       console.error('Error restoring form data from cache:', error);
     }
-    setTimeout(() => {
-      isInitialMountRef.current = false;
-    }, 1000);
+    setDraftRestored(true);
   }, [CACHE_KEY, user, shouldCacheForm, isClientAccount, editShootId]);
   useEffect(() => {
     if (!shouldCacheForm || !user) return;
-    if (isInitialMountRef.current) return;
+    if (!draftRestored) return;
     try {
+      let compReshootDraft: unknown;
+      try { compReshootDraft = JSON.parse(localStorage.getItem(CACHE_KEY) || '{}').compReshootDraft; } catch { /* Replace malformed cache with the current draft. */ }
       const formData = {
+        compReshootDraft,
         multiUnitDraft,
         client,
         address,
@@ -297,12 +303,14 @@ export const useBookShootWorkflow = ({
         serviceSchedules,
         selectedServices,
         bookingQuantityVersion: 1,
+        bookingScheduleVersion: 2,
         notes,
         companyNotes,
         photographerNotes,
         editorNotes,
         bypassPayment,
         sendNotification,
+        bookingNotifications,
         adjustedTotalInput: canAdjustBookingAmount ? adjustedTotalInput : '',
         step,
         propertyDetails,
@@ -345,6 +353,7 @@ export const useBookShootWorkflow = ({
     multiUnitDraft,
     CACHE_KEY,
     shouldCacheForm,
+    draftRestored,
     user,
     isClientAccount,
     canAdjustBookingAmount,
@@ -365,6 +374,7 @@ export const useBookShootWorkflow = ({
     editorNotes,
     bypassPayment,
     sendNotification,
+    bookingNotifications,
     adjustedTotalInput,
     step,
     propertyDetails,
@@ -677,7 +687,7 @@ export const useBookShootWorkflow = ({
     shootType, setShootType, propertyDetails, setPropertyDetails, propertySqft,
     setPropertySqft, handleSelectedServicesChange, handleShootTypeChange, notes, setNotes,
     companyNotes, setCompanyNotes, photographerNotes, setPhotographerNotes, editorNotes,
-    setEditorNotes, bypassPayment, setBypassPayment, sendNotification, setSendNotification,
+    setEditorNotes, bypassPayment, setBypassPayment, sendNotification, setSendNotification, bookingNotifications, setBookingNotifications,
     adjustedTotalInput, setAdjustedTotalInput, step, setStep, isComplete, setIsComplete,
     completedBooking, setCompletedBooking, isSubmitting, setIsSubmitting,
     duplicateLocationDialogOpen, setDuplicateLocationDialogOpen, createdShootId,

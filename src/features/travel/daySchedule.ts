@@ -5,7 +5,7 @@ import type { TravelPayload, TravelTransition } from './types';
 export type DayBooking = { id: string; start: string; end: string; duration_minutes: number; photographer_id: number; label: string; shoot_id: number | null; can_adjust: boolean; expected_edit_version: string | null; target?: boolean };
 export type DaySchedule = { date: string; timezone: string; photographer: { id: number; name: string }; bookings: DayBooking[]; schedule_version: string };
 export type VisitScope = { photographerId: number; date: string };
-export type ScheduleChange = { scheduledAt: string; offsetMinutes: number; timezone: string; visitScope?: VisitScope };
+export type ScheduleChange = { visitScope?: VisitScope; scheduledAt: string; offsetMinutes: number; timezone: string; photographerId?: number; fromStart?: string; fromEnd?: string };
 export type ScheduleFields = { date?: string; time?: string; duration_minutes?: number };
 
 export function localSchedule(at: string, timezone: string) {
@@ -47,6 +47,24 @@ export function shiftTravelPayload(payload: TravelPayload, minutes: number, time
       && (!scope || (Number(row.photographer_id ?? payload.photographer_id) === scope.photographerId
         && typeof row.scheduled_at === 'string' && localSchedule(row.scheduled_at, timezone).date === scope.date))
       ? { ...row, scheduled_at: shift(row.scheduled_at) } : row);
+  }
+  return next;
+}
+/** Move one capture visit, preserving independent service and photographer appointments. */
+export function shiftTravelVisit(payload: TravelPayload, change: ScheduleChange): TravelPayload {
+  if (!change.photographerId || !change.fromStart) return shiftTravelPayload(payload, change.offsetMinutes, change.timezone, change.visitScope);
+  const matches = (row: Record<string, unknown>) => {
+    const clock = getShootSchedule({ scheduled_at: typeof row.scheduled_at === 'string' ? row.scheduled_at : undefined, timezone: payload.timezone });
+    const timestamp = buildShootScheduleTimestamp(clock.date, clock.time, change.timezone);
+    const at = timestamp ? Date.parse(timestamp) : NaN;
+    return Number(row.photographer_id) === change.photographerId && at >= Date.parse(change.fromStart!)
+      && at < Date.parse(change.fromEnd || change.fromStart!) + (change.fromEnd ? 0 : 1);
+  };
+  const next = { ...payload };
+  if (matches(payload)) next.scheduled_at = shiftTravelPayload(payload, change.offsetMinutes, change.timezone).scheduled_at;
+  for (const field of ['services', 'service_items', 'service_lines']) {
+    if (Array.isArray(payload[field])) next[field] = payload[field].map(row => row && typeof row === 'object' && matches(row)
+      ? { ...row, scheduled_at: shiftTravelPayload({ ...payload, scheduled_at: row.scheduled_at }, change.offsetMinutes, change.timezone).scheduled_at } : row);
   }
   return next;
 }
