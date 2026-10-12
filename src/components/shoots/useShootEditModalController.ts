@@ -111,13 +111,13 @@ export function useShootEditModalController({
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const [propertySqft, setPropertySqft] = useState<number | null>(null);
   const [taxPercent, setTaxPercent] = useState<number>(0);
-  const [activeMobilePanel, setActiveMobilePanel] = useState<MobileEditPanel>('details');
+  const [activeMobilePanel, setActiveMobilePanel] = useState<MobileEditPanel>('schedule');
   const isDesktopLayout = useMediaQuery('(min-width: 768px)');
   useEffect(() => { shootDetailsRef.current = shootDetails; }, [shootDetails]);
   useEffect(() => { photographersRef.current = photographers; }, [photographers]);
   useEffect(() => {
     if (isOpen) {
-      setActiveMobilePanel('details');
+      setActiveMobilePanel('schedule');
     }
   }, [isOpen, shootId]);
   useEffect(() => {

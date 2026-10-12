@@ -1,44 +1,91 @@
-/* Phone editors use the available viewport, with one scrolling body and a stable action bar. */
-@media (max-width: 639px) {
-  [role='dialog'][data-shoot-dialog] {
-    width: 100%;
-    max-width: 100%;
-    height: 100dvh;
-    max-height: 100dvh;
-    border-radius: 0;
-    gap: 0;
-  }
-
-  [data-shoot-dialog] > button:last-child {
-    width: 44px;
-    height: 44px;
-    top: max(4px, env(safe-area-inset-top));
-    right: 8px;
-    border: 0;
-    box-shadow: none;
-  }
-
-  [data-shoot-dialog] [data-shoot-header] {
-    padding-top: max(16px, env(safe-area-inset-top));
-  }
-
-  [data-shoot-dialog] [data-shoot-footer] {
-    padding-bottom: max(12px, env(safe-area-inset-bottom));
-  }
-
-  [data-shoot-dialog] button:not([role='radio']):not([role='checkbox']):not([role='switch']) {
-    min-height: 40px;
-  }
-
-  /* Native controls need room for their calendar/clock affordances. 16px avoids iOS input zoom. */
-  [data-shoot-dialog] input:not([type='checkbox']):not([type='radio']):not([type='range']),
-  [data-shoot-dialog] select {
-    min-width: 0;
-    min-height: 44px;
-    font-size: 16px;
-  }
-
-  [data-shoot-dialog] textarea {
-    font-size: 16px;
-  }
+[role='dialog'][data-shoot-dialog] {
+  left: calc(var(--shoot-vleft, 0px) + var(--shoot-vw, 100vw) / 2);
+  top: calc(var(--shoot-vtop, 0px) + var(--shoot-vh, 100dvh) / 2);
+  width: min(calc(var(--shoot-vw, 100vw) - 48px), 1280px);
+  max-width: calc(var(--shoot-vw, 100vw) - 48px);
+  max-height: calc(var(--shoot-vh, 100dvh) - 48px);
+  min-width: 0;
+  gap: 0;
+  border-radius: 20px;
+  animation: none;
 }
+
+/* Override the shared dialog's entrance animation before its first painted frame. */
+[role='dialog'][data-shoot-dialog][data-shoot-layout] { animation: none; }
+
+[role='dialog'][data-shoot-layout='tablet'] {
+  width: min(calc(var(--shoot-vw) - 32px), 960px);
+  max-width: calc(var(--shoot-vw) - 32px);
+  max-height: calc(var(--shoot-vh) - 32px);
+}
+
+[role='dialog'][data-shoot-layout='phone'],
+[role='dialog'][data-shoot-layout='tablet'][data-shoot-short='true'] {
+  left: var(--shoot-vleft, 0px);
+  top: var(--shoot-vtop, 0px);
+  width: var(--shoot-vw, 100vw);
+  max-width: var(--shoot-vw, 100vw);
+  height: var(--shoot-vh, 100dvh);
+  max-height: var(--shoot-vh, 100dvh);
+  transform: none;
+  border-radius: 0;
+}
+
+[data-shoot-dialog] > button:last-child { width: 44px; height: 44px; top: 12px; right: 12px; border: 0; box-shadow: none; }
+[data-shoot-dialog] [data-shoot-body] { overscroll-behavior: contain; }
+[data-shoot-dialog] [data-shoot-header] p { overflow-wrap: anywhere; }
+[data-shoot-dialog] [data-shoot-footer] {
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 12px; margin-top: 0;
+}
+[data-shoot-dialog] [data-shoot-footer] > * + * { margin-left: 0; }
+[data-shoot-dialog] input:not([type='checkbox']):not([type='radio']):not([type='range']),
+[data-shoot-dialog] select,
+[data-shoot-dialog] textarea { min-width: 0; max-width: 100%; font-size: 16px; }
+[data-shoot-dialog]:not([data-shoot-layout='wide']) input:not([type='checkbox']):not([type='radio']):not([type='range']),
+[data-shoot-dialog]:not([data-shoot-layout='wide']) select { min-height: 44px; }
+[data-shoot-dialog]:not([data-shoot-layout='wide']) button:not([role='radio']):not([role='checkbox']):not([role='switch']) { min-height: 44px; font-size: 14px !important; }
+
+.shoot-editor-toolbar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
+[data-shoot-layout='tablet'] .shoot-editor-toolbar,
+[data-shoot-layout='wide'] .shoot-editor-toolbar { grid-template-columns: minmax(0, 1fr) minmax(0, 2fr); align-items: start; }
+[data-shoot-dialog] [data-unit-chrome='compact'] { min-height: 44px; }
+[data-shoot-dialog]:not([data-shoot-layout='wide']) [data-unit-control='previous'],
+[data-shoot-dialog]:not([data-shoot-layout='wide']) [data-unit-control='next'] { display: none; }
+[data-shoot-dialog]:not([data-shoot-layout='wide']) [data-single-unit='true'] [data-unit-control='change'] { display: none; }
+[data-shoot-dialog] [data-unit-chrome='compact'] p { line-height: 1.4; }
+
+.approval-editor-content, .approval-services-grid { display: grid; min-width: 0; gap: 16px; grid-template-columns: minmax(0, 1fr); }
+.approval-booking-details { display: none; }
+[data-shoot-layout='wide'] .approval-editor-content { grid-template-columns: 220px minmax(0, 1fr); }
+[data-shoot-layout='wide'] .approval-booking-details { display: block; }
+[data-shoot-layout='wide'] .approval-services-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+[data-shoot-layout='wide'] .approval-notes-disclosure { display: none; }
+.approval-service-card { container: approval-service / inline-size; }
+.approval-service-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.approval-photographer-field { grid-column: 1 / -1; }
+@container approval-service (max-width: 299px) {
+  .approval-service-fields > :first-child { grid-column: 1 / -1; }
+  .approval-photographer-field { grid-column: auto; }
+}
+@container approval-service (min-width: 540px) {
+  .approval-service-fields { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr); }
+  .approval-photographer-field { grid-column: auto; }
+}
+
+.shoot-details-panel, .shoot-services-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; align-items: start; }
+.shoot-schedule-panel { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; align-items: start; }
+[data-shoot-layout='tablet'] .shoot-schedule-panel { grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); }
+[data-shoot-layout='tablet'] .shoot-details-panel,
+[data-shoot-layout='tablet'] .shoot-services-panel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+[data-shoot-dialog] .shoot-details-panel > *, [data-shoot-dialog] .shoot-services-panel > * { min-width: 0; }
+[data-shoot-layout='phone'] [data-shoot-header] { padding-top: max(16px, env(safe-area-inset-top)); }
+[data-shoot-short='true'] [data-shoot-header] { padding-top: 12px; padding-bottom: 12px; }
+[data-shoot-short='true'] [data-shoot-header] p > span:last-child { display: none; }
+[data-shoot-dialog]:not([data-shoot-layout='wide']) .shoot-desktop-action { display: none; }
+[data-shoot-layout='wide'] .shoot-compact-action { display: none; }
+[data-shoot-layout='wide'] .shoot-day-timeline { border: 0; padding: 0; }
+[data-shoot-dialog]:not([data-shoot-layout='wide']) [data-travel-summary='compact'] { gap: 8px; padding: 10px 12px; min-height: 44px; }
+[data-shoot-layout='phone'] [data-travel-summary='compact'] > [role='alert'] { flex-basis: 100%; }
+[data-shoot-layout='tablet'] .shoot-schedule-panel:has(> :only-child) { grid-template-columns: minmax(0, 1fr); }
+[data-shoot-dialog]:not([data-shoot-layout='wide']) [data-travel-summary='compact'] > div:last-child { flex-wrap: wrap; min-width: 0; }

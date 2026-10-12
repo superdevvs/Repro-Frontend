@@ -11,8 +11,8 @@ import { DayScheduleTimeline } from './DayScheduleTimeline';
 import { TravelNotifications } from './TravelNotifications';
 import { TravelRouteSummary } from './TravelRouteSummary';
 import type { ScheduleAdjustment } from './types';
-import { useMediaQuery } from '@/hooks/use-media-query';
 import '@/components/shoots/shootScheduleDialogs.css';
+import { useShootEditorViewport } from '@/components/shoots/useShootEditorViewport';
 
 export function DayScheduleDialog({ travel, open, onClose }: { travel: TravelController; open: boolean; onClose: () => void }) {
   const visits = (travel.result?.visits ?? []).filter(visit => visit.is_target !== false);
@@ -33,6 +33,7 @@ function DayScheduleEditor({ travel, open, onClose, visits: targets, scope, sele
   travel: TravelController; open: boolean; onClose: () => void;
   visits: NonNullable<NonNullable<TravelController['result']>['visits']>; scope?: import('./daySchedule').VisitScope; selector: ReactNode;
 }) {
+  const editor = useShootEditorViewport(open);
   const [targetIndex, setTargetIndex] = useState(0);
   const target = targets[scope ? 0 : targetIndex] ?? targets[0], timezone = target?.timezone || travel.timezone || 'America/New_York';
   const date = target ? localSchedule(target.start, timezone).date : '';
@@ -42,7 +43,7 @@ function DayScheduleEditor({ travel, open, onClose, visits: targets, scope, sele
   const [dragging, setDragging] = useState(false), [moveError, setMoveError] = useState('');
   const [allowExisting, setAllowExisting] = useState(false), [editingId, setEditingId] = useState('target');
   const [notifications, setNotifications] = useState(travel.notifications);
-  const isWideLayout = useMediaQuery('(min-width: 640px)');
+  const isWideLayout = editor.layout === 'wide';
   const [timelineOpen, setTimelineOpen] = useState(false);
   const offset = target && moves.target ? (Date.parse(moves.target) - Date.parse(target.start)) / 60000 : 0;
   const change = { scheduledAt: moves.target || target?.start, offsetMinutes: offset, timezone, ...(scope ? { visitScope: scope } : { photographerId: photographer, fromStart: target?.start, fromEnd: target?.end }) };
@@ -77,7 +78,7 @@ function DayScheduleEditor({ travel, open, onClose, visits: targets, scope, sele
     && (preview.result.available || canConfirmTravelException(preview.result, travel.requestedOnly));
   const move = (id: string, start: string) => setMoves(current => ({ ...current, [id]: start }));
   const editing = bookings.find(row => row.id === editingId) ?? bookings.find(row => row.target);
-  return <Dialog open={open} onOpenChange={value => { if (!value) onClose(); }}><DialogContent data-shoot-dialog className="flex max-h-[94dvh] min-w-0 w-[calc(100vw-1rem)] max-w-5xl flex-col overflow-hidden rounded-2xl p-0">
+  return <Dialog open={open} onOpenChange={value => { if (!value) onClose(); }}><DialogContent data-shoot-dialog data-shoot-layout={editor.layout} data-shoot-short={editor.short} style={editor.style} className="shoot-editor-shell flex min-w-0 flex-col overflow-hidden p-0">
     <DialogHeader data-shoot-header className="shrink-0 px-4 pb-3 pr-12 pt-4 text-left sm:px-5"><DialogTitle>Adjust this day</DialogTitle><DialogDescription>{data?.photographer.name || 'Photographer'} · {date} · {timezone}</DialogDescription></DialogHeader>
     <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4 sm:px-5">
     {selector}
@@ -98,7 +99,7 @@ function DayScheduleEditor({ travel, open, onClose, visits: targets, scope, sele
             try { const [hour, minute] = value.split(':').map(Number); move(editing.id, atMinute(date, hour * 60 + minute, timezone, editing.start)); setMoveError(''); } catch (caught) { setMoveError(caught instanceof Error ? caught.message : 'Choose another time.'); }
           }} /></div></>}
       </section>
-      <details open={isWideLayout || timelineOpen} onToggle={event => { if (!isWideLayout) setTimelineOpen(event.currentTarget.open); }} className="rounded-lg border p-3 sm:border-0 sm:p-0"><summary className="cursor-pointer py-2 text-sm font-medium sm:hidden">View day timeline</summary><div className="pt-2 sm:pt-0"><DayScheduleTimeline key={`${photographer}:${date}:${targetIndex}`} bookings={bookings} date={date} timezone={timezone} onMove={move} onDragging={setDragging} onError={setMoveError} /></div></details>
+      <details open={isWideLayout || timelineOpen} onToggle={event => { if (!isWideLayout) setTimelineOpen(event.currentTarget.open); }} className="shoot-day-timeline rounded-lg border p-3"><summary className="shoot-compact-action cursor-pointer py-2 text-sm font-medium">View day timeline</summary><div className="pt-2"><DayScheduleTimeline key={`${photographer}:${date}:${targetIndex}`} bookings={bookings} date={date} timezone={timezone} onMove={move} onDragging={setDragging} onError={setMoveError} /></div></details>
       <div aria-live="polite" className="space-y-2 text-sm">
         {conflict ? <p className="text-amber-600 dark:text-amber-300">Bookings overlap. Move either shoot to a free time.</p> : preview.loading ? <p>Checking travel for this schedule…</p>
           : preview.error ? <p role="alert" className="text-destructive">{preview.error}</p> : preview.result?.available ? <p className="text-emerald-700 dark:text-emerald-300">This schedule has enough travel time.</p>

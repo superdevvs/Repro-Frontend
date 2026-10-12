@@ -103,7 +103,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
   const selectedItemCount = selectedServiceRows.reduce((sum, row) => sum + (row.service.quantity ?? 1), 0);
 
   const renderDetailsPanel = () => (
-    <div className="space-y-3 md:pr-1">
+    <div className="shoot-details-panel">
       <div className="rounded-xl border border-border bg-muted/30 p-4">
         <div className="mb-3 flex items-center gap-2">
           <User className="h-4 w-4 text-blue-500" />
@@ -432,7 +432,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
   };
 
   const renderSchedulePanel = () => (
-    <div className="space-y-3 md:pr-1">
+    <div className="shoot-schedule-panel">
       <div className="space-y-3 rounded-lg border border-border p-3">
         <div className="flex items-center gap-2">
           <Clock className="h-4 w-4 text-muted-foreground" />
@@ -703,7 +703,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
   );
 
   const renderAssignmentsAndServicesPanel = () => (
-    <div className="space-y-3">
+    <div className="shoot-services-panel">
       {renderPhotographersSection()}
       {renderServicesPanel()}
     </div>

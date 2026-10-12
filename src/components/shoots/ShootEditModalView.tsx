@@ -24,8 +24,13 @@ import {
   type MobileEditPanel,
 } from './shootEditModalTypes';
 import './shootScheduleDialogs.css';
+import { useShootEditorViewport } from './useShootEditorViewport';
+import { formatPrice } from '@/utils/servicePricing';
 
 export function ShootEditModalView({ model }: { model: ReturnType<typeof useShootEditModalController> }) {
+  const editor = useShootEditorViewport(model.isOpen);
+  const [approvalOptionsOpen, setApprovalOptionsOpen] = React.useState(false);
+  React.useEffect(() => { setApprovalOptionsOpen(false); }, [model.isOpen, model.shootId]);
   const {
     isOpen,
     onClose,
@@ -46,7 +51,6 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
     isLoadingPhotographerAvailability,
     activeMobilePanel,
     setActiveMobilePanel,
-    isDesktopLayout,
     resolvePhotographerDetails,
     filteredPhotographers,
     formatPhotographerLocationLabel,
@@ -66,7 +70,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
     renderAssignmentsAndServicesPanel,
   } = createShootEditModalPanels(model);
 
-  const isPickerMobile = !isDesktopLayout;
+  const isPickerMobile = editor.layout !== 'wide';
   const PickerRoot: React.ElementType = isPickerMobile ? Drawer : Dialog;
   const PickerContent: React.ElementType = isPickerMobile ? DrawerContent : DialogContent;
   const PickerHeader: React.ElementType = isPickerMobile ? DrawerHeader : DialogHeader;
@@ -80,16 +84,16 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent data-shoot-dialog className="flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 text-slate-900 dark:text-slate-100 sm:max-w-[900px] md:max-w-[1100px] lg:max-w-[1200px]">
-        <DialogHeader data-shoot-header className="shrink-0 px-4 pb-3 pt-4 text-left sm:px-6">
+      <DialogContent data-shoot-dialog data-shoot-layout={editor.layout} data-shoot-short={editor.short} style={editor.style} className="shoot-editor-shell flex flex-col overflow-hidden p-0 text-slate-900 dark:text-slate-100">
+        <DialogHeader data-shoot-header className="shrink-0 border-b px-4 pb-4 pt-5 text-left sm:px-6">
           <div className="flex items-center gap-3 pr-10">
-            <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-blue-500/10 sm:flex">
+            <div className="shoot-desktop-action flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-500/10">
               <Edit className="h-5 w-5 text-blue-500" />
             </div>
             <div>
               <DialogTitle className="text-lg sm:text-xl">Modify Shoot Request</DialogTitle>
-              <DialogDescription className="mt-1">
-                <span className="sm:hidden">{model.unitSource?.location?.address || 'Edit the shoot details below'}</span><span className="hidden sm:inline">Edit the shoot details below</span>
+              <DialogDescription className="mt-1 break-words">
+                <span className="block font-medium text-foreground">{model.unitSource?.location?.address || 'Edit the shoot details below'}</span><span className="mt-1 block">{model.clientName}</span>
               </DialogDescription>
             </div>
           </div>
@@ -102,12 +106,12 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
             <Skeleton className="h-48 rounded-xl" />
           </div>
         ) : (
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
-            <div className="mb-3 flex min-w-0 flex-col gap-2 lg:flex-row lg:items-start">
-              {model.unitSource && <div className="min-w-0 lg:w-[390px] lg:shrink-0"><ShootUnitScopeBar variant="compact" shoot={model.unitSource} disabled={model.unitScopeDirty || isLoading || isSubmitting} />{model.unitScopeDirty && model.unitSource.units?.length ? <p className="mt-1 text-[11px] text-muted-foreground">Save this unit before switching.</p> : null}</div>}
+          <div data-shoot-body className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+            <div className="shoot-editor-toolbar mb-4">
+              {model.unitSource && <div className="min-w-0"><ShootUnitScopeBar variant="compact" shoot={model.unitSource} disabled={model.unitScopeDirty || isLoading || isSubmitting} />{model.unitScopeDirty && model.unitSource.units?.length ? <p className="mt-1 text-[11px] text-muted-foreground">Save this unit before switching.</p> : null}</div>}
               <div className="min-w-0 flex-1"><TravelFeasibilityPanel compact travel={model.travel} /></div>
             </div>
-            {isDesktopLayout ? (
+            {editor.layout === 'wide' ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-start">
                 {renderDetailsPanel()}
                 {renderSchedulePanel()}
@@ -146,15 +150,16 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           </div>
         )}
 
-        <DialogFooter data-shoot-footer className="shrink-0 flex-row gap-2 border-t border-border/60 px-4 py-3 sm:px-6 sm:py-5">
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting} className="hidden sm:inline-flex sm:w-auto">
+        <DialogFooter data-shoot-footer className="shrink-0 flex-row gap-2 border-t border-border/60 bg-background px-4 py-3 sm:px-6">
+          <p className="mr-auto min-w-0 text-xs text-muted-foreground"><span className="block">{(model.unitSource?.units?.length ?? 0) > 1 ? 'Unit total' : 'Total'}</span><span className="text-base font-semibold tabular-nums text-foreground">{isLoading ? '…' : model.hasVariablePricingWithoutSqft ? 'TBD' : formatPrice(model.selectedServicesPricing.pricing.totalQuote)}</span></p>
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting} className="shoot-desktop-action h-11">
             Cancel
           </Button>
           <Button
             variant="outline"
             onClick={handleApproveWithoutNotification}
             disabled={isSubmitting || isLoading || model.travel.blocked}
-            className="hidden sm:inline-flex sm:min-w-[220px]"
+            className="shoot-desktop-action h-11"
           >
             {isSubmitting ? (
               <>
@@ -171,7 +176,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           <Button 
             onClick={handleApprove} 
             disabled={isSubmitting || isLoading || model.travel.blocked}
-            className="h-11 min-w-0 flex-1 bg-blue-600 hover:bg-blue-700 sm:h-10 sm:min-w-[140px] sm:flex-none"
+            className="h-11 min-w-0 bg-blue-600 px-6 hover:bg-blue-700"
           >
             {isSubmitting ? (
               <>
@@ -185,7 +190,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
               </>
             )}
           </Button>
-          <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" size="icon" aria-label="More approval options" disabled={isSubmitting} className="h-11 w-11 shrink-0 sm:hidden"><MoreHorizontal className="h-5 w-5" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="z-[90] min-w-[250px]"><DropdownMenuItem className="min-h-11" disabled={isSubmitting || isLoading || model.travel.blocked} onSelect={handleApproveWithoutNotification}><BellOff className="mr-2 h-4 w-4" />Approve without notification</DropdownMenuItem><DropdownMenuItem className="min-h-11" onSelect={onClose}>Cancel</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
+          <DropdownMenu open={approvalOptionsOpen} onOpenChange={setApprovalOptionsOpen}><DropdownMenuTrigger asChild><Button type="button" variant="outline" size="icon" aria-label="More approval options" disabled={isSubmitting} className="shoot-compact-action h-11 w-11 shrink-0"><MoreHorizontal className="h-5 w-5" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="z-[90] min-w-[250px]" onKeyDown={event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); setApprovalOptionsOpen(false); } }}><DropdownMenuItem className="min-h-11" disabled={isSubmitting || isLoading || model.travel.blocked} onSelect={handleApproveWithoutNotification}><BellOff className="mr-2 h-4 w-4" />Approve without notification</DropdownMenuItem><DropdownMenuItem className="min-h-11" onSelect={onClose}>Cancel</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
         </DialogFooter>
 
         <PickerRoot {...(isPickerMobile ? { shouldScaleBackground: false } : {})} open={photographerPickerOpen} onOpenChange={(open) => {
@@ -203,12 +208,13 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           >
             <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-2.5 pb-0 pt-3 sm:px-6 [@media(orientation:landscape)_and_(max-height:900px)]:gap-2 [@media(orientation:landscape)_and_(max-height:900px)]:px-2 [@media(orientation:landscape)_and_(max-height:900px)]:pt-2">
                 {isPickerMobile ? (
-                  <div className="relative shrink-0">
+                  <div className="relative z-30 shrink-0">
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="absolute right-0 top-0 h-8 w-8 rounded-full"
+                      aria-label="Close photographer picker"
+                      className="absolute right-0 top-0 h-11 w-11 rounded-full bg-background"
                       onClick={closePhotographerPicker}
                     >
                       <X className="h-4 w-4" />
@@ -228,7 +234,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                   list={
                     <>
                 <PickerHeader className="relative shrink-0 items-start space-y-1 px-0 pb-0 text-left">
-                  <PickerTitle className="pr-2 text-lg text-slate-900 dark:text-slate-100 sm:text-xl">
+                  <PickerTitle className="pr-12 text-lg text-slate-900 dark:text-slate-100 sm:text-xl">
                     {photographerPickerContext?.categoryName
                       ? `Select Photographer for ${photographerPickerContext.categoryName}`
                       : 'Select Photographer'}

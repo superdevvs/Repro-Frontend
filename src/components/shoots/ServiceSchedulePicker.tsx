@@ -28,6 +28,7 @@ export type ServiceTimeOption = {
 };
 
 type ServiceDatePickerProps = {
+  ariaLabel?: string;
   value: string;
   minDate?: string;
   onChange: (value: string) => void;
@@ -36,6 +37,7 @@ type ServiceDatePickerProps = {
 };
 
 type ServiceTimePickerProps = {
+  ariaLabel?: string;
   value: string;
   options: ServiceTimeOption[];
   onChange: (value: string) => void;
@@ -103,6 +105,7 @@ const formatScheduleDateLabel = (value?: string) => {
 };
 
 export function ServiceDatePicker({
+  ariaLabel,
   value,
   minDate,
   onChange,
@@ -139,16 +142,17 @@ export function ServiceDatePicker({
   const selectedLabel = formatScheduleDateLabel(value);
   const trigger = (
     <Button
+      aria-label={ariaLabel}
       type="button"
       variant="outline"
       className={cn(
-        'h-9 w-full justify-start rounded-xl border-border/70 bg-background/80 px-3 text-left text-xs font-semibold',
+        'h-9 w-full min-w-0 justify-start overflow-hidden rounded-xl border-border/70 bg-background/80 px-3 text-left text-xs font-semibold',
         !value && 'text-muted-foreground',
         triggerClassName,
       )}
     >
-      {showIcon ? <CalendarIcon className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
-      <span className="truncate">{selectedLabel}</span>
+      {showIcon ? <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
+      <span className="min-w-0 truncate">{selectedLabel}</span>
     </Button>
   );
 
@@ -304,9 +308,11 @@ export function ServiceDatePicker({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent
+        style={{ animation: 'none' }}
         align="start"
         sideOffset={8}
-        className="z-[180] w-[min(92vw,24rem)] max-w-none rounded-2xl border-border/80 bg-background/95 p-4 shadow-2xl backdrop-blur-md"
+        collisionPadding={12}
+        className="z-[180] max-h-[var(--radix-popover-content-available-height)] w-[min(92vw,24rem)] max-w-none overflow-y-auto overscroll-contain rounded-2xl border-border/80 bg-background/95 p-4 shadow-2xl backdrop-blur-md"
       >
         {picker(true)}
       </PopoverContent>
@@ -315,6 +321,7 @@ export function ServiceDatePicker({
 }
 
 export function ServiceTimePicker({
+  ariaLabel,
   value,
   options,
   onChange,
@@ -339,15 +346,16 @@ export function ServiceTimePicker({
   };
   const trigger = (
     <Button
+      aria-label={ariaLabel}
       type="button"
       variant="outline"
       className={cn(
-        'h-9 w-full justify-start rounded-xl border-border/70 bg-background/80 px-3 text-left text-xs font-semibold',
+        'h-9 w-full min-w-0 justify-start overflow-hidden rounded-xl border-border/70 bg-background/80 px-3 text-left text-xs font-semibold',
         triggerClassName,
       )}
     >
-      {showIcon ? <Clock className="mr-2 h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
-      <span className="truncate">{selectedLabel}</span>
+      {showIcon ? <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : null}
+      <span className="min-w-0 truncate">{selectedLabel}</span>
     </Button>
   );
   const picker = (footerAction?: React.ReactNode) => (
@@ -402,9 +410,11 @@ export function ServiceTimePicker({
         {trigger}
       </PopoverTrigger>
       <PopoverContent
+        style={{ animation: 'none' }}
         align="start"
         sideOffset={8}
-        className="z-[180] w-[min(92vw,20rem)] rounded-2xl border-border/80 bg-background/95 p-1 shadow-2xl backdrop-blur-md"
+        collisionPadding={12}
+        className="z-[180] max-h-[var(--radix-popover-content-available-height)] w-[min(92vw,20rem)] overflow-y-auto overscroll-contain rounded-2xl border-border/80 bg-background/95 p-1 shadow-2xl backdrop-blur-md"
       >
         {picker(
           <Button type="button" size="sm" className="h-8 rounded-xl px-4" onClick={() => setOpen(false)}>

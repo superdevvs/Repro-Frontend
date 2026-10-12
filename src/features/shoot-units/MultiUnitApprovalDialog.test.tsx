@@ -6,6 +6,14 @@ import { MultiUnitApprovalDialog } from './MultiUnitApprovalDialog';
 
 const { post } = vi.hoisted(() => ({ post: vi.fn().mockResolvedValue({ data: {} }) }));
 vi.mock('@/services/api', () => ({ apiClient: { post } }));
+// These tests exercise approval mutations; real picker interactions are covered by browser QA.
+vi.mock('@/components/shoots/ServiceSchedulePicker', async () => {
+  const actual = await vi.importActual<typeof import('@/components/shoots/ServiceSchedulePicker')>('@/components/shoots/ServiceSchedulePicker');
+  return { ...actual,
+    ServiceDatePicker: ({ ariaLabel, value, onChange }: { ariaLabel?: string; value: string; onChange: (value: string) => void }) => <input aria-label={ariaLabel} type="date" value={value} onChange={event => onChange(event.target.value)} />,
+    ServiceTimePicker: ({ ariaLabel, value, onChange }: { ariaLabel?: string; value: string; onChange: (value: string) => void }) => <input aria-label={ariaLabel} type="time" value={value} onChange={event => onChange(event.target.value)} />,
+  };
+});
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
     if (!String(input).endsWith('/photographer/availability/feasibility')) throw new Error(`Unexpected fetch: ${String(input)}`);

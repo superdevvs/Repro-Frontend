@@ -66,6 +66,7 @@ export function ShootUnitScopeBar({ shoot, disabled = false, variant = 'standalo
       className={`flex min-w-0 items-center gap-1.5 ${isCompact || variant === 'panel' ? 'flex-nowrap' : 'flex-wrap gap-2'} ${shellClass}`}
       aria-label="Selected unit"
       data-unit-chrome={variant}
+      data-single-unit={units.length === 1}
       onClick={event => event.stopPropagation()}
     >
       <Building2 className={`${iconClass} shrink-0 text-blue-600 dark:text-blue-400`} />
