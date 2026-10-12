@@ -6,15 +6,21 @@ const user = { id: '900501', name: 'Review Admin', email: 'review@example.test',
 const permissions = ['view', 'operate', 'manage', 'supervise'].map(action => ({ resource: 'voice-calls', action }))
   .concat(['dashboard', 'shoots', 'accounts', 'settings', 'support'].map(resource => ({ resource, action: 'view' })));
 
-async function fixture(page: Page, installed = false) {
+async function fixture(page: Page, installed = false, registered = false) {
   const mutations: string[] = [];
-  await page.addInitScript(({ user, installed }) => {
+  let phone = { available: true, phone_enabled: false, phone_number: registered ? '+13016375700' : null, phone_verified_at: registered ? '2026-10-01' : null, pending_phone: null as string | null };
+  await page.addInitScript(({ user, installed, registered }) => {
     localStorage.setItem('authToken', 'local-home-screen-review');
     localStorage.setItem('user', JSON.stringify(user));
-    localStorage.setItem('theme', 'light');
+    localStorage.setItem('theme', registered ? 'dark' : 'light');
     Object.defineProperty(navigator, 'standalone', { configurable: true, value: installed });
     Object.defineProperty(Notification, 'permission', { configurable: true, get: () => 'default' });
-  }, { user, installed });
+    if (registered) {
+      const active = { scriptURL: location.origin + '/voice-push-worker.js', postMessage: (_message: unknown, ports: MessagePort[]) => ports[0].postMessage({ ok: true, subscription: { id: 'review-device', scope: '/', revoke_token: 'fixture-only', user_id: String(user.id) } }) };
+      Object.defineProperty(navigator.serviceWorker, 'getRegistration', { value: async () => ({ active }) });
+      Object.defineProperty(navigator.serviceWorker, 'register', { value: async () => ({ active }) });
+    }
+  }, { user, installed, registered });
   await page.route('**/api/**', async route => {
     const url = new URL(route.request().url());
     const p = url.pathname.replace(/^\/api/, '');
@@ -23,8 +29,13 @@ async function fixture(page: Page, installed = false) {
     if (p === '/user') body = user;
     if (p === '/me/permissions') body = { permissions, permissionIds: permissions.map(({ resource, action }) => `${resource}:${action}`) };
     if (p === '/voice/browser/config') body = { enabled: false, ready: false, blockers: ['Local review only.'], capabilities: {} };
-    if (p === '/voice/push/settings') body = { configured: true, blockers: [], public_key: 'local-review-key', preferences: { incoming_calls: true }, devices: [] };
-    if (p === '/voice/phone/settings') body = { available: true, phone_enabled: false, phone_number: null, phone_verified_at: null, pending_phone: null };
+    if (p === '/voice/push/settings') body = { configured: true, blockers: [], public_key: 'local-review-key', preferences: { incoming_calls: true }, devices: registered ? [{ id: 'review-device', label: 'My iPhone', last_success_at: '2026-10-12T14:22:14Z', last_error: null, created_at: '2026-10-12' }] : [] };
+    if (p === '/voice/phone/settings') {
+      if (route.request().method() === 'PATCH') phone = { ...phone, ...route.request().postDataJSON() };
+      body = phone;
+    }
+    if (p === '/voice/phone/verification') { phone = { ...phone, pending_phone: route.request().postDataJSON().phone }; body = phone; }
+    if (p === '/voice/phone/verify') { phone = { ...phone, phone_number: phone.pending_phone, pending_phone: null, phone_enabled: true, phone_verified_at: '2026-10-12' }; body = phone; }
     if (p === '/voice/numbers') body = { numbers: [] };
     if (p === '/voice/settings') body = { enabled: true, outbound_mode: 'none', provider: 'telnyx', tool_allowlist: [], automation_toggles: {}, business_hours: { timezone: 'America/New_York', weekly: {} }, holidays: [] };
     if (p === '/voice/llm-usage') body = { spend_usd: 0, budget_usd: 50, by_model: [] };
@@ -46,7 +57,7 @@ test.describe('iPhone Home Screen call setup (browser emulation)', () => {
     await page.goto('/calls/settings');
     const button = page.getByRole('button', { name: 'Add to Home Screen' });
     await expect(button).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Enable this device' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Enable this device' })).toHaveCount(0);
     await button.click();
     const dialog = page.getByRole('dialog');
     await expect(dialog).toContainText('Safari');
@@ -67,11 +78,49 @@ test.describe('iPhone Home Screen call setup (browser emulation)', () => {
   test('shows the next alert setup step in the installed app', async ({ page }) => {
     const mutations = await fixture(page, true);
     await page.goto('/calls/settings');
-    await expect(page.getByText('REPro is open as an app.', { exact: false })).toBeVisible();
+    await expect(page.getByText('Choose Enable this device and allow notifications.', { exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Add to Home Screen' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Enable this device' })).toBeEnabled();
     expect(mutations).toEqual([]);
     await page.screenshot({ path: path.join(output, 'iphone-installed-enable-alerts.png'), animations: 'disabled' });
+  });
+
+  test('shows the ringing destination and verifies a replacement only after submission', async ({ page, baseURL }) => {
+    if (!baseURL || !['localhost', '127.0.0.1'].includes(new URL(baseURL).hostname)) throw new Error('Local fixtures only');
+    const mutations = await fixture(page, true, true);
+    await page.goto('/calls/settings');
+    const alerts = page.getByRole('region', { name: 'App notifications', exact: true });
+    const ringing = page.getByRole('region', { name: 'Phone ringing', exact: true });
+    await expect(alerts).toContainText('My iPhone');
+    await expect(ringing).toContainText('+1 (301) 637-5700');
+    await expect(ringing.getByRole('switch', { name: 'Ring this number' })).not.toBeChecked();
+    await expect(page.getByLabel('Your mobile number')).toHaveCount(0);
+    await expect(alerts).not.toContainText('Last push accepted');
+    expect((await alerts.boundingBox())!.height).toBeLessThan(360);
+    expect((await ringing.boundingBox())!.height).toBeLessThan(370);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    expect(mutations).toEqual([]);
+    await page.screenshot({ path: path.join(output, 'iphone-compact-call-alerts.png'), fullPage: true, animations: 'disabled' });
+    await ringing.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(output, 'iphone-phone-ringing.png'), animations: 'disabled' });
+    await ringing.getByRole('button', { name: 'Change number' }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toContainText('Current destination: +1 (301) 637-5700');
+    expect(mutations).toEqual([]);
+    await expect(dialog.getByRole('button', { name: 'Send verification code' })).toBeDisabled();
+    await dialog.getByLabel('Your mobile number').fill('+1 202 555 0123');
+    await dialog.getByRole('button', { name: 'Send verification code' }).click();
+    await expect(dialog.getByLabel('Code sent to +1 (202) 555-0123')).toBeVisible();
+    await expect(dialog).toContainText('Current destination: +1 (301) 637-5700');
+    await page.screenshot({ path: path.join(output, 'iphone-change-ringing-number.png'), animations: 'disabled' });
+    await dialog.getByLabel('Code sent to +1 (202) 555-0123').fill('123456');
+    await dialog.getByRole('button', { name: 'Verify and enable ringing' }).click();
+    await expect(dialog).toHaveCount(0);
+    await expect(ringing.getByRole('switch', { name: 'Ring this number' })).toBeChecked();
+    await expect(ringing).toContainText('+1 (202) 555-0123');
+    expect(mutations).toEqual(['/voice/phone/verification', '/voice/phone/verify']);
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.screenshot({ path: path.join(output, 'desktop-compact-call-alerts.png'), fullPage: true, animations: 'disabled' });
   });
 
   test('opens a notification offer in the team queue without claiming it automatically', async ({ page }) => {
