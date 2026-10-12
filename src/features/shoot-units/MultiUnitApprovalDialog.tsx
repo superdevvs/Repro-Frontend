@@ -20,6 +20,7 @@ import { ShootUnitScopeBar } from './ShootUnitScope';
 import { useShootUnitScope } from './useShootUnitScope';
 import { allUnitLines, unitLinePayload } from './unitMutations';
 import { getServiceUnitId } from './shootUnitData';
+import '@/components/shoots/shootScheduleDialogs.css';
 
 type Props = { open: boolean; onClose: () => void; source: unknown; photographers: Array<{ id: string | number; name: string }>; onApproved?: () => void };
 export function MultiUnitApprovalDialog({ open, onClose, source, photographers, onApproved }: Props) {
@@ -67,19 +68,20 @@ export function MultiUnitApprovalDialog({ open, onClose, source, photographers, 
       setError(Object.values(data?.errors ?? {}).flat().join(' ') || data?.message || 'Approval failed. Review the assignments and try again.');
     } finally { setBusy(false); }
   };
-  return <Dialog open={open} onOpenChange={value => { if (!value && !busy) onClose(); }}><DialogContent className="flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-[1200px] flex-col overflow-hidden p-0">
-    <DialogHeader className="shrink-0 px-4 pt-4 text-left sm:px-6"><DialogTitle>Approve multi-unit booking</DialogTitle><DialogDescription>{units.length} units / areas · {lines.length} services · Review schedules and assignments before approving.</DialogDescription></DialogHeader>
-    <div className="min-h-0 space-y-3 overflow-y-auto px-4 py-3 sm:px-6">
+  return <Dialog open={open} onOpenChange={value => { if (!value && !busy) onClose(); }}><DialogContent data-shoot-dialog className="flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-[1200px] flex-col overflow-hidden p-0">
+    <DialogHeader data-shoot-header className="shrink-0 px-4 pb-3 pt-4 text-left sm:px-6 sm:pb-0"><DialogTitle className="pr-10"><span className="sm:hidden">Approve booking</span><span className="hidden sm:inline">Approve multi-unit booking</span></DialogTitle><DialogDescription><span className="block break-words text-foreground sm:hidden">{shoot.location?.address}</span><span className="sm:hidden">{shoot.client?.name} · {lines.length} services</span><span className="hidden sm:inline">{units.length} units / areas · {lines.length} services · Review schedules and assignments before approving.</span></DialogDescription></DialogHeader>
+    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4 sm:px-6 sm:py-3">
       <div className="flex min-w-0 flex-col gap-2 lg:flex-row lg:items-start">
         <div className="min-w-0 lg:w-[390px] lg:shrink-0"><ShootUnitScopeBar variant="compact" shoot={shoot} disabled={busy} /></div>
         <div className="min-w-0 flex-1"><TravelFeasibilityPanel compact travel={travel} /></div>
       </div>
       <div className="grid min-w-0 gap-3 lg:grid-cols-[240px_minmax(0,1fr)]">
-        <aside className="min-w-0 space-y-3 rounded-lg border bg-muted/20 p-3">
-          <div><p className="text-[11px] font-medium text-muted-foreground">Property</p><p className="mt-1 break-words text-sm font-semibold">{shoot.location?.address}</p><p className="text-xs text-muted-foreground">{[shoot.location?.city, shoot.location?.state, shoot.location?.zip].filter(Boolean).join(', ')}</p></div>
-          <div><p className="text-[11px] font-medium text-muted-foreground">Client</p><p className="text-sm font-medium">{shoot.client?.name}</p></div>
-          <p className="border-t pt-2 text-xs text-muted-foreground">Booked prices are retained. Adjust dates, times, duration, or photographers below.</p>
-          <label className="block space-y-1 text-xs">Internal approval notes<Textarea className="min-h-[80px]" value={notes} onChange={event => setNotes(event.target.value)} disabled={busy} /></label>
+        <aside className="order-last min-w-0 space-y-3 rounded-lg border bg-muted/20 p-3 lg:order-first">
+          <div className="hidden sm:block"><p className="text-[11px] font-medium text-muted-foreground">Property</p><p className="mt-1 break-words text-sm font-semibold">{shoot.location?.address}</p><p className="text-xs text-muted-foreground">{[shoot.location?.city, shoot.location?.state, shoot.location?.zip].filter(Boolean).join(', ')}</p></div>
+          <div className="hidden sm:block"><p className="text-[11px] font-medium text-muted-foreground">Client</p><p className="text-sm font-medium">{shoot.client?.name}</p></div>
+          <p className="hidden border-t pt-2 text-xs text-muted-foreground sm:block">Booked prices are retained. Adjust dates, times, duration, or photographers below.</p>
+          <label className="hidden space-y-1 text-xs sm:block">Internal approval notes<Textarea className="min-h-[80px]" value={notes} onChange={event => setNotes(event.target.value)} disabled={busy} /></label>
+          <details className="sm:hidden"><summary className="cursor-pointer py-2 text-sm font-medium">Internal approval notes{notes.trim() ? ' · Added' : ' (optional)'}</summary><Textarea aria-label="Internal approval notes" className="mt-2 min-h-[80px]" value={notes} onChange={event => setNotes(event.target.value)} disabled={busy} /></details>
         </aside>
         <div className="min-w-0 space-y-3">
       <div className="grid min-w-0 gap-3 md:grid-cols-2">{selected.slice(currentPage * 8, currentPage * 8 + 8).map(line => {
@@ -91,9 +93,9 @@ export function MultiUnitApprovalDialog({ open, onClose, source, photographers, 
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <div className="text-xs text-muted-foreground">{formatPrice(line.price)} each · <span className="font-semibold text-foreground">{formatPrice(line.price * quantity)}</span> total</div>
             {line.allow_multiple ? <div role="group" aria-label={`Quantity for ${line.name}`} className="inline-flex items-center rounded-lg border bg-background">
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-r-none" aria-label={`Decrease ${line.name} quantity`} disabled={quantity <= 1} onClick={() => update(line, { quantity: quantity - 1 })}><Minus className="h-3.5 w-3.5" /></Button>
+              <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-r-none sm:h-8 sm:w-8" aria-label={`Decrease ${line.name} quantity`} disabled={quantity <= 1} onClick={() => update(line, { quantity: quantity - 1 })}><Minus className="h-3.5 w-3.5" /></Button>
               <output aria-label={`${line.name} quantity`} aria-live="polite" className="min-w-7 px-1 text-center text-sm font-semibold tabular-nums">{quantity}</output>
-              <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-l-none" aria-label={`Increase ${line.name} quantity`} onClick={() => update(line, { quantity: quantity + 1 })}><Plus className="h-3.5 w-3.5" /></Button>
+              <Button type="button" variant="ghost" size="icon" className="h-10 w-10 rounded-l-none sm:h-8 sm:w-8" aria-label={`Increase ${line.name} quantity`} onClick={() => update(line, { quantity: quantity + 1 })}><Plus className="h-3.5 w-3.5" /></Button>
             </div> : <span className="text-xs text-muted-foreground">Quantity: {quantity}</span>}
           </div>
           <div className="grid grid-cols-2 gap-2">
@@ -107,6 +109,6 @@ export function MultiUnitApprovalDialog({ open, onClose, source, photographers, 
       </div>
       {error && <p role="alert" className="whitespace-pre-wrap break-words text-sm text-destructive">{error}</p>}
     </div>
-    <DialogFooter className="shrink-0 border-t px-4 py-3 sm:px-6"><p className="mr-auto self-center text-sm">Services total: <span className="font-semibold tabular-nums">{formatPrice(total)}</span></p><Button variant="outline" disabled={busy} onClick={onClose}>Cancel</Button><Button disabled={busy || travel.blocked || Object.values(durationValidity).includes(false)} onClick={() => void approve()}>{busy ? 'Approving…' : `Approve ${units.length} units / areas`}</Button></DialogFooter>
+    <DialogFooter data-shoot-footer className="shrink-0 flex-row items-center gap-3 border-t px-4 py-3 sm:px-6"><p className="mr-auto text-xs text-muted-foreground sm:text-sm"><span className="block sm:inline">Services total<span className="hidden sm:inline">: </span></span><span className="text-base font-semibold tabular-nums text-foreground sm:text-sm">{formatPrice(total)}</span></p><Button className="hidden sm:inline-flex" variant="outline" disabled={busy} onClick={onClose}>Cancel</Button><Button className="h-11 px-6 sm:h-10" aria-label={busy ? 'Approving…' : `Approve ${units.length} units / areas`} disabled={busy || travel.blocked || Object.values(durationValidity).includes(false)} onClick={() => void approve()}>{busy ? 'Approving…' : <><span className="sm:hidden">Approve</span><span className="hidden sm:inline">Approve {units.length} units / areas</span></>}</Button></DialogFooter>
   </DialogContent></Dialog>;
 }

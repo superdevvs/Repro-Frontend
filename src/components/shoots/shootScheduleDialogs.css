@@ -1,0 +1,44 @@
+/* Phone editors use the available viewport, with one scrolling body and a stable action bar. */
+@media (max-width: 639px) {
+  [role='dialog'][data-shoot-dialog] {
+    width: 100%;
+    max-width: 100%;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    gap: 0;
+  }
+
+  [data-shoot-dialog] > button:last-child {
+    width: 44px;
+    height: 44px;
+    top: max(4px, env(safe-area-inset-top));
+    right: 8px;
+    border: 0;
+    box-shadow: none;
+  }
+
+  [data-shoot-dialog] [data-shoot-header] {
+    padding-top: max(16px, env(safe-area-inset-top));
+  }
+
+  [data-shoot-dialog] [data-shoot-footer] {
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  [data-shoot-dialog] button {
+    min-height: 40px;
+  }
+
+  /* Native controls need room for their calendar/clock affordances. 16px avoids iOS input zoom. */
+  [data-shoot-dialog] input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  [data-shoot-dialog] select {
+    min-width: 0;
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  [data-shoot-dialog] textarea {
+    font-size: 16px;
+  }
+}

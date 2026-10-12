@@ -5,11 +5,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, BellOff, Check, Clock, Edit, FileText, Layers, MapPin, Search, User, X } from 'lucide-react';
+import { AlertTriangle, BellOff, Check, Clock, Edit, FileText, Layers, MapPin, MoreHorizontal, Search, User, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn } from '@/lib/utils';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
@@ -22,6 +23,7 @@ import { readPhotographerMapFields } from '@/components/photographers/map/photog
 import {
   type MobileEditPanel,
 } from './shootEditModalTypes';
+import './shootScheduleDialogs.css';
 
 export function ShootEditModalView({ model }: { model: ReturnType<typeof useShootEditModalController> }) {
   const {
@@ -78,16 +80,16 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="flex max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 text-slate-900 dark:text-slate-100 sm:max-w-[900px] md:max-w-[1100px] lg:max-w-[1200px]">
-        <DialogHeader className="shrink-0 px-4 pb-3 pt-4 sm:px-6">
+      <DialogContent data-shoot-dialog className="flex max-h-[92dvh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 text-slate-900 dark:text-slate-100 sm:max-w-[900px] md:max-w-[1100px] lg:max-w-[1200px]">
+        <DialogHeader data-shoot-header className="shrink-0 px-4 pb-3 pt-4 text-left sm:px-6">
           <div className="flex items-center gap-3 pr-10">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
+            <div className="hidden h-10 w-10 items-center justify-center rounded-full bg-blue-500/10 sm:flex">
               <Edit className="h-5 w-5 text-blue-500" />
             </div>
             <div>
-              <DialogTitle className="text-xl">Modify Shoot Request</DialogTitle>
+              <DialogTitle className="text-lg sm:text-xl">Modify Shoot Request</DialogTitle>
               <DialogDescription className="mt-1">
-                Edit the shoot details below
+                <span className="sm:hidden">{model.unitSource?.location?.address || 'Edit the shoot details below'}</span><span className="hidden sm:inline">Edit the shoot details below</span>
               </DialogDescription>
             </div>
           </div>
@@ -119,13 +121,13 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
               >
                 <div className="sticky top-0 z-10 bg-background pb-1">
                   <TabsList className="grid h-auto w-full grid-cols-3 rounded-xl bg-muted/60 p-1">
-                    <TabsTrigger value="details" className="h-9 rounded-lg text-xs font-semibold">
+                    <TabsTrigger value="details" className="h-10 rounded-lg text-xs font-semibold">
                       Details
                     </TabsTrigger>
-                    <TabsTrigger value="schedule" className="h-9 rounded-lg text-xs font-semibold">
+                    <TabsTrigger value="schedule" className="h-10 rounded-lg text-xs font-semibold">
                       Schedule
                     </TabsTrigger>
-                    <TabsTrigger value="services" className="h-9 rounded-lg text-xs font-semibold">
+                    <TabsTrigger value="services" className="h-10 rounded-lg text-xs font-semibold">
                       Services
                     </TabsTrigger>
                   </TabsList>
@@ -144,15 +146,15 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           </div>
         )}
 
-        <DialogFooter className="mt-1 shrink-0 gap-2 border-t border-border/60 px-4 py-4 sm:px-6 sm:py-5">
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting} className="w-full sm:w-auto">
+        <DialogFooter data-shoot-footer className="shrink-0 flex-row gap-2 border-t border-border/60 px-4 py-3 sm:px-6 sm:py-5">
+          <Button variant="outline" onClick={onClose} disabled={isSubmitting} className="hidden sm:inline-flex sm:w-auto">
             Cancel
           </Button>
           <Button
             variant="outline"
             onClick={handleApproveWithoutNotification}
             disabled={isSubmitting || isLoading || model.travel.blocked}
-            className="w-full sm:min-w-[220px]"
+            className="hidden sm:inline-flex sm:min-w-[220px]"
           >
             {isSubmitting ? (
               <>
@@ -169,7 +171,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           <Button 
             onClick={handleApprove} 
             disabled={isSubmitting || isLoading || model.travel.blocked}
-            className="w-full bg-blue-600 hover:bg-blue-700 sm:min-w-[140px]"
+            className="h-11 min-w-0 flex-1 bg-blue-600 hover:bg-blue-700 sm:h-10 sm:min-w-[140px] sm:flex-none"
           >
             {isSubmitting ? (
               <>
@@ -183,6 +185,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
               </>
             )}
           </Button>
+          <DropdownMenu><DropdownMenuTrigger asChild><Button type="button" variant="outline" size="icon" aria-label="More approval options" disabled={isSubmitting} className="h-11 w-11 shrink-0 sm:hidden"><MoreHorizontal className="h-5 w-5" /></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="z-[90] min-w-[250px]"><DropdownMenuItem className="min-h-11" disabled={isSubmitting || isLoading || model.travel.blocked} onSelect={handleApproveWithoutNotification}><BellOff className="mr-2 h-4 w-4" />Approve without notification</DropdownMenuItem><DropdownMenuItem className="min-h-11" onSelect={onClose}>Cancel</DropdownMenuItem></DropdownMenuContent></DropdownMenu>
         </DialogFooter>
 
         <PickerRoot {...(isPickerMobile ? { shouldScaleBackground: false } : {})} open={photographerPickerOpen} onOpenChange={(open) => {

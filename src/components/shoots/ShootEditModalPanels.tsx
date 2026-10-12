@@ -140,7 +140,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
           placeholder="Search address..."
         />
 
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,0.7fr)_minmax(0,1fr)] gap-1.5">
           <Input
             value={city}
             onChange={(e) => setCity(e.target.value)}

@@ -42,14 +42,14 @@ export function TravelFeasibilityPanel({ travel, durationAdjuster, issuesOnly = 
   </section>;
   const StatusIcon = hasError ? AlertTriangle : travel.loading ? Clock3 : CheckCircle2;
   return <>{(!issuesOnly || hasError) && (compact ? <section aria-label="Travel feasibility" data-travel-summary="compact" className={`flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border px-3 py-2 text-xs ${hasError ? 'border-red-500/60 bg-red-500/5' : 'bg-muted/30'}`}>
-    <div role={hasError ? 'alert' : 'status'} aria-live="polite" className="flex min-w-0 flex-1 items-center gap-2">
+    <div role={hasError ? 'alert' : 'status'} aria-live="polite" className={`flex min-w-0 items-center gap-2 ${hasError && (canAdjust || travel.error) ? 'basis-full sm:basis-auto sm:flex-1' : 'flex-1'}`}>
       <StatusIcon className={`h-4 w-4 shrink-0 ${hasError ? 'text-destructive' : 'text-muted-foreground'}`} />
       <span className="min-w-0 font-medium">{title}{travel.scheduleAdjustments.length > 0 && <span className="ml-2 text-violet-600 dark:text-violet-300">· {travel.scheduleAdjustments.length} booking(s) adjusted</span>}</span>
     </div>
     <div className="flex shrink-0 flex-wrap items-center gap-1">
-      {canAdjust && <Button type="button" variant={hasError ? 'default' : 'outline'} size="sm" className="h-7 px-2 text-xs" disabled={travel.loading} onClick={() => setAdjusting(true)}>Adjust schedule</Button>}
-      {travel.error && <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => void travel.retry()}>Retry travel check</Button>}
-      <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setDetailsOpen(true)}>View details</Button>
+      {canAdjust && <Button type="button" variant={hasError ? 'default' : 'outline'} size="sm" className={`h-10 px-3 text-xs sm:h-7 sm:px-2 ${hasError ? '' : 'hidden sm:inline-flex'}`} disabled={travel.loading} onClick={() => setAdjusting(true)}>Adjust schedule</Button>}
+      {travel.error && <Button type="button" variant="outline" size="sm" className="h-10 px-3 text-xs sm:h-7 sm:px-2" onClick={() => void travel.retry()}>Retry travel check</Button>}
+      <Button type="button" variant="ghost" size="sm" className="h-10 px-3 text-xs sm:h-7 sm:px-2" onClick={() => setDetailsOpen(true)}>View details</Button>
     </div>
   </section> : detailPanel)}
     {compact && <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}><DialogContent className="max-h-[85dvh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>Travel details</DialogTitle><DialogDescription>Routes, travel allowance, and scheduling checks for this booking.</DialogDescription></DialogHeader>{detailPanel}</DialogContent></Dialog>}

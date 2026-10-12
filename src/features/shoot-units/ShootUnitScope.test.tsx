@@ -63,8 +63,8 @@ describe('shared unit selector', () => {
     expect(chrome).toHaveClass('py-1');
     expect(screen.getByText(/Unit · 1 of 2/)).toBeInTheDocument();
     expect(screen.getByText(/Unit E · 1,200 sqft/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Change unit' })).toHaveClass('h-7');
-    expect(screen.getByRole('button', { name: 'Previous unit' })).toHaveClass('h-7');
+    expect(screen.getByRole('button', { name: 'Change unit' })).toHaveClass('h-10', 'sm:h-7');
+    expect(screen.getByRole('button', { name: 'Previous unit' })).toHaveClass('h-10', 'sm:h-7');
   });
 
   it('panel variant is flush (no Location top-rule spacing)', () => {

@@ -10,6 +10,8 @@ import { DayScheduleTimeline } from './DayScheduleTimeline';
 import { TravelNotifications } from './TravelNotifications';
 import { TravelRouteSummary } from './TravelRouteSummary';
 import type { ScheduleAdjustment } from './types';
+import { useMediaQuery } from '@/hooks/use-media-query';
+import '@/components/shoots/shootScheduleDialogs.css';
 
 export function DayScheduleDialog({ travel, open, onClose }: { travel: TravelController; open: boolean; onClose: () => void }) {
   const visits = (travel.result?.visits ?? []).filter(visit => visit.is_target !== false);
@@ -37,6 +39,8 @@ function DayScheduleEditor({ travel, open, onClose, visits: targets, scope, sele
   const [moves, setMoves] = useState<Record<string, string>>({});
   const [dragging, setDragging] = useState(false), [moveError, setMoveError] = useState('');
   const [notifications, setNotifications] = useState(travel.notifications);
+  const isWideLayout = useMediaQuery('(min-width: 640px)');
+  const [timelineOpen, setTimelineOpen] = useState(false);
   const offset = target && moves.target ? (Date.parse(moves.target) - Date.parse(target.start)) / 60000 : 0;
   const bookings = useMemo(() => {
     const existing = (data?.bookings ?? []).map(row => {
@@ -76,8 +80,9 @@ function DayScheduleEditor({ travel, open, onClose, visits: targets, scope, sele
       move(id, atMinute(date, hours * 60 + minutes, timezone, original)); setMoveError('');
     } catch (caught) { setMoveError(caught instanceof Error ? caught.message : 'Choose a valid time.'); }
   };
-  return <Dialog open={open} onOpenChange={value => { if (!value) onClose(); }}><DialogContent className="max-h-[94dvh] min-w-0 w-[calc(100vw-1rem)] max-w-5xl grid-cols-[minmax(0,1fr)] overflow-x-hidden overflow-y-auto rounded-2xl p-4 sm:p-5">
-    <DialogHeader className="pr-5 text-left"><DialogTitle>Adjust this day</DialogTitle><DialogDescription>{data?.photographer.name || 'Photographer'} · {date} · {timezone}</DialogDescription></DialogHeader>
+  return <Dialog open={open} onOpenChange={value => { if (!value) onClose(); }}><DialogContent data-shoot-dialog className="flex max-h-[94dvh] min-w-0 w-[calc(100vw-1rem)] max-w-5xl flex-col overflow-hidden rounded-2xl p-0">
+    <DialogHeader data-shoot-header className="shrink-0 px-4 pb-3 pr-12 pt-4 text-left sm:px-5"><DialogTitle>Adjust this day</DialogTitle><DialogDescription className="break-words">{data?.photographer.name || 'Photographer'} · {date}<span className="block text-xs sm:ml-1 sm:inline">{timezone}</span></DialogDescription></DialogHeader>
+    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pb-4 sm:px-5">
     {selector}
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {!data && !error && <p role="status" className="text-sm">Loading this day’s bookings…</p>}
@@ -86,7 +91,7 @@ function DayScheduleEditor({ travel, open, onClose, visits: targets, scope, sele
         <label className="rounded-lg border border-violet-500/40 bg-violet-500/5 p-3 text-xs"><span className="font-semibold">This shoot start time</span><Input aria-label="This shoot start time" type="time" className="mt-1 h-9" value={localSchedule(moves.target || target.start, timezone).time} onChange={event => changeTime('target', event.target.value, target.start)} /><span className="mt-1 block text-muted-foreground">Services move together, keeping their spacing.</span></label>
         {bookings.filter(row => !row.target).map(row => <label key={row.id} className="min-w-0 rounded-lg border p-3 text-xs"><span className="block truncate font-medium" title={row.label}>{row.label}</span><Input aria-label={`Start time for ${row.label}`} type="time" className="mt-1 h-9" disabled={!row.can_adjust} value={localSchedule(row.start, timezone).time} onChange={event => changeTime(row.id, event.target.value, row.start)} />{!row.can_adjust && <span className="mt-1 block text-muted-foreground">Open this booking separately to edit.</span>}</label>)}
       </div>
-      <DayScheduleTimeline bookings={bookings} date={date} timezone={timezone} onMove={move} onDragging={setDragging} onError={setMoveError} />
+      <details open={isWideLayout || timelineOpen} onToggle={event => { if (!isWideLayout) setTimelineOpen(event.currentTarget.open); }} className="rounded-lg border p-3 sm:border-0 sm:p-0"><summary className="cursor-pointer py-2 text-sm font-medium sm:hidden">View day timeline</summary><div className="pt-2 sm:pt-0"><DayScheduleTimeline bookings={bookings} date={date} timezone={timezone} onMove={move} onDragging={setDragging} onError={setMoveError} /></div></details>
       <div aria-live="polite" className="space-y-2 text-sm">
         {conflict ? <p className="text-amber-600 dark:text-amber-300">Bookings overlap. Move either shoot to a free time.</p> : preview.loading ? <p>Checking travel for this schedule…</p>
           : preview.error ? <p role="alert" className="text-destructive">{preview.error}</p> : preview.result?.available ? <p className="text-emerald-700 dark:text-emerald-300">This schedule has enough travel time.</p>
@@ -100,11 +105,13 @@ function DayScheduleEditor({ travel, open, onClose, visits: targets, scope, sele
       </div>
       <TravelNotifications value={notifications} onChange={setNotifications} />
       <p className="text-xs text-muted-foreground">Changes to {adjustments.length ? `${adjustments.length} existing booking${adjustments.length === 1 ? '' : 's'} and ` : ''}this shoot are saved together when you save or book the shoot. Calendar updates follow a successful save.</p>
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button type="button" variant="outline" onClick={onClose}>Cancel</Button><Button type="button" className="h-auto min-h-10 min-w-0 whitespace-normal" disabled={!canApply} onClick={() => {
+    </>}
+    </div>
+    {data && <div data-shoot-footer className="flex shrink-0 gap-2 border-t px-4 py-3 sm:justify-end sm:px-5"><Button type="button" variant="outline" className="h-11 sm:h-10" onClick={onClose}>Cancel</Button><Button type="button" className="h-auto min-h-11 min-w-0 flex-1 whitespace-normal sm:min-h-10 sm:flex-none" disabled={!canApply} onClick={() => {
         if (!canApply || !target || !travel.onScheduleChange) return;
         travel.onScheduleChange({ scheduledAt: moves.target || target.start, offsetMinutes: offset, timezone, ...(scope ? { visitScope: scope } : {}) });
         travel.setScheduleAdjustments(adjustments); travel.setNotifications(notifications); onClose();
       }}>{canApply && !preview.result?.available ? 'Use schedule · review travel on save' : 'Use this schedule'}</Button></div>
-    </>}
+    }
   </DialogContent></Dialog>;
 }

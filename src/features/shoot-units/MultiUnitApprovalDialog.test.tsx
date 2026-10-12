@@ -57,11 +57,11 @@ describe('large property approval', () => {
     const onApproved = vi.fn();
     const onClose = vi.fn();
     render(<MultiUnitApprovalDialog open source={source} photographers={[{ id: 9, name: 'Alex' }]} onApproved={onApproved} onClose={onClose} />);
-    expect(screen.getAllByRole('group')).toHaveLength(1);
+    expect(screen.getAllByRole('group').filter(element => element.tagName === 'FIELDSET')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Change unit' }));
     fireEvent.change(screen.getByLabelText('Search units'), { target: { value: 'Unit 100' } });
     fireEvent.click(screen.getByRole('button', { name: /Unit 100.*900 sqft/ }));
-    expect(screen.getAllByRole('group')).toHaveLength(1);
+    expect(screen.getAllByRole('group').filter(element => element.tagName === 'FIELDSET')).toHaveLength(1);
     fireEvent.change(screen.getByLabelText('Photos time'), { target: { value: '07:30' } });
     await waitFor(() => expect(screen.getByRole('button', { name: 'Approve 100 units / areas' })).toBeEnabled());
     fireEvent.click(screen.getByRole('button', { name: 'Approve 100 units / areas' }));

@@ -56,8 +56,8 @@ export function ShootUnitScopeBar({ shoot, disabled = false, variant = 'standalo
       : isCompact
         ? 'rounded-md border border-blue-200/80 bg-blue-50/50 px-2 py-1 dark:border-blue-900/80 dark:bg-blue-950/20'
         : 'rounded-lg border border-blue-200 bg-blue-50/60 px-3 py-2 dark:border-blue-900 dark:bg-blue-950/20';
-  const changeButtonClass = isCompact || variant === 'panel' ? 'h-7 px-2 text-[11px]' : 'h-8 px-2 text-xs';
-  const arrowButtonClass = isCompact || variant === 'panel' ? 'h-7 w-7' : 'h-8 w-8';
+  const changeButtonClass = isCompact ? `h-10 px-2 text-xs sm:h-7 sm:text-[11px] ${units.length === 1 ? 'hidden sm:inline-flex' : ''}` : variant === 'panel' ? 'h-7 px-2 text-[11px]' : 'h-8 px-2 text-xs';
+  const arrowButtonClass = isCompact ? 'h-10 w-10 sm:h-7 sm:w-7' : variant === 'panel' ? 'h-7 w-7' : 'h-8 w-8';
   const iconClass = isCompact || variant === 'panel' ? 'h-3.5 w-3.5' : 'h-4 w-4';
 
   return <>
@@ -71,7 +71,7 @@ export function ShootUnitScopeBar({ shoot, disabled = false, variant = 'standalo
       <Building2 className={`${iconClass} shrink-0 text-blue-600 dark:text-blue-400`} />
       {isCompact || variant === 'panel' ? (
         <p className="min-w-0 flex-1 truncate text-xs leading-none" title={labelWithSqft}>
-          <span className="text-muted-foreground">{kindLabel} · {index + 1} of {units.length}</span>
+          <span className="text-muted-foreground">{isCompact && units.length === 1 ? <>{kindLabel}<span className="hidden sm:inline"> · {index + 1} of {units.length}</span></> : `${kindLabel} · ${index + 1} of ${units.length}`}</span>
           <span className="mx-1 text-muted-foreground/50">·</span>
           <span className="font-semibold">{labelWithSqft}</span>
         </p>
@@ -82,7 +82,7 @@ export function ShootUnitScopeBar({ shoot, disabled = false, variant = 'standalo
         </div>
       )}
       <Button type="button" variant="outline" size="sm" className={changeButtonClass} data-unit-control="change" disabled={disabled} onClick={() => { handingOffFocus.current = false; setQuery(''); setPage(0); setOpen(true); }}>Change unit</Button>
-      <div className={`flex ${isCompact || variant === 'panel' ? 'gap-0.5' : 'gap-1'}`}>
+      <div className={`${isCompact && units.length === 1 ? 'hidden sm:flex' : 'flex'} ${isCompact || variant === 'panel' ? 'gap-0.5' : 'gap-1'}`}>
         <Button type="button" variant="ghost" size="icon" className={arrowButtonClass} data-unit-control="previous" aria-label="Previous unit" disabled={disabled || index === 0} onClick={() => selectUnit(getUnitKey(units[index - 1]), 'previous')}><ChevronLeft className="h-4 w-4" /></Button>
         <Button type="button" variant="ghost" size="icon" className={arrowButtonClass} data-unit-control="next" aria-label="Next unit" disabled={disabled || index === units.length - 1} onClick={() => selectUnit(getUnitKey(units[index + 1]), 'next')}><ChevronRight className="h-4 w-4" /></Button>
       </div>

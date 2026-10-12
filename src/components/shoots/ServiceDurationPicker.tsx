@@ -24,7 +24,7 @@ export function ServiceDurationPicker({ serviceName, value, onChange, onValidity
   useEffect(() => { onValidityChange?.(!custom || !invalid); }, [custom, invalid, onValidityChange]);
   if (durationSource.photographer_required === false) return <p className="text-xs text-muted-foreground">No on-site time</p>;
   return (
-    <div className="min-w-0 space-y-2">
+    <div className={showSlider ? 'min-w-0 space-y-2' : 'grid min-w-0 grid-cols-[1fr_auto] items-center gap-x-3 gap-y-2'}>
       <div className="flex items-center justify-between gap-2">
         {showSlider ? <label htmlFor={id} className="text-xs font-medium text-muted-foreground">Shoot duration</label>
           : <span className="text-xs font-medium text-muted-foreground">Shoot duration</span>}
@@ -39,9 +39,9 @@ export function ServiceDurationPicker({ serviceName, value, onChange, onValidity
           className="h-9 min-w-0 flex-1 cursor-pointer accent-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50" />}
         <button id={`${id}-custom-toggle`} type="button" disabled={disabled} aria-pressed={custom} aria-label={`Set custom duration for ${serviceName}`}
           onClick={() => { setCustom(current => !current); setDraft(String(minutes)); }}
-          className="rounded-md border border-input px-2 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">Custom</button>
+          className="min-h-10 rounded-md border border-input px-3 py-1.5 text-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 sm:min-h-0 sm:px-2">Custom</button>
       </div>
-      {custom && <div className="space-y-1">
+      {custom && <div className="col-span-2 space-y-1">
         <label htmlFor={`${id}-custom`} className="text-xs text-muted-foreground">Custom minutes</label>
         <input id={`${id}-custom`} type="number" inputMode="numeric" min={minMinutes} max={maxMinutes} step={1}
           aria-label={`Custom duration for ${serviceName}`} aria-invalid={invalid} aria-describedby={invalid ? `${id}-error` : undefined}
