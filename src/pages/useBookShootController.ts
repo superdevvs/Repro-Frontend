@@ -7,6 +7,7 @@ import { buildBookingDurationAdjuster } from './bookShootDurationAdjustment';
 import { resolveServiceShootDuration } from '@/utils/shootDuration';
 import { useMultiUnitBooking } from '@/features/shoot-units/useMultiUnitBooking';
 import { bookingSummaryInfo } from './bookingSummaryInfo';
+import { bookingSubmissionFailure } from './bookingSubmissionFailure';
 import { bookingPrimarySchedule } from '@/utils/bookingPrimarySchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { useLocation } from 'react-router-dom';
@@ -707,44 +708,10 @@ export const useBookShootController = () => {
         }
         console.log("Shoot saved response:", responsePayload);
       } catch (error: unknown) {
-        const errorDetails = asRecord(error);
-        const errorResponse = asRecord(errorDetails.response);
-        const responseData = asRecord(errorResponse.data ?? errorDetails.data);
-        travel.acceptServerError(responseData);
-        console.error("Error creating shoot:", error);
-        console.error("Error details:", {
-          message: error instanceof Error ? error.message : undefined,
-          response: responseData,
-          status: errorResponse.status,
-          statusText: errorResponse.statusText,
-        });
-        const validationErrors = asRecord(responseData.errors);
-        const failureMessage = Object.keys(validationErrors).length
-          ? Object.values(validationErrors).flatMap(value => Array.isArray(value) ? value.map(String) : [String(value)]).join('. ')
-          : typeof responseData.message === 'string' ? responseData.message : error instanceof Error ? error.message : 'The booking could not be saved.';
-        setSubmissionError(failureMessage);
-        if (Object.keys(validationErrors).length > 0) {
-          const errorMessages = Object.values(validationErrors).flatMap((value) =>
-            Array.isArray(value) ? value.map(String) : [String(value)],
-          );
-          toast({
-            title: "Validation Error",
-            description: errorMessages.join('. '),
-            variant: "destructive"
-          });
-        } else if (typeof responseData.message === 'string' && responseData.message) {
-          toast({
-            title: "Error",
-            description: responseData.message,
-            variant: "destructive"
-          });
-        } else {
-          toast({
-            title: "Error",
-            description: error instanceof Error ? error.message : `Failed to save shoot (${String(errorResponse.status || 'Unknown error')}). Please try again.`,
-            variant: "destructive"
-          });
-        }
+        const failure = bookingSubmissionFailure(error);
+        travel.acceptServerError(failure.data);
+        setSubmissionError(failure.message);
+        toast(failure.notice);
         setIsSubmitting(false);
       }
     } else {
