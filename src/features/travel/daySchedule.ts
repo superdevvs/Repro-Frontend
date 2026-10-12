@@ -4,7 +4,8 @@ import type { TravelPayload, TravelTransition } from './types';
 
 export type DayBooking = { id: string; start: string; end: string; duration_minutes: number; photographer_id: number; label: string; shoot_id: number | null; can_adjust: boolean; expected_edit_version: string | null; target?: boolean };
 export type DaySchedule = { date: string; timezone: string; photographer: { id: number; name: string }; bookings: DayBooking[]; schedule_version: string };
-export type ScheduleChange = { scheduledAt: string; offsetMinutes: number; timezone: string };
+export type VisitScope = { photographerId: number; date: string };
+export type ScheduleChange = { scheduledAt: string; offsetMinutes: number; timezone: string; visitScope?: VisitScope };
 export type ScheduleFields = { date?: string; time?: string; duration_minutes?: number };
 
 export function localSchedule(at: string, timezone: string) {
@@ -29,7 +30,7 @@ export function shiftScheduleFields<T extends ScheduleFields>(fields: Record<str
   }));
 }
 /** Preserve legacy floating clocks when previewing an adjusted draft. */
-export function shiftTravelPayload(payload: TravelPayload, minutes: number, timezone: string): TravelPayload {
+export function shiftTravelPayload(payload: TravelPayload, minutes: number, timezone: string, scope?: VisitScope): TravelPayload {
   const shift = (value: unknown) => {
     if (typeof value !== 'string' || !value) return value;
     const clock = getShootSchedule({ scheduled_at: value, timezone: payload.timezone });
@@ -42,7 +43,10 @@ export function shiftTravelPayload(payload: TravelPayload, minutes: number, time
   };
   const next = { ...payload, scheduled_at: shift(payload.scheduled_at) };
   for (const field of ['services', 'service_items', 'service_lines']) {
-    if (Array.isArray(payload[field])) next[field] = payload[field].map(row => row && typeof row === 'object' ? { ...row, scheduled_at: shift(row.scheduled_at) } : row);
+    if (Array.isArray(payload[field])) next[field] = payload[field].map(row => row && typeof row === 'object'
+      && (!scope || (Number(row.photographer_id ?? payload.photographer_id) === scope.photographerId
+        && typeof row.scheduled_at === 'string' && localSchedule(row.scheduled_at, timezone).date === scope.date))
+      ? { ...row, scheduled_at: shift(row.scheduled_at) } : row);
   }
   return next;
 }

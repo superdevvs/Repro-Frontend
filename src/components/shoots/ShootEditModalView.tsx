@@ -79,7 +79,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="flex max-h-[92vh] w-[calc(100vw-1rem)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden p-0 text-slate-900 dark:text-slate-100 sm:max-w-[900px] md:max-w-[1100px] lg:max-w-[1200px]">
-        <DialogHeader className="shrink-0 px-4 pb-4 pt-5 sm:px-6 sm:pt-6">
+        <DialogHeader className="shrink-0 px-4 pb-3 pt-4 sm:px-6">
           <div className="flex items-center gap-3 pr-10">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/10">
               <Edit className="h-5 w-5 text-blue-500" />
@@ -93,7 +93,6 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           </div>
         </DialogHeader>
 
-        {model.unitSource && <div className="shrink-0 px-4 pb-3 sm:px-6"><ShootUnitScopeBar shoot={model.unitSource} disabled={model.unitScopeDirty || isLoading || isSubmitting} />{model.unitScopeDirty && model.unitSource.units?.length ? <p className="mt-1 text-xs text-muted-foreground">Save the current unit before switching. Other units retain their services and schedule.</p> : null}</div>}
         {isLoading ? (
           <div className="grid grid-cols-1 gap-4 px-4 pb-4 sm:px-6 md:grid-cols-3">
             <Skeleton className="h-48 rounded-xl" />
@@ -102,7 +101,10 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
           </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 sm:px-6">
-            <div className="mb-4"><TravelFeasibilityPanel travel={model.travel} /></div>
+            <div className="mb-3 flex min-w-0 flex-col gap-2 lg:flex-row lg:items-start">
+              {model.unitSource && <div className="min-w-0 lg:w-[390px] lg:shrink-0"><ShootUnitScopeBar variant="compact" shoot={model.unitSource} disabled={model.unitScopeDirty || isLoading || isSubmitting} />{model.unitScopeDirty && model.unitSource.units?.length ? <p className="mt-1 text-[11px] text-muted-foreground">Save this unit before switching.</p> : null}</div>}
+              <div className="min-w-0 flex-1"><TravelFeasibilityPanel compact travel={model.travel} /></div>
+            </div>
             {isDesktopLayout ? (
               <div className="grid grid-cols-1 gap-4 md:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)_minmax(0,0.9fr)] md:items-start">
                 {renderDetailsPanel()}

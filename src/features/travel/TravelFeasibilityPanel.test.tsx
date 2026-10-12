@@ -16,6 +16,19 @@ const controller = (overrides: Partial<TravelController> = {}): TravelController
   retry: vi.fn(), loadAlternatives: vi.fn(), alternativesRequested: false, acceptServerError: vi.fn(), ...overrides,
 });
 describe('travel explanations and permission controls', () => {
+  it('uses a compact summary with adjustment and reveals route details on demand', () => {
+    const travel = controller({ onScheduleChange: vi.fn(), result: { ...controller().result!, visits: [{
+      photographer_id: 9, start: '2026-10-13T17:30:00Z', end: '2026-10-13T18:45:00Z',
+      scheduled_at: '2026-10-13T17:30:00Z', duration_minutes: 75, timezone: 'America/New_York',
+    }] } });
+    render(<TravelFeasibilityPanel compact travel={travel} />);
+    expect(screen.getByRole('region', { name: 'Travel feasibility' })).toHaveAttribute('data-travel-summary', 'compact');
+    expect(screen.getByRole('button', { name: 'Adjust schedule' })).toBeEnabled();
+    expect(screen.queryByText('9.5 miles · Google suggests 20 min')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'View details' }));
+    expect(screen.getByRole('dialog', { name: 'Travel details' })).toBeInTheDocument();
+    expect(screen.getByText('25 min recommended with buffer · 10 min gap · 15 min short')).toBeInTheDocument();
+  });
   it('marks a conflict as an error and clears the red outline when the schedule becomes valid', () => {
     const travel = controller();
     const view = render(<TravelFeasibilityPanel travel={travel} />);

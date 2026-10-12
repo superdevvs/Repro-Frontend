@@ -97,4 +97,7 @@ export function useTravelFeasibility({ payload: originalPayload, requestedOnly =
     alternativesRequested: alternativesRequested === key, acceptServerError,
   };
 }
-export type TravelController = ReturnType<typeof useTravelFeasibility>;
+export type TravelController = ReturnType<typeof useTravelFeasibility> & {
+  dayScheduleScope?: boolean;
+  photographerNames?: Record<string, string>;
+};

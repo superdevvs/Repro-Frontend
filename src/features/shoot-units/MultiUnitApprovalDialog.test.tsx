@@ -126,4 +126,23 @@ describe('large property approval', () => {
     expect(screen.getByLabelText('Photos quantity')).toHaveTextContent('1');
     expect(minus).toBeDisabled();
   });
+
+  it('blocks approval while custom duration is invalid and rechecks a valid duration', async () => {
+    render(<MultiUnitApprovalDialog open source={{ id: 98768, units_revision: 1,
+      units: [{ id: 1, label: 'Unit 1', kind: 'unit', sqft: 900 }],
+      service_lines: [{ shoot_service_id: 1, client_key: 'line-1', service_id: 7, shoot_unit_id: 1,
+        name: 'Photos', price: 100, quantity: 1, duration_minutes: 75, photographer_id: 9,
+        scheduled_at: '2026-10-13T17:30:00Z' }],
+    }} photographers={[{ id: 9, name: 'Alex' }]} onClose={vi.fn()} />);
+    const approve = screen.getByRole('button', { name: 'Approve 1 units / areas' });
+    await waitFor(() => expect(approve).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Set custom duration for Photos · Unit 1' }));
+    const minutes = screen.getByLabelText('Custom duration for Photos · Unit 1');
+    fireEvent.change(minutes, { target: { value: '4' } });
+    expect(approve).toBeDisabled();
+    fireEvent.change(minutes, { target: { value: '90' } });
+    await waitFor(() => expect(approve).toBeEnabled());
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls.at(-1)?.[1]?.body)).service_lines[0].duration_minutes).toBe(90);
+    expect(post).not.toHaveBeenCalled();
+  });
 });
