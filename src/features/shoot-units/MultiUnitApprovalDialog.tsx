@@ -32,7 +32,7 @@ export function MultiUnitApprovalDialog({ open, onClose, source, photographers, 
   const lines = allUnitLines(shoot).map(line => ({ ...line, ...changes[String(line.shoot_service_id ?? line.shootServiceId)] }));
   const serviceLinesPayload = lines.map(unitLinePayload);
   const firstStart = serviceLinesPayload.map(line => line.scheduled_at).filter((value): value is string => typeof value === 'string' && Number.isFinite(Date.parse(value))).sort((a, b) => Date.parse(a) - Date.parse(b))[0];
-  const travel = useTravelFeasibility({ payload: open ? shootTravelPayload(shoot, { service_lines: serviceLinesPayload, ...(firstStart ? { scheduled_at: firstStart } : {}) }, 'approve') : null });
+  const travel = useTravelFeasibility({ payload: open ? shootTravelPayload(shoot, { expected_units_revision: shoot.units_revision, service_lines: serviceLinesPayload, ...(firstStart ? { scheduled_at: firstStart } : {}) }, 'approve') : null });
   const total = lines.reduce((sum, line) => sum + line.price * normalizeBookingQuantity(line.quantity), 0);
   const selected = lines.filter(line => getServiceUnitId(line) === activeUnitId);
   const currentPage = Math.min(page, Math.max(0, Math.ceil(selected.length / 8) - 1));

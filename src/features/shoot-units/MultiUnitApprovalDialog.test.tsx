@@ -17,6 +17,37 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe('large property approval', () => {
+  it('includes the current unit revision in the travel preview before enabling approval', async () => {
+    const source = {
+      id: 2441, units_revision: 1, timezone: 'America/New_York',
+      units: [{ id: 7, client_key: 'unit-7', label: '1', kind: 'unit', sqft: 4512 }],
+      service_lines: [
+        { shoot_service_id: 2551, client_key: 'line-2551', service_id: 2, shoot_unit_id: 7,
+          name: 'HDR Photos', quantity: 1, price: 275, duration_minutes: 75,
+          scheduled_at: '2026-10-13T17:30:00Z', photographer_id: 1104 },
+        { shoot_service_id: 2552, client_key: 'line-2552', service_id: 17, shoot_unit_id: 7,
+          name: '2D Floor plans', quantity: 1, price: 175, duration_minutes: 5,
+          scheduled_at: '2026-10-13T18:45:00Z', photographer_id: 1104 },
+      ],
+    };
+    vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const payload = JSON.parse(String(init?.body));
+      if (payload.expected_units_revision !== source.units_revision) {
+        return new Response(JSON.stringify({ errors: { expected_units_revision: ['The units changed in another session. Reload the shoot before saving.'] } }), { status: 422 });
+      }
+      return new Response(JSON.stringify({ data: { enabled: true, status: 'available', available: true,
+        reason_codes: [], transitions: [], alternatives: [], can_override: false, policy_version: '1', schedule_version: '1' } }));
+    }));
+    render(<MultiUnitApprovalDialog open source={source} photographers={[{ id: 1104, name: 'Jaz Singh' }]} onClose={vi.fn()} />);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Approve 1 units / areas' })).toBeEnabled());
+    const preview = JSON.parse(String(vi.mocked(fetch).mock.calls[0][1]?.body));
+    expect(preview).toMatchObject({ shoot_id: '2441', action_mode: 'approve', expected_units_revision: 1,
+      scheduled_at: '2026-10-13T17:30:00Z' });
+    expect(preview.service_lines).toHaveLength(2);
+    expect(screen.queryByText('Travel check unavailable')).not.toBeInTheDocument();
+    expect(post).not.toHaveBeenCalled();
+  });
+
   it('reviews one of 100 units while preserving every booked line and the revision in approval', async () => {
     const source = {
       id: 98765, units_revision: 8, timezone: 'America/Chicago',
