@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MediaEditingMenu } from '../../MediaEditingMenu';
-import { Download, Eye, EyeOff, Heart, MessageSquare } from 'lucide-react';
+import { Download, Eye, EyeOff, Heart, ImagePlus, MessageSquare } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -10,9 +10,13 @@ import { getDisplayMediaFilename } from './mediaPreviewUtils';
 
 interface UseMediaGridActionsOptions {
   canInteractSingleMedia: boolean;
+  canInteractWithFile?: (file: MediaFile) => boolean;
   canDownloadSingleMedia: boolean | ((file: MediaFile) => boolean);
   isClient: boolean;
   toggleFileHidden?: (fileId: string, hidden: boolean) => void;
+  canManageVisibility?: (file: MediaFile) => boolean;
+  canSetHero?: (file: MediaFile) => boolean;
+  onSetHero?: (fileId: string) => void;
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
   onDownloadSingle?: (fileId: string) => void | Promise<void>;
@@ -21,9 +25,13 @@ interface UseMediaGridActionsOptions {
 
 export function useMediaGridActions({
   canInteractSingleMedia,
+  canInteractWithFile,
   canDownloadSingleMedia,
   isClient,
   toggleFileHidden,
+  canManageVisibility,
+  canSetHero,
+  onSetHero,
   onToggleFavorite,
   onAddComment,
   onDownloadSingle,
@@ -43,7 +51,7 @@ export function useMediaGridActions({
   };
 
   const renderCommentAction = (file: MediaFile, buttonClassName: string) => {
-    if (!canInteractSingleMedia || !onAddComment) return null;
+    if (!canInteractSingleMedia || canInteractWithFile?.(file) === false || !onAddComment) return null;
     const displayFilename = getDisplayMediaFilename(file) || file.filename;
 
     return (
@@ -124,18 +132,34 @@ export function useMediaGridActions({
     );
   };
 
+  const canToggleHidden = (file: MediaFile) => Boolean(toggleFileHidden) && (canManageVisibility?.(file) ?? !isClient);
+  const renderPresentationActions = (file: MediaFile, className: string) => <>
+    {onSetHero && canSetHero?.(file) && (
+      <button className={className} title={file.is_cover ? 'Current hero image' : 'Set hero image'} aria-label="Set hero image"
+        disabled={file.is_cover} onClick={event => { event.stopPropagation(); onSetHero(file.id); }}>
+        <ImagePlus className="h-3.5 w-3.5" />
+      </button>
+    )}
+    {canToggleHidden(file) && (
+      <button className={`${className} ${file.is_hidden ? 'text-yellow-500' : ''}`} title={file.is_hidden ? 'Unhide image' : 'Hide image'}
+        aria-label={file.is_hidden ? 'Unhide image' : 'Hide image'}
+        onClick={event => { event.stopPropagation(); toggleFileHidden?.(file.id, !file.is_hidden); }}>
+        {file.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
+      </button>
+    )}
+  </>;
   const renderSingleMediaActions = (file: MediaFile, alwaysVisible = false) => {
-    const showHiddenToggle = Boolean(toggleFileHidden) && !isClient;
+    const showHiddenToggle = canToggleHidden(file);
     const canDownloadFile = typeof canDownloadSingleMedia === 'function'
       ? canDownloadSingleMedia(file)
       : canDownloadSingleMedia;
-    if (!canInteractSingleMedia && !showHiddenToggle && !(canDownloadFile && onDownloadSingle)) return null;
+    if (!canInteractSingleMedia && !showHiddenToggle && !(canSetHero?.(file) && onSetHero) && !(canDownloadFile && onDownloadSingle)) return null;
     const downloading = downloadingFileIds?.has(String(file.id)) ?? false;
     const keepVisible = alwaysVisible || downloading || commentPopoverFileId === file.id;
 
     return (
-      <div className={`absolute top-2 right-2 z-[3] flex items-center gap-1 transition-opacity ${keepVisible ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-        {canInteractSingleMedia && onToggleFavorite && (
+      <div className={`absolute top-2 right-2 z-[3] flex max-w-[calc(100%_-_1rem)] flex-wrap justify-end items-center gap-1 transition-opacity ${keepVisible ? 'opacity-100' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100'}`}>
+        {canInteractSingleMedia && canInteractWithFile?.(file) !== false && onToggleFavorite && (
           <button
             className={`h-7 w-7 rounded-full backdrop-blur-sm flex items-center justify-center ${file.is_favorite ? 'bg-red-500/90 text-white' : 'bg-black/55 text-white'}`}
             onClick={(event) => { event.stopPropagation(); onToggleFavorite(file.id); }}
@@ -146,19 +170,11 @@ export function useMediaGridActions({
         )}
         {renderCommentAction(file, 'h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center')}
         {renderDownloadAction(file, 'h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center')}
-        <MediaEditingMenu file={file} className="h-7 w-7 rounded-full bg-black/55 text-white" />
-        {showHiddenToggle && (
-          <button
-            className={`h-7 w-7 rounded-full backdrop-blur-sm flex items-center justify-center ${file.is_hidden ? 'bg-yellow-500/90 text-white opacity-100' : 'bg-black/55 text-white'}`}
-            onClick={(event) => { event.stopPropagation(); toggleFileHidden?.(file.id, !file.is_hidden); }}
-            title={file.is_hidden ? 'Unhide image' : 'Hide image'}
-          >
-            {file.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-          </button>
-        )}
+        {canInteractWithFile?.(file) !== false && <MediaEditingMenu file={file} className="h-7 w-7 rounded-full bg-black/55 text-white" />}
+        {renderPresentationActions(file, 'h-7 w-7 rounded-full bg-black/55 backdrop-blur-sm text-white flex items-center justify-center')}
       </div>
     );
   };
 
-  return { getLatestCommentText, renderCommentAction, renderSingleMediaActions, renderDownloadAction };
+  return { getLatestCommentText, renderCommentAction, renderSingleMediaActions, renderDownloadAction, renderPresentationActions };
 }

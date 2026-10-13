@@ -32,6 +32,7 @@ type AdminUploadSectionProps = {
 
 export interface ShootDetailsMediaTabViewProps {
   role?: string;
+  presentationRole?: string;
   mediaRequirements?: ShootMediaRequirements;
   stagedDrop?: StagedMediaDrop;
   onStagedDropConsumed?: () => void;
@@ -146,4 +147,6 @@ export interface ShootDetailsMediaTabViewProps {
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   toggleFileHidden: (fileId: string, hidden: boolean) => void;
+  toggleFilesHidden?: (fileIds: string[], hidden: boolean) => void;
+  onSetHero?: (fileId: string) => void;
 }

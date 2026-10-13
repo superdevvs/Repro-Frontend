@@ -19,6 +19,10 @@ import { useUpload } from '@/context/UploadContext';
 
 import { autoenhanceService, type EditingType } from '@/services/autoenhanceService';
 
+import { canInteractWithMediaFile, canManageMediaVisibility, canReorderMediaFile, canSetMediaHero } from './mediaPresentationPermissions';
+import { mergeMediaContextOrder } from './mediaContextOrder';
+import { getMediaDownloadPermissions } from './mediaDownloadPermissions';
+import { isSalesRepRole } from '@/utils/shootManagementAccess';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -155,6 +159,7 @@ export function useShootDetailsMediaTab({
   const queryClient = useQueryClient();
   const { trackUpload, uploads } = useUpload();
   const { user: authUser } = useAuth();
+  const presentationRole = role;
   // Video-only editors (video_editor_id / editing_capabilities:video) stay on Edited + Video.
   const isVideoOnlyEditor = useMemo(
     () => !requestMediaFocus && isVideoOnlyEditorOnShoot(shoot, authUser ?? { id: undefined, role }),
@@ -517,6 +522,7 @@ export function useShootDetailsMediaTab({
   const { data: editedFilesData = [], isLoading: editedLoading } = useScopedShootFiles(fullShoot, activeUnitId, 'edited', {
     refetchInterval: ['editing', 'review'].includes(String(fullShoot.status)) ? 5000 : false,
     enabled: Boolean(shoot.id),
+    includeHidden: true,
     cacheKey: shootFilesCacheKey,
   });
 
@@ -569,8 +575,8 @@ export function useShootDetailsMediaTab({
     [clientVisibleEditedFiles, rawFiles],
   );
   const getSortableFiles = useCallback(
-    () => (isClient ? [...clientVisibleEditedFiles] : [...rawFiles, ...clientVisibleEditedFiles]),
-    [clientVisibleEditedFiles, isClient, rawFiles],
+    () => (isClient ? [...clientVisibleEditedFiles] : [...rawFiles, ...clientVisibleEditedFiles]).filter(file => canReorderMediaFile(file, presentationRole)),
+    [clientVisibleEditedFiles, isClient, rawFiles, presentationRole],
   );
   useEffect(() => {
     const sortableFiles = getSortableFiles();
@@ -783,31 +789,8 @@ export function useShootDetailsMediaTab({
 
   const handleManualOrderChange = useCallback(
     (contextFiles: MediaFile[], nextContextOrder: string[], separateExtras = true) => {
-      const sortableFiles = getSortableFiles();
-      const normalizedGlobalOrder = normalizeManualOrder(manualOrder, sortableFiles);
-      const contextFileMap = new Map(contextFiles.map((file) => [file.id, file]));
-      const contextRegularIds = normalizeManualOrder(
-        normalizedGlobalOrder.filter((id) => contextFileMap.has(id)),
-        contextFiles,
-      ).filter((id) => !(separateExtras && contextFileMap.get(id)?.isExtra));
-
-      if (contextRegularIds.length === 0) {
-        return;
-      }
-
-      const visibleReorderedIds = nextContextOrder.filter((id) => contextRegularIds.includes(id));
-      if (visibleReorderedIds.length === 0) {
-        return;
-      }
-
-      const visibleIdSet = new Set(visibleReorderedIds);
-      const visibleQueue = [...visibleReorderedIds];
-      const reorderedContextIds = contextRegularIds.map((id) => (visibleIdSet.has(id) ? visibleQueue.shift() || id : id));
-      const contextRegularIdSet = new Set(contextRegularIds);
-      const reorderedQueue = [...reorderedContextIds];
-      const nextGlobalOrder = normalizedGlobalOrder.map((id) =>
-        contextRegularIdSet.has(id) ? reorderedQueue.shift() || id : id,
-      );
+      const nextGlobalOrder = mergeMediaContextOrder(manualOrder, getSortableFiles(), contextFiles, nextContextOrder, separateExtras);
+      if (!nextGlobalOrder) return;
 
       hasPendingManualOrder.current = true;
       setManualOrder(nextGlobalOrder);
@@ -829,7 +812,7 @@ export function useShootDetailsMediaTab({
     handleDeleteFiles,
     handleDeleteSingleFile,
     handleReclassify,
-    toggleFileHidden,
+    toggleFileHidden, toggleFilesHidden, handleSetHeroImage,
     handleToggleFavorite,
     handleAddComment,
     handleRenameFilename,
@@ -864,8 +847,8 @@ export function useShootDetailsMediaTab({
   });
   const normalizedRole = String(role || '').trim().toLowerCase();
   const isSuperadmin = normalizedRole === 'superadmin';
-  const isSalesRep = ['salesrep', 'rep', 'representative'].includes(normalizedRole);
-  const canInteractSingleMedia = isClient || ['admin', 'superadmin', 'editing_manager', 'salesRep', 'rep', 'representative'].includes(role || '');
+  const isSalesRep = isSalesRepRole(role);
+  const canInteractSingleMedia = isClient || isSalesRep || ['admin', 'superadmin', 'editing_manager'].includes(normalizedRole);
   const canRenameFilename =
     !isClient &&
     (
@@ -901,32 +884,12 @@ export function useShootDetailsMediaTab({
     handleRenameFilename,
     handleBatchRenameFilenames,
   });
-  const canDownloadSingleMedia =
-    isAdmin ||
-    isPhotographer ||
-    (isEditor && displayTab === 'uploaded') ||
-    (isClient && !effectiveClientReleaseLocked);
-  const canDownloadSingleMediaInActiveTab =
-    canDownloadSingleMedia || (isSalesRep && displayTab === 'edited');
-  const canDownloadMediaFileInActiveTab = useCallback(
-    (file: MediaFile) => canDownloadSingleMediaInActiveTab
-      || (isClient && file.uses_watermark === false),
-    [canDownloadSingleMediaInActiveTab, isClient],
-  );
   const currentViewerFile = viewerFiles[viewerIndex] ?? null;
-  const canDownloadViewerSingleMedia =
-    isAdmin ||
-    isPhotographer ||
-    (isEditor && viewerSourceTab === 'uploaded') ||
-    (isClient && !effectiveClientReleaseLocked) ||
-    (isClient && currentViewerFile?.uses_watermark === false) ||
-    (isSalesRep && viewerSourceTab === 'edited');
-  const canViewFullSizeMedia =
-    isAdmin ||
-    isEditor ||
-    isPhotographer ||
-    (isClient && !effectiveClientReleaseLocked) ||
-    (isClient && currentViewerFile?.uses_watermark === false);
+  const { allowedInTab: canDownloadSingleMediaInActiveTab, canDownloadFile: canDownloadMediaFileInActiveTab,
+    canDownloadViewer: canDownloadViewerSingleMedia, canViewFullSize: canViewFullSizeMedia } = getMediaDownloadPermissions({
+    role, presentationRole, isAdmin, isPhotographer, isEditor, isClient, releaseLocked: effectiveClientReleaseLocked,
+    displayTab, viewerSourceTab, viewerFile: viewerFiles[viewerIndex],
+  });
 
   const canViewScanStatus =
     isAdmin || ['superadmin', 'editing_manager'].includes(normalizedRole);
@@ -1059,8 +1022,8 @@ export function useShootDetailsMediaTab({
   const editorRestrictedToEditedTab = isEditor;
   const canUploadInDisplayTab = showUploadTab && (!editorRestrictedToEditedTab || displayTab === 'edited');
   const canDeleteInDisplayTab = canDeleteMediaSelection(selectedFiles, displayFiles, canDeleteFile);
-  const canSelectFile = (file: MediaFile) => canDownload || canDeleteFile(file);
-  const canSelectInDisplayTab = canDownload || displayFiles.some(canDeleteFile);
+  const canSelectFile = (file: MediaFile) => canDownload || canDeleteFile(file) || canManageMediaVisibility(file, presentationRole);
+  const canSelectInDisplayTab = displayFiles.some(canSelectFile);
   const activeShootUploads = useMemo(
     () => uploads.filter((upload) => upload.shootId === String(shoot.id) && upload.status === 'uploading'),
     [shoot.id, uploads],
@@ -1164,6 +1127,7 @@ export function useShootDetailsMediaTab({
             }}
             canSelect={canSelectInDisplayTab}
             canSelectFile={canSelectFile}
+            canReorderFile={file => canReorderMediaFile(file, presentationRole)}
             sortOrder={sortOrder}
             manualSortActive={isDragMode}
             manualOrder={manualOrder}
@@ -1175,8 +1139,12 @@ export function useShootDetailsMediaTab({
             viewMode={mediaViewMode}
             isClient={isClient}
             toggleFileHidden={toggleFileHidden}
+            canManageVisibility={file => canManageMediaVisibility(file, presentationRole)}
+            canSetHero={file => canSetMediaHero(file, presentationRole)}
+            onSetHero={handleSetHeroImage}
             separateExtras={separateExtras}
             canInteractSingleMedia={canInteractSingleMedia}
+            canInteractWithFile={file => canInteractWithMediaFile(file, presentationRole)}
             canDownloadSingleMedia={canDownloadMediaFileInActiveTab}
             onToggleFavorite={handleToggleFavorite}
             onAddComment={handleAddComment}
@@ -1352,6 +1320,9 @@ export function useShootDetailsMediaTab({
         isPreviewableImage={isPreviewableImage}
         isVideoFile={isVideoFile}
         toggleFileHidden={toggleFileHidden}
+        toggleFilesHidden={toggleFilesHidden}
+        onSetHero={handleSetHeroImage}
+        presentationRole={presentationRole}
       />
       <BatchRenameDialog
         open={batchRenameOpen}

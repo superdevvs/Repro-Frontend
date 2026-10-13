@@ -28,6 +28,10 @@ export interface MediaFile {
   /** File-level deletion permission, evaluated by the server for the current user. */
   has_open_request?: boolean;
   can_delete?: boolean;
+  can_manage_visibility?: boolean;
+  can_set_hero?: boolean;
+  can_download?: boolean;
+  media_curation_scope?: 'customer' | 'contractor' | 'staff' | null;
   /** Monotonic shoot media revision from mutation responses / list payloads. */
   media_revision?: number;
   isExtra?: boolean;
@@ -177,6 +181,10 @@ export const normalizeShootMediaFile = (payload: Record<string, unknown>): Media
   content_version: value.content_version,
   pending_version_id: value.pending_version_id,
   can_delete: typeof value.can_delete === 'boolean' ? value.can_delete : undefined,
+  can_manage_visibility: typeof value.can_manage_visibility === 'boolean' ? value.can_manage_visibility : undefined,
+  can_set_hero: typeof value.can_set_hero === 'boolean' ? value.can_set_hero : undefined,
+  can_download: typeof value.can_download === 'boolean' ? value.can_download : undefined,
+  media_curation_scope: ['customer', 'contractor', 'staff'].includes(String(value.media_curation_scope)) ? value.media_curation_scope : null,
   media_revision: Number.isFinite(Number(value.media_revision)) ? Number(value.media_revision) : undefined,
   isExtra: Boolean(value.is_extra ?? value.isExtra),
   thumb: value.thumb_url || value.thumb,
@@ -259,7 +267,8 @@ export const mergeAcceptedShootFiles = (
 const fetchShootFiles = async (
   shootId: string | number,
   type: 'raw' | 'edited' | 'all',
-  token?: string
+  token?: string,
+  includeHidden = false
 ): Promise<MediaFile[]> => {
   const authToken = token || getToken();
   if (!authToken) {
@@ -270,6 +279,7 @@ const fetchShootFiles = async (
     'Authorization': `Bearer ${authToken}`,
     'Accept': 'application/json',
   };
+  const curationQuery = includeHidden ? '&include_hidden=1' : '';
   
   // Add impersonation header if impersonating
   const impersonatedUserId = getImpersonatedUserId();
@@ -282,7 +292,7 @@ const fetchShootFiles = async (
     // Fetch both types in parallel
     const [rawRes, editedRes] = await Promise.all([
       fetch(`${API_BASE_URL}/api/shoots/${shootId}/files?type=raw`, { headers }),
-      fetch(`${API_BASE_URL}/api/shoots/${shootId}/files?type=edited`, { headers }),
+      fetch(`${API_BASE_URL}/api/shoots/${shootId}/files?type=edited${curationQuery}`, { headers }),
     ]);
 
     const rawJson = rawRes.ok ? await rawRes.json() : { data: [] };
@@ -293,7 +303,7 @@ const fetchShootFiles = async (
 
     return [...mapFiles(rawJson), ...mapFiles(editedJson)];
   } else {
-    const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files?type=${type}`, { headers });
+    const res = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files?type=${type}${type === 'edited' ? curationQuery : ''}`, { headers });
 
     if (!res.ok && res.status !== 404) {
       throw new Error(`Failed to load ${type} files`);
@@ -307,7 +317,7 @@ const fetchShootFiles = async (
 export const useShootFiles = (
   shootId: string | number | null | undefined,
   type: 'raw' | 'edited' | 'all' = 'all',
-  options?: { enabled?: boolean; cacheKey?: string | number | null; refetchInterval?: number | false }
+  options?: { enabled?: boolean; cacheKey?: string | number | null; refetchInterval?: number | false; includeHidden?: boolean }
 ) => {
   const { session, user, isImpersonating } = useAuth();
   
@@ -315,8 +325,8 @@ export const useShootFiles = (
   const impersonatedUserId = getImpersonatedUserId();
 
   const query = useQuery({
-    queryKey: ['shootFiles', shootId, type, impersonatedUserId, user?.id ?? null, options?.cacheKey ?? null, user?.role ?? null, isImpersonating],
-    queryFn: () => fetchShootFiles(shootId!, type, getToken(session?.accessToken)),
+    queryKey: ['shootFiles', shootId, type, impersonatedUserId, user?.id ?? null, options?.cacheKey ?? null, user?.role ?? null, isImpersonating, options?.includeHidden ?? false],
+    queryFn: () => fetchShootFiles(shootId!, type, getToken(session?.accessToken), options?.includeHidden),
     enabled: Boolean(shootId) && (options?.enabled !== false),
     refetchInterval: options?.refetchInterval ?? false,
     staleTime: 30 * 1000, // 30 seconds

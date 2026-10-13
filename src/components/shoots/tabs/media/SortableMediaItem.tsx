@@ -4,6 +4,7 @@ import { CSS } from '@dnd-kit/utilities';
 
 interface SortableMediaItemProps {
   id: string;
+  disabled?: boolean;
   children: (args: {
     attributes: ReturnType<typeof useSortable>['attributes'];
     listeners: ReturnType<typeof useSortable>['listeners'];
@@ -11,8 +12,8 @@ interface SortableMediaItemProps {
   }) => React.ReactNode;
 }
 
-export function SortableMediaItem({ id, children }: SortableMediaItemProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+export function SortableMediaItem({ id, disabled, children }: SortableMediaItemProps) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
 
   return (
     <div

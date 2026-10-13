@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { MediaEditingMenu } from '../../MediaEditingMenu';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CheckCircle2, ChevronLeft, ChevronRight, Circle, Eye, EyeOff, GripVertical, Heart, Image as ImageIcon, MessageSquare, Play } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Circle, GripVertical, Heart, Image as ImageIcon, MessageSquare, Play } from 'lucide-react';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
@@ -36,6 +36,7 @@ export function MediaGrid({
   onSelectAll,
   canSelect,
   canSelectFile,
+  canReorderFile,
   sortOrder = 'time',
   manualSortActive = false,
   manualOrder = [],
@@ -46,9 +47,10 @@ export function MediaGrid({
   isVideo,
   viewMode = 'list',
   isClient = false,
-  toggleFileHidden,
+  toggleFileHidden, canManageVisibility, canSetHero, onSetHero,
   separateExtras = true,
   canInteractSingleMedia = false,
+  canInteractWithFile,
   canDownloadSingleMedia = false,
   onToggleFavorite,
   onAddComment,
@@ -72,13 +74,14 @@ export function MediaGrid({
   );
 
   const draggableIds = useMemo(
-    () => (separateExtras ? sortedFiles.filter((file) => !file.isExtra) : sortedFiles).map((file) => file.id),
-    [separateExtras, sortedFiles],
+    () => (separateExtras ? sortedFiles.filter((file) => !file.isExtra) : sortedFiles).filter(file => canReorderFile?.(file) !== false).map((file) => file.id),
+    [separateExtras, sortedFiles, canReorderFile],
   );
   const visibleSorted = sortedFiles;
   const regularFiles = separateExtras ? visibleSorted.filter(f => !f.isExtra) : visibleSorted;
   const extraFiles = separateExtras ? visibleSorted.filter(f => f.isExtra) : [];
-  const visibleRegularIds = regularFiles.map((file) => file.id);
+  const reorderableFiles = regularFiles.filter(file => canReorderFile?.(file) !== false);
+  const visibleRegularIds = reorderableFiles.map((file) => file.id);
   const normalizedRawStackSize =
     typeof rawStackSize === 'number' && Number.isFinite(rawStackSize) && rawStackSize > 1
       ? Math.round(rawStackSize)
@@ -131,7 +134,7 @@ export function MediaGrid({
   } = useMediaGridDragAndDrop({
     enabled: isManualSortEnabled,
     visibleRegularIds,
-    regularFiles,
+    regularFiles: reorderableFiles,
     selectedFiles,
     onManualOrderChange,
   });
@@ -140,12 +143,14 @@ export function MediaGrid({
     getLatestCommentText,
     renderCommentAction,
     renderSingleMediaActions,
-    renderDownloadAction,
+    renderDownloadAction, renderPresentationActions,
   } = useMediaGridActions({
     canInteractSingleMedia,
+    canInteractWithFile,
     canDownloadSingleMedia,
     isClient,
     toggleFileHidden,
+    canManageVisibility, canSetHero, onSetHero,
     onToggleFavorite,
     onAddComment,
     onDownloadSingle,
@@ -203,7 +208,7 @@ export function MediaGrid({
     return (
       <div
         key={stack?.id ?? file.id}
-        draggable={isManualSortEnabled && !isExtraSection}
+        draggable={isManualSortEnabled && !isExtraSection && canReorderFile?.(file) !== false}
         onDragStart={(e) => handleDragStart(e, file.id)}
         onDragOver={(e) => handleDragOver(e, file.id)}
         onDragLeave={handleDragLeave}
@@ -449,7 +454,7 @@ export function MediaGrid({
     const latestCommentText = getLatestCommentText(file);
 
     return (
-      <SortableMediaItem key={file.id} id={file.id}>
+      <SortableMediaItem key={file.id} id={file.id} disabled={canReorderFile?.(file) === false}>
         {({ attributes, listeners, isDragging }) => (
           <div
             className={`relative rounded-xl overflow-hidden border transition-all group select-none bg-card flex flex-col ${
@@ -733,7 +738,7 @@ export function MediaGrid({
 
         {/* Hide/Unhide toggle */}
         <div className="shoot-media-list-actions flex items-center gap-1 flex-shrink-0">
-          {canInteractSingleMedia && onToggleFavorite && (
+          {canInteractSingleMedia && canInteractWithFile?.(file) !== false && onToggleFavorite && (
             <button
               className={`h-7 w-7 rounded-full flex items-center justify-center ${file.is_favorite ? 'bg-red-500/15 text-red-500' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
               onClick={(e) => {
@@ -747,20 +752,8 @@ export function MediaGrid({
           )}
           {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
           {renderDownloadAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-          <MediaEditingMenu file={file} className="h-7 w-7" />
-          {toggleFileHidden && !isClient && (
-            <button
-              className={`h-7 w-7 rounded-full flex items-center justify-center transition-all ${
-                file.is_hidden
-                  ? 'bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-              }`}
-              onClick={(e) => { e.stopPropagation(); toggleFileHidden(file.id, !file.is_hidden); }}
-              title={file.is_hidden ? 'Unhide image' : 'Hide image'}
-            >
-              {file.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-            </button>
-          )}
+          {canInteractWithFile?.(file) !== false && <MediaEditingMenu file={file} className="h-7 w-7" />}
+          {renderPresentationActions(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
         </div>
       </div>
     );
@@ -786,7 +779,7 @@ export function MediaGrid({
     const latestCommentText = getLatestCommentText(file);
 
     return (
-      <SortableMediaItem key={file.id} id={file.id}>
+      <SortableMediaItem key={file.id} id={file.id} disabled={canReorderFile?.(file) === false}>
         {({ attributes, listeners, isDragging }) => (
           <div
             className={`shoot-media-list-row flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border transition-all group select-none ${
@@ -895,7 +888,7 @@ export function MediaGrid({
             )}
 
             <div className="shoot-media-list-actions flex items-center gap-1 flex-shrink-0">
-              {canInteractSingleMedia && onToggleFavorite && (
+              {canInteractSingleMedia && canInteractWithFile?.(file) !== false && onToggleFavorite && (
                 <button
                   className={`h-7 w-7 rounded-full flex items-center justify-center ${file.is_favorite ? 'bg-red-500/15 text-red-500' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
                   onClick={(e) => {
@@ -909,20 +902,8 @@ export function MediaGrid({
               )}
               {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
               {renderDownloadAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-              <MediaEditingMenu file={file} className="h-7 w-7" />
-              {toggleFileHidden && !isClient && (
-                <button
-                  className={`h-7 w-7 rounded-full flex items-center justify-center transition-all ${
-                    file.is_hidden
-                      ? 'bg-yellow-500/20 text-yellow-500 hover:bg-yellow-500/30'
-                      : 'text-muted-foreground hover:text-foreground hover:bg-muted'
-                  }`}
-                  onClick={(e) => { e.stopPropagation(); toggleFileHidden(file.id, !file.is_hidden); }}
-                  title={file.is_hidden ? 'Unhide image' : 'Hide image'}
-                >
-                  {file.is_hidden ? <Eye className="h-3.5 w-3.5" /> : <EyeOff className="h-3.5 w-3.5" />}
-                </button>
-              )}
+              {canInteractWithFile?.(file) !== false && <MediaEditingMenu file={file} className="h-7 w-7" />}
+              {renderPresentationActions(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
             </div>
           </div>
         )}

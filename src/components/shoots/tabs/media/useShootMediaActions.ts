@@ -1,4 +1,6 @@
 import type { DownloadPopupState, ReclassifyMediaType, UseShootMediaActionsParams } from './shootMediaActionTypes';
+import { createShootMediaPresentationActions } from './shootMediaPresentationActions';
+import { canUseMediaDownload } from './mediaPresentationPermissions';
 import { createShootMediaRenameActions } from './shootMediaRenameActions';
 export { markMenuOptions } from './shootMediaActionTypes';
 export type { DownloadPopupState, ReclassifyMediaType } from './shootMediaActionTypes';
@@ -65,6 +67,7 @@ export function useShootMediaActions({
   setDragOverTab,
 }: UseShootMediaActionsParams) {
   const { user } = useAuth();
+  const presentationRole = role;
   const {
     downloadingFileIds, beginFileDownload, finishFileDownload,
     beginBatchDownload, finishBatchDownload, clearPopupUrl, keepPopupUrl,
@@ -183,6 +186,10 @@ export function useShootMediaActions({
       return;
     }
 
+    if ([...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && !canUseMediaDownload(file, presentationRole))) {
+      toast({ title: 'Download unavailable', description: 'Unhide selected files before downloading them.', variant: 'destructive' });
+      return;
+    }
     if (isEditorRole) {
       if (displayTab !== 'uploaded') {
         toast({
@@ -366,11 +373,11 @@ export function useShootMediaActions({
       return;
     }
 
-    const currentTabFiles = isEditorRole
+    const currentTabFiles = (isEditorRole
       ? rawFiles
       : displayTab === 'edited'
         ? editedFiles
-        : rawFiles;
+        : rawFiles).filter(file => canUseMediaDownload(file, presentationRole));
     const currentTabFileIds = new Set(currentTabFiles.map((file) => file.id));
     const scoped = getShootUnits(shoot).length > 0;
     const fileIds = shareAll
@@ -626,56 +633,9 @@ export function useShootMediaActions({
     }
   };
 
-  const toggleFileHidden = async (fileId: string, hidden: boolean) => {
-    const applyHiddenState = (files: MediaFile[]) =>
-      files.map((file) => (file.id === fileId ? { ...file, is_hidden: hidden } : file));
-
-    const previousRawFiles = rawFiles;
-    const previousEditedFiles = editedFiles;
-
-    setRawFiles((prev) => applyHiddenState(prev));
-    setEditedFiles((prev) => applyHiddenState(prev));
-
-    try {
-      const headers = getApiHeaders();
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files/toggle-hidden`, {
-        method: 'PATCH',
-        headers,
-        body: JSON.stringify({
-          file_ids: [parseInt(fileId, 10)],
-          hidden,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Failed to update file visibility' }));
-        throw new Error(errorData.message || 'Failed to update file visibility');
-      }
-
-      const data = await response.json().catch(() => null);
-      toast({
-        title: hidden ? 'File hidden' : 'File unhidden',
-        description:
-          data?.message ||
-          (hidden
-            ? 'The file is now hidden from tours and portfolio views.'
-            : 'The file is visible again.'),
-      });
-
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
-      queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
-      onShootUpdate();
-    } catch (error: unknown) {
-      setRawFiles(previousRawFiles);
-      setEditedFiles(previousEditedFiles);
-      toast({
-        title: 'Visibility update failed',
-        description: error instanceof Error ? error.message : 'Failed to update file visibility',
-        variant: 'destructive',
-      });
-    }
-  };
+  const { toggleFileHidden, toggleFilesHidden, handleSetHeroImage } = createShootMediaPresentationActions({
+    shoot, role: presentationRole, rawFiles, editedFiles, setRawFiles, setEditedFiles, queryClient, onShootUpdate, toast,
+  });
 
   const updateSingleFile = (fileId: string, updater: (file: MediaFile) => MediaFile) => {
     const apply = (files: MediaFile[]) => files.map((file) => (file.id === fileId ? updater(file) : file));
@@ -770,6 +730,8 @@ export function useShootMediaActions({
   });
 
   const handleDownloadSingleFile = async (fileId: string) => {
+    const file = [...rawFiles, ...editedFiles].find(item => String(item.id) === String(fileId));
+    if (file && !canUseMediaDownload(file, presentationRole)) return;
     if (isEditorRole) {
       const rawFileIds = new Set(rawFiles.map((file) => file.id));
 
@@ -830,7 +792,7 @@ export function useShootMediaActions({
     handleDeleteFiles,
     handleDeleteSingleFile,
     handleReclassify,
-    toggleFileHidden,
+    toggleFileHidden, toggleFilesHidden, handleSetHeroImage,
     handleToggleFavorite,
     handleAddComment,
     handleRenameFilename,

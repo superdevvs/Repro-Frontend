@@ -53,6 +53,8 @@ interface ShootMediaHeaderProps {
   canBatchRename?: boolean;
   batchRenameEnabled?: boolean;
   onOpenBatchRename?: () => void;
+  presentationActions?: ReactNode;
+  canCreateRequest?: boolean;
 }
 
 export function ShootMediaHeader({
@@ -66,6 +68,8 @@ export function ShootMediaHeader({
   handleEditorDownloadRaw, canMarkSelectedFiles, canDownload, isAdmin, handleReclassify,
   markMenuOptions, canDelete, handleDeleteFiles,
   canBatchRename = false, batchRenameEnabled = false, onOpenBatchRename,
+  presentationActions,
+  canCreateRequest = true,
 }: ShootMediaHeaderProps) {
   const isManualSort = sortOrder === 'manual';
   const libraryCount = visibleFileCount ?? (displayTab === 'edited' ? editedFiles.length : rawFiles.length);
@@ -277,8 +281,9 @@ export function ShootMediaHeader({
               </Button>
             )}
             {/* Selection actions */}
-            {(canDownload || canDelete || canBatchRename || canMarkSelectedFiles) && selectedFiles.size > 0 && (
+            {(canDownload || canDelete || canBatchRename || canMarkSelectedFiles || presentationActions) && selectedFiles.size > 0 && (
               <>
+                {presentationActions}
                 {/* Mark selected files - admin only */}
                 {canMarkSelectedFiles && (
                   <DropdownMenu>
@@ -304,7 +309,7 @@ export function ShootMediaHeader({
                 )}
 
                 {/* Show Create Request button for clients when photos are selected */}
-                {isClient && (
+                {isClient && canCreateRequest && (
                   <Button
                     size="sm"
                     className="h-7 text-[11px] px-2 bg-blue-600 hover:bg-blue-700 text-white"
@@ -401,9 +406,10 @@ export function ShootMediaHeader({
       </div>
       
       {/* Selected-file actions - Below tabs on mobile only */}
-      {(canDownload || canDelete || canBatchRename || canMarkSelectedFiles) && selectedFiles.size > 0 && (
+      {(canDownload || canDelete || canBatchRename || canMarkSelectedFiles || presentationActions) && selectedFiles.size > 0 && (
         <div className="mb-1.5 pb-1 border-b flex-shrink-0 sm:hidden">
           <div className="flex items-center justify-end gap-1.5 flex-wrap">
+            {presentationActions}
             {/* Mark selected files - mobile */}
             {canMarkSelectedFiles && (
               <DropdownMenu>
@@ -429,7 +435,7 @@ export function ShootMediaHeader({
             )}
 
             {/* Show Create Request button for clients when photos are selected */}
-            {isClient && (
+            {isClient && canCreateRequest && (
               <Button
                 size="sm"
                 className="h-7 text-[11px] px-2 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white"

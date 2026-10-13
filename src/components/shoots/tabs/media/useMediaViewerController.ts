@@ -1,3 +1,5 @@
+import { canInteractWithMediaFile, canManageMediaVisibility, canSetMediaHero, canUseMediaDownload } from './mediaPresentationPermissions';
+import { setShootMediaHero } from './shootMediaPresentationActions';
 import { useViewerImages } from './useViewerImages';
 import { getImpersonatedUserId } from '@/services/api';
 import { getMediaViewerDetailRows, getSlideshowMotionVariants } from './mediaViewerPresentation';
@@ -67,6 +69,7 @@ export function useMediaViewerController({
   onShootUpdate,
 }: MediaViewerProps) {
   const { role, user } = useAuth();
+  const presentationRole = role;
   const { toast } = useToast();
   const prefersReducedMotion = useReducedMotion();
   const isImageFile = (file: MediaFile): boolean => checkIsImageFile(file);
@@ -93,6 +96,8 @@ export function useMediaViewerController({
   const [localDownloadingIds, setLocalDownloadingIds] = useState<ReadonlySet<string>>(new Set());
   const handleDownloadSingle = useCallback(async (fileId: string) => {
     const normalizedFileId = String(fileId);
+    const file = files.find(item => String(item.id) === normalizedFileId);
+    if (file && !canUseMediaDownload(file, presentationRole)) return;
     if (!onDownloadSingle || activeDownloads.current.has(normalizedFileId) || downloadingFileIds?.has(normalizedFileId)) return;
     activeDownloads.current.add(normalizedFileId);
     setLocalDownloadingIds(new Set(activeDownloads.current));
@@ -102,7 +107,7 @@ export function useMediaViewerController({
       activeDownloads.current.delete(normalizedFileId);
       setLocalDownloadingIds(new Set(activeDownloads.current));
     }
-  }, [downloadingFileIds, onDownloadSingle]);
+  }, [downloadingFileIds, onDownloadSingle, files, presentationRole]);
   const activeDownloadingFileIds = new Set([...localDownloadingIds, ...(downloadingFileIds ?? [])]);
   const [commentDraft, setCommentDraft] = useState('');
   const [showRenameComposer, setShowRenameComposer] = useState(false);
@@ -461,15 +466,9 @@ export function useMediaViewerController({
       return;
     }
     try {
-      const headers = getApiHeaders();
-      const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/media/${currentFile.id}/cover`, {
-        method: 'POST',
-        headers,
-      });
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-        throw new Error(errorData.message || `HTTP ${response.status}`);
-      }
+      if (!await setShootMediaHero(shoot.id, currentFile, presentationRole)) return;
+      triggerShootDetailRefresh(shoot.id);
+      triggerDashboardOverviewRefresh();
       toast({ title: 'Hero Image', description: 'Hero image updated successfully' });
       onShootUpdate?.();
     } catch (error) {
@@ -723,19 +722,11 @@ export function useMediaViewerController({
           height: `${zoom * 100}%`,
         }
       : undefined;
-  const canRequestModification = Boolean(shoot) && isImg && (isAdmin || isClient);
-  const canSetHero =
-    Boolean(shoot) &&
-    isImg &&
-    !isVid &&
-    (isAdmin ||
-      (isClient &&
-        !currentFile.is_hidden &&
-        !currentFile.isExtra &&
-        mediaType !== 'raw' &&
-        mediaType !== 'extra' &&
-        mediaType !== 'floorplan' &&
-        ['completed', 'verified'].includes((currentFile.workflowStage || '').toLowerCase())));
+  const canRequestModification = Boolean(shoot) && isImg && (isAdmin || isClient) && canInteractWithMediaFile(currentFile, presentationRole);
+  const canSetHero = Boolean(shoot) && canSetMediaHero(currentFile, presentationRole);
+  const effectiveToggleHidden = canManageMediaVisibility(currentFile, presentationRole) ? onToggleHidden : undefined;
+  const effectiveDownload = canUseMediaDownload(currentFile, presentationRole);
+  const canInteractCurrentFile = canInteractWithMediaFile(currentFile, presentationRole);
   // Same gate as grid Mark menu (passed from tab); images only — videos stay unmarked here.
   const canMarkAs = Boolean(canReclassify && onReclassify && shoot && isImg && !isVid);
   const viewerMarkMenuOptions = markMenuOptions;
@@ -753,7 +744,7 @@ export function useMediaViewerController({
     canSetHero ||
     canMarkAs ||
     (canDownloadSingleMedia && Boolean(onDownloadSingle)) ||
-    Boolean(onToggleHidden) ||
+    Boolean(effectiveToggleHidden) ||
     canShowRenameFilename ||
     canDeleteCurrentFile ||
     canRequestModification ||
@@ -773,8 +764,8 @@ export function useMediaViewerController({
     isClient,
     canViewFullSize,
     canStartSlideshow,
-    canInteractSingleMedia,
-    canDownloadSingleMedia,
+    canInteractSingleMedia: canInteractSingleMedia && canInteractCurrentFile,
+    canDownloadSingleMedia: canDownloadSingleMedia && effectiveDownload,
     canRenameFilename,
     canShowRenameFilename,
     canDeleteCurrentFile,
@@ -783,10 +774,10 @@ export function useMediaViewerController({
     renameApiEnabled,
     slideshowFiles,
     onViewerContextChange,
-    onToggleFavorite,
-    onAddComment,
-    onToggleHidden,
-    onDownloadSingle,
+    onToggleFavorite: canInteractCurrentFile ? onToggleFavorite : undefined,
+    onAddComment: canInteractCurrentFile ? onAddComment : undefined,
+    onToggleHidden: effectiveToggleHidden,
+    onDownloadSingle: effectiveDownload ? onDownloadSingle : undefined,
     onRenameFilename,
     onDeleteFile,
     downloadingFileIds: activeDownloadingFileIds,

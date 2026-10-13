@@ -14,11 +14,15 @@ import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, 
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import type { ShootDetailsMediaTabViewProps } from './shootDetailsMediaTabViewTypes';
 import { ShootMediaHeader } from './ShootMediaHeader';
+import { MediaPresentationSelectionActions } from './MediaPresentationSelectionActions';
+import { canInteractWithMediaFile, canManageMediaVisibility, canReorderMediaFile, canUseMediaDownload } from './mediaPresentationPermissions';
 import { canShowIguideMedia } from './iguideMediaVisibility';
 import './shootDetailsMediaWorkspace.css';
 
 export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
   const {
+    role,
+    presentationRole = role,
     downloadPopup,
     handleManualDownload,
     closeDownloadPopup,
@@ -112,6 +116,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     isExpanded,
     onToggleExpand,
     toggleFileHidden,
+    toggleFilesHidden, onSetHero,
   } = props;
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const canMarkSelectedFiles = !isClient && (!isEditor || displayTab === 'edited');
@@ -305,7 +310,9 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
         handleGenerateShareLink={handleGenerateShareLink}
         handleEditorDownloadRaw={handleEditorDownloadRaw}
         canMarkSelectedFiles={canMarkSelectedFiles}
-        canDownload={canDownload}
+        canDownload={canDownload && ![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && !canUseMediaDownload(file, presentationRole))}
+        presentationActions={<MediaPresentationSelectionActions files={displayTab === 'edited' ? editedFiles : rawFiles} selectedFiles={selectedFiles} role={presentationRole} onToggleHidden={toggleFilesHidden} onSetHero={onSetHero} />}
+        canCreateRequest={![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && !canInteractWithMediaFile(file, presentationRole))}
         isAdmin={isAdmin}
         handleReclassify={handleReclassify}
         markMenuOptions={markMenuOptions}
@@ -589,7 +596,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                                     return next;
                                   });
                                 }}
-                                canSelect={canDownload}
+                                canSelect={canDownload || paneFiles.some(file => canManageMediaVisibility(file, presentationRole))}
                                 sortOrder={sortOrder}
                                 manualSortActive={isDragMode}
                                 manualOrder={manualOrder}
@@ -601,6 +608,8 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                                 viewMode={mediaViewMode}
                                 isClient={isClient}
                                 toggleFileHidden={toggleFileHidden}
+                                canManageVisibility={file => canManageMediaVisibility(file, presentationRole)}
+                                canReorderFile={file => canReorderMediaFile(file, presentationRole)}
                               />
                             )}
                           />
@@ -840,7 +849,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                                     return next;
                                   });
                                 }}
-                                canSelect={canDownload}
+                                canSelect={canDownload || paneFiles.some(file => canManageMediaVisibility(file, presentationRole))}
                                 sortOrder={sortOrder}
                                 manualSortActive={isDragMode}
                                 manualOrder={manualOrder}
@@ -852,6 +861,8 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                                 viewMode={mediaViewMode}
                                 isClient={isClient}
                                 toggleFileHidden={toggleFileHidden}
+                                canManageVisibility={file => canManageMediaVisibility(file, presentationRole)}
+                                canReorderFile={file => canReorderMediaFile(file, presentationRole)}
                               />
                             )}
                           />

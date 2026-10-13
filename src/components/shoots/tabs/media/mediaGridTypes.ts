@@ -11,6 +11,7 @@ export interface MediaGridProps {
   onSelectAll?: () => void;
   canSelect: boolean;
   canSelectFile?: (file: MediaFile) => boolean;
+  canReorderFile?: (file: MediaFile) => boolean;
   sortOrder?: MediaSortOrder;
   /** Whether tiles accept drags. Manual order still applies when false. */
   manualSortActive?: boolean;
@@ -23,8 +24,12 @@ export interface MediaGridProps {
   viewMode?: 'list' | 'grid';
   isClient?: boolean;
   toggleFileHidden?: (fileId: string, hidden: boolean) => void;
+  canManageVisibility?: (file: MediaFile) => boolean;
+  canSetHero?: (file: MediaFile) => boolean;
+  onSetHero?: (fileId: string) => void;
   separateExtras?: boolean;
   canInteractSingleMedia?: boolean;
+  canInteractWithFile?: (file: MediaFile) => boolean;
   canDownloadSingleMedia?: boolean | ((file: MediaFile) => boolean);
   onToggleFavorite?: (fileId: string) => void;
   onAddComment?: (fileId: string, comment: string) => void;
