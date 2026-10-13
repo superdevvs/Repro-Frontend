@@ -23,12 +23,13 @@ export interface AssignableService {
 }
 
 export function serviceRequiresPhotographer(
-  service?: Pick<AssignableService, 'photographer_required'> & { category?: unknown; name?: string } | null,
+  service?: Pick<AssignableService, 'photographer_required'> & { category?: unknown; name?: unknown } | null,
 ): boolean {
   const category = typeof service?.category === 'string' ? service.category
     : service?.category && typeof service.category === 'object' && 'name' in service.category ? String(service.category.name) : '';
   if (category.trim().toLowerCase().replace(/s$/, '') === 'digital enhancement') return false;
-  if (/^virtual staging(?:\s*\(per image\))?$/i.test(service?.name?.trim() ?? '')) return false;
+  const name = typeof service?.name === 'string' ? service.name.trim() : '';
+  if (/^virtual staging(?:\s*\(per image\))?$/i.test(name)) return false;
   // Explicit false is the only opt-out. Missing values keep the historical
   // photographer workflow so cached drafts and older payloads stay safe.
   return service?.photographer_required !== false;
@@ -36,9 +37,9 @@ export function serviceRequiresPhotographer(
 
 /** Travel payouts may have an assignee without creating another on-site visit. */
 export function serviceAllowsPhotographerAssignment(
-  service: Pick<AssignableService, 'photographer_required'> & { category?: unknown; name?: string },
+  service?: Pick<AssignableService, 'photographer_required'> & { name?: unknown; category?: unknown } | null,
 ): boolean {
-  const name = String(service.name ?? '').toLowerCase();
+  const name = typeof service?.name === 'string' ? service.name.toLowerCase() : '';
   return serviceRequiresPhotographer(service)
     || name.includes('travel fee');
 }

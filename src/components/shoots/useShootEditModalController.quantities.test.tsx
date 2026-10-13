@@ -16,7 +16,10 @@ vi.mock('@/features/shoot-units/useUnitScopedEdit', () => ({
   useUnitEditDirtyTracking: () => false,
 }));
 vi.mock('axios', () => ({ default: { get: vi.fn() } }));
-vi.mock('@/services/shootAssignees', () => ({ loadShootAssignees: vi.fn().mockResolvedValue([]), assigneesForRole: () => [] }));
+vi.mock('@/services/shootAssignees', () => ({
+  loadShootAssignees: vi.fn().mockResolvedValue([{ id: '9', name: 'Photo Editor', role: 'editor', email: '' }]),
+  assigneesForRole: vi.fn((users: Array<{ role: string }>, role: string) => users.filter(user => user.role === role)),
+}));
 vi.mock('./shootEditModalTypes', async (importOriginal) => ({
   ...await importOriginal<typeof import('./shootEditModalTypes')>(),
   loadPhotographerOptions: vi.fn().mockResolvedValue([]),
@@ -29,7 +32,7 @@ beforeEach(() => {
   ] } });
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: {
     id: 42, address: '42 Service Lane', scheduled_at: '2026-10-01T10:00:00Z', timezone: 'UTC',
-    service_items: [{ service_id: 10, name: 'Photos', price: 90, quantity: 2 }, { service_id: 11, name: 'Floorplan', price: 50, quantity: 3 }],
+    service_items: [{ service_id: 10, name: 'Photos', price: 90, quantity: 2, editor_id: 8, editor: { id: 8, name: 'Existing Editor' } }, { service_id: 11, name: 'Floorplan', price: 50, quantity: 3 }],
   } }) }));
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
@@ -43,18 +46,24 @@ describe('shoot approval and modify service quantities', () => {
     expect(result.current.selectedServiceSelectionOptions[0].price).toBe(90);
     expect(result.current.selectedServiceSelectionOptions[1].allow_multiple).toBe(false);
     expect(result.current.selectedServicesPricing.servicesTotal).toBe(330);
+    expect(result.current.serviceEditorIds['10']).toBe('8');
     act(() => result.current.handleSelectedServicesChange(result.current.selectedServiceSelectionOptions.map(service => (
       service.id === '10' ? { ...service, quantity: 4 } : service
     ))));
     expect(result.current.selectedServicesPricing.servicesTotal).toBe(510);
+    act(() => result.current.updateServiceEditor('10', '9'));
     const payload = result.current.buildApprovalPayload();
     expect(payload?.service_items).toEqual([
-      expect.objectContaining({ service_id: 10, quantity: 4 }),
+      expect.objectContaining({ service_id: 10, quantity: 4, editor_id: 9, photographer_id: null }),
       expect.objectContaining({ service_id: 11, quantity: 3 }),
     ]);
     expect(payload?.services).toEqual([
       expect.objectContaining({ id: 10, quantity: 4 }),
       expect.objectContaining({ id: 11, quantity: 3 }),
     ]);
+    expect((payload?.service_items as Record<string, unknown>[])[1]).not.toHaveProperty('editor_id');
+    act(() => result.current.updateServiceEditor('10', ''));
+    expect((result.current.buildApprovalPayload()?.service_items as Record<string, unknown>[])[0])
+      .toMatchObject({ service_id: 10, quantity: 4, editor_id: null });
   });
 });

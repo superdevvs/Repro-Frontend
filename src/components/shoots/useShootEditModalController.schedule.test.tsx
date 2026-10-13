@@ -14,7 +14,10 @@ vi.mock('@/features/shoot-units/useUnitScopedEdit', () => ({
   useUnitEditDirtyTracking: () => false,
 }));
 vi.mock('axios', () => ({ default: { get: vi.fn() } }));
-vi.mock('@/services/shootAssignees', () => ({ loadShootAssignees: vi.fn().mockResolvedValue([]), assigneesForRole: () => [] }));
+vi.mock('@/services/shootAssignees', () => ({
+  loadShootAssignees: vi.fn().mockResolvedValue([{ id: '9', name: 'Photo Editor', role: 'editor', email: '' }]),
+  assigneesForRole: vi.fn((users: Array<{ role: string }>, role: string) => users.filter(user => user.role === role)),
+}));
 vi.mock('./shootEditModalTypes', async (importOriginal) => ({
   ...await importOriginal<typeof import('./shootEditModalTypes')>(),
   loadPhotographerOptions: vi.fn().mockResolvedValue([]),
@@ -94,18 +97,20 @@ describe('editing the main shoot appointment', () => {
   it('preserves booked30, edits duration independently, and sends it through both update aliases', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: {
       id: 42, address: '42 Service Lane', scheduled_at: '2026-10-06T10:30:00',
-      service_items: [{ service_id: 10, name: 'Photos', scheduled_at: '2026-10-06T10:30:00', duration_minutes: 30 },
+      service_items: [{ service_id: 10, name: 'Photos', scheduled_at: '2026-10-06T10:30:00', duration_minutes: 30, editor_id: 8, quantity: 2 },
         { service_id: 11, name: 'Floorplan', scheduled_at: '2026-10-06T10:30:00', duration_minutes: 85 }],
     } }) }));
     const { result } = renderHook(() => useShootEditModalController({ isOpen: true, onClose: vi.fn(), shootId: '42' }));
     await waitFor(() => expect(result.current.selectedServiceIds.size).toBe(2));
     expect(result.current.serviceSchedules['10'].duration_minutes).toBe(30);
+    expect(result.current.serviceEditorIds['10']).toBe('8');
+    act(() => result.current.updateServiceEditor('10', '9'));
     act(() => result.current.updateServiceSchedule('11', 'duration_minutes', 120));
     act(() => result.current.setScheduledTime('12:00'));
     act(() => result.current.applyServiceScheduleToAll('10'));
     const payload = result.current.buildApprovalPayload();
     expect(payload?.service_items).toEqual(expect.arrayContaining([
-      expect.objectContaining({ service_id: 10, duration_minutes: 30, scheduled_at: '2026-10-06T12:00:00' }),
+      expect.objectContaining({ service_id: 10, duration_minutes: 30, scheduled_at: '2026-10-06T12:00:00', quantity: 2, editor_id: 9 }),
       expect.objectContaining({ service_id: 11, duration_minutes: 120, scheduled_at: '2026-10-06T12:00:00' }),
     ]));
     expect(payload?.services).toEqual(expect.arrayContaining([expect.objectContaining({ id: 11, duration_minutes: 120 })]));

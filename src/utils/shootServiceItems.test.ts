@@ -6,6 +6,24 @@ import {
 } from './shootServiceItems';
 
 describe('invoice adjustment order rows', () => {
+  it('normalizes nameless legacy service and invoice rows without losing their assigned photographer or totals', () => {
+    const items = getShootServiceItems({ serviceItems: [
+      { service_id: 10, price: 100, quantity: 2, photographer: { id: '7', name: 'Legacy Photographer' } },
+      { id: 'invoice-adjustment-42', is_invoice_adjustment: true, price: 25, quantity: 1 },
+    ] });
+    expect(items[0]).toMatchObject({ name: 'Service', photographerName: 'Legacy Photographer', subtotal: 200 });
+    expect(items[1]).toMatchObject({ name: 'Service', isInvoiceAdjustment: true, subtotal: 25, balanceDue: 0 });
+  });
+  it.each([undefined, null, 42, { oldLabel: 'Legacy' }])('tolerates a legacy name %j while respecting the no-photographer flag', name => {
+    const [optional, digital, legacy] = getShootServiceItems({ serviceItems: [
+      { service_id: 10, name, photographer_required: false, photographer: { id: '7', name: 'Legacy Photographer' } },
+      { service_id: 51, name, category: { name: 'Digital Enhancements' }, photographer_required: true, photographer: { id: '7', name: 'Legacy Photographer' } },
+      { service_id: 11, name, photographer_required: true, photographer: { id: '7', name: 'Legacy Photographer' } },
+    ] });
+    expect(optional.photographerName).toBeNull();
+    expect(digital.photographerName).toBeNull();
+    expect(legacy.photographerName).toBe('Legacy Photographer');
+  });
   it('keeps the row visible but excludes it from service-level payment allocation', () => {
     const [adjustment] = getShootServiceItems({
       serviceItems: [{
