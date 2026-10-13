@@ -90,6 +90,16 @@ test('client never requests or sees staff summaries or counts', async ({ page, b
   expect(state.summaryRequests()).toBe(0);
 });
 
+test('reduced motion keeps completion visible and dismisses without moving the photos', async ({ page, baseURL }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await fixture(page, baseURL, 'admin');
+  await expect(page.getByTestId('upload-completion-summary')).toHaveCount(1);
+  expect(await page.locator('.upload-complete-photos').evaluate(element => getComputedStyle(element).animationName)).toBe('none');
+  await page.getByRole('button', { name: 'Dismiss upload summary', exact: true }).click();
+  await expect(page.getByTestId('upload-completion-summary')).toHaveCount(0);
+  await expect(page.getByTestId('shoot-media-counts').first()).toContainText('8 / 125');
+});
+
 test('empty shoot → first upload → second upload keeps photos and separate summaries', async ({ page, baseURL }) => {
   await page.setViewportSize({ width: 1512, height: 1050 });
   const state = await fixture(page, baseURL, 'photographer', 0);
