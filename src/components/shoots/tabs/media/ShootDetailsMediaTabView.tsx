@@ -17,6 +17,7 @@ import { ShootMediaHeader } from './ShootMediaHeader';
 import { canShowIguideMedia } from './iguideMediaVisibility';
 import { canSeeUploadSummaries } from './shootMediaRequirements';
 import { ShootMediaCountLine } from './ShootMediaCountLine';
+import './shootDetailsMediaWorkspace.css';
 
 export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
   const {
@@ -198,7 +199,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     )
   );
   const renderClientEditedCategoryTabs = () => (
-    <div className="flex-1 min-w-0 overflow-x-auto">
+    <div className="shoot-media-client-categories flex-1 min-w-0 overflow-x-auto">
       <div className="flex items-center gap-1.5 min-w-max">
         {clientEditedMediaTabs.map((tab) => (
           <button
@@ -219,7 +220,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
   );
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background px-1 sm:px-0" style={{ height: '100%', minHeight: '100%' }}>
+    <div className="shoot-media-workspace flex flex-col h-full min-h-0 bg-background px-1 sm:px-0" style={{ height: '100%', minHeight: '100%' }}>
       {/* Download progress popup */}
       {downloadPopup.visible && (
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center pointer-events-none">
@@ -273,6 +274,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
       )}
       <ShootMediaHeader
         shootId={shoot.id}
+        visibleFileCount={displayTab === 'uploaded' ? rawUploadsCount : editedFiles.length}
         isClient={isClient}
         rawFiles={rawFiles}
         editedFiles={editedFiles}
@@ -452,7 +454,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                   </div>
                 )}
                 {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
-                <div className="sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
+                <div className="shoot-media-categories sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 overflow-x-auto">
                       {!isVideoOnlyEditor && (
@@ -533,7 +535,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                 </div>
                 
                 {/* Sub-tab content */}
-                <div style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
+                <div className="shoot-media-pane" style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
                   {uploadedMediaTab === 'photos' &&
                     renderMediaGridPane(
                       uploadedPhotos,
@@ -704,7 +706,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                   </div>
                 )}
                 {!isClient && (
-                  <div className="sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
+                  <div className="shoot-media-categories sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 overflow-x-auto">
                         {!isVideoOnlyEditor && (
@@ -786,7 +788,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                 )}
                 
                 {/* Sub-tab content */}
-                <div style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
+                <div className="shoot-media-pane" style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
                   {editedMediaTab === 'photos' &&
                     renderMediaGridPane(
                       editedPhotos,

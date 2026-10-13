@@ -9,7 +9,6 @@ import { ArrowLeft, Building, Calendar, Camera, CheckCircle, ChevronRight, Clock
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { toast } from '@/components/ui/use-toast';
@@ -27,6 +26,8 @@ import { useShootDetailsScreen } from '@/components/shoots/modal/useShootDetails
 import { getShootDetailsPaymentBadge, getShootDetailsServiceNames, getShootDetailsWorkflowBadge } from '@/components/shoots/details/shootDetailsPresentation';
 import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess';
 import { ShootDetailsPageHeader } from '@/components/shoots/details/ShootDetailsPageHeader';
+import { useShootPageOverview } from '@/components/shoots/details/useShootPageOverview';
+import './shootDetailsWorkspace.css';
 import { ShootUnitScopeProvider } from '@/features/shoot-units/ShootUnitScope';
 import { ShootDetailsPanelUnitChrome } from '@/features/shoot-units/ShootDetailsPanelUnitChrome';
 import { ShootDetailsPageDialogs } from '@/components/shoots/details/ShootDetailsPageDialogs';
@@ -34,7 +35,6 @@ import { useShootDetailsModalActions } from '@/components/shoots/modal/useShootD
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
-import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import { buildShootPath, shootPathNeedsCanonicalising } from '@/utils/shootPath';
 
 // Import tab components
@@ -75,8 +75,6 @@ const ShootDetails: React.FC = () => {
   const [isHoldApprovalDialogOpen, setIsHoldApprovalDialogOpen] = useState(false);
   const [holdProcessing, setHoldProcessing] = useState(false);
   const [isRescheduleDialogOpen, setIsRescheduleDialogOpen] = useState(false);
-  const [isOverviewModalOpen, setIsOverviewModalOpen] = useState(false);
-  const [autoOpenedOverviewShootId, setAutoOpenedOverviewShootId] = useState<string | number | null>(null);
   const [activeMediaDisplayTab, setActiveMediaDisplayTab] = useState<'uploaded' | 'edited'>('uploaded');
   const {
     shoot,
@@ -118,6 +116,7 @@ const ShootDetails: React.FC = () => {
     editorUser: user,
   });
   usePageLoading(loading);
+  const { isOverviewModalOpen, openOverviewModal, closeOverviewModal } = useShootPageOverview(shoot?.id);
   const holdNotifications = useHoldNotifications(shoot, isOnHoldDialogOpen || isHoldApprovalDialogOpen);
 
   const normalizedRole = role.toLowerCase();
@@ -134,16 +133,6 @@ const ShootDetails: React.FC = () => {
   const clientReleaseAccess = useMemo(
     () => getShootClientReleaseAccess(shoot, isClient),
     [isClient, shoot],
-  );
-  const visibleClient = useMemo(
-    () =>
-      getVisibleClientContact({
-        client: shoot?.client,
-        role,
-        shoot,
-        shouldHideClientDetails: isEditor,
-      }),
-    [isEditor, role, shoot],
   );
   const {
     isDownloadDialogOpen,
@@ -207,21 +196,6 @@ const ShootDetails: React.FC = () => {
   useEffect(() => {
     setActiveMediaDisplayTab(isClient ? 'edited' : 'uploaded');
   }, [isClient, id]);
-  const openOverviewModal = useCallback(() => {
-    if (shoot?.id) {
-      setAutoOpenedOverviewShootId(shoot.id);
-    }
-    setIsOverviewModalOpen(true);
-  }, [shoot?.id]);
-  useEffect(() => {
-    if (!shoot?.id || autoOpenedOverviewShootId === shoot.id) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      openOverviewModal();
-    }, 2000);
-    return () => window.clearTimeout(timer);
-  }, [autoOpenedOverviewShootId, openOverviewModal, shoot?.id]);
   const handleCreatePaymentLink = async () => {
     if (!shoot) return;
     setCreatingPayment(true);
@@ -650,7 +624,7 @@ const ShootDetails: React.FC = () => {
   return (
     <DashboardLayout className="!p-0">
       <ShootUnitScopeProvider shoot={shoot}>
-      <div className="flex flex-col min-h-screen bg-background">
+      <div className="shoot-details-workspace flex flex-col min-h-full bg-background">
         <ShootDetailsPageHeader
           shoot={shoot}
           workflowBadge={workflowBadge}
@@ -701,94 +675,15 @@ const ShootDetails: React.FC = () => {
           isGeneratingShareLink={isGeneratingShareLink}
         />
 
-          {/* Premium Summary Card */}
-          <div className="px-3 sm:px-6 py-3 sm:py-4">
-            <Card className="border-2 shadow-lg bg-gradient-to-br from-background via-background to-muted/20 hover:shadow-xl transition-shadow">
-              <CardContent className="p-4 sm:p-6">
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0">
-                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 sm:gap-8 flex-1 w-full sm:w-auto">
-                    {/* Service Card */}
-                    <div className="flex items-start gap-3 w-full sm:w-auto">
-                      <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                        <Layers className="h-5 w-5 sm:h-6 sm:w-6 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs text-muted-foreground mb-1.5">Services</p>
-                        {shootServices.length > 0 ? (
-                          <div className="flex flex-wrap gap-1.5">
-                            {shootServices.map((serviceName, index) => (
-                              <Badge key={index} variant="outline" className="text-xs px-2 py-0.5">
-                                {serviceName}
-                              </Badge>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground">No services</p>
-                        )}
-                      </div>
-                    </div>
-                    {visibleClient.canShowName && (
-                      <div className="flex items-start gap-3 w-full sm:w-auto">
-                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 mt-0.5">
-                          <User className="h-5 w-5 sm:h-6 sm:w-6 text-emerald-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs text-muted-foreground mb-1.5">Client</p>
-                          <p className="text-sm font-medium truncate">{visibleClient.name || 'Unknown'}</p>
-                          {visibleClient.phone && (
-                            <p className="text-xs text-muted-foreground truncate">{visibleClient.phone}</p>
-                          )}
-                          {visibleClient.email && (
-                            <p className="text-xs text-muted-foreground truncate">{visibleClient.email}</p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Quick Actions - Stack on mobile (Admin only) */}
-                  {isAdmin && (
-                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
-                      <AddServiceDialog shoot={shoot} onShootUpdate={loadShoot} />
-                      <Button 
-                        variant="outline" 
-                        size="sm" 
-                        className="text-xs w-full sm:w-auto"
-                        onClick={() => setIsRescheduleDialogOpen(true)}
-                      >
-                        Reschedule
-                      </Button>
-                    </div>
-                  )}
-                  {/* Photographer info for editor/photographer - right aligned */}
-                  {isPhotographer && shoot.photographer?.name && (
-                    <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/30">
-                      <div className="h-10 w-10 rounded-full bg-blue-500/10 flex items-center justify-center">
-                        <Camera className="h-5 w-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-muted-foreground">Photographer</p>
-                        <div className="flex items-center gap-1.5">
-                          <p className="font-medium text-sm">{shoot.photographer.name}</p>
-                          <span className="h-2 w-2 rounded-full bg-green-500" />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
           {/* Main Content Area with Tabs and Sidebar */}
-          <div className="flex-1 flex min-h-0">
+          <div className="shoot-workspace-body" data-with-record="true">
             {/* Main Content */}
-            <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="shoot-workspace-main">
               {/* Tab Content */}
               <div className={`flex-1 flex flex-col min-h-0 overflow-hidden ${activeTab === 'media' ? '' : 'h-auto'}`}>
                 <Tabs value={activeTab} onValueChange={handlePageTabChange} className={`flex flex-col min-h-0 ${activeTab === 'media' ? 'flex-1 h-full' : 'h-auto'}`}>
-                  <TabsContent value="media" className="!mt-0 !p-0 bg-background flex-1 flex flex-col min-h-0 overflow-hidden" style={{ display: 'flex', flexDirection: 'column', margin: 0, padding: 0, height: '100%' }}>
-                    <div className="shrink-0 px-4 pt-1 sm:px-6 sm:pt-1.5">
+                  <TabsContent value="media" className="shoot-workspace-media-panel !mt-0 !p-0 bg-background" >
+                    <div className="shoot-workspace-unit-chrome shrink-0">
                       <ShootDetailsPanelUnitChrome shoot={shoot} />
                     </div>
                     <ShootDetailsMediaTab
@@ -890,9 +785,9 @@ const ShootDetails: React.FC = () => {
               </div>
             </div>
 
-            {/* Right Sidebar - Shoot Insights Panel (hidden for photographers and editors) */}
-            {!isPhotographer && !isEditor && (
-            <div className="hidden lg:block flex-shrink-0">
+            {/* The record preserves each role's permitted service/contact details. */}
+            {shoot && (
+            <div className="shoot-workspace-record">
               <ShootDetailsSidebar
                 shoot={shoot}
                 isSuperAdmin={isSuperAdmin}
@@ -902,10 +797,31 @@ const ShootDetails: React.FC = () => {
                 isEditingManager={isEditingManager}
                 onShootUpdate={loadShoot}
                 onMarkPaid={() => setIsMarkPaidDialogOpen(true)}
+                onReschedule={isAdmin ? () => setIsRescheduleDialogOpen(true) : undefined}
+                serviceActions={isAdmin ? <AddServiceDialog shoot={shoot} onShootUpdate={loadShoot} /> : undefined}
               />
             </div>
             )}
           </div>
+          {shoot && (
+            <details className="shoot-workspace-mobile-record">
+              <summary>Shoot record <ChevronRight /></summary>
+              <div className="shoot-workspace-mobile-record-content">
+                <ShootDetailsSidebar
+                  shoot={shoot}
+                  isSuperAdmin={isSuperAdmin}
+                  isAdmin={isAdmin}
+                  isPhotographer={isPhotographer}
+                  isEditor={isEditor}
+                  isEditingManager={isEditingManager}
+                  onShootUpdate={loadShoot}
+                  onMarkPaid={() => setIsMarkPaidDialogOpen(true)}
+                  onReschedule={isAdmin ? () => setIsRescheduleDialogOpen(true) : undefined}
+                  serviceActions={isAdmin ? <AddServiceDialog shoot={shoot} onShootUpdate={loadShoot} /> : undefined}
+                />
+              </div>
+            </details>
+          )}
         </div>
 
       {shoot && (
@@ -956,7 +872,7 @@ const ShootDetails: React.FC = () => {
         <ShootOverviewModal
           shootId={shoot.id}
           isOpen={isOverviewModalOpen}
-          onClose={() => setIsOverviewModalOpen(false)}
+          onClose={closeOverviewModal}
           currentRole={role}
           onShootUpdate={loadShoot}
           initialTab="overview"

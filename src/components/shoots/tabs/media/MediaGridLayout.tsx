@@ -57,13 +57,13 @@ export function MediaGridLayout(props: MediaGridLayoutProps) {
         {isManualSortEnabled ? (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onManualSortEnd}>
             <SortableContext items={visibleRegularIds} strategy={rectSortingStrategy}>
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
+              <div className="shoot-media-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
                 {regularFiles.map(renderSortableFileCard)}
               </div>
             </SortableContext>
           </DndContext>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">{regularStacks.map(renderStackCard)}</div>
+          <div className="shoot-media-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">{regularStacks.map(renderStackCard)}</div>
         )}
         {extraFiles.length > 0 && (
           <>
@@ -72,7 +72,7 @@ export function MediaGridLayout(props: MediaGridLayoutProps) {
               <span className="text-xs font-medium text-orange-600 dark:text-orange-400 px-2">Extras ({extraFiles.length})</span>
               <div className="flex-1 h-px bg-orange-500/30" />
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">{extraFiles.map((file, index) => renderFileCard(file, index, true))}</div>
+            <div className="shoot-media-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">{extraFiles.map((file, index) => renderFileCard(file, index, true))}</div>
           </>
         )}
       </div>
@@ -81,7 +81,7 @@ export function MediaGridLayout(props: MediaGridLayoutProps) {
 
   return (
     <div className="space-y-2">
-      <div className="hidden sm:flex items-center gap-3 px-2 py-1 text-[10px] text-muted-foreground font-medium border-b">
+      <div className="shoot-media-list-header hidden sm:flex items-center gap-3 px-2 py-1 text-[10px] text-muted-foreground font-medium border-b">
         {canSelect && files.length > 0 && <div className="w-4 flex-shrink-0"><SelectAllControl files={files} selectedFiles={selectedFiles} onSelectAll={onSelectAll} /></div>}
         <div className="w-28 flex-shrink-0">Preview</div>
         <div className="flex-1">Filename</div>

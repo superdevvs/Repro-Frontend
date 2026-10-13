@@ -17,8 +17,8 @@ export function ShootMediaEmptyState({ title, description, uploadLabel, onUpload
   const icon = /video/i.test(title) ? 'videos' : /floor|tour|3d/i.test(title) ? 'tours' : 'photos';
   const compact = Boolean(r);
   return <div data-testid={compact ? 'shoot-media-empty-state' : undefined} className={compact
-    ? 'mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-3 py-6 text-center'
-    : 'mx-auto flex max-w-md flex-col items-center justify-center p-6 text-center'}>
+    ? 'shoot-media-empty-state mx-auto flex w-full max-w-2xl flex-1 flex-col items-center justify-center px-3 py-6 text-center'
+    : 'shoot-media-empty-state mx-auto flex max-w-md flex-col items-center justify-center p-6 text-center'}>
     <EmptyStateArtwork icon={icon} className={compact ? 'mb-3 h-12 w-12' : 'mx-auto mb-4 h-24 w-24 sm:h-28 sm:w-28'} />
     <h3 className="mb-2 text-xl font-semibold">{title}</h3>
     <p className={`max-w-lg text-sm text-muted-foreground ${compact ? 'mb-3' : 'mb-6'}`}>{description}</p>

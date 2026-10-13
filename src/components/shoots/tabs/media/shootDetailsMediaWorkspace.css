@@ -1,0 +1,229 @@
+/* The full shoot page shares its media components with the overview modal.
+   Keep this presentation inside the page so modal sizing and scrolling stay intact. */
+.shoot-details-workspace .shoot-media-workspace {
+  min-height: 0 !important;
+  padding-inline: 0;
+  container: shoot-media / inline-size;
+}
+
+.shoot-details-workspace .shoot-media-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  border-bottom: 0;
+  padding: 0 0 12px;
+}
+
+.shoot-details-workspace .shoot-media-heading {
+  display: flex;
+  flex: 1 0 auto;
+}
+
+.shoot-details-workspace .shoot-media-primary-controls {
+  flex-wrap: wrap;
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  gap: 8px;
+}
+
+.shoot-details-workspace .shoot-media-header-tabs {
+  flex: 0 1 auto;
+}
+
+.shoot-details-workspace .shoot-media-legacy-tab {
+  display: none;
+}
+
+.shoot-details-workspace .shoot-media-segments {
+  width: auto;
+  height: 36px;
+  min-width: 0;
+  gap: 2px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--muted) / .35);
+  padding: 3px;
+}
+
+.shoot-details-workspace .shoot-media-segments > button {
+  height: 28px;
+  border: 0;
+  border-radius: 5px;
+  padding-inline: 12px;
+  font-size: 12px;
+}
+
+.shoot-details-workspace .shoot-media-segments > [data-state="active"] {
+  border-bottom: 0;
+  border-radius: 5px;
+  background: hsl(var(--primary) / .13);
+  color: hsl(var(--foreground));
+  box-shadow: none;
+}
+
+.shoot-details-workspace .shoot-media-toolbar {
+  flex-wrap: wrap;
+  min-width: 0;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.shoot-details-workspace .shoot-media-toolbar button {
+  min-height: 32px;
+  font-size: 12px;
+}
+
+.shoot-details-workspace .shoot-media-toolbar button[title="List view"],
+.shoot-details-workspace .shoot-media-toolbar button[title="Grid view"] {
+  width: 32px;
+}
+
+.shoot-details-workspace .shoot-media-categories {
+  border-bottom: 0;
+  padding: 0 0 14px;
+}
+
+.shoot-details-workspace .shoot-media-categories > div > div {
+  max-width: 100%;
+  padding-bottom: 2px;
+}
+
+.shoot-details-workspace .shoot-media-categories button,
+.shoot-details-workspace .shoot-media-client-categories button {
+  border-radius: 6px;
+  padding-inline: 11px;
+  font-size: 12px;
+}
+
+.shoot-details-workspace .shoot-media-categories button.bg-primary,
+.shoot-details-workspace .shoot-media-client-categories button.bg-primary {
+  background: hsl(var(--primary) / .13);
+  color: hsl(var(--primary));
+}
+
+.shoot-details-workspace .shoot-media-categories button.bg-muted,
+.shoot-details-workspace .shoot-media-client-categories button.bg-muted {
+  background: transparent;
+}
+
+.shoot-details-workspace .shoot-media-pane > .relative.h-full {
+  margin-block: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.shoot-details-workspace .shoot-media-pane > .relative.h-full > .overflow-y-auto {
+  padding-inline: 0;
+  padding-top: 0;
+}
+
+.shoot-details-workspace .shoot-media-empty-state {
+  flex: 0 0 auto;
+  min-height: 280px;
+  margin-top: 16px;
+  padding-block: 28px;
+}
+
+/* Use the actual library width, which also accounts for the app and shoot
+   sidebars, to keep the approved three-column desktop photographs spacious. */
+.shoot-details-workspace .shoot-media-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+@container shoot-media (min-width: 700px) {
+  .shoot-details-workspace .shoot-media-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+  }
+}
+
+@container shoot-media (max-width: 699px) {
+  .shoot-details-workspace .shoot-media-list-row {
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 0;
+    padding: 8px;
+  }
+
+  .shoot-details-workspace .shoot-media-list-preview {
+    width: 56px;
+    height: 44px;
+  }
+
+  .shoot-details-workspace .shoot-media-list-filename {
+    min-width: 0;
+    align-self: center;
+  }
+
+  .shoot-details-workspace .shoot-media-list-filename > p:first-child {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    line-height: 1.5;
+  }
+
+  .shoot-details-workspace .shoot-media-list-header,
+  .shoot-details-workspace .shoot-media-list-date,
+  .shoot-details-workspace .shoot-media-list-size {
+    display: none;
+  }
+
+  .shoot-details-workspace .shoot-media-list-mobile-date {
+    display: block;
+    margin-top: 3px;
+    line-height: 1.5;
+  }
+
+  .shoot-details-workspace .shoot-media-list-actions {
+    flex-basis: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 5px;
+  }
+
+  .shoot-details-workspace .shoot-media-list-actions > button {
+    min-width: 32px;
+    min-height: 32px;
+  }
+}
+
+@media (max-width: 639px) {
+  .shoot-details-workspace .shoot-media-header {
+    gap: 10px;
+  }
+
+  .shoot-details-workspace .shoot-media-heading {
+    flex-basis: 100%;
+  }
+
+  .shoot-details-workspace .shoot-media-primary-controls {
+    width: 100%;
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .shoot-details-workspace .shoot-media-header-tabs {
+    flex: 1 1 auto;
+    overflow-x: auto;
+  }
+
+  .shoot-details-workspace .shoot-media-segments {
+    min-width: max-content;
+  }
+
+  .shoot-details-workspace .shoot-media-categories {
+    padding-bottom: 10px;
+  }
+
+  .shoot-details-workspace .shoot-media-empty-state {
+    min-height: 240px;
+    margin-top: 0;
+    padding-inline: 0;
+  }
+}

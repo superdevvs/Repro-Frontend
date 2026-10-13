@@ -2,10 +2,8 @@ import { usePermission } from '@/hooks/usePermission';
 import { loadShootAssignees, assigneesForRole } from '@/services/shootAssignees';
 import React, { lazy, Suspense, useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
   DialogContent,
@@ -16,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { User, Mail, Phone, Building, Camera, DollarSign, CheckCircle, Circle, ChevronRight, FileText, Search, ArrowUpDown, MapPin, Send } from 'lucide-react';
+import { User, Mail, Phone, Camera, Check, CheckCircle, ChevronDown, FileText, Search, ArrowUpDown, MapPin, Send, CalendarClock } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData } from '@/types/shoots';
 import { useToast } from '@/hooks/use-toast';
@@ -29,6 +27,8 @@ import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerA
 import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import { OverviewServiceProgressSection } from './overview/OverviewServiceProgressSection';
 import { ManualNotificationDialog } from '@/components/messaging/ManualNotificationDialog';
+import { getShootServiceItems, isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
+import { getAdoptedShootSchedule } from '@/utils/shootSchedule';
 
 const LazyInvoiceViewDialog = lazy(() =>
   import('@/components/invoices/InvoiceViewDialog').then((module) => ({
@@ -45,6 +45,8 @@ interface ShootDetailsSidebarProps {
   isEditingManager?: boolean;
   onMarkPaid: () => void;
   onShootUpdate?: () => void;
+  onReschedule?: () => void;
+  serviceActions?: React.ReactNode;
 }
 
 export function ShootDetailsSidebar({
@@ -56,6 +58,8 @@ export function ShootDetailsSidebar({
   isEditingManager = false,
   onMarkPaid,
   onShootUpdate,
+  onReschedule,
+  serviceActions,
 }: ShootDetailsSidebarProps) {
   const { can } = usePermission();
   const canMarkPaid = can('payments', 'mark-paid');
@@ -107,12 +111,40 @@ export function ShootDetailsSidebar({
     totalPaid: 0,
   };
   const photographerAssignments = useMemo(
-    () => getShootPhotographerAssignmentGroups(shoot),
+    () => {
+      // Normalized unit bookings retain their canonical rows in serviceItems;
+      // serviceObjects can be empty or omit the per-line unit identity.
+      const canonicalSource = shoot.serviceItems?.length
+        ? shoot.serviceItems
+        : shoot.service_items?.length
+          ? shoot.service_items
+          : shoot.service_lines;
+      const serviceObjects = getShootServiceItems({ ...shoot, serviceItems: canonicalSource })
+        .filter((item) => !item.isInvoiceAdjustment)
+        .map((item) => item.source);
+      return getShootPhotographerAssignmentGroups({ ...shoot, serviceObjects });
+    },
     [shoot],
   );
 
   const remainingBalance = Math.max((payment.totalQuote || 0) - (payment.totalPaid || 0), 0);
   const isPaid = remainingBalance <= 0.01;
+  const canShowBilling = (isAdmin || isSuperAdmin) && !isEditor && !isEditingManager;
+  const canNotify = ((isAdmin || isSuperAdmin) && !isEditor) || isEditingManager;
+  const serviceAssignments = photographerAssignments.assignments.filter(
+    (assignment) => !isInvoiceAdjustmentServiceItem(assignment.raw),
+  );
+  const schedule = getAdoptedShootSchedule(shoot);
+  const scheduleDate = schedule.date ? new Date(`${schedule.date}T12:00:00`) : null;
+  const scheduleTime = schedule.time ? new Date(`2000-01-01T${schedule.time}:00`) : null;
+  const scheduleLabel = [
+    scheduleDate && !Number.isNaN(scheduleDate.getTime())
+      ? scheduleDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+      : '',
+    scheduleTime && !Number.isNaN(scheduleTime.getTime())
+      ? scheduleTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      : '',
+  ].filter(Boolean).join(' · ');
 
   const handleCall = (phone: string) => {
     window.location.href = `tel:${phone}`;
@@ -380,254 +412,243 @@ export function ShootDetailsSidebar({
   };
 
   return (
-    <div className="w-80 border-l bg-muted/20 p-6 space-y-4 overflow-y-auto h-full">
-      {/* Client Info Card */}
+    <aside
+      aria-label="Shoot record"
+      className="overflow-hidden rounded-xl border border-border bg-card"
+    >
+      <div className="flex items-center justify-between gap-3 px-5 pb-1 pt-5">
+        <h2 className="text-sm font-semibold tracking-tight">Shoot record</h2>
+        <span className="text-xs text-muted-foreground">#{shoot.id}</span>
+      </div>
+
       {visibleClient.canShowName && (
-      <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-sm font-semibold flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-              <User className="h-4 w-4 text-primary" />
+        <section aria-label="Client" className="space-y-3 px-5 py-4">
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Client
+          </h3>
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+              {visibleClient.name ? (
+                <span className="text-xs font-semibold">
+                  {visibleClient.name.split(' ').map((name) => name[0]).join('').toUpperCase().slice(0, 2)}
+                </span>
+              ) : (
+                <User className="size-4" />
+              )}
             </div>
-            Client Information
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center border-2 border-primary/20">
-                {visibleClient.name ? (
-                  <span className="text-sm font-bold text-primary">
-                    {visibleClient.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)}
-                  </span>
-                ) : (
-                  <User className="h-5 w-5 text-primary" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-base truncate">{visibleClient.name || 'Unknown'}</p>
-                {visibleClient.canShowEmail && client?.company && (
-                  <p className="text-xs text-muted-foreground truncate">{client.company}</p>
-                )}
-              </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-semibold">{visibleClient.name || 'Unknown'}</p>
+              {visibleClient.canShowEmail && client?.company && (
+                <p className="mt-0.5 truncate text-xs text-muted-foreground">{client.company}</p>
+              )}
             </div>
-            
-            {visibleClient.email && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start text-sm h-9"
-                onClick={() => handleEmail(visibleClient.email!)}
-              >
-                <Mail className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span className="truncate">{visibleClient.email}</span>
-              </Button>
-            )}
-            
-            {visibleClient.phone && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full justify-start text-sm h-9"
-                onClick={() => handleCall(visibleClient.phone!)}
-              >
-                <Phone className="h-4 w-4 mr-2 text-muted-foreground" />
-                <span>{visibleClient.phone}</span>
-              </Button>
-            )}
           </div>
-        </CardContent>
-      </Card>
+          {(visibleClient.email || visibleClient.phone) && (
+            <details className="group">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm py-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+                Contact details
+                <ChevronDown aria-hidden="true" className="size-3.5 transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="space-y-1 pt-2">
+                {visibleClient.email && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto min-h-8 w-full justify-start gap-2 px-0 text-xs"
+                    onClick={() => handleEmail(visibleClient.email!)}
+                  >
+                    <Mail className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span className="break-all text-left">{visibleClient.email}</span>
+                  </Button>
+                )}
+                {visibleClient.phone && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto min-h-8 w-full justify-start gap-2 px-0 text-xs"
+                    onClick={() => handleCall(visibleClient.phone!)}
+                  >
+                    <Phone className="size-3.5 shrink-0 text-muted-foreground" />
+                    <span>{visibleClient.phone}</span>
+                  </Button>
+                )}
+              </div>
+            </details>
+          )}
+        </section>
       )}
 
-      {/* Photographer Card — per-service or single */}
-      {(photographer || photographerAssignments.hasAssignments) && (() => {
-        const catEntries = photographerAssignments.groups;
-        const hasMultiplePhotographers = photographerAssignments.hasMultiplePhotographers;
-        const displayedPhotographer = photographer || catEntries[0]?.photographer;
-        return (
-          <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
-                  <Camera className="h-4 w-4 text-blue-600" />
+      <section aria-label="Services and team" className="space-y-3 border-t border-border px-5 py-4">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Services &amp; team
+          </h3>
+          {isAdmin && (photographer?.id || photographerAssignments.hasAssignments) && (
+            <Button
+              variant="ghost"
+              size="sm"
+              aria-label="Change Photographer"
+              title="Change Photographer"
+              className="h-auto shrink-0 px-0 py-1 text-xs text-primary hover:bg-transparent"
+              onClick={() => setAssignPhotographerOpen(true)}
+            >
+              Manage
+            </Button>
+          )}
+        </div>
+        <div className="space-y-3">
+          {serviceAssignments.length > 0 ? serviceAssignments.map((assignment, index) => {
+            const raw = assignment.raw as Record<string, unknown>;
+            const workflowStatus = String(raw.workflow_status ?? raw.workflowStatus ?? '').toLowerCase();
+            const deliveryStatus = String(raw.delivery_status ?? raw.deliveryStatus ?? '').toLowerCase();
+            const isDelivered = deliveryStatus
+              ? deliveryStatus === 'delivered'
+              : workflowStatus === 'delivered';
+            const embeddedUnit = raw.unit && typeof raw.unit === 'object'
+              ? raw.unit as Record<string, unknown>
+              : undefined;
+            const unitId = raw.shoot_unit_id ?? raw.shootUnitId ?? embeddedUnit?.id;
+            const unitKey = raw.unit_client_key ?? embeddedUnit?.client_key;
+            const shootUnit = shoot.units?.find((unit) => (
+              unitId != null && String(unit.id) === String(unitId)
+            ) || (unitKey != null && unit.client_key === String(unitKey)));
+            const unitLabel = [raw.unit_label, embeddedUnit?.label, shootUnit?.label]
+              .find((label): label is string => typeof label === 'string' && Boolean(label.trim()));
+            return (
+              <div key={`${assignment.serviceId ?? assignment.serviceName}-${index}`} className="flex items-start gap-2.5">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                  <Camera aria-hidden="true" className="size-3.5" />
                 </div>
-                {hasMultiplePhotographers ? 'Photographers' : 'Photographer'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {hasMultiplePhotographers ? (
-                <div className="space-y-2">
-                  {catEntries.map(group => {
-                    const photog = group.photographer || photographer;
-                    return (
-                      <div key={group.key} className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-500/10 flex items-center justify-center border border-blue-500/20 flex-shrink-0">
-                          <Camera className="h-4 w-4 text-blue-600" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm truncate">{photog?.name || 'Not assigned'}</p>
-                          <p className="text-[10px] text-muted-foreground uppercase">{group.name}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold leading-5">{assignment.serviceName}</p>
+                  {unitLabel && <p className="text-[11px] leading-4 text-muted-foreground">{unitLabel}</p>}
+                  <p className="text-[11px] leading-5 text-muted-foreground">
+                    {assignment.photographer?.name || (raw.photographer_required === false ? 'No photographer required' : 'Not assigned')}
+                  </p>
                 </div>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500/20 to-blue-500/10 flex items-center justify-center border-2 border-blue-500/20">
-                    <Camera className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-base truncate">
-                      {displayedPhotographer?.name || 'Not assigned'}
-                    </p>
-                    {displayedPhotographer?.id ? (
-                      <div className="flex items-center gap-1.5 mt-0.5">
-                        <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-                        <span className="text-xs text-muted-foreground">Online</span>
-                      </div>
-                    ) : (
-                      <div className="text-xs text-muted-foreground mt-0.5">No photographer assigned</div>
-                    )}
-                  </div>
+                {isDelivered && (
+                  <span className="mt-2 shrink-0 text-emerald-600 dark:text-emerald-400" title="Delivered">
+                    <Check aria-label="Delivered" className="size-3.5" />
+                  </span>
+                )}
+              </div>
+            );
+          }) : (
+            <>
+              {(shoot.services || []).map((service, index) => (
+                <p key={`${service}-${index}`} className="text-xs font-medium leading-5">{service}</p>
+              ))}
+              {photographer && (
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <Camera aria-hidden="true" className="size-3.5 shrink-0" />
+                  <span>{photographer.name}</span>
                 </div>
               )}
-              
-              {isAdmin && (photographer?.id || photographerAssignments.hasAssignments) && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full text-xs"
-                  onClick={() => setAssignPhotographerOpen(true)}
-                >
-                  Change Photographer
-                  <ChevronRight className="h-3 w-3 ml-1" />
+              {!shoot.services?.length && !photographer && (
+                <p className="text-xs text-muted-foreground">No services assigned</p>
+              )}
+            </>
+          )}
+        </div>
+        {serviceActions && <div className="flex flex-wrap items-center gap-2 pt-1">{serviceActions}</div>}
+        {canShowBilling && (
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm py-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+              Service progress
+              <ChevronDown aria-hidden="true" className="size-3.5 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="pt-2">
+              <OverviewServiceProgressSection shoot={shoot} compact />
+            </div>
+          </details>
+        )}
+      </section>
+
+      {canShowBilling && (
+        <section aria-label="Billing" className="space-y-3 border-t border-border px-5 py-4">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Billing</h3>
+            <span className={cn(
+              'rounded px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider',
+              isPaid
+                ? 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                : 'bg-amber-500/10 text-amber-700 dark:text-amber-400',
+            )}>
+              {isPaid ? 'Paid' : 'Outstanding'}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-end justify-between gap-x-2 gap-y-1">
+            <p className="text-2xl font-semibold tracking-tight tabular-nums">
+              ${payment.totalQuote?.toFixed(2) || '0.00'}
+            </p>
+            <p className="pb-1 text-[11px] text-muted-foreground">
+              {isPaid ? 'Paid in full' : `$${remainingBalance.toFixed(2)} due`}
+            </p>
+          </div>
+          <details className="group">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm py-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+              Billing details
+              <ChevronDown aria-hidden="true" className="size-3.5 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="space-y-3 pt-3">
+              <dl className="space-y-2 text-xs tabular-nums">
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Base</dt><dd>${payment.baseQuote?.toFixed(2) || '0.00'}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Tax</dt><dd>${payment.taxAmount?.toFixed(2) || '0.00'}</dd></div>
+                <Separator />
+                <div className="flex justify-between gap-3 font-semibold"><dt>Total</dt><dd>${payment.totalQuote?.toFixed(2) || '0.00'}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-muted-foreground">Paid</dt><dd className="text-emerald-700 dark:text-emerald-400">${payment.totalPaid?.toFixed(2) || '0.00'}</dd></div>
+                <div className="flex justify-between gap-3 font-semibold"><dt>Outstanding</dt><dd className={isPaid ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'}>${remainingBalance.toFixed(2)}</dd></div>
+              </dl>
+              {canMarkPaid && !isPaid && (
+                <Button variant="default" size="sm" className="h-8 w-full gap-1.5 text-xs" onClick={onMarkPaid}>
+                  <CheckCircle className="size-3.5" />
+                  Mark as Paid
                 </Button>
               )}
-            </CardContent>
-          </Card>
-        );
-      })()}
-
-      {(isAdmin || isSuperAdmin) && !isEditor && !isEditingManager && (
-        <OverviewServiceProgressSection shoot={shoot} compact />
-      )}
-
-      {/* Billing Summary Card - hidden for editor/editing_manager */}
-      {(isAdmin || isSuperAdmin) && !isEditor && !isEditingManager && (
-        <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                <DollarSign className="h-4 w-4 text-emerald-600" />
-              </div>
-              Billing Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Base</span>
-                <span className="font-medium">${payment.baseQuote?.toFixed(2) || '0.00'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-muted-foreground">Tax</span>
-                <span className="font-medium">${payment.taxAmount?.toFixed(2) || '0.00'}</span>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between font-bold text-base">
-                <span>Total</span>
-                <span className="text-foreground">${payment.totalQuote?.toFixed(2) || '0.00'}</span>
-              </div>
-              <div className="flex items-center justify-between text-emerald-600 font-semibold">
-                <span>Paid</span>
-                <span>${payment.totalPaid?.toFixed(2) || '0.00'}</span>
-              </div>
-              <div className={`flex items-center justify-between font-semibold ${
-                remainingBalance > 0 ? 'text-amber-600' : 'text-emerald-600'
-              }`}>
-                <span>Outstanding</span>
-                <span>${remainingBalance.toFixed(2)}</span>
-              </div>
-            </div>
-            
-            {canMarkPaid && (
-              <>
-                <Separator className="my-3" />
-                {!isPaid ? (
-                  <Button
-                    variant="default"
-                    size="sm"
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
-                    onClick={onMarkPaid}
-                  >
-                    <CheckCircle className="h-3 w-3 mr-1.5" />
-                    Mark as Paid
-                  </Button>
-                ) : (
-                  <div className="flex items-center justify-center gap-2 p-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800">
-                    <CheckCircle className="h-4 w-4 text-emerald-600" />
-                    <span className="text-sm font-semibold text-emerald-700 dark:text-emerald-400">Paid</span>
-                  </div>
-                )}
-              </>
-            )}
-            
-            {(isAdmin || isSuperAdmin) && isPaid && (
-              <>
-                <Separator className="my-3" />
-                <Button
-                  variant="default"
-                  size="sm"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-                  onClick={handleShowInvoice}
-                  disabled={isLoadingInvoice}
-                >
-                  {isLoadingInvoice ? (
-                    <Loader2 aria-hidden="true" className="h-3 w-3 mr-1.5" />
-                  ) : (
-                    <FileText className="h-3 w-3 mr-1.5" />
-                  )}
+              {isPaid && (
+                <Button variant="outline" size="sm" className="h-8 w-full gap-1.5 text-xs" onClick={handleShowInvoice} disabled={isLoadingInvoice}>
+                  {isLoadingInvoice ? <Loader2 aria-hidden="true" className="size-3.5" /> : <FileText className="size-3.5" />}
                   {isLoadingInvoice ? 'Loading...' : 'Show Invoice'}
                 </Button>
-              </>
-            )}
-          </CardContent>
-        </Card>
+              )}
+            </div>
+          </details>
+        </section>
       )}
 
-      {/* Manual notification action (Req 12.5-12.8) — admins can send a manual
-          email/SMS notification to the client or photographer for this shoot. */}
-      {((isAdmin || isSuperAdmin) && !isEditor || isEditingManager) && (
-        <Card className="shadow-sm border-2 hover:shadow-md transition-shadow">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <div className="h-8 w-8 rounded-full bg-blue-500/10 flex items-center justify-center">
-                <Send className="h-4 w-4 text-blue-600" />
-              </div>
-              Notifications
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Send a manual email or SMS for this shoot.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => setIsManualNotificationOpen(true)}
-            >
-              <Send className="h-3 w-3 mr-1.5" />
+      {(scheduleLabel || onReschedule) && (
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/30 px-5 py-3">
+          {scheduleLabel && (
+            <div className="flex min-w-0 items-center gap-1.5 text-[10px] text-muted-foreground">
+              <CalendarClock aria-hidden="true" className="size-3.5 shrink-0" />
+              <span>{scheduleLabel}</span>
+            </div>
+          )}
+          {onReschedule && (
+            <Button variant="ghost" size="sm" className="h-auto px-0 py-1 text-xs text-primary hover:bg-transparent" onClick={onReschedule}>
+              Reschedule
+            </Button>
+          )}
+        </div>
+      )}
+
+      {canNotify && (
+        <details className="group border-t border-border px-5 py-3">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-sm py-1 text-xs text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+            Additional actions
+            <ChevronDown aria-hidden="true" className="size-3.5 transition-transform group-open:rotate-180" />
+          </summary>
+          <div className="space-y-2 pt-3">
+            <p className="text-xs leading-5 text-muted-foreground">Send a manual email or SMS for this shoot.</p>
+            <Button type="button" variant="outline" size="sm" className="h-8 w-full gap-1.5 text-xs" onClick={() => setIsManualNotificationOpen(true)}>
+              <Send className="size-3.5" />
               Notify
             </Button>
-          </CardContent>
-        </Card>
+          </div>
+        </details>
       )}
 
-      {((isAdmin || isSuperAdmin) && !isEditor || isEditingManager) && (
+      {canNotify && (
         <ManualNotificationDialog
           shootId={Number(shoot.id)}
           shootLabel={shoot.location?.fullAddress || shoot.location?.address || `#${shoot.id}`}
@@ -635,7 +656,7 @@ export function ShootDetailsSidebar({
           onClose={() => setIsManualNotificationOpen(false)}
         />
       )}
-      
+
       {isInvoiceDialogOpen && selectedInvoice && (
         <Suspense fallback={null}>
           <LazyInvoiceViewDialog
@@ -800,6 +821,6 @@ export function ShootDetailsSidebar({
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </aside>
   );
 }

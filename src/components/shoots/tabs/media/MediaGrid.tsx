@@ -615,7 +615,7 @@ export function MediaGrid({
         onDragLeave={handleDragLeave}
         onDrop={(e) => handleDrop(e, file.id)}
         onDragEnd={handleDragEnd}
-        className={`flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border cursor-pointer transition-all group hover:bg-muted/50 ${
+        className={`shoot-media-list-row flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border cursor-pointer transition-all group hover:bg-muted/50 ${
           file.has_open_request ? 'border-orange-500' : isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
         } ${isExtraSection ? 'opacity-90' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${isManualSortEnabled && !isExtraSection ? 'cursor-grab active:cursor-grabbing' : ''}`}
         onClick={() => {
@@ -647,7 +647,7 @@ export function MediaGrid({
         )}
 
         {/* Thumbnail - wide aspect ratio */}
-        <div className="relative w-24 h-16 sm:w-32 sm:h-20 flex-shrink-0 rounded overflow-hidden border bg-muted/40">
+        <div className="shoot-media-list-preview relative w-24 h-16 sm:w-32 sm:h-20 flex-shrink-0 rounded overflow-hidden border bg-muted/40">
           {hasDisplayableImage ? (
             <img
               src={thumbSrc}
@@ -695,7 +695,7 @@ export function MediaGrid({
         </div>
 
         {/* Filename - takes remaining space */}
-        <div className="flex-1 min-w-0">
+        <div className="shoot-media-list-filename flex-1 min-w-0">
           <p className="text-xs font-medium truncate" title={displayFilename}>
             {displayFilename}
           </p>
@@ -709,7 +709,7 @@ export function MediaGrid({
             </p>
           )}
           {!isClient && (
-            <p className="text-[10px] text-muted-foreground sm:hidden">
+            <p className="shoot-media-list-mobile-date text-[10px] text-muted-foreground sm:hidden">
               {formatMediaDateTime(file.captured_at || file.created_at)}
             </p>
           )}
@@ -718,13 +718,13 @@ export function MediaGrid({
         {!isClient && (
           <>
             {/* Shot Time - fixed width on right */}
-            <div className="hidden sm:block w-36 flex-shrink-0 text-right">
+            <div className="shoot-media-list-date hidden sm:block w-36 flex-shrink-0 text-right">
               <p className="text-[10px] text-muted-foreground">Shot Time</p>
               <p className="text-xs">{formatMediaDateTime(file.captured_at || file.created_at)}</p>
             </div>
 
             {/* Size - fixed width on right */}
-            <div className="hidden sm:block w-20 flex-shrink-0 text-right">
+            <div className="shoot-media-list-size hidden sm:block w-20 flex-shrink-0 text-right">
               <p className="text-[10px] text-muted-foreground">Size</p>
               <p className="text-xs">{formatMediaFileSize(file.fileSize)}</p>
             </div>
@@ -732,7 +732,7 @@ export function MediaGrid({
         )}
 
         {/* Hide/Unhide toggle */}
-        <div className="flex items-center gap-1 flex-shrink-0">
+        <div className="shoot-media-list-actions flex items-center gap-1 flex-shrink-0">
           {canInteractSingleMedia && onToggleFavorite && (
             <button
               className={`h-7 w-7 rounded-full flex items-center justify-center ${file.is_favorite ? 'bg-red-500/15 text-red-500' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
@@ -789,7 +789,7 @@ export function MediaGrid({
       <SortableMediaItem key={file.id} id={file.id}>
         {({ attributes, listeners, isDragging }) => (
           <div
-            className={`flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border transition-all group select-none ${
+            className={`shoot-media-list-row flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border transition-all group select-none ${
               file.has_open_request ? 'border-orange-500' : isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
             } ${isDragging ? 'opacity-60 shadow-lg bg-muted/50' : ''}`}
             onClick={() => onFileClick(actualIndex, sortedFiles)}
@@ -827,7 +827,7 @@ export function MediaGrid({
               <GripVertical className="h-4 w-4" />
             </div>
 
-            <div className="relative w-24 h-16 sm:w-32 sm:h-20 flex-shrink-0 rounded overflow-hidden border bg-muted/40">
+            <div className="shoot-media-list-preview relative w-24 h-16 sm:w-32 sm:h-20 flex-shrink-0 rounded overflow-hidden border bg-muted/40">
               {hasDisplayableImage ? (
                 <img
                   src={thumbSrc}
@@ -861,7 +861,7 @@ export function MediaGrid({
               {file.is_hidden && <HiddenMediaOverlay />}
             </div>
 
-            <div className="flex-1 min-w-0">
+            <div className="shoot-media-list-filename flex-1 min-w-0">
               <p className="text-xs font-medium truncate" title={displayFilename}>
                 {displayFilename}
               </p>
@@ -875,7 +875,7 @@ export function MediaGrid({
                 </p>
               )}
               {!isClient && (
-                <p className="text-[10px] text-muted-foreground sm:hidden">
+                <p className="shoot-media-list-mobile-date text-[10px] text-muted-foreground sm:hidden">
                   {formatMediaDateTime(file.captured_at || file.created_at)}
                 </p>
               )}
@@ -883,18 +883,18 @@ export function MediaGrid({
 
             {!isClient && (
               <>
-                <div className="hidden sm:block w-36 flex-shrink-0 text-right">
+                <div className="shoot-media-list-date hidden sm:block w-36 flex-shrink-0 text-right">
                   <p className="text-[10px] text-muted-foreground">Shot Time</p>
                   <p className="text-xs">{formatMediaDateTime(file.captured_at || file.created_at)}</p>
                 </div>
-                <div className="hidden sm:block w-20 flex-shrink-0 text-right">
+                <div className="shoot-media-list-size hidden sm:block w-20 flex-shrink-0 text-right">
                   <p className="text-[10px] text-muted-foreground">Size</p>
                   <p className="text-xs">{formatMediaFileSize(file.fileSize)}</p>
                 </div>
               </>
             )}
 
-            <div className="flex items-center gap-1 flex-shrink-0">
+            <div className="shoot-media-list-actions flex items-center gap-1 flex-shrink-0">
               {canInteractSingleMedia && onToggleFavorite && (
                 <button
                   className={`h-7 w-7 rounded-full flex items-center justify-center ${file.is_favorite ? 'bg-red-500/15 text-red-500' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}

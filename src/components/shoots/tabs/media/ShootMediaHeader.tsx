@@ -11,6 +11,7 @@ import type { MediaSortOrder } from './mediaSort';
 
 interface ShootMediaHeaderProps {
   shootId?: string | number;
+  visibleFileCount?: number;
   isClient: boolean;
   rawFiles: MediaFile[];
   editedFiles: MediaFile[];
@@ -56,6 +57,7 @@ interface ShootMediaHeaderProps {
 
 export function ShootMediaHeader({
   shootId,
+  visibleFileCount,
   isClient, rawFiles, editedFiles, activeSubTab, displayTab, defaultTab, setActiveSubTab, setDisplayTab,
   isPhotographer, isEditor, renderClientEditedCategoryTabs, renderEditedTab, renderRawUploadsTab,
   isExpanded, onToggleExpand, mediaViewMode, toggleMediaViewMode, sortMenuOpen, setSortMenuOpen,
@@ -66,12 +68,17 @@ export function ShootMediaHeader({
   canBatchRename = false, batchRenameEnabled = false, onOpenBatchRename,
 }: ShootMediaHeaderProps) {
   const isManualSort = sortOrder === 'manual';
+  const libraryCount = visibleFileCount ?? (displayTab === 'edited' ? editedFiles.length : rawFiles.length);
 
   return (
     <>
       {/* Header - Tabs with Upload button inline on desktop, expand/collapse button */}
-      <div className="border-b flex-shrink-0 bg-background pt-1 sm:pt-2">
-        <div className="flex items-center justify-between gap-2">
+      <div className="shoot-media-header border-b flex-shrink-0 bg-background pt-1 sm:pt-2">
+        <div className="shoot-media-heading hidden items-center gap-3">
+          <h2 className="text-lg font-semibold tracking-tight">Media library</h2>
+          <span className="border-l pl-3 text-xs tabular-nums text-muted-foreground">{libraryCount} file{libraryCount === 1 ? '' : 's'}</span>
+        </div>
+        <div className="shoot-media-primary-controls flex items-center justify-between gap-2">
           {isClient ? (
             renderClientEditedCategoryTabs()
           ) : (
@@ -92,12 +99,12 @@ export function ShootMediaHeader({
                 setActiveSubTab('edited');
                 setDisplayTab('edited');
               }
-            }} className="flex-1 min-w-0">
-              <TabsList className="w-full justify-start h-7 sm:h-8 bg-background p-0 min-w-max sm:min-w-0 border-b rounded-none">
+            }} className="shoot-media-header-tabs flex-1 min-w-0">
+              <TabsList className="shoot-media-segments w-full justify-start h-7 sm:h-8 bg-background p-0 min-w-max sm:min-w-0 border-b rounded-none">
                 {/* Media tab - visible to all */}
                 <TabsTrigger 
                   value="media" 
-                      className="hidden text-[11px] sm:inline-flex sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
+                      className="shoot-media-legacy-tab hidden text-[11px] sm:inline-flex sm:text-xs px-2 sm:px-3 py-1 sm:py-1.5 h-7 sm:h-8 data-[state=active]:bg-primary/10 data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground whitespace-nowrap"
                   onClick={() => {
                     // For clients, Media tab shows edited; for others, shows uploaded
                     if (isClient) {
@@ -129,11 +136,13 @@ export function ShootMediaHeader({
           
           {/* List / Grid view toggle - visible on all screen sizes */}
           {(rawFiles.length > 0 || editedFiles.length > 0) && (
-            <div className="flex sm:hidden items-center border rounded-md overflow-hidden flex-shrink-0">
+            <div className="shoot-media-mobile-view flex sm:hidden items-center border rounded-md overflow-hidden flex-shrink-0">
               <button
                 onClick={() => toggleMediaViewMode('list')}
                 className={`h-7 w-7 flex items-center justify-center transition-colors ${mediaViewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
                 title="List view"
+                aria-label="List view"
+                aria-pressed={mediaViewMode === 'list'}
               >
                 <List className="h-3.5 w-3.5" />
               </button>
@@ -141,6 +150,8 @@ export function ShootMediaHeader({
                 onClick={() => toggleMediaViewMode('grid')}
                 className={`h-7 w-7 flex items-center justify-center transition-colors ${mediaViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
                 title="Grid view"
+                aria-label="Grid view"
+                aria-pressed={mediaViewMode === 'grid'}
               >
                 <LayoutGrid className="h-3.5 w-3.5" />
               </button>
@@ -148,7 +159,7 @@ export function ShootMediaHeader({
           )}
 
           {/* Upload and Download buttons - Inline on desktop, below on mobile */}
-          <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
+          <div className="shoot-media-toolbar hidden sm:flex items-center gap-1.5 flex-shrink-0">
             {/* Sort dropdown - hidden for editors */}
             {!isEditor && (rawFiles.length > 0 || editedFiles.length > 0) && (
               <DropdownMenu open={sortMenuOpen} onOpenChange={setSortMenuOpen}>
@@ -207,6 +218,7 @@ export function ShootMediaHeader({
                           ? 'border-white/20 bg-green-600 hover:bg-green-700 text-white'
                           : 'bg-transparent'
                       }`}
+                      aria-label="Choose media sort order"
                     >
                       <ChevronDown className="h-3 w-3" />
                     </Button>
@@ -235,6 +247,8 @@ export function ShootMediaHeader({
                   onClick={() => toggleMediaViewMode('list')}
                   className={`h-7 w-7 flex items-center justify-center transition-colors ${mediaViewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
                   title="List view"
+                  aria-label="List view"
+                  aria-pressed={mediaViewMode === 'list'}
                 >
                   <List className="h-3.5 w-3.5" />
                 </button>
@@ -242,6 +256,8 @@ export function ShootMediaHeader({
                   onClick={() => toggleMediaViewMode('grid')}
                   className={`h-7 w-7 flex items-center justify-center transition-colors ${mediaViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
                   title="Grid view"
+                  aria-label="Grid view"
+                  aria-pressed={mediaViewMode === 'grid'}
                 >
                   <LayoutGrid className="h-3.5 w-3.5" />
                 </button>
