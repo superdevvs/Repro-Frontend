@@ -1,5 +1,5 @@
 import type { StagedMediaDrop } from './stagedMediaDrop';
-import { EmptyStateArtwork } from '@/components/ui/empty-state';
+import { ShootMediaEmptyState } from './ShootMediaEmptyState';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -60,7 +60,7 @@ import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { canShowIguideMedia } from './iguideMediaVisibility';
 import { useShootFileScanStatusRenderer } from './useShootFileScanStatusRenderer';
 import { useUnitMediaScope, useScopedShootFiles } from '@/features/shoot-units/useUnitMediaScope';
-import { getShootMediaRequirements } from './shootMediaRequirements';
+import { canSeeUploadSummaries, getShootMediaRequirements } from './shootMediaRequirements';
 import { ShootUploadSummaries } from './ShootUploadSummaries';
 
 interface ShootDetailsMediaTabProps {
@@ -1117,31 +1117,18 @@ export function useShootDetailsMediaTab({
     emptyDescription: string,
     uploadLabel = 'Upload Files',
     separateExtras = true,
+    showPhotoRequirements = false,
   ) => {
     const summaries = <ShootUploadSummaries shootId={shoot.id} unitId={activeUnitId} role={role} isClient={isClient}
       uploadType={displayTab === 'edited' ? 'edited' : 'raw'} requirements={mediaRequirements}
       onUploadMore={canUploadInDisplayTab ? () => setActiveSubTab('upload') : undefined} />;
     if (files.length === 0) {
       return (
-        <div className="h-full overflow-y-auto p-2.5">
+        <div className="flex h-full min-h-0 flex-col overflow-y-auto p-2.5">
           {summaries}
-          <div className="mx-auto flex flex-col items-center justify-center text-center p-6 max-w-md">
-            <EmptyStateArtwork icon={/video/i.test(emptyTitle) ? 'videos' : /floor|tour|3d/i.test(emptyTitle) ? 'tours' : 'photos'} className="mx-auto mb-4 h-24 w-24 sm:h-28 sm:w-28" />
-            <h3 className="text-xl font-semibold mb-2">{emptyTitle}</h3>
-            <p className="text-sm text-muted-foreground mb-6">{canUploadInDisplayTab ? emptyDescription : 'Media will appear here when it is ready.'}</p>
-            {canUploadInDisplayTab && (
-              <Button
-                type="button"
-                variant="default"
-                size="lg"
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => setActiveSubTab('upload')}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                {uploadLabel}
-              </Button>
-            )}
-          </div>
+          <ShootMediaEmptyState title={emptyTitle} description={canUploadInDisplayTab ? emptyDescription : 'Media will appear here when it is ready.'}
+            uploadLabel={uploadLabel} onUpload={canUploadInDisplayTab ? () => setActiveSubTab('upload') : undefined}
+            requirements={showPhotoRequirements && canSeeUploadSummaries(role, isClient) && (mediaRequirements.services.length > 0 || mediaRequirements.expected > 0) ? mediaRequirements : undefined} />
         </div>
       );
     }

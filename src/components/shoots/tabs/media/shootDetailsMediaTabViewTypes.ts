@@ -105,6 +105,7 @@ export interface ShootDetailsMediaTabViewProps {
     emptyDescription: string,
     uploadLabel?: string,
     separateExtras?: boolean,
+    showPhotoRequirements?: boolean,
   ) => ReactNode;
   /**
    * A render function, deliberately not a `ComponentType`.

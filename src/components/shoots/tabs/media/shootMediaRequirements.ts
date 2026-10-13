@@ -2,6 +2,7 @@ import type { MediaFile } from '@/hooks/useShootFiles';
 import type { ShootData } from '@/types/shoots';
 import { isPreviewableImage } from './mediaPreviewUtils';
 import { isExpectedRawCountExact, resolveExpectedRawCount, resolveUploadServiceExpectedCount, resolveUploadServiceTargets } from './mediaUploadUtils';
+import { UPLOAD_LANE_VIDEO } from './uploadIntakeLanes';
 
 export const canSeeUploadSummaries = (role?: string | null, isClient = false) => !isClient && [
   'admin', 'superadmin', 'editing_manager', 'photographer', 'salesrep', 'rep', 'representative',
@@ -27,14 +28,28 @@ export function getShootMediaRequirements(shoot: ShootData, rawFiles: MediaFile[
   // Older uploads may predate service attribution. Count those sources without
   // letting oversupply on a known service fill another service's requirement.
   const missing = targets.length ? Math.max(0, deficits - photos.filter(file => !file.shoot_service_id).length) : deficits;
+  const services = targets.map(target => {
+    const required = resolveUploadServiceExpectedCount(target);
+    const saved = photos.filter(file => String(file.shoot_service_id ?? '') === target.id).length;
+    return { id: target.id, label: target.label, required, saved, finalCount: target.photoCount,
+      rawPerFinal: target.photoCount && required !== null ? required / target.photoCount : null,
+      missing: required === null ? null : Math.max(0, required - saved) };
+  });
+  const videoServices = resolveUploadServiceTargets(shoot, photographer ?? { role: 'admin' }, 'raw', [UPLOAD_LANE_VIDEO])
+    .map(target => ({ id: target.id, label: target.label }));
   const breakdown = targets.map(target => {
     const needed = resolveUploadServiceExpectedCount(target);
     return `${target.label}: ${needed === null ? 'count not set' : needed + ' source images'}${target.usesHdrBrackets && target.bracketMode ? ` (${target.photoCount} × ${target.bracketMode})` : ''}`;
   }).join(' · ');
-  return { expected, exact, saved: photos.length, missing, finalCount, finalExact, breakdown };
+  return { expected, exact, saved: photos.length, missing, finalCount, finalExact, breakdown,
+    services, videoServices, unassigned: photos.filter(file => !file.shoot_service_id).length };
 }
 
 export type ShootMediaRequirements = ReturnType<typeof getShootMediaRequirements>;
+
+export function formatMediaRequirementCount(value: number, exact: boolean): string {
+  return exact ? String(value) : value > 0 ? `${value}+` : 'Not set';
+}
 
 export function uploadedAgo(completedAt: string, now = Date.now()): string {
   const elapsed = Math.max(0, now - Date.parse(completedAt));

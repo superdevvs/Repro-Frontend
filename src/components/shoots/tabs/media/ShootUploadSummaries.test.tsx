@@ -7,7 +7,7 @@ import { ShootUploadSummaries } from './ShootUploadSummaries';
 const mocks = vi.hoisted(() => ({ role: 'admin', uploads: [] }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: '5', role: mocks.role } }) }));
 vi.mock('@/context/UploadContext', () => ({ useUpload: () => ({ uploads: mocks.uploads }) }));
-const requirements = { expected: 125, exact: true, saved: 8, missing: 117, finalCount: 25, finalExact: true, breakdown: 'HDR Photos: 125 (25 × 5)' };
+const requirements = { expected: 125, exact: true, saved: 8, missing: 117, finalCount: 25, finalExact: true, breakdown: 'HDR Photos: 125 (25 × 5)', services: [], videoServices: [], unassigned: 0 };
 const summary = (id: string) => ({ id, uploadType: 'raw', fileCount: 8, totalBytes: 10000, completedAt: new Date(Date.now() - 1000).toISOString() });
 beforeEach(() => { localStorage.clear(); mocks.role = 'admin'; vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ data: [summary('first')] }) }))); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });

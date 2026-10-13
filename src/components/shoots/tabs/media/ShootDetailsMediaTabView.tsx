@@ -528,7 +528,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                         </button>
                       )}
                     </div>
-                    {canSeeUploadSummaries(props.role, isClient) && props.mediaRequirements && <ShootMediaCountLine requirements={props.mediaRequirements} compact />}
+                    {uploadedPhotos.length > 0 && canSeeUploadSummaries(props.role, isClient) && props.mediaRequirements && <ShootMediaCountLine requirements={props.mediaRequirements} compact />}
                   </div>
                 </div>
                 
@@ -538,7 +538,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                     renderMediaGridPane(
                       uploadedPhotos,
                       'No uploaded files yet',
-                      `${shootHasVideoService ? 'Upload property photos and videos to get started.' : 'Upload property photos to get started.'} Our AI will automatically analyze assets for quality and categorization.`,
+                      `${shootHasVideoService ? 'Upload property photos and videos to get started.' : 'Upload property photos to get started.'} Our AI will automatically analyze assets for quality and categorization.`, 'Upload Files', true, true,
                     )}
                   
                   {uploadedMediaTab === 'videos' &&
@@ -780,7 +780,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                           </button>
                         )}
                       </div>
-                      {canSeeUploadSummaries(props.role, isClient) && props.mediaRequirements && <ShootMediaCountLine requirements={props.mediaRequirements} compact />}
+                      {editedPhotos.length > 0 && canSeeUploadSummaries(props.role, isClient) && props.mediaRequirements && <ShootMediaCountLine requirements={props.mediaRequirements} compact />}
                     </div>
                   </div>
                 )}
@@ -791,7 +791,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                     renderMediaGridPane(
                       editedPhotos,
                       'No edited files yet',
-                      'Upload edited photos and videos to get started. Our AI will automatically analyze assets for quality and categorization.',
+                      'Upload edited photos and videos to get started. Our AI will automatically analyze assets for quality and categorization.', 'Upload Files', true, true,
                     )}
                   
                   {editedMediaTab === 'videos' &&
