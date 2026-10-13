@@ -1,5 +1,4 @@
-import { travelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
-import type { TravelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
+import { travelAvailabilityMetadata, type TravelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
 import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
 import { useTravelFeasibility } from '@/features/travel/useTravelFeasibility';
 import { safelyBuildTravelPayload, shootTravelPayload } from '@/features/travel/travelPayload';
