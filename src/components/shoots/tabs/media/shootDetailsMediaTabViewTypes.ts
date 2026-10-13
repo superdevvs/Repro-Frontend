@@ -10,6 +10,7 @@ import type { DownloadPopupState, ReclassifyMediaType } from './useShootMediaAct
 import type { MediaImageSize } from './mediaPreviewUtils';
 import type { MediaSortOrder } from './mediaSort';
 import type { StagedMediaDrop } from './stagedMediaDrop';
+import type { ShootMediaRequirements } from './shootMediaRequirements';
 
 export type MediaSubTab =
   | 'photos'
@@ -30,6 +31,8 @@ type AdminUploadSectionProps = {
 };
 
 export interface ShootDetailsMediaTabViewProps {
+  role?: string;
+  mediaRequirements?: ShootMediaRequirements;
   stagedDrop?: StagedMediaDrop;
   onStagedDropConsumed?: () => void;
   downloadPopup: DownloadPopupState;

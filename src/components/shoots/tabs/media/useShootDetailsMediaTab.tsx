@@ -60,6 +60,8 @@ import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { canShowIguideMedia } from './iguideMediaVisibility';
 import { useShootFileScanStatusRenderer } from './useShootFileScanStatusRenderer';
 import { useUnitMediaScope, useScopedShootFiles } from '@/features/shoot-units/useUnitMediaScope';
+import { getShootMediaRequirements } from './shootMediaRequirements';
+import { ShootUploadSummaries } from './ShootUploadSummaries';
 
 interface ShootDetailsMediaTabProps {
   requestMediaFocus?: boolean;
@@ -212,6 +214,8 @@ export function useShootDetailsMediaTab({
   const [requestManagerOpen, setRequestManagerOpen] = useState(false);
   const [rawFiles, setRawFiles] = useState<MediaFile[]>([]);
   const [editedFiles, setEditedFiles] = useState<MediaFile[]>([]);
+  const mediaRequirements = useMemo(() => getShootMediaRequirements(shoot, rawFiles,
+    isPhotographer ? { id: authUser?.id, role: 'photographer' } : undefined), [shoot, rawFiles, isPhotographer, authUser?.id]);
   const clientUnlockedServiceIds = useMemo(() => {
     if (!isClient) return new Set<string>();
 
@@ -1114,10 +1118,14 @@ export function useShootDetailsMediaTab({
     uploadLabel = 'Upload Files',
     separateExtras = true,
   ) => {
+    const summaries = <ShootUploadSummaries shootId={shoot.id} unitId={activeUnitId} role={role} isClient={isClient}
+      uploadType={displayTab === 'edited' ? 'edited' : 'raw'} requirements={mediaRequirements}
+      onUploadMore={canUploadInDisplayTab ? () => setActiveSubTab('upload') : undefined} />;
     if (files.length === 0) {
       return (
-        <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div className="flex flex-col items-center justify-center text-center p-6 max-w-md">
+        <div className="h-full overflow-y-auto p-2.5">
+          {summaries}
+          <div className="mx-auto flex flex-col items-center justify-center text-center p-6 max-w-md">
             <EmptyStateArtwork icon={/video/i.test(emptyTitle) ? 'videos' : /floor|tour|3d/i.test(emptyTitle) ? 'tours' : 'photos'} className="mx-auto mb-4 h-24 w-24 sm:h-28 sm:w-28" />
             <h3 className="text-xl font-semibold mb-2">{emptyTitle}</h3>
             <p className="text-sm text-muted-foreground mb-6">{canUploadInDisplayTab ? emptyDescription : 'Media will appear here when it is ready.'}</p>
@@ -1196,6 +1204,7 @@ export function useShootDetailsMediaTab({
     return (
       <div className="relative h-full m-0 sm:mx-0 sm:my-2.5 border-0 sm:border rounded-none sm:rounded-lg bg-card">
         <div className={`h-full overflow-y-auto p-1 sm:p-2.5 ${canUploadInDisplayTab ? 'pb-20 sm:pb-2.5' : ''}`}>
+          {summaries}
           <MediaServiceSections files={files} shoot={shoot} renderGrid={renderGrid} unifyForManualSort={isDragMode} />
         </div>
         {canUploadInDisplayTab && (
@@ -1263,6 +1272,8 @@ export function useShootDetailsMediaTab({
   return (
     <>
       <ShootDetailsMediaTabView
+        role={role}
+        mediaRequirements={mediaRequirements}
         downloadPopup={downloadPopup}
         handleManualDownload={handleManualDownload}
         closeDownloadPopup={closeDownloadPopup}

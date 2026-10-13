@@ -15,6 +15,8 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import type { ShootDetailsMediaTabViewProps } from './shootDetailsMediaTabViewTypes';
 import { ShootMediaHeader } from './ShootMediaHeader';
 import { canShowIguideMedia } from './iguideMediaVisibility';
+import { canSeeUploadSummaries } from './shootMediaRequirements';
+import { ShootMediaCountLine } from './ShootMediaCountLine';
 
 export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
   const {
@@ -315,7 +317,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
       />
       {/* Content - Compact Overview-style layout */}
       <div className="flex-1 min-h-0 flex flex-col bg-background">
-        {activeShootUploads.length > 0 && (
+        {!isClient && activeShootUploads.length > 0 && (
           <div className="space-y-2 border-b bg-background px-2.5 py-2">
             {activeShootUploads.map((upload) => (
               <UploadProgressCard
@@ -333,7 +335,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
         )}
         {activeSubTab === 'upload' ? (
           /* Upload Tab Content */
-          <div className="flex-1 min-h-0 overflow-y-auto p-2.5" data-testid="media-upload-scroll-owner">
+          <div key="upload" className="flex-1 min-h-0 overflow-y-auto p-2.5" data-testid="media-upload-scroll-owner">
             <div className="border rounded-lg bg-card p-3 pb-6 flex min-h-full flex-col">
               {isAdmin ? (
                 /* Admins upload raw or edited files based on which tab they're on */
@@ -410,9 +412,14 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                 />
               )}
             </div>
+            {(displayTab === 'uploaded' ? uploadedPhotos : editedPhotos).length > 0 && (
+              <div className="mt-3 h-[480px] min-h-[300px]">
+                {renderMediaGridPane(displayTab === 'uploaded' ? uploadedPhotos : editedPhotos, 'No photos uploaded yet', 'Upload property photos to get started.')}
+              </div>
+            )}
           </div>
         ) : (
-          <div className="flex-1 flex flex-col min-h-0 w-full h-full bg-background" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+          <div key="gallery" className="flex-1 flex flex-col min-h-0 w-full h-full bg-background" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {/* Clients should only see edited media; raw uploads are hidden */}
             
             {/* Uploaded Media Tab - Hidden for clients */}
@@ -446,7 +453,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                 )}
                 {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
                 <div className="sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 overflow-x-auto">
                       {!isVideoOnlyEditor && (
                       <button
@@ -521,6 +528,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                         </button>
                       )}
                     </div>
+                    {canSeeUploadSummaries(props.role, isClient) && props.mediaRequirements && <ShootMediaCountLine requirements={props.mediaRequirements} compact />}
                   </div>
                 </div>
                 
@@ -697,7 +705,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                 )}
                 {!isClient && (
                   <div className="sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 overflow-x-auto">
                         {!isVideoOnlyEditor && (
                         <button
@@ -772,6 +780,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                           </button>
                         )}
                       </div>
+                      {canSeeUploadSummaries(props.role, isClient) && props.mediaRequirements && <ShootMediaCountLine requirements={props.mediaRequirements} compact />}
                     </div>
                   </div>
                 )}

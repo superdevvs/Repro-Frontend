@@ -16,6 +16,7 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import type { UploadTransferDetail } from '@/context/UploadContext';
 import { formatUploadPercent } from './uploadMediaRequest';
 import { formatUploadFileSize } from './mediaUploadUtils';
+import { formatTransferSpeed } from './uploadTransferSpeed';
 
 export interface UploadIssue {
   id: string;
@@ -41,16 +42,26 @@ export function UploadProgressCard({
   note,
   transferDetail,
 }: UploadProgressCardProps) {
+  const [now, setNow] = React.useState(Date.now);
+  React.useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
   const activeIndex = transferDetail
     ? Math.max(0, Math.min(fileCount - 1, transferDetail.fileNumber - 1))
     : -1;
 
   return (
     <div className="space-y-3 border rounded-lg p-4 bg-card" data-testid="upload-progress-card">
-      <div className="flex items-center gap-2">
-        <Loader2 className="h-4 w-4 text-primary" />
-        <span className="text-sm font-medium">
-          Uploading {fileCount} file{fileCount !== 1 ? 's' : ''}... {formatUploadPercent(progress)}%
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <Loader2 className="h-4 w-4 text-primary" />
+          <span className="text-sm font-medium">
+            {transferDetail?.phase === 'processing' ? `Saving ${fileCount} files…` : `Uploading ${fileCount} file${fileCount !== 1 ? 's' : ''}... ${formatUploadPercent(progress)}%`}
+          </span>
+        </div>
+        <span data-testid="upload-transfer-speed" className="ml-auto shrink-0 text-xs text-primary tabular-nums" aria-label="Transfer speed">
+          {transferDetail?.phase === 'processing' ? 'Saving…' : `↑ ${formatTransferSpeed(transferDetail?.lastTransferAt && now - transferDetail.lastTransferAt > 3000 ? 0 : transferDetail?.bytesPerSecond)}`}
         </span>
       </div>
       <Progress value={progress} className="h-2" />

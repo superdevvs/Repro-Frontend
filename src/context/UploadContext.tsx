@@ -14,6 +14,8 @@ export interface UploadTransferDetail {
   fileSizes?: number[];
   /** 0–100 progress aligned with fileNames order (real transfer progress). */
   fileProgresses?: number[];
+  bytesPerSecond?: number;
+  lastTransferAt?: number;
 }
 
 export interface ShootUpload {

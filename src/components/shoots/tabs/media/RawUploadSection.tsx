@@ -78,6 +78,7 @@ import { useRawUploadSummary } from './useRawUploadSummary';
 import { CLOUDFLARE_SAFE_UPLOAD_BYTES, uploadMediaRequest } from './uploadMediaRequest';
 import { runUploadConcurrencyPool } from './mediaUploadConcurrency';
 import { prepareRawUploadBatch } from './prepareRawUploadBatch';
+import { createUploadTransferTracker } from './uploadTransferSpeed';
 
 export function RawUploadSection({
   shoot,
@@ -487,6 +488,7 @@ export function RawUploadSection({
           const flatFiles = plans.flatMap((plan) => plan.files);
           const totalBytes = flatFiles.reduce((sum, file) => sum + file.size, 0);
           const fileSizes = flatFiles.map((file) => file.size);
+          const speedTracker = createUploadTransferTracker(fileSizes);
           const fileProgresses = flatFiles.map(() => 0);
           const uploadedFileObjects = new Set<File>();
           // Allocate even unsent identities now: a paused batch must resume at its
@@ -545,6 +547,7 @@ export function RawUploadSection({
                 url: `${API_BASE_URL}/api/shoots/${shoot.id}/upload`, body: formData, signal,
                 headers: { Accept: 'application/json', Authorization: authHeader, 'X-Impersonate-User-Id': impersonateHeader },
                 onProgress: ({ phase, loaded, total }) => {
+                  const speedDetail = speedTracker.update(flatFiles.indexOf(file), loaded, total, phase);
                   const fraction = phase === 'processing' ? 1 : total > 0 ? Math.min(loaded / total, 1) : Math.min(loaded / Math.max(file.size, 1), 1);
                   const flatIndex = flatFiles.indexOf(file);
                   if (flatIndex >= 0) {
@@ -556,7 +559,7 @@ export function RawUploadSection({
                     fileName: file.name,
                     fileNumber: completed + 1,
                     fileProgress: fraction * 100,
-                    phase,
+                    ...speedDetail,
                     completedFileIndexes: flatFiles.flatMap((candidate, position) => (
                       uploadedFileObjects.has(candidate) ? [position] : []
                     )),
@@ -631,7 +634,7 @@ export function RawUploadSection({
                     if (flatIndex >= 0) fileProgresses[flatIndex] = 100;
                     const detail: UploadTransferDetail = {
                       fileName: result.file.name, fileNumber: flatIndex + 1, fileProgress: 100,
-                      phase: 'processing', fileSizes, fileProgresses: [...fileProgresses],
+                      ...speedTracker.snapshot(), fileSizes, fileProgresses: [...fileProgresses],
                       completedFileIndexes: flatFiles.flatMap((candidate, position) => uploadedFileObjects.has(candidate) ? [position] : []),
                     };
                     setTransferDetail(detail);

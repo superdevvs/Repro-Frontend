@@ -1,3 +1,4 @@
+import { createUploadTransferTracker } from './uploadTransferSpeed';
 import { useStagedMediaDrop, type StagedMediaDrop } from './stagedMediaDrop';
 import { waitForSavedMedia } from '@/services/savedMediaPublication';
 import { useEffect, useMemo, useState } from 'react';
@@ -265,6 +266,7 @@ export function EditedUploadSection({
         try {
           const totalBytes = filesForUpload.reduce((sum, file) => sum + file.size, 0);
           const fileSizes = filesForUpload.map((file) => file.size);
+          const speedTracker = createUploadTransferTracker(fileSizes);
           const fileProgresses = filesForUpload.map(() => 0);
           const completedIndexes: number[] = [];
           const attemptContext = (file: File, index: number) => JSON.stringify([
@@ -304,7 +306,7 @@ export function EditedUploadSection({
               fileName: filesForUpload[activeIndex]?.name || filesForUpload[0]?.name || 'file',
               fileNumber: activeIndex + 1,
               fileProgress: fileProgresses[activeIndex] ?? 0,
-              phase,
+              ...speedTracker.snapshot(),
               completedFileIndexes: [...completedIndexes],
               fileSizes,
               fileProgresses: fileProgresses.slice(),
@@ -360,6 +362,7 @@ export function EditedUploadSection({
                   'X-Impersonate-User-Id': impersonateHeader,
                 },
                 onProgress: ({ phase, loaded, total }) => {
+                  speedTracker.update(index, loaded, total, phase);
                   const fraction = phase === 'processing'
                     ? 1
                     : total > 0
