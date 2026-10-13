@@ -14,6 +14,7 @@ vi.mock('@/features/shoot-units/useUnitScopedEdit', () => ({
   useUnitEditDirtyTracking: () => false,
 }));
 vi.mock('axios', () => ({ default: { get: vi.fn() } }));
+vi.mock('@/services/shootAssignees', () => ({ loadShootAssignees: vi.fn().mockResolvedValue([]), assigneesForRole: () => [] }));
 vi.mock('./shootEditModalTypes', async (importOriginal) => ({
   ...await importOriginal<typeof import('./shootEditModalTypes')>(),
   loadPhotographerOptions: vi.fn().mockResolvedValue([]),

@@ -36,9 +36,9 @@ export function serviceRequiresPhotographer(
 
 /** Travel payouts may have an assignee without creating another on-site visit. */
 export function serviceAllowsPhotographerAssignment(
-  service: Pick<AssignableService, 'name' | 'photographer_required'> & { category?: unknown },
+  service: Pick<AssignableService, 'photographer_required'> & { category?: unknown; name?: string },
 ): boolean {
-  const name = service.name.toLowerCase();
+  const name = String(service.name ?? '').toLowerCase();
   return serviceRequiresPhotographer(service)
     || name.includes('travel fee');
 }

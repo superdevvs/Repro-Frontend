@@ -32,6 +32,10 @@ const svc = (
 });
 
 describe('optional photographer payouts', () => {
+  it('accepts older service records without a name', () => {
+    expect(serviceAllowsPhotographerAssignment({})).toBe(true);
+    expect(serviceAllowsPhotographerAssignment({ photographer_required: false })).toBe(false);
+  });
   it.each(['Travel Fee 60 miles', 'Travel fee 120 Miles'])(
     'allows an explicit assignment for %s without requiring an on-site visit', name => {
       const service = svc('fee', name, 'Fees', false);
