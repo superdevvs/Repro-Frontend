@@ -30,6 +30,16 @@ export function serviceRequiresPhotographer(
   return service?.photographer_required !== false;
 }
 
+/** Travel payouts may have an assignee without creating another on-site visit. */
+export function serviceAllowsPhotographerAssignment(
+  service: Pick<AssignableService, 'name' | 'photographer_required'>,
+): boolean {
+  const name = service.name.toLowerCase();
+  return serviceRequiresPhotographer(service)
+    || name.includes('virtual staging')
+    || name.includes('travel fee');
+}
+
 export function photographerRequiredServices<T extends Pick<AssignableService, 'photographer_required'>>(
   selectedServices: ReadonlyArray<T> | null | undefined,
 ): T[] {

@@ -35,6 +35,7 @@ import { buildTimeOptions, normalizeTimeValue } from './shootEditTimeHelpers';
 import { applyServiceScheduleToAllIds } from '@/utils/applyServiceScheduleToAll';
 import { syncInheritedServiceScheduleIds, useInheritedServiceSchedule } from './useInheritedServiceSchedule';
 import { resolveServiceShootDuration } from '@/utils/shootDuration';
+import { serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
 import {
   ShootServiceMutationError,
   submitShootServiceMutation,
@@ -351,7 +352,7 @@ export function useShootEditModalController({
   const availableServiceCategoryGroups = useMemo(() => {
     const groups = new Map<string, { key: string; name: string; services: Service[]; serviceIds: string[] }>();
     availableServices.forEach((service) => {
-      if (service.photographer_required === false && !service.name.toLowerCase().includes('virtual staging')) return;
+      if (!serviceAllowsPhotographerAssignment(service)) return;
       const serviceId = String(service.id);
       const categoryName =
         typeof service.category === 'string'

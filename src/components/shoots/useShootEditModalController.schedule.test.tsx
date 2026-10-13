@@ -29,6 +29,43 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe('editing the main shoot appointment', () => {
+  it('offers a travel fee recipient and persists the choice while preserving the photo assignment', async () => {
+    const services = [
+      { id: 58, name: '25 Photos', category: { name: 'Photos' }, price: 125, photographer_required: true, shoot_duration_minutes: 60 },
+      { id: 62, name: 'Travel Fee 60 miles', category: { name: 'Travel Fees' }, price: 100, photographer_required: false, shoot_duration_minutes: 0 },
+      { id: 63, name: 'Floor plan', category: { name: 'Floor Plans' }, price: 50, photographer_required: false },
+    ];
+    vi.mocked(axios.get).mockResolvedValue({ data: { data: services } });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: {
+      id: 2402, address: '54 Blackborne Drive', scheduled_at: '2026-10-13T10:00:00', photographer_id: 1121,
+      photographer: { id: 1121, name: 'Alaina' },
+      services: services.map(service => ({ ...service,
+        photographer_id: service.id === 58 ? 1125 : null,
+        photographer: service.id === 58 ? { id: 1125, name: 'Adrianna' } : null,
+      })),
+      service_items: [{ service_id: 58, name: '25 Photos', scheduled_at: '2026-10-13T10:00:00', duration_minutes: 60 },
+        { service_id: 62, name: 'Travel Fee 60 miles', scheduled_at: null, duration_minutes: 0 },
+        { service_id: 63, name: 'Floor plan', scheduled_at: null, duration_minutes: 0 }],
+    } }) }));
+    const { result } = renderHook(() => useShootEditModalController({ isOpen: true, onClose: vi.fn(), shootId: '2402' }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.selectedServiceIds.size).toBe(3));
+    expect(result.current.selectedServiceCategoryGroups.map(group => group.key)).toEqual(['photo', 'travel fee']);
+    const before = result.current.buildApprovalPayload();
+    act(() => result.current.openPhotographerPicker({ categoryKey: 'travel fee', categoryName: 'Travel Fees' }));
+    act(() => result.current.setPickerPhotographerId('1125'));
+    act(() => result.current.handleConfirmPhotographerPicker());
+    const after = result.current.buildApprovalPayload();
+    expect(after?.service_photographers).toEqual([
+      { service_id: 58, photographer_id: 1125 }, { service_id: 62, photographer_id: 1125 },
+    ]);
+    expect(after?.photographer_id).toBe(before?.photographer_id);
+    expect(after?.services).toEqual(before?.services);
+    expect((after?.service_items as Record<string, unknown>[]).find(item => item.service_id === 58))
+      .toEqual((before?.service_items as Record<string, unknown>[]).find(item => item.service_id === 58));
+    expect((after?.service_items as Record<string, unknown>[]).find(item => item.service_id === 62))
+      .toMatchObject({ photographer_id: 1125, duration_minutes: 0 });
+  });
   it('hydrates unscheduled saved durations and tier defaults independently of timestamps', async () => {
     vi.mocked(axios.get).mockResolvedValue({ data: { data: [
       { id: 10, name: 'Photos', price: 100, photographer_required: true, shoot_duration_minutes: 180 },

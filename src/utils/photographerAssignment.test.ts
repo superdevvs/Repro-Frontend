@@ -13,6 +13,8 @@ import {
   requiresPerServiceAssignment,
   resolveServicePhotographerId,
   selectedServicesRequirePhotographer,
+  serviceAllowsPhotographerAssignment,
+  serviceRequiresPhotographer,
   syncPhotographerRequiredFromCatalog,
   type AssignableService,
 } from './photographerAssignment';
@@ -27,6 +29,22 @@ const svc = (
   name,
   photographer_required: photographerRequired,
   category: category === undefined ? undefined : category === null ? null : { name: category },
+});
+
+describe('optional photographer payouts', () => {
+  it.each(['Travel Fee 60 miles', 'Travel fee 120 Miles', 'Virtual Staging (per image)'])(
+    'allows an explicit assignment for %s without requiring an on-site visit', name => {
+      const service = svc('fee', name, 'Fees', false);
+      expect(serviceAllowsPhotographerAssignment(service)).toBe(true);
+      expect(serviceRequiresPhotographer(service)).toBe(false);
+      expect(selectedServicesRequirePhotographer([service])).toBe(false);
+      expect(photographerAssignmentIssue([service], null, {})).toBeNull();
+    },
+  );
+  it('keeps unrelated optional services excluded', () => {
+    expect(serviceAllowsPhotographerAssignment(svc('floorplan', 'Floor plan', 'Travel Fees', false))).toBe(false);
+    expect(serviceAllowsPhotographerAssignment(svc('photos', 'Photos'))).toBe(true);
+  });
 });
 
 // The helper takes no role argument; calling it represents BOTH roles identically.

@@ -55,6 +55,31 @@ const approve = async () => {
 };
 
 describe('approval schedule inheritance', () => {
+  it('saves the selected travel fee recipient on approval without requiring another on-site visit', async () => {
+    Object.assign(fetchedShoot.service_items[0], { category: { name: 'Photos' }, photographer_id: 9,
+      photographer: { id: 9, name: 'QA Photographer' }, photographer_required: true, duration_minutes: 60 });
+    Object.assign(fetchedShoot.service_items[1], { name: 'Travel Fee 60 miles', category: { name: 'Travel Fees' },
+      photographer_required: false, duration_minutes: 0, scheduled_at: null });
+    fetchedShoot.service_items.pop();
+    render(<ShootApprovalModal isOpen shootId={42} photographers={[...photographers, { id: 10, name: 'Travel Recipient' }]}
+      onClose={vi.fn()} onApproved={vi.fn()} />);
+    await waitFor(() => expect(screen.getAllByLabelText('Schedule time')[0]).toHaveValue('10:30'));
+    const assignments = screen.getByText('Photographers').parentElement!.parentElement!;
+    const travelRow = within(assignments).getByText('Travel Fees').parentElement!.parentElement!;
+    fireEvent.click(within(travelRow).getByRole('button', { name: 'Edit photographer' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Show All' }));
+    fireEvent.click(await screen.findByRole('button', { name: /Travel Recipient/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Use selection' }));
+    const payload = await approve();
+    expect(payload.photographer_id).toBe('9');
+    expect(payload.service_photographers).toEqual([
+      { service_id: 10, photographer_id: 9 }, { service_id: 11, photographer_id: 10 },
+    ]);
+    expect(payload.service_items).toEqual([
+      expect.objectContaining({ service_id: 10, photographer_id: 9, duration_minutes: 60, scheduled_at: '2026-10-06T10:30:00' }),
+      expect.objectContaining({ service_id: 11, photographer_id: 10, duration_minutes: 0 }),
+    ]);
+  });
   it('shows catalogue tier duration for a null snapshot and preserves a stored30-minute visit', async () => {
     Object.assign(fetchedShoot, { sqft: 1000 });
     Object.assign(fetchedShoot.service_items[0], { duration_minutes: null, shoot_duration_minutes: 120, pricing_type: 'variable',

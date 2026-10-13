@@ -7,6 +7,7 @@ import { fetchDurationAwareAvailability, photographerVisitDurationGroups } from 
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { ServiceDurationPicker } from './ServiceDurationPicker';
 import { resolveServiceShootDuration, type ServiceDurationSource } from '@/utils/shootDuration';
+import { serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
 import { getBookedServiceQuantities, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { getApprovalServices, getApprovalPricing, type ApprovalService } from './shootApprovalServices';
 import { ShootApprovalServicesSection } from './ShootApprovalServicesSection';
@@ -590,7 +591,7 @@ export function ShootApprovalModal({
               : service.category?.name || 'Other';
           const categoryKey = normalizeCategoryKey(categoryName);
           const selectedCategoryPhotographerId = perCategoryPhotographers[categoryKey];
-          if (selectedCategoryPhotographerId && service.photographer_required !== false) {
+          if (selectedCategoryPhotographerId && serviceAllowsPhotographerAssignment({ ...service, name: getServiceName(service) })) {
             assignments.push({
               service_id: serviceId,
               photographer_id: Number(selectedCategoryPhotographerId),
@@ -611,9 +612,9 @@ export function ShootApprovalModal({
           const serviceId = Number(getServiceIdentifier(service));
           if (!serviceId) return items;
           const categoryKey = getServiceCategoryKey(service);
-          const selectedPhotographerId = service.photographer_required === false
-            ? null
-            : perCategoryPhotographers[categoryKey] || photographerId || null;
+          const selectedPhotographerId = serviceAllowsPhotographerAssignment({ ...service, name: getServiceName(service) })
+            ? perCategoryPhotographers[categoryKey] || (service.photographer_required !== false ? photographerId : null)
+            : null;
           const schedule = serviceSchedules[String(serviceId)] || {};
           const serviceScheduledAt = buildShootScheduleTimestamp(schedule.date || defaultDate, schedule.time || scheduledTime,
             shootDetails.timezone, findServiceScheduleTimestamp(shootDetails, serviceId)) || scheduledAt;

@@ -1,6 +1,7 @@
 import type { ShootData } from '@/types/shoots';
 import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { resolveServiceShootDuration } from '@/utils/shootDuration';
+import { serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
 import { getSavedServiceDuration } from './shootOverviewDurations';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
@@ -120,7 +121,7 @@ export function applyOverviewServicePayload({
   }));
   updates.service_photographers = selectedServiceIds.flatMap((serviceId) => {
     const service = servicesList.find((option) => option.id === serviceId);
-    if (!service || (service.photographer_required === false && !service.name.toLowerCase().includes('virtual staging'))) return [];
+    if (!service || !serviceAllowsPhotographerAssignment(service)) return [];
     const categoryKey = deriveServiceCategoryName(service).trim().toLowerCase().replace(/s$/, '');
     const photographerId = perCategoryPhotographers[categoryKey];
     return photographerId ? [{ service_id: Number(serviceId), photographer_id: Number(photographerId) }] : [];
