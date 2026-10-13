@@ -11,6 +11,7 @@ import {
   MEDIA_GRID_SIZES_ATTR,
   getDisplayMediaFilename,
   getMediaVideoUrl,
+  getMediaImageUrl, getMediaSrcSet, isCustomerRestoreRow,
 } from './mediaPreviewUtils';
 import { buildMediaStacks, type MediaStack } from './mediaGridStacks';
 import type { MediaGridProps } from './mediaGridTypes';
@@ -41,8 +42,8 @@ export function MediaGrid({
   manualSortActive = false,
   manualOrder = [],
   onManualOrderChange,
-  getImageUrl,
-  getSrcSet,
+  getImageUrl: getImageUrlProp,
+  getSrcSet: getSrcSetProp,
   isImage,
   isVideo,
   viewMode = 'list',
@@ -60,6 +61,10 @@ export function MediaGrid({
   rawStackSize = null,
   renderScanStatus,
 }: MediaGridProps) {
+  const getImageUrl: MediaGridProps['getImageUrl'] = (file, size) => isCustomerRestoreRow(file)
+    ? getMediaImageUrl(file, size) : getImageUrlProp(file, size);
+  const getSrcSet = (file: MediaFile) => isCustomerRestoreRow(file) ? getMediaSrcSet(file) : getSrcSetProp?.(file) || '';
+  const getLegacyThumb = (file: MediaFile) => isCustomerRestoreRow(file) ? '' : file.thumb || '';
   // Choosing Manual in the sort menu arms this in one action - there is no second
   // toggle to find. It can then be switched off while the grid stays in manual
   // order, so stopping a drag session does not discard the arrangement.
@@ -247,7 +252,7 @@ export function MediaGrid({
                   const stackThumbUrl = getImageUrl(stackFile, 'thumb');
                   const stackDisplayFilename = getDisplayMediaFilename(stackFile) || stackFile.filename;
                   const stackVideoSrc = stackIsVid ? (getMediaVideoUrl(stackFile) || getImageUrl(stackFile, 'original')) : '';
-                  const stackThumbSrc = stackThumbUrl || stackFile.thumb || '';
+                  const stackThumbSrc = stackThumbUrl || getLegacyThumb(stackFile);
                   const hasProcessedStackThumb = stackIsRaw
                     ? !!(stackFile.thumbnail_path || stackFile.web_path)
                     : true;
@@ -289,7 +294,7 @@ export function MediaGrid({
           const hasProcessedThumb = isRaw 
             ? !!(file.thumbnail_path || file.web_path)
             : true;
-          const thumbSrc = thumbUrl || file.thumb || '';
+          const thumbSrc = thumbUrl || getLegacyThumb(file);
           const hasDisplayableImage = hasDisplayableStillThumbnail(
             thumbSrc,
             videoThumbSrc,
@@ -334,7 +339,7 @@ export function MediaGrid({
             const hasProcessedThumb = isRaw 
               ? !!(file.thumbnail_path || file.web_path)
               : true;
-            const thumbSrc = thumbUrl || file.thumb || '';
+            const thumbSrc = thumbUrl || getLegacyThumb(file);
             const hasDisplayableImage = hasDisplayableStillThumbnail(
               thumbSrc,
               videoThumbSrc,
@@ -465,7 +470,7 @@ export function MediaGrid({
             <div className="relative aspect-[4/3] bg-muted/40">
             {(() => {
               const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
-              const thumbSrc = thumbUrl || file.thumb || '';
+              const thumbSrc = thumbUrl || getLegacyThumb(file);
               const hasDisplayableImage = hasDisplayableStillThumbnail(
                 thumbSrc,
                 videoThumbSrc,
@@ -506,7 +511,7 @@ export function MediaGrid({
               className="file-fallback w-full h-full items-center justify-center bg-muted absolute inset-0"
               style={{ display: (() => {
                 const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
-                const thumbSrc = thumbUrl || file.thumb || '';
+                const thumbSrc = thumbUrl || getLegacyThumb(file);
                 const hasDisplayableImage = hasDisplayableStillThumbnail(
                   thumbSrc,
                   videoThumbSrc,
@@ -603,7 +608,7 @@ export function MediaGrid({
     const hasProcessedThumb = isRaw 
       ? !!(file.thumbnail_path || file.web_path)
       : true;
-    const thumbSrc = imageUrl || file.thumb || '';
+    const thumbSrc = imageUrl || getLegacyThumb(file);
     const hasDisplayableImage = hasDisplayableStillThumbnail(
       thumbSrc,
       videoThumbSrc,
@@ -769,7 +774,7 @@ export function MediaGrid({
     const videoThumbSrc = isVid ? (getMediaVideoUrl(file) || getImageUrl(file, 'original')) : '';
     const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
     const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
-    const thumbSrc = imageUrl || file.thumb || '';
+    const thumbSrc = imageUrl || getLegacyThumb(file);
     const hasDisplayableImage = hasDisplayableStillThumbnail(
       thumbSrc,
       videoThumbSrc,

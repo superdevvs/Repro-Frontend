@@ -11,6 +11,15 @@ const files: MediaFile[] = [
 ];
 afterEach(cleanup);
 describe('curation across ordinary and sortable grids/lists', () => {
+  it.each(['grid', 'list'].flatMap(viewMode => [false, true].map(manual => ({ viewMode, manual }))))('rejects legacy original fallback in hidden customer $viewMode manual=$manual', ({ viewMode, manual }) => {
+    const original = 'https://media.test/private-original.jpg';
+    const hidden: MediaFile = { ...files[1], thumb: original, url: original, original_url: original, web_url: original, media_curation_scope: 'customer' };
+    const { container } = render(<MediaGrid files={[hidden]} viewMode={viewMode as 'grid' | 'list'} selectedFiles={new Set()} canSelect={false} onSelectionChange={vi.fn()}
+      onFileClick={vi.fn()} getImageUrl={() => original} getSrcSet={() => `${original} 600w`} isImage={() => true} isClient
+      sortOrder={manual ? 'manual' : 'time'} manualSortActive={manual} canManageVisibility={file => canManageMediaVisibility(file, 'client')} toggleFileHidden={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Unhide image' })).toBeTruthy();
+    expect(container.innerHTML).not.toContain(original);
+  });
   it.each(['client', 'salesRep'].flatMap(role => ['grid', 'list'].flatMap(viewMode => [false, true].map(manual => ({ role, viewMode, manual })))))('$role $viewMode manual=$manual uses per-file gates for hide, restore and hero', ({ role, viewMode, manual }) => {
     const toggleFileHidden = vi.fn(), onSetHero = vi.fn(), onFileClick = vi.fn();
     render(<MediaGrid files={files} viewMode={viewMode as 'grid' | 'list'} selectedFiles={new Set()} canSelect={false} onSelectionChange={vi.fn()}

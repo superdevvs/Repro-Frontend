@@ -1,5 +1,6 @@
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isPlaceholderImageUrl, normalizeImageUrl } from '@/utils/imageUrl';
+import { API_BASE_URL } from '@/config/env';
 
 export type MediaImageSize = 'thumb' | 'grid' | 'web' | 'medium' | 'large' | 'original';
 
@@ -219,6 +220,28 @@ const getStrictPlaceholderCandidates = (file: MediaFile): string[] =>
     'watermarked_placeholder_path',
   ]);
 
+export const isCustomerRestoreRow = (file: MediaFile) => file.is_hidden && file.media_curation_scope === 'customer';
+
+/** Only the server's viewer-scoped signed route can supply a restore-only preview. */
+const getCurationPreviewCandidates = (file: MediaFile): string[] => {
+  const candidates = [...getStrictPreviewCandidates(file), ...getStrictThumbCandidates(file),
+    ...getStrictResolvedUrls(file, ['grid_url', 'url'])];
+  const base = API_BASE_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+  return Array.from(new Set(candidates)).filter(candidate => {
+    try {
+      const url = new URL(candidate, base);
+      const match = url.pathname.match(/^\/api\/public\/shoot-media\/curation-preview\/(\d+)\/(\d+)\/(\d+)$/);
+      return ['http:', 'https:'].includes(url.protocol) && url.origin === new URL(base).origin
+        && Boolean(match) && match![2] === String(file.id)
+        && (file.shoot_id == null || match![1] === String(file.shoot_id))
+        && /^\d+$/.test(url.searchParams.get('expires') || '')
+        && /^[a-f0-9]{64}$/.test(url.searchParams.get('signature') || '')
+        && url.searchParams.getAll('expires').length === 1 && url.searchParams.getAll('signature').length === 1
+        && [...url.searchParams.keys()].every(key => ['expires', 'signature'].includes(key));
+    } catch { return false; }
+  });
+};
+
 export const isPreviewableImage = (file: MediaFile): boolean => hasPreviewableImageFile(file);
 
 export const isImageFile = (file: MediaFile): boolean => hasPreviewableImageFile(file);
@@ -243,6 +266,7 @@ export const getMediaImageUrlCandidates = (
   file: MediaFile,
   size: MediaImageSize = 'medium',
 ): string[] => {
+  if (isCustomerRestoreRow(file)) return size === 'original' ? [] : getCurationPreviewCandidates(file);
   if (size === 'thumb') {
     return getStrictThumbCandidates(file);
   }
@@ -284,6 +308,7 @@ export const getMediaImageUrlCandidates = (
 };
 
 export const getMediaViewerImageCandidates = (file: MediaFile): string[] => {
+  if (isCustomerRestoreRow(file)) return getCurationPreviewCandidates(file);
   const thumbCandidates = getStrictThumbCandidates(file);
   const previewCandidates = getStrictPreviewCandidates(file);
   const originalCandidates = getStrictOriginalCandidates(file);
@@ -341,6 +366,7 @@ const hasBrowserRenderableOriginal = (file: MediaFile): boolean => {
 };
 
 export const getMediaFullSizeImageUrl = (file: MediaFile): string => {
+  if (file.is_hidden && file.media_curation_scope === 'customer') return '';
   if (isRawMediaFile(file) || !hasBrowserRenderableOriginal(file)) {
     return getStrictLargePreviewCandidates(file)[0] || '';
   }
@@ -349,6 +375,7 @@ export const getMediaFullSizeImageUrl = (file: MediaFile): string => {
 };
 
 export const getMediaVideoUrlCandidates = (file: MediaFile): string[] => {
+  if (isCustomerRestoreRow(file)) return [];
   const candidates = getStrictResolvedUrls(file, [
     'original_url',
     'original',
@@ -362,6 +389,7 @@ export const getMediaVideoUrlCandidates = (file: MediaFile): string[] => {
 };
 
 export const getMediaVideoPreviewUrl = (file: MediaFile): string => {
+  if (isCustomerRestoreRow(file)) return '';
   const shootId = file.shoot_id;
   const fileId = file.id;
   if (!shootId || !fileId) {
@@ -389,6 +417,10 @@ export const getDisplayMediaFilename = (file: Pick<MediaFile, 'filename'>): stri
  * bytes. The full preview is still what the viewer/lightbox loads.
  */
 export const getMediaSrcSet = (file: MediaFile): string => {
+  if (isCustomerRestoreRow(file)) {
+    const preview = getCurationPreviewCandidates(file)[0];
+    return preview ? `${preview} 600w` : '';
+  }
   const sizes: string[] = [];
   const thumbUrl = getStrictThumbCandidates(file)[0] || '';
   const gridUrl = getStrictGridCandidates(file)[0] || '';
