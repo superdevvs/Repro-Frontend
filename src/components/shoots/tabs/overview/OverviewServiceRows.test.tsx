@@ -44,6 +44,14 @@ describe('compact service rows', () => {
     expect(screen.getByText(services[0].name).closest('.service-row-heading')).toContainElement(screen.getByLabelText('Oct 8, 2026 · 10:00 AM'));
     expect(screen.getByText('Christopher Alexander Johnson').closest('.service-row-bottom')).toContainElement(screen.getAllByLabelText('Image counts')[0]);
   });
+  it('shows the assigned digital editor without inheriting a stale photographer', () => {
+    mount('admin', { ...shoot, serviceItems: [{ ...services[0], name: 'Green Grass Enhancement', category: { id: 'digital', name: 'Digital Enhancements' },
+      photographer_required: true, upload_intake_type: 'none', editor: { id: '8', name: 'Photo Editor' } }] });
+    const row = within(screen.getByTestId('service-summary-11'));
+    expect(row.getByText('Photo Editor')).toBeVisible();
+    expect(row.queryByText('Christopher Alexander Johnson')).not.toBeInTheDocument();
+    expect(row.queryByLabelText('Image counts')).not.toBeInTheDocument();
+  });
   it('shows required/raw and avoids requesting edited files for photographers', () => {
     mount('photographer');
     expect(screen.queryByText('Edited')).not.toBeInTheDocument();

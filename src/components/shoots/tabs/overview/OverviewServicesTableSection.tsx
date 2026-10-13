@@ -25,6 +25,10 @@ import type {
 } from './useShootOverviewEditor';
 import type { ComplimentarySourceServiceOption } from './useComplimentaryServiceMode';
 import { CompServiceModeControls } from '@/features/complimentary-reshoots/CompServiceModeControls';
+import { serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
+import { ServiceEditorSelect } from '@/components/shoots/ServiceEditorSelect';
+import { serviceEditorLane } from '@/components/shoots/serviceEditorEligibility';
+import type { ShootAssignee } from '@/services/shootAssignees';
 import type { CompReshootReasonCode } from '@/features/complimentary-reshoots/model';
 import {
   type ServiceRowStatus,
@@ -32,7 +36,7 @@ import {
 
 export type { ServiceRowStatus };
 
-const EDIT_COLUMN_WIDTHS: Record<string, number> = { Date: 148, Time: 112, Photographer: 180, Price: 66, Pay: 66 };
+const EDIT_COLUMN_WIDTHS: Record<string, number> = { Date: 148, Time: 112, 'Assigned to': 180, Price: 66, Pay: 66 };
 
 export type OverviewServicesTableSectionProps = {
   isEditMode: boolean;
@@ -59,6 +63,12 @@ export type OverviewServicesTableSectionProps = {
   }>;
   perCategoryPhotographers: Record<string, string>;
   selectedPhotographerIdEdit: string;
+  editorOptions?: ShootAssignee[];
+  serviceEditorIds?: Record<string, string>;
+  isLoadingEditors?: boolean;
+  editorLoadError?: string;
+  canAssignServiceEditors?: boolean;
+  updateServiceEditor?: (serviceId: string, editorId: string) => void;
   resolvePhotographerDetails: (
     id?: string | null,
   ) => PhotographerPickerOption | { name?: string; email?: string } | null | undefined;
@@ -144,7 +154,7 @@ const getHeaderCells = (
   props: Pick<OverviewServicesTableSectionProps, 'isPhotographer' | 'isEditor'>,
 ): HeaderCell[] => [
   ...BASE_HEADER_CELLS,
-  ...(isPayView(props) ? [] : [{ label: 'Photographer', className: 'w-[92px]' }]),
+  ...(isPayView(props) ? [] : [{ label: 'Assigned to', className: 'w-[92px]' }]),
   {
     label: isPayView(props) ? 'Pay' : 'Price',
     className: 'w-[66px] text-right pr-0',
@@ -422,6 +432,7 @@ function renderEditRows(
       const photographer = resolvePhotographerDetails(
         perCategoryPhotographers[categoryKey] ?? selectedPhotographerIdEdit,
       );
+      const allowsPhotographer = serviceAllowsPhotographerAssignment(service);
 
       return (
         <tr key={serviceId} className={`${mobileEditRowClass} align-middle`}>
@@ -474,6 +485,14 @@ function renderEditRows(
           </td>
           {showPhotographerColumn && (
             <td className="col-span-4 col-start-1 row-start-3 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
+              {!allowsPhotographer ? (
+                props.canAssignServiceEditors && service.requires_editing !== false ? (
+                  <ServiceEditorSelect serviceName={service.name} value={props.serviceEditorIds?.[serviceId]}
+                    lane={serviceEditorLane(service)}
+                    editors={props.editorOptions ?? []} loading={props.isLoadingEditors} error={props.editorLoadError}
+                    onChange={id => props.updateServiceEditor?.(serviceId, id)} />
+                ) : <span className="text-xs text-muted-foreground">No photographer required</span>
+              ) : <div className="flex min-w-0 items-center gap-1">
               <Button
                 type="button"
                 variant="outline"
@@ -499,6 +518,7 @@ function renderEditRows(
                   )}
                 </span>
               </Button>
+              </div>}
             </td>
           )}
           <td className="col-start-4 row-start-1 block py-1 text-right font-medium text-muted-foreground [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pl-1.5">

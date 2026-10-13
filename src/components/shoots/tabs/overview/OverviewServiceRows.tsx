@@ -67,7 +67,7 @@ export function OverviewServiceRows(props: Props) {
           <span className="service-row-price" aria-label={`${props.isPhotographer || props.isEditor ? 'Pay' : 'Price'} ${props.getReadonlyServiceDisplayPrice(item.source)}`}>{props.getReadonlyServiceDisplayPrice(item.source)}</span>
         </div>
         <div className="service-row-bottom">
-          <span className="service-row-person">{!props.isPhotographer && !props.isEditor ? item.photographerName || 'Unassigned' : null}</span>
+          <span className="service-row-person">{!props.isPhotographer && !props.isEditor ? item.photographerName || item.editorName || 'Unassigned' : null}</span>
           {showCounts && target && <div className="service-row-counts" aria-label="Image counts">
             <span><span className="service-count-label"><span className="service-count-required-full">Required</span><span className="service-count-required-short" aria-hidden="true">Req</span></span><strong>{target.finalCount ?? '—'}</strong></span>
             <span><span className="service-count-label">Raw</span><strong>{raw.data ? countServicePhotos(raw.data, id) : '—'}<span className="service-count-denominator">/{target.required ?? '—'}</span></strong></span>

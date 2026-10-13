@@ -40,7 +40,8 @@ describe('overview travel fee assignment', () => {
     expect(after.service_items?.find(item => item.service_id === 62)).toMatchObject({
       duration_minutes: 0, scheduled_at: null, price: 100, photographer_pay: 100,
     });
-    expect(after.service_items?.every(item => !('photographer_id' in item))).toBe(true);
+    expect(after.service_items?.find(item => item.service_id === 63)).toHaveProperty('photographer_id', null);
+    expect(after.service_items?.filter(item => item.service_id !== 63).every(item => !('photographer_id' in item))).toBe(true);
   });
 
   it('leaves a fee without an explicit recipient unassigned', () => {

@@ -54,6 +54,8 @@ import type {
 } from './shootOverviewUpdateTypes';
 import { useComplimentaryServiceMode } from './useComplimentaryServiceMode';
 import { applyOverviewServicePayload } from './shootOverviewServicePayload';
+import { getOverviewPhotographerRows } from './shootOverviewPhotographerRows';
+import { useServiceEditorAssignments } from '@/components/shoots/useServiceEditorAssignments';
 import {
   buildAvailabilitySegments,
   formatAvailabilitySummary,
@@ -132,6 +134,8 @@ export function useShootOverviewEditor({
   );
   const photographerAssignments = useMemo(() => getShootPhotographerAssignmentGroups(shoot), [shoot]);
   const isAdminOrRep = Boolean(shoot.canManageBooking) || isAdmin || ['rep', 'representative', 'salesrep', 'sales_rep'].includes(role.trim().toLowerCase().replace(/[- ]/g, '_'));
+  const canAssignServiceEditors = isAdmin || ['admin', 'superadmin', 'super_admin', 'editing_manager'].includes(role.trim().toLowerCase());
+  const serviceEditors = useServiceEditorAssignments(shoot, isEditMode, canAssignServiceEditors);
   const {
     state: {
       enabled: isCompServiceMode,
@@ -368,6 +372,10 @@ export function useShootOverviewEditor({
           allow_multiple: item.allow_multiple === true,
           sqft_ranges: Array.isArray(item.sqft_ranges) ? item.sqft_ranges : [],
           category: item.category || null,
+          photographer_required: item.photographer_required !== false && item.photographer_required !== 0 && item.photographer_required !== '0',
+          requires_editing: item.requires_editing !== false && item.requires_editing !== 0 && item.requires_editing !== '0',
+          upload_intake_type: typeof item.upload_intake_type === 'string' ? item.upload_intake_type : null,
+          editing_lanes: Array.isArray(item.editing_lanes) ? item.editing_lanes.map(String) : undefined,
           description: typeof item.description === 'string' ? item.description : '',
           photographer_pay: item.photographer_pay != null ? Number(item.photographer_pay) : null,
           duration: item.duration != null ? Number(item.duration) : null,
@@ -488,6 +496,7 @@ export function useShootOverviewEditor({
         servicePhotographerPays,
         serviceQuantities: serviceQuantityChanges,
         perCategoryPhotographers,
+        serviceEditorChanges: serviceEditors.serviceEditorChanges,
         servicesList, effectiveSqft,
       });
     } catch (error) {
@@ -518,6 +527,7 @@ export function useShootOverviewEditor({
     lockboxLocation,
     onSave,
     perCategoryPhotographers,
+    serviceEditors.serviceEditorChanges,
     presenceOption,
     propertyMetricsEdit.baths,
     propertyMetricsEdit.beds,
@@ -863,7 +873,7 @@ export function useShootOverviewEditor({
     const initialSelection = context.complimentarySourceServiceId
       ? getCompServicePhotographer(context.complimentarySourceServiceId)
       : context.categoryKey
-        ? perCategoryPhotographers[context.categoryKey] || selectedPhotographerIdEdit || ''
+        ? perCategoryPhotographers[context.categoryKey] ?? selectedPhotographerIdEdit ?? ''
         : selectedPhotographerIdEdit || '';
     setPhotographerPickerContext(context);
     setSelectedPhotographerId(initialSelection);
@@ -872,41 +882,8 @@ export function useShootOverviewEditor({
   }, [getCompServicePhotographer, perCategoryPhotographers, selectedPhotographerIdEdit]);
 
   const editModePhotographerRows = useMemo(() => {
-    const groupedRows = photographerAssignments.groups.map((group) => {
-      const selectedId = perCategoryPhotographers[group.key] || group.photographer?.id || selectedPhotographerIdEdit || '';
-        return {
-          key: group.key,
-          name: group.name,
-          photographer: resolvePhotographerDetails(String(selectedId)) || group.photographer || null,
-        };
-      });
-
-    const fallbackRows = groupedRows.length > 0
-      ? groupedRows
-        : [{
-            key: 'photographer',
-            name: 'Photographer',
-            photographer: resolvePhotographerDetails(String(selectedPhotographerIdEdit || shoot.photographer?.id || '')) || shoot.photographer || null,
-          }];
-
-    if (!isEditMode || selectedServiceIds.length === 0 || servicesList.length === 0) return fallbackRows;
-
-    const rows = new Map<string, { key: string; name: string; photographer: ReturnType<typeof resolvePhotographerDetails> }>();
-    selectedServiceIds.forEach((serviceId) => {
-      const service = servicesList.find((serviceOption) => serviceOption.id === serviceId);
-      if (!service) return;
-      const categoryName = deriveServiceCategoryName(service);
-      const categoryKey = normalizeShootServiceCategoryKey(categoryName);
-      const existingGroup = photographerAssignments.groups.find((group) => group.key === categoryKey);
-      const selectedId = perCategoryPhotographers[categoryKey] || existingGroup?.photographer?.id || selectedPhotographerIdEdit || '';
-      rows.set(categoryKey, {
-        key: categoryKey,
-        name: categoryName,
-        photographer: resolvePhotographerDetails(String(selectedId)) || existingGroup?.photographer || null,
-      });
-    });
-
-    return rows.size > 0 ? Array.from(rows.values()) : fallbackRows;
+    return getOverviewPhotographerRows({ shootPhotographer: shoot.photographer, isEditMode, selectedServiceIds, servicesList, perCategoryPhotographers,
+      selectedPhotographerId: selectedPhotographerIdEdit, groups: photographerAssignments.groups, resolvePhotographer: resolvePhotographerDetails });
   }, [
     isEditMode,
     perCategoryPhotographers,
@@ -1019,6 +996,9 @@ export function useShootOverviewEditor({
   return {
     travel,
     state: {
+      serviceEditorProps: { ...serviceEditors, canAssignServiceEditors },
+      ...serviceEditors,
+      canAssignServiceEditors,
       editedShoot,
       clients,
       selectedClientId,
@@ -1064,6 +1044,7 @@ export function useShootOverviewEditor({
       isLoadingAvailability,
     },
     actions: {
+      updateServiceEditor: serviceEditors.updateServiceEditor,
       setSelectedClientId,
       setClientSearchOpen,
       setSelectedPhotographerIdEdit,

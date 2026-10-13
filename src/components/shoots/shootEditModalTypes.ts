@@ -26,6 +26,9 @@ export interface Service extends DurationMetadata {
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: SqftRange[];
   photographer_required?: boolean;
+  requires_editing?: boolean;
+  upload_intake_type?: string | null;
+  editing_lanes?: string[];
   allow_multiple?: boolean;
   quantity?: number;
   booked_price?: number;
@@ -163,6 +166,9 @@ export type ServiceApiRecord = DurationMetadata & {
   price?: number | string;
   pricing_type?: 'fixed' | 'variable' | string;
   photographer_required?: boolean | number | string | null;
+  requires_editing?: boolean | number | string | null;
+  upload_intake_type?: string | null;
+  editing_lanes?: string[];
   allow_multiple?: boolean | number | string | null;
   category?: { id?: string | number; name?: string };
   sqft_ranges?: ServiceApiRange[];

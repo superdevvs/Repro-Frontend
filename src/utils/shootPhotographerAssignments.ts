@@ -1,4 +1,5 @@
 import { ShootServiceObject, ShootServicePhotographer } from '@/types/shoots';
+import { serviceAllowsPhotographerAssignment } from './photographerAssignment';
 
 type RawServiceAssignment = ShootServiceObject | Record<string, unknown>;
 type AssignmentSource = {
@@ -99,6 +100,10 @@ export const getShootPhotographerAssignments = (
 
   return services.map((service) => {
     const rawService = service as Record<string, unknown>;
+    const allowsPhotographer = serviceAllowsPhotographerAssignment({
+      name: String(rawService.name ?? rawService.service_name ?? ''), category: rawService.category,
+      photographer_required: rawService.photographer_required !== false && rawService.photographer_required !== 0 && rawService.photographer_required !== '0',
+    });
     const categoryName =
       (rawService.category &&
       typeof rawService.category === 'object' &&
@@ -156,8 +161,8 @@ export const getShootPhotographerAssignments = (
         'Unnamed service',
       categoryKey: normalizeShootServiceCategoryKey(categoryName),
       categoryName,
-      photographerId,
-      photographer,
+      photographerId: allowsPhotographer ? photographerId : undefined,
+      photographer: allowsPhotographer ? photographer : null,
       raw: service,
     };
   });

@@ -410,6 +410,7 @@ function ShootDetailsOverviewTabContent({
       clientSearchOpen,
       selectedPhotographerIdEdit,
       perCategoryPhotographers,
+      serviceEditorProps,
       servicesList,
       selectedServiceIds,
       servicePrices,
@@ -918,6 +919,7 @@ function ShootDetailsOverviewTabContent({
         effectiveSqft={effectiveSqft}
         editModePhotographerRows={editModePhotographerRows}
         perCategoryPhotographers={perCategoryPhotographers}
+        {...serviceEditorProps}
         selectedPhotographerIdEdit={selectedPhotographerIdEdit}
         resolvePhotographerDetails={resolvePhotographerDetails}
         toggleServiceSelection={toggleServiceSelection}

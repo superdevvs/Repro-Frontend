@@ -1,4 +1,5 @@
 import type { ShootServiceObject } from '@/types/shoots';
+import { serviceAllowsPhotographerAssignment } from './photographerAssignment';
 
 export type NormalizedShootServiceItem = {
   id: string;
@@ -88,7 +89,7 @@ export const normalizeShootServiceItem = (item: ShootServiceObject): NormalizedS
     shootServiceId: getShootServiceItemId(item),
     name: item.name || 'Service',
     scheduledAt: item.scheduled_at ?? item.scheduledAt ?? null,
-    photographerName: item.photographer?.name ?? null,
+    photographerName: serviceAllowsPhotographerAssignment(item) ? item.photographer?.name ?? null : null,
     editorName: item.editor?.name ?? null,
     workflowStatus: item.workflow_status ?? item.workflowStatus ?? null,
     deliveryStatus: item.delivery_status ?? item.deliveryStatus ?? null,

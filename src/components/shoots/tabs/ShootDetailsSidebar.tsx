@@ -24,6 +24,7 @@ import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUt
 import { getStateFullName } from '@/utils/stateUtils';
 import { cn } from '@/lib/utils';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
+import { serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
 import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import { OverviewServiceProgressSection } from './overview/OverviewServiceProgressSection';
 import { ManualNotificationDialog } from '@/components/messaging/ManualNotificationDialog';
@@ -483,7 +484,12 @@ export function ShootDetailsSidebar({
           <h3 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Services &amp; team
           </h3>
-          {isAdmin && (photographer?.id || photographerAssignments.hasAssignments) && (
+          {isAdmin && (serviceAssignments.length
+            ? serviceAssignments.some(assignment => {
+              const raw = assignment.raw as Record<string, unknown>;
+              return serviceAllowsPhotographerAssignment({ name: assignment.serviceName, category: raw.category,
+                photographer_required: raw.photographer_required !== false });
+            }) : photographer?.id) && (
             <Button
               variant="ghost"
               size="sm"
@@ -523,7 +529,10 @@ export function ShootDetailsSidebar({
                   <p className="text-xs font-semibold leading-5">{assignment.serviceName}</p>
                   {unitLabel && <p className="text-[11px] leading-4 text-muted-foreground">{unitLabel}</p>}
                   <p className="text-[11px] leading-5 text-muted-foreground">
-                    {assignment.photographer?.name || (raw.photographer_required === false ? 'No photographer required' : 'Not assigned')}
+                    {assignment.photographer?.name || (!serviceAllowsPhotographerAssignment({ name: assignment.serviceName,
+                      category: raw.category, photographer_required: raw.photographer_required !== false })
+                      ? (typeof raw.editor === 'object' && raw.editor && 'name' in raw.editor ? `Editor: ${String(raw.editor.name)}` : 'No photographer required')
+                      : 'Not assigned')}
                   </p>
                 </div>
                 {isDelivered && (

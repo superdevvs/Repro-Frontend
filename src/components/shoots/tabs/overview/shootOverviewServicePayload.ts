@@ -30,6 +30,7 @@ type ApplyOverviewServicePayloadArgs = {
   servicePhotographerPays: Record<string, string>;
   serviceQuantities?: Record<string, number>;
   perCategoryPhotographers: Record<string, string>;
+  serviceEditorChanges?: Record<string, string>;
   servicesList: ServiceOption[];
   effectiveSqft?: number | null;
 };
@@ -46,6 +47,7 @@ export function applyOverviewServicePayload({
   servicePhotographerPays,
   serviceQuantities = {},
   perCategoryPhotographers,
+  serviceEditorChanges = {},
   servicesList,
   effectiveSqft,
 }: ApplyOverviewServicePayloadArgs) {
@@ -80,6 +82,7 @@ export function applyOverviewServicePayload({
   });
 
   const serviceItems = selectedServiceIds.map((serviceId) => {
+    const service = servicesList.find(option => option.id === serviceId);
     const savedSchedule: ServiceScheduleFields = serviceSchedules[serviceId] || orderSchedule;
     const existingSchedule = existingScheduleByServiceId.get(serviceId);
     const schedule = existingSchedule
@@ -105,6 +108,13 @@ export function applyOverviewServicePayload({
     }
     if (servicePhotographerPays[serviceId]) {
       item.photographer_pay = parseFloat(servicePhotographerPays[serviceId]);
+    }
+    if (service && !serviceAllowsPhotographerAssignment(service)) {
+      // Digital work must never inherit the order's on-site photographer.
+      item.photographer_id = null;
+    }
+    if (Object.hasOwn(serviceEditorChanges, serviceId)) {
+      item.editor_id = serviceEditorChanges[serviceId] ? Number(serviceEditorChanges[serviceId]) : null;
     }
     return item;
   });

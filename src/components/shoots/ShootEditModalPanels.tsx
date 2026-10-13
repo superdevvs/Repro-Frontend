@@ -22,6 +22,9 @@ import {
   normalizeCategoryKey,
 } from './shootEditModalTypes';
 import type { useShootEditModalController } from './useShootEditModalController';
+import { serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
+import { ServiceEditorSelect } from './ServiceEditorSelect';
+import { serviceEditorLane } from './serviceEditorEligibility';
 
 export function createShootEditModalPanels(model: ReturnType<typeof useShootEditModalController>) {
   const {
@@ -343,7 +346,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
   };
 
   const renderPhotographersSection = () => {
-    if (!isAdminOrRep) return null;
+    if (!isAdminOrRep || selectedServiceCategoryGroups.length === 0) return null;
 
     if (hasMultiplePhotographerCategories) {
       return (
@@ -355,7 +358,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
           <div className="space-y-2">
             {selectedServiceCategoryGroups.map((group) => {
               const selectedPhotographer = resolvePhotographerDetails(
-                perCategoryPhotographers[group.key] || photographerId,
+                perCategoryPhotographers[group.key] ?? photographerId,
               );
 
               return (
@@ -398,7 +401,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
       );
     }
 
-    const selectedPhotographer = resolvePhotographerDetails(photographerId);
+    const selectedPhotographer = resolvePhotographerDetails(perCategoryPhotographers[selectedServiceCategoryGroups[0].key] ?? photographerId);
 
     return (
       <div className="space-y-2 rounded-lg border border-border p-3">
@@ -705,6 +708,20 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
   const renderAssignmentsAndServicesPanel = () => (
     <div className="shoot-services-panel">
       {renderPhotographersSection()}
+      {model.isAdmin && selectedServiceRows.some(({ service }) => !serviceAllowsPhotographerAssignment(service) && service.requires_editing !== false) && (
+        <div className="space-y-2 rounded-lg border border-border p-3">
+          <p className="text-xs font-semibold">Digital service editors</p>
+          {selectedServiceRows.filter(({ service }) => !serviceAllowsPhotographerAssignment(service) && service.requires_editing !== false).map(({ id, service }) => (
+            <div key={id} className="space-y-1">
+              <p className="text-xs">{service.name}</p>
+              <ServiceEditorSelect serviceName={service.name} value={model.serviceEditorIds[id]}
+                lane={serviceEditorLane(service)}
+                editors={model.editorOptions} loading={model.isLoadingEditors} error={model.editorLoadError}
+                onChange={editorId => model.updateServiceEditor(id, editorId)} />
+            </div>
+          ))}
+        </div>
+      )}
       {renderServicesPanel()}
     </div>
   );

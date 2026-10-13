@@ -32,7 +32,7 @@ const svc = (
 });
 
 describe('optional photographer payouts', () => {
-  it.each(['Travel Fee 60 miles', 'Travel fee 120 Miles', 'Virtual Staging (per image)'])(
+  it.each(['Travel Fee 60 miles', 'Travel fee 120 Miles'])(
     'allows an explicit assignment for %s without requiring an on-site visit', name => {
       const service = svc('fee', name, 'Fees', false);
       expect(serviceAllowsPhotographerAssignment(service)).toBe(true);
@@ -42,8 +42,14 @@ describe('optional photographer payouts', () => {
     },
   );
   it('keeps unrelated optional services excluded', () => {
+    expect(serviceAllowsPhotographerAssignment(svc('staging', 'Virtual Staging (per image)', 'Digital Enhancements', false))).toBe(false);
     expect(serviceAllowsPhotographerAssignment(svc('floorplan', 'Floor plan', 'Travel Fees', false))).toBe(false);
     expect(serviceAllowsPhotographerAssignment(svc('photos', 'Photos'))).toBe(true);
+  });
+  it('guards stale standalone digital catalog flags without excluding mixed photography packages', () => {
+    expect(serviceRequiresPhotographer(svc('staging', 'Virtual staging (per image)', 'Other', true))).toBe(false);
+    expect(serviceRequiresPhotographer(svc('grass', 'Green Grass Enhancement', 'Digital Enhancements', true))).toBe(false);
+    expect(serviceRequiresPhotographer(svc('bundle', '45 HDR Photos with Virtual Staging', 'Photos', true))).toBe(true);
   });
 });
 
