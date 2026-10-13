@@ -1,8 +1,21 @@
 import { expect, test, type Page } from '@playwright/test';
+import { resolve, sep } from 'node:path';
 
 const shootId = 920001;
 async function fixture(page: Page, baseURL: string | undefined, role: string, initialCount = 8) {
   if (!baseURL || !['127.0.0.1', 'localhost'].includes(new URL(baseURL).hostname)) throw new Error('These fixtures must only run against a local dashboard.');
+  // Also verify an exact production build using an already-running loopback
+  // server. Assets and API fixtures are fulfilled locally, without new services.
+  if (process.env.MEDIA_UPLOAD_STATIC_DIST) {
+    const root = resolve(process.env.MEDIA_UPLOAD_STATIC_DIST);
+    await page.route(`${baseURL}/**`, route => {
+      const path = new URL(route.request().url()).pathname;
+      if (route.request().resourceType() === 'document') return route.fulfill({ path: resolve(root, 'index.html') });
+      const asset = resolve(root, `.${path}`);
+      if (path.startsWith('/assets/') && asset.startsWith(`${root}${sep}assets${sep}`)) return route.fulfill({ path: asset });
+      return route.fallback();
+    });
+  }
   const user = { id: '900043', role, name: 'Media Test User', email: 'media@example.test', phone: '+15125550100', company: 'Fixture company', avatar: '/studio-assets/hero-after.webp', account_status: 'active', email_verified_at: '2026-01-01T00:00:00Z', metadata: { terms_accepted_at: '2026-01-01T00:00:00Z' } };
   await page.addInitScript(user => {
     if (localStorage.getItem('authToken') !== 'local-media-fixture') { localStorage.clear(); sessionStorage.clear(); }
