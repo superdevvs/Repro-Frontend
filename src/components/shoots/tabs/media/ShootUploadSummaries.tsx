@@ -139,18 +139,18 @@ function StaffUploadSummaries({ shootId, unitId, uploadType, requirements, onUpl
           if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) move(dx < 0 ? 1 : -1);
         }}>
         <section
-          aria-label="Upload complete" className="shoot-upload-summary-banner relative flex flex-wrap items-center gap-3 rounded-xl border border-primary/25 bg-card px-3 py-3 sm:gap-4 sm:px-4">
+          aria-label="Upload complete" className="shoot-upload-summary-banner rounded-xl border border-primary/25 bg-card">
           <UploadCompleteArtwork animate={Date.now() - Date.parse(active.completedAt) < 15000} />
-          <div className="shoot-upload-summary-content min-w-0 flex-1 pr-7 sm:pr-0">
+          <div className="shoot-upload-summary-content">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
-              Upload complete <span className="rounded border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-normal text-primary">{active.fileCount} / {active.fileCount} saved</span>
+              <span className="whitespace-nowrap">Upload complete</span> <span className="whitespace-nowrap rounded border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-normal text-primary">{active.fileCount} / {active.fileCount} saved</span>
               <time className="text-[11px] font-normal text-muted-foreground" dateTime={active.completedAt} title={new Date(active.completedAt).toLocaleString()}>{uploadedAgo(active.completedAt, now)}</time>
             </div>
             <p className="mb-2 mt-1 text-xs text-muted-foreground">{active.fileCount} {uploadType === 'raw' ? 'source' : 'edited'} files{active.totalBytes > 0 ? ` · ${formatUploadFileSize(active.totalBytes)}` : ''}</p>
             <ShootMediaCountLine requirements={requirements} compact />
           </div>
-          {onUploadMore && <Button type="button" size="sm" onClick={onUploadMore} className="shoot-upload-summary-more ml-[68px] h-8 text-xs sm:ml-0"><Upload className="mr-1.5 h-3.5 w-3.5" />Upload more</Button>}
-          <Button type="button" size="icon" variant="ghost" className="shoot-upload-summary-dismiss absolute right-2 top-2 h-7 w-7 text-muted-foreground sm:static" onClick={() => dismiss(active.id)} aria-label="Dismiss upload summary"><X className="h-4 w-4" /></Button>
+          {onUploadMore && <Button type="button" size="sm" onClick={onUploadMore} className="shoot-upload-summary-more h-8 text-xs"><Upload className="mr-1.5 h-3.5 w-3.5" />Upload more</Button>}
+          <Button type="button" size="icon" variant="ghost" className="shoot-upload-summary-dismiss h-7 w-7 text-muted-foreground" onClick={() => dismiss(active.id)} aria-label="Dismiss upload summary"><X className="h-4 w-4" /></Button>
         </section>
       </motion.div>}
     </AnimatePresence>

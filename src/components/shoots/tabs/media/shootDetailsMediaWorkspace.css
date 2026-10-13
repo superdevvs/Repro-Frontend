@@ -147,35 +147,6 @@
 }
 
 @container shoot-media (max-width: 699px) {
-  .shoot-details-workspace .shoot-upload-summary-banner {
-    display: grid;
-    grid-template-columns: 56px minmax(0, 1fr);
-    align-items: start;
-    gap: 12px;
-  }
-
-  .shoot-details-workspace .shoot-upload-summary-banner > .upload-complete-art {
-    grid-column: 1;
-    grid-row: 1;
-  }
-
-  .shoot-details-workspace .shoot-upload-summary-content {
-    grid-column: 2;
-    grid-row: 1;
-    padding-right: 20px;
-  }
-
-  .shoot-details-workspace .shoot-upload-summary-more {
-    grid-column: 2;
-    grid-row: 2;
-    justify-self: start;
-    margin-left: 0;
-  }
-
-  .shoot-details-workspace .shoot-upload-summary-dismiss {
-    position: absolute;
-  }
-
   .shoot-details-workspace .shoot-media-list-row {
     flex-wrap: wrap;
     gap: 8px;
