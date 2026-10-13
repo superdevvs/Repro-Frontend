@@ -137,7 +137,8 @@ test('empty shoot → first upload → second upload keeps photos and separate s
     await page.getByTestId('raw-upload-input').setInputFiles({ name, mimeType: 'image/jpeg', buffer: Buffer.from('local fixture photo') });
     await page.getByRole('button', { name: 'Confirm & upload', exact: true }).click();
     await expect(page.getByTestId('upload-transfer-speed').first()).toBeVisible();
-    await expect(page.getByTestId('upload-completion-summary')).toHaveCount(name === 'first.jpg' ? 1 : 2);
+    await expect(page.getByTestId('upload-completion-summary')).toHaveCount(1);
+    if (name === 'second.jpg') await expect(page.getByRole('button', { name: 'Next upload summary' })).toBeVisible();
     await expect(page.getByTestId('shoot-media-counts').first()).toContainText(name === 'first.jpg' ? '1 / 125' : '2 / 125');
   }
   expect(state.files).toHaveLength(2);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { getServicePricingForSqft } from '@/utils/servicePricing';
-import { format, parse } from 'date-fns';
+import { OverviewServiceRows } from './OverviewServiceRows';
 import { Plus, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -19,8 +19,6 @@ import type { ServiceScheduleFields } from './shootOverviewEditorSupport';
 import type { ShootData } from '@/types/shoots';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 import { normalizeShootServiceCategoryKey } from '@/utils/shootPhotographerAssignments';
-import { getShootSchedule } from '@/utils/shootSchedule';
-import { to12Hour } from '@/utils/availabilityUtils';
 import type {
   PhotographerPickerOption,
   ServiceOption,
@@ -29,8 +27,6 @@ import type { ComplimentarySourceServiceOption } from './useComplimentaryService
 import { CompServiceModeControls } from '@/features/complimentary-reshoots/CompServiceModeControls';
 import type { CompReshootReasonCode } from '@/features/complimentary-reshoots/model';
 import {
-  deriveRowStatuses,
-  STATUS_DOT_CLASS,
   type ServiceRowStatus,
 } from './overviewServiceStatus';
 
@@ -97,6 +93,7 @@ export type OverviewServicesTableSectionProps = {
   isPhotographer: boolean;
   isEditor: boolean;
   isAdmin?: boolean;
+  role?: string;
   complimentary?: {
     enabled: boolean;
     onEnabledChange: (enabled: boolean) => void;
@@ -123,7 +120,6 @@ export type OverviewServicesTableSectionProps = {
 
 // Placeholder shown in Date/Time/Photographer/Price cells when the underlying
 // value is absent (UNASSIGNED). Both date/time and photographer use "N/A".
-const UNASSIGNED = 'Unassigned';
 const NOT_ASSIGNED = 'Unassigned';
 
 // Column definitions. The Services column is intentionally given no fixed width
@@ -178,32 +174,6 @@ const deriveServiceCategoryName = (service: ServiceOption): string => {
   if (!service.category) return 'Uncategorized';
   if (typeof service.category === 'string') return service.category;
   return service.category.name || 'Uncategorized';
-};
-
-/**
- * Formats a service's `scheduledAt` into a human-readable date (e.g. "Jan 5, 2025"),
- * using wall-clock semantics. Returns null when there is no parseable date.
- */
-const formatDisplayDate = (value?: string | null, timezone?: string | null): string | null => {
-  const wallClockDate = getShootSchedule({ scheduled_at: value, timezone }).date;
-  if (!wallClockDate) return null;
-  try {
-    const parsed = parse(wallClockDate, 'yyyy-MM-dd', new Date());
-    if (Number.isNaN(parsed.getTime())) return null;
-    return format(parsed, 'MMM d, yyyy');
-  } catch {
-    return null;
-  }
-};
-
-/**
- * Formats a service's `scheduledAt` into a 12-hour time (e.g. "10:00 AM").
- * Returns null when there is no parseable time.
- */
-const formatDisplayTime = (value?: string | null, timezone?: string | null): string | null => {
-  const wallClockTime = getShootSchedule({ scheduled_at: value, timezone }).time;
-  if (!wallClockTime) return null;
-  return to12Hour(wallClockTime) || null;
 };
 
 export function OverviewServicesTableSection(
@@ -304,7 +274,7 @@ export function OverviewServicesTableSection(
 
   return (
     <div className="min-w-0 p-2.5 border rounded-lg bg-card" style={{ containerType: 'inline-size' }}>
-      <div className="overflow-visible">
+      {!isEditMode ? (props.serviceItems.length ? <OverviewServiceRows {...props} /> : <p className="py-3 text-center text-xs text-muted-foreground">No services</p>) : <div className="overflow-visible">
         <table
           className={`w-full text-[11px] ${isEditMode ? 'block table-fixed [@container(min-width:48rem)]:table' : 'table-fixed'}`}
         >
@@ -322,12 +292,10 @@ export function OverviewServicesTableSection(
             </tr>
           </thead>
           <tbody className={isEditMode ? 'block [@container(min-width:48rem)]:table-row-group' : undefined}>
-            {isEditMode
-              ? renderEditRows(props, openServiceDialog)
-              : renderReadonlyRows(props)}
+            {renderEditRows(props, openServiceDialog)}
           </tbody>
         </table>
-      </div>
+      </div>}
       {isEditMode && (
         <ServiceSelectionDialog
           open={serviceDialogOpen}
@@ -371,96 +339,6 @@ export function OverviewServicesTableSection(
       )}
     </div>
   );
-}
-
-/**
- * Read-only rendering: one row per `serviceItems` entry, each with a leading
- * Status_Dot, the service label, date/time, photographer, and individual price.
- * Renders a single "No services" empty-state cell when there are no items.
- */
-function renderReadonlyRows(props: OverviewServicesTableSectionProps) {
-  const { serviceItems, formatServiceLabel, getReadonlyServiceDisplayPrice } = props;
-  const headerCells = getHeaderCells(props);
-  const showPhotographerColumn = !isPayView(props);
-
-  if (serviceItems.length === 0) {
-    return (
-      <tr>
-        <td colSpan={headerCells.length} className="py-3 text-center text-muted-foreground">
-          No services
-        </td>
-      </tr>
-    );
-  }
-
-  const statuses = deriveRowStatuses(serviceItems);
-
-  return serviceItems.map((item) => {
-    const status: ServiceRowStatus = statuses.get(item.id) ?? 'unfinished';
-    const dotClass = STATUS_DOT_CLASS[status];
-    const dateDisplay = formatDisplayDate(item.scheduledAt, props.shoot.timezone);
-    const timeDisplay = formatDisplayTime(item.scheduledAt, props.shoot.timezone);
-    const label = formatServiceLabel(item.source) || item.name;
-    const source = item.source;
-    const sourceItemId = String(item.shootServiceId || item.id);
-    const linkedResponsibility = (props.shoot.reshootServiceLinks ?? props.shoot.reshoot_service_links ?? []).find((link) => (
-      String(link.reshootShootServiceId ?? link.reshoot_shoot_service_id ?? '') === sourceItemId
-    ));
-    const responsibility = source.reshootResponsibility
-      ?? source.reshoot_responsibility
-      ?? linkedResponsibility?.responsibility
-      ?? null;
-    const responsibilityLabel = responsibility
-      ? String(responsibility).replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
-      : null;
-    const sourceServiceName = source.sourceServiceName
-      ?? source.source_service_name
-      ?? linkedResponsibility?.sourceService?.name
-      ?? linkedResponsibility?.source_service?.name
-      ?? linkedResponsibility?.sourceServiceName
-      ?? linkedResponsibility?.source_service_name
-      ?? null;
-
-    return (
-      <tr key={item.id} className="align-middle">
-        <td className="relative py-1.5 pr-2">
-          <span
-            data-testid="status-dot"
-            data-status={status}
-            className={`absolute -left-4 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full ${dotClass}`}
-            aria-hidden="true"
-          />
-          <span className="block truncate font-medium text-foreground">{label}</span>
-          {props.isAdmin && responsibilityLabel && (
-            <span className="block truncate text-[10px] font-medium text-amber-700 dark:text-amber-300">
-              Reshoot responsibility: {responsibilityLabel}
-            </span>
-          )}
-          {sourceServiceName && (
-            <span className="block truncate text-[10px] text-muted-foreground">From: {sourceServiceName}</span>
-          )}
-        </td>
-        <td className="py-1.5 pr-2 whitespace-nowrap">
-          {dateDisplay ?? <span className="text-muted-foreground">{UNASSIGNED}</span>}
-        </td>
-        <td className="py-1.5 pr-2 whitespace-nowrap">
-          {timeDisplay ?? <span className="text-muted-foreground">{UNASSIGNED}</span>}
-        </td>
-        {showPhotographerColumn && (
-          <td className="py-1.5 pr-2">
-            {item.photographerName ? (
-              <span className="block truncate">{item.photographerName}</span>
-            ) : (
-              <span className="text-muted-foreground">{NOT_ASSIGNED}</span>
-            )}
-          </td>
-        )}
-        <td className="py-1.5 pl-1.5 whitespace-nowrap text-right font-medium text-muted-foreground">
-          {getReadonlyServiceDisplayPrice(item.source)}
-        </td>
-      </tr>
-    );
-  });
 }
 
 /**

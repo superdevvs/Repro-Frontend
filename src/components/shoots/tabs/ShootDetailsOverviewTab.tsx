@@ -905,6 +905,7 @@ function ShootDetailsOverviewTabContent({
         }
       />
       <OverviewServicesTableSection
+        role={role}
         isEditMode={isEditMode}
         shoot={shoot}
         serviceItems={serviceItems}

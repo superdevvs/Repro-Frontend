@@ -1,0 +1,29 @@
+.overview-service-rows { container: service-rows / inline-size; min-width: 0; }
+.overview-service-row { position: relative; padding: 8px 0; border-bottom: 1px solid hsl(var(--border)); }
+.overview-service-row:last-child { border-bottom: 0; padding-bottom: 2px; }
+.service-row-status { position: absolute; left: -16px; top: 12px; width: 4px; height: 20px; border-radius: 999px; }
+.service-row-top, .service-row-bottom { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px; }
+.service-row-heading { min-width: 0; line-height: 18px; overflow-wrap: anywhere; }
+.service-row-name { font-size: 12px; font-weight: 650; }
+.service-row-schedule { display: inline-block; margin-left: 8px; white-space: nowrap; font-size: 10px; color: hsl(var(--muted-foreground)); line-height: 14px; }
+.service-row-schedule-short { display: none; }
+.service-row-price { font-size: 12px; line-height: 18px; font-weight: 750; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.service-row-bottom { margin-top: 4px; }
+.service-row-person { min-width: 0; overflow-wrap: anywhere; font-size: 11px; line-height: 15px; color: hsl(var(--muted-foreground)); }
+.service-row-counts { display: flex; gap: 10px; justify-self: end; font-size: 10px; line-height: 15px; font-variant-numeric: tabular-nums; }
+.service-row-counts > span { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; text-align: right; }
+.service-row-counts > span + span { border-left: 1px solid hsl(var(--border)); padding-left: 7px; }
+.service-count-required-short { display: none; }
+.service-count-label { font-size: 9px; color: hsl(var(--muted-foreground)); line-height: 12px; }
+.service-row-counts strong { font-weight: 650; }
+.service-count-denominator { color: hsl(var(--muted-foreground)); font-weight: 500; }
+.service-row-note { margin-top: 3px; font-size: 10px; overflow-wrap: anywhere; }
+@container service-rows (max-width: 360px) {
+  .service-row-schedule-full { display: none; }
+  .service-row-schedule-short { display: inline; }
+  .service-row-counts { gap: 5px; }
+  .service-row-counts > span + span { padding-left: 5px; }
+  .service-count-required-full { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .service-count-required-short { display: inline; }
+  .service-row-name { font-size: 11.5px; }
+}

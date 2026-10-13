@@ -30,6 +30,35 @@ describe('staff-only completion summaries', () => {
     expect(fetch).not.toHaveBeenCalled();
     expect(screen.queryByText('Upload complete')).not.toBeInTheDocument();
   });
+  it.each(['client', 'editor'])('does not request internal summaries for the %s role', role => {
+    mocks.role = role; mount();
+    expect(fetch).not.toHaveBeenCalled();
+  });
+  it('shows one batch at a time, pages history, and brings a new completed batch to the front', async () => {
+    const batches = [
+      { ...summary('older'), fileCount: 3, completedAt: '2026-10-01T10:00:00Z' },
+      { ...summary('newest'), fileCount: 5, completedAt: '2026-10-02T10:00:00Z' },
+      { ...summary('edited'), uploadType: 'edited', fileCount: 9 },
+    ];
+    vi.mocked(fetch).mockResolvedValue({ ok: true, json: async () => ({ data: [...batches] }) } as Response);
+    const { client } = mount();
+    expect(await screen.findByText('5 / 5 saved')).toBeVisible();
+    expect(screen.getAllByTestId('upload-completion-summary')).toHaveLength(1);
+    expect(screen.getByText('1 / 2')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Next upload summary' }));
+    expect(await screen.findByText('3 / 3 saved')).toBeVisible();
+    await client.invalidateQueries({ queryKey: ['shootUploadSummaries'] });
+    expect(screen.getByText('3 / 3 saved')).toBeVisible();
+    batches.push({ ...summary('latest'), fileCount: 7 });
+    await client.invalidateQueries({ queryKey: ['shootUploadSummaries'] });
+    expect(await screen.findByText('7 / 7 saved')).toBeVisible();
+    expect(screen.getByText('1 / 3')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss upload summary' }));
+    expect(await screen.findByText('5 / 5 saved')).toBeVisible();
+    expect(screen.getAllByTestId('upload-completion-summary')).toHaveLength(1);
+    expect(screen.getByText('1 / 2')).toBeVisible();
+    expect(localStorage.getItem('shoot-upload-dismissed:5:1:7')).toContain('latest');
+  });
   it('persists dismissal, preserves photos, and gives a new upload its own summary', async () => {
     const { client } = mount();
     await screen.findByText('Upload complete');
