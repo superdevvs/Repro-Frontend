@@ -7,8 +7,8 @@ import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { OverviewServiceRows } from './OverviewServiceRows';
 import { countServicePhotos } from './serviceImageCounts';
 
-const mocks = vi.hoisted(() => ({ role: 'admin', raw: [] as MediaFile[], edited: [] as MediaFile[], loaded: true, files: vi.fn() }));
-vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: '5', role: mocks.role } }) }));
+const mocks = vi.hoisted(() => ({ role: 'admin', capabilities: [] as string[], raw: [] as MediaFile[], edited: [] as MediaFile[], loaded: true, files: vi.fn() }));
+vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: '5', role: mocks.role, metadata: { editing_capabilities: mocks.capabilities } } }) }));
 vi.mock('@/hooks/useShootFiles', () => ({ useShootFiles: (id: unknown, type: string, options: { enabled: boolean }) => {
   mocks.files(id, type, options);
   return { data: mocks.loaded && options.enabled ? (type === 'raw' ? mocks.raw : mocks.edited) : undefined };
@@ -28,7 +28,7 @@ function mount(role = 'admin', source = shoot, isClient = role === 'client') {
     isClient={isClient} isPhotographer={role === 'photographer'} isEditor={role === 'editor'} isAdmin={role === 'admin'}
     formatServiceLabel={value => (value as ShootServiceObject).name} getReadonlyServiceDisplayPrice={value => `$${(value as ShootServiceObject).price.toFixed(2)}`} />);
 }
-beforeEach(() => { mocks.files.mockClear(); mocks.loaded = true; mocks.raw = [photo('11'), photo('11'), photo('12'), photo('11', true), photo('')]; mocks.edited = [photo('11')]; });
+beforeEach(() => { mocks.files.mockClear(); mocks.capabilities = []; mocks.loaded = true; mocks.raw = [photo('11'), photo('11'), photo('12'), photo('11', true), photo('')]; mocks.edited = [photo('11')]; });
 afterEach(cleanup);
 describe('compact service rows', () => {
   it.each(['admin', 'superadmin', 'editing_manager', 'salesRep', 'editor'])('shows distinct per-service counts for %s', role => {
@@ -72,6 +72,25 @@ describe('compact service rows', () => {
     expect(screen.queryByText(services[0].name)).not.toBeInTheDocument();
     expect(screen.queryByLabelText('Image counts')).not.toBeInTheDocument();
     expect(mocks.files.mock.calls.every(call => call[2].enabled === false)).toBe(true);
+  });
+  it('hides photo counts and photo queries for a video editor assigned to a bundled service', () => {
+    mount('editor', { ...shoot, serviceItems: [{ ...services[0], upload_intake_type: 'photo_video', editor_id: '6', video_editor_id: '5' }] });
+    expect(screen.queryByLabelText('Image counts')).not.toBeInTheDocument();
+    expect(mocks.files.mock.calls.every(call => call[2].enabled === false)).toBe(true);
+  });
+  it('respects video-only capabilities when an editor is stored in both slots', () => {
+    mocks.capabilities = ['video'];
+    mount('editor', { ...shoot, serviceItems: [{ ...services[0], upload_intake_type: 'photo_video', editor_id: '5', video_editor_id: '5' }] });
+    expect(screen.queryByLabelText('Image counts')).not.toBeInTheDocument();
+    expect(mocks.files.mock.calls.every(call => call[2].enabled === false)).toBe(true);
+  });
+  it('shows counts only for the photo assignment when an editor also has a separate video assignment', () => {
+    mount('editor', { ...shoot, serviceItems: [
+      { ...services[0], editor_id: '5' },
+      { ...services[1], upload_intake_type: 'photo_video', editor_id: '6', video_editor_id: '5' },
+    ] });
+    expect(within(screen.getByTestId('service-summary-11')).getByLabelText('Image counts')).toBeVisible();
+    expect(within(screen.getByTestId('service-summary-12')).queryByLabelText('Image counts')).not.toBeInTheDocument();
   });
   it('counts photos by execution row, excludes extras/video, and accepts the camel-case alias', () => {
     expect(countServicePhotos([photo('11'), photo('12'), photo('11', true), { ...photo('11'), filename: 'video.mp4' },

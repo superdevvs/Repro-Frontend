@@ -5,6 +5,7 @@ import type { ShootData } from '@/types/shoots';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { to12Hour } from '@/utils/availabilityUtils';
+import { readEditingCapabilities } from '@/utils/shootEditorAssignments';
 import { getShootMediaRequirements } from '../media/shootMediaRequirements';
 import { canSeeServiceImageCounts, countServicePhotos } from './serviceImageCounts';
 import { deriveRowStatuses, STATUS_DOT_CLASS } from './overviewServiceStatus';
@@ -39,10 +40,19 @@ function ServiceSchedule({ item, timezone }: { item: NormalizedShootServiceItem;
 export function OverviewServiceRows(props: Props) {
   const { user } = useAuth();
   const role = props.role ?? user?.role;
-  const showCounts = canSeeServiceImageCounts(role, props.isClient);
+  const capabilities = readEditingCapabilities(user);
+  const showCounts = canSeeServiceImageCounts(role, props.isClient)
+    && !(props.isEditor && capabilities.includes('video') && !capabilities.includes('photo'));
   // Read the already server-scoped booking contract, independently of upload permissions.
   const requirements = getShootMediaRequirements(props.shoot, []);
-  const hasPhotos = requirements.services.length > 0;
+  const countServices = requirements.services.filter(service => {
+    const item = props.serviceItems.find(row => String(row.shootServiceId ?? '') === service.id);
+    if (!item || !props.isEditor || user?.id == null) return true;
+    const videoEditor = item.source.video_editor_id ?? item.source.videoEditorId;
+    const photoEditor = item.source.editor_id ?? item.source.resolved_editor_id ?? item.source.editor?.id;
+    return String(videoEditor ?? '') !== String(user.id) || String(photoEditor ?? '') === String(user.id);
+  });
+  const hasPhotos = countServices.length > 0;
   const raw = useShootFiles(props.shoot.id, 'raw', { enabled: showCounts && hasPhotos });
   const edited = useShootFiles(props.shoot.id, 'edited', { enabled: showCounts && hasPhotos && !props.isPhotographer });
   const statuses = deriveRowStatuses(props.serviceItems);
@@ -50,7 +60,7 @@ export function OverviewServiceRows(props: Props) {
     <h3 className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Services</h3>
     {props.serviceItems.map(item => {
       const id = String(item.shootServiceId ?? '');
-      const target = requirements.services.find(service => service.id === id);
+      const target = countServices.find(service => service.id === id);
       const linked = (props.shoot.reshootServiceLinks ?? props.shoot.reshoot_service_links ?? []).find(link =>
         String(link.reshootShootServiceId ?? link.reshoot_shoot_service_id ?? '') === id);
       const responsibility = item.source.reshootResponsibility ?? item.source.reshoot_responsibility ?? linked?.responsibility;
