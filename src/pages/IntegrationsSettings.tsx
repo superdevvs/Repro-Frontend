@@ -226,7 +226,9 @@ const normalizeBrightMlsSettings = (value?: Partial<BrightMlsSettings> | null): 
     apiUser: value?.apiUser ?? '',
     apiKey: value?.apiKey ?? '',
     vendorId: value?.vendorId ?? '',
-    vendorName: value?.vendorName ?? 'Repro Photos',
+    vendorName: !value?.vendorName?.trim() || /^repro photos$/i.test(value.vendorName.trim())
+      ? 'R/E Pro Photos'
+      : value.vendorName.trim(),
     defaultDocVisibility: value?.defaultDocVisibility ?? 'private',
     enabled: value?.enabled ?? true,
   };
@@ -852,7 +854,7 @@ export const IntegrationsSettingsContent = () => {
                         onChange={(e) =>
                           setBrightMlsSettings({ ...brightMlsSettings, vendorName: e.target.value })
                         }
-                        placeholder="Repro Photos"
+                        placeholder="R/E Pro Photos"
                       />
                       <Label htmlFor="bright-mls-doc-visibility">Default Doc Visibility</Label>
                       <select

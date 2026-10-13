@@ -142,12 +142,14 @@ function StaffUploadSummaries({ shootId, unitId, uploadType, requirements, onUpl
           aria-label="Upload complete" className="shoot-upload-summary-banner rounded-xl border border-primary/25 bg-card">
           <UploadCompleteArtwork animate={Date.now() - Date.parse(active.completedAt) < 15000} />
           <div className="shoot-upload-summary-content">
+            <div className="shoot-upload-summary-main">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
               <span className="whitespace-nowrap">Upload complete</span> <span className="whitespace-nowrap rounded border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-normal text-primary">{active.fileCount} / {active.fileCount} saved</span>
               <time className="text-[11px] font-normal text-muted-foreground" dateTime={active.completedAt} title={new Date(active.completedAt).toLocaleString()}>{uploadedAgo(active.completedAt, now)}</time>
             </div>
-            <p className="mb-2 mt-1 text-xs text-muted-foreground">{active.fileCount} {uploadType === 'raw' ? 'source' : 'edited'} files{active.totalBytes > 0 ? ` · ${formatUploadFileSize(active.totalBytes)}` : ''}</p>
-            <ShootMediaCountLine requirements={requirements} compact />
+            <p className="shoot-upload-summary-files mt-1 text-xs text-muted-foreground">{active.fileCount} {uploadType === 'raw' ? 'source' : 'edited'} files{active.totalBytes > 0 ? ` · ${formatUploadFileSize(active.totalBytes)}` : ''}</p>
+            </div>
+            <div className="shoot-upload-summary-counts"><ShootMediaCountLine requirements={requirements} compact concise /></div>
           </div>
           {onUploadMore && <Button type="button" size="sm" onClick={onUploadMore} className="shoot-upload-summary-more h-8 text-xs"><Upload className="mr-1.5 h-3.5 w-3.5" />Upload more</Button>}
           <Button type="button" size="icon" variant="ghost" className="shoot-upload-summary-dismiss h-7 w-7 text-muted-foreground" onClick={() => dismiss(active.id)} aria-label="Dismiss upload summary"><X className="h-4 w-4" /></Button>

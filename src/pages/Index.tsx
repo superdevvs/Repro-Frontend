@@ -192,14 +192,14 @@ const Index = () => {
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
-          padding: isLogin ? '16px' : undefined,
+          width: '100%',
           paddingTop: isLogin ? 'calc(11px + env(safe-area-inset-top))' : undefined,
           paddingBottom: isLogin ? 'calc(11px + env(safe-area-inset-bottom))' : undefined,
         }}
       >
         {/* Image Section - flex grows to fill available space on login */}
         <div
-          className={`${isLogin ? 'relative' : 'fixed top-0 left-0 right-0 z-0 px-4 pt-[calc(env(safe-area-inset-top)+16px)]'}`}
+          className={`${isLogin ? 'relative' : 'fixed top-0 left-0 right-0 z-0 pt-[calc(env(safe-area-inset-top)+16px)]'}`}
           style={{ 
             height: isLogin ? 'auto' : '50vh',
             flex: isLogin ? '1 1 auto' : undefined,
@@ -251,12 +251,12 @@ const Index = () => {
           />
           <div style={{ background: '#060a0e' }}>
             <motion.div
-              className={`relative z-10 w-full text-white ${isLogin ? '' : 'px-4'}`}
+              className="relative z-10 w-full text-white"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4, delay: 0.05 }}
             >
-              <div className={`w-full mx-auto space-y-6 text-[15px] ${isLogin ? '' : 'max-w-md pb-8 pt-2'}`}>
+              <div className={`w-full mx-auto space-y-6 text-[15px] ${isLogin ? '' : 'pb-8 pt-2'}`}>
                 <LoginForm onTabChange={handleTabChange} />
               </div>
             </motion.div>
@@ -269,7 +269,7 @@ const Index = () => {
   // Desktop layout
   return (
     <div
-      className="dark box-border h-dvh w-full flex flex-row gap-4 p-4 md:overflow-hidden relative"
+      className="dark box-border h-dvh w-full flex flex-row gap-4 py-4 md:overflow-hidden relative"
       style={{ background: '#060a0e' }}
     >
       {/* Left Side - Slideshow */}
