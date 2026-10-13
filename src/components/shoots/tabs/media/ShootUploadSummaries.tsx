@@ -84,16 +84,16 @@ function StaffUploadSummaries({ shootId, unitId, uploadType, requirements, onUpl
     } catch { /* In-memory dismissal still works when storage is unavailable. */ }
   };
 
-  return <div className="overflow-hidden" data-testid="shoot-upload-summaries">
+  return <div className="shoot-upload-summaries overflow-hidden" data-testid="shoot-upload-summaries">
     <AnimatePresence initial={false}>
       {visible.map(summary => <motion.div key={summary.id} initial={false}
         exit={reducedMotion ? { opacity: 0, height: 0 } : { height: 0, opacity: 0 }}
         transition={{ duration: reducedMotion ? 0 : 0.44, height: { delay: reducedMotion ? 0 : 0.18, duration: reducedMotion ? 0 : 0.26 } }}
         className="overflow-hidden" data-testid="upload-completion-summary">
         <motion.section exit={reducedMotion ? {} : { x: 100, opacity: 0 }} transition={{ duration: reducedMotion ? 0 : 0.24 }}
-          aria-label="Upload complete" className="relative mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 px-3 py-3 sm:gap-4 sm:px-4">
+          aria-label="Upload complete" className="shoot-upload-summary-banner relative mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 px-3 py-3 sm:gap-4 sm:px-4">
           <UploadCompleteArtwork animate={Date.now() - Date.parse(summary.completedAt) < 15000} />
-          <div className="min-w-0 flex-1 pr-7 sm:pr-0">
+          <div className="shoot-upload-summary-content min-w-0 flex-1 pr-7 sm:pr-0">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold">
               Upload complete <span className="rounded border border-primary/25 bg-primary/10 px-1.5 py-0.5 text-[10px] font-normal text-primary">{summary.fileCount} / {summary.fileCount} saved</span>
               <time className="text-[11px] font-normal text-muted-foreground" dateTime={summary.completedAt} title={new Date(summary.completedAt).toLocaleString()}>{uploadedAgo(summary.completedAt, now)}</time>
@@ -101,8 +101,8 @@ function StaffUploadSummaries({ shootId, unitId, uploadType, requirements, onUpl
             <p className="mb-2 mt-1 text-xs text-muted-foreground">{summary.fileCount} {uploadType === 'raw' ? 'source' : 'edited'} files{summary.totalBytes > 0 ? ` · ${formatUploadFileSize(summary.totalBytes)}` : ''}</p>
             <ShootMediaCountLine requirements={requirements} compact />
           </div>
-          {onUploadMore && <Button type="button" size="sm" onClick={onUploadMore} className="ml-[68px] h-8 text-xs sm:ml-0"><Upload className="mr-1.5 h-3.5 w-3.5" />Upload more</Button>}
-          <Button type="button" size="icon" variant="ghost" className="absolute right-2 top-2 h-7 w-7 text-muted-foreground sm:static" onClick={() => dismiss(summary.id)} aria-label="Dismiss upload summary"><X className="h-4 w-4" /></Button>
+          {onUploadMore && <Button type="button" size="sm" onClick={onUploadMore} className="shoot-upload-summary-more ml-[68px] h-8 text-xs sm:ml-0"><Upload className="mr-1.5 h-3.5 w-3.5" />Upload more</Button>}
+          <Button type="button" size="icon" variant="ghost" className="shoot-upload-summary-dismiss absolute right-2 top-2 h-7 w-7 text-muted-foreground sm:static" onClick={() => dismiss(summary.id)} aria-label="Dismiss upload summary"><X className="h-4 w-4" /></Button>
         </motion.section>
       </motion.div>)}
     </AnimatePresence>

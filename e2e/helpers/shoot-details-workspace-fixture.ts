@@ -5,6 +5,8 @@ export const workspaceAddress = '1732 Fletchers Drive';
 export const workspaceClientEmail = 'tracy@example.test';
 export const workspaceClientPhone = '(301) 748-6029';
 export const workspaceEditedPhotoCount = 6;
+export const workspaceRawUploadSummaryId = 'workspace-raw-upload-156';
+export const workspaceEditedUploadSummaryId = 'workspace-edited-upload-156';
 
 /** This fixture blocks external traffic and fulfills every API request locally. */
 export async function installShootDetailsWorkspaceFixture(
@@ -12,6 +14,7 @@ export async function installShootDetailsWorkspaceFixture(
   baseURL: string | undefined,
   role: ShootWorkspaceRole = 'admin',
   theme: 'light' | 'dark' = 'dark',
+  options: { largeCompletionCounts?: boolean } = {},
 ) {
   if (!baseURL || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(baseURL).hostname)) {
     throw new Error('Shoot workspace acceptance requires a loopback preview.');
@@ -39,9 +42,13 @@ export async function installShootDetailsWorkspaceFixture(
     width: 1600, height: 1067, file_size: 1500000, can_delete: role === 'admin',
     sort_order: id, captured_at: '2026-10-08T14:00:00Z', created_at: '2026-10-08T15:00:00Z',
   });
-  const rawFiles = [
+  const rawFiles = options.largeCompletionCounts ? [] : [
     makeFile(1, 'Front exterior.jpg', 'raw', 101), makeFile(2, 'Living room.jpg', 'raw', 101),
     makeFile(3, 'Property walkthrough.mp4', 'video', 103), makeFile(4, 'Floor plan.jpg', 'floorplan', 102),
+  ];
+  const uploadSummaries = [
+    { id: workspaceRawUploadSummaryId, uploadType: 'raw', fileCount: 4, totalBytes: 6000000, completedAt: new Date(Date.now() - 120000).toISOString() },
+    { id: workspaceEditedUploadSummaryId, uploadType: 'edited', fileCount: options.largeCompletionCounts ? 56 : workspaceEditedPhotoCount, totalBytes: 9000000, completedAt: new Date(Date.now() - 120000).toISOString() },
   ];
   const editedFiles = [
     makeFile(11, 'Front exterior final.jpg', 'edited', 101, true),
@@ -52,7 +59,7 @@ export async function installShootDetailsWorkspaceFixture(
     makeFile(16, 'Front exterior alternate final.jpg', 'edited', 101, true, secondPhoto),
   ];
   const services = [
-    { id: 101, name: 'HDR Photos', price: 250, quantity: 1, category: { id: 1, name: 'Photos' }, photographer_id: 21, photographer: { id: 21, name: 'Jay Snap' }, photo_count: 2, upload_intake_type: 'photo' },
+    { id: 101, name: 'HDR Photos', price: 250, quantity: 1, category: { id: 1, name: 'Photos' }, photographer_id: 21, photographer: { id: 21, name: 'Jay Snap' }, photo_count: options.largeCompletionCounts ? 45 : 2, upload_intake_type: 'photo', ...(options.largeCompletionCounts ? { uses_hdr_brackets: true, bracket_mode: 5, effective_bracket_mode: 5 } : {}) },
     { id: 102, name: 'Zillow 3D with Floor Plans', price: 125, quantity: 1, category: { id: 2, name: 'Floor Plans' }, photographer_id: 22, photographer: { id: 22, name: 'Alex Lens' }, upload_intake_type: 'none' },
     { id: 103, name: 'Listing Video', price: 50, quantity: 1, category: { id: 3, name: 'Video' }, photographer_id: 22, photographer: { id: 22, name: 'Alex Lens' }, upload_intake_type: 'video' },
   ].map(service => ({ ...service, workflow_status: 'delivered', delivery_status: 'delivered', payment_status: 'paid', paid_amount: service.price, balance_due: 0, is_unlocked_for_delivery: true }));
@@ -62,6 +69,7 @@ export async function installShootDetailsWorkspaceFixture(
     scheduled_instant: '2026-10-08T14:00:00Z', timezone: 'America/New_York',
     client: { id: 10, name: 'Tracy Grubb', email: workspaceClientEmail, phone: workspaceClientPhone, company: 'Samson Properties', email_verified: true },
     photographer: { id: 21, name: 'Jay Snap' }, editor: { id: 901, name: 'Editor Local Review' }, services,
+    ...(options.largeCompletionCounts ? { serviceItems: services, bracket_mode: 5 } : {}),
     base_quote: 425, total_quote: 425, total_paid: 425, payment_status: 'paid', tax_amount: 0,
     raw_photo_count: 2, edited_photo_count: workspaceEditedPhotoCount, expected_raw_count: 2, expected_final_count: workspaceEditedPhotoCount,
     canSubmitRaw: false, canSubmitEdits: false, canManageBooking: role === 'admin',
@@ -105,6 +113,7 @@ export async function installShootDetailsWorkspaceFixture(
       return reply(route, { permissions, permissionIds: permissions.map(permission => `${permission.resource}:${permission.action}`) });
     }
     if (path === '/shoots/156') return data(route, shoot);
+    if (path === '/shoots/156/upload-summaries') return data(route, uploadSummaries);
     if (path === '/shoots/156/aryeo') return reply(route, { configured: false, connections: [], orders: [], unmatched: [] });
     if (path === '/shoots/156/files') {
       const type = url.searchParams.get('type');

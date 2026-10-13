@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import path from 'node:path';
-import { installShootDetailsWorkspaceFixture, workspaceAddress, workspaceClientEmail, workspaceClientPhone, workspaceEditedPhotoCount, type ShootWorkspaceRole } from './helpers/shoot-details-workspace-fixture';
+import { installShootDetailsWorkspaceFixture, workspaceAddress, workspaceClientEmail, workspaceClientPhone, workspaceEditedPhotoCount, workspaceEditedUploadSummaryId, type ShootWorkspaceRole } from './helpers/shoot-details-workspace-fixture';
 
 test.describe.configure({ mode: 'parallel' });
 const overview = (page: Page) => page.getByRole('dialog', { name: `#156 · ${workspaceAddress}`, exact: true });
@@ -135,6 +135,61 @@ for (const width of [1440, 820, 390, 320]) for (const theme of ['dark', 'light']
       await page.waitForTimeout(2200);
       await expect(overview(page)).toBeHidden();
     }
+    expect(state.businessWrites).toEqual([]);
+    expect(state.pageErrors).toEqual([]);
+  });
+}
+
+for (const width of [320, 390]) for (const theme of ['dark', 'light'] as const) {
+  test(`completed upload stays readable and actionable at ${width}px ${theme}`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 1000 });
+    const state = await installShootDetailsWorkspaceFixture(page, baseURL, 'admin', theme, { largeCompletionCounts: true });
+    await page.goto('/shoots/156');
+    await expect(overview(page)).toBeVisible();
+    await closeOverview(page);
+
+    const workspace = page.locator('.shoot-details-workspace');
+    const emptyGalleryBanner = workspace.getByRole('region', { name: 'Upload complete', exact: true });
+    await expect(emptyGalleryBanner).toBeVisible();
+    const emptyBannerBox = await emptyGalleryBanner.boundingBox();
+    const emptySummaryHeight = await workspace.getByTestId('shoot-upload-summaries').evaluate(element => element.clientHeight);
+    expect(emptyBannerBox).not.toBeNull();
+    expect(emptySummaryHeight).toBeGreaterThanOrEqual(emptyBannerBox!.height);
+    await emptyGalleryBanner.scrollIntoViewIfNeeded();
+    await expect(emptyGalleryBanner.getByRole('button', { name: 'Upload more', exact: true })).toBeInViewport();
+    await screenshot(page, `shoot-workspace-upload-empty-gallery-${theme}-${width}.png`);
+    await page.getByRole('tab', { name: `Edited (${workspaceEditedPhotoCount})`, exact: true }).click();
+    const banner = workspace.getByRole('region', { name: 'Upload complete', exact: true });
+    await expect(banner).toBeVisible();
+    await expect(banner.getByText('56 / 56 saved', { exact: true })).toBeVisible();
+    await expect(banner.getByTestId('shoot-media-counts')).toContainText('Sources 0 / 225');
+    await expect(banner.getByTestId('shoot-media-counts')).toContainText('Final target 45');
+    await banner.scrollIntoViewIfNeeded();
+    const content = await banner.locator('.shoot-upload-summary-content').boundingBox();
+    const upload = await banner.getByRole('button', { name: 'Upload more', exact: true }).boundingBox();
+    const bannerBox = await banner.boundingBox();
+    const dismiss = await banner.getByRole('button', { name: 'Dismiss upload summary' }).boundingBox();
+    expect(content).not.toBeNull(); expect(upload).not.toBeNull(); expect(bannerBox).not.toBeNull(); expect(dismiss).not.toBeNull();
+    expect(content!.width).toBeGreaterThan(100);
+    const wrapperHeight = await workspace.getByTestId('shoot-upload-summaries').evaluate(element => element.clientHeight);
+    expect(wrapperHeight).toBeGreaterThanOrEqual(bannerBox!.height);
+    if (width === 390) expect(bannerBox!.height).toBeLessThanOrEqual(200);
+    expect(upload!.y).toBeGreaterThanOrEqual(content!.y + content!.height - 1);
+    expect(upload!.x + upload!.width).toBeLessThanOrEqual(bannerBox!.x + bannerBox!.width);
+    expect(dismiss!.x + dismiss!.width).toBeLessThanOrEqual(width);
+    await expect(banner.getByRole('button', { name: 'Upload more', exact: true })).toBeInViewport();
+    await expectNoHorizontalOverflow(page);
+    await screenshot(page, `shoot-workspace-upload-complete-${theme}-${width}.png`);
+
+    await banner.getByRole('button', { name: 'Upload more', exact: true }).click();
+    await expect(page.getByTestId('media-upload-scroll-owner')).toBeVisible();
+    await page.getByRole('tab', { name: `Edited (${workspaceEditedPhotoCount})`, exact: true }).click();
+    await expect(banner).toBeVisible();
+    await banner.getByRole('button', { name: 'Dismiss upload summary' }).click();
+    await expect(banner).toBeHidden();
+    await expect(page.getByText('Front exterior final.jpg', { exact: true }).filter({ visible: true }).first()).toBeVisible();
+    const dismissed = await page.evaluate(() => localStorage.getItem('shoot-upload-dismissed:901:156:property'));
+    expect(JSON.parse(dismissed!)).toContain(workspaceEditedUploadSummaryId);
     expect(state.businessWrites).toEqual([]);
     expect(state.pageErrors).toEqual([]);
   });
