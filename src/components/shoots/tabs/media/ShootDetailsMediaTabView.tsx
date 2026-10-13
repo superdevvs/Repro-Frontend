@@ -15,8 +15,6 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import type { ShootDetailsMediaTabViewProps } from './shootDetailsMediaTabViewTypes';
 import { ShootMediaHeader } from './ShootMediaHeader';
 import { canShowIguideMedia } from './iguideMediaVisibility';
-import { canSeeUploadSummaries } from './shootMediaRequirements';
-import { ShootMediaCountLine } from './ShootMediaCountLine';
 import './shootDetailsMediaWorkspace.css';
 
 export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
@@ -530,7 +528,6 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                         </button>
                       )}
                     </div>
-                    {uploadedPhotos.length > 0 && canSeeUploadSummaries(props.role, isClient) && props.mediaRequirements && <ShootMediaCountLine requirements={props.mediaRequirements} compact />}
                   </div>
                 </div>
                 
@@ -782,7 +779,6 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                           </button>
                         )}
                       </div>
-                      {editedPhotos.length > 0 && canSeeUploadSummaries(props.role, isClient) && props.mediaRequirements && <ShootMediaCountLine requirements={props.mediaRequirements} compact />}
                     </div>
                   </div>
                 )}
