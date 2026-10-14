@@ -12,6 +12,23 @@ beforeEach(() => { vi.useFakeTimers(); localStorage.setItem('authToken', 'test')
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); localStorage.clear(); });
 
 describe('selected itinerary travel preview', () => {
+  it.each(['itinerary', 'retry', 'server'] as const)('invalidates the separate warning confirmation after %s changes', async change => {
+    const force = { ...conflict, can_override: false, can_force_save: true, force_save_confirmation_version: 'force-v1', reason_codes: ['outside_working_hours'] };
+    vi.stubGlobal('fetch', vi.fn(async () => response(force)));
+    const { result, rerender } = renderHook(useTravelFeasibility, { initialProps: { payload: { ...payload, shoot_id: 2379, action_mode: 'update' } } });
+    await tick(); expect(result.current.blocked).toBe(true); expect(result.current.canForceSave).toBe(true);
+    expect(await result.current.confirmSave()).toBeNull();
+    const saved = vi.fn(); act(() => { void result.current.confirmForceSave().then(saved); });
+    act(() => result.current.forceSaveDialog.setReason('Confirmed package change with photographer'));
+    const complete = result.current.forceSaveDialog.complete;
+    await act(async () => {
+      if (change === 'itinerary') rerender({ payload: { ...payload, shoot_id: 2379, action_mode: 'update', scheduled_at: '2026-10-05T15:00:00Z' } });
+      if (change === 'retry') await result.current.retry();
+      if (change === 'server') result.current.acceptServerError({ feasibility: { ...force, force_save_confirmation_version: 'force-v2' } });
+    });
+    act(complete);
+    expect(saved).toHaveBeenCalledExactlyOnceWith(null); expect(result.current.forceSaveDialog.open).toBe(false);
+  });
   it('keeps staff save provisional during the first check and after a failed check until retry succeeds', async () => {
     const fetcher = vi.fn().mockRejectedValueOnce(new Error('Network unavailable')).mockResolvedValueOnce(response());
     vi.stubGlobal('fetch', fetcher);

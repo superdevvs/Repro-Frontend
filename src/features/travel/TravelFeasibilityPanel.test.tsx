@@ -13,6 +13,7 @@ const controller = (overrides: Partial<TravelController> = {}): TravelController
       { id: 'b', direction: 'outgoing', source: 'mileage_band', required_minutes: 30, available_minutes: 45, shortfall_minutes: 0, reason_code: 'available' },
     ] }, enabled: true, loading: false, requestedOnly: false, timezone: 'America/New_York', proposedLocation: '1 Main St', error: null, visible: true, blocked: true,
   confirmation: {}, canOverride: true, confirmSave: vi.fn(), overrideDialog: { open: false, reason: '', setReason: vi.fn(), cancel: vi.fn(), complete: vi.fn() }, locationConfirmed: false, setLocationConfirmed: vi.fn(),
+  canForceSave: false, confirmForceSave: vi.fn(), forceSaveDialog: { open: false, reason: '', setReason: vi.fn(), cancel: vi.fn(), complete: vi.fn() },
   retry: vi.fn(), loadAlternatives: vi.fn(), alternativesRequested: false, acceptServerError: vi.fn(), ...overrides,
 });
 describe('travel explanations and permission controls', () => {

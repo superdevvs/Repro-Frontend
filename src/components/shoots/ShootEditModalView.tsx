@@ -164,12 +164,12 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
             {isSubmitting ? (
               <>
                 <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
-                Approving...
+                {model.isConfirmedEdit ? 'Saving...' : 'Approving...'}
               </>
             ) : (
               <>
                 <BellOff className="mr-2 h-4 w-4" />
-                Approve without notification
+                {model.isConfirmedEdit ? 'Save without notification' : 'Approve without notification'}
               </>
             )}
           </Button>
@@ -181,12 +181,12 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
             {isSubmitting ? (
               <>
                 <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
-                Approving...
+                {model.isConfirmedEdit ? 'Saving...' : 'Approving...'}
               </>
             ) : (
               <>
                 <Check className="mr-2 h-4 w-4" />
-                Approve
+                {model.isConfirmedEdit ? 'Save changes' : 'Approve'}
               </>
             )}
           </Button>

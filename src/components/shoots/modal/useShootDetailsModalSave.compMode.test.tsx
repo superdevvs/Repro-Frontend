@@ -22,6 +22,22 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootDetailsModalSave comp forwarding', () => {
+  it('forwards the signed staff warning and preserves notification choices through rep PATCH confirmation', async () => {
+    const warning = { force_save: true, force_save_confirmed: true, force_save_reason: 'Photographer confirmed package change.', force_save_confirmation_version: 'signed-v1' };
+    const { result } = renderHook(() => useShootDetailsModalSave({
+      shoot: { ...shoot, serviceObjects: [{ id: '2', name: 'HDR Photos', quantity: 1, price: 275, duration_minutes: 75 }] },
+      setShoot: vi.fn(), setIsEditMode: vi.fn(), refreshShoot: vi.fn().mockResolvedValue(shoot),
+      updateShoot: vi.fn().mockResolvedValue(undefined), toast: vi.fn(), isRep: true, canNotifyClient: true, canNotifyPhotographer: true,
+    }));
+    act(() => result.current.handleSaveRequest({ ...warning, notify_client: false, notify_photographer: true,
+      services: [{ id: 8, duration_minutes: 90 }], service_photographers: [{ service_id: 8, photographer_id: 9 }] } as never));
+    expect(submitShootServiceMutation).not.toHaveBeenCalled();
+    await act(async () => result.current.handleConfirmSave());
+    expect(submitShootServiceMutation).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      url: expect.stringMatching(/\/api\/shoots\/42$/), payload: expect.objectContaining({ ...warning, notify_client: false,
+        notify_photographer: true, services: [{ id: 8, duration_minutes: 90 }], service_photographers: [{ service_id: 8, photographer_id: 9 }] }),
+    }));
+  });
   it('saves the staged day adjustment and separate notification choices through Overview confirmation', async () => {
     const adjustment = { shoot_id: 43, photographer_id: 9, from_start: '2026-09-01T14:30:00Z',
       scheduled_at: '2026-09-01T13:00:00Z', expected_edit_version: 'a'.repeat(64) };

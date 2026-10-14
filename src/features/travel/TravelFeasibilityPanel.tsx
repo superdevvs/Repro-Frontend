@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Clock3 } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { TravelOverrideDialog } from './TravelOverrideDialog';
+import { ForceSaveWarningDialog } from './ForceSaveWarningDialog';
 import { DayScheduleDialog } from './DayScheduleDialog';
 import { TravelNotifications } from './TravelNotifications';
 import { TravelRouteSummary } from './TravelRouteSummary';
@@ -24,6 +25,7 @@ export function TravelFeasibilityPanel({ travel, durationAdjuster, issuesOnly = 
   const canAdjust = Boolean(!travel.requestedOnly && travel.onScheduleChange && result?.enabled && result.visits?.length);
   const items = travel.payload?.service_items ?? travel.payload?.service_lines;
   const title = travel.loading ? 'Checking travel · time is provisional' : travel.error ? 'Travel check unavailable' : result?.available ? 'Travel time checked' : overlap ? 'Already booked at this time' : 'Review travel time';
+  const warningAction = travel.canForceSave && travel.onSaveWithWarning && <Button type="button" size="sm" className="min-h-10 bg-amber-600 text-white hover:bg-amber-700 sm:min-h-7" disabled={travel.forceSaveBusy} onClick={() => { setDetailsOpen(false); travel.onSaveWithWarning?.(); }}>Save with warning</Button>;
   const detailPanel = <section aria-label="Travel feasibility" className={`min-w-0 space-y-3 rounded-xl border p-3 text-sm ${hasError ? 'border-red-500 dark:border-red-400 bg-red-500/5' : 'bg-muted/30'}`}>
     <div role={hasError ? 'alert' : 'status'} aria-live="polite"><p className={`font-semibold ${hasError ? 'text-red-600 dark:text-red-400' : ''}`}>{title}</p>
       {travel.error && <p className="mt-1 text-muted-foreground">{travel.error}</p>}
@@ -38,6 +40,7 @@ export function TravelFeasibilityPanel({ travel, durationAdjuster, issuesOnly = 
     {!travel.loading && sameDayTransitions(result?.transitions ?? [], timezone).map(leg => <TravelRouteSummary key={leg.id} leg={leg} />)}
     {(result?.can_confirm_location || result?.can_override) && (unknownLocation || travel.locationConfirmed) && <label className="flex items-start gap-2"><input type="checkbox" className="mt-1" checked={travel.locationConfirmed} onChange={event => travel.setLocationConfirmed(event.target.checked)} /><span>I confirm this is the correct building address, including the street number. Units at this building share its location.</span></label>}
     <div className="flex flex-wrap gap-2">
+      {warningAction}
       {canAdjust && <Button type="button" variant="outline" size="sm" disabled={travel.loading} onClick={() => { setDetailsOpen(false); setAdjusting(true); }}>Adjust this day</Button>}
       {travel.error && <Button type="button" variant="outline" size="sm" onClick={() => void travel.retry()}>Retry travel check</Button>}
     </div>
@@ -54,11 +57,12 @@ export function TravelFeasibilityPanel({ travel, durationAdjuster, issuesOnly = 
       <span className="min-w-0 font-medium">{title}{travel.scheduleAdjustments.length > 0 && <span className="ml-2 text-violet-600 dark:text-violet-300">· {travel.scheduleAdjustments.length} booking(s) adjusted</span>}</span>
     </div>
     <div className="flex shrink-0 flex-wrap items-center gap-1">
+      {warningAction}
       {canAdjust && <Button type="button" variant={hasError ? 'default' : 'outline'} size="sm" className={`h-10 px-3 text-xs sm:h-7 sm:px-2 ${hasError ? '' : 'hidden sm:inline-flex'}`} disabled={travel.loading} onClick={() => setAdjusting(true)}>Adjust schedule</Button>}
       {travel.error && <Button type="button" variant="outline" size="sm" className="h-10 px-3 text-xs sm:h-7 sm:px-2" onClick={() => void travel.retry()}>Retry travel check</Button>}
       <Button type="button" variant="ghost" size="sm" className="h-10 px-3 text-xs sm:h-7 sm:px-2" onClick={() => setDetailsOpen(true)}>View details</Button>
     </div>
   </section> : detailPanel)}
     {compact && <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}><DialogContent className="max-h-[85dvh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>Travel details</DialogTitle><DialogDescription>Routes, travel allowance, and scheduling checks for this booking.</DialogDescription></DialogHeader>{detailPanel}</DialogContent></Dialog>}
-    {adjusting && <DayScheduleDialog travel={travel} open onClose={() => setAdjusting(false)} />}<TravelOverrideDialog travel={travel} durationAdjuster={durationAdjuster} /></>;
+    {adjusting && <DayScheduleDialog travel={travel} open onClose={() => setAdjusting(false)} />}<TravelOverrideDialog travel={travel} durationAdjuster={durationAdjuster} /><ForceSaveWarningDialog travel={travel} /></>;
 }

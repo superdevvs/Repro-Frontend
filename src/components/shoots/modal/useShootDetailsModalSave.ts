@@ -145,7 +145,7 @@ export function useShootDetailsModalSave({
     let preservePendingUpdates = false;
     try {
       const payload: Record<string, unknown> = {};
-      for (const field of ['travel_override', 'travel_override_reason', 'travel_override_confirmed', 'travel_override_confirmation_version', 'travel_location_confirmed', 'schedule_adjustments'] as const) {
+      for (const field of ['travel_override', 'travel_override_reason', 'travel_override_confirmed', 'travel_override_confirmation_version', 'force_save', 'force_save_confirmed', 'force_save_reason', 'force_save_confirmation_version', 'travel_location_confirmed', 'schedule_adjustments'] as const) {
         if (hasOwn(updates, field)) payload[field] = (updates as unknown as Record<string, unknown>)[field];
       }
       
@@ -321,6 +321,10 @@ export function useShootDetailsModalSave({
               const serviceData: Record<string, unknown> = {
                 id: serviceId,
               };
+              if (serviceRecord.duration_minutes !== undefined && serviceRecord.duration_minutes !== null) {
+                const duration = Number(serviceRecord.duration_minutes);
+                if (Number.isInteger(duration) && duration >= 0) serviceData.duration_minutes = duration;
+              }
 
               if (serviceRecord.quantity !== undefined && serviceRecord.quantity !== null) {
                 const quantity = Number(serviceRecord.quantity);
@@ -379,6 +383,10 @@ export function useShootDetailsModalSave({
           const itemData: Record<string, unknown> = {
             service_id: serviceId,
           };
+          if (serviceItem.duration_minutes !== undefined && serviceItem.duration_minutes !== null) {
+            const duration = Number(serviceItem.duration_minutes);
+            if (Number.isInteger(duration) && duration >= 0) itemData.duration_minutes = duration;
+          }
 
           if (serviceItem.quantity !== undefined && serviceItem.quantity !== null) {
             const quantity = Number(serviceItem.quantity);

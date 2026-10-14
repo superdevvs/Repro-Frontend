@@ -33,6 +33,43 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe('editing the main shoot appointment', () => {
+  it('saves a confirmed package edit through PATCH with the warning token and selected notifications', async () => {
+    const savedShoot = { id: 42, status: 'scheduled', address: '42 Service Lane', scheduled_at: '2026-10-13T15:30:00Z', timezone: 'America/New_York',
+      photographer_id: 9, photographer: { id: 9, name: 'Pat', email: 'pat@example.test' }, client: { id: 4, email: 'client@example.test' },
+      service_items: [{ service_id: 10, name: '45 HDR Photos', price: 275, scheduled_at: '2026-10-13T15:30:00Z', duration_minutes: 75 }],
+    };
+    vi.mocked(axios.get).mockResolvedValue({ data: { data: [
+      { id: 10, name: '45 HDR Photos', price: 275, category: { name: 'Photos' }, photographer_required: true, shoot_duration_minutes: 75 },
+      { id: 11, name: '55 HDR Photos', price: 350, category: { name: 'Photos' }, photographer_required: true, shoot_duration_minutes: 90 },
+    ] } });
+    const fetcher = vi.fn(async (input: RequestInfo | URL, _options?: RequestInit) => new Response(JSON.stringify(String(input).endsWith('/feasibility')
+      ? { data: { enabled: true, status: 'conflict', available: false, reason_codes: ['outside_working_hours'], transitions: [], alternatives: [],
+        can_override: false, can_force_save: true, force_save_confirmation_version: 'signed-edit-v1', policy_version: '1', schedule_version: '1' } }
+      : { data: savedShoot })));
+    vi.stubGlobal('fetch', fetcher);
+    const onSaved = vi.fn();
+    const { result } = renderHook(() => useShootEditModalController({ isOpen: true, onClose: vi.fn(), shootId: '42', onSaved }));
+    await waitFor(() => expect(result.current.selectedServiceIds.size).toBe(1));
+    act(() => result.current.handleSelectedServicesChange([{ id: '11', name: '55 HDR Photos', description: '', price: 350 }]));
+    await waitFor(() => expect(result.current.travel.canForceSave).toBe(true));
+    expect(result.current.isConfirmedEdit).toBe(true); expect(result.current.travel.blocked).toBe(true);
+    await act(async () => { await result.current.handleApprove(); });
+    expect(fetcher.mock.calls.some(call => (call as unknown[])[1] && ((call as unknown[])[1] as RequestInit).method === 'PATCH')).toBe(false);
+    act(() => result.current.travel.setNotifications({ client: false, photographer: false }));
+    act(() => result.current.travel.onSaveWithWarning?.());
+    await waitFor(() => expect(result.current.travel.forceSaveDialog.open).toBe(true));
+    act(() => result.current.travel.forceSaveDialog.setReason('Photographer confirmed package change.'));
+    await act(async () => result.current.travel.forceSaveDialog.complete());
+    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+    const request = fetcher.mock.calls.find(call => ((call as unknown[])[1] as RequestInit | undefined)?.method === 'PATCH') as unknown[];
+    expect(String(request[0])).toMatch(/\/api\/shoots\/42$/);
+    expect(fetcher.mock.calls.some(([url]) => String(url).endsWith('/approve'))).toBe(false);
+    const payload = JSON.parse(String((request[1] as RequestInit).body));
+    expect(payload).toMatchObject({ photographer_id: 9, scheduled_at: '2026-10-13T15:30:00.000Z', notify_client: false, notify_photographer: false,
+      force_save: true, force_save_confirmed: true, force_save_reason: 'Photographer confirmed package change.', force_save_confirmation_version: 'signed-edit-v1',
+      service_items: [{ service_id: 11, duration_minutes: 90, photographer_id: 9 }],
+    });
+  });
   it('offers a travel fee recipient and persists the choice while preserving the photo assignment', async () => {
     const services = [
       { id: 58, name: '25 Photos', category: { name: 'Photos' }, price: 125, photographer_required: true, shoot_duration_minutes: 60 },

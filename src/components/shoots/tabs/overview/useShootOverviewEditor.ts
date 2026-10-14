@@ -1,4 +1,5 @@
 import { useOverviewTravel } from '@/features/travel/useOverviewTravel';
+import { buildForceSaveChanges } from '@/features/travel/forceSaveChanges';
 import { localSchedule, shiftScheduleFields } from '@/features/travel/daySchedule';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { buildOverviewEditDraft } from './overviewEditDraft';
@@ -399,7 +400,7 @@ export function useShootOverviewEditor({
 
   const travel = useOverviewTravel({ active: isEditMode, draft: editedShoot, shoot, isAdmin, role, omitStandardServices: hasComplimentaryServices,
     selectedServiceIds, serviceSchedules, servicePrices, servicePhotographerPays, serviceQuantities: serviceQuantityChanges,
-    perCategoryPhotographers, servicesList, effectiveSqft,
+    perCategoryPhotographers, serviceEditorChanges: serviceEditors.serviceEditorChanges, servicesList, effectiveSqft,
     onScheduleChange: change => {
       const next = localSchedule(change.scheduledAt, change.timezone);
       const base = getShootSchedule({ ...shoot, ...editedShoot });
@@ -407,9 +408,10 @@ export function useShootOverviewEditor({
       setEditedShoot(current => ({ ...current, scheduledDate: next.date, time: next.time }));
     },
     assignment: !isEditMode && assignPhotographerOpen && selectedPhotographerId ? buildAssignmentPayload('photographer_id', selectedPhotographerId) : null });
-  const handleSave = useCallback(async () => {
+  const { confirmForceSave, confirmSave } = travel;
+  const handleSave = useCallback(async (withWarning = false) => {
     if (!onSave) return;
-    if (travel.blocked) { toast({ title: 'Review travel before saving', description: 'Resolve the travel warning or approve an authorized exception.', variant: 'destructive' }); return; }
+    if (withWarning ? !travel.canForceSave : travel.blocked) { toast({ title: 'Review travel before saving', description: 'Resolve the travel warning or approve an authorized exception.', variant: 'destructive' }); return; }
     if (!validateCompServicesBeforeSave()) return;
 
     const legacyShoot = shoot as ShootWithLegacyOverviewFields;
@@ -515,7 +517,7 @@ export function useShootOverviewEditor({
 
     // `onSave` is typed against the display model, while this payload carries the
     // request-shaped service keys the endpoint requires.
-    const travelConfirmation = await travel.confirmSave();
+    const travelConfirmation = await (withWarning ? confirmForceSave() : confirmSave());
     if (travelConfirmation) onSave({ ...updates, ...travelConfirmation } as unknown as Partial<ShootData>, travel.acceptServerError);
   }, [
     accessContactName,
@@ -542,7 +544,7 @@ export function useShootOverviewEditor({
     servicesList,
     shoot,
     toast,
-    validateCompServicesBeforeSave, travel.blocked, travel.confirmSave, travel.acceptServerError,
+    validateCompServicesBeforeSave, travel.blocked, confirmSave, travel.acceptServerError, travel.canForceSave, confirmForceSave,
   ]);
 
   // An UNSET service schedule must stay empty (UNASSIGNED) rather than
@@ -994,7 +996,8 @@ export function useShootOverviewEditor({
   ]);
 
   return {
-    travel,
+    travel: { ...travel, onSaveWithWarning: isEditMode && onSave ? () => { void handleSave(true); } : undefined,
+      warningChanges: buildForceSaveChanges(shoot, travel.payload, servicesList, editPhotographers) },
     state: {
       serviceEditorProps: { ...serviceEditors, canAssignServiceEditors },
       ...serviceEditors,

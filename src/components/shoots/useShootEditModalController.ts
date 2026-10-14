@@ -2,6 +2,10 @@ import { readOfficePhone } from '@/utils/officePhone';
 import { comparePhotographerDistance } from '@/utils/photographerDistanceSort';
 import { travelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
 import { useTravelFeasibility } from '@/features/travel/useTravelFeasibility';
+import { buildForceSaveChanges } from '@/features/travel/forceSaveChanges';
+import { shootEditTravelMode } from '@/features/travel/shootEditTravelMode';
+import type { TravelConfirmation } from '@/features/travel/types';
+import { buildShootEditMutationRequest } from './shootEditSubmission';
 import { safelyBuildTravelPayload, shootTravelPayload } from '@/features/travel/travelPayload';
 import { fetchDurationAwareAvailability, photographerVisitDurationGroups } from '@/utils/photographerVisitDuration';
 import { formatPhotographerLocationLabel } from './shootEditPhotographerDisplay';
@@ -78,6 +82,7 @@ export function useShootEditModalController({
     notifyClient: boolean;
     notifyPhotographer: boolean;
     silent: boolean;
+    withWarning?: boolean; warningConfirmation?: TravelConfirmation;
   } | null>(null);
   const userRole = user?.role?.toLowerCase() || '';
   const isAdmin = userRole === 'admin' || userRole === 'superadmin' || userRole === 'super_admin';
@@ -765,23 +770,28 @@ export function useShootEditModalController({
     }
     return unitEdit.buildPayload(payload);
   };
-  const previewPayload = isOpen && !isLoading && shootDetails && address.trim() && scheduledDate && (selectedServiceIds.size || canRemoveAllServices) ? safelyBuildTravelPayload(buildApprovalPayload) : null;
-  const travel = useTravelFeasibility({ payload: previewPayload ? shootTravelPayload(unitEdit.source ?? shootDetails, previewPayload, 'approve') : null });
   const canNotifyClient = Boolean(clientEmail);
   const notificationPhotographerId = photographerId || shootDetails?.photographer?.id;
   const canNotifyPhotographer = canNotifyDistinctPhotographer(photographerEmail, notificationPhotographerId, shootDetails?.client?.id);
+  const isConfirmedEdit = shootEditTravelMode(unitEdit.source ?? shootDetails) === 'update';
+  const previewPayload = isOpen && !isLoading && shootDetails && address.trim() && scheduledDate && (selectedServiceIds.size || canRemoveAllServices) ? safelyBuildTravelPayload(buildApprovalPayload) : null;
+  const travel = useTravelFeasibility({ payload: previewPayload ? shootTravelPayload(unitEdit.source ?? shootDetails, previewPayload, isConfirmedEdit ? 'update' : 'approve') : null, notificationsSupported: isConfirmedEdit, initialNotifications: { client: canNotifyClient, photographer: canNotifyPhotographer } });
   const submitApproval = async ({
     notifyClient,
     notifyPhotographer,
     silent,
     confirmationToken,
+    withWarning = false,
+    warningConfirmation,
   }: {
     notifyClient: boolean;
     notifyPhotographer: boolean;
     silent: boolean;
     confirmationToken?: string | null;
+    withWarning?: boolean;
+    warningConfirmation?: TravelConfirmation;
   }) => {
-    if (approvalInFlight.current || isSubmitting || isLoading || travel.blocked) return;
+    if (approvalInFlight.current || isSubmitting || isLoading || (withWarning ? !travel.canForceSave : travel.blocked)) return;
     approvalInFlight.current = true;
     try {
       const payload = buildApprovalPayload();
@@ -789,31 +799,30 @@ export function useShootEditModalController({
       setScheduleError(null);
       setIsSubmitting(true);
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const travelConfirmation = await travel.confirmSave();
+      const travelConfirmation = withWarning && warningConfirmation && warningConfirmation.force_save_confirmation_version === travel.result?.force_save_confirmation_version
+        ? warningConfirmation : await (withWarning ? travel.confirmForceSave() : travel.confirmSave());
       if (!travelConfirmation) return;
       const approvalPayload = {
         ...payload, ...travelConfirmation,
-        notify_client: notifyClient,
-        notify_photographer: notifyPhotographer,
+        notify_client: notifyClient && travelConfirmation.notify_client !== false,
+        notify_photographer: notifyPhotographer && travelConfirmation.notify_photographer !== false,
       };
       const result = await submitShootServiceMutation({
-        url: `${API_BASE_URL}/api/shoots/${shootId}/approve`,
-        method: 'POST',
+        ...buildShootEditMutationRequest(shootId, unitEdit.source ?? shootDetails, approvalPayload, isRep, isAdmin),
         token,
-        payload: approvalPayload,
         confirmationToken,
       });
 
       if (result.kind === 'confirmation_required') {
         setServiceDetachConfirmation(result.confirmation);
-        setPendingDetachApproval({ notifyClient, notifyPhotographer, silent });
+        setPendingDetachApproval({ notifyClient, notifyPhotographer, silent, withWarning, warningConfirmation: withWarning ? travelConfirmation : undefined });
         return;
       }
       setServiceDetachConfirmation(null);
       setPendingDetachApproval(null);
       toast({
-        title: 'Shoot approved',
-        description: silent
+        title: isConfirmedEdit ? 'Shoot updated' : 'Shoot approved',
+        description: isConfirmedEdit ? 'The shoot changes were saved.' : silent
           ? 'The shoot request has been approved without sending notifications.'
           : 'The shoot request has been approved successfully.',
       });
@@ -842,18 +851,8 @@ export function useShootEditModalController({
       setIsSubmitting(false);
     }
   };
-  const handleApprove = () =>
-    submitApproval({
-      notifyClient: canNotifyClient,
-      notifyPhotographer: canNotifyPhotographer,
-      silent: false,
-    });
-  const handleApproveWithoutNotification = () =>
-    submitApproval({
-      notifyClient: false,
-      notifyPhotographer: false,
-      silent: true,
-    });
+  const handleApprove = () => submitApproval({ notifyClient: canNotifyClient, notifyPhotographer: canNotifyPhotographer, silent: false });
+  const handleApproveWithoutNotification = () => submitApproval({ notifyClient: false, notifyPhotographer: false, silent: true });
   const handleConfirmServiceDetach = () => {
     if (!serviceDetachConfirmation || !pendingDetachApproval) return;
     const confirmationToken = serviceDetachConfirmation.token;
@@ -1037,6 +1036,8 @@ export function useShootEditModalController({
   const buildScheduledAtIso = (dateValue?: string, timeValue?: string): string | null => {
     return buildWallClockIso(dateValue, timeValue);
   };
+  const editTravel = { ...travel, forceSaveBusy: isSubmitting, warningChanges: buildForceSaveChanges(unitEdit.source ?? shootDetails, previewPayload, availableServices, photographers),
+    onSaveWithWarning: isConfirmedEdit ? () => { void submitApproval({ notifyClient: canNotifyClient, notifyPhotographer: canNotifyPhotographer, silent: false, withWarning: true }); } : undefined };
   const unitScopeDirty = useUnitEditDirtyTracking(JSON.stringify([address, city, state, zip, scheduledDate, scheduledTime, alternateDate, alternateTime, [...selectedServiceIds], serviceQuantities, serviceSchedules, photographerId, perCategoryPhotographers, serviceEditors.serviceEditorChanges, shootNotes, companyNotes, photographerNotes, editorNotes, propertyDetails, propertySqft]), isLoading, unitEdit.activeUnitId);
-  return { ...serviceEditors, travel, unitSource: unitEdit.source, unitScopeDirty, isOpen, onClose, shootId, onSaved, toast, user, isSubmitting, setIsSubmitting, isLoading, setIsLoading, shootDetails, setShootDetails, availableServices, setAvailableServices, photographers, setPhotographers, photographerPickerOpen, setPhotographerPickerOpen, photographerPickerContext, setPhotographerPickerContext, pickerPhotographerId, setPickerPhotographerId, photographerSearchQuery, setPhotographerSearchQuery, sortBy, setSortBy, showAllPhotographers, setShowAllPhotographers, expandedServiceScheduleId, setExpandedServiceScheduleId, servicesEditorOpen, setServicesEditorOpen, serviceDetachConfirmation, pendingDetachApproval, handleConfirmServiceDetach, handleCancelServiceDetach, canRemoveAllServices, userRole, isAdmin, isRep, isAdminOrRep, address, setAddress, city, setCity, state, setState, zip, setZip, scheduledDate, setScheduledDate: changeScheduledDate, scheduledTime, setScheduledTime: changeScheduledTime, alternateDate, setAlternateDate, alternateTime, setAlternateTime, selectedServiceIds, setSelectedServiceIds, serviceSchedules, setServiceSchedules, photographerId, setPhotographerId, perCategoryPhotographers, setPerCategoryPhotographers, photographerAvailability, setPhotographerAvailability, isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability, editDayAvailability, setEditDayAvailability, scheduleError, setScheduleError, shootNotes, setShootNotes, companyNotes, setCompanyNotes, photographerNotes, setPhotographerNotes, editorNotes, setEditorNotes, showInternalNotes, companyNotesOpen, setCompanyNotesOpen, photographerNotesOpen, setPhotographerNotesOpen, editorNotesOpen, setEditorNotesOpen, propertyDetails, setPropertyDetails, propertySqft, setPropertySqft, taxPercent, setTaxPercent, activeMobilePanel, setActiveMobilePanel, isDesktopLayout, clearAddressDerivedState, handleAddressSelect, getServicePrice, hasVariablePricingWithoutSqft, clientName, clientEmail, clientPhone, clientOfficePhone, clientVerified, activeDiscountType, activeDiscountValue, photographerEmail, availableServiceCategoryGroups, selectedServiceCategoryGroups, hasMultiplePhotographerCategories, resolvePhotographerDetails, filteredPhotographers, formatPhotographerLocationLabel, bookingJobCoords, isEditTimeDisabled, openPhotographerPicker, closePhotographerPicker, handleConfirmPhotographerPicker, handleClearPhotographerPicker, buildApprovalPayload, canNotifyClient, notificationPhotographerId, canNotifyPhotographer, submitApproval, handleApprove, handleApproveWithoutNotification, normalizeTimeValue, buildTimeOptions, timeOptions, setTimeOptions, minSelectableDate, scheduledDateInputValue, defaultServiceSchedule, selectedServiceRows, updateServiceSchedule, applyServiceScheduleToAll, getServiceScheduleDateLabel, getServiceScheduleTimeLabel, getServiceScheduleSummary, sortedServiceScheduleRows, selectedServicesPricing, serviceSelectionOptions, selectedServiceSelectionOptions, handleSelectedServicesChange, buildScheduledAtIso };
+  return { ...serviceEditors, travel: editTravel, isConfirmedEdit, unitSource: unitEdit.source, unitScopeDirty, isOpen, onClose, shootId, onSaved, toast, user, isSubmitting, setIsSubmitting, isLoading, setIsLoading, shootDetails, setShootDetails, availableServices, setAvailableServices, photographers, setPhotographers, photographerPickerOpen, setPhotographerPickerOpen, photographerPickerContext, setPhotographerPickerContext, pickerPhotographerId, setPickerPhotographerId, photographerSearchQuery, setPhotographerSearchQuery, sortBy, setSortBy, showAllPhotographers, setShowAllPhotographers, expandedServiceScheduleId, setExpandedServiceScheduleId, servicesEditorOpen, setServicesEditorOpen, serviceDetachConfirmation, pendingDetachApproval, handleConfirmServiceDetach, handleCancelServiceDetach, canRemoveAllServices, userRole, isAdmin, isRep, isAdminOrRep, address, setAddress, city, setCity, state, setState, zip, setZip, scheduledDate, setScheduledDate: changeScheduledDate, scheduledTime, setScheduledTime: changeScheduledTime, alternateDate, setAlternateDate, alternateTime, setAlternateTime, selectedServiceIds, setSelectedServiceIds, serviceSchedules, setServiceSchedules, photographerId, setPhotographerId, perCategoryPhotographers, setPerCategoryPhotographers, photographerAvailability, setPhotographerAvailability, isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability, editDayAvailability, setEditDayAvailability, scheduleError, setScheduleError, shootNotes, setShootNotes, companyNotes, setCompanyNotes, photographerNotes, setPhotographerNotes, editorNotes, setEditorNotes, showInternalNotes, companyNotesOpen, setCompanyNotesOpen, photographerNotesOpen, setPhotographerNotesOpen, editorNotesOpen, setEditorNotesOpen, propertyDetails, setPropertyDetails, propertySqft, setPropertySqft, taxPercent, setTaxPercent, activeMobilePanel, setActiveMobilePanel, isDesktopLayout, clearAddressDerivedState, handleAddressSelect, getServicePrice, hasVariablePricingWithoutSqft, clientName, clientEmail, clientPhone, clientOfficePhone, clientVerified, activeDiscountType, activeDiscountValue, photographerEmail, availableServiceCategoryGroups, selectedServiceCategoryGroups, hasMultiplePhotographerCategories, resolvePhotographerDetails, filteredPhotographers, formatPhotographerLocationLabel, bookingJobCoords, isEditTimeDisabled, openPhotographerPicker, closePhotographerPicker, handleConfirmPhotographerPicker, handleClearPhotographerPicker, buildApprovalPayload, canNotifyClient, notificationPhotographerId, canNotifyPhotographer, submitApproval, handleApprove, handleApproveWithoutNotification, normalizeTimeValue, buildTimeOptions, timeOptions, setTimeOptions, minSelectableDate, scheduledDateInputValue, defaultServiceSchedule, selectedServiceRows, updateServiceSchedule, applyServiceScheduleToAll, getServiceScheduleDateLabel, getServiceScheduleTimeLabel, getServiceScheduleSummary, sortedServiceScheduleRows, selectedServicesPricing, serviceSelectionOptions, selectedServiceSelectionOptions, handleSelectedServicesChange, buildScheduledAtIso };
 }

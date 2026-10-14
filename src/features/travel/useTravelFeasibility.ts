@@ -4,6 +4,8 @@ import { readTravelFeasibility, type ScheduleAdjustment, type TravelConfirmation
 import { getShootSchedule } from '@/utils/shootSchedule';
 import type { ScheduleChange } from './daySchedule';
 import { canConfirmTravelException, useTravelSaveConfirmation } from './useTravelSaveConfirmation';
+import { useForceSaveConfirmation } from './useForceSaveConfirmation';
+import type { ForceSaveChange } from './forceSaveChanges';
 
 /** One preview for the selected itinerary, never one Routes lookup per time option. */
 export function useTravelFeasibility({ payload: originalPayload, requestedOnly = false, onScheduleChange, initialNotifications, onNotificationsChange, notificationsSupported = Boolean(onScheduleChange) }: { payload: TravelPayload | null; requestedOnly?: boolean; onScheduleChange?: (change: ScheduleChange) => void; notificationsSupported?: boolean; initialNotifications?: { client: boolean; photographer: boolean }; onNotificationsChange?: (value: { client: boolean; photographer: boolean }) => void }) {
@@ -85,6 +87,7 @@ export function useTravelFeasibility({ payload: originalPayload, requestedOnly =
   const blocked = !requestedOnly && Boolean(key) && (loading || Boolean(error?.key === key)
     || Boolean(enabled && result && !result.available && !canOverride));
   const saveConfirmation = useTravelSaveConfirmation({ key, result, loading, blocked, requestedOnly, confirmation });
+  const forceConfirmation = useForceSaveConfirmation({ key, result, payload, loading, error: error?.key === key, requestedOnly, confirmation });
   const acceptServerError = useCallback((data: unknown) => {
     if (currentKey.current !== key) return false;
     const next = readTravelFeasibility(data);
@@ -99,7 +102,7 @@ export function useTravelFeasibility({ payload: originalPayload, requestedOnly =
     proposedLocation: [payload?.address, payload?.city, payload?.state, payload?.zip].filter(value => typeof value === 'string' && value).join(', '),
     error: error?.key === key ? error.message : null,
     visible: Boolean(key && (enabled || loading || error?.key === key)),
-    blocked, canOverride, confirmation, locationConfirmed, ...saveConfirmation,
+    blocked, canOverride, confirmation, locationConfirmed, ...saveConfirmation, ...forceConfirmation,
     setLocationConfirmed: (confirmed: boolean) => setLocation({ key, confirmed }),
     retry: () => request(false, locationConfirmed),
     loadAlternatives: () => request(true, locationConfirmed),
@@ -107,6 +110,9 @@ export function useTravelFeasibility({ payload: originalPayload, requestedOnly =
   };
 }
 export type TravelController = ReturnType<typeof useTravelFeasibility> & {
+  onSaveWithWarning?: () => void;
+  forceSaveBusy?: boolean;
+  warningChanges?: ForceSaveChange[];
   dayScheduleScope?: boolean;
   photographerNames?: Record<string, string>;
 };
