@@ -31,6 +31,7 @@ export interface MediaFile {
   can_manage_visibility?: boolean;
   can_set_hero?: boolean;
   can_download?: boolean;
+  can_interact?: boolean;
   media_curation_scope?: 'customer' | 'contractor' | 'staff' | null;
   /** Monotonic shoot media revision from mutation responses / list payloads. */
   media_revision?: number;
@@ -184,6 +185,7 @@ export const normalizeShootMediaFile = (payload: Record<string, unknown>): Media
   can_manage_visibility: typeof value.can_manage_visibility === 'boolean' ? value.can_manage_visibility : undefined,
   can_set_hero: typeof value.can_set_hero === 'boolean' ? value.can_set_hero : undefined,
   can_download: typeof value.can_download === 'boolean' ? value.can_download : undefined,
+  can_interact: typeof value.can_interact === 'boolean' ? value.can_interact : undefined,
   media_curation_scope: ['customer', 'contractor', 'staff'].includes(String(value.media_curation_scope)) ? value.media_curation_scope : null,
   media_revision: Number.isFinite(Number(value.media_revision)) ? Number(value.media_revision) : undefined,
   isExtra: Boolean(value.is_extra ?? value.isExtra),

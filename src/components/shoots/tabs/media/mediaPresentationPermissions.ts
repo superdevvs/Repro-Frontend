@@ -36,6 +36,7 @@ export function canSetMediaHero(file: MediaFile, role?: string | null): boolean 
 /** Hidden restore rows are management previews, never client/rep download or share inputs. */
 export const canUseMediaDownload = (file: MediaFile, role?: string | null) => isCustomerMediaCuration(file, role)
   ? !file.is_hidden && file.can_download !== false : file.can_download ?? true;
-export const canInteractWithMediaFile = (file: MediaFile, role?: string | null) => !isCustomerMediaCuration(file, role) || !file.is_hidden;
-export const canReorderMediaFile = (file: MediaFile, role?: string | null) => !isCustomerMediaCuration(file, role)
-  || (!file.is_hidden && canManageMediaVisibility(file, role));
+export const canInteractWithMediaFile = (file: MediaFile, role?: string | null) => file.can_interact !== false
+  && (!isCustomerMediaCuration(file, role) || !file.is_hidden);
+export const canReorderMediaFile = (file: MediaFile, role?: string | null) => file.can_interact !== false
+  && (!isCustomerMediaCuration(file, role) || (!file.is_hidden && canManageMediaVisibility(file, role)));

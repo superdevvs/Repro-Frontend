@@ -656,7 +656,7 @@ export function useMediaViewerController({
   // Rename hooks MUST stay above the early return below — calling useCallback
   // only when isOpen/currentFile are set violates Rules of Hooks and crashes lightbox open.
   const renameApiEnabled = MEDIA_FILENAME_RENAME_API_ENABLED;
-  const canShowRenameFilename = Boolean(canRenameFilename && onRenameFilename);
+  const canShowRenameFilename = Boolean(canRenameFilename && onRenameFilename && currentFile?.can_interact !== false);
   const openRenameComposer = useCallback(() => {
     if (!currentFile || !canShowRenameFilename) return;
     setRenameDraft(getMediaFilenameBase(getDisplayMediaFilename(currentFile) || currentFile.filename));
@@ -766,7 +766,7 @@ export function useMediaViewerController({
     canStartSlideshow,
     canInteractSingleMedia: canInteractSingleMedia && canInteractCurrentFile,
     canDownloadSingleMedia: canDownloadSingleMedia && effectiveDownload,
-    canRenameFilename,
+    canRenameFilename: canRenameFilename && canInteractCurrentFile,
     canShowRenameFilename,
     canDeleteCurrentFile,
     deletingFile,

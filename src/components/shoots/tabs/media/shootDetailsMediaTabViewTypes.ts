@@ -51,7 +51,7 @@ export interface ShootDetailsMediaTabViewProps {
   mediaViewMode: 'list' | 'grid';
   toggleMediaViewMode: (mode: 'list' | 'grid') => void;
   isEditor: boolean;
-  /** Video-only editor: hide Photos; Raw Uploads stays video-lane only. */
+  /** Video-only editor: Raw Uploads stays video-only; Edited includes reference photos. */
   isVideoOnlyEditor?: boolean;
   /** Photo-only editor: hide Video sub-tabs; keep Photos + raw photos. */
   isPhotoOnlyEditor?: boolean;

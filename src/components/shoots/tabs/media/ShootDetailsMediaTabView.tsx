@@ -119,7 +119,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     toggleFilesHidden, onSetHero,
   } = props;
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const canMarkSelectedFiles = !isClient && (!isEditor || displayTab === 'edited');
+  const canMarkSelectedFiles = !isClient && (!isEditor || displayTab === 'edited') && ![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && file.can_interact === false);
   const showIguideMedia = canShowIguideMedia({
     iguideUrl,
     isAdmin,
@@ -715,7 +715,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                   <div className="shoot-media-categories sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 overflow-x-auto">
-                        {!isVideoOnlyEditor && (
+                        {(
                         <button
                           onClick={() => setEditedMediaTab('photos')}
                           className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'photos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
@@ -747,7 +747,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                             Floor Plans ({editedFloorplans.length + iguideFloorplans.length})
                           </button>
                         )}
-                        {!isVideoOnlyEditor && editedVirtualStaging.length > 0 && (
+                        {editedVirtualStaging.length > 0 && (
                           <button
                             onClick={() => setEditedMediaTab('virtualStaging')}
                             className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'virtualStaging' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
@@ -755,7 +755,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                             Virtual Staging ({editedVirtualStaging.length})
                           </button>
                         )}
-                        {!isVideoOnlyEditor && editedGreenGrass.length > 0 && (
+                        {editedGreenGrass.length > 0 && (
                           <button
                             onClick={() => setEditedMediaTab('greenGrass')}
                             className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'greenGrass' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
@@ -763,7 +763,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                             Green Grass ({editedGreenGrass.length})
                           </button>
                         )}
-                        {!isVideoOnlyEditor && editedTwilight.length > 0 && (
+                        {editedTwilight.length > 0 && (
                           <button
                             onClick={() => setEditedMediaTab('twilight')}
                             className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'twilight' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
@@ -771,7 +771,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                             Twilight ({editedTwilight.length})
                           </button>
                         )}
-                        {!isVideoOnlyEditor && editedDrone.length > 0 && (
+                        {editedDrone.length > 0 && (
                           <button
                             onClick={() => setEditedMediaTab('drone')}
                             className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'drone' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
@@ -779,7 +779,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                             Drone ({editedDrone.length})
                           </button>
                         )}
-                        {!isVideoOnlyEditor && editedExtras.length > 0 && (
+                        {editedExtras.length > 0 && (
                           <button
                             onClick={() => setEditedMediaTab('extras')}
                             className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'extras' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}

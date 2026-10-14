@@ -145,7 +145,7 @@ export function useShootMediaDerivedData({
   const editedExtras = useMemo(() => filterExtraFiles(editedFiles), [editedFiles]);
 
   const iguideUrl = getPreferredIguideUrl(shoot);
-  const iguideSync = useMemo(() => getNormalizedIguideSync(shoot as any), [shoot]);
+  const iguideSync = useMemo(() => getNormalizedIguideSync(shoot), [shoot]);
 
   // Collect asset_keys / urls already ingested into ShootFiles so the URL-only
   // floorplan link cards don't double-show the same items.
@@ -191,7 +191,7 @@ export function useShootMediaDerivedData({
   const canDownload =
     isAdmin ||
     isPhotographer ||
-    (isEditor && displayTab === 'uploaded') ||
+    (isEditor && (displayTab === 'uploaded' || editedFiles.some(file => file.can_download === true))) ||
     (isClient && !isClientReleaseLocked) ||
     (isSalesRep && displayTab === 'edited');
   const showUploadTab = isAdmin || isPhotographer || isEditor;

@@ -160,7 +160,7 @@ export function useShootDetailsMediaTab({
   const { trackUpload, uploads } = useUpload();
   const { user: authUser } = useAuth();
   const presentationRole = role;
-  // Video-only editors (video_editor_id / editing_capabilities:video) stay on Edited + Video.
+  // Video-only editors retain their raw video lane and can read final images.
   const isVideoOnlyEditor = useMemo(
     () => !requestMediaFocus && isVideoOnlyEditorOnShoot(shoot, authUser ?? { id: undefined, role }),
     [authUser, role, shoot, requestMediaFocus],
@@ -479,12 +479,11 @@ export function useShootDetailsMediaTab({
     setEditedMediaTab(availableIds[0]);
   }, [clientEditedMediaTabs, editedMediaTab, isClient]);
 
-  // Video-only editors: keep Raw Uploads + Edited, but always on the Video filter (never Photos).
+  // Raw uploads remain video-only; Edited also exposes reference images.
   useEffect(() => {
     if (!isVideoOnlyEditor) return;
     if (uploadedMediaTab === 'photos') setUploadedMediaTab('videos');
-    if (editedMediaTab === 'photos') setEditedMediaTab('videos');
-  }, [editedMediaTab, isVideoOnlyEditor, uploadedMediaTab]);
+  }, [isVideoOnlyEditor, uploadedMediaTab]);
 
   // Photo-only editors: keep Photos lane; never land on Video sub-tabs.
   useEffect(() => {
@@ -851,6 +850,7 @@ export function useShootDetailsMediaTab({
   const canInteractSingleMedia = isClient || isSalesRep || ['admin', 'superadmin', 'editing_manager'].includes(normalizedRole);
   const canRenameFilename =
     !isClient &&
+    ![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && file.can_interact === false) &&
     (
       isAdmin ||
       isSuperadmin ||
@@ -1022,7 +1022,7 @@ export function useShootDetailsMediaTab({
   const editorRestrictedToEditedTab = isEditor;
   const canUploadInDisplayTab = showUploadTab && (!editorRestrictedToEditedTab || displayTab === 'edited');
   const canDeleteInDisplayTab = canDeleteMediaSelection(selectedFiles, displayFiles, canDeleteFile);
-  const canSelectFile = (file: MediaFile) => canDownload || canDeleteFile(file) || canManageMediaVisibility(file, presentationRole);
+  const canSelectFile = (file: MediaFile) => (canDownload && canDownloadMediaFileInActiveTab(file)) || canDeleteFile(file) || canManageMediaVisibility(file, presentationRole);
   const canSelectInDisplayTab = displayFiles.some(canSelectFile);
   const activeShootUploads = useMemo(
     () => uploads.filter((upload) => upload.shootId === String(shoot.id) && upload.status === 'uploading'),

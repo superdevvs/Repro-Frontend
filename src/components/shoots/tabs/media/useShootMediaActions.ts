@@ -190,19 +190,12 @@ export function useShootMediaActions({
       toast({ title: 'Download unavailable', description: 'Unhide selected files before downloading them.', variant: 'destructive' });
       return;
     }
-    if (isEditorRole) {
-      if (displayTab !== 'uploaded') {
-        toast({
-          title: 'Download unavailable',
-          description: 'Editors can only download raw files from the Raw Uploads tab.',
-          variant: 'destructive',
-        });
-        return;
-      }
-
+    if (isEditorRole && displayTab === 'uploaded') {
       await handleEditorDownloadRaw(false);
       return;
     }
+    if (isEditorRole && Array.from(selectedFiles).some(id =>
+      !editedFiles.some(file => file.id === id && file.can_download === true))) return;
 
     if (!beginBatchDownload()) return;
     const selectedFileIds = Array.from(selectedFiles);
@@ -735,10 +728,10 @@ export function useShootMediaActions({
     if (isEditorRole) {
       const rawFileIds = new Set(rawFiles.map((file) => file.id));
 
-      if (!rawFileIds.has(fileId)) {
+      if (!rawFileIds.has(fileId) && file?.can_download !== true) {
         toast({
           title: 'Download unavailable',
-          description: 'Editors can only download raw files.',
+          description: 'This file is not available for download.',
           variant: 'destructive',
         });
         return;

@@ -29,19 +29,22 @@ const setSelectedFiles = vi.fn();
 const createObjectURL = vi.fn();
 const revokeObjectURL = vi.fn();
 
-function useHarness(role = 'admin') {
+function useHarness(role = 'admin', finalDownload?: boolean) {
   const [downloading, setDownloading] = useState(false);
   const [popup, setDownloadPopup] = useState(initialPopup);
   const actions = useShootMediaActions({
     shoot: { id: 42, location: { address: '12 Oak Street', city: 'Fairfax' } } as unknown as ShootData,
-    role, displayTab: 'uploaded', selectedFiles: new Set(['a', 'b']), setSelectedFiles,
+    role, displayTab: finalDownload === undefined ? 'uploaded' : 'edited', selectedFiles: new Set(['a', 'b']), setSelectedFiles,
     selectedEditingType: '', setShowAiEditDialog: vi.fn(), setSubmittingAiEdit: vi.fn(),
     setDownloading, setDownloadPopup, setActiveSubTab: vi.fn(), setDisplayTab: vi.fn(),
     rawFiles: [
       { id: 'a', filename: 'a.jpg', scan_status: 'clean' },
       { id: 'b', filename: 'b.jpg', scan_status: 'clean' },
     ] as MediaFile[],
-    editedFiles: [], setRawFiles: vi.fn(), setEditedFiles: vi.fn(), showUploadTab: false,
+    editedFiles: finalDownload === undefined ? [] : [
+      { id: 'a', filename: 'final-a.jpg', can_download: finalDownload, can_interact: false },
+      { id: 'b', filename: 'final-b.jpg', can_download: finalDownload, can_interact: false },
+    ], setRawFiles: vi.fn(), setEditedFiles: vi.fn(), showUploadTab: false,
     onShootUpdate: vi.fn(), queryClient: {} as Parameters<typeof useShootMediaActions>[0]['queryClient'],
     toast, trackUpload: vi.fn(), dragCounterRef: { current: 0 }, setDragOverTab: vi.fn(),
   });
@@ -63,6 +66,22 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.runOnlyPendingTimers(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('media download lifetime', () => {
+  it('downloads assigned final selections as ZIPs without using the raw endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), blob: async () => new Blob(['zip']) });
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useHarness('editor', true));
+    await act(async () => { await result.current.handleDownload('original'); });
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/files/download'), expect.objectContaining({ body: JSON.stringify({ file_ids: ['a', 'b'], size: 'original' }) }));
+    expect(downloads.raw).not.toHaveBeenCalled();
+  });
+  it('does not send denied final selections', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const { result } = renderHook(() => useHarness('editor', false));
+    await act(async () => { await result.current.handleDownload('original'); });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(downloads.raw).not.toHaveBeenCalled();
+  });
   it('locks each file immediately, preserves another pending file and clears a failed file for retry', async () => {
     const first = deferred<{ mode: string; filename: string }>();
     const second = deferred<{ mode: string; filename: string }>();
