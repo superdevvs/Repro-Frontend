@@ -244,8 +244,9 @@ export interface VoiceVoicemail {
 }
 
 export interface VoiceLinePolicy {
-  mode: 'staff_voicemail' | 'sms_only';
+  mode: 'staff_voicemail' | 'sms_only' | 'robbie';
   recipient_role: 'editing_manager' | 'superadmin' | null;
+  recipient_roles?: Array<'editing_manager' | 'superadmin'>;
   recipient_ids: number[];
   timezone: string;
   weekly_hours: Record<string, Array<{ start: string; end: string }>>;

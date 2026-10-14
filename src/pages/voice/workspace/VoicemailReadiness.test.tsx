@@ -35,6 +35,25 @@ describe('Voicemail readiness and authenticated playback', () => {
     await waitFor(() => expect(mocks.updateVoiceNumber).toHaveBeenCalledWith(4, { line_policy: expect.objectContaining({ timezone: 'Europe/London', recipient_role: 'editing_manager', weekly_hours: expect.objectContaining({ mon: [] }) }) }));
   });
 
+  it('combines dynamic editing and superadmin groups with individually selected staff', async () => {
+    wrap(<VoiceLinePolicyEditor number={number} staff={[{ id: 1108, name: 'Cherisea', role: 'admin' }]} canManage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Configure routing' }));
+    await userEvent.click(screen.getByLabelText('Superadmins'));
+    await userEvent.click(screen.getByLabelText('Cherisea'));
+    await userEvent.click(screen.getByRole('button', { name: 'Save routing' }));
+    await waitFor(() => expect(mocks.updateVoiceNumber).toHaveBeenCalledWith(4, { line_policy: expect.objectContaining({ recipient_roles: ['editing_manager', 'superadmin'], recipient_ids: [1108] }) }));
+  });
+
+  it('saves a dedicated 24/7 Robbie line and hides staff ringing controls', async () => {
+    wrap(<VoiceLinePolicyEditor number={number} staff={[]} canManage />);
+    await userEvent.click(screen.getByRole('button', { name: 'Configure routing' }));
+    await userEvent.selectOptions(screen.getByLabelText('Routing'), 'robbie');
+    expect(screen.queryByLabelText('Superadmins')).not.toBeInTheDocument();
+    expect(screen.getByText(/Robbie answers around the clock/)).toBeVisible();
+    await userEvent.click(screen.getByRole('button', { name: 'Save routing' }));
+    await waitFor(() => expect(mocks.updateVoiceNumber).toHaveBeenCalledWith(4, { line_policy: expect.objectContaining({ mode: 'robbie' }) }));
+  });
+
   it('creates only a manual callback task and resolves without scheduling a call', async () => {
     wrap(<VoicemailPanel call={call} canOperate />);
     await userEvent.click(screen.getByRole('button', { name: 'Create callback task' }));
