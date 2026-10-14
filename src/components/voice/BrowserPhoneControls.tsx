@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Headphones, Mic, MicOff, Phone, PhoneOff, Settings2 } from 'lucide-react';
+import { Headphones, Mic, MicOff, Phone, PhoneOff, Settings2, Pause, Play, Grid3X3, Users } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useBrowserPhone } from '@/context/BrowserPhoneContext';
 import BrowserPhoneExtras from './BrowserPhoneExtras';
@@ -24,7 +25,7 @@ export default function BrowserPhoneControls({ compact = false, idleCompact = fa
   const supervisor = active?.offer.role === 'supervisor';
   const canControl = Boolean(active?.server?.capabilities.can_control || (supervisor && active?.offer.mode && active.server?.capabilities[`can_${active.offer.mode}`])) && phone.status === 'ready' && !phone.busy;
   return <div className="space-y-3">
-    <div className={idleCompact ? 'flex items-center gap-2' : 'flex flex-wrap items-center gap-2'}>
+    <div className={idleCompact ? 'flex items-center gap-2' : `flex flex-wrap items-center gap-2 ${active && !ringing ? 'call-control-strip' : ''}`}>
       {idleCompact && <p role="status" className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium"><span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-[var(--calls-success)]" /><span className="truncate">Phone ready</span></p>}
       {ringing ? <>
         <Button className="calls-primary h-11" disabled={phone.busy || phone.status !== 'ready'} onClick={() => invoke(phone.answer)}><Phone className="h-4 w-4" />{supervisor ? 'Join supervision' : 'Answer'}</Button>
@@ -33,9 +34,10 @@ export default function BrowserPhoneControls({ compact = false, idleCompact = fa
         <Button variant="outline" className="calls-secondary h-11" disabled={!canControl || active.offer.mode === 'monitor'} onClick={() => invoke(() => phone.control(active.muted ? 'unmute' : 'mute'))}>
           {active.muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}{active.offer.mode === 'monitor' ? 'Listening · mic off' : active.muted ? 'Unmute' : 'Mute'}
         </Button>
-        {!supervisor && <Button variant="outline" className="calls-secondary h-11" disabled={!canControl} onClick={() => invoke(() => phone.control(active.held ? 'resume' : 'hold'))}>{active.held ? 'Resume caller' : 'Hold caller'}</Button>}
-        {!supervisor && <Button variant="outline" className="calls-secondary h-11" disabled={!canControl} aria-expanded={keypad} onClick={() => setKeypad((value) => !value)}>Keypad</Button>}
-        <Button variant="destructive" className="h-11" disabled={phone.busy || (!supervisor && !active.server?.capabilities.can_end)} onClick={() => invoke(() => phone.control('end'))}><PhoneOff className="h-4 w-4" />{supervisor ? 'Leave supervision' : 'End call'}</Button>
+        {!supervisor && <Button variant="outline" className="calls-secondary h-11" disabled={!canControl} aria-pressed={active.held} onClick={() => invoke(() => phone.control(active.held ? 'resume' : 'hold'))}>{active.held ? <Play size={16} /> : <Pause size={16} />}{active.held ? 'Resume caller' : 'Hold caller'}</Button>}
+        {!supervisor && <Button variant="outline" className="calls-secondary h-11" disabled={!canControl} aria-expanded={keypad} onClick={() => setKeypad((value) => !value)}><Grid3X3 size={16} />Keypad</Button>}
+        {!supervisor && <Button asChild variant="outline" className="calls-secondary h-11"><Link to="/calls/people"><Users size={16} />Contacts</Link></Button>}
+        <Button variant="destructive" className="call-control-end h-11" disabled={phone.busy || (!supervisor && !active.server?.capabilities.can_end)} onClick={() => invoke(() => phone.control('end'))}><PhoneOff className="h-4 w-4" />{supervisor ? 'Leave supervision' : 'End call'}</Button>
       </> : null}
       <Button variant="outline" className="calls-secondary h-11" disabled={phone.status !== 'ready'} aria-expanded={devices} onClick={() => setDevices((value) => !value)}><Settings2 className="h-4 w-4" />Audio</Button>
       {idleCompact && <Button type="button" variant="outline" className="calls-secondary h-11 w-11 shrink-0 p-0" disabled={phone.busy} aria-label="Disconnect phone" title="Disconnect phone" onClick={() => invoke(phone.disconnect)}><PhoneOff className="h-4 w-4" /></Button>}

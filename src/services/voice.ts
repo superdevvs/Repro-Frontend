@@ -27,6 +27,9 @@ export const getVoiceDirectory = async (params: { q?: string; role?: string; pag
 export const getIncomingVoiceOffers = async (): Promise<VoiceIncomingOffer[]> =>
   (await apiClient.get('/voice/incoming-offers')).data.data ?? [];
 
+export const sendIncomingCallToRobbie = async (id: string, idempotency_key: string): Promise<{ status: string; voice_call_id: number }> =>
+  (await apiClient.post(`/voice/incoming-offers/${encodeURIComponent(id)}/robbie`, { idempotency_key })).data;
+
 export const claimIncomingVoiceOffer = async (id: string, data: { session_id?: string; idempotency_key: string; device: 'browser' | 'phone' }): Promise<VoiceBrowserCallState & { incoming_offer: VoiceIncomingOffer; phone_pending?: boolean }> =>
   (await apiClient.post(`/voice/incoming-offers/${encodeURIComponent(id)}/claim`, data)).data;
 

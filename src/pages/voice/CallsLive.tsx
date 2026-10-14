@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { PhoneIncoming, Radio } from 'lucide-react';
+import { Radio } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { claimIncomingVoiceOffer, getIncomingVoiceOffers, getScheduleState, getVoiceCalls } from '@/services/voice';
@@ -12,11 +12,14 @@ import { CallsQueryError } from './workspace/CallsQueryError';
 import { usePermissions } from '@/context/PermissionsContext';
 import CallBrowserPanel from '@/components/voice/CallBrowserPanel';
 import { useBrowserPhone } from '@/context/BrowserPhoneContext';
+import IncomingCallCard from '@/components/voice/IncomingCallCard';
+import { useDismissedIncomingCalls } from '@/components/voice/useDismissedIncomingCalls';
 
 export default function CallsLive() {
   const { can } = usePermissions();
   const canOperate = can('voice-calls', 'operate');
   const phone = useBrowserPhone();
+  const { dismissed, dismiss } = useDismissedIncomingCalls();
   const cache = useQueryClient();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -43,7 +46,7 @@ export default function CallsLive() {
     onError: (error) => { void offers.refetch(); toast({ title: 'Could not answer', description: error instanceof Error ? error.message : 'The call may have been answered by a teammate. Refresh the queue.', variant: 'destructive' }); },
   });
   const rows = live.data?.data ?? [];
-  const incoming = offers.data?.filter((offer) => offer.status === 'waiting') ?? [];
+  const incoming = offers.data?.filter((offer) => offer.status === 'waiting' && !dismissed.includes(offer.id)) ?? [];
   const queueEmpty = canOperate && offers.isSuccess && live.isSuccess
     && !incoming.length && !rows.length && (live.data.total ?? 0) === 0;
   const linkedOffer = params.get('offer');
@@ -52,12 +55,7 @@ export default function CallsLive() {
     <div className={queueEmpty ? 'calls-scroll flex flex-col gap-4' : 'calls-scroll space-y-4'} aria-label="Team call queue" tabIndex={0}>
       {canOperate && offers.isError && <CallsQueryError message="Could not check incoming calls." retry={() => void offers.refetch()} />}
       {linkedOffer && offers.data && !offers.data.some((offer) => offer.id === linkedOffer && offer.can_claim) && <p role="status" className="rounded-xl bg-[var(--calls-warning-soft)] p-3 text-sm text-[var(--calls-warning)]">That call is no longer waiting for an answer. It may have been answered or ended.</p>}
-      {incoming.map((offer) => <section key={offer.id} className="calls-panel border-[var(--calls-success)] bg-[var(--calls-success-soft)] p-4 sm:p-5" aria-label={`Incoming call from ${offer.caller_name || offer.remote_phone}`}>
-        <div className="flex items-center gap-3"><PhoneIncoming className="h-6 w-6 text-[var(--calls-success)]" /><div><h3 className="text-lg font-semibold">{offer.caller_name || offer.remote_phone}</h3><p className="text-sm text-[var(--calls-muted)]">{offer.remote_phone} · Incoming call</p></div></div>
-        <p className="mt-3 text-sm">The first teammate to answer takes this call.</p>
-        <div className="mt-4 flex flex-wrap gap-2"><Button className="calls-call h-11" disabled={!offer.can_claim || phone.busy || Boolean(phone.active) || answer.isPending} onClick={() => answer.mutate({ id: offer.id, device: 'browser' })}>{answer.isPending && answer.variables?.id === offer.id ? 'Connecting…' : 'Answer in browser'}</Button>{offer.phone_available && <Button className="calls-secondary h-11" disabled={!offer.can_claim || answer.isPending || Boolean(phone.active)} onClick={() => answer.mutate({ id: offer.id, device: 'phone' })}>Answer on my phone</Button>}<Button asChild variant="ghost" className="h-11"><Link to={`/calls/inbox/${offer.voice_call_id}`}>Caller details</Link></Button></div>
-        {answer.isPending && answer.variables?.id === offer.id && answer.variables.device === 'browser' && <Button variant="ghost" className="mt-2 h-11" onClick={() => void phone.cancelPending()}>Cancel connection</Button>}
-      </section>)}
+      {!!incoming.length && <div className="incoming-call-grid">{incoming.map(offer => <div key={offer.id}><IncomingCallCard compact offer={offer} onDismiss={() => dismiss(offer.id)} onAnswer={() => answer.mutate({ id: offer.id, device: 'browser' })} answering={answer.isPending && answer.variables?.id === offer.id} />{answer.isPending && answer.variables?.id === offer.id && <Button variant="ghost" className="mt-2 h-11" onClick={() => void phone.cancelPending()}>Cancel connection</Button>}</div>)}</div>}
       {canOperate && !incoming.length && !offers.isError && <div className="flex shrink-0 items-center gap-2 rounded-xl bg-[var(--calls-subtle)] px-4 py-3 text-sm text-[var(--calls-muted)]"><Radio className="h-4 w-4" />{offers.isLoading ? 'Checking incoming calls…' : 'No callers waiting'}</div>}
       <h3 className="text-sm font-semibold">In progress{live.data ? ` · ${live.data.total ?? rows.length}` : ''}</h3>
       {live.isError && <CallsQueryError message="Could not load live calls." retry={() => void live.refetch()} />}

@@ -13,6 +13,7 @@ import { useBrowserPhoneStart } from './useBrowserPhoneStart';
 import { useVoicePushLifecycle } from './useVoicePushLifecycle';
 
 const BrowserPhoneBar = lazy(() => import('./BrowserPhoneBar'));
+const IncomingCallPopup = lazy(() => import('./IncomingCallPopup'));
 
 const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 const TERMINAL = ['hangup', 'destroy', 'purge'];
@@ -292,5 +293,5 @@ export function BrowserPhoneProvider({ children }: { children: ReactNode }) {
     connect, disconnect: () => run(async () => { if (activeRef.current) throw new Error('End or leave the active call before disconnecting.'); await closeConnection(); }),
     playAudio, refreshConfig: () => { void config.refetch(); }, ...actions, ...startActions,
   };
-  return <BrowserPhoneContext.Provider value={value}>{children}<audio ref={audio} autoPlay playsInline onPlay={() => setPlaybackBlocked(false)} />{eligible && (session || error || status === 'connecting' || startActions.outgoingPhase !== 'idle') && <Suspense fallback={null}><BrowserPhoneBar /></Suspense>}</BrowserPhoneContext.Provider>;
+  return <BrowserPhoneContext.Provider value={value}>{children}<audio ref={audio} autoPlay playsInline onPlay={() => setPlaybackBlocked(false)} />{eligible && <Suspense fallback={null}><IncomingCallPopup /></Suspense>}{eligible && (session || error || status === 'connecting' || startActions.outgoingPhase !== 'idle') && <Suspense fallback={null}><BrowserPhoneBar /></Suspense>}</BrowserPhoneContext.Provider>;
 }

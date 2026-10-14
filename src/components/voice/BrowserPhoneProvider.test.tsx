@@ -17,7 +17,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 9 }, isAuthenticated: true, isImpersonating: false }) }));
 vi.mock('@/context/PermissionsContext', () => ({ usePermissions: () => ({ can: mocks.can }) }));
 vi.mock('@/services/voiceBrowser', () => mocks);
-vi.mock('@/services/voice', () => ({ claimIncomingVoiceOffer: mocks.claimIncomingVoiceOffer }));
+vi.mock('@/services/voice', () => ({ claimIncomingVoiceOffer: mocks.claimIncomingVoiceOffer, getIncomingVoiceOffers: vi.fn().mockResolvedValue([]) }));
 vi.mock('@telnyx/webrtc', () => ({ TELNYX_ERROR_CODES: { NETWORK_OFFLINE: 48001 }, TelnyxRTC: class {
   constructor(options: unknown) { mocks.constructor(options); }
   on(name: string, handler: (event?: unknown) => void) { mocks.handlers[name] = handler; }

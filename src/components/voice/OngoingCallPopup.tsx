@@ -53,7 +53,8 @@ export default function OngoingCallPopup() {
   const ongoing = useMemo(() => {
     const rows = calls.data?.data ?? [];
     return rows.find(
-      (call) => !call.ended_at && ACTIVE_STATUSES.has((call.status || '').toLowerCase()) && !dismissedIds.has(call.id),
+      (call) => !call.ended_at && ACTIVE_STATUSES.has((call.status || '').toLowerCase()) && !dismissedIds.has(call.id)
+        && !(call.direction === 'INBOUND' && call.status === 'ringing' && call.handled_by !== 'ai'),
     );
   }, [calls.data?.data, dismissedIds]);
 

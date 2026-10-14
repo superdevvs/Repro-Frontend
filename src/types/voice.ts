@@ -25,13 +25,19 @@ export interface VoiceDirectoryResponse {
 export interface VoiceIncomingOffer {
   id: string;
   voice_call_id: number;
-  status: 'waiting' | 'claimed' | 'expired' | 'cancelled';
+  status: 'waiting' | 'claimed' | 'expired' | 'cancelled' | 'robbie_pending' | 'robbie';
   expires_at: string;
   caller_name: string;
   remote_phone: string;
   claimed_by: { id: number; name: string } | null;
   can_claim: boolean;
   phone_available: boolean;
+  business_phone?: string;
+  line_label?: string | null;
+  caller_avatar?: string | null;
+  caller_company?: string | null;
+  caller_role?: string | null;
+  can_send_robbie?: boolean;
 }
 export interface VoicePhoneSettings {
   available: boolean;

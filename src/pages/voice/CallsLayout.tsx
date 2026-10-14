@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Phone, Settings2 } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { getVoiceNumbers } from '@/services/voice';
@@ -48,7 +49,8 @@ export default function CallsLayout() {
   const [tabScroll, setTabScroll] = useState({ overflow: false, previous: false, next: false });
   const { can } = usePermissions();
   const numbers = useQuery({ queryKey: ['voice-numbers'], queryFn: getVoiceNumbers });
-  const defaultNumber = numbers.data?.find((item) => item.is_default) ?? numbers.data?.[0];
+  const callableNumbers = numbers.data?.filter(item => item.line_policy?.mode !== 'sms_only' && item.can_call_from !== false);
+  const defaultNumber = callableNumbers?.find(item => item.is_default) ?? callableNumbers?.[0];
   const active = (to: string) => to.includes('?') ? pathname === to.split('?')[0] && search.includes('section=business') : pathname.startsWith(to) && !(to === '/calls/settings' && search.includes('section=business'));
   useEffect(() => {
     const navigation = navigationRef.current;
@@ -78,12 +80,14 @@ export default function CallsLayout() {
     <div className="calls-workspace calls-shell">
       <h1 className="sr-only">Calls</h1>
       <div className="calls-toolbar">
+        <div className="calls-product-title"><span><Phone size={17} /></span>Calls</div>
         {tabScroll.overflow && <Button variant="ghost" size="icon" className="h-10 w-7 shrink-0" aria-label="Earlier Calls tabs" title="Earlier Calls tabs" disabled={!tabScroll.previous} onClick={() => { const navigation = navigationRef.current; navigation?.scrollBy({ left: -navigation.clientWidth * 0.8 }); }}><ChevronLeft className="h-4 w-4" /></Button>}
         <nav ref={navigationRef} aria-label="Calls navigation" className="calls-tabs">
-          {tabs.map((tab) => <Link key={tab.to} to={tab.to} aria-current={active(tab.to) ? 'page' : undefined} className="calls-nav-link" onFocus={(event) => { if (navigationRef.current) revealTab(navigationRef.current, event.currentTarget); }}>{tab.label}</Link>)}
+          {tabs.slice(0, 6).map((tab) => <Link key={tab.to} to={tab.to} aria-current={active(tab.to) ? 'page' : undefined} className="calls-nav-link" onFocus={(event) => { if (navigationRef.current) revealTab(navigationRef.current, event.currentTarget); }}>{tab.label}</Link>)}
         </nav>
         {tabScroll.overflow && <Button variant="ghost" size="icon" className="h-10 w-7 shrink-0" aria-label="More Calls tabs" title="More Calls tabs" disabled={!tabScroll.next} onClick={() => { const navigation = navigationRef.current; navigation?.scrollBy({ left: navigation.clientWidth * 0.8 }); }}><ChevronRight className="h-4 w-4" /></Button>}
-        <NewCallDialog initialFrom={defaultNumber?.phone_number} trigger={<Button disabled={!can('voice-calls', 'operate')} className="calls-primary h-10 shrink-0 rounded-lg px-3 text-sm"><Plus className="h-4 w-4" />Call</Button>} />
+        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="calls-settings-menu h-10 shrink-0 rounded-xl" data-active={tabs.slice(6).some(tab => active(tab.to))} aria-label="Calls settings and tools"><Settings2 size={16} /><span>Settings</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="min-w-56">{tabs.slice(6).map(tab => <DropdownMenuItem asChild key={tab.to}><Link to={tab.to} aria-current={active(tab.to) ? 'page' : undefined}>{tab.label}</Link></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
+        <NewCallDialog initialFrom={defaultNumber?.phone_number} trigger={<Button disabled={!can('voice-calls', 'operate')} className="calls-primary h-10 shrink-0 rounded-xl px-3 text-sm"><Plus className="h-4 w-4" />Call</Button>} />
       </div>
       <div className="calls-route-content">
           <Routes>
