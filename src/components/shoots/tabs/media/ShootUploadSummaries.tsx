@@ -13,6 +13,8 @@ import { ShootMediaCountLine } from './ShootMediaCountLine';
 import { UploadCompleteArtwork } from './UploadCompleteArtwork';
 import './ShootUploadSummaries.css';
 
+const SUMMARY_LIFETIME_MS = 5 * 60 * 1000;
+
 export interface UploadCompletionSummary {
   id: string;
   uploadType: 'raw' | 'edited';
@@ -75,7 +77,9 @@ function StaffUploadSummaries({ shootId, unitId, uploadType, requirements, onUpl
   const lane = data.filter(summary => summary.uploadType === uploadType)
     .sort((a, b) => Date.parse(b.completedAt) - Date.parse(a.completedAt));
   const newestId = lane[0]?.id;
-  const visible = lane.filter(summary => !dismissed.includes(summary.id));
+  const currentTime = Math.max(now, Date.now());
+  const visible = lane.filter(summary => !dismissed.includes(summary.id)
+    && Date.parse(summary.completedAt) + SUMMARY_LIFETIME_MS > currentTime);
   const foundIndex = visible.findIndex(summary => summary.id === selection?.id);
   const index = foundIndex >= 0 ? foundIndex : Math.min(selection?.index ?? 0, Math.max(0, visible.length - 1));
   const active = visible[index];
@@ -100,6 +104,21 @@ function StaffUploadSummaries({ shootId, unitId, uploadType, requirements, onUpl
     const timer = setInterval(() => setNow(Date.now()), timeInterval);
     return () => clearInterval(timer);
   }, [visible.length, timeInterval]);
+  const nextExpiry = visible.length
+    ? Math.min(...visible.map(summary => Date.parse(summary.completedAt) + SUMMARY_LIFETIME_MS)) : Infinity;
+  useEffect(() => {
+    if (!Number.isFinite(nextExpiry)) return;
+    const refreshTime = () => setNow(Date.now());
+    const onVisible = () => { if (document.visibilityState === 'visible') refreshTime(); };
+    const timer = setTimeout(refreshTime, Math.max(0, nextExpiry - Date.now()));
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', refreshTime);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', refreshTime);
+    };
+  }, [nextExpiry]);
   const dismiss = (id: string) => {
     setDismissMotion(true);
     const remaining = visible.filter(summary => summary.id !== id);
@@ -127,7 +146,7 @@ function StaffUploadSummaries({ shootId, unitId, uploadType, requirements, onUpl
       {visible.length > 1 && <div aria-hidden="true" className="upload-summary-stack-back" />}
       <AnimatePresence initial={false} mode="wait" custom={dismissMotion}>
       {active && <motion.div key={active.id} initial={false} custom={dismissMotion}
-        variants={{ exit: (dismissing: boolean) => reducedMotion ? { opacity: 0 } : { x: dismissing ? 100 : 0, opacity: 0 } }} exit="exit"
+        variants={{ exit: (dismissing: boolean) => reducedMotion ? { opacity: 0 } : { x: dismissing || Date.now() >= Date.parse(active.completedAt) + SUMMARY_LIFETIME_MS ? 100 : 0, opacity: 0 } }} exit="exit"
         transition={{ duration: reducedMotion ? 0 : 0.24 }}
         className="upload-summary-stack-card" data-testid="upload-completion-summary" data-summary-id={active.id}
         onPointerDown={event => { if (event.pointerType === 'touch') gesture.current = { x: event.clientX, y: event.clientY }; }}

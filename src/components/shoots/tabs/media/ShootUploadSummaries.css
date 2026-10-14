@@ -23,6 +23,7 @@
 }
 .upload-summary-stack-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
 .upload-summary-stack-stage { position: relative; isolation: isolate; margin-bottom: 12px; }
+.upload-summary-stack-stage:empty { margin-bottom: 0; }
 .upload-summary-stack-stage[data-stacked="true"] { margin-bottom: 24px; }
 .upload-summary-stack-card { position: relative; z-index: 1; touch-action: pan-y; }
 .upload-summary-stack-back { position: absolute; inset: 0; z-index: -1; transform: translateY(6px) scaleX(.978); border: 1px solid hsl(var(--primary) / .2); border-radius: 12px; background: hsl(var(--card)); pointer-events: none; }
