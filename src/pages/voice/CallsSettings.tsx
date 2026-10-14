@@ -16,6 +16,7 @@ import { CallsQueryError } from './workspace/CallsQueryError';
 import { usePermissions } from '@/context/PermissionsContext';
 import { useBrowserPhone } from '@/context/BrowserPhoneContext';
 import BrowserPhoneControls, { BrowserPhoneConnectButton } from '@/components/voice/BrowserPhoneControls';
+import GroundwireSettings from '@/components/voice/GroundwireSettings';
 import { VoiceNotificationSettings } from '@/components/voice/VoiceNotificationSettings';
 
 const voiceTools = [
@@ -41,7 +42,7 @@ export default function CallsSettings() {
   return <div className="space-y-5">
     <header className="calls-page-heading"><h2>{business ? 'Business settings' : 'Audio & alerts'}</h2><p>{business ? 'Business lines, routing, recording and Robbie’s allowed actions.' : 'Your devices, your availability, your business line.'}</p></header>
     <div className="calls-filter-row" aria-label="Settings sections">{[['audio', 'Audio & alerts'], ['business', 'Business lines & routing']].map(([value, label]) => <button key={value} type="button" className="calls-filter" data-active={business === (value === 'business')} aria-pressed={business === (value === 'business')} onClick={() => setParams(value === 'business' ? { section: 'business' } : {})}>{label}</button>)}</div>
-    {business ? <BusinessSettings /> : <><VoiceNotificationSettings /><details className="rounded-xl border bg-card p-4"><summary className="cursor-pointer text-sm font-medium">Call audio · {phone.status === 'ready' ? 'Connected' : 'Microphone & speaker'}</summary><div className="mt-3 space-y-3"><p className="text-xs leading-5 text-muted-foreground">{phone.status === 'ready' ? 'Choose the microphone and speaker for this device.' : phone.config?.blockers?.[0] || 'Calling connects when you choose Call or Answer. Connect here to choose audio devices in advance.'}</p>{can('voice-calls', 'operate') ? <><BrowserPhoneConnectButton />{phone.status === 'ready' && <BrowserPhoneControls compact />}<p className="text-xs text-muted-foreground">Allow microphone access when prompted. Use your device’s audio settings if speaker selection is unavailable.</p></> : <p className="text-xs text-muted-foreground">Calls operate permission is required to enable devices.</p>}</div></details></>}
+    {business ? <BusinessSettings /> : <><GroundwireSettings /><VoiceNotificationSettings /><details className="rounded-xl border bg-card p-4"><summary className="cursor-pointer text-sm font-medium">Call audio · {phone.status === 'ready' ? 'Connected' : 'Microphone & speaker'}</summary><div className="mt-3 space-y-3"><p className="text-xs leading-5 text-muted-foreground">{phone.status === 'ready' ? 'Choose the microphone and speaker for this device.' : phone.config?.blockers?.[0] || 'Calling connects when you choose Call or Answer. Connect here to choose audio devices in advance.'}</p>{can('voice-calls', 'operate') ? <><BrowserPhoneConnectButton />{phone.status === 'ready' && <BrowserPhoneControls compact />}<p className="text-xs text-muted-foreground">Allow microphone access when prompted. Use your device’s audio settings if speaker selection is unavailable.</p></> : <p className="text-xs text-muted-foreground">Calls operate permission is required to enable devices.</p>}</div></details></>}
   </div>;
 }
 
