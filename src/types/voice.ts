@@ -137,6 +137,7 @@ export interface VoiceInsightsReport {
 }
 
 export interface VoiceCall {
+  voicemail?: VoiceVoicemail | null;
   wrap_up_result?: {
     operation_id: number | string;
     sms_status: 'draft' | 'sent' | 'blocked' | 'failed' | 'uncertain';
@@ -213,6 +214,8 @@ export interface VoiceStats {
 }
 
 export interface VoiceNumberConfig {
+  can_call_from?: boolean;
+  line_policy?: VoiceLinePolicy | null;
   id: number;
   phone_number: string;
   label?: string | null;
@@ -220,6 +223,30 @@ export interface VoiceNumberConfig {
   voice_ai_enabled?: boolean | null;
   voice_assistant_id_override?: string | null;
   sms_ai_enabled?: boolean | null;
+}
+
+export interface VoiceVoicemail {
+  id: number;
+  phone_number: string;
+  state: string;
+  duration_seconds: number | null;
+  failure: string | null;
+  saved_at: string | null;
+  read_at: string | null;
+  resolved_at: string | null;
+  expires_at: string | null;
+}
+
+export interface VoiceLinePolicy {
+  mode: 'staff_voicemail' | 'sms_only';
+  recipient_role: 'editing_manager' | 'superadmin' | null;
+  recipient_ids: number[];
+  timezone: string;
+  weekly_hours: Record<string, Array<{ start: string; end: string }>>;
+  greetings?: { office_greeting: boolean; closed_greeting: boolean };
+  staff?: Array<{ id: number; name: string; calling_permission: boolean; registered: boolean }>;
+  open_now?: boolean;
+  readiness?: Record<string, boolean | string | null>;
 }
 
 export type VoiceOutboundMode = 'all' | 'canary' | 'none';

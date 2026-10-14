@@ -5,7 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { PhoneCall } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
-import { getVoiceNumbers, updateVoiceNumber } from '@/services/voice';
+import { getVoiceNumbers, getVoiceLineStaff, updateVoiceNumber } from '@/services/voice';
+import VoiceLinePolicyEditor from './workspace/VoiceLinePolicyEditor';
 import type { VoiceNumberConfig } from '@/types/voice';
 import { usePermissions } from '@/context/PermissionsContext';
 
@@ -13,7 +14,8 @@ export default function CallsNumbers() {
   const queryClient = useQueryClient();
   const { can } = usePermissions();
   const canManage = can('voice-calls', 'manage');
-  const numbers = useQuery({ queryKey: ['voice-numbers'], queryFn: getVoiceNumbers });
+  const numbers = useQuery({ queryKey: ['voice-numbers'], queryFn: getVoiceNumbers, refetchInterval: 15000 });
+  const staff = useQuery({ queryKey: ['voice-line-staff'], queryFn: getVoiceLineStaff, enabled: canManage });
   usePageLoading(numbers.isLoading);
 
   const update = useMutation({
@@ -43,7 +45,7 @@ export default function CallsNumbers() {
             <div className="flex flex-wrap items-center gap-4">
               <label className="flex items-center gap-2 text-sm">
                 <Switch
-                  disabled={!canManage || update.isPending || numbers.isError}
+                  disabled={!canManage || update.isPending || numbers.isError || Boolean(number.line_policy)}
                   checked={number.voice_ai_enabled ?? false}
                   onCheckedChange={(checked) =>
                     update.mutate({ id: number.id, data: { voice_ai_enabled: checked } })
@@ -62,6 +64,7 @@ export default function CallsNumbers() {
                 Robbie SMS
               </label>
             </div>
+            <VoiceLinePolicyEditor key={`${number.id}:${number.line_policy?.mode ?? 'unset'}`} number={number} staff={staff.data ?? []} canManage={canManage} />
           </div>
         ))}
         {numbers.isLoading && <p className="text-sm text-muted-foreground">Loading numbers…</p>}

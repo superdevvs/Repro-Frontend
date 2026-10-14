@@ -14,6 +14,7 @@ import type { VoiceCall } from '@/types/voice';
 import CallNowButton from './workspace/CallNowButton';
 import { CallsPagination } from './workspace/CallsPagination';
 import TranscriptPanel from './workspace/TranscriptPanel';
+import VoicemailPanel from './workspace/VoicemailPanel';
 import { useCallSearch } from './workspace/useCallSearch';
 import ScheduleVoiceCallDialog from './ScheduleVoiceCallDialog';
 import { CallsAvatar, EmptyCalls } from './workspace/bits';
@@ -191,6 +192,7 @@ export default function CallsInbox() {
                   <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{callerName(item)}</span><span className="mt-1 block truncate text-xs text-[var(--calls-muted)]">{inboxDetail(item)} · {inboxStatusLine(item)}</span></span>
                   <span className="text-xs text-[var(--calls-muted)]">{formatRelative(item.ended_at || item.started_at || item.created_at)}</span>
                 </div>
+                {item.voicemail && <p className="text-xs text-[var(--calls-muted)]">{item.voicemail.phone_number} · {item.voicemail.read_at ? 'Read' : 'Unread'} · {item.voicemail.duration_seconds ?? 0}s · {item.voicemail.state}{item.voicemail.resolved_at ? ' · Resolved' : ''}</p>}
               </button>
             ))}
             {list.isError && (
@@ -254,7 +256,7 @@ export default function CallsInbox() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <CallNowButton to={phone} name={callerName(call)} reason={`Follow-up with ${callerName(call)}`} />
+                    <CallNowButton to={phone} from={call.voicemail?.phone_number} name={callerName(call)} reason={`Follow-up with ${callerName(call)}`} />
                     <ScheduleVoiceCallDialog
                       initialTargetPhone={phone}
                       initialReason={`Callback for ${callerName(call)}`}
@@ -262,6 +264,7 @@ export default function CallsInbox() {
                     />
                   </div>
                 </div>
+                {call.voicemail && <VoicemailPanel call={call} canOperate={canOperate} />}
                 {shoot && (
                   <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[var(--calls-subtle)] p-4">
                     <div className="flex items-start gap-3">

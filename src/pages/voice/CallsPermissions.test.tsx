@@ -14,6 +14,7 @@ import CallLiveCockpit from './CallLiveCockpit';
 const mocks = vi.hoisted(() => ({
   getVoiceTranscript: vi.fn().mockResolvedValue({ transcript: '', state: 'off' }), reconcileVoiceTranscript: vi.fn(),
   can: vi.fn(), getVoiceSettings: vi.fn(), getVoiceNumbers: vi.fn(), getVoiceLlmUsage: vi.fn(),
+  getVoiceLineStaff: vi.fn().mockResolvedValue([]), uploadVoiceGreeting: vi.fn(), getPrivateVoiceAudio: vi.fn(), updateVoicemail: vi.fn(),
   getScheduleOverrides: vi.fn(), getScheduledVoiceCalls: vi.fn(), getVoiceCall: vi.fn(),
   updateVoiceSettings: vi.fn(), updateVoiceNumber: vi.fn(), createScheduleOverride: vi.fn(), deleteScheduleOverride: vi.fn(),
   retryScheduledVoiceCall: vi.fn(), cancelScheduledVoiceCall: vi.fn(), createScheduledVoiceCall: vi.fn(),

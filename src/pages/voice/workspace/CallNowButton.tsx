@@ -8,14 +8,15 @@ import { getVoiceNumbers } from '@/services/voice';
 import { useToast } from '@/hooks/use-toast';
 import { normalizeCallPhone, validCallPhone } from './directoryDisplay';
 
-export default function CallNowButton({ to, name, reason, label = 'Call now', className = '', disabled = false }: { to?: string | null; name?: string; reason?: string; label?: string; className?: string; disabled?: boolean }) {
+export default function CallNowButton({ to, from, name, reason, label = 'Call now', className = '', disabled = false }: { to?: string | null; from?: string | null; name?: string; reason?: string; label?: string; className?: string; disabled?: boolean }) {
   const phone = useBrowserPhone();
   const { can } = usePermissions();
   const navigate = useNavigate();
   const cache = useQueryClient();
   const { toast } = useToast();
   const numbers = useQuery({ queryKey: ['voice-numbers'], queryFn: getVoiceNumbers });
-  const line = numbers.data?.find((number) => number.is_default) ?? numbers.data?.[0];
+  const voiceLines = numbers.data?.filter(number => number.line_policy?.mode !== 'sms_only' && number.can_call_from !== false) ?? [];
+  const line = from ? voiceLines.find(number => normalizeCallPhone(number.phone_number) === normalizeCallPhone(from)) : voiceLines.find(number => number.is_default) ?? voiceLines[0];
   const call = useMutation({
     mutationFn: async () => {
       if (!to || !line?.phone_number) throw new Error('An available business line and contact number are required. Check Calls settings.');

@@ -46,7 +46,8 @@ export default function NewCallDialog({ trigger, initialTo = '', initialFrom = '
   const numbers = useQuery({ queryKey: ['voice-numbers'], queryFn: getVoiceNumbers, enabled: open });
   const health = useQuery({ queryKey: ['voice-health'], queryFn: getVoiceHealth, enabled: open && caller === 'robbie' });
   const directory = useQuery({ queryKey: ['voice-directory', query, role, page, 6], queryFn: () => getVoiceDirectory({ q: query, role, page, per_page: 6 }), enabled: open && canOperate });
-  const defaultFrom = numbers.data?.find((item) => item.is_default)?.phone_number || numbers.data?.[0]?.phone_number || initialFrom;
+  const voiceNumbers = numbers.data?.filter(item => item.line_policy?.mode !== 'sms_only' && item.can_call_from !== false) ?? [];
+  const defaultFrom = voiceNumbers.find((item) => item.is_default)?.phone_number || voiceNumbers[0]?.phone_number || initialFrom;
   useEffect(() => {
     if (!open) { initializedOpen.current = false; return; }
     if (initializedOpen.current) return;
@@ -57,9 +58,9 @@ export default function NewCallDialog({ trigger, initialTo = '', initialFrom = '
   const normalizedTo = to.replace(/[\s().-]/g, '');
   const normalizedFrom = from.replace(/[\s().-]/g, '');
   const validTo = /^\+[1-9]\d{7,14}$/.test(normalizedTo);
-  const validFrom = validCallPhone(normalizedFrom) && Boolean(numbers.data?.some((item) => item.phone_number.replace(/[\s().-]/g, '') === normalizedFrom));
+  const validFrom = validCallPhone(normalizedFrom) && Boolean(voiceNumbers.some((item) => item.phone_number.replace(/[\s().-]/g, '') === normalizedFrom));
   const line = numbers.data?.find((item) => item.phone_number === from);
-  const ready = canOperate && validTo && validFrom && !numbers.isError && (caller === 'me' ? !phone.active && !phone.busy && phone.config?.ready && phone.config?.capabilities.human_outbound : health.data?.can_place_calls && !health.isError);
+  const ready = canOperate && validTo && validFrom && !numbers.isError && (caller === 'me' ? !phone.active && !phone.busy && phone.config?.ready && phone.config?.capabilities.human_outbound : !line?.line_policy && line?.voice_ai_enabled !== false && health.data?.can_place_calls && !health.isError);
   const call = useMutation({
     mutationFn: async () => {
       if (!ready) throw new Error('Choose a number and an available business line.');
@@ -89,7 +90,7 @@ export default function NewCallDialog({ trigger, initialTo = '', initialFrom = '
         {caller === 'me' && <div className="rounded-xl bg-[var(--calls-brand-soft)] p-3 text-sm"><p>{phone.active ? 'Finish your current call first.' : phone.status === 'ready' ? 'This browser · microphone ready' : 'First call on this device?'}</p><p className="mt-1 text-xs text-[var(--calls-muted)]">{phone.config?.blockers?.[0] || 'Call asks for microphone access only when needed.'}</p></div>}
         {caller === 'robbie' && <div><Label htmlFor="new-call-reason">What should Robbie say?</Label><Textarea id="new-call-reason" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Explain the purpose of this call…" />{health.data && !health.data.can_place_calls && <p role="alert" className="text-xs text-[var(--calls-warning)]">{health.data.readiness_blockers?.join(' ') || 'Robbie calling is unavailable.'}</p>}</div>}
         <button type="button" className="flex min-h-11 items-center gap-2 text-sm text-[var(--calls-muted)]" onClick={() => setOptions(!options)} aria-expanded={options}><ChevronDown className="h-4 w-4" />Business line & options</button>
-        {options && <div className="space-y-3 rounded-xl border border-[var(--calls-border)] p-3"><Label htmlFor="new-call-from">Business line</Label><select id="new-call-from" className="h-11 w-full rounded-lg border bg-[var(--calls-surface)] px-3 text-sm" value={from} onChange={(event) => setFrom(event.target.value)}><option value="">Choose a line</option>{numbers.data?.map((item) => <option key={item.id} value={item.phone_number} disabled={!validCallPhone(item.phone_number)}>{item.label || 'Line'} · {item.phone_number}{!validCallPhone(item.phone_number) ? ' · Unavailable for calling' : ''}</option>)}</select>{caller === 'me' && <><Label htmlFor="human-call-reason">Private reason (optional)</Label><Input id="human-call-reason" value={reason} onChange={(event) => setReason(event.target.value)} /></>}</div>}
+        {options && <div className="space-y-3 rounded-xl border border-[var(--calls-border)] p-3"><Label htmlFor="new-call-from">Business line</Label><select id="new-call-from" className="h-11 w-full rounded-lg border bg-[var(--calls-surface)] px-3 text-sm" value={from} onChange={(event) => setFrom(event.target.value)}><option value="">Choose a line</option>{voiceNumbers.map((item) => <option key={item.id} value={item.phone_number} disabled={!validCallPhone(item.phone_number)}>{item.label || 'Line'} · {item.phone_number}{!validCallPhone(item.phone_number) ? ' · Unavailable for calling' : ''}</option>)}</select>{caller === 'me' && <><Label htmlFor="human-call-reason">Private reason (optional)</Label><Input id="human-call-reason" value={reason} onChange={(event) => setReason(event.target.value)} /></>}</div>}
         {numbers.isError && <p role="alert" className="text-sm text-[var(--calls-danger)]">Could not load business lines. <button type="button" className="underline" onClick={() => void numbers.refetch()}>Try again</button></p>}
         {!numbers.isLoading && !numbers.isError && !numbers.data?.length && <p role="alert" className="text-sm text-[var(--calls-warning)]">Add a business line in Calls settings first.</p>}
         {call.isError && <p role="alert" className="text-sm text-[var(--calls-danger)]">{call.error instanceof Error ? call.error.message : 'Could not start call.'}</p>}

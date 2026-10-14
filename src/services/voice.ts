@@ -109,6 +109,22 @@ export const getVoiceNumbers = async (): Promise<VoiceNumberConfig[]> => {
   return response.data.numbers ?? [];
 };
 
+export const getVoiceLineStaff = async (): Promise<Array<{ id: number; name: string; role: string }>> =>
+  (await apiClient.get('/voice/numbers/staff')).data.staff;
+
+export const uploadVoiceGreeting = async (id: number, kind: 'office' | 'closed', audio: File): Promise<VoiceNumberConfig> => {
+  const data = new FormData();
+  data.append('kind', kind);
+  data.append('audio', audio);
+  return (await apiClient.post(`/voice/numbers/${id}/greeting`, data)).data;
+};
+
+export const getPrivateVoiceAudio = async (path: string): Promise<Blob> =>
+  (await apiClient.get(path, { responseType: 'blob' })).data;
+
+export const updateVoicemail = async (id: number, data: { read?: boolean; resolved?: boolean; callback_task?: boolean }): Promise<VoiceCall> =>
+  (await apiClient.patch(`/voice/calls/${id}/voicemail`, data)).data;
+
 export const updateVoiceNumber = async (id: number, data: Partial<VoiceNumberConfig>): Promise<VoiceNumberConfig> => {
   const response = await apiClient.patch(`/voice/numbers/${id}`, data);
   return response.data;
