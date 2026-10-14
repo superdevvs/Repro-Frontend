@@ -176,7 +176,12 @@ export function TimeSelect({ value, onChange, disabled = false, availableTimes, 
           onChange={m => commit(hour * 60 + Number(m))} />
         {!hour24 && <WheelColumn label="Period" disabled={disabled || empty} value={period}
           options={['AM', 'PM'].map(ap => ({ value: ap, label: ap, disabled: !allowed.some(t => (t >= 720 ? 'PM' : 'AM') === ap) }))}
-          onChange={ap => { const times = allowed.filter(t => (t >= 720 ? 'PM' : 'AM') === ap); if (times.length) commit(nearest(times, active + (ap === 'PM' ? 720 : -720))); }} />}
+          onChange={ap => {
+            if (ap === period) return;
+            const times = allowed.filter(t => (t >= 720 ? 'PM' : 'AM') === ap);
+            const target = (hour % 12 + (ap === 'PM' ? 12 : 0)) * 60 + minute;
+            if (times.length) commit(nearest(times, target));
+          }} />}
       </div>
     </div>}
     {empty && <p role="status" className="mt-2 text-xs text-muted-foreground">No available times for this schedule.</p>}

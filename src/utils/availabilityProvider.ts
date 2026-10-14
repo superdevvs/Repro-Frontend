@@ -111,26 +111,16 @@ export async function getDayAvailability(
   });
 
   if (!response.ok) {
-    // Intermittent /check 5xx (file-cache ownership) should not hard-fail pickers.
-    if (response.status >= 500) {
-      console.warn('[getDayAvailability] check 5xx; returning empty day', response.status);
-      return {
-        status: 'not-configured',
-        day: {
-          workingHours: null,
-          blocked: [],
-          fromConfig: false,
-          timezone: CANONICAL_TIMEZONE,
-        },
-      };
-    }
     throw new Error(
       `Availability request failed (${response.status} ${response.statusText})`,
     );
   }
 
   const json = await response.json();
-  const slots: BackendSlot[] = Array.isArray(json?.data) ? json.data : [];
+  if (!Array.isArray(json?.data)) {
+    throw new Error('Availability response was invalid. Please try again.');
+  }
+  const slots: BackendSlot[] = json.data;
 
   // Backend marks booked/unavailable intervals; everything else is bookable.
   const isBlocked = (slot: BackendSlot) =>

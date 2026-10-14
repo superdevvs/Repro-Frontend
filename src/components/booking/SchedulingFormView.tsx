@@ -195,7 +195,9 @@ export function SchedulingFormView({ controller, afterCalendar }: { controller: 
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-muted/40 dark:bg-card/30 dark:text-slate-400">
-                No matching suggested times for the selected photographer. Use the picker below or choose another photographer/date.
+                {controller.requiresPhotographerAssignment
+                  ? 'No matching suggested times for the selected photographer. Use the picker below or choose another photographer/date.'
+                  : 'Choose a time for this appointment using the picker below.'}
               </div>
             )}
           </div>
@@ -230,7 +232,7 @@ export function SchedulingFormView({ controller, afterCalendar }: { controller: 
                     startHour={8}
                     endHour={20}
                     interval={5}
-                    availableTimes={availableTimesForSelectedPhotographer}
+                    availableTimes={controller.requiresPhotographerAssignment ? availableTimesForSelectedPhotographer : undefined}
                     placeholder="Select a time"
                     className="w-full"
                   />
@@ -265,7 +267,7 @@ export function SchedulingFormView({ controller, afterCalendar }: { controller: 
                     startHour={8}
                     endHour={20}
                     interval={5}
-                    availableTimes={availableTimesForSelectedPhotographer}
+                    availableTimes={controller.requiresPhotographerAssignment ? availableTimesForSelectedPhotographer : undefined}
                     placeholder="Select a time"
                     className="w-full"
                   />

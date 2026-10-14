@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { canBookOutsideClientServiceGroups } from '@/utils/bookingServiceAccess';
+import { canBookOutsideClientServiceGroups, canBookWithoutServices } from '@/utils/bookingServiceAccess';
 import { useBookingMainSchedule } from './useBookingMainSchedule';
 import { useBookingTravel } from '@/features/travel/useBookingTravel';
 import { bookingDayScheduleHandler } from '@/features/travel/bookingDayScheduleHandler';
@@ -83,7 +83,6 @@ export const useBookShootController = () => {
   const compReshootSourceId = isComplimentaryReshootEnabled && canManageCompReshoot ? requestedCompReshootSourceId : null;
   const isCompReshootMode = Boolean(compReshootSourceId && !editShootId);
   const isClientAccount = Boolean(user && (user.role as string) === 'client' && !hasSalesRepRole(user));
-  const roleCanCreateNoProductShoot = !isImpersonating && ['superadmin', 'editing_manager', 'admin', 'salesRep', 'salesrep', 'sales_rep', 'rep'].includes(String(user?.role ?? ''));
   const {
     isEditMode, setIsEditMode, editingScheduleSource, editShootLoading, canRemoveAllServicesForEdit, packages, packagesLoading, setPackagesLoading,
     clients, setClients, client, setClient, address, setAddress, city, setCity, state,
@@ -147,9 +146,14 @@ export const useBookShootController = () => {
       setStep(1);
     }
   }, [compReshootSourceId, isCompReshootMode, setStep]);
-  const canCreateNoProductShoot = isEditMode
-    ? canRemoveAllServicesForEdit
-    : roleCanCreateNoProductShoot;
+  // The regular empty booking has always been submitted as complimentary.
+  // Explicit internal types keep that type; billable additional work must remain standard.
+  const noProductShootType = isCompReshootMode ? 'complimentary_reshoot'
+    : additionalWorkSourceId ? 'standard' : shootType === 'standard' ? 'complimentary' : shootType;
+  const canCreateNoProductShoot = canBookWithoutServices({
+    role: user?.role, isImpersonating, isEditMode, canRemoveAllServicesForEdit,
+    shootType: noProductShootType,
+  });
   const [positiveChargeDialogOpen, setPositiveChargeDialogOpen] = React.useState(false);
   const [exitCompDialogOpen, setExitCompDialogOpen] = React.useState(false);
   const [submissionError, setSubmissionError] = React.useState('');
@@ -511,7 +515,7 @@ export const useBookShootController = () => {
       const effectiveShootType = isCompReshootMode
         ? 'complimentary_reshoot'
         : canCreateNoProductShoot && servicesPayload.length === 0
-          ? 'complimentary'
+          ? isEditMode ? 'complimentary' : noProductShootType
           : 'standard';
       const productStatus =
         servicesPayload.length === 0
