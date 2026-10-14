@@ -42,7 +42,7 @@ export function useBookingTravel(options: Options) {
     : selectedServices.every(service => (serviceSchedules[service.id]?.date ?? day) && (serviceSchedules[service.id]?.time ?? time));
   const payload = safelyBuildTravelPayload(() => active && hasCapture && completeRows && scheduledDay && scheduledTime && address ? {
     ...(shootId ? { shoot_id: shootId } : {}), client_id: clientId, address, city, state, zip,
-    property_details: propertyDetails, timezone, photographer_id: unitPrimary?.photographer_id ?? primary.photographer,
+    ...(propertyDetails ? { property_details: propertyDetails } : {}), timezone, photographer_id: unitPrimary?.photographer_id ?? primary.photographer,
     scheduled_at: buildShootScheduleTimestamp(scheduledDay, scheduledTime, timezone, source?.scheduled_at),
     action_mode: shootId ? 'update' : 'create',
     ...(unitPayload ? unitData : { service_items: selectedServices.map(service => ({

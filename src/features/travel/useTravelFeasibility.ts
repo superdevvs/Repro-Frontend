@@ -6,6 +6,7 @@ import type { ScheduleChange } from './daySchedule';
 import { canConfirmTravelException, useTravelSaveConfirmation } from './useTravelSaveConfirmation';
 import { useForceSaveConfirmation } from './useForceSaveConfirmation';
 import type { ForceSaveChange } from './forceSaveChanges';
+import { travelRequestError } from './travelRequestError';
 
 /** One preview for the selected itinerary, never one Routes lookup per time option. */
 export function useTravelFeasibility({ payload: originalPayload, requestedOnly = false, onScheduleChange, initialNotifications, onNotificationsChange, notificationsSupported = Boolean(onScheduleChange) }: { payload: TravelPayload | null; requestedOnly?: boolean; onScheduleChange?: (change: ScheduleChange) => void; notificationsSupported?: boolean; initialNotifications?: { client: boolean; photographer: boolean }; onNotificationsChange?: (value: { client: boolean; photographer: boolean }) => void }) {
@@ -54,14 +55,17 @@ export function useTravelFeasibility({ payload: originalPayload, requestedOnly =
         headers: { Authorization: `Bearer ${localStorage.getItem('authToken') || localStorage.getItem('token') || ''}`, 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({ ...requestPayload.current, include_alternatives: includeAlternatives, ...(confirmed ? { travel_location_confirmed: true } : {}) }),
       });
-      const data: unknown = await response.json();
+      let data: unknown;
+      try { data = await response.json(); } catch { throw new Error(travelRequestError(response, null)); }
       const next = readTravelFeasibility(data);
-      if (!next || (!response.ok && response.status !== 422 && response.status !== 409)) throw new Error('Travel could not be checked. Retry before confirming the schedule.');
+      if (!next || (!response.ok && response.status !== 422 && response.status !== 409)) throw new Error(travelRequestError(response, data));
       if (!controller.signal.aborted && currentKey.current === key) {
         setPreview({ key, result: next }); setFeatureEnabled(next.enabled);
       }
     } catch (caught) {
-      if (!controller.signal.aborted && currentKey.current === key) setError({ key, message: caught instanceof Error ? caught.message : 'Unable to check travel.' });
+      if (!controller.signal.aborted && currentKey.current === key) setError({ key, message: caught instanceof TypeError
+        ? 'Could not reach the travel check. Check your connection and retry before confirming.'
+        : caught instanceof Error ? caught.message : 'Unable to check travel.' });
     } finally {
       if (active.current?.controller === controller && !controller.signal.aborted) setLoadingKey('');
     }

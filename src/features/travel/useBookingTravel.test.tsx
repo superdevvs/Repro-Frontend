@@ -17,6 +17,27 @@ const browserTimezone = (timeZone: string) => {
   });
 };
 describe('booking preview uses the booked service itinerary', () => {
+  it('checks a manual-address booking with no property metadata using the same omitted field as submission', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
+      const body = JSON.parse(String(init?.body));
+      return new Response(JSON.stringify(Object.hasOwn(body, 'property_details') && body.property_details === null
+        ? { errors: { property_details: ['The property details field must be an array.'] } }
+        : { data: { enabled: true, status: 'available', available: true, reason_codes: [], transitions: [], alternatives: [], can_override: false } }),
+      { status: Object.hasOwn(body, 'property_details') && body.property_details === null ? 422 : 200 });
+    }));
+    const { result } = renderHook(() => useBookingTravel({ ...base, clientId: 1164, address: '5806 Winner Avenue', zip: '21215',
+      date: new Date(2026, 9, 14), time: '11:00 AM', photographer: '1163', propertyDetails: null,
+      selectedServices: [{ id: '1', name: '25 HDR Photos', description: '', price: 175, shoot_duration_minutes: 45 }],
+    }));
+    const payload = await run();
+    expect(payload).not.toHaveProperty('property_details');
+    expect(payload).toMatchObject({ action_mode: 'create', client_id: 1164, address: '5806 Winner Avenue', zip: '21215',
+      timezone: 'America/New_York', photographer_id: '1163', scheduled_at: '2026-10-14T15:00:00.000Z',
+      service_items: [{ service_id: '1', photographer_id: '1163', duration_minutes: 45, scheduled_at: '2026-10-14T15:00:00.000Z' }],
+    });
+    expect(result.current.result?.available).toBe(true); expect(result.current.error).toBeNull(); expect(result.current.blocked).toBe(false);
+    expect(vi.mocked(fetch).mock.calls.every(([url]) => String(url).endsWith('/availability/feasibility'))).toBe(true);
+  });
   it.each([
     { time: '9:00 AM', expected: '2026-10-05T13:00:00.000Z' },
     { time: '12:00 AM', expected: '2026-10-05T04:00:00.000Z' },

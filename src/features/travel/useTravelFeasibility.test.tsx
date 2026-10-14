@@ -12,6 +12,34 @@ beforeEach(() => { vi.useFakeTimers(); localStorage.setItem('authToken', 'test')
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); localStorage.clear(); });
 
 describe('selected itinerary travel preview', () => {
+  it.each([
+    { status: 422, body: { errors: { property_details: ['The property details field must be an array.'] } }, message: 'property details: The property details field must be an array.' },
+    { status: 401, body: { message: 'Unauthenticated.' }, message: 'Your session has expired.' },
+    { status: 403, body: { message: 'Forbidden' }, message: 'permission to check this schedule' },
+    { status: 429, body: { retry_after: 30 }, message: 'Too many travel checks. Try again in 30 seconds.' },
+    { status: 503, body: { message: 'Temporary error' }, retry: '1', message: 'server error 503). Try again in 1 second.' },
+    { status: 500, body: { message: 'Internal database path' }, message: 'server error 500' },
+  ])('shows actionable HTTP$status request failures and stays blocked', async ({ status, body, retry, message }) => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify(body), { status, headers: retry ? { 'Retry-After': retry } : {} })));
+    const { result } = renderHook(useTravelFeasibility, { initialProps: { payload } });
+    await tick(); expect(result.current.error).toContain(message); expect(result.current.result).toBeNull();
+    expect(result.current.blocked).toBe(true); expect(await result.current.confirmSave()).toBeNull();
+    expect(result.current.error).not.toContain('Internal database path');
+  });
+  it('distinguishes a non-JSON server failure and network failure without exposing response markup', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValueOnce(new Response('<html>proxy error</html>', { status: 502 }))
+      .mockRejectedValueOnce(new TypeError('Failed to fetch')));
+    const { result } = renderHook(useTravelFeasibility, { initialProps: { payload } });
+    await tick(); expect(result.current.error).toContain('server error 502'); expect(result.current.blocked).toBe(true);
+    await act(async () => result.current.retry());
+    expect(result.current.error).toContain('Could not reach the travel check'); expect(result.current.blocked).toBe(true);
+  });
+  it.each([422, 409])('retains the signed structured HTTP%s conflict as a scheduling result', async status => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ feasibility: conflict }), { status })));
+    const { result } = renderHook(useTravelFeasibility, { initialProps: { payload } });
+    await tick(); expect(result.current.result).toEqual(conflict); expect(result.current.error).toBeNull();
+    expect(result.current.canOverride).toBe(true); expect(result.current.blocked).toBe(false);
+  });
   it.each(['itinerary', 'retry', 'server'] as const)('invalidates the separate warning confirmation after %s changes', async change => {
     const force = { ...conflict, can_override: false, can_force_save: true, force_save_confirmation_version: 'force-v1', reason_codes: ['outside_working_hours'] };
     vi.stubGlobal('fetch', vi.fn(async () => response(force)));
