@@ -46,6 +46,7 @@ interface ShootDetailsModalActionRailProps {
   isAdminOrRep: boolean;
   isRequestedStatus: boolean;
   canAdminEdit: boolean;
+  canManageBooking?: boolean;
   isScheduledOrOnHold: boolean;
   canUserPutOnHold: boolean;
   canResumeFromHold: boolean;
@@ -119,6 +120,7 @@ export function ShootDetailsModalActionRail({
   isAdminOrRep,
   isRequestedStatus,
   canAdminEdit,
+  canManageBooking = true,
   isScheduledOrOnHold,
   canUserPutOnHold,
   canResumeFromHold,
@@ -181,6 +183,7 @@ export function ShootDetailsModalActionRail({
   handleGenerateShareLink,
   onClose,
 }: ShootDetailsModalActionRailProps) {
+  const canEditBooking = canAdminEdit || (canManageBooking && isAdminOrRep && isScheduledOrOnHold);
   const [activeDownloadControl, setActiveDownloadControl] = React.useState<
     'photographer_raw' | 'editor_raw' | 'progress' | null
   >(null);
@@ -301,7 +304,7 @@ export function ShootDetailsModalActionRail({
                   </Button>
                 </>
               )}
-              {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isRequestedStatus && (
+              {canEditBooking && !isRequestedStatus && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -482,7 +485,7 @@ export function ShootDetailsModalActionRail({
                 {aiEditLabel}
               </button>
             )}
-            {(canAdminEdit || (isAdminOrRep && isScheduledOrOnHold)) && !isEditMode && !isRequestedStatus && (
+            {canEditBooking && !isEditMode && !isRequestedStatus && (
               <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
                 onClick={() => {

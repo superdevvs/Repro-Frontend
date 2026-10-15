@@ -9,6 +9,14 @@ const capabilities = (shoot: Partial<ShootData>) => getShootDetailsCapabilities(
   currentUserRole:'salesRep',roleFlags:roles,
 });
 describe('Rep management controls', () => {
+  it.each([['delivered', 'scheduled'], ['scheduled', 'delivered']])('keeps workflow actions locked when status %s and workflow %s disagree', (status, workflowStatus) => {
+    const result = capabilities({ status, workflowStatus, canManageBooking: true, canManageShootActions: true });
+    expect(result.canAdminEdit).toBe(true);
+    expect(result.isDelivered).toBe(true);
+    expect(result.canCancelShoot).toBe(false);
+    expect(result.canDirectHold).toBe(false);
+    expect(result.canFinalise).toBe(false);
+  });
   it.each(['isEditor', 'isPhotographer', 'isClient'] as const)('keeps Notify for a rep whose primary role is %s', primaryFlag => {
     expect(canSendShootManualNotification({ ...roles, [primaryFlag]: true })).toBe(true);
     expect(canSendShootManualNotification({ ...roles, isRep: false, [primaryFlag]: true })).toBe(false);
@@ -40,10 +48,22 @@ describe('Rep management controls', () => {
     expect(result.canDirectHold).toBe(true);
     expect(result.canSendToEditing).toBe(false);
   });
-  it('does not expose cancellation or deletion of delivered shoots', () => {
+  it.each(['delivered', 'delivered_to_client', 'ready_for_client', 'admin_verified'])('allows authorized booking edits on %s shoots without production or deletion controls', status => {
+    const result = capabilities({ status, canManageBooking: true, canManageShootActions: true });
+    expect(result.canAdminEdit).toBe(true);
+    expect(result.canCancelShoot).toBe(false);
+    expect(result.canDirectHold).toBe(false);
+    expect(result.canFinalise).toBe(false);
+    expect(result.canSendToEditing).toBe(false);
+    expect(result.canApproveEditingReview).toBe(false);
+  });
+  it('honors explicit denied booking edits on delivered shoots', () => {
     const result=capabilities({status:'delivered',canManageBooking:false,canManageShootActions:true});
     expect(result.canAdminEdit).toBe(false);
     expect(result.canCancelShoot).toBe(false);
+  });
+  it.each(['cancelled', 'declined'])('does not permit booking edits on %s shoots', status => {
+    expect(capabilities({ status, canManageBooking: true }).canAdminEdit).toBe(false);
   });
   it.each(['admin', 'superadmin', 'editing_manager'])('preserves delivered-shoot staff controls for %s with an additional rep role', role => {
     const result = getShootDetailsCapabilities({

@@ -54,6 +54,8 @@ export type UseShootOverviewEditorArgs = {
   isAdmin: boolean;
   role: string;
   isEditMode?: boolean;
+  /** Keep completed services and assignments out of details/pricing-only saves. */
+  canEditServicePlan?: boolean;
   onShootUpdate: () => void;
   onSave?: (updates: Partial<ShootData>, onTravelFailure?: (data: unknown) => void) => void;
   onCancel?: () => void;

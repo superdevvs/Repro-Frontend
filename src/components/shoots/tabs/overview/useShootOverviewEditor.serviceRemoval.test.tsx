@@ -65,6 +65,31 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootOverviewEditor service mutation payload', () => {
+  it('saves delivered rep property, client and pricing edits without schedule or assignment echoes', async () => {
+    const onSave = vi.fn();
+    const deliveredShoot = { ...shoot, status: 'delivered', workflowStatus: 'delivered',
+      photographer: { id: 23, name: 'Existing photographer' }, client: { id: 55, name: 'Original client' },
+    } as unknown as ShootData;
+    const { result } = renderHook(() => useShootOverviewEditor({
+      shoot: deliveredShoot, isAdmin: false, role: 'salesRep', isEditMode: true, canEditServicePlan: false,
+      onSave, onShootUpdate: vi.fn(), toast: vi.fn(),
+    }));
+    await waitFor(() => expect(result.current.state.selectedServiceIds).toEqual(['10', '11']));
+    act(() => {
+      result.current.actions.setPropertyMetricsEdit({ beds: '4', baths: '3', sqft: '2500' });
+      result.current.actions.updateField('client', { id: 56, name: 'Updated client' });
+      result.current.actions.updateField('adminAdjustedTotalQuote', 199);
+    });
+    await act(async () => { await result.current.actions.handleSave(); });
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const payload = onSave.mock.calls[0][0];
+    expect(payload).toMatchObject({ client: { id: 56 }, adminAdjustedTotalQuote: 199,
+      propertyDetails: { beds: 4, baths: 3, sqft: 2500 } });
+    for (const key of ['scheduledDate', 'time', 'photographer', 'services', 'service_items', 'service_photographers', 'complimentary_service_options']) {
+      expect(payload).not.toHaveProperty(key);
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
   it('hydrates stored duration, edits one service and preserves both durations when applying date/time to all', async () => {
     const onSave = vi.fn();
     const durationShoot = { ...shoot, serviceItems: [

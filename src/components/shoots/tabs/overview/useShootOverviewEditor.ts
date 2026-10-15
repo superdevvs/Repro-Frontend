@@ -67,6 +67,7 @@ export function useShootOverviewEditor({
   isAdmin,
   role,
   isEditMode = false,
+  canEditServicePlan = true,
   onShootUpdate,
   onSave,
   onCancel,
@@ -398,7 +399,7 @@ export function useShootOverviewEditor({
     });
   }, [isEditMode, selectedServiceIds.length, shoot]);
 
-  const travel = useOverviewTravel({ active: isEditMode, draft: editedShoot, shoot, isAdmin, role, omitStandardServices: hasComplimentaryServices,
+  const travel = useOverviewTravel({ active: isEditMode && canEditServicePlan, draft: editedShoot, shoot, isAdmin, role, omitStandardServices: hasComplimentaryServices,
     selectedServiceIds, serviceSchedules, servicePrices, servicePhotographerPays, serviceQuantities: serviceQuantityChanges,
     perCategoryPhotographers, serviceEditorChanges: serviceEditors.serviceEditorChanges, servicesList, effectiveSqft,
     onScheduleChange: change => {
@@ -411,8 +412,8 @@ export function useShootOverviewEditor({
   const { confirmForceSave, confirmSave } = travel;
   const handleSave = useCallback(async (withWarning = false) => {
     if (!onSave) return;
-    if (withWarning ? !travel.canForceSave : travel.blocked) { toast({ title: 'Review travel before saving', description: 'Resolve the travel warning or approve an authorized exception.', variant: 'destructive' }); return; }
-    if (!validateCompServicesBeforeSave()) return;
+    if (canEditServicePlan && (withWarning ? !travel.canForceSave : travel.blocked)) { toast({ title: 'Review travel before saving', description: 'Resolve the travel warning or approve an authorized exception.', variant: 'destructive' }); return; }
+    if (canEditServicePlan && !validateCompServicesBeforeSave()) return;
 
     const legacyShoot = shoot as ShootWithLegacyOverviewFields;
     // The draft only ever holds display fields; the service payload keys below
@@ -485,13 +486,18 @@ export function useShootOverviewEditor({
         delete updates.photographer;
       }
     }
+    if (!canEditServicePlan) {
+      delete updates.scheduledDate;
+      delete updates.time;
+      delete updates.photographer;
+    }
 
     try {
       applyOverviewServicePayload({
         updates,
         shoot,
         isAdmin,
-        omitStandardServices: hasComplimentaryServices,
+        omitStandardServices: !canEditServicePlan || hasComplimentaryServices,
         selectedServiceIds,
         serviceSchedules,
         servicePrices,
@@ -510,18 +516,19 @@ export function useShootOverviewEditor({
       return;
     }
 
-    const complimentaryServiceOptions = buildCompServicePayload();
+    const complimentaryServiceOptions = canEditServicePlan ? buildCompServicePayload() : null;
     if (complimentaryServiceOptions) {
       updates.complimentary_service_options = complimentaryServiceOptions;
     }
 
     // `onSave` is typed against the display model, while this payload carries the
     // request-shaped service keys the endpoint requires.
-    const travelConfirmation = await (withWarning ? confirmForceSave() : confirmSave());
+    const travelConfirmation = canEditServicePlan ? await (withWarning ? confirmForceSave() : confirmSave()) : {};
     if (travelConfirmation) onSave({ ...updates, ...travelConfirmation } as unknown as Partial<ShootData>, travel.acceptServerError);
   }, [
     accessContactName,
     accessContactPhone,
+    canEditServicePlan,
     buildCompServicePayload,
     editedShoot,
     effectiveSqft,

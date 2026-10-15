@@ -73,7 +73,9 @@ export const getShootDetailsCapabilities = ({
       0,
   );
   const hasEditedWithoutRaw = editedMediaCount > 0 && rawMediaCount === 0;
-  const isDelivered = normalizedStatus === 'delivered';
+  const isDelivered = [shoot?.workflowStatus, shoot?.status].some(
+    status => normalizeShootDetailsStatus(status) === 'delivered',
+  );
   const isUploadedStatus = normalizedStatus === 'uploaded';
   const isEditingStatus = normalizedStatus === 'editing';
   const isCancelledOrDeclined = ['cancelled', 'canceled', 'declined'].includes(
@@ -122,7 +124,7 @@ export const getShootDetailsCapabilities = ({
     Boolean(shoot) &&
     isAdminOrRep &&
     !['cancelled', 'declined'].includes(normalizedStatus) &&
-    (!isRep || ['scheduled', 'uploaded', 'editing', 'review', 'ready', 'requested', 'on_hold'].includes(normalizedStatus));
+    (!isRep || ['scheduled', 'uploaded', 'editing', 'review', 'ready', 'requested', 'on_hold', 'delivered'].includes(normalizedStatus));
   const isOnHold = Boolean(
     shoot &&
       (shoot.status === 'on_hold' ||
@@ -132,6 +134,7 @@ export const getShootDetailsCapabilities = ({
   const isCancellationRequested = Boolean(shoot?.cancellationRequestedAt);
   const canPutOnHold = Boolean(
     shoot &&
+      !isDelivered &&
       !isOnHold &&
       (normalizedStatus === 'requested' ||
         shoot.status === 'scheduled' ||
