@@ -392,6 +392,14 @@ export interface SmsThreadSummary {
   } | null;
 }
 
+export interface SmsReaction {
+  emoji: string;
+  label: string;
+  action: 'add' | 'remove';
+  targetMessageId: string | null;
+  quotedMessage: string;
+}
+
 export interface SmsMessageDetail {
   id: string;
   threadId: string;
@@ -404,6 +412,7 @@ export interface SmsMessageDetail {
   providerMessageId?: string;
   aiGenerated?: boolean;
   complianceKeyword?: 'stop' | 'start' | 'help' | null;
+  reaction?: SmsReaction | null;
 }
 
 export interface SmsThreadDetail {

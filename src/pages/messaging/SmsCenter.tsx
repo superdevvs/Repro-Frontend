@@ -25,6 +25,7 @@ import { toast } from '@/lib/sonner-toast';
 import { getComposeErrorMessage } from '@/pages/messaging/emailComposeModel';
 import type { SmsComposePayload } from '@/components/messaging/sms/SmsComposeDialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { parseSmsReaction } from '@/components/messaging/sms/smsReaction';
 import { useSearchParams } from 'react-router-dom';
 
 export default function SmsCenter() {
@@ -277,8 +278,14 @@ export default function SmsCenter() {
       if (!activeThreadId) return;
       queryClient.setQueryData(['sms-thread', activeThreadId], (prev: SmsThreadDetail | null | undefined) => {
         if (!prev) return prev;
+        if (prev.messages.some((existing) => existing.id === message.id)) return prev;
         return { ...prev, messages: [...prev.messages, message] };
       });
+      if (message.reaction || parseSmsReaction(message.body, message.direction)) {
+        // The original SMS may live in an older duplicate contact thread.
+        // Fetch its server-verified target when a reaction arrives live.
+        queryClient.invalidateQueries({ queryKey: ['sms-thread', activeThreadId] });
+      }
     },
     onThreadUpdated: (updated) => {
       if (!updated.lastMessageAt && !updated.contact) {

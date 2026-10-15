@@ -6,6 +6,7 @@ import { SmsComposer } from './SmsComposer';
 import { SmsMessageBubble } from './SmsMessageBubble';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useEffect, useRef } from 'react';
+import { buildSmsConversation, type SmsConversationItem } from './smsReaction';
 
 interface SmsConversationProps {
   thread?: SmsThreadSummary;
@@ -68,13 +69,14 @@ export const SmsConversation = ({
     ? `${thread.group.memberCount} ${thread.group.memberCount === 1 ? 'person' : 'people'}`
     : contact?.email || contact?.primaryNumber;
 
-  const grouped = messages.reduce<Array<{ date: string; items: SmsMessageDetail[] }>>((acc, message) => {
+  const grouped = buildSmsConversation(messages).reduce<Array<{ date: string; items: SmsConversationItem[] }>>((acc, item) => {
+    const { message } = item;
     const date = message.sentAt ? format(new Date(message.sentAt), 'PPP') : 'Unknown';
     const existing = acc.find((entry) => entry.date === date);
     if (existing) {
-      existing.items.push(message);
+      existing.items.push(item);
     } else {
-      acc.push({ date, items: [message] });
+      acc.push({ date, items: [item] });
     }
     return acc;
   }, []);
@@ -183,8 +185,8 @@ export const SmsConversation = ({
             {grouped.map((group) => (
               <div key={group.date} className="space-y-3">
                 <div className="text-center text-xs text-muted-foreground">{group.date}</div>
-                {group.items.map((message) => (
-                  <SmsMessageBubble key={message.id} message={message} />
+                {group.items.map(({ message, reactions }) => (
+                  <SmsMessageBubble key={message.id} message={message} reactions={reactions} />
                 ))}
               </div>
             ))}

@@ -11,11 +11,25 @@ const thread = (lastMessageSnippet: string, lastDirection: SmsThreadSummary['las
 });
 
 describe('SmsThreadListItem reaction previews', () => {
-  it.each(['A aprobat „Shoot reminder”', 'Liked “Shoot reminder”', 'Liked "Shoot reminder"'])('explains a complete inbound like: %s', (body) => {
+  it.each(['A aprobat „Shoot reminder”', 'Liked “Shoot reminder”', 'Liked "Shoot reminder"'])('previews a complete inbound like as an emoji and quoted text: %s', (body) => {
     const { container } = render(<SmsThreadListItem thread={thread(body)} />);
 
-    expect(screen.getByText('👍 Liked your message')).toBeTruthy();
+    expect(screen.getByText('👍 Shoot reminder')).toBeTruthy();
     expect(container.textContent).not.toContain(body);
+    expect(container.textContent).not.toContain('Liked your message');
+  });
+
+  it('previews only the first line of a reacted-to multiline reminder', () => {
+    const { container } = render(<SmsThreadListItem thread={thread('Loved “Shoot reminder\n104 Test Lane\nDetails: https://reprodashboard.com/shoots/2474”')} />);
+
+    expect(screen.getByText('❤️ Shoot reminder')).toBeTruthy();
+    expect(container.textContent).not.toContain('104 Test Lane');
+  });
+
+  it('previews a removed reaction clearly', () => {
+    render(<SmsThreadListItem thread={thread('Removed a like from “Shoot reminder”')} />);
+
+    expect(screen.getByText('Removed 👍')).toBeTruthy();
   });
 
   it('preserves matching outbound text', () => {

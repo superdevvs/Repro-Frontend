@@ -18,6 +18,9 @@ export const SmsThreadListItem = ({ thread, active, onSelect }: SmsThreadListIte
   const aiPaused = thread.aiPausedUntil ? new Date(thread.aiPausedUntil) > new Date() : false;
   const isGroup = Boolean(thread.group);
   const reaction = parseSmsReaction(thread.lastMessageSnippet, thread.lastDirection);
+  const reactionPreview = reaction
+    ? reaction.action === 'remove' ? `Removed ${reaction.emoji}` : `${reaction.emoji} ${reaction.quotedMessage.split(/\r?\n/)[0]}`
+    : null;
 
   const formattedTime = thread.lastMessageAt
     ? isToday(new Date(thread.lastMessageAt))
@@ -84,7 +87,7 @@ export const SmsThreadListItem = ({ thread, active, onSelect }: SmsThreadListIte
               thread.unread && 'font-medium text-foreground/80',
             )}
           >
-            {reaction ? '👍 Liked your message' : thread.lastMessageSnippet || 'No messages yet'}
+            {reactionPreview || thread.lastMessageSnippet || 'No messages yet'}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {thread.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />}
