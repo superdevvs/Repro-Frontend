@@ -369,6 +369,7 @@ export interface SmsThreadSummary {
   id: string;
   contact?: SmsContact;
   lastMessageSnippet?: string;
+  lastReaction?: SmsReaction | null;
   lastMessageAt?: string;
   lastDirection?: MessageDirection;
   unread: boolean;

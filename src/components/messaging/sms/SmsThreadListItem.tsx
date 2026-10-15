@@ -17,7 +17,9 @@ export const SmsThreadListItem = ({ thread, active, onSelect }: SmsThreadListIte
   const name = thread.group?.name || thread.contact?.name || phone || 'Unknown contact';
   const aiPaused = thread.aiPausedUntil ? new Date(thread.aiPausedUntil) > new Date() : false;
   const isGroup = Boolean(thread.group);
-  const reaction = parseSmsReaction(thread.lastMessageSnippet, thread.lastDirection);
+  const reaction = thread.lastDirection === 'INBOUND'
+    ? thread.lastReaction ?? parseSmsReaction(thread.lastMessageSnippet, thread.lastDirection)
+    : null;
   const reactionPreview = reaction
     ? reaction.action === 'remove' ? `Removed ${reaction.emoji}` : `${reaction.emoji} ${reaction.quotedMessage.split(/\r?\n/)[0]}`
     : null;

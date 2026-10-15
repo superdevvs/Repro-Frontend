@@ -11,6 +11,15 @@ const thread = (lastMessageSnippet: string, lastDirection: SmsThreadSummary['las
 });
 
 describe('SmsThreadListItem reaction previews', () => {
+  it('uses full-message reaction metadata when the preview was truncated', () => {
+    const item = thread('A aprobat „Shoot reminder\n' + 'Long address '.repeat(20) + '…');
+    item.lastReaction = { emoji: '👍', label: 'Like', action: 'add', targetMessageId: null, quotedMessage: 'Shoot reminder\n' + 'Long address '.repeat(20) };
+    const { container } = render(<SmsThreadListItem thread={item} />);
+
+    expect(screen.getByText('👍 Shoot reminder')).toBeTruthy();
+    expect(container.textContent).not.toContain('A aprobat');
+  });
+
   it.each(['A aprobat „Shoot reminder”', 'Liked “Shoot reminder”', 'Liked "Shoot reminder"'])('previews a complete inbound like as an emoji and quoted text: %s', (body) => {
     const { container } = render(<SmsThreadListItem thread={thread(body)} />);
 
