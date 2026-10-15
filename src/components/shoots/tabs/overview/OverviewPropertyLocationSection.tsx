@@ -22,6 +22,8 @@ type OverviewPropertyLocationSectionProps = {
   propertyMetrics: PropertyMetric[];
   propertyMetricsEdit: PropertyMetricsEdit;
   setPropertyMetricsEdit: Dispatch<SetStateAction<PropertyMetricsEdit>>;
+  propertyYearBuiltEdit: string;
+  setPropertyYearBuiltEdit: (value: string) => void;
   addressInput: string;
   setAddressInput: (value: string) => void;
   editedShoot: Partial<ShootData>;
@@ -64,6 +66,8 @@ export function OverviewPropertyLocationSection({
   propertyMetrics,
   propertyMetricsEdit,
   setPropertyMetricsEdit,
+  propertyYearBuiltEdit,
+  setPropertyYearBuiltEdit,
   addressInput,
   setAddressInput,
   editedShoot,
@@ -111,6 +115,18 @@ export function OverviewPropertyLocationSection({
                 />
               </div>
             ))}
+            <div className="flex items-center gap-3">
+              <label htmlFor="overview-year-built" className="w-14 shrink-0 text-[11px] uppercase text-muted-foreground font-semibold">Year built</label>
+              <Input
+                id="overview-year-built"
+                type="text"
+                inputMode="numeric"
+                value={propertyYearBuiltEdit}
+                onChange={(event) => setPropertyYearBuiltEdit(event.target.value)}
+                placeholder="Unknown"
+                className="h-8 w-24 text-xs"
+              />
+            </div>
           </div>
         ) : (
           <div className={propertyMetricsGridClassName}>

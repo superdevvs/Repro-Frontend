@@ -21,7 +21,7 @@ vi.mock('./overview/shootOverviewEditorSupport', async (importOriginal) => ({
   ...await importOriginal<typeof import('./overview/shootOverviewEditorSupport')>(),
   useOverviewLookupData: vi.fn(), usePhotographerAssignmentOptions: vi.fn(), usePhotographerDistanceAvailability: vi.fn(),
 }));
-vi.mock('./overview/OverviewPropertyLocationSection', () => ({ OverviewPropertyLocationSection: ({ isEditMode }: { isEditMode: boolean }) => <input aria-label="Property edit" readOnly={!isEditMode} /> }));
+vi.mock('./overview/OverviewPropertyLocationSection', () => ({ OverviewPropertyLocationSection: ({ isEditMode, propertyMetrics }: { isEditMode: boolean; propertyMetrics: { label: string; value: string }[] }) => <><input aria-label="Property edit" readOnly={!isEditMode} /><output aria-label="Year built">{propertyMetrics.find(metric => metric.label === 'Year built')?.value}</output></> }));
 vi.mock('./overview/OverviewAccessSection', () => ({ OverviewAccessSection: () => null, OverviewAccessDescription: () => null }));
 vi.mock('./overview/OverviewClientSection', () => ({ OverviewClientSection: ({ isEditMode }: { isEditMode: boolean }) => <input aria-label="Client edit" readOnly={!isEditMode} /> }));
 vi.mock('./overview/OverviewPaymentSummarySection', () => ({ OverviewPaymentSummarySection: ({ isEditMode }: { isEditMode: boolean }) => <input aria-label="Price edit" readOnly={!isEditMode} /> }));
@@ -37,7 +37,7 @@ const shoot = {
   location: { address: '42 Service Lane', city: 'Baltimore', state: 'MD', zip: '21201' },
   services: [], serviceItems: [{ service_id: 10, name: 'Photography', price: 100, quantity: 1,
     duration_minutes: 60, scheduled_at: '2026-09-01T10:00:00', category: 'Photos' }],
-  payment: { totalQuote: 100, totalPaid: 0 }, canManageBooking: true,
+  payment: { totalQuote: 100, totalPaid: 0 }, canManageBooking: true, propertyDetails: { year_built: 2026 },
 } as unknown as ShootData;
 
 function mount(role: string, status = 'delivered', secondaryRoles: string[] = [], workflowStatus = status) {
@@ -57,6 +57,14 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe('delivered sales rep overview edit scope', () => {
+  it('displays the stored year without thousands grouping in read-only mode', () => {
+    render(<MemoryRouter><ShootDetailsOverviewTab shoot={shoot} role="salesRep" isAdmin={false} isRep
+      isPhotographer={false} isEditor={false} isClient={false} isEditMode={false} onShootUpdate={vi.fn()} />
+    </MemoryRouter>);
+    expect(screen.getByLabelText('Year built')).toHaveTextContent(/^2026$/);
+    expect(screen.getByLabelText('Property edit')).toHaveAttribute('readonly');
+  });
+
   it.each(['delivered', 'delivered_to_client', 'ready_for_client', 'admin_verified'])('keeps %s service, schedule and artist data read-only while allowing details and pricing', async status => {
     mount('salesRep', status);
     await waitFor(() => expect(screen.getByRole('region', { name: 'Booked services' })).toBeInTheDocument());

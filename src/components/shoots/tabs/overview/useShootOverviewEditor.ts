@@ -3,6 +3,7 @@ import { buildForceSaveChanges } from '@/features/travel/forceSaveChanges';
 import { localSchedule, shiftScheduleFields } from '@/features/travel/daySchedule';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { buildOverviewEditDraft } from './overviewEditDraft';
+import { buildOverviewPropertyDetails, getOverviewYearBuilt, hasOverviewBookingEdits } from './overviewYearBuilt';
 import { comparePhotographerDistance } from '@/utils/photographerDistanceSort';
 import { resolveServicePrice } from './shootOverviewServicePricing';
 import { withServiceDurationSnapshot } from './shootOverviewDurations';
@@ -31,7 +32,6 @@ import {
   formatEditableValue,
   formatTimeForInput,
   mapPhotographerPickerOption,
-  toNumberOrUndefined,
   useOverviewLookupData,
   usePhotographerAssignmentOptions,
   usePhotographerDistanceAvailability, getOverviewAvailabilityDuration,
@@ -98,6 +98,7 @@ export function useShootOverviewEditor({
   const [servicesList, setServicesList] = useState<ServiceOption[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const serviceSelectionTouchedRef = useRef(false);
+  const servicePlanTouchedRef = useRef(false);
   const [servicePrices, setServicePrices] = useState<Record<string, string>>({});
   const [servicePhotographerPays, setServicePhotographerPays] = useState<Record<string, string>>({});
   const [serviceSchedules, setServiceSchedules] = useState<Record<string, ServiceScheduleFields>>({});
@@ -120,6 +121,7 @@ export function useShootOverviewEditor({
   const [accessContactName, setAccessContactName] = useState('');
   const [accessContactPhone, setAccessContactPhone] = useState('');
   const [propertyMetricsEdit, setPropertyMetricsEdit] = useState({ beds: '', baths: '', sqft: '' });
+  const [propertyYearBuiltEdit, setPropertyYearBuiltEdit] = useState('');
   const [addressInput, setAddressInput] = useState('');
   const [assignPhotographerOpen, setAssignPhotographerOpen] = useState(false);
   const [selectedPhotographerId, setSelectedPhotographerId] = useState('');
@@ -180,6 +182,7 @@ export function useShootOverviewEditor({
   const initializeMetricsFromShoot = useCallback(() => {
     const legacyShoot = shoot as ShootWithLegacyOverviewFields;
     const propertyDetails = (shoot.propertyDetails ?? legacyShoot.property_details ?? {}) as Record<string, unknown>;
+    setPropertyYearBuiltEdit(getOverviewYearBuilt(propertyDetails));
     setPropertyMetricsEdit({
       beds: formatEditableValue(propertyDetails.beds ?? propertyDetails.bedrooms ?? propertyDetails.bed ?? legacyShoot.beds ?? legacyShoot.bedrooms ?? ''),
       baths: formatEditableValue(propertyDetails.baths ?? propertyDetails.bathrooms ?? propertyDetails.bath ?? legacyShoot.baths ?? legacyShoot.bathrooms ?? ''),
@@ -212,6 +215,7 @@ export function useShootOverviewEditor({
     updateField('location.longitude', undefined);
     updateField('propertyDetails', {});
     setPropertyMetricsEdit({ beds: '', baths: '', sqft: '' });
+    setPropertyYearBuiltEdit('');
   }, [updateField]);
   const handleAddressSelect = useCallback((details: AddressDetailsForLookup) => {
     const mergedAddress = details.address || details.formatted_address || '';
@@ -224,6 +228,7 @@ export function useShootOverviewEditor({
     updateField('location.latitude', details.latitude);
     updateField('location.longitude', details.longitude);
     updateField('propertyDetails', extractLookupPropertyDetails(details));
+    setPropertyYearBuiltEdit(getOverviewYearBuilt(extractLookupPropertyDetails(details)));
 
     const derivedMetrics = deriveMetricsFromAddress(details);
     setPropertyMetricsEdit({
@@ -280,6 +285,7 @@ export function useShootOverviewEditor({
     if (!isEditMode) { initializedEdit.current = null; return; }
     if (initializedEdit.current === String(shoot.id)) return;
     initializedEdit.current = String(shoot.id);
+    servicePlanTouchedRef.current = false;
 
     const legacyShoot = shoot as ShootWithLegacyOverviewFields;
     const propertyDetails = (shoot.propertyDetails ?? legacyShoot.property_details ?? {}) as Record<string, unknown>;
@@ -412,10 +418,7 @@ export function useShootOverviewEditor({
   const { confirmForceSave, confirmSave } = travel;
   const handleSave = useCallback(async (withWarning = false) => {
     if (!onSave) return;
-    if (canEditServicePlan && (withWarning ? !travel.canForceSave : travel.blocked)) { toast({ title: 'Review travel before saving', description: 'Resolve the travel warning or approve an authorized exception.', variant: 'destructive' }); return; }
-    if (canEditServicePlan && !validateCompServicesBeforeSave()) return;
 
-    const legacyShoot = shoot as ShootWithLegacyOverviewFields;
     // The draft only ever holds display fields; the service payload keys below
     // are request-shaped, so the two types deliberately do not overlap.
     const updates = { ...editedShoot } as unknown as ShootOverviewUpdatePayload;
@@ -423,54 +426,26 @@ export function useShootOverviewEditor({
       updates.propertyDetails && typeof updates.propertyDetails === 'object'
         ? { ...(updates.propertyDetails as Record<string, unknown>) }
         : null;
-    const basePropertyDetails = { ...(shoot.propertyDetails ?? legacyShoot.property_details ?? {}) } as Record<string, unknown>;
-
-    if (incomingPropertyDetails) {
-      [
-        'beds', 'bedrooms', 'baths', 'bathrooms', 'sqft', 'squareFeet',
-        'mls_id', 'mlsId', 'price', 'lot_size', 'lotSize', 'year_built',
-        'yearBuilt', 'property_type', 'propertyType', 'zpid', 'source',
-        'confidence', 'field_sources', 'property_source_chain',
-      ].forEach((key) => {
-        delete basePropertyDetails[key];
-      });
-      Object.assign(basePropertyDetails, incomingPropertyDetails);
+    let propertyUpdate: ReturnType<typeof buildOverviewPropertyDetails>;
+    try {
+      propertyUpdate = buildOverviewPropertyDetails({ shoot, incoming: incomingPropertyDetails,
+        metrics: propertyMetricsEdit, year: propertyYearBuiltEdit, presenceOption,
+        lockboxCode, lockboxLocation, accessContactName, accessContactPhone });
+    } catch (error) {
+      toast({ title: 'Check year built', description: error instanceof Error ? error.message : 'Enter a valid year.', variant: 'destructive' });
+      return;
     }
-
-    const bedsValue = toNumberOrUndefined(propertyMetricsEdit.beds);
-    const bathsValue = toNumberOrUndefined(propertyMetricsEdit.baths);
-    const sqftValue = toNumberOrUndefined(propertyMetricsEdit.sqft);
-
-    if (bedsValue !== undefined) {
-      basePropertyDetails.beds = bedsValue;
-      basePropertyDetails.bedrooms = bedsValue;
-    } else if (incomingPropertyDetails) {
-      delete basePropertyDetails.beds;
-      delete basePropertyDetails.bedrooms;
+    updates.propertyDetails = propertyUpdate.details;
+    if (propertyUpdate.yearOnly && !servicePlanTouchedRef.current && !serviceSelectionTouchedRef.current
+      && !hasComplimentaryServices && Object.keys(serviceEditors.serviceEditorChanges).length === 0
+      && !hasOverviewBookingEdits(updates as unknown as Partial<ShootData>, shoot)) {
+      // Avoid submitting unchanged booking/pricing context for this metadata edit.
+      for (const key of ['scheduledDate', 'time', 'location', 'client', 'photographer', 'payment'] as const) delete updates[key];
+      onSave(updates as unknown as Partial<ShootData>, travel.acceptServerError);
+      return;
     }
-    if (bathsValue !== undefined) {
-      basePropertyDetails.baths = bathsValue;
-      basePropertyDetails.bathrooms = bathsValue;
-    } else if (incomingPropertyDetails) {
-      delete basePropertyDetails.baths;
-      delete basePropertyDetails.bathrooms;
-    }
-    if (sqftValue !== undefined) {
-      basePropertyDetails.sqft = sqftValue;
-      basePropertyDetails.squareFeet = sqftValue;
-    } else if (incomingPropertyDetails) {
-      delete basePropertyDetails.sqft;
-      delete basePropertyDetails.squareFeet;
-    }
-
-    updates.propertyDetails = {
-      ...basePropertyDetails,
-      presenceOption,
-      lockboxCode: presenceOption === 'lockbox' ? lockboxCode || null : null,
-      lockboxLocation: presenceOption === 'lockbox' ? lockboxLocation || null : null,
-      accessContactName: presenceOption === 'other' ? accessContactName || null : null,
-      accessContactPhone: presenceOption === 'other' ? accessContactPhone || null : null,
-    };
+    if (canEditServicePlan && (withWarning ? !travel.canForceSave : travel.blocked)) { toast({ title: 'Review travel before saving', description: 'Resolve the travel warning or approve an authorized exception.', variant: 'destructive' }); return; }
+    if (canEditServicePlan && !validateCompServicesBeforeSave()) return;
 
     if (updates.client?.id !== undefined && updates.client.id !== null) {
       const clientId = typeof updates.client.id === 'string' ? parseInt(updates.client.id, 10) : Number(updates.client.id);
@@ -538,9 +513,8 @@ export function useShootOverviewEditor({
     perCategoryPhotographers,
     serviceEditors.serviceEditorChanges,
     presenceOption,
-    propertyMetricsEdit.baths,
-    propertyMetricsEdit.beds,
-    propertyMetricsEdit.sqft,
+    propertyMetricsEdit,
+    propertyYearBuiltEdit,
     isAdmin,
     hasComplimentaryServices,
     selectedServiceIds,
@@ -580,6 +554,7 @@ export function useShootOverviewEditor({
   }, [defaultServiceSchedule, isEditMode, selectedServiceIds]);
 
   const updateServiceSchedule = useCallback((serviceId: string, field: keyof ServiceScheduleFields, value: string | number) => {
+    servicePlanTouchedRef.current = true;
     markOrdinaryServiceMutationTouched();
     setServiceSchedules((current) => ({
       ...current,
@@ -591,6 +566,7 @@ export function useShootOverviewEditor({
   }, [defaultServiceSchedule, markOrdinaryServiceMutationTouched]);
 
   const applyServiceScheduleToAll = useCallback((sourceServiceId: string) => {
+    servicePlanTouchedRef.current = true;
     markOrdinaryServiceMutationTouched();
     setServiceSchedules((current) => {
       const source = current[sourceServiceId] || defaultServiceSchedule;
@@ -927,6 +903,7 @@ export function useShootOverviewEditor({
       }
 
       if (photographerPickerContext?.categoryKey) {
+        servicePlanTouchedRef.current = true;
         markOrdinaryServiceMutationTouched();
         const { categoryKey, categoryName } = photographerPickerContext;
         setPerCategoryPhotographers((current) => ({ ...current, [categoryKey]: selectedPhotographerId }));
@@ -1006,6 +983,7 @@ export function useShootOverviewEditor({
     travel: { ...travel, onSaveWithWarning: isEditMode && onSave ? () => { void handleSave(true); } : undefined,
       warningChanges: buildForceSaveChanges(shoot, travel.payload, servicesList, editPhotographers) },
     state: {
+      propertyYearBuiltEdit,
       serviceEditorProps: { ...serviceEditors, canAssignServiceEditors },
       ...serviceEditors,
       canAssignServiceEditors,
@@ -1054,15 +1032,16 @@ export function useShootOverviewEditor({
       isLoadingAvailability,
     },
     actions: {
+      setPropertyYearBuiltEdit,
       updateServiceEditor: serviceEditors.updateServiceEditor,
       setSelectedClientId,
       setClientSearchOpen,
       setSelectedPhotographerIdEdit,
       setPhotographerSearchOpen,
-      setPerCategoryPhotographers,
+      setPerCategoryPhotographers: (value: Parameters<typeof setPerCategoryPhotographers>[0]) => { servicePlanTouchedRef.current = true; setPerCategoryPhotographers(value); },
       setPerCategoryPopoverOpen,
-      setServicePrices,
-      setServicePhotographerPays,
+      setServicePrices: (value: Parameters<typeof setServicePrices>[0]) => { servicePlanTouchedRef.current = true; setServicePrices(value); },
+      setServicePhotographerPays: (value: Parameters<typeof setServicePhotographerPays>[0]) => { servicePlanTouchedRef.current = true; setServicePhotographerPays(value); },
       updateServiceSchedule,
       applyServiceScheduleToAll,
       applyCompServiceScheduleToAll,

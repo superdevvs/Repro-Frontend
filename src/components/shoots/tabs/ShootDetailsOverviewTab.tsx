@@ -441,6 +441,7 @@ function ShootDetailsOverviewTabContent({
       accessContactName,
       accessContactPhone,
       propertyMetricsEdit,
+      propertyYearBuiltEdit,
       addressInput,
       assignPhotographerOpen,
       selectedPhotographerId,
@@ -473,6 +474,7 @@ function ShootDetailsOverviewTabContent({
       setAccessContactName,
       setAccessContactPhone,
       setPropertyMetricsEdit,
+      setPropertyYearBuiltEdit,
       setAddressInput,
       setAssignPhotographerOpen,
       setSelectedPhotographerId,
@@ -844,6 +846,11 @@ function ShootDetailsOverviewTabContent({
       icon: Ruler,
       value: formatPropertyMetricValue(metricDisplayValues.sqft),
     },
+    {
+      label: 'Year built',
+      icon: CalendarIcon,
+      value: String((isEditMode ? propertyYearBuiltEdit : propertyDetails?.year_built) ?? '').trim() || '—',
+    },
   ];
 
   const paymentTotalPaid = paymentDialogModel?.totalPaid ?? (Number(shoot.payment?.totalPaid) || 0);
@@ -878,6 +885,8 @@ function ShootDetailsOverviewTabContent({
         propertyMetrics={propertyMetrics}
         propertyMetricsEdit={propertyMetricsEdit}
         setPropertyMetricsEdit={setPropertyMetricsEdit}
+        propertyYearBuiltEdit={propertyYearBuiltEdit}
+        setPropertyYearBuiltEdit={setPropertyYearBuiltEdit}
         addressInput={addressInput}
         setAddressInput={setAddressInput}
         editedShoot={editedShoot}

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -6,6 +6,27 @@ import type { ShootData } from '@/types/shoots';
 import { OverviewPropertyLocationSection } from './OverviewPropertyLocationSection';
 
 describe('OverviewPropertyLocationSection layout', () => {
+  it('exposes year built only in edit mode and labels the blank value as unknown', () => {
+    const setYear = vi.fn();
+    const props = {
+      propertyMetrics: [{ label: 'Year built', icon: (() => null) as never, value: '2026' }],
+      propertyMetricsEdit: { beds: '', baths: '', sqft: '' }, setPropertyMetricsEdit: vi.fn(),
+      propertyYearBuiltEdit: '', setPropertyYearBuiltEdit: setYear, addressInput: '', setAddressInput: vi.fn(),
+      editedShoot: {}, shoot: {} as ShootData, updateField: vi.fn(), clearAddressDerivedState: vi.fn(),
+      handleAddressSelect: vi.fn(), getLocationAddress: () => '', locationDetails: {}, hasWeatherDetails: false,
+      formattedTemperature: null, weatherDescription: null, weatherIcon: null,
+    };
+    const view = render(<OverviewPropertyLocationSection {...props} isEditMode={false} />);
+    expect(screen.getByText('2026')).toBeInTheDocument();
+    expect(screen.queryByRole('textbox', { name: 'Year built' })).not.toBeInTheDocument();
+    view.rerender(<OverviewPropertyLocationSection {...props} isEditMode />);
+    const input = screen.getByRole('textbox', { name: 'Year built' });
+    expect(input).toHaveValue('');
+    expect(input).toHaveAttribute('placeholder', 'Unknown');
+    fireEvent.change(input, { target: { value: '2026' } });
+    expect(setYear).toHaveBeenCalledWith('2026');
+  });
+
   it('groups details, access and instructions above the separate location and unit selector', () => {
     render(
       <OverviewPropertyLocationSection
@@ -13,6 +34,8 @@ describe('OverviewPropertyLocationSection layout', () => {
         propertyMetrics={[]}
         propertyMetricsEdit={{ beds: '', baths: '', sqft: '' }}
         setPropertyMetricsEdit={vi.fn()}
+        propertyYearBuiltEdit=""
+        setPropertyYearBuiltEdit={vi.fn()}
         addressInput=""
         setAddressInput={vi.fn()}
         editedShoot={{}}
