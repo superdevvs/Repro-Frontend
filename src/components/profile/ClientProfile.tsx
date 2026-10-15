@@ -1,5 +1,6 @@
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { UserData } from '@/types/auth';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -30,6 +31,23 @@ type PhotographerOption = {
   name: string;
 };
 
+const createProfileDraft = (user: UserData | null | undefined) => {
+  const metadata = (user?.metadata as Record<string, unknown> | undefined) ?? {};
+  const preferences = metadata.preferences && typeof metadata.preferences === 'object'
+    ? metadata.preferences as Record<string, unknown> : {};
+  return {
+    name: user?.name || '', email: user?.email || '', phone: user?.phone || '',
+    officePhone: readOfficePhone(user),
+    showOfficePhoneOnTour: hasShowOfficePhoneFlag(user) ? readShowOfficePhoneOnTour(user) : true,
+    company: user?.company || '', avatar: user?.avatar || '', about: user?.about || '',
+    facebookUrl: user?.facebookUrl || '', twitterUrl: user?.twitterUrl || '',
+    linkedinUrl: user?.linkedinUrl || '', pinterestUrl: user?.pinterestUrl || '',
+    preferredPhotographer: String(preferences.preferredPhotographer || 'any'),
+    billingAddress: user?.address || '', billingCity: user?.city || '',
+    billingState: user?.state || '', billingZip: user?.zipcode || '', currentPassword: '',
+  };
+};
+
 export function ClientProfile() {
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,34 +56,13 @@ export function ClientProfile() {
   const [emailWarningOverride, setEmailWarningOverride] = useState(false);
   const { preferences: displayPreferences, setTemperatureUnit, setTimeFormat } = useUserPreferences();
   const { saveProfile } = useSelfProfileSave();
-  const metadata = (user?.metadata as Record<string, unknown> | undefined) ?? {};
-  const savedPreferences = metadata.preferences && typeof metadata.preferences === 'object'
-    ? metadata.preferences as Record<string, unknown>
-    : {};
   const [photographers, setPhotographers] = useState<PhotographerOption[]>([]);
   const [isLoadingPhotographers, setIsLoadingPhotographers] = useState(true);
   const [photographersError, setPhotographersError] = useState('');
   
-  const [formData, setFormData] = useState({
-    name: user?.name || "",
-    email: user?.email || "",
-    phone: user?.phone || "",
-    officePhone: readOfficePhone(user),
-    showOfficePhoneOnTour: hasShowOfficePhoneFlag(user) ? readShowOfficePhoneOnTour(user) : true,
-    company: user?.company || "",
-    avatar: user?.avatar || "",
-    about: user?.about || "",
-    facebookUrl: user?.facebookUrl || "",
-    twitterUrl: user?.twitterUrl || "",
-    linkedinUrl: user?.linkedinUrl || "",
-    pinterestUrl: user?.pinterestUrl || "",
-    preferredPhotographer: String(savedPreferences.preferredPhotographer || "any"),
-    billingAddress: user?.address || "",
-    billingCity: user?.city || "",
-    billingState: user?.state || "",
-    billingZip: user?.zipcode || "",
-    currentPassword: "",
-  });
+  const [formData, setFormData] = useState(() => createProfileDraft(user));
+  const draftUserId = useRef(user?.id);
+  const officeFieldsEdited = useRef({ phone: false, visibility: false });
   const localEmailHint = useMemo(
     () => (formData.email !== user?.email ? analyzeEmailInput(formData.email) : { level: 'none' as const }),
     [formData.email, user?.email],
@@ -80,13 +77,21 @@ export function ClientProfile() {
   }, [user?.phone]);
 
   useEffect(() => {
-    setFormData((prev) => ({
-      ...prev,
-      officePhone: prev.officePhone || readOfficePhone(user) || prev.officePhone,
-      showOfficePhoneOnTour: hasShowOfficePhoneFlag(user)
-        ? readShowOfficePhoneOnTour(user)
-        : prev.showOfficePhoneOnTour,
-    }));
+    if (String(draftUserId.current ?? '') !== String(user?.id ?? '')) {
+      draftUserId.current = user?.id;
+      officeFieldsEdited.current = { phone: false, visibility: false };
+      setFormData(createProfileDraft(user));
+      return;
+    }
+    // Session refreshes may replace the user object while a client is editing.
+    // Hydrate untouched fields, retaining deliberate changes and empty values.
+    setFormData((prev) => {
+      const officePhone = officeFieldsEdited.current.phone ? prev.officePhone : readOfficePhone(user);
+      const showOfficePhoneOnTour = officeFieldsEdited.current.visibility ? prev.showOfficePhoneOnTour
+        : hasShowOfficePhoneFlag(user) ? readShowOfficePhoneOnTour(user) : true;
+      return officePhone === prev.officePhone && showOfficePhoneOnTour === prev.showOfficePhoneOnTour
+        ? prev : { ...prev, officePhone, showOfficePhoneOnTour };
+    });
   }, [user]);
 
   useEffect(() => {
@@ -150,6 +155,7 @@ export function ClientProfile() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    if (name === 'officePhone') officeFieldsEdited.current.phone = true;
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
@@ -207,7 +213,13 @@ export function ClientProfile() {
           },
       });
       if (!result.reauthRequired) {
-        setFormData((prev) => ({ ...prev, currentPassword: "" }));
+        officeFieldsEdited.current = { phone: false, visibility: false };
+        setFormData((prev) => ({ ...prev, currentPassword: '',
+          officePhone: result.user && ('office_phone' in result.user || 'officePhone' in result.user)
+            ? readOfficePhone(result.user) : prev.officePhone,
+          showOfficePhoneOnTour: hasShowOfficePhoneFlag(result.user)
+            ? readShowOfficePhoneOnTour(result.user) : prev.showOfficePhoneOnTour,
+        }));
         setEmailWarningOverride(false);
         setServerEmailHealth(normalizeEmailHealth(result.user?.email_health));
         toast.success(result.message);
@@ -335,6 +347,7 @@ export function ClientProfile() {
                       name="officePhone"
                       value={formData.officePhone}
                       onChange={handleChange}
+                      disabled={isSubmitting}
                       maxLength={50}
                       placeholder="Office phone"
                     />
@@ -342,12 +355,16 @@ export function ClientProfile() {
                   <div className="flex items-center justify-between gap-4 rounded-lg border px-4 py-3 md:col-span-2">
                     <div className="space-y-0.5">
                       <Label htmlFor="show-office-phone-on-tour">Show office phone on branded tour</Label>
-                      <p className="text-sm text-muted-foreground">The client portal still shows this number whenever it is filled.</p>
+                      <p className="text-sm text-muted-foreground">Select Update My Info to save changes. The client portal still shows this number whenever it is filled.</p>
                     </div>
                     <Switch
                       id="show-office-phone-on-tour"
                       checked={formData.showOfficePhoneOnTour !== false}
-                      onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, showOfficePhoneOnTour: checked }))}
+                      disabled={isSubmitting}
+                      onCheckedChange={(checked) => {
+                        officeFieldsEdited.current.visibility = true;
+                        setFormData((prev) => ({ ...prev, showOfficePhoneOnTour: checked }));
+                      }}
                     />
                   </div>
                   <div className="space-y-2">
@@ -375,6 +392,12 @@ export function ClientProfile() {
               </div>
             </div>
           </CardContent>
+          <CardFooter className="flex justify-end">
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}
+              {isSubmitting ? 'Updating...' : 'Update My Info'}
+            </Button>
+          </CardFooter>
         </Card>
 
         <Card>
