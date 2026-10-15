@@ -11,6 +11,17 @@ function fixture() {
     unmatched: [],
   };
 }
+
+function supervisedFixture() {
+  const original = fixture();
+  return { ...original, orders: [{ ...original.orders[0], request_id: null,
+    discovery: { ...original.orders[0].discovery, source_kind: 'supervised_existing_listing' },
+    inventory: { complete: true, assets: [{ id: 'remote-photo-1', type: 'photos', delivered: true, dashboard_asset_id: 1 }],
+      manual_delivery_receipt: { mode: 'supervised', operation_id: 'operator-run-1', listing_id: 'listing-42',
+        media_version: 'v1', asset_ids: [1], tour_ids: [] as string[], verified_at: new Date().toISOString() } },
+    inventory_checked_at: new Date().toISOString(),
+  }] };
+}
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe('Aryeo Flow panel', () => {
   it('shows unknown inventory and never starts a delivery when opened', async () => {
@@ -66,5 +77,35 @@ describe('Aryeo Flow panel', () => {
     render(<AryeoFlowPanel shootId={4} />);
     expect(await screen.findByText('Delivered · follow-up pending')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Resume unfinished steps' })).toBeEnabled();
+  });
+  it('shows verified supervised delivery without inventing an order or permitting a duplicate', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => supervisedFixture() });
+    vi.stubGlobal('fetch', fetch);
+    render(<AryeoFlowPanel shootId={4} />);
+    expect(await screen.findByText('Listing listing-42')).toBeVisible();
+    const button = screen.getByRole('button', { name: 'Delivered manually' });
+    expect(button).toBeDisabled();
+    expect(screen.getByText(/Original Aryeo request ID unavailable/)).toBeVisible();
+    expect(screen.queryByText(/Order awaiting/)).not.toBeInTheDocument();
+    fireEvent.click(button);
+    expect(fetch.mock.calls.every(call => call[1].method === 'GET')).toBe(true);
+  });
+  it.each(['listing', 'media version', 'missing asset', 'unmapped asset', 'undelivered asset', 'incomplete inventory', 'unknown inventory time', 'future verification'])('does not claim manual delivery for %s evidence', async issue => {
+    const data = supervisedFixture();
+    const order = data.orders[0];
+    const receipt = order.inventory.manual_delivery_receipt;
+    if (issue === 'listing') receipt.listing_id = 'other-listing';
+    if (issue === 'media version') receipt.media_version = 'old-version';
+    if (issue === 'missing asset') receipt.asset_ids = [];
+    if (issue === 'unmapped asset') order.inventory.assets[0].dashboard_asset_id = 2;
+    if (issue === 'undelivered asset') order.inventory.assets[0].delivered = false;
+    if (issue === 'incomplete inventory') order.inventory.complete = false;
+    if (issue === 'unknown inventory time') order.inventory_checked_at = '';
+    if (issue === 'future verification') receipt.verified_at = new Date(Date.now() + 3600000).toISOString();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => data }));
+    render(<AryeoFlowPanel shootId={4} />);
+    expect(await screen.findByText('Manual delivery needs verification')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Delivered manually' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Manual delivery' })).toBeDisabled();
   });
 });
