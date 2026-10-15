@@ -1,8 +1,9 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, Loader2, Phone, Search } from 'lucide-react';
+import { ChevronDown, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { CallGlassButton } from '@/components/voice/CallGlass';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -95,7 +96,7 @@ export default function NewCallDialog({ trigger, initialTo = '', initialFrom = '
         {!numbers.isLoading && !numbers.isError && !numbers.data?.length && <p role="alert" className="text-sm text-[var(--calls-warning)]">Add a business line in Calls settings first.</p>}
         {call.isError && <p role="alert" className="text-sm text-[var(--calls-danger)]">{call.error instanceof Error ? call.error.message : 'Could not start call.'}</p>}
       </fieldset>
-      <DialogFooter className="flex-col gap-2 sm:flex-col"><Button className="calls-call h-12 w-full rounded-xl" disabled={!ready || call.isPending} onClick={() => call.mutate()}>{call.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />}{call.isPending ? 'Connecting…' : caller === 'me' ? `Call ${selectedName.split(' ')[0] || (validTo ? normalizedTo : 'now')}` : 'Start Robbie call'}</Button>{call.isPending && caller === 'me' ? <Button variant="outline" className="h-11" onClick={() => void phone.cancelPending()}>Cancel connection</Button> : <button type="button" className="min-h-11 text-sm text-[var(--calls-brand)]" onClick={() => setCaller((value) => value === 'me' ? 'robbie' : 'me')}>{caller === 'me' ? 'Ask Robbie to call instead' : 'Make this call myself'}</button>}</DialogFooter>
+      <DialogFooter className="flex-col gap-2 sm:flex-col"><div className="call-glass-launch"><span className="call-launch-rings" aria-hidden="true"><i /><i /><i /></span><CallGlassButton className="call-glass-launch-button" tone={caller === 'robbie' ? 'robbie' : 'call'} busy={call.isPending} disabled={!ready || call.isPending} onClick={() => call.mutate()}>{call.isPending ? 'Connecting…' : caller === 'me' ? `Call ${selectedName.split(' ')[0] || (validTo ? normalizedTo : 'now')}` : 'Start Robbie call'}</CallGlassButton></div>{call.isPending && caller === 'me' ? <Button variant="outline" className="h-11" onClick={() => void phone.cancelPending()}>Cancel connection</Button> : <button type="button" className="min-h-11 text-sm text-[var(--calls-brand)]" onClick={() => setCaller((value) => value === 'me' ? 'robbie' : 'me')}>{caller === 'me' ? 'Ask Robbie to call instead' : 'Make this call myself'}</button>}</DialogFooter>
     </DialogContent>
   </Dialog>;
 }

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ChevronUp, ExternalLink, Maximize2, PhoneCall, PhoneOff, Sparkles, X } from 'lucide-react';
+import { ChevronDown, ChevronUp, ExternalLink, Maximize2, PhoneCall, PhoneOff, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { RobbieMark } from './CallGlass';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/components/ui/use-toast';
@@ -117,7 +118,7 @@ export default function OngoingCallPopup() {
       <div className="pointer-events-auto rounded-xl border border-border bg-card text-card-foreground shadow-xl">
         <div className="flex items-center gap-3 border-b border-border px-4 py-3">
           <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-500">
-            <PhoneCall className="h-4 w-4" />
+            {ongoing.handled_by === 'ai' ? <RobbieMark /> : <PhoneCall className="h-4 w-4" />}
             <span className="absolute -right-0.5 -top-0.5 flex h-2.5 w-2.5">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
               <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
@@ -184,7 +185,7 @@ export default function OngoingCallPopup() {
                 </Badge>
                 {ongoing.assistant_id && (
                   <Badge variant="outline" className="gap-1">
-                    <Sparkles className="h-3 w-3" /> AI
+                    <RobbieMark className="!h-5 !w-5 [&_svg]:!h-4 [&_svg]:!w-4" /> Robbie
                   </Badge>
                 )}
               </div>

@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, Phone } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { CallGlassButton } from '@/components/voice/CallGlass';
 import { useBrowserPhone } from '@/context/BrowserPhoneContext';
 import { usePermissions } from '@/context/PermissionsContext';
 import { getVoiceNumbers } from '@/services/voice';
@@ -25,7 +24,7 @@ export default function CallNowButton({ to, from, name, reason, label = 'Call no
     onSuccess: (created) => { void cache.invalidateQueries({ queryKey: ['voice-calls'] }); navigate(`/calls/live/${created.id}`); },
     onError: (error) => toast({ title: 'Could not connect the call', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' }),
   });
-  return <Button type="button" className={`calls-call h-11 rounded-xl ${className}`} aria-label={name ? `${label} ${name}` : label} disabled={disabled || !can('voice-calls', 'operate') || !validCallPhone(to || '') || !validCallPhone(line?.phone_number || '') || phone.busy || Boolean(phone.active) || call.isPending} onClick={() => call.mutate()}>
-    {call.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Phone className="h-4 w-4" />} {call.isPending ? 'Connecting…' : label}
-  </Button>;
+  return <CallGlassButton type="button" busy={call.isPending} className={`${className}`} aria-label={name ? `${label} ${name}` : label} disabled={disabled || !can('voice-calls', 'operate') || !validCallPhone(to || '') || !validCallPhone(line?.phone_number || '') || phone.busy || Boolean(phone.active) || call.isPending} onClick={() => call.mutate()}>
+    {call.isPending ? 'Connecting…' : label}
+  </CallGlassButton>;
 }

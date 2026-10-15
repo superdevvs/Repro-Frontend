@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Plus, Phone, Settings2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Phone, Settings2 } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { getVoiceNumbers } from '@/services/voice';
 import { usePermissions } from '@/context/PermissionsContext';
 import NewCallDialog from './workspace/NewCallDialog';
+import { CallGlassButton } from '@/components/voice/CallGlass';
 import CallsInbox from './CallsInbox';
 import CallsWrapUp from './CallsWrapUp';
 import CallsLive from './CallsLive';
@@ -87,7 +88,7 @@ export default function CallsLayout() {
         </nav>
         {tabScroll.overflow && <Button variant="ghost" size="icon" className="h-10 w-7 shrink-0" aria-label="More Calls tabs" title="More Calls tabs" disabled={!tabScroll.next} onClick={() => { const navigation = navigationRef.current; navigation?.scrollBy({ left: navigation.clientWidth * 0.8 }); }}><ChevronRight className="h-4 w-4" /></Button>}
         <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="calls-settings-menu h-10 shrink-0 rounded-xl" data-active={tabs.slice(6).some(tab => active(tab.to))} aria-label="Calls settings and tools"><Settings2 size={16} /><span>Settings</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="min-w-56">{tabs.slice(6).map(tab => <DropdownMenuItem asChild key={tab.to}><Link to={tab.to} aria-current={active(tab.to) ? 'page' : undefined}>{tab.label}</Link></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
-        <NewCallDialog initialFrom={defaultNumber?.phone_number} trigger={<Button disabled={!can('voice-calls', 'operate')} className="calls-primary h-10 shrink-0 rounded-xl px-3 text-sm"><Plus className="h-4 w-4" />Call</Button>} />
+        <NewCallDialog initialFrom={defaultNumber?.phone_number} trigger={<CallGlassButton disabled={!can('voice-calls', 'operate')} className="calls-toolbar-call">Call</CallGlassButton>} />
       </div>
       <div className="calls-route-content">
           <Routes>

@@ -1,0 +1,101 @@
+/* Shared production treatment from the approved Fluid Glass exploration. */
+.call-glass-button, .call-glass-status {
+  --call-mesh-a: #8abcf5;
+  --call-mesh-b: #b9a1ec;
+  --call-mesh-c: #eaa7ce;
+  --call-mesh-d: #99b7f0;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 20px;
+  border: 1px solid #ffffffe0;
+  border-radius: 999px;
+  background: #bba5eb;
+  color: #493469;
+  box-shadow: 0 9px 19px -15px #8052beaa, 0 2px 5px #8761c314;
+  font: inherit;
+  vertical-align: middle;
+  transition: box-shadow .2s, opacity .2s, transform .2s;
+}
+.call-glass-button { cursor: pointer; }
+.call-glass-button:not(:disabled):hover { box-shadow: 0 10px 22px -13px #8052be88, 0 2px 5px #8761c324; transform: translateY(-1px); }
+.call-glass-button:not(:disabled):active { transform: translateY(0); }
+.call-glass-button:disabled { cursor: not-allowed; opacity: .5; }
+.call-glass-button:focus-visible, .call-robbie-handoff:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 3px; }
+.call-glass-lens { position: absolute; z-index: -2; inset: 0; overflow: hidden; border-radius: inherit; opacity: .88; pointer-events: none; }
+.call-glass-mesh {
+  position: absolute;
+  inset: -100%;
+  border-radius: 45%;
+  background: radial-gradient(ellipse at 23% 36%, var(--call-mesh-a), transparent 46%), radial-gradient(ellipse at 78% 30%, var(--call-mesh-c), transparent 42%), radial-gradient(ellipse at 48% 79%, var(--call-mesh-b), transparent 50%), var(--call-mesh-d);
+  animation: call-glass-flow 12s ease-in-out infinite alternate;
+  will-change: transform;
+}
+.call-glass-mesh-secondary { inset: -65%; opacity: .42; mix-blend-mode: soft-light; animation: call-glass-drift 9s ease-in-out infinite alternate; }
+.call-glass-reflection { position: absolute; z-index: -1; inset: 0; border: 1px solid #ffffffb0; border-radius: inherit; background: linear-gradient(160deg, #ffffff55, transparent 48%, #ffffff17); box-shadow: inset 0 2px 3px #ffffffd9, inset 0 -2px 5px #ffffff5c; pointer-events: none; }
+.call-glass-content { display: flex; align-items: center; justify-content: center; gap: 10px; min-width: 0; max-width: 100%; }
+.call-glass-label { min-width: 0; overflow-wrap: anywhere; font-size: 13px; line-height: 1.3; font-weight: 600; letter-spacing: -.2px; }
+.call-glass-icon { width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 50%; background: linear-gradient(145deg, #ffffffe0, #ffffff47); box-shadow: inset 0 1px 1px #fff, 0 3px 8px #7a50a423; }
+.call-glass-button[data-tone=live], .call-glass-status[data-tone=live] { --call-mesh-a: #a9e2ba; --call-mesh-b: #86d3c0; --call-mesh-c: #9edbe2; --call-mesh-d: #87cfb9; background: #8ad3b8; color: #195540; }
+.call-glass-button[data-tone=held], .call-glass-status[data-tone=held] { --call-mesh-a: #f0d4a8; --call-mesh-b: #e5c68d; --call-mesh-c: #f4ddbe; --call-mesh-d: #d8bc8a; color: #71531e; }
+.call-glass-button[data-tone=robbie], .call-glass-status[data-tone=robbie] { --call-mesh-a: #b3b3f3; --call-mesh-b: #c3a4e6; --call-mesh-c: #d3b4e6; --call-mesh-d: #a3b9ed; color: #583c87; }
+.call-glass-status { min-height: 46px; padding: 0 15px; width: max-content; max-width: 100%; }
+.call-glass-status .call-glass-label { font-variant-numeric: tabular-nums; font-size: 12px; }
+.call-glass-status[data-tone=held] .call-glass-mesh { animation-play-state: paused; }
+.call-glass-wave { height: 22px; display: inline-flex; flex: none; align-items: center; gap: 3px; color: currentColor; }
+.call-glass-wave i { display: block; width: 2px; height: 12px; border-radius: 2px; background: currentColor; animation: call-glass-wave 1.25s ease-in-out infinite alternate; }
+.call-glass-wave i:nth-child(2) { height: 18px; animation-delay: -.7s; }
+.call-glass-wave i:nth-child(3) { height: 22px; animation-delay: -.3s; }
+.call-glass-wave i:nth-child(4) { height: 16px; animation-delay: -.95s; }
+.call-glass-wave i:nth-child(5) { height: 9px; animation-delay: -.5s; }
+.call-glass-wave[data-paused] i { animation: none; height: 4px; opacity: .6; }
+.call-robbie-mark { position: relative; display: grid; place-items: center; width: 30px; height: 30px; flex: none; border-radius: 50%; background: radial-gradient(circle at 28% 24%, #fff, #edf0ff 55%, #d8e2ff); box-shadow: inset 0 1px 2px #ffffffbd, 0 3px 8px #7955be26; }
+.call-robbie-mark svg { display: block; width: 23px; height: 23px; }
+.call-robbie-ai { border: 1px solid #d6c8ec; border-radius: 4px; padding: 2px 4px; background: #ffffff66; color: #6d4a92; font-size: 8px; line-height: 1.2; font-weight: 650; letter-spacing: .04em; }
+.call-robbie-handoff { display: inline-flex; align-items: center; justify-content: center; gap: 8px; max-width: 100%; min-height: 44px; padding: 5px 14px 5px 7px; border: 1px solid #dcd0ed; border-radius: 999px; background: linear-gradient(150deg, #ffffffe0, #ece5f7b3); box-shadow: inset 0 1px 1px #fff, 0 4px 10px -7px #8464b955; color: #6e528d; font-size: 12px; font-weight: 550; transition: border-color .2s, box-shadow .2s; }
+.call-robbie-handoff:not(:disabled):hover { border-color: #ab8dcd; box-shadow: inset 0 1px 1px #fff, 0 5px 12px -6px #8464b955; }
+.call-robbie-handoff:disabled { opacity: .5; cursor: not-allowed; }
+.call-robbie-handoff .call-robbie-mark { width: 25px; height: 25px; }
+.call-robbie-handoff .call-robbie-mark svg { width: 18px; height: 18px; }
+.dark .call-glass-button, .dark .call-glass-status { background: #5b447d; color: #f5f0ff; border-color: #ded0fc7a; box-shadow: 0 10px 24px -16px #ab8cfb6e; }
+.dark .call-glass-lens { filter: saturate(1.08) brightness(.65); }
+.dark .call-glass-reflection { border-color: #e4d9ff75; background: linear-gradient(160deg, #ffffff30, transparent 50%, #ffffff10); box-shadow: inset 0 1px 2px #ffffff82, inset 0 -2px 3px #ffffff24; }
+.dark .call-glass-icon { background: linear-gradient(145deg, #ffffff4a, #ffffff18); box-shadow: inset 0 1px 1px #ffffff5c, 0 3px 9px #0002; }
+.dark .call-glass-button[data-tone=live], .dark .call-glass-status[data-tone=live] { background: #286b56; color: #effff7; }
+.dark .call-glass-button[data-tone=held], .dark .call-glass-status[data-tone=held] { background: #705b32; color: #fff4db; }
+.dark .call-robbie-handoff { background: linear-gradient(150deg, #342c44, #282235); border-color: #6d547e6b; color: #d3bfe9; box-shadow: inset 0 1px 1px #ffffff12; }
+.dark .call-robbie-ai { color: #d8c3f2; border-color: #a28db832; background: #ffffff0a; }
+.call-glass-button:disabled .call-glass-mesh { animation: none; will-change: auto; }
+@keyframes call-glass-flow { from { transform: translate3d(-3%, -4%, 0) rotate(-12deg) scale(.9); } to { transform: translate3d(6%, 8%, 0) rotate(40deg) scale(1.15); } }
+@keyframes call-glass-drift { from { transform: rotate(28deg) scale(1.1); } to { transform: rotate(-60deg) scale(.85); } }
+@keyframes call-glass-wave { from { transform: scaleY(.35); opacity: .6; } to { transform: scaleY(1); opacity: 1; } }
+@media (max-width: 767px) { .call-glass-button { padding-left: 18px; padding-right: 18px; } }
+@media (prefers-reduced-motion: reduce) {
+  .call-glass-mesh, .call-glass-wave i { animation: none !important; will-change: auto; }
+  .call-glass-button, .call-robbie-handoff { transition: none; }
+  .call-glass-button:not(:disabled):hover { transform: none; }
+}
+
+.calls-toolbar-call { min-height: 44px; padding: 0 15px; }
+.calls-toolbar-call .call-glass-icon { width: 26px; height: 26px; }
+.call-connection-summary { display: flex; justify-content: center; padding: 3px 0 7px; }
+.calls-workspace.browser-call-dock { background: linear-gradient(155deg, #fffffff5, #f8f5fcf2); color: hsl(var(--foreground)); border-color: #ffffffed; --calls-text: hsl(var(--foreground)); --calls-muted: hsl(var(--muted-foreground)); --calls-border: hsl(var(--border)); --calls-surface: hsl(var(--card)); --calls-subtle: hsl(var(--secondary)); box-shadow: 0 15px 50px -18px #69507845; backdrop-filter: blur(20px); }
+.calls-workspace.browser-call-dock .call-control-strip { --calls-text: hsl(var(--foreground)); --calls-subtle: hsl(var(--secondary)); }
+.dark .calls-workspace.browser-call-dock { background: linear-gradient(155deg, #272330f7, #1f1c28f2); border-color: #66536e61; box-shadow: 0 15px 50px -18px #000a; }
+.call-control-strip .calls-secondary { min-height: 44px; }
+.call-glass-launch { position: relative; isolation: isolate; display: grid; place-items: center; width: 100%; min-height: 94px; border-radius: 22px; overflow: hidden; }
+.call-launch-rings { position: absolute; z-index: -1; left: 50%; top: 50%; width: 150px; height: 150px; transform: translate(-50%, -50%); pointer-events: none; }
+.call-launch-rings i { position: absolute; inset: 0; border: 1px solid #ac99d5; border-radius: 50%; animation: call-launch-ring 5s ease-in-out infinite; opacity: .16; }
+.call-launch-rings i:nth-child(2) { inset: 13px; animation-delay: -1.7s; opacity: .12; }
+.call-launch-rings i:nth-child(3) { inset: 27px; animation-delay: -3.4s; opacity: .1; }
+.call-glass-launch .call-glass-button { min-height: 64px; max-width: calc(100% - 16px); }
+.call-glass-launch .call-glass-icon { width: 38px; height: 38px; }
+.call-glass-launch .call-glass-label { font-size: 15px; }
+.call-glass-launch:has(button:disabled) .call-launch-rings i { animation: none; opacity: .05; }
+@keyframes call-launch-ring { 0%, 100% { scale: .88; } 50% { scale: 1.08; } }
+@media (prefers-reduced-motion: reduce) { .call-launch-rings i { animation: none; } }

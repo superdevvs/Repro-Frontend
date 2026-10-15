@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Headphones, Mic, MicOff, Phone, PhoneOff, Settings2, Pause, Play, Grid3X3, Users } from 'lucide-react';
+import { Headphones, Mic, MicOff, PhoneOff, Settings2, Pause, Play, Grid3X3, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useBrowserPhone } from '@/context/BrowserPhoneContext';
 import BrowserPhoneExtras from './BrowserPhoneExtras';
+import { CallGlassButton, CallGlassStatus } from './CallGlass';
 
 const invoke = (action: () => Promise<unknown>) => { void action().catch(() => undefined); };
 
@@ -25,13 +26,14 @@ export default function BrowserPhoneControls({ compact = false, idleCompact = fa
   const supervisor = active?.offer.role === 'supervisor';
   const canControl = Boolean(active?.server?.capabilities.can_control || (supervisor && active?.offer.mode && active.server?.capabilities[`can_${active.offer.mode}`])) && phone.status === 'ready' && !phone.busy;
   return <div className="space-y-3">
+    {active && !ringing && !supervisor && <div className="call-connection-summary" role="status"><CallGlassStatus tone={active.held ? 'held' : 'live'} paused={active.muted || active.held}>{active.held ? 'On hold' : active.muted ? 'Microphone muted' : active.state === 'active' ? 'Connected' : 'Connecting…'}</CallGlassStatus></div>}
     <div className={idleCompact ? 'flex items-center gap-2' : `flex flex-wrap items-center gap-2 ${active && !ringing ? 'call-control-strip' : ''}`}>
       {idleCompact && <p role="status" className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium"><span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-[var(--calls-success)]" /><span className="truncate">Phone ready</span></p>}
       {ringing ? <>
-        <Button className="calls-primary h-11" disabled={phone.busy || phone.status !== 'ready'} onClick={() => invoke(phone.answer)}><Phone className="h-4 w-4" />{supervisor ? 'Join supervision' : 'Answer'}</Button>
+        <CallGlassButton tone="live" disabled={phone.busy || phone.status !== 'ready'} onClick={() => invoke(phone.answer)}>{supervisor ? 'Join supervision' : 'Answer'}</CallGlassButton>
         <Button variant="outline" className="calls-secondary h-11" disabled={phone.busy} onClick={() => invoke(phone.decline)}>Decline</Button>
       </> : active ? <>
-        <Button variant="outline" className="calls-secondary h-11" disabled={!canControl || active.offer.mode === 'monitor'} onClick={() => invoke(() => phone.control(active.muted ? 'unmute' : 'mute'))}>
+        <Button variant="outline" className="calls-secondary h-11" aria-pressed={active.muted} disabled={!canControl || active.offer.mode === 'monitor'} onClick={() => invoke(() => phone.control(active.muted ? 'unmute' : 'mute'))}>
           {active.muted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}{active.offer.mode === 'monitor' ? 'Listening · mic off' : active.muted ? 'Unmute' : 'Mute'}
         </Button>
         {!supervisor && <Button variant="outline" className="calls-secondary h-11" disabled={!canControl} aria-pressed={active.held} onClick={() => invoke(() => phone.control(active.held ? 'resume' : 'hold'))}>{active.held ? <Play size={16} /> : <Pause size={16} />}{active.held ? 'Resume caller' : 'Hold caller'}</Button>}

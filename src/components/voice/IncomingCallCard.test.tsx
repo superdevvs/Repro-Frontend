@@ -24,7 +24,7 @@ describe('Incoming business call actions', () => {
     const { answer } = card();
     expect(screen.getByText('Angela Campbell')).toBeVisible();
     expect(screen.getByText('Icecap')).toBeVisible();
-    expect(screen.getByText('+12027803332')).toBeVisible();
+    expect(screen.getByText('Editing · +12027803332')).toBeVisible();
     expect(answer).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole('button', { name: 'Answer in browser' }));
     expect(answer).toHaveBeenCalledOnce();
@@ -46,15 +46,36 @@ describe('Incoming business call actions', () => {
     await waitFor(() => expect(mocks.send).toHaveBeenCalledTimes(2));
     expect(mocks.send.mock.calls[0][1]).toBe(mocks.send.mock.calls[1][1]);
   });
-  it('blocks expired invitations and unavailable Robbie', () => {
+  it('removes actions from expired invitations', () => {
     card({ ...offer(), expires_at: new Date(Date.now() - 1000).toISOString(), can_send_robbie: false });
-    expect(screen.getByRole('button', { name: 'Answer in browser' })).toBeDisabled();
-    expect(screen.getByRole('button', { name: 'Send to Robbie' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Answer in browser' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send to Robbie' })).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Invitation expired');
   });
   it('prevents a handoff while this device is already on a call', () => {
     mocks.phone.active = { state: 'active' };
     card();
     expect(screen.getByRole('button', { name: 'Send to Robbie' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Answer in browser' })).toBeDisabled();
+  });
+  it('only announces confirmed Robbie ownership after provider state updates', async () => {
+    card();
+    await userEvent.click(screen.getByRole('button', { name: 'Send to Robbie' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Waiting for handoff confirmation'));
+    expect(screen.queryByRole('button', { name: 'Answer in browser' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send to Robbie' })).not.toBeInTheDocument();
+    expect(screen.queryByText('Robbie is on the call')).not.toBeInTheDocument();
+    expect(mocks.send).toHaveBeenCalledOnce();
+  });
+  it('closes actions for another winner even if an older claim flag is true', () => {
+    card({ ...offer(), status: 'claimed', claimed_by: { id: 5, name: 'Ajay' }, can_claim: true });
+    expect(screen.getByRole('status')).toHaveTextContent('Answered by Ajay');
+    expect(screen.queryByRole('button', { name: 'Answer in browser' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Send to Robbie' })).not.toBeInTheDocument();
+  });
+  it('keeps unavailable Robbie disabled on a valid invitation', () => {
+    card({ ...offer(), can_send_robbie: false });
+    expect(screen.getByRole('button', { name: 'Send to Robbie' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Answer in browser' })).toBeEnabled();
   });
 });
