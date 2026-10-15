@@ -11,13 +11,26 @@ const bookedDayLabel = (shoot: DashboardShootSummary): string => {
 
 /**
  * Editing-task assignments the normal /shoots queue omits join the existing
- * shoot cards. Rows already in that queue are left untouched. Task-only cards
+ * shoot cards. Existing rows keep their shoot access; a video task may add its
+ * narrowly authorized client name and company notes. Task-only cards
  * keep hasScopedEditingTasks: the task grants its files, not the whole shoot.
  */
 export function mergeEditorShootQueue(shoots: DashboardShootSummary[], tasks: EditorTaskSummary[]): DashboardShootSummary[] {
   const merged = new Map(shoots.map(shoot => [shoot.id, shoot]));
   for (const task of tasks) {
-    if (!task.shoot || merged.has(task.shoot_id)) continue;
+    if (!task.shoot) continue;
+    const existing = merged.get(task.shoot_id);
+    if (existing) {
+      if (task.shoot.canViewVideoEditorContext && !existing.canViewVideoEditorContext) {
+        merged.set(task.shoot_id, {
+          ...existing,
+          canViewVideoEditorContext: true,
+          clientName: task.shoot.clientName,
+          companyNotes: task.shoot.companyNotes,
+        });
+      }
+      continue;
+    }
     const card: DashboardShootSummary = { ...task.shoot, id: task.shoot_id, hasScopedEditingTasks: true };
     card.dayLabel = bookedDayLabel(card);
     card.hasPendingEditorWork = card.hasPendingEditorWork ?? true;

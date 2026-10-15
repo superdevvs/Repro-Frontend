@@ -59,6 +59,16 @@ describe('real Shoot History calendar', () => {
     expect(root.innerHTML).not.toContain('$725');
   });
 
+  it('shows the authorized video editor client name and revokes it when permission changes', () => {
+    const shoot = calendarShoot({ canViewVideoEditorContext: true });
+    const { rerender } = render(<Calendar shoots={[shoot]} hideClientDetails canViewPrices={false} />);
+    expect(screen.getByText('Private client')).toBeVisible();
+    expect(screen.queryByText(/private@example/)).toBeNull();
+    expect(screen.queryByText(/\$/)).toBeNull();
+    rerender(<Calendar shoots={[{ ...shoot, canViewVideoEditorContext: false }]} hideClientDetails canViewPrices={false} />);
+    expect(screen.queryByText('Private client')).toBeNull();
+  });
+
   it('moves the selected day and brief to a clicked shoot before invoking Overview', () => {
     const tuesday = calendarShoot({ id: '2', scheduledDate: '2026-09-29', location: { ...calendarShoot().location, address: '20 Pine Road' } });
     const select = vi.fn();

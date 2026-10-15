@@ -121,4 +121,23 @@ describe('getVisibleClientContact', () => {
     expect(managerView.phone).toBe('555-0100');
     expect(managerView.email).toBe('jane@example.com');
   });
+
+  it.each(['canViewVideoEditorContext', 'can_view_video_editor_context'] as const)(
+    'shows only the name to an editor when %s authorizes video context', (field) => {
+      const visible = getVisibleClientContact({
+        client,
+        role: 'editor',
+        shoot: { ...shoot, [field]: true },
+        shouldHideClientDetails: true,
+      });
+      expect(visible).toMatchObject({ canShowName: true, name: client.name, email: null, phone: null });
+      expect(visible.canShowEmail).toBe(false);
+      expect(visible.canShowPhone).toBe(false);
+    },
+  );
+
+  it.each([false, undefined])('keeps editor names hidden without server authorization (%s)', (permission) => {
+    const visible = getVisibleClientContact({ client, role: 'editor', shoot: { ...shoot, canViewVideoEditorContext: permission } });
+    expect(visible).toMatchObject({ name: null, email: null, phone: null });
+  });
 });

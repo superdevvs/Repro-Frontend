@@ -633,6 +633,7 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     scheduledDate: toStringValue(item.scheduled_date ?? item.scheduledDate),
     time: toStringValue(item.time, 'TBD'),
     propertySlug: toStringValue(item.property_slug ?? item.propertySlug),
+    canViewVideoEditorContext: (item.can_view_video_editor_context ?? item.canViewVideoEditorContext) === true,
     dropboxPaths,
     client: {
       name: client?.name ?? 'Unknown Client',

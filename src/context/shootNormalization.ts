@@ -832,6 +832,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     canSubmitRaw: Boolean(shoot.canSubmitRaw ?? shoot.can_submit_raw),
     canSubmitEdits: Boolean(shoot.canSubmitEdits ?? shoot.can_submit_edits),
     canViewInvoice: toOptionalBoolean(shoot.canViewInvoice, shoot.can_view_invoice),
+    canViewVideoEditorContext: toOptionalBoolean(shoot.can_view_video_editor_context, shoot.canViewVideoEditorContext),
     canFinalizeNoMedia: toOptionalBoolean(shoot.canFinalizeNoMedia, shoot.can_finalize_no_media),
     canRemoveAllServices: toOptionalBoolean(shoot.canRemoveAllServices, shoot.can_remove_all_services),
     canManageBooking: toOptionalBoolean(shoot.canManageBooking),

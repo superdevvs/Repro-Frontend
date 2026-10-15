@@ -53,6 +53,12 @@ const pointer = (element: Element, type: string, x: number, y: number) => {
 };
 
 describe('EarlierShootsStack', () => {
+  it.each([true, false])('shows the client name only for authorized video context (%s)', permission => {
+    render(<EarlierShootsStack shoots={[shoot(1, { canViewVideoEditorContext: permission })]} role="editor" onSelect={vi.fn()} />);
+    if (permission) expect(screen.getByText(/Private client/)).toBeVisible();
+    else expect(screen.queryByText(/Private client/)).toBeNull();
+  });
+
   it('rotates every five seconds without replacing the controls or card container', () => {
     render(<EarlierShootsStack shoots={[shoot(1), shoot(2)]} role="admin" onSelect={vi.fn()} />);
     const next = screen.getByRole('button', { name: 'Next unfinished shoot' });

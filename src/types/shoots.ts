@@ -651,6 +651,8 @@ export interface ShootData {
   canSubmitEdits?: boolean;
   canApproveEditingReview?: boolean;
   canViewInvoice?: boolean;
+  canViewVideoEditorContext?: boolean;
+  can_view_video_editor_context?: boolean;
   canFinalizeNoMedia?: boolean;
   canRemoveAllServices?: boolean;
   canManageBooking?: boolean;
@@ -806,6 +808,8 @@ export interface ShootHistoryFinancials {
 
 export interface ShootHistoryRecord {
   id: number;
+  canViewVideoEditorContext?: boolean;
+  can_view_video_editor_context?: boolean;
   scheduledDate?: string | null;
   time?: string | null;
   timezone?: string | null;

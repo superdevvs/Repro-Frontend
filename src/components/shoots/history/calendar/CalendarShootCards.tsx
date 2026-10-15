@@ -8,6 +8,7 @@ import type { CalendarEntry } from './calendarModel';
 import { calendarAddress, calendarEventStyle, calendarInitials, calendarPhotographer, calendarServices, calendarStatus, calendarTimeLabel, calendarTimezone } from './calendarPresentation';
 import { ShootActionRequestBadges, ShootActionRequestBanner } from '@/components/shoots/ShootActionRequests';
 import { getPendingShootActionRequests } from '@/utils/shootActionRequests';
+import { canViewVideoEditorClientContext } from '@/utils/videoEditorClientContext';
 
 interface ShootButtonProps {
   entry: CalendarEntry;
@@ -69,7 +70,7 @@ export function CalendarInspector({ entry, onShootSelect, hideClientDetails, can
       <p className="shc-location"><MapPin aria-hidden="true" />{[shoot.location?.city, shoot.location?.state].filter(Boolean).join(', ') || 'Location not set'}</p>
       <div className="shc-brief-time"><strong>{entry.date ? formatDate(entry.date) : 'Date not set'}</strong><span>{calendarTimeLabel(entry, formatTime)}{calendarTimezone(shoot) && ` · ${calendarTimezone(shoot)}`}</span></div>
       <dl className="shc-people">
-        {!hideClientDetails && <div><User aria-hidden="true" /><dt>Client</dt><dd>{shoot.client?.name || 'Unassigned'}</dd></div>}
+        {(!hideClientDetails || canViewVideoEditorClientContext(shoot)) && <div><User aria-hidden="true" /><dt>Client</dt><dd>{shoot.client?.name || 'Unassigned'}</dd></div>}
         <div><Camera aria-hidden="true" /><dt>Photographer</dt><dd>{calendarPhotographer(shoot)}</dd></div>
       </dl>
       {services.length > 0 && <><h5>Booked services</h5><div className="shc-services">{services.map((service, index) => <span key={`${service}-${index}`}>{service}</span>)}</div></>}

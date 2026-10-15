@@ -1,7 +1,8 @@
 import { getShootLocalDate } from '@/utils/shootLocalDate';
 import { normalizeTimezone } from '@/utils/timezone';
+import { canViewVideoEditorClientContext, type VideoEditorClientContext } from '@/utils/videoEditorClientContext';
 
-type ShootLike = {
+type ShootLike = VideoEditorClientContext & {
   scheduledDate?: string | null;
   scheduled_date?: string | null;
   scheduledAt?: string | null;
@@ -201,7 +202,15 @@ export const getClientContactVisibility = ({
     };
   }
 
-  if (shouldHideClientDetails || normalizedRole === 'editor') {
+  if (normalizedRole === 'editor') {
+    return {
+      canShowName: canViewVideoEditorClientContext(shoot),
+      canShowEmail: false,
+      canShowPhone: false,
+    };
+  }
+
+  if (shouldHideClientDetails) {
     return {
       canShowName: false,
       canShowEmail: false,

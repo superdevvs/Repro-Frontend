@@ -453,6 +453,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     status: shoot.status || null,
     workflowStatus: shoot.workflowStatus || shoot.status || null,
     canViewInvoice: shoot.canViewInvoice ?? shoot.can_view_invoice,
+    canViewVideoEditorContext: shoot.canViewVideoEditorContext ?? shoot.can_view_video_editor_context,
     clientName: shoot.client?.name || null,
     clientId: shoot.client?.id,
     clientPhone: getClientPhone(shoot.client),
@@ -472,6 +473,10 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     editorNotes:
       shoot.notes && typeof shoot.notes !== "string"
         ? shoot.notes.editingNotes ?? null
+        : null,
+    companyNotes:
+      shoot.notes && typeof shoot.notes !== "string"
+        ? shoot.notes.companyNotes ?? null
         : null,
     holdRequestedAt: shoot.holdRequestedAt ?? null,
     holdRequestedBy: shoot.holdRequestedBy ?? null,

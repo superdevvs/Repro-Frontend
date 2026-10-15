@@ -193,6 +193,8 @@ export type ApiShoot = {
   canSubmitRaw?: boolean;
   canSubmitEdits?: boolean;
   canViewInvoice?: boolean;
+  canViewVideoEditorContext?: boolean;
+  can_view_video_editor_context?: boolean;
   canFinalizeNoMedia?: boolean;
   canRemoveAllServices?: boolean;
   can_submit_raw?: boolean;

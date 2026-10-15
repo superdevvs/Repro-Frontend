@@ -57,7 +57,7 @@ export function OverviewClientSection({
     shouldHideClientDetails,
   });
 
-  if ((!shoot.client && !isEditMode) || isEditor || isClient || !visibleClient.canShowName) {
+  if ((!shoot.client && !isEditMode) || isClient || !visibleClient.canShowName) {
     return null;
   }
 
@@ -70,7 +70,7 @@ export function OverviewClientSection({
         <UserIcon className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-[11px] font-semibold text-muted-foreground uppercase">Client</span>
       </div>
-      {isEditMode ? (
+      {isEditMode && !isEditor ? (
         <Popover open={clientSearchOpen} onOpenChange={setClientSearchOpen} modal={false}>
           <PopoverTrigger asChild>
             <Button

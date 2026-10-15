@@ -34,3 +34,22 @@ it('opens queue assignments directly with the selected shoot filter', async () =
   expect(state.get).toHaveBeenCalledWith('/editing-tasks?page=1&shoot_id=379', expect.anything());
   expect(screen.queryByRole('button', { name: 'Editing tasks' })).not.toBeInTheDocument();
 });
+
+it.each([true, false, undefined])('limits client context to explicitly authorized video tasks (%s)', async permission => {
+  state.get.mockResolvedValue({ data: { data: [{ id: 'dispatch-video', shoot_id: 9, address: 'Fixture', scope: 'selected', status: 'assigned', items: [{ ...item, lane: 'video' }],
+    shoot: { clientName: 'Jordan Video Client', companyNotes: 'Include the client branding on the end card.', canViewVideoEditorContext: permission },
+  }], last_page: 1 } });
+  render(<EditingTasks shootId={9} open hideTrigger />);
+  await screen.findByText('Lawn.jpg · v4');
+  if (permission) {
+    expect(screen.getByText('Jordan Video Client', { exact: false })).toBeVisible();
+    expect(screen.getByText('Company Notes')).toBeVisible();
+    expect(screen.getByText('Include the client branding on the end card.')).toBeVisible();
+  } else {
+    expect(screen.queryByText('Jordan Video Client', { exact: false })).toBeNull();
+    expect(screen.queryByText('Company Notes')).toBeNull();
+    expect(screen.queryByText('Include the client branding on the end card.')).toBeNull();
+  }
+  expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+  expect(state.post).not.toHaveBeenCalled();
+});

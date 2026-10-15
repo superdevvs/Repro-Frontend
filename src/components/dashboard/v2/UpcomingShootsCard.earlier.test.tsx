@@ -55,6 +55,26 @@ afterEach(() => {
 });
 
 describe('UpcomingShootsCard earlier unfinished work', () => {
+  it('shows client names and company notes only on authorized video assignments', () => {
+    const authorized = { ...shoot(41, '2026-10-01', 'editing'), clientName: 'Video client', canViewVideoEditorContext: true, companyNotes: 'Use the client branding on the end card.' };
+    const photoOnly = { ...shoot(42, '2026-10-01', 'editing'), clientName: 'Photo client', canViewVideoEditorContext: false, companyNotes: 'Private company instructions' };
+    const { container } = render(<UpcomingShootsCard shoots={[authorized, photoOnly]} role="editor" onSelect={vi.fn()} />);
+    const cards = container.querySelectorAll('[data-shoot-card="true"]');
+    expect(cards[0]).toHaveTextContent('Video client');
+    expect(cards[0]).toHaveTextContent('Company Notes:');
+    expect(cards[0]).toHaveTextContent('Use the client branding on the end card.');
+    expect(cards[1]).not.toHaveTextContent('Photo client');
+    expect(cards[1]).not.toHaveTextContent('Private company instructions');
+  });
+
+  it('adds scoped video context to an existing photo queue row without granting whole-shoot access', () => {
+    const base = { ...shoot(41, '2026-10-01', 'editing'), clientName: null, canViewVideoEditorContext: false };
+    const video = { ...base, canViewVideoEditorContext: true, clientName: 'Video client', companyNotes: 'Brand the end card.' };
+    const [merged] = mergeEditorShootQueue([base], [{ shoot_id: 41, shoot: video } as EditorTaskSummary]);
+    expect(merged).toMatchObject({ clientName: 'Video client', companyNotes: 'Brand the end card.', canViewVideoEditorContext: true });
+    expect(merged.hasScopedEditingTasks).toBeUndefined();
+  });
+
   it('merges omitted assignments into the existing day group and shoot card', () => {
     const existing = { ...shoot(1, '2026-09-30', 'editing'), dayLabel: 'Yesterday', addressLine: '7500 Alaska Ave NW #638' };
     const dispatched = {

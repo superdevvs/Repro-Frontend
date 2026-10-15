@@ -6,12 +6,13 @@ import { openMediaVersions, type MediaVersion } from '@/services/mediaVersions';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ChevronRight } from 'lucide-react';
+import type { DashboardShootSummary } from '@/types/dashboard';
 
 interface TaskItem {
   id: string; sources: { id: number; name: string; version: number }[]; lane: string; destination: string;
   workflow: string; status: string; return_url?: string; error?: string; returnedVersion?: MediaVersion;
 }
-interface Task { id: string; shoot_id: number; address: string; scope: string; instructions: string; status: string; error?: string; items: TaskItem[] }
+interface Task { id: string; shoot_id: number; address: string; scope: string; instructions: string; status: string; error?: string; items: TaskItem[]; shoot?: DashboardShootSummary }
 export function EditingTasks({ shootId, open: controlledOpen, onOpenChange, hideTrigger = false, onTasksChanged }: {
   shootId?: number; open?: boolean; onOpenChange?: (open: boolean) => void; hideTrigger?: boolean; onTasksChanged?: () => void;
 } = {}) {
@@ -76,6 +77,15 @@ export function EditingTasks({ shootId, open: controlledOpen, onOpenChange, hide
         {!tasks.length && <p className="text-sm text-muted-foreground">No editing tasks found.</p>}
         {tasks.map(task => <section key={task.id} className="space-y-3 rounded-lg border p-4">
           <p className="font-medium">#{task.shoot_id} · {task.address} · {task.status}</p>
+          {task.shoot?.canViewVideoEditorContext && (
+            <div className="space-y-2 rounded-lg border bg-muted/20 p-3 text-sm">
+              {task.shoot.clientName && <p><span className="font-medium">Client:</span> {task.shoot.clientName}</p>}
+              {task.shoot.companyNotes?.trim() && <div>
+                <p className="font-medium">Company Notes</p>
+                <p className="mt-1 whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{task.shoot.companyNotes}</p>
+              </div>}
+            </div>
+          )}
           <p className="text-sm">{task.scope === 'selected' ? 'Selected media only' : task.scope} · {task.instructions || 'No additional instructions.'}</p>
           {task.error && <p className="text-sm text-destructive">{task.error}</p>}
           {staff && task.status === 'needs_attention' && <Button size="sm" disabled={!!busy} onClick={() => void perform(task.id, () => apiClient.post(`/editing-dispatches/${task.id}/retry`))}>Retry saved AI request</Button>}

@@ -1,4 +1,5 @@
 import type { UpcomingShootsCardProps } from './UpcomingShootsCard.types';
+import { EditorShootContextNotes } from './EditorShootContextNotes';
 import { ShootEmptyState } from '@/components/shoots/ShootEmptyState';
 import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -217,8 +218,6 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   defaultShowPastDays,
   beforeShoots,
 }) => {
-  // Hide client info for editors only; photographers see client info
-  const hideClientInfo = role === 'editor';
   const normalizedRole = normalizeDashboardRole(role);
   const canShowPaymentStatus = canShowShootPaymentStatusForRole(role);
   const isEditorRole = normalizedRole === 'editor';
@@ -1210,6 +1209,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                   return parts.map((part) => ({ label: part, type: service.type, icon: service.icon }));
                 });
                 const weather = weatherMap[shoot.id];
+                const hideClientInfo = isEditorRole && shoot.canViewVideoEditorContext !== true;
 
                 return (
                   <div
@@ -1530,12 +1530,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                       </div>
                     </div>
 
-                    {isEditorRole && shoot.editorNotes?.trim() && (
-                      <div className="-mx-5 -mb-3.5 mt-3 border-t border-purple-500/20 bg-purple-500/15 px-5 py-2 text-[11px] leading-none text-purple-300 sm:-mb-5 sm:mt-4">
-                        <span className="font-semibold">Editing notes :</span>
-                        <span className="ml-1.5 text-purple-300/85">{shoot.editorNotes}</span>
-                      </div>
-                    )}
+                    {isEditorRole && <EditorShootContextNotes shoot={shoot} />}
                     
                     {/* Action buttons for requested shoots */}
                     {isRequested && (onApprove || onDecline || onModify) && (

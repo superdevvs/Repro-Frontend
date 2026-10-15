@@ -11,6 +11,7 @@ import { isBrightMlsSupportedForShoot } from '@/utils/brightMlsMarket'
 import { Building2, Calendar as CalendarIcon, Camera, CheckCircle2, ChevronDown, Clock, CreditCard, DollarSign, Edit, FileText, Layers, Mail, MapPin, Phone, Send, Trash2, User, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { ShootData, ShootHistoryRecord, ShootHistoryServiceAggregate } from '@/types/shoots'
+import { canViewVideoEditorClientContext } from '@/utils/videoEditorClientContext'
 
 export const HistoryRow = memo(({
   record,
@@ -64,6 +65,7 @@ export const HistoryRow = memo(({
   const editingNotesValue = record.notes?.editingNotes || record.notes?.editing
   const canShowApprovalNotes = Boolean(approvalNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep)
   const canShowEditingNotes = Boolean(editingNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep || isEditor)
+  const canReadVideoContext = isEditor && canViewVideoEditorClientContext(record)
   const canSendToEditing = Boolean(onSendToEditing) && canSendShootToEditing(record, isEditingManager ? 'editing_manager' : undefined)
 
   const handlePublishMls = async (e: React.MouseEvent) => {
@@ -113,10 +115,10 @@ export const HistoryRow = memo(({
             )}
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            {!shouldHideClientDetails && (
+            {(!shouldHideClientDetails || canReadVideoContext) && (
               <div className="flex items-center gap-2">
                 <span className="font-medium">{record.client?.name ?? 'Unknown'}</span>
-                {record.client?.company && (
+                {!isEditor && record.client?.company && (
                   <span className="text-muted-foreground text-sm">({record.client.company})</span>
                 )}
               </div>
@@ -308,7 +310,7 @@ export const HistoryRow = memo(({
                       <p className="mt-0.5">{record.notes.photographer}</p>
                     </div>
                   )}
-                  {!isEditor && record.notes?.company && (
+                  {(!isEditor || canReadVideoContext) && record.notes?.company && (
                     <div>
                       <span className="text-muted-foreground">Company Notes:</span>
                       <p className="mt-0.5">{record.notes.company}</p>

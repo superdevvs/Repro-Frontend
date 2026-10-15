@@ -149,7 +149,10 @@ function EarlierShootsCarousel({ shoots, role, onSelect, className }: EarlierSho
   const age = offset == null ? 'Earlier' : formatDashboardDayDistance(offset, date);
   const schedule = formatDashboardShootSchedule(active);
   const dateLabel = date ? format(date, 'MMM d') : active.dayLabel || 'Date unavailable';
-  const person = editor ? active.services.map((service) => service.label).filter(Boolean).join(' · ') || 'Assigned media'
+  const person = editor ? [
+    active.canViewVideoEditorContext ? active.clientName : null,
+    active.services.map((service) => service.label).filter(Boolean).join(' · ') || 'Assigned media',
+  ].filter(Boolean).join(' · ')
     : active.photographer?.name || 'Photographer unassigned';
   const firstDot = Math.max(0, Math.min(index - 2, shoots.length - 5));
 

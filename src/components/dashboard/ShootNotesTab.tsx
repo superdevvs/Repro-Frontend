@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { hasSalesRepRole } from '@/utils/shootManagementAccess';
+import { canViewVideoEditorClientContext } from '@/utils/videoEditorClientContext';
 
 interface ShootNotesTabProps {
   shoot: ShootData;
@@ -357,7 +358,7 @@ export function ShootNotesTab({
   // Visibility rules based on the permissions matrix:
   // - Super Admin & Admin: Can see all notes
   // - Editing Manager: Can see all notes, but cannot edit them from this tab
-  // - Editor: Can see only shoot notes and editing notes
+  // - Editor: Shoot/editing notes; assigned video editors can also read company notes
   // - Photographer: Can see shoot notes, approval notes, photographer notes, editing notes
   // - Client: Can see shoot notes only
   function canView(noteType: NoteType): boolean {
@@ -372,7 +373,8 @@ export function ShootNotesTab({
     }
 
     if (isEditor) {
-      return noteType === 'shootNotes' || noteType === 'editingNotes';
+      return noteType === 'shootNotes' || noteType === 'editingNotes'
+        || (noteType === 'companyNotes' && canViewVideoEditorClientContext(shoot));
     }
 
     // Shoot notes: visible to all roles

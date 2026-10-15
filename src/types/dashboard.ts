@@ -71,6 +71,7 @@ export interface DashboardShootSummaryResponse {
   status?: string | null;
   workflow_status?: string | null;
   can_view_invoice?: boolean;
+  can_view_video_editor_context?: boolean;
   can_submit_raw?: boolean;
   canSubmitRaw?: boolean;
   client_name?: string | null;
@@ -251,6 +252,7 @@ export interface DashboardShootSummary {
   status: string | null;
   workflowStatus: string | null;
   canViewInvoice?: boolean;
+  canViewVideoEditorContext?: boolean;
   canSubmitRaw?: boolean;
   clientName: string | null;
   clientId?: string | number | null;

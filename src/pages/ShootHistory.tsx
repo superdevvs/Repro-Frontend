@@ -30,6 +30,7 @@ import { useShootHistoryViewState } from '@/hooks/useShootHistoryViewState'
 import { useShootHistoryGridColumns } from '@/hooks/useShootHistoryGridColumns'
 import { useAuth } from '@/components/auth/AuthProvider'
 import { hasSalesRepRole } from '@/utils/shootManagementAccess'
+import { canViewVideoEditorClientContext } from '@/utils/videoEditorClientContext'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { API_BASE_URL } from '@/config/env'
 import { Calendar as CalendarIcon, CheckCircle2, Trash2 } from 'lucide-react'
@@ -362,7 +363,7 @@ const ShootHistory: React.FC = () => {
         if (!coords) return null
         return {
           id: shoot.id,
-          title: shouldHideClientDetails ? address : shoot.client.name,
+          title: shouldHideClientDetails && !canViewVideoEditorClientContext(shoot) ? address : shoot.client.name,
           subtitle: `${formatDisplayDatePref(shoot.scheduledDate)}${shoot.time ? ` · ${formatTime(shoot.time)}` : ''}`,
           address,
           coords,
@@ -392,7 +393,7 @@ const ShootHistory: React.FC = () => {
         if (!coords) return null
         return {
           id: String(record.id),
-          title: shouldHideClientDetails ? address : (record.client?.name ?? 'Unknown Client'),
+          title: shouldHideClientDetails && !canViewVideoEditorClientContext(record) ? address : (record.client?.name ?? 'Unknown Client'),
           subtitle: `${formatDisplayDatePref(record.scheduledDate)}${record.completedDate ? ` · Completed ${formatDisplayDatePref(record.completedDate)}` : ''}`,
           address,
           coords,
@@ -860,7 +861,7 @@ const ShootHistory: React.FC = () => {
                     <div className="flex items-start justify-between gap-2">
                       <div className="space-y-1">
                         <CardTitle className="text-lg">
-                          {shouldHideClientDetails ? 'Shoot' : (record.client?.name ?? 'Unknown Client')}
+                          {shouldHideClientDetails && !canViewVideoEditorClientContext(record) ? 'Shoot' : (record.client?.name ?? 'Unknown Client')}
                         </CardTitle>
                         <CardDescription>
                           {record.address?.full || 'No address'}
