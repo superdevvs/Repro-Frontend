@@ -46,7 +46,7 @@ describe('compact service rows', () => {
   });
   it.each(['admin', 'editing_manager', 'salesRep', 'photographer', 'editor'])('shows booked package requirements for %s when an item alias is empty', role => {
     mount(role, { ...shoot, serviceItems: [], service_items: [], serviceObjects: [
-      { ...services[0], name: 'HDR, Video & iGuide Package', category: 'Packages', upload_intake_type: 'photo_video' },
+      { ...services[0], name: 'HDR, Video & iGuide Package', category: { id: 'packages', name: 'Packages' }, upload_intake_type: 'photo_video' },
     ] });
     const counts = within(screen.getByTestId('service-summary-11')).getByLabelText('Image counts');
     expect(counts).toHaveTextContent('RequiredReq45Raw2/225');
