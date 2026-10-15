@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import { fetchRobbieInsights, INSIGHTS_REFRESH_MS, type InsightPriority, type RobbieInsight } from "@/services/robbieInsightsService";
 import type { UserRole } from "@/types/auth";
 import type { AiChatRequest } from "@/types/ai";
+import { useReducedMotion } from "@/hooks/useReducedMotion";
 
 interface RobbieInsightStripProps {
   role?: UserRole;
@@ -47,8 +48,6 @@ const priorityMeta: Record<InsightPriority, { label: string; badgeClass: string;
 const allowedRoles: UserRole[] = ["admin", "superadmin", "editing_manager", "salesRep", "client", "photographer", "editor"];
 
 
-const getRotationDelay = () => ROTATION_INTERVAL_MS;
-
 export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, className }) => {
   const { role: authRole, session } = useAuth();
   const navigate = useNavigate();
@@ -76,16 +75,34 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
   const [error, setError] = useState<string | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [displayedText, setDisplayedText] = useState("");
-  const [thinkingDots, setThinkingDots] = useState("");
   const [isInputMode, setIsInputMode] = useState(false);
   const [inputValue, setInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [pageVisible, setPageVisible] = useState(() => !document.hidden);
+  const [inView, setInView] = useState(() => typeof IntersectionObserver === 'undefined');
+  const prefersReducedMotion = useReducedMotion();
+  const active = isAllowedRole && pageVisible && inView;
+
+  useEffect(() => {
+    const updateVisibility = () => setPageVisible(!document.hidden);
+    document.addEventListener('visibilitychange', updateVisibility);
+    updateVisibility();
+    const node = rootRef.current;
+    const observer = node && typeof IntersectionObserver !== 'undefined'
+      ? new IntersectionObserver(([entry]) => setInView(entry.isIntersecting))
+      : null;
+    if (node) observer?.observe(node);
+    return () => {
+      document.removeEventListener('visibilitychange', updateVisibility);
+      observer?.disconnect();
+    };
+  }, [isAllowedRole]);
 
   const refreshSequence = useRef(0);
   const refreshController = useRef<AbortController | null>(null);
   const fetchInsights = useCallback(async (signal: AbortSignal) => {
-    if (!isAllowedRole || document.visibilityState === 'hidden') return;
+    if (!active || document.hidden) return;
     const sequence = ++refreshSequence.current;
     const result = await fetchRobbieInsights();
     // A shared request can finish after this strip unmounts or changes identity.
@@ -93,24 +110,29 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
     setApiInsights(result.insights);
     setError(result.error);
     setIsLoading(false);
-  }, [isAllowedRole]);
+  }, [active]);
 
   useEffect(() => {
+    setApiInsights([]);
+    setError(null);
+    setIsLoading(true);
+  }, [roleKey, session?.accessToken, session?.user?.id]);
+
+  useEffect(() => {
+    if (!active) return;
     const controller = new AbortController();
     refreshController.current = controller;
-    setApiInsights([]);
     const refresh = () => { void fetchInsights(controller.signal); };
     refresh();
     const interval = window.setInterval(refresh, INSIGHTS_REFRESH_MS);
     window.addEventListener('storage', refresh);
-    document.addEventListener('visibilitychange', refresh);
     return () => {
       controller.abort();
+      refreshController.current = null;
       window.clearInterval(interval);
       window.removeEventListener('storage', refresh);
-      document.removeEventListener('visibilitychange', refresh);
     };
-  }, [fetchInsights, session?.accessToken, session?.user?.id]);
+  }, [active, fetchInsights, roleKey, session?.accessToken, session?.user?.id]);
 
   // Use API insights - prioritize blocking and rotate through the top insights
   const insights = useMemo(() => {
@@ -149,55 +171,18 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
   };
 
   const isThinking = isLoading && !activeInsight;
-  const displayText = isThinking ? `Thinking${thinkingDots}` : displayedText;
 
+  // Display complete messages once; character-by-character updates kept the
+  // dashboard rendering dozens of times a second even when nobody used it.
   useEffect(() => {
-    if (!isThinking) {
-      setThinkingDots("");
-      return;
-    }
+    if (!active || isPaused || prefersReducedMotion || insights.length <= 1) return;
 
-    const frames = ["", ".", "..", "..."];
-    let index = 0;
-    setThinkingDots(frames[index]);
-    const interval = window.setInterval(() => {
-      index = (index + 1) % frames.length;
-      setThinkingDots(frames[index]);
-    }, 450);
-
-    return () => window.clearInterval(interval);
-  }, [isThinking]);
-
-  // Typing effect
-  useEffect(() => {
-    const fullText = displayInsight.message;
-    setDisplayedText("");
-    let index = 0;
-    
-    const typeInterval = setInterval(() => {
-      if (index < fullText.length) {
-        setDisplayedText(fullText.slice(0, index + 1));
-        index++;
-      } else {
-        clearInterval(typeInterval);
-      }
-    }, 25); // 25ms per character
-
-    return () => clearInterval(typeInterval);
-  }, [displayInsight.id, displayInsight.message]);
-
-  // Rotation after typing completes
-  useEffect(() => {
-    if (isPaused || insights.length <= 1) return;
-    if (displayedText !== displayInsight.message) return; // Wait for typing to finish
-
-    const delay = getRotationDelay();
     const timeout = window.setTimeout(() => {
       setActiveIndex((prev) => (prev + 1) % insights.length);
-    }, delay);
+    }, ROTATION_INTERVAL_MS);
 
     return () => window.clearTimeout(timeout);
-  }, [activeIndex, insights, isPaused, displayedText, displayInsight.message]);
+  }, [active, activeIndex, insights, isPaused, prefersReducedMotion]);
 
   if (!isAllowedRole) return null;
 
@@ -288,6 +273,7 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
 
   return (
     <div
+      ref={rootRef}
       onClick={() => {
         if (isInputMode) return;
         if (currentRoute === "/chat-with-reproai" && activeInsight?.prompt) {
@@ -352,7 +338,7 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
           />
         ) : (
           <>
-            {isLoading ? (
+            {isLoading && active ? (
               <InlineSpinner className="h-4 w-4" />
             ) : (
               <span
@@ -364,17 +350,17 @@ export const RobbieInsightStrip: React.FC<RobbieInsightStripProps> = ({ role, cl
             <AnimatePresence mode="wait">
               <motion.div
                 key={displayInsight.id}
-                initial={{ opacity: 0, y: 8 }}
+                initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.35 }}
+                transition={{ duration: prefersReducedMotion ? 0 : 0.35 }}
                 className={cn(
                   "min-w-0 text-sm font-medium text-foreground/90 truncate",
                   isThinking && "text-primary drop-shadow-[0_0_10px_rgba(59,130,246,0.65)]"
                 )}
                 title={displayInsight.message}
               >
-                {displayText}
+                {displayInsight.message}
               </motion.div>
             </AnimatePresence>
           </>

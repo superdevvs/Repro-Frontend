@@ -67,6 +67,7 @@ let currentRoute = typeof window !== 'undefined' ? window.location.pathname : '/
 let authState: TelemetryAuthState = { isAuthenticated: false };
 let flushTimer: number | null = null;
 let heartbeatTimer: number | null = null;
+let heartbeatStarted = false;
 let queue: ClientTelemetryEvent[] = [];
 let activeComponentNames: string[] = [];
 let telemetryDisabledUntil = 0;
@@ -378,10 +379,22 @@ export const trackTelemetryError = (
   });
 };
 
-export const startTelemetryHeartbeat = () => {
+const clearHeartbeatTimer = () => {
+  if (heartbeatTimer !== null) {
+    window.clearInterval(heartbeatTimer);
+    heartbeatTimer = null;
+  }
+};
+
+const updateHeartbeatVisibility = () => {
+  if (document.visibilityState === 'hidden') {
+    clearHeartbeatTimer();
+    return;
+  }
   if (heartbeatTimer !== null) return;
 
   heartbeatTimer = window.setInterval(() => {
+    if (document.visibilityState === 'hidden') return;
     enqueue({
       type: 'heartbeat',
       actionName: 'heartbeat',
@@ -392,9 +405,17 @@ export const startTelemetryHeartbeat = () => {
   }, 30000);
 };
 
+export const startTelemetryHeartbeat = () => {
+  if (heartbeatStarted) return;
+  heartbeatStarted = true;
+  // Hidden tabs do not represent active presence. Suspend only this recurring
+  // signal; transfer/error events and final keepalive flushes remain available.
+  document.addEventListener('visibilitychange', updateHeartbeatVisibility);
+  updateHeartbeatVisibility();
+};
+
 export const stopTelemetryHeartbeat = () => {
-  if (heartbeatTimer !== null) {
-    window.clearInterval(heartbeatTimer);
-    heartbeatTimer = null;
-  }
+  heartbeatStarted = false;
+  document.removeEventListener('visibilitychange', updateHeartbeatVisibility);
+  clearHeartbeatTimer();
 };

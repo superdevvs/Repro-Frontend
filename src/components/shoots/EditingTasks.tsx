@@ -43,9 +43,31 @@ export function EditingTasks({ shootId, open: controlledOpen, onOpenChange, hide
   useEffect(() => {
     if (!allowed || !open) return;
     const controller = new AbortController();
-    void load(controller.signal);
-    const timer = window.setInterval(() => void load(controller.signal), 10000);
-    return () => { controller.abort(); window.clearInterval(timer); };
+    let timer: number | undefined;
+    let loading = false;
+    const canRefresh = () => !controller.signal.aborted && !document.hidden && navigator.onLine !== false;
+    const refresh = async () => {
+      window.clearTimeout(timer);
+      if (loading || !canRefresh()) return;
+      loading = true;
+      try { await load(controller.signal); }
+      finally {
+        loading = false;
+        if (canRefresh()) timer = window.setTimeout(() => void refresh(), 10000);
+      }
+    };
+    const syncRefresh = () => { window.clearTimeout(timer); if (canRefresh()) void refresh(); };
+    document.addEventListener('visibilitychange', syncRefresh);
+    window.addEventListener('online', syncRefresh);
+    window.addEventListener('offline', syncRefresh);
+    void refresh();
+    return () => {
+      controller.abort();
+      window.clearTimeout(timer);
+      document.removeEventListener('visibilitychange', syncRefresh);
+      window.removeEventListener('online', syncRefresh);
+      window.removeEventListener('offline', syncRefresh);
+    };
   }, [allowed, load, open]);
   const perform = async (id: string, fn: () => Promise<unknown>) => {
     if (operation.current) return;

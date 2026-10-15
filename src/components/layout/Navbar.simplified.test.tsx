@@ -11,6 +11,7 @@ const auth = vi.hoisted(() => ({
   role: 'photographer' as string,
   logout: vi.fn(),
   support: false,
+  wideViewport: true,
 }));
 
 vi.mock('@/components/auth/AuthProvider', () => ({
@@ -32,7 +33,10 @@ vi.mock('@/components/search/GlobalCommandBar', () => ({
   GlobalCommandBar: () => null,
 }));
 vi.mock('@/components/ai/RobbieInsightStrip', () => ({
-  RobbieInsightStrip: () => null,
+  RobbieInsightStrip: () => <div>Robbie insights</div>,
+}));
+vi.mock('@/hooks/use-media-query', () => ({
+  useMediaQuery: (query: string) => query === '(min-width: 640px)' && auth.wideViewport,
 }));
 vi.mock('@/services/weatherService', () => ({
   getWeatherByCoordinates: vi.fn(() => new Promise(() => undefined)),
@@ -45,6 +49,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
   auth.user.secondary_roles = [];
   auth.support = false;
+  auth.wideViewport = true;
 });
 
 afterEach(() => {
@@ -54,6 +59,16 @@ afterEach(() => {
 });
 
 describe('photographer and editor account menu', () => {
+  it('mounts Robbie only when its responsive header area is visible', () => {
+    auth.role = 'admin';
+    auth.wideViewport = false;
+    const view = render(<MemoryRouter><Navbar /></MemoryRouter>);
+    expect(screen.queryByText('Robbie insights')).not.toBeInTheDocument();
+    auth.wideViewport = true;
+    view.rerender(<MemoryRouter><Navbar /></MemoryRouter>);
+    expect(screen.getByText('Robbie insights')).toBeInTheDocument();
+  });
+
   it.each(['photographer', 'editor'])('offers authorized Messaging Support inside the existing %s header', async role => {
     auth.role = role; auth.support = true;
     function Location() { return <output>{useLocation().pathname}{useLocation().search}</output>; }

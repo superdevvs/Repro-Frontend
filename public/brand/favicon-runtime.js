@@ -1,4 +1,4 @@
-/* Option 18: render the saved perspective motion into the browser tab icon. */
+/* Play the saved perspective motion once, then leave the browser tab icon idle. */
 (() => {
   const link = document.querySelector('link[data-re-favicon]');
   if (!link) return;
@@ -6,7 +6,6 @@
   const motion = window.matchMedia('(prefers-reduced-motion: reduce)');
   const controller = new AbortController();
   const canvas = document.createElement('canvas');
-  const frames = new Map();
   let context;
   let sprite;
   let manifest;
@@ -14,40 +13,57 @@
   let startedAt = 0;
   let lastFrame = -1;
   let loading = false;
-  let failed = false;
   let disposed = false;
+  let started = false;
+  let pageHidden = false;
 
   function stop() {
-    cancelAnimationFrame(request);
+    if (request) cancelAnimationFrame(request);
     request = 0;
+    if (lastFrame !== -1) {
+      link.type = 'image/svg+xml';
+      link.href = staticHref;
+    }
     lastFrame = -1;
-    link.type = 'image/svg+xml';
-    link.href = staticHref;
+  }
+
+  function finish() {
+    stop();
+    disposed = true;
+    controller.abort();
+    motion.removeEventListener('change', sync);
+    document.removeEventListener('visibilitychange', sync);
+    window.removeEventListener('pageshow', onPageShow);
+    window.removeEventListener('pagehide', onPageHide);
+    context = sprite = manifest = undefined;
+    canvas.width = canvas.height = 0;
   }
 
   function tick(now) {
     request = 0;
-    if (disposed || document.hidden || motion.matches) {
-      stop();
+    if (disposed || pageHidden || document.hidden || motion.matches) {
+      finish();
       return;
     }
     const { frameSize, count, columns, durationMs } = manifest;
-    const frame = Math.floor(((now - startedAt) % durationMs) / durationMs * count);
+    const elapsed = now - startedAt;
+    if (elapsed >= durationMs) {
+      finish();
+      return;
+    }
+    const frame = Math.max(0, Math.floor(elapsed / durationMs * count));
     if (frame !== lastFrame) {
       try {
-        if (!frames.has(frame)) {
-          context.clearRect(0, 0, frameSize, frameSize);
-          context.drawImage(sprite, (frame % columns) * frameSize,
-            Math.floor(frame / columns) * frameSize, frameSize, frameSize,
-            0, 0, frameSize, frameSize);
-          frames.set(frame, canvas.toDataURL('image/png'));
-        }
+        context.clearRect(0, 0, frameSize, frameSize);
+        context.drawImage(sprite, (frame % columns) * frameSize,
+          Math.floor(frame / columns) * frameSize, frameSize, frameSize,
+          0, 0, frameSize, frameSize);
+        const href = canvas.toDataURL('image/png');
         link.type = 'image/png';
-        link.href = frames.get(frame);
+        link.href = href;
         lastFrame = frame;
       } catch {
-        failed = true;
-        stop();
+        finish();
         return;
       }
     }
@@ -55,7 +71,7 @@
   }
 
   async function resume() {
-    if (disposed || failed || motion.matches || document.hidden) return;
+    if (disposed || started || pageHidden || motion.matches || document.hidden) return;
     if (!manifest) {
       if (loading) return;
       loading = true;
@@ -63,6 +79,7 @@
         const response = await fetch('/brand/re/favicon-animation.json', { signal: controller.signal });
         if (!response.ok) throw new Error('Favicon unavailable');
         const data = await response.json();
+        if (disposed) return;
         const { frameSize, count, columns, durationMs } = data;
         if (!Number.isInteger(frameSize) || frameSize < 16 || frameSize > 128 ||
             !Number.isInteger(count) || count < 2 || count > 240 ||
@@ -70,54 +87,57 @@
             !Number.isFinite(durationMs) || durationMs < 500 || durationMs > 30000) {
           throw new Error('Invalid favicon animation');
         }
-        sprite = new Image();
+        const image = new Image();
         await new Promise((resolve, reject) => {
-          sprite.onload = resolve;
-          sprite.onerror = reject;
-          sprite.src = '/brand/re/favicon-sprite.png';
+          image.onload = resolve;
+          image.onerror = reject;
+          image.src = '/brand/re/favicon-sprite.png';
         });
         if (disposed) return;
-        if (sprite.naturalWidth < columns * frameSize ||
-            sprite.naturalHeight < Math.ceil(count / columns) * frameSize) {
+        if (image.naturalWidth < columns * frameSize ||
+            image.naturalHeight < Math.ceil(count / columns) * frameSize) {
           throw new Error('Incomplete favicon sprite');
         }
         canvas.width = canvas.height = frameSize;
         context = canvas.getContext('2d');
         if (!context) throw new Error('Canvas unavailable');
+        sprite = image;
         manifest = data;
       } catch {
-        failed = true;
-        stop();
+        finish();
         return;
       } finally {
         loading = false;
       }
     }
-    if (disposed || motion.matches || document.hidden || request) return;
+    if (disposed || started || pageHidden || motion.matches || document.hidden) return;
+    started = true;
     startedAt = performance.now();
     request = requestAnimationFrame(tick);
   }
 
   function sync() {
-    stop();
+    if (pageHidden || document.hidden || motion.matches) {
+      // An interrupted intro is consumed, so tab/preference changes cannot replay it.
+      if (started) finish();
+      return;
+    }
     void resume();
   }
 
   function onPageHide(event) {
-    stop();
-    if (event.persisted) return;
-    disposed = true;
-    controller.abort();
-    motion.removeEventListener('change', sync);
-    document.removeEventListener('visibilitychange', sync);
-    window.removeEventListener('pageshow', sync);
-    window.removeEventListener('pagehide', onPageHide);
-    frames.clear();
+    pageHidden = true;
+    if (started || !event.persisted) finish();
+  }
+
+  function onPageShow() {
+    pageHidden = false;
+    sync();
   }
 
   motion.addEventListener('change', sync);
   document.addEventListener('visibilitychange', sync);
-  window.addEventListener('pageshow', sync);
+  window.addEventListener('pageshow', onPageShow);
   window.addEventListener('pagehide', onPageHide);
   void resume();
 })();

@@ -17,6 +17,7 @@ describe('DashboardNoticeStack', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     motionState.reduced = false;
+    vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
     vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockImplementation(function measuredHeight() {
       const ownHeight = Number(this.dataset.noticeHeight || 0);
       const childHeight = Number((this.firstElementChild as HTMLElement | null)?.dataset.noticeHeight || 0);
@@ -28,6 +29,7 @@ describe('DashboardNoticeStack', () => {
     cleanup();
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('equalizes layer heights and advances the visible notice every seven seconds', () => {
@@ -108,6 +110,43 @@ describe('DashboardNoticeStack', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Show notice 2 of 2' }));
     expect(deliveryLayer).not.toHaveAttribute('aria-hidden');
+  });
+
+  it('stops rotation while the tab or notice deck is out of view and resumes afterward', () => {
+    let hidden = false;
+    vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden);
+    let intersect!: IntersectionObserverCallback;
+    const disconnect = vi.fn();
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: IntersectionObserverCallback) { intersect = callback; }
+      observe = vi.fn();
+      disconnect = disconnect;
+    });
+    const { unmount } = render(
+      <DashboardNoticeStack label="Account notices">
+        <section data-notice-height="96">Verify your email</section>
+        <section data-notice-height="96">1 new delivery</section>
+      </DashboardNoticeStack>,
+    );
+    const emailLayer = layerFor('Verify your email');
+    const deliveryLayer = layerFor('1 new delivery');
+    hidden = true;
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    expect(vi.getTimerCount()).toBe(0);
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(emailLayer).not.toHaveAttribute('aria-hidden');
+    hidden = false;
+    act(() => document.dispatchEvent(new Event('visibilitychange')));
+    act(() => intersect([{ isIntersecting: false }] as IntersectionObserverEntry[], {} as IntersectionObserver));
+    expect(vi.getTimerCount()).toBe(0);
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(emailLayer).not.toHaveAttribute('aria-hidden');
+    act(() => intersect([{ isIntersecting: true }] as IntersectionObserverEntry[], {} as IntersectionObserver));
+    act(() => vi.advanceTimersByTime(7000));
+    expect(deliveryLayer).not.toHaveAttribute('aria-hidden');
+    unmount();
+    expect(disconnect).toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it('renders one notice without deck controls and hides an empty notice area', () => {

@@ -177,8 +177,28 @@ export const DashboardNoticeStack: React.FC<DashboardNoticeStackProps> = ({
   // Auto-advance. Reduced-motion users get a static deck they drive themselves.
   useEffect(() => {
     if (!isDeck || paused || prefersReducedMotion) return;
-    const timer = window.setInterval(() => step(1), Math.max(1500, intervalMs));
-    return () => window.clearInterval(timer);
+    let timer: number | undefined;
+    let inViewport = true;
+    const syncRotation = () => {
+      window.clearInterval(timer);
+      timer = undefined;
+      if (document.hidden || !inViewport) return;
+      timer = window.setInterval(() => {
+        if (!document.hidden) step(1);
+      }, Math.max(1500, intervalMs));
+    };
+    const observer = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(([entry]) => {
+      inViewport = entry.isIntersecting;
+      syncRotation();
+    });
+    if (containerRef.current) observer?.observe(containerRef.current);
+    document.addEventListener('visibilitychange', syncRotation);
+    syncRotation();
+    return () => {
+      window.clearInterval(timer);
+      observer?.disconnect();
+      document.removeEventListener('visibilitychange', syncRotation);
+    };
   }, [isDeck, paused, prefersReducedMotion, intervalMs, step]);
 
   // Mouse wheel moves through the deck instead of scrolling the page.

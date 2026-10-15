@@ -29,6 +29,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { usesSettingsOnlyAccount } from '@/pages/profileNavigation';
 import { MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
 import { canUseListingStudio, canUseListingStudioDashboard, listingStudioHref } from '@/utils/listingStudio';
+import { useMediaQuery } from '@/hooks/use-media-query';
 
 const DEFAULT_WEATHER_COORDS = { lat: 23.3026, lon: 85.3219 };
 const DEFAULT_WEATHER_LABEL = 'Hatia, JH';
@@ -228,6 +229,7 @@ export function Navbar() {
   // Photographers and editors get simplified nav with menu in top bar
   const isSimplifiedLayout = role === 'photographer' || role === 'editor';
   const showRobbieStrip = role !== 'photographer' && role !== 'editor';
+  const robbieStripViewport = useMediaQuery('(min-width: 640px)');
 
   useEffect(() => {
     const unsubscribe = subscribeToWeatherProvider(() => {
@@ -498,10 +500,10 @@ export function Navbar() {
         {showRobbieStrip && (
           <div className="hidden sm:flex flex-[1.6] min-w-0 pl-3 items-center">
             <div className="h-8 w-px shrink-0 bg-border/60" />
-            <RobbieInsightStrip
+            {robbieStripViewport && <RobbieInsightStrip
               role={role}
               className="min-w-0 flex-1 border-0 shadow-none px-4 py-1.5 rounded-xl"
-            />
+            />}
           </div>
         )}
       

@@ -35,8 +35,9 @@ const localDate = (date: Date) => [
 export async function installDashboardMobileFixtures(
   page: Page,
   baseURL: string | undefined,
-  role: 'admin' | 'superadmin' | 'salesRep' = 'admin',
+  role: 'admin' | 'superadmin' | 'salesRep' | 'editing_manager' = 'admin',
   completeProfile = false,
+  extraPermissionResources: readonly string[] = [],
 ): Promise<DashboardMobileFixtures> {
   if (!baseURL || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(baseURL).hostname)) {
     throw new Error('Dashboard fixtures require a loopback E2E_BASE_URL; they must never target a deployed app.');
@@ -127,7 +128,7 @@ export async function installDashboardMobileFixtures(
   const permissionResources = [
     'dashboard', role === 'salesRep' ? 'dashboard-sales' : 'dashboard-admin', 'dashboard-availability', 'dashboard-editing-requests',
     'dashboard-contact-actions', 'shoots', 'shoot-history', 'availability', 'book-shoot',
-    'accounting', 'invoices', 'accounts', 'ai-editing',
+    'accounting', 'invoices', 'accounts', 'ai-editing', ...extraPermissionResources,
   ];
 
   await page.route('**/api/**', async route => {

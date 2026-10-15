@@ -17,6 +17,7 @@ const bodies = () => fetchMock.mock.calls.map(([, options]) => JSON.parse(option
 beforeEach(async () => {
   vi.resetModules();
   vi.useFakeTimers();
+  vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
   localStorage.clear();
   sessionStorage.clear();
   localStorage.setItem('authToken', 'test-token');
@@ -30,7 +31,71 @@ afterEach(() => {
   client.stopTelemetryHeartbeat();
   vi.clearAllTimers();
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+describe('telemetry heartbeat visibility', () => {
+  const setVisibility = (state: DocumentVisibilityState) => {
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue(state);
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+
+  it('suspends the recurring signal while hidden and resumes once visible', async () => {
+    const intervals = vi.spyOn(window, 'setInterval');
+    const clearInterval = vi.spyOn(window, 'clearInterval');
+    client.startTelemetryHeartbeat();
+    await vi.advanceTimersByTimeAsync(40000);
+    expect(bodies().flat().map((event) => event.type)).toEqual(['heartbeat']);
+
+    setVisibility('hidden');
+    expect(clearInterval).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(300000);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+
+    setVisibility('visible');
+    setVisibility('visible');
+    client.startTelemetryHeartbeat();
+    expect(intervals).toHaveBeenCalledTimes(2);
+    await vi.advanceTimersByTimeAsync(40000);
+    expect(bodies().flat().map((event) => event.type)).toEqual(['heartbeat', 'heartbeat']);
+  });
+
+  it('does not start an interval in a hidden document or restart after stopping', async () => {
+    const intervals = vi.spyOn(window, 'setInterval');
+    setVisibility('hidden');
+    client.startTelemetryHeartbeat();
+    expect(intervals).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(300000);
+    expect(fetchMock).not.toHaveBeenCalled();
+
+    client.stopTelemetryHeartbeat();
+    setVisibility('visible');
+    expect(intervals).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(40000);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('preserves hidden transfer, error, and final keepalive delivery', async () => {
+    client.startTelemetryHeartbeat();
+    client.trackTelemetryAction('upload_started');
+    setVisibility('hidden');
+    await client.flushTelemetry(true);
+    expect(bodies()[0].map((event) => event.type)).toEqual(['action']);
+
+    client.trackTransferTelemetry({ direction: 'upload', mediaType: 'raw', bytes: 1024,
+      transferMs: 200, confirmationMs: 50, totalMs: 250, status: 200,
+      outcome: 'confirmed', chunked: false });
+    await vi.advanceTimersByTimeAsync(10000);
+    expect(bodies()[1][0]).toMatchObject({ type: 'transfer', transfer: { bytes: 1024, outcome: 'confirmed' } });
+
+    client.trackTelemetryError('Private error', 'Error');
+    await vi.advanceTimersByTimeAsync(0);
+    client.trackTelemetrySessionEnd();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(bodies().flat().map((event) => event.type)).toEqual(['action', 'transfer', 'error', 'session_end']);
+    expect(fetchMock.mock.calls.every(([, options]) => options.keepalive)).toBe(true);
+  });
 });
 
 describe('telemetry transport batching', () => {

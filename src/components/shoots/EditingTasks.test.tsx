@@ -1,12 +1,13 @@
 import '@testing-library/jest-dom/vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { EditingTasks } from './EditingTasks';
 const state = vi.hoisted(() => ({ role: 'editor', get: vi.fn(), post: vi.fn() }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ role: state.role, user: { id: 7 } }) }));
 vi.mock('@/services/api', () => ({ apiClient: state }));
 const item = { id: 'item-1', workflow: 'green-grass', sources: [{ id: 11, name: 'Lawn.jpg', version: 4 }], lane: 'photo', destination: 'human', status: 'assigned' };
 beforeEach(() => { vi.clearAllMocks(); state.role = 'editor'; state.get.mockResolvedValue({ data: { data: [{ id: 'dispatch-1', shoot_id: 9, address: 'Fixture', scope: 'selected', instructions: 'Grass only', status: 'assigned', items: [item] }], last_page: 1 } }); state.post.mockResolvedValue({ data: {} }); });
+afterEach(() => { cleanup(); vi.useRealTimers(); vi.restoreAllMocks(); });
 it('shows exact files/instructions and blocks submission until the saved return is processed', async () => {
   render(<EditingTasks />); expect(state.get).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole('button', { name: 'Editing tasks' }));
@@ -52,4 +53,48 @@ it.each([true, false, undefined])('limits client context to explicitly authorize
   }
   expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
   expect(state.post).not.toHaveBeenCalled();
+});
+
+it('pauses editing-manager task polling while hidden or offline and refreshes on return', async () => {
+  vi.useFakeTimers();
+  state.role = 'editing_manager';
+  let hidden = false;
+  let online = true;
+  vi.spyOn(document, 'hidden', 'get').mockImplementation(() => hidden);
+  vi.spyOn(navigator, 'onLine', 'get').mockImplementation(() => online);
+  const { unmount } = render(<EditingTasks open hideTrigger />);
+  await act(async () => { await Promise.resolve(); });
+  expect(state.get).toHaveBeenCalledTimes(1);
+  hidden = true;
+  act(() => document.dispatchEvent(new Event('visibilitychange')));
+  await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+  expect(state.get).toHaveBeenCalledTimes(1);
+  hidden = false;
+  await act(async () => { document.dispatchEvent(new Event('visibilitychange')); });
+  expect(state.get).toHaveBeenCalledTimes(2);
+  online = false;
+  act(() => window.dispatchEvent(new Event('offline')));
+  await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+  expect(state.get).toHaveBeenCalledTimes(2);
+  online = true;
+  await act(async () => { window.dispatchEvent(new Event('online')); });
+  expect(state.get).toHaveBeenCalledTimes(3);
+  unmount();
+  await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+  expect(state.get).toHaveBeenCalledTimes(3);
+});
+
+it('waits for a slow automatic task request before scheduling the next one', async () => {
+  vi.useFakeTimers();
+  vi.spyOn(document, 'hidden', 'get').mockReturnValue(false);
+  let resolve!: (value: unknown) => void;
+  state.get.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
+  render(<EditingTasks open hideTrigger />);
+  await act(async () => { await vi.advanceTimersByTimeAsync(35_000); });
+  expect(state.get).toHaveBeenCalledTimes(1);
+  await act(async () => { resolve({ data: { data: [], last_page: 1 } }); });
+  await act(async () => { await vi.advanceTimersByTimeAsync(9999); });
+  expect(state.get).toHaveBeenCalledTimes(1);
+  await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+  expect(state.get).toHaveBeenCalledTimes(2);
 });
