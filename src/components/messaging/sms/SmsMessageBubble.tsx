@@ -3,8 +3,9 @@ import type { SmsMessageDetail } from '@/types/messaging';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Sparkles } from 'lucide-react';
+import { parseSmsReaction } from './smsReaction';
 
-const URL_PATTERN = /https?:\/\/[^\s<>"']+/g;
+const URL_PATTERN = /https?:\/\/[^\s<>"'“”„‟«»‘’]+/g;
 
 function MessageText({ text }: { text: string }) {
   const nodes: ReactNode[] = [];
@@ -45,6 +46,7 @@ export const SmsMessageBubble = ({ message }: SmsMessageBubbleProps) => {
   const isOutbound = message.direction === 'OUTBOUND';
   const timestamp = message.sentAt ? format(new Date(message.sentAt), 'MMM d • h:mm a') : '';
   const senderLabel = isOutbound ? (message.aiGenerated ? 'Robbie' : 'You') : 'Them';
+  const reaction = parseSmsReaction(message.body, message.direction);
 
   return (
     <div className={cn('flex w-full', isOutbound ? 'justify-end' : 'justify-start')}>
@@ -60,9 +62,18 @@ export const SmsMessageBubble = ({ message }: SmsMessageBubbleProps) => {
             Robbie AI
           </div>
         )}
-        <p className="whitespace-pre-line text-base leading-snug lg:text-sm">
-          <MessageText text={message.body ?? ''} />
-        </p>
+        {reaction ? (
+          <>
+            <p className="text-base font-medium leading-snug lg:text-sm">👍 Liked your message</p>
+            <blockquote className="mt-2 whitespace-pre-line break-words border-l-2 border-current/20 pl-3 text-sm leading-snug text-muted-foreground">
+              <MessageText text={reaction.quotedMessage} />
+            </blockquote>
+          </>
+        ) : (
+          <p className="whitespace-pre-line text-base leading-snug lg:text-sm">
+            <MessageText text={message.body ?? ''} />
+          </p>
+        )}
         <p className={cn('mt-1 text-xs', isOutbound ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
           {senderLabel} • {timestamp}
         </p>
