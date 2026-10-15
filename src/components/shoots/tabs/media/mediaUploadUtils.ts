@@ -1,4 +1,5 @@
 import type { ShootData, ShootServiceObject } from '@/types/shoots';
+import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { normalizeShootMediaFile, type MediaFile } from '@/hooks/useShootFiles';
 import {
   triggerDashboardOverviewRefresh,
@@ -283,7 +284,7 @@ export function resolveUploadServiceTargets(
     photographerId?: string | number | null;
     photographer_id?: string | number | null;
   };
-  const items = (shoot.serviceItems ?? shoot.service_items ?? shoot.serviceObjects ?? [])
+  const items = getShootServiceItems(shoot).map(item => item.source)
     .filter((item) => Boolean(item?.id));
   const role = String(actor?.role || '').trim().toLowerCase();
   const actorId = String(actor?.id ?? '');

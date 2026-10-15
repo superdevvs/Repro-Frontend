@@ -44,6 +44,14 @@ describe('compact service rows', () => {
     expect(screen.getByText(services[0].name).closest('.service-row-heading')).toContainElement(screen.getByLabelText('Oct 8, 2026 · 10:00 AM'));
     expect(screen.getByText('Christopher Alexander Johnson').closest('.service-row-bottom')).toContainElement(screen.getAllByLabelText('Image counts')[0]);
   });
+  it.each(['admin', 'editing_manager', 'salesRep', 'photographer', 'editor'])('shows booked package requirements for %s when an item alias is empty', role => {
+    mount(role, { ...shoot, serviceItems: [], service_items: [], serviceObjects: [
+      { ...services[0], name: 'HDR, Video & iGuide Package', category: 'Packages', upload_intake_type: 'photo_video' },
+    ] });
+    const counts = within(screen.getByTestId('service-summary-11')).getByLabelText('Image counts');
+    expect(counts).toHaveTextContent('RequiredReq45Raw2/225');
+    if (role !== 'photographer') expect(counts).toHaveTextContent('Edited1/45');
+  });
   it('shows the assigned digital editor without inheriting a stale photographer', () => {
     mount('admin', { ...shoot, serviceItems: [{ ...services[0], name: 'Green Grass Enhancement', category: { id: 'digital', name: 'Digital Enhancements' },
       photographer_required: true, upload_intake_type: 'none', editor: { id: '8', name: 'Photo Editor' } }] });

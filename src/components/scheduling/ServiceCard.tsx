@@ -20,6 +20,7 @@ import { MultiSelectChecklist } from '@/components/ui/multi-select-checklist';
 import type { ServiceGroupDetail } from '@/types/serviceGroups';
 import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
 import { resolveServiceShootDuration, type ServiceDurationSource } from '@/utils/shootDuration';
+import { servicePhotoCountLabel, serviceUsesPhotoCounts } from './servicePhotoCounts';
 
 type SqftRange = {
   id?: number;
@@ -48,6 +49,7 @@ type ServiceProps = {
     photographer_pay_percent?: string | number | null;
     exclude_from_sales_commission?: boolean;
     photo_count?: number;
+    upload_intake_type?: string;
     quantity?: number;
     active: boolean;
     category?: string;
@@ -69,7 +71,8 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
   const [sqftRanges, setSqftRanges] = useState<SqftRange[]>(service.sqft_ranges || []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const isPhotoCategory = (service.category || '').toLowerCase().includes('photo');
+  const isPhotoCategory = serviceUsesPhotoCounts(service);
+  const photoCountLabel = servicePhotoCountLabel(service);
   const isPercentPay = editedService.photographer_pay_type === 'percent';
   /** Preview the resolved amount so the admin sees the result before saving. */
   const percentPayPreview = (() => {
@@ -178,12 +181,8 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
         && editedService.photographer_pay_percent != null
         ? parseFloat(String(editedService.photographer_pay_percent))
         : null,
-      photo_count: (isPhotoCategory && editedService.photo_count != null)
-        ? editedService.photo_count
-        : null,
-      quantity: (!isPhotoCategory && editedService.quantity != null)
-        ? editedService.quantity
-        : null,
+      photo_count: editedService.photo_count ?? null,
+      quantity: editedService.quantity ?? null,
       service_group_ids: (editedService.service_group_ids || []).map((id) => Number(id)),
       sqft_ranges: editedService.pricing_type === 'variable' ? sqftRanges.map(range => ({
         id: range.id,
@@ -299,10 +298,9 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
               <div className="p-1.5 bg-primary/10 rounded-lg text-primary flex-shrink-0">
                 <IconComponent className="h-4 w-4" />
               </div>
-              {/* Show quantity: photo_count for photos, quantity for others */}
-              {(isPhotoCategory ? service.photo_count : service.quantity) != null && (
+              {(isPhotoCategory ? photoCountLabel : service.quantity) != null && (
                 <span className="text-sm font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded">
-                  {isPhotoCategory ? service.photo_count : service.quantity}
+                  {isPhotoCategory ? photoCountLabel : service.quantity}
                 </span>
               )}
               <CardTitle className="text-lg">{service.name}</CardTitle>
@@ -373,10 +371,10 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
               </Badge>
             )}
             
-            {isPhotoCategory && service.photo_count != null && (
+            {isPhotoCategory && photoCountLabel !== null && (
               <div className="flex justify-between">
                 <span className="text-sm font-medium">Photo Count:</span>
-                <span>{service.photo_count} photos</span>
+                <span>{photoCountLabel} photos{service.pricing_type === 'variable' ? ' (by property size)' : ''}</span>
               </div>
             )}
           </div>

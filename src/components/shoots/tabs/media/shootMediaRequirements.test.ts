@@ -33,6 +33,14 @@ describe('staff media requirements and completion time', () => {
     expect(r).toMatchObject({ expected: 0, exact: false, finalExact: false });
     expect(r.services[0]).toMatchObject({ required: null, finalCount: null, rawPerFinal: null, missing: null });
   });
+  it('uses the same package source as the service rows when an alias is empty', () => {
+    const bundle = { id: '91', shoot_service_id: '11', name: 'HDR Photos, Video & iGuide',
+      photo_count: 45, upload_intake_type: 'photo_video', uses_hdr_brackets: true, effective_bracket_mode: 3 };
+    const r = getShootMediaRequirements({ id: '1', serviceItems: [], service_items: [], serviceObjects: [bundle] } as unknown as ShootData, []);
+    expect(r).toMatchObject({ finalCount: 45, expected: 135, exact: true, finalExact: true });
+    expect(r.services).toMatchObject([{ id: '11', required: 135, finalCount: 45 }]);
+    expect(r.videoServices).toEqual([{ id: '11', label: bundle.name }]);
+  });
   it('counts legacy sources without service attribution', () => {
     const r = getShootMediaRequirements(shoot, Array.from({ length: 8 }, (_, i) => file(i, 0)));
     expect(r).toMatchObject({ saved: 8, missing: 127 });

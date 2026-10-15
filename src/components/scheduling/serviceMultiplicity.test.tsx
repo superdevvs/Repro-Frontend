@@ -53,4 +53,32 @@ describe('Scheduling service multiplicity', () => {
     await waitFor(() => expect(axios.put).toHaveBeenCalledWith(expect.stringContaining('/api/admin/services/7'),
       expect.objectContaining({ allow_multiple: !enabled, photo_count: 5 }), expect.any(Object)));
   });
+
+  it.each(['Packages', 'Bundles'])('shows and preserves fixed photo counts for %s', async category => {
+    render(<ServiceCard service={{ ...draft, id: '8', category, name: 'Photo and video package',
+      active: true, photo_count: 35, quantity: 2 }} availableServiceGroups={[]} onUpdate={vi.fn()} />);
+    expect(screen.getByText('35 photos')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(screen.getByLabelText('Photo Count')).toHaveValue(35);
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await waitFor(() => expect(axios.put).toHaveBeenCalledWith(expect.stringContaining('/api/admin/services/8'),
+      expect.objectContaining({ photo_count: 35, quantity: 2 }), expect.any(Object)));
+  });
+
+  it('shows tiered package photo counts and preserves them when saved', async () => {
+    const ranges = [
+      { id: 1, sqft_from: 1, sqft_to: 3000, duration: 60, price: 400, photographer_pay: null, photo_count: 35 },
+      { id: 2, sqft_from: 3001, sqft_to: 5000, duration: 90, price: 500, photographer_pay: null, photo_count: 45 },
+    ];
+    render(<ServiceCard service={{ ...draft, id: '9', category: 'Packages', active: true,
+      name: 'HDR and Matterport package', pricing_type: 'variable', photo_count: undefined, sqft_ranges: ranges }}
+      availableServiceGroups={[]} onUpdate={vi.fn()} />);
+    expect(screen.getByText('35–45 photos (by property size)')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    await waitFor(() => expect(axios.put).toHaveBeenCalledWith(expect.stringContaining('/api/admin/services/9'),
+      expect.objectContaining({ sqft_ranges: expect.arrayContaining([
+        expect.objectContaining({ photo_count: 35 }), expect.objectContaining({ photo_count: 45 }),
+      ]) }), expect.any(Object)));
+  });
 });

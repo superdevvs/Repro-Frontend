@@ -18,6 +18,7 @@ import API_ROUTES from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { ServiceCreateDialog } from './ServiceCreateDialog';
 import { serviceMatchesSearch } from './catalogSearch';
+import { serviceUsesPhotoCounts } from './servicePhotoCounts';
 import type { PhotographerPayType, ServiceDraft, SqftRange } from './ServiceCreateDialog';
 import { resolveServiceShootDuration, type ServiceDurationSource } from '@/utils/shootDuration';
 
@@ -36,6 +37,7 @@ type Service = ServiceDurationSource & {
   photographer_pay_percent?: string | number | null;
   exclude_from_sales_commission?: boolean;
   photo_count?: number;
+  upload_intake_type?: string;
   quantity?: number;
   active: boolean;
   category?: string;
@@ -149,6 +151,7 @@ const normalizeService = (value: unknown): Service | null => {
       : null,
     exclude_from_sales_commission: Boolean(item.exclude_from_sales_commission),
     photo_count: photoCount,
+    upload_intake_type: typeof item.upload_intake_type === 'string' ? item.upload_intake_type : undefined,
     quantity: toNumber(item.quantity),
     icon: typeof item.icon === 'string' ? item.icon : undefined,
     service_group_ids: rawGroupIds.map(String),
@@ -280,8 +283,9 @@ export const ServicesTab = forwardRef<ServicesTabHandle, { serviceQuery: string;
     return category?.name || '';
   };
 
-  const isNewServicePhotoCategory =
-    normalizeCategoryName(getCategoryNameById(newService.category)) === 'photos';
+  const isNewServicePhotoCategory = serviceUsesPhotoCounts({
+    ...newService, category: getCategoryNameById(newService.category), sqft_ranges: newSqftRanges,
+  });
 
   const handleCategoryChange = (categoryId: string) => {
     setSelectedCategory(categoryId);
@@ -367,12 +371,8 @@ export const ServicesTab = forwardRef<ServicesTabHandle, { serviceQuery: string;
         && newService.photographer_pay_percent != null
         ? parseFloat(String(newService.photographer_pay_percent))
         : null,
-      photo_count: isNewServicePhotoCategory && newService.photo_count != null
-        ? newService.photo_count
-        : null,
-      quantity: !isNewServicePhotoCategory && newService.quantity != null
-        ? newService.quantity
-        : null,
+      photo_count: newService.photo_count ?? null,
+      quantity: newService.quantity ?? null,
       service_group_ids: newService.service_group_ids.map((id) => Number(id)),
       sqft_ranges: newService.pricing_type === 'variable'
         ? newSqftRanges.map((range) => ({
