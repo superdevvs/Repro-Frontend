@@ -78,6 +78,7 @@ import { useRawUploadSummary } from './useRawUploadSummary';
 import { CLOUDFLARE_SAFE_UPLOAD_BYTES, uploadMediaRequest } from './uploadMediaRequest';
 import { runUploadConcurrencyPool } from './mediaUploadConcurrency';
 import { prepareRawUploadBatch } from './prepareRawUploadBatch';
+import { rawUploadBlockReason } from './rawUploadAvailability';
 import { createUploadTransferTracker } from './uploadTransferSpeed';
 
 export function RawUploadSection({
@@ -136,6 +137,7 @@ export function RawUploadSection({
     () => resolveUploadServiceTargets(shoot, user, 'raw', stagedLanes),
     [shoot, stagedLanes, user],
   );
+  const uploadBlockReason = rawUploadBlockReason(shoot, user);
   const normalizedRole = String(user?.role || '').toLowerCase();
   const requiresServiceSelection = normalizedRole === 'photographer' && serviceTargets.length > 1;
   const selectedTarget = useMemo(
@@ -279,19 +281,18 @@ export function RawUploadSection({
     ));
   }, [bracketOverrides, isUploading, openGroup, selectedServiceId, serviceTargets, uploadedCountsByServiceId]);
 
-  /**
-   * Raw staging no longer classifies by filename.
-   *
-   * This used to auto-tag anything whose name looked like a floor plan, which filed the
-   * frame under a service the shoot may never have booked — and floor plans are not a
-   * raw capture target at all now. Media kind is derived from the file itself on the
-   * server, and a treatment is applied to existing media afterwards.
-   */
+  // Raw intake is independent of filenames; treatments are applied after upload.
   const classifyByFilename = undefined;
 
   /** Files always land in the group currently open, creating one if none is. */
   const mergeSelectedFiles = (incomingFiles: File[]) => {
     if (incomingFiles.length === 0) return;
+
+    const unavailable = rawUploadBlockReason(shoot, user, incomingFiles);
+    if (unavailable) {
+      toast({ title: 'Upload blocked', description: unavailable, variant: 'destructive' });
+      return;
+    }
 
     const alreadyStaged = groups.flatMap((group) => group.files);
     const validation = validateFilesAgainstUploadLimits(incomingFiles, alreadyStaged);
@@ -419,6 +420,12 @@ export function RawUploadSection({
 
     const filesInPlans = plansForUpload.flatMap((plan) => plan.files);
     if (filesInPlans.length === 0) {
+      return;
+    }
+
+    const unavailable = rawUploadBlockReason(shoot, user, filesInPlans);
+    if (unavailable) {
+      toast({ title: 'Upload blocked', description: unavailable, variant: 'destructive' });
       return;
     }
 
@@ -763,7 +770,9 @@ export function RawUploadSection({
             />
           ))}
 
-      <UploadDropzone
+      {uploadBlockReason ? (
+        <div role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">{uploadBlockReason}</div>
+      ) : <UploadDropzone
         empty={stagedFileCount === 0}
         accept={FULL_UPLOAD_ACCEPT}
         inputId={inputId}
@@ -796,7 +805,7 @@ export function RawUploadSection({
           onImported: onUploadComplete,
           disabled: isUploading || (requiresServiceSelection && !selectedServiceId),
         }}
-      />
+      />}
 
       <UploadResultsPanel
         title="Raw upload results"
