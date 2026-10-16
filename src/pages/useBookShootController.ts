@@ -65,7 +65,7 @@ import {
   type CompletedBookingSnapshot,
   type PropertyDraftSubmission,
 } from './bookShootModel';
-export const useBookShootController = ({ draftScope, bookingPath = BOOK_ANOTHER_SHOOT_NAV_TARGET }: { draftScope?: string; bookingPath?: string } = {}) => {
+export const useBookShootController = () => {
   const isMobile = useIsMobile();
   const location = useLocation();
   const { formatDate } = useUserPreferences();
@@ -101,7 +101,7 @@ export const useBookShootController = ({ draftScope, bookingPath = BOOK_ANOTHER_
     CACHE_KEY, hasCachedData, setHasCachedData, clearBookingDraftState,
   } = useBookShootWorkflow({
     user, isClientAccount, clientIdFromUrl, clientNameFromUrl, clientCompanyFromUrl,
-    editShootId, canAdjustBookingAmount, draftScope: draftScope ? `${draftScope}:${compReshootSourceId || 'new'}` : compReshootSourceId,
+    editShootId, canAdjustBookingAmount, draftScope: compReshootSourceId,
   });
   const unitBooking = useMultiUnitBooking({ draft: multiUnitDraft, setDraft: setMultiUnitDraft, catalog: packages, legacyServices: legacySelectedServices, propertySqft, propertyDetails, date, time, photographer, servicePhotographers, serviceSchedules, allowed: !isCompReshootMode, clientGroups: isClientAccount || hasSalesRepRole(user) || canBookOutsideClientServiceGroups(user?.role) ? [] : (clients.find(item => item.id === client)?.service_group_ids ?? clients.find(item => item.id === client)?.service_groups?.map(group => group.id) ?? []).map(String) });
   const selectedServices = unitBooking.enabled ? unitBooking.summaryServices : legacySelectedServices;
@@ -741,7 +741,7 @@ export const useBookShootController = ({ draftScope, bookingPath = BOOK_ANOTHER_
       clearBookingFormCache(typeof window !== 'undefined' ? window.localStorage : null, CACHE_KEY);
       setHasCachedData(false);
     }
-    navigate(bookingPath);
+    navigate(BOOK_ANOTHER_SHOOT_NAV_TARGET);
   };
   const handleAddressFieldsChange = React.useCallback(
     ({ address: newAddress, city: newCity, state: newState, zip: newZip }: { address: string; city: string; state: string; zip: string }) => {

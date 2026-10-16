@@ -18,7 +18,6 @@ import { getBookingWizardConfig, type ServicePackage } from '@/pages/bookShootMo
 type ServiceScheduleMap = Record<string, { date?: string; time?: string; duration_minutes?: number }>;
 
 interface BookingContentAreaProps {
-  schedulingContinueLabel?: string;
   afterCalendar?: React.ReactNode;
   enforceNewBookingEligibility: boolean;
   hybridTravelEnabled?: boolean;
@@ -83,7 +82,6 @@ interface BookingContentAreaProps {
 }
 
 export function BookingContentArea({
-  schedulingContinueLabel,
   enforceNewBookingEligibility, hybridTravelEnabled, afterCalendar,
   step,
   formErrors,
@@ -201,7 +199,6 @@ export function BookingContentArea({
       {units?.enabled && step === wizard.schedulingStep && <BookingUnitsScheduleNotice />}
       {step === wizard.schedulingStep && (
         <SchedulingForm
-          continueLabel={schedulingContinueLabel}
           afterCalendar={afterCalendar}
           enforceNewBookingEligibility={enforceNewBookingEligibility}
           hybridTravelEnabled={hybridTravelEnabled}

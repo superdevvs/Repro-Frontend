@@ -4,5 +4,5 @@ import type { SchedulingFormProps } from './schedulingModel';
 
 export const SchedulingForm = (props: SchedulingFormProps) => {
   const controller = useSchedulingFormController(props);
-  return <SchedulingFormView controller={controller} afterCalendar={props.afterCalendar} continueLabel={props.continueLabel} />;
+  return <SchedulingFormView controller={controller} afterCalendar={props.afterCalendar} />;
 };

@@ -16,22 +16,6 @@ vi.mock('@/context/shootsContextState', () => ({
 
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
 
-it('isolates the temporary booking draft from the current booking page through restore, save and clear', async () => {
-  const original = JSON.stringify({ address: 'Current page draft' });
-  localStorage.setItem(BOOKING_FORM_CACHE_KEY, original);
-  const key = bookingDraftCacheKey('1', false, 'sentence-test:new');
-  localStorage.setItem(key, JSON.stringify({ address: 'Temporary page draft' }));
-  mocks.get.mockResolvedValue({ data: { data: [] } });
-  const { result } = renderHook(() => useBookShootWorkflow({ user: { id: '1', role: 'admin' } as never,
-    isClientAccount: false, clientIdFromUrl: null, clientNameFromUrl: null, clientCompanyFromUrl: null,
-    editShootId: null, canAdjustBookingAmount: false, draftScope: 'sentence-test:new' }));
-  await waitFor(() => expect(result.current.address).toBe('Temporary page draft'));
-  act(() => result.current.setAddress('Updated temporary draft'));
-  await waitFor(() => expect(JSON.parse(localStorage.getItem(key)!).address).toBe('Updated temporary draft'));
-  act(() => result.current.clearBookingDraftState());
-  expect(localStorage.getItem(BOOKING_FORM_CACHE_KEY)).toBe(original);
-});
-
 it('restores and immediately saves the client’s own draft without staff-only settings or another user’s draft', async () => {
   const staffDraft = JSON.stringify({ address: 'Staff property', bypassPayment: true });
   localStorage.setItem(BOOKING_FORM_CACHE_KEY, staffDraft);
