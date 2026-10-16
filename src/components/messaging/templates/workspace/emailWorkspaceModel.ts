@@ -1,4 +1,4 @@
-import type { EmailWorkspaceDraft, EmailTemplateSection } from '@/types/emailTemplateWorkspace';
+import type { EmailEditorDocument, EmailWorkspaceDraft, EmailTemplateSection } from '@/types/emailTemplateWorkspace';
 import type { MessageTemplate } from '@/types/messaging';
 import { getTemplateOverrideDefaults } from '../templateOverrideDefaults';
 
@@ -6,6 +6,13 @@ export const newSection = (type: EmailTemplateSection['type'] = 'text'): EmailTe
   id: crypto.randomUUID(), type, heading: type === 'button' ? 'Learn more' : type === 'tips' ? 'A few useful tips' : '',
   body: '', image_url: '', alt: '', url: '', alignment: 'left', spacing: 24,
 });
+
+export function normalizeEmailDocument(document: EmailEditorDocument): EmailEditorDocument {
+  return { ...document, preheader: document.preheader ?? '', sections: (document.sections ?? []).map(section => ({
+    ...section, heading: section.heading ?? '', body: section.body ?? '', image_url: section.image_url ?? '',
+    alt: section.alt ?? '', url: section.url ?? '', alignment: section.alignment ?? 'left', spacing: section.spacing ?? 24,
+  })) };
+}
 
 export function initialEmailDraft(template: MessageTemplate | null): EmailWorkspaceDraft {
   const defaults = template ? getTemplateOverrideDefaults(template) : { emailType: '', overrideEnabled: false };
@@ -16,9 +23,9 @@ export function initialEmailDraft(template: MessageTemplate | null): EmailWorksp
     body_html: template?.editable_content_blocks?.length ? template.body_html : template?.editable_body_html ?? template?.body_html ?? '',
     body_text: template?.body_text ?? '', email_type: defaults.emailType, override_enabled: defaults.overrideEnabled,
     content_blocks_json: template?.content_blocks_json ?? {},
-    editor_document_json: structuredClone(template?.editor_document_json ?? {
+    editor_document_json: normalizeEmailDocument(structuredClone(template?.editor_document_json ?? {
       version: 1, format: template ? 'legacy' : 'sections', preheader: '', sections: template ? [] : [newSection()],
-    }),
+    })),
   };
 }
 

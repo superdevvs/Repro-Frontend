@@ -58,6 +58,25 @@ describe('production email workspace', () => {
     expect(screen.getByText('All changes saved')).toBeInTheDocument();
   });
 
+  it('can save a manual paragraph again after the server returns empty fields as null', async () => {
+    mocks.create.mockImplementationOnce(async data => ({ ...template, ...data, id: 90, editor_document_json: {
+      ...data.editor_document_json, preheader: null, sections: data.editor_document_json.sections.map(section => ({
+        ...section, heading: null, image_url: null, alt: null, url: null,
+      })),
+    } }));
+    setup(null);
+    fireEvent.click(screen.getByRole('button', { name: /Start from scratch/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit text section 1' }));
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'A plain paragraph without a heading.' } });
+    fireEvent.change(screen.getByLabelText('Email subject'), { target: { value: 'Manual client update' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText('All changes saved');
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledWith(90, expect.objectContaining({ editor_document_json: expect.objectContaining({
+      preheader: '', sections: expect.arrayContaining([expect.objectContaining({ heading: '', body: 'A plain paragraph without a heading.', image_url: '' })]),
+    }) })));
+  });
+
   it('compares a Robbie suggestion, discards or applies it explicitly, and supports undo', async () => {
     setup();
     mocks.suggest.mockResolvedValue({ subject: 'A revised subject', editor_document_json: { ...template.editor_document_json } });

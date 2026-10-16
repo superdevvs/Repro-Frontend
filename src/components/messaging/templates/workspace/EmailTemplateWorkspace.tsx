@@ -16,7 +16,7 @@ import { TemplateRenderedPreview } from '../TemplateRenderedPreview';
 import { EmailWorkspaceCanvas } from './EmailWorkspaceCanvas';
 import { EmailWorkspaceInspector } from './EmailWorkspaceInspector';
 import { EmailWorkspacePanels, type WorkspacePanel } from './EmailWorkspacePanels';
-import { newSection, plainText, savePayload, startingEmail, validateWorkspaceDraft } from './emailWorkspaceModel';
+import { newSection, normalizeEmailDocument, plainText, savePayload, startingEmail, validateWorkspaceDraft } from './emailWorkspaceModel';
 import { useEmailTemplateDraft } from './useEmailTemplateDraft';
 import './emailWorkspace.css';
 
@@ -90,7 +90,7 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
     setChat(current => [...current, { role: 'user', text: request }]);
     try {
       const proposal = await suggestEmailTemplate({ template_id: template?.id, instruction: request, scope, section_id: selected ?? undefined, draft: savePayload(draft, template) });
-      setPending({ ...draft, ...proposal }); setProposed(true); setInstruction(''); setSelected(null); setScope('email'); setMobilePanel('email');
+      setPending({ ...draft, ...proposal, editor_document_json: normalizeEmailDocument(proposal.editor_document_json ?? draft.editor_document_json) }); setProposed(true); setInstruction(''); setSelected(null); setScope('email'); setMobilePanel('email');
       setChat(current => [...current, { role: 'assistant', text: 'Your suggestion is ready. Compare it with your original, then apply it or keep editing your current version.' }]);
     } catch (error) { toast.error(getTemplateErrorMessage(error, 'Robbie could not prepare that revision. Your draft is unchanged.')); }
     finally { setBusy(null); }

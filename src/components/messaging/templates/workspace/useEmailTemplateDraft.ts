@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import type { MessageTemplate } from '@/types/messaging';
 import type { EmailWorkspaceDraft } from '@/types/emailTemplateWorkspace';
-import { initialEmailDraft } from './emailWorkspaceModel';
+import { initialEmailDraft, normalizeEmailDocument } from './emailWorkspaceModel';
 
 export function useEmailTemplateDraft(initialTemplate: MessageTemplate | null) {
   const { user } = useAuth();
@@ -73,7 +73,7 @@ export function useEmailTemplateDraft(initialTemplate: MessageTemplate | null) {
     setPast(current => [...current, { draft: structuredClone(draft), label: 'Redo' }]); setFuture(current => current.slice(0, -1)); setDraft(next);
   }
   function recover(restore: boolean) {
-    if (restore && recovery) replace(recovery, 'Restore local draft');
+    if (restore && recovery) replace({ ...recovery, editor_document_json: normalizeEmailDocument(recovery.editor_document_json) }, 'Restore local draft');
     setRecovery(null); try { localStorage.removeItem(storageKey); } catch { /* No stored draft. */ }
   }
 
