@@ -328,7 +328,7 @@ export function ShootDetailsModalBody({
                   isEditMode={isEditMode}
                   onSave={handleSaveRequest}
                   onCancel={handleCancelEdit}
-                  onRegisterEditActions={(actions) => setEditActions(actions)}
+                  onRegisterEditActions={setEditActions}
                   initialFocus={initialFocus}
                 />
               </TabsContent>

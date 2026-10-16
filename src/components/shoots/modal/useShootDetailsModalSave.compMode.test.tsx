@@ -22,6 +22,33 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootDetailsModalSave comp forwarding', () => {
+  it('keeps a new zero-duration rush fee through the scheduled rep confirmation and PATCH', async () => {
+    const scheduled = { ...shoot, status: 'scheduled', workflowStatus: 'scheduled',
+      serviceItems: [{ service_id: '1', quantity: 1, duration_minutes: 45 },
+        { service_id: '43', quantity: 1, duration_minutes: 30 }] } as ShootData;
+    vi.mocked(submitShootServiceMutation).mockResolvedValueOnce({ kind: 'success', data: { data: scheduled } });
+    const { result } = renderHook(() => useShootDetailsModalSave({
+      shoot: scheduled, setShoot: vi.fn(), setIsEditMode: vi.fn(), refreshShoot: vi.fn().mockResolvedValue(scheduled),
+      updateShoot: vi.fn().mockResolvedValue(undefined), toast: vi.fn(), isRep: true, isAdmin: false,
+      canNotifyClient: false, canNotifyPhotographer: false,
+    }));
+    act(() => result.current.handleSaveRequest({
+      services: [{ id: 1, duration_minutes: 45 }, { id: 43, duration_minutes: 30 }, { id: 70, duration_minutes: 0 }],
+      service_items: [{ service_id: 1, duration_minutes: 45 }, { service_id: 43, duration_minutes: 30 },
+        { service_id: 70, duration_minutes: 0 }],
+      service_photographers: [{ service_id: 1, photographer_id: 9 }, { service_id: 43, photographer_id: 9 }],
+    } as never));
+    expect(result.current.isSaveConfirmOpen).toBe(true);
+    await act(async () => { result.current.handleConfirmSave(); });
+    expect(submitShootServiceMutation).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ payload: {
+      services: [{ id: 1, duration_minutes: 45 }, { id: 43, duration_minutes: 30 }, { id: 70, duration_minutes: 0 }],
+      service_items: [{ service_id: 1, duration_minutes: 45 }, { service_id: 43, duration_minutes: 30 },
+        { service_id: 70, duration_minutes: 0 }],
+      service_photographers: [{ service_id: 1, photographer_id: 9 }, { service_id: 43, photographer_id: 9 }],
+      notify_client: false, notify_photographer: false,
+    } }));
+  });
+
   it('keeps delivered service IDs and quantities through the rep PATCH serializer', async () => {
     const delivered = { ...shoot, status: 'delivered', workflowStatus: 'delivered', editVersion: 'version-1',
       serviceItems: [{ service_id: '10', quantity: 1 }, { service_id: '11', quantity: 1 }] } as ShootData;

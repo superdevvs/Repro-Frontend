@@ -1,4 +1,5 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ShootData } from '@/types/shoots';
@@ -65,6 +66,32 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootOverviewEditor service mutation payload', () => {
+  it('keeps toolbar registration stable and saves the latest rep service selection', async () => {
+    const onSave = vi.fn();
+    let registrations = 0;
+    const { result } = renderHook(() => {
+      const [toolbar, setToolbar] = useState<{ save: () => void; cancel: () => void } | null>(null);
+      const editor = useShootOverviewEditor({
+        shoot, isAdmin: false, role: 'salesRep', isEditMode: true,
+        onSave: updates => onSave(updates), onShootUpdate: () => {}, toast: () => {},
+        onRegisterEditActions: actions => {
+          // Bound the broken registration loop so the regression fails cleanly.
+          registrations += 1;
+          if (registrations <= 20) setToolbar(actions);
+        },
+      });
+      return { editor, toolbar };
+    });
+    await waitFor(() => expect(result.current.editor.state.selectedServiceIds).toEqual(['10', '11']));
+    expect(registrations).toBeLessThan(5);
+    const toolbar = result.current.toolbar;
+    act(() => result.current.editor.actions.toggleServiceSelection('70'));
+    await waitFor(() => expect(result.current.editor.travel.loading).toBe(false));
+    await act(async () => { await toolbar?.save(); });
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].services.map((row: { id: number }) => row.id)).toEqual([10, 11, 70]);
+  });
+
   it('saves delivered service additions, removals and quantities without production or pricing echoes', async () => {
     const onSave = vi.fn();
     const deliveredShoot = { ...shoot, status: 'delivered', workflowStatus: 'delivered' } as ShootData;

@@ -1,4 +1,5 @@
 import { useOverviewTravel } from '@/features/travel/useOverviewTravel';
+import { useOverviewEditActionRegistration } from './useOverviewEditActionRegistration';
 import { buildForceSaveChanges } from '@/features/travel/forceSaveChanges';
 import { localSchedule, shiftScheduleFields } from '@/features/travel/daySchedule';
 import { getShootSchedule } from '@/utils/shootSchedule';
@@ -591,13 +592,7 @@ export function useShootOverviewEditor({
     if (onCancel) onCancel();
   }, [onCancel, resetCompServiceMode]);
 
-  useEffect(() => {
-    if (!isEditMode || !onRegisterEditActions) return;
-    onRegisterEditActions({
-      save: handleSave,
-      cancel: handleCancel,
-    });
-  }, [handleCancel, handleSave, isEditMode, onRegisterEditActions]);
+  useOverviewEditActionRegistration({ save: handleSave, cancel: handleCancel }, isEditMode, onRegisterEditActions);
 
   const serviceCategoryOptions = useMemo<ServiceCategoryOption[]>(() => {
     if (!servicesList.length) return [];
