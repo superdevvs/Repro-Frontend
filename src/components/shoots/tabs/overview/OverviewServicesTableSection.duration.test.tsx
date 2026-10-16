@@ -22,6 +22,20 @@ function props(): OverviewServicesTableSectionProps {
 }
 
 describe('compact overview schedule rows', () => {
+  it('allows delivered service changes while rendering appointments read-only', () => {
+    const options = props();
+    options.resolvePhotographerDetails = () => ({ name: 'Order photographer', email: 'fixture@example.test' });
+    render(<OverviewServicesTableSection {...options} canEditAppointments={false} />);
+    expect(screen.getByTestId('add-new-service')).toBeEnabled();
+    expect(screen.getAllByTestId('service-cell')).toHaveLength(2);
+    expect(screen.getAllByTestId('photographer-cell').every(button => button.hasAttribute('disabled'))).toBe(true);
+    expect(document.querySelector('[data-service-schedule-picker]')).toBeNull();
+    expect(options.updateServiceSchedule).not.toHaveBeenCalled();
+    expect(options.openEditPhotographerPicker).not.toHaveBeenCalled();
+    // New service corrections do not inherit the order's production assignment.
+    expect(screen.queryByText('Order photographer')).toBeNull();
+  });
+
   it('keeps service scheduling controls while hiding inline duration controls', () => {
     const options = props();
     render(<OverviewServicesTableSection {...options} />);

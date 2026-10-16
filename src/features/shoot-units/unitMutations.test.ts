@@ -5,6 +5,31 @@ import type { ShootData, ShootServiceObject } from '@/types/shoots';
 const line = (unit: number, service = 7): ShootServiceObject => ({ id: String(service), service_id: String(service), shoot_service_id: String(unit * 10 + service), client_key: `line-${unit}-${service}`, shoot_unit_id: unit, name: 'Photos', quantity: 1, price: 100 + unit, scheduled_at: `2026-10-01T${unit === 1 ? '09' : '11'}:00:00Z`, photographer_id: '9' });
 const shoot = { id: 'unit-mutations', units_revision: 4, units: [1, 2].map(id => ({ id, client_key: `unit-${id}`, label: `Unit ${id}`, kind: 'unit', sqft: 1000 * id, beds: 2, baths: 1 })), service_lines: [line(1), line(2)], propertyDetails: { sqft: 10000, lockboxCode: 'shared-entry' } } as ShootData;
 describe('single unit changes preserve the complete booking', () => {
+  it('preserves unknown unit metrics during a delivered service correction', () => {
+    const unknownMetrics = { ...shoot, units: shoot.units!.map(unit => ({ ...unit, sqft: null, beds: null, baths: null })) };
+    const result = buildUnitScopedUpdate(unknownMetrics, '1', {
+      service_items: [{ service_id: 7, quantity: 3 }],
+      propertyDetails: { sqft: null, beds: null, baths: null, lockboxCode: 'shared-entry' },
+    }, { servicePlanOnly: true });
+    expect((result.units as Record<string, unknown>[]).every(unit => unit.sqft === null && unit.beds === null && unit.baths === null)).toBe(true);
+    expect(result.service_lines).toEqual([
+      { shoot_service_id: '27', client_key: 'line-2-7', shoot_unit_id: '2', service_id: '7', quantity: 1 },
+      { shoot_service_id: '17', client_key: 'line-1-7', shoot_unit_id: 1, service_id: '7', quantity: 3, unit_client_key: 'unit-1' },
+    ]);
+  });
+
+  it('keeps line and unit identity but omits production fields when adding or removing delivered services', () => {
+    const result = buildUnitScopedUpdate(shoot, '1', { service_items: [{ service_id: 8, quantity: 2 }] }, { servicePlanOnly: true });
+    const lines = result.service_lines as Record<string, unknown>[];
+    expect(lines[0]).toMatchObject({ shoot_service_id: '27', service_id: '7', quantity: 1 });
+    expect(lines[1]).toMatchObject({ service_id: '8', quantity: 2, shoot_unit_id: 1, unit_client_key: 'unit-1' });
+    expect(lines[1].client_key).toEqual(expect.any(String));
+    expect(lines[1]).not.toHaveProperty('shoot_service_id');
+    for (const line of lines) {
+      for (const field of ['scheduled_at', 'duration_minutes', 'photographer_id', 'editor_id', 'price', 'photographer_pay']) expect(line).not.toHaveProperty(field);
+    }
+  });
+
   it('updates one unit quantity and retains sibling quantities and booked price snapshots', () => {
     const existing = { ...shoot, service_lines: [{ ...line(1), quantity: 2 }, { ...line(2), quantity: 3 }] };
     const result = buildUnitScopedUpdate(existing, '1', { service_items: [{ service_id: 7, quantity: 4 }] });

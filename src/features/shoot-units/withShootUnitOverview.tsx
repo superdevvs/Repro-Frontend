@@ -9,6 +9,7 @@ import { ShootUnitScopeBar } from './ShootUnitScope';
 import { useShootUnitScope } from './useShootUnitScope';
 import { projectShootForUnit } from './shootUnitData';
 import { buildUnitScopedUpdate, unitMetadataPayload } from './unitMutations';
+import { isDeliveredShootForManagement } from '@/utils/shootManagementAccess';
 
 export function withShootUnitOverview(Component: ComponentType<ShootDetailsOverviewTabProps>) {
   function UnitOverview(props: ShootDetailsOverviewTabProps) {
@@ -39,7 +40,9 @@ export function withShootUnitOverview(Component: ComponentType<ShootDetailsOverv
         unitSelector={<ShootUnitScopeBar shoot={shoot} containerRef={selectorRef} variant="embedded" disabled={isEditMode || props.isUnitSwitchDisabled || saving} manageUnitsLabel={isAdmin ? 'Manage units' : 'View units'} onManageUnits={() => { setError(''); setDraft(scope.units); }} />}
         unitAccessNotes={scope.unit.access_notes}
         onSave={props.onSave ? (updates, onTravelFailure) => {
-          const payload = buildUnitScopedUpdate(shoot, activeId, updates as Record<string, unknown>) as Partial<ShootData>;
+          const payload = buildUnitScopedUpdate(shoot, activeId, updates as Record<string, unknown>, {
+            servicePlanOnly: props.isRep && !isAdmin && isDeliveredShootForManagement(shoot),
+          }) as Partial<ShootData>;
           if (onTravelFailure) props.onSave?.(payload, onTravelFailure);
           else props.onSave?.(payload);
         } : undefined} />

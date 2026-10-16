@@ -81,8 +81,7 @@ import { useNavigate } from 'react-router-dom';
 import { HistoricalImportSummary } from '@/components/shoots/details/HistoricalImportSummary';
 import { CompReshootOverviewStrip } from '@/features/complimentary-reshoots/CompReshootOverviewStrip';
 import { isComplimentaryReshootEnabled } from '@/features/complimentary-reshoots/featureFlag';
-import { hasRestrictedSalesRepRole } from '@/utils/shootManagementAccess';
-import { normalizeShootDetailsStatus } from '../modal/shootDetailsCapabilities';
+import { hasRestrictedSalesRepRole, isDeliveredShootForManagement } from '@/utils/shootManagementAccess';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -393,10 +392,11 @@ function ShootDetailsOverviewTabContent({
 }: ShootDetailsOverviewTabProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  // Delivered rep edits cover details and pricing; the completed service plan stays read-only.
-  const canEditServicePlan = !(
+  const canEditServicePlan = shoot.canManageBooking !== false;
+  // Service corrections do not reopen completed appointments or assignments.
+  const canEditAppointments = canEditServicePlan && !(
     hasRestrictedSalesRepRole({ ...user, role }) &&
-    [shoot.workflowStatus, shoot.status].some(status => normalizeShootDetailsStatus(status) === 'delivered')
+    isDeliveredShootForManagement(shoot)
   );
   const tourScope = useShootUnitScope(shoot);
   const canAccessVideoTourEmbeds = canEditVideoTours(shoot, { ...user, role }, tourScope.unit?.id);
@@ -510,6 +510,7 @@ function ShootDetailsOverviewTabContent({
     role,
     isEditMode,
     canEditServicePlan,
+    canEditAppointments,
     onShootUpdate,
     onSave,
     onCancel,
@@ -925,6 +926,7 @@ function ShootDetailsOverviewTabContent({
       <OverviewServicesTableSection
         role={role}
         isEditMode={isEditMode && canEditServicePlan}
+        canEditAppointments={canEditAppointments}
         shoot={shoot}
         serviceItems={serviceItems}
         servicesList={servicesList}
@@ -981,7 +983,7 @@ function ShootDetailsOverviewTabContent({
         } : undefined}
       />
 
-      {isEditMode && canEditServicePlan && <TravelFeasibilityPanel travel={travel} />}
+      {isEditMode && canEditAppointments && <TravelFeasibilityPanel travel={travel} />}
 
       <OverviewClientSection
         shoot={shoot}
@@ -1159,7 +1161,7 @@ function ShootDetailsOverviewTabContent({
 
       <OverviewPhotographerPickerDialog
         travel={travel}
-        open={assignPhotographerOpen && canEditServicePlan}
+        open={assignPhotographerOpen && canEditAppointments}
         onOpenChange={(open) => {
           if (open) {
             setAssignPhotographerOpen(true);

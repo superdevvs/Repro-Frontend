@@ -65,29 +65,39 @@ describe('delivered sales rep overview edit scope', () => {
     expect(screen.getByLabelText('Property edit')).toHaveAttribute('readonly');
   });
 
-  it.each(['delivered', 'delivered_to_client', 'ready_for_client', 'admin_verified'])('keeps %s service, schedule and artist data read-only while allowing details and pricing', async status => {
+  it.each(['delivered', 'delivered_to_client', 'ready_for_client', 'admin_verified'])('allows %s service corrections while keeping appointments and assignments locked', async status => {
     mount('salesRep', status);
-    await waitFor(() => expect(screen.getByRole('region', { name: 'Booked services' })).toBeInTheDocument());
-    expect(screen.queryByTestId('add-new-service')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('service-cell')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('photographer-cell')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('service-cell')).toHaveTextContent('Photography'));
+    expect(screen.getByTestId('add-new-service')).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Remove Photography' })).toBeDisabled();
+    expect(screen.getByTestId('photographer-cell')).toBeDisabled();
+    expect(document.querySelector('[data-service-schedule-picker]')).toBeNull();
     expect(screen.queryByText('Travel controls')).not.toBeInTheDocument();
     for (const label of ['Property edit', 'Client edit', 'Price edit']) {
       expect(screen.getByLabelText(label)).not.toHaveAttribute('readonly');
     }
   });
 
-  it('also restricts a secondary rep on a nonprivileged primary role', () => {
+  it('keeps appointment controls locked for a secondary rep on a nonprivileged primary role', () => {
     mount('editor', 'delivered', ['sales_rep']);
-    expect(screen.queryByTestId('add-new-service')).not.toBeInTheDocument();
+    expect(screen.getByTestId('add-new-service')).toBeEnabled();
+    expect(screen.getByTestId('photographer-cell')).toBeDisabled();
   });
 
   it.each([['delivered', 'scheduled'], ['scheduled', 'delivered']])('keeps production locked when status %s and workflow %s disagree', (status, workflowStatus) => {
     mount('salesRep', status, [], workflowStatus);
-    expect(screen.queryByTestId('add-new-service')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('photographer-cell')).not.toBeInTheDocument();
+    expect(screen.getByTestId('add-new-service')).toBeEnabled();
+    expect(screen.getByTestId('photographer-cell')).toBeDisabled();
     expect(screen.queryByText('Travel controls')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Price edit')).not.toHaveAttribute('readonly');
+  });
+
+  it('honors explicit denied booking edits for a delivered order', () => {
+    auth.user = { ...auth.user, role: 'salesRep', secondary_roles: [] };
+    render(<MemoryRouter><ShootDetailsOverviewTab shoot={{ ...shoot, canManageBooking: false }}
+      role="salesRep" isAdmin={false} isRep isPhotographer={false} isEditor={false} isClient={false}
+      isEditMode onShootUpdate={vi.fn()} /></MemoryRouter>);
+    expect(screen.queryByTestId('add-new-service')).toBeNull();
   });
 
   it.each(['admin', 'superadmin', 'editing_manager'])('preserves delivered service editing for %s with a secondary rep role', async role => {

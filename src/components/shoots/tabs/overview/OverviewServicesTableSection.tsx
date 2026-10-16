@@ -40,6 +40,7 @@ const EDIT_COLUMN_WIDTHS: Record<string, number> = { Date: 148, Time: 112, 'Assi
 
 export type OverviewServicesTableSectionProps = {
   isEditMode: boolean;
+  canEditAppointments?: boolean;
   shoot: ShootData;
 
   // Read-only data source (one row per item).
@@ -381,6 +382,7 @@ function renderEditRows(
   } = props;
   const headerCells = getHeaderCells(props);
   const showPhotographerColumn = !isPayView(props);
+  const canEditAppointments = props.canEditAppointments !== false;
   const canRemoveAllServices = Boolean(
     shoot.canRemoveAllServices ?? shoot.can_remove_all_services,
   );
@@ -429,9 +431,10 @@ function renderEditRows(
       const schedule: ServiceScheduleFields = serviceSchedules[serviceId] ?? DEFAULT_ROW_SCHEDULE;
       const categoryName = deriveServiceCategoryName(service);
       const categoryKey = normalizeShootServiceCategoryKey(categoryName);
-      const photographer = resolvePhotographerDetails(
+      const isBookedService = props.serviceItems.some(item => String(item.serviceId ?? item.source.service_id ?? item.source.id) === String(serviceId));
+      const photographer = canEditAppointments || isBookedService ? resolvePhotographerDetails(
         perCategoryPhotographers[categoryKey] ?? selectedPhotographerIdEdit,
-      );
+      ) : null;
       const allowsPhotographer = serviceAllowsPhotographerAssignment(service);
 
       return (
@@ -462,14 +465,14 @@ function renderEditRows(
             </button>
           </td>
           <td className="col-span-2 col-start-1 row-start-2 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
-            <ServiceDatePicker
+            {canEditAppointments ? <ServiceDatePicker
               value={schedule.date}
               onChange={(value) => updateServiceSchedule(serviceId, 'date', value)}
               triggerClassName="h-8 w-full rounded-lg min-w-0"
-            />
+            /> : <span className="text-xs text-muted-foreground">{schedule.date || NOT_ASSIGNED}</span>}
           </td>
           <td className="col-span-2 col-start-3 row-start-2 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
-            <div className="flex flex-col items-stretch gap-0.5">
+            {canEditAppointments ? <div className="flex flex-col items-stretch gap-0.5">
               <ServiceTimePicker
                 value={schedule.time}
                 options={buildServiceTimeOptions(schedule.time)}
@@ -481,12 +484,12 @@ function renderEditRows(
                 onApply={() => applyServiceScheduleToAll?.(serviceId)}
                 className="self-end"
               />
-            </div>
+            </div> : <span className="text-xs text-muted-foreground">{schedule.date && schedule.time || NOT_ASSIGNED}</span>}
           </td>
           {showPhotographerColumn && (
             <td className="col-span-4 col-start-1 row-start-3 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
               {!allowsPhotographer ? (
-                props.canAssignServiceEditors && service.requires_editing !== false ? (
+                canEditAppointments && props.canAssignServiceEditors && service.requires_editing !== false ? (
                   <ServiceEditorSelect serviceName={service.name} value={props.serviceEditorIds?.[serviceId]}
                     lane={serviceEditorLane(service)}
                     editors={props.editorOptions ?? []} loading={props.isLoadingEditors} error={props.editorLoadError}
@@ -498,6 +501,7 @@ function renderEditRows(
                 variant="outline"
                 size="sm"
                 data-testid="photographer-cell"
+                disabled={!canEditAppointments}
                 className="h-8 w-full max-w-full justify-start text-xs min-w-0"
                 onClick={() =>
                   openEditPhotographerPicker({

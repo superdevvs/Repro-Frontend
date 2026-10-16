@@ -42,7 +42,7 @@ export type OverviewServiceItemPayload = {
   duration_minutes?: number;
   price?: number;
   quantity?: number;
-  scheduled_at: string | null;
+  scheduled_at?: string | null;
   photographer_pay?: number;
   photographer_id?: number | null;
   editor_id?: number | null;

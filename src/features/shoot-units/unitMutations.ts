@@ -30,7 +30,7 @@ export function unitMetadataPayload(units: ShootUnit[]) {
 }
 
 /** Convert a single-unit legacy editor draft to explicit unit-aware writes. */
-export function buildUnitScopedUpdate(shoot: ShootData, activeUnitId: string, input: Record<string, unknown>): Record<string, unknown> {
+export function buildUnitScopedUpdate(shoot: ShootData, activeUnitId: string, input: Record<string, unknown>, options: { servicePlanOnly?: boolean } = {}): Record<string, unknown> {
   const units = getShootUnits(shoot);
   const unit = units.find(item => getUnitKey(item) === activeUnitId);
   if (!unit) throw new Error('This unit no longer exists. Refresh the shoot before saving.');
@@ -54,13 +54,22 @@ export function buildUnitScopedUpdate(shoot: ShootData, activeUnitId: string, in
         };
       }),
     ];
+    if (options.servicePlanOnly) {
+      updates.service_lines = (updates.service_lines as Record<string, unknown>[]).map(line => {
+        const plan: Record<string, unknown> = {};
+        for (const key of ['shoot_service_id', 'client_key', 'shoot_unit_id', 'unit_client_key', 'service_id', 'quantity']) {
+          if (Object.hasOwn(line, key)) plan[key] = line[key];
+        }
+        return plan;
+      });
+    }
   }
   const details = record(input.propertyDetails ?? input.property_details);
   if (Object.keys(details).length) {
     updates.units = unitMetadataPayload(units.map(item => getUnitKey(item) === activeUnitId ? { ...item,
-      sqft: details.sqft === undefined ? item.sqft : Number(details.sqft),
-      beds: details.beds === undefined && details.bedrooms === undefined ? item.beds : Number(details.beds ?? details.bedrooms),
-      baths: details.baths === undefined && details.bathrooms === undefined ? item.baths : Number(details.baths ?? details.bathrooms),
+      sqft: unitMetric(details.sqft, item.sqft),
+      beds: unitMetric(details.beds !== undefined ? details.beds : details.bedrooms, item.beds),
+      baths: unitMetric(details.baths !== undefined ? details.baths : details.bathrooms, item.baths),
       access_notes: typeof details.access_notes === 'string' ? details.access_notes : item.access_notes,
     } : item));
     const sharedDetails = { ...details };
@@ -73,6 +82,9 @@ export function buildUnitScopedUpdate(shoot: ShootData, activeUnitId: string, in
   delete updates.service_photographers;
   return updates;
 }
+
+const unitMetric = (value: unknown, previous: number | null | undefined) =>
+  value === undefined ? previous : value === null || value === '' ? null : Number(value);
 
 export function filterUnitFiles<T extends { shoot_service_id?: string | number | null; shootServiceId?: string | number | null }>(files: T[], shoot: ShootData, activeUnitId: string | null): T[] {
   if (!getShootUnits(shoot).length) return files;

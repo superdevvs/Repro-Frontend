@@ -54,8 +54,9 @@ export type UseShootOverviewEditorArgs = {
   isAdmin: boolean;
   role: string;
   isEditMode?: boolean;
-  /** Keep completed services and assignments out of details/pricing-only saves. */
+  /** Service selection and quantity changes, independently of appointment controls. */
   canEditServicePlan?: boolean;
+  canEditAppointments?: boolean;
   onShootUpdate: () => void;
   onSave?: (updates: Partial<ShootData>, onTravelFailure?: (data: unknown) => void) => void;
   onCancel?: () => void;

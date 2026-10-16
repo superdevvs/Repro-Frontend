@@ -22,6 +22,27 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootDetailsModalSave comp forwarding', () => {
+  it('keeps delivered service IDs and quantities through the rep PATCH serializer', async () => {
+    const delivered = { ...shoot, status: 'delivered', workflowStatus: 'delivered', editVersion: 'version-1',
+      serviceItems: [{ service_id: '10', quantity: 1 }, { service_id: '11', quantity: 1 }] } as ShootData;
+    const { result } = renderHook(() => useShootDetailsModalSave({
+      shoot: delivered, setShoot: vi.fn(), setIsEditMode: vi.fn(), refreshShoot: vi.fn().mockResolvedValue(delivered),
+      updateShoot: vi.fn().mockResolvedValue(undefined), toast: vi.fn(), isRep: true, isAdmin: false,
+      canNotifyClient: false, canNotifyPhotographer: false,
+    }));
+    await act(async () => {
+      await result.current.handleSaveChanges({
+        service_items: [{ service_id: 10, quantity: 3 }, { service_id: 12, quantity: 2 }],
+        services: [{ id: 10, quantity: 3 }, { id: 12, quantity: 2 }],
+      } as never, { notifyClient: false, notifyPhotographer: false });
+    });
+    expect(submitShootServiceMutation).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      payload: { services: [{ id: 10, quantity: 3 }, { id: 12, quantity: 2 }],
+        service_items: [{ service_id: 10, quantity: 3 }, { service_id: 12, quantity: 2 }],
+        notify_client: false, notify_photographer: false, expected_edit_version: 'version-1' },
+    }));
+  });
+
   it('forwards the signed staff warning and preserves notification choices through rep PATCH confirmation', async () => {
     const warning = { force_save: true, force_save_confirmed: true, force_save_reason: 'Photographer confirmed package change.', force_save_confirmation_version: 'signed-v1' };
     const { result } = renderHook(() => useShootDetailsModalSave({

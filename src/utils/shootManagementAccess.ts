@@ -11,3 +11,7 @@ export const hasRestrictedSalesRepRole = (user?: ShootManagementUser): boolean =
   return !['admin', 'superadmin', 'editingmanager'].includes(primary) &&
     hasSalesRepRole(user);
 };
+
+export const isDeliveredShootForManagement = (shoot: { status?: string | null; workflowStatus?: string | null }): boolean =>
+  [shoot.status, shoot.workflowStatus].some(status =>
+    ['delivered', 'delivered_to_client', 'ready_for_client', 'admin_verified'].includes(String(status ?? '').trim().toLowerCase()));

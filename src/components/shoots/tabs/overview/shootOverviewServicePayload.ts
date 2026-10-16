@@ -24,6 +24,7 @@ type ApplyOverviewServicePayloadArgs = {
   shoot: ShootData;
   isAdmin: boolean;
   omitStandardServices: boolean;
+  canEditAppointments?: boolean;
   selectedServiceIds: string[];
   serviceSchedules: Record<string, ServiceScheduleFields>;
   servicePrices: Record<string, string>;
@@ -41,6 +42,7 @@ export function applyOverviewServicePayload({
   shoot,
   isAdmin,
   omitStandardServices,
+  canEditAppointments = true,
   selectedServiceIds,
   serviceSchedules,
   servicePrices,
@@ -54,6 +56,18 @@ export function applyOverviewServicePayload({
   if (omitStandardServices) {
     delete updates.service_items;
     delete updates.services;
+    delete updates.service_photographers;
+    return;
+  }
+
+  if (!canEditAppointments) {
+    // Delivered corrections change the booked selection/quantity only. The
+    // server preserves existing appointments and supplies prices for new lines.
+    updates.service_items = selectedServiceIds.map(serviceId => ({
+      service_id: Number(serviceId),
+      ...(serviceQuantities[serviceId] !== undefined ? { quantity: normalizeBookingQuantity(serviceQuantities[serviceId]) } : {}),
+    }));
+    updates.services = updates.service_items.map(({ service_id, ...item }) => ({ id: service_id, ...item }));
     delete updates.service_photographers;
     return;
   }

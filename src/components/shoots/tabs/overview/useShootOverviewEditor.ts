@@ -68,6 +68,7 @@ export function useShootOverviewEditor({
   role,
   isEditMode = false,
   canEditServicePlan = true,
+  canEditAppointments = canEditServicePlan,
   onShootUpdate,
   onSave,
   onCancel,
@@ -405,7 +406,7 @@ export function useShootOverviewEditor({
     });
   }, [isEditMode, selectedServiceIds.length, shoot]);
 
-  const travel = useOverviewTravel({ active: isEditMode && canEditServicePlan, draft: editedShoot, shoot, isAdmin, role, omitStandardServices: hasComplimentaryServices,
+  const travel = useOverviewTravel({ active: isEditMode && canEditAppointments, draft: editedShoot, shoot, isAdmin, role, omitStandardServices: hasComplimentaryServices,
     selectedServiceIds, serviceSchedules, servicePrices, servicePhotographerPays, serviceQuantities: serviceQuantityChanges,
     perCategoryPhotographers, serviceEditorChanges: serviceEditors.serviceEditorChanges, servicesList, effectiveSqft,
     onScheduleChange: change => {
@@ -444,8 +445,8 @@ export function useShootOverviewEditor({
       onSave(updates as unknown as Partial<ShootData>, travel.acceptServerError);
       return;
     }
-    if (canEditServicePlan && (withWarning ? !travel.canForceSave : travel.blocked)) { toast({ title: 'Review travel before saving', description: 'Resolve the travel warning or approve an authorized exception.', variant: 'destructive' }); return; }
-    if (canEditServicePlan && !validateCompServicesBeforeSave()) return;
+    if (canEditAppointments && (withWarning ? !travel.canForceSave : travel.blocked)) { toast({ title: 'Review travel before saving', description: 'Resolve the travel warning or approve an authorized exception.', variant: 'destructive' }); return; }
+    if (canEditAppointments && !validateCompServicesBeforeSave()) return;
 
     if (updates.client?.id !== undefined && updates.client.id !== null) {
       const clientId = typeof updates.client.id === 'string' ? parseInt(updates.client.id, 10) : Number(updates.client.id);
@@ -461,7 +462,7 @@ export function useShootOverviewEditor({
         delete updates.photographer;
       }
     }
-    if (!canEditServicePlan) {
+    if (!canEditAppointments) {
       delete updates.scheduledDate;
       delete updates.time;
       delete updates.photographer;
@@ -473,6 +474,7 @@ export function useShootOverviewEditor({
         shoot,
         isAdmin,
         omitStandardServices: !canEditServicePlan || hasComplimentaryServices,
+        canEditAppointments,
         selectedServiceIds,
         serviceSchedules,
         servicePrices,
@@ -491,19 +493,20 @@ export function useShootOverviewEditor({
       return;
     }
 
-    const complimentaryServiceOptions = canEditServicePlan ? buildCompServicePayload() : null;
+    const complimentaryServiceOptions = canEditAppointments ? buildCompServicePayload() : null;
     if (complimentaryServiceOptions) {
       updates.complimentary_service_options = complimentaryServiceOptions;
     }
 
     // `onSave` is typed against the display model, while this payload carries the
     // request-shaped service keys the endpoint requires.
-    const travelConfirmation = canEditServicePlan ? await (withWarning ? confirmForceSave() : confirmSave()) : {};
+    const travelConfirmation = canEditAppointments ? await (withWarning ? confirmForceSave() : confirmSave()) : {};
     if (travelConfirmation) onSave({ ...updates, ...travelConfirmation } as unknown as Partial<ShootData>, travel.acceptServerError);
   }, [
     accessContactName,
     accessContactPhone,
     canEditServicePlan,
+    canEditAppointments,
     buildCompServicePayload,
     editedShoot,
     effectiveSqft,

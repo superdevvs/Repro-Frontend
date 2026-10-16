@@ -859,6 +859,7 @@ export function ShootDetailsModalHeader({
 
           <div className="sm:hidden flex items-center gap-1.5">
             <Button
+              aria-label="More actions"
               variant="outline"
               size="icon"
               className="h-8 w-8 rounded-full"

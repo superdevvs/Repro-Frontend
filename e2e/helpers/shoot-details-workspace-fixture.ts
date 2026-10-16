@@ -14,7 +14,7 @@ export async function installShootDetailsWorkspaceFixture(
   baseURL: string | undefined,
   role: ShootWorkspaceRole = 'admin',
   theme: 'light' | 'dark' = 'dark',
-  options: { largeCompletionCounts?: boolean } = {},
+  options: { largeCompletionCounts?: boolean; salesRepManagement?: boolean } = {},
 ) {
   if (!baseURL || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(baseURL).hostname)) {
     throw new Error('Shoot workspace acceptance requires a loopback preview.');
@@ -72,7 +72,9 @@ export async function installShootDetailsWorkspaceFixture(
     ...(options.largeCompletionCounts ? { serviceItems: services, bracket_mode: 5 } : {}),
     base_quote: 425, total_quote: 425, total_paid: 425, payment_status: 'paid', tax_amount: 0,
     raw_photo_count: 2, edited_photo_count: workspaceEditedPhotoCount, expected_raw_count: 2, expected_final_count: workspaceEditedPhotoCount,
-    canSubmitRaw: false, canSubmitEdits: false, canManageBooking: role === 'admin',
+    canSubmitRaw: false, canSubmitEdits: false, canManageBooking: role === 'admin' || (role === 'salesRep' && options.salesRepManagement),
+    canRemoveAllServices: role === 'admin' || (role === 'salesRep' && options.salesRepManagement),
+    ...(options.salesRepManagement ? { editVersion: 'a'.repeat(64) } : {}),
     canManageShootActions: role === 'admin', can_view_invoice: ['admin', 'client'].includes(role),
     notes: [{ id: 1, content: 'Use the lockbox by the front door.', type: 'shoot', created_at: completedAt }],
     files: [...rawFiles, ...editedFiles], tour_links: {},
@@ -110,6 +112,7 @@ export async function installShootDetailsWorkspaceFixture(
     if (path === '/me/permissions') {
       const resources = ['dashboard', `dashboard-${role}`, 'shoots', 'shoot-history', 'settings'];
       const permissions = resources.map(resource => ({ resource, action: 'view' }));
+      if (options.salesRepManagement && role === 'salesRep') permissions.push({ resource: 'shoots', action: 'update' }, { resource: 'shoot-pricing', action: 'update' });
       return reply(route, { permissions, permissionIds: permissions.map(permission => `${permission.resource}:${permission.action}`) });
     }
     if (path === '/shoots/156') return data(route, shoot);
@@ -127,5 +130,5 @@ export async function installShootDetailsWorkspaceFixture(
     if (path === '/shoots/156/invoice') return reply(route, { message: 'No local invoice fixture' }, 404);
     return reply(route, { success: true, data: [], notifications: [], unread_count: 0, shoots: [], meta: { total: 0 } });
   });
-  return { requests, businessWrites, pageErrors };
+  return { requests, businessWrites, pageErrors, shoot };
 }

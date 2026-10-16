@@ -65,6 +65,32 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootOverviewEditor service mutation payload', () => {
+  it('saves delivered service additions, removals and quantities without production or pricing echoes', async () => {
+    const onSave = vi.fn();
+    const deliveredShoot = { ...shoot, status: 'delivered', workflowStatus: 'delivered' } as ShootData;
+    const { result } = renderHook(() => useShootOverviewEditor({
+      shoot: deliveredShoot, isAdmin: false, role: 'salesRep', isEditMode: true,
+      canEditServicePlan: true, canEditAppointments: false, onSave, onShootUpdate: vi.fn(), toast: vi.fn(),
+    }));
+    await waitFor(() => expect(result.current.state.selectedServiceIds).toEqual(['10', '11']));
+    act(() => {
+      result.current.actions.toggleServiceSelection('11');
+      result.current.actions.toggleServiceSelection('12');
+      result.current.actions.updateServiceQuantity('10', 3);
+    });
+    await act(async () => { await result.current.actions.handleSave(); });
+    expect(onSave).toHaveBeenCalledTimes(1);
+    const payload = onSave.mock.calls[0][0];
+    expect(payload.service_items).toEqual([{ service_id: 10, quantity: 3 }, { service_id: 12 }]);
+    expect(payload.services).toEqual([{ id: 10, quantity: 3 }, { id: 12 }]);
+    expect(payload).not.toHaveProperty('adminAdjustedTotalQuote');
+    expect(payload).not.toHaveProperty('admin_adjusted_total_quote');
+    for (const key of ['scheduledDate', 'time', 'photographer', 'service_photographers', 'complimentary_service_options']) {
+      expect(payload).not.toHaveProperty(key);
+    }
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it('saves delivered rep property, client and pricing edits without schedule or assignment echoes', async () => {
     const onSave = vi.fn();
     const deliveredShoot = { ...shoot, status: 'delivered', workflowStatus: 'delivered',
