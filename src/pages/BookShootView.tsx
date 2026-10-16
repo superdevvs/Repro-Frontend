@@ -18,7 +18,7 @@ import { CompReasonChangeDialog } from '@/features/complimentary-reshoots/CompRe
 import { getBookingWizardConfig } from './bookShootModel';
 import { NEW_BOOKING_TIMEZONE } from './bookShootTimezone';
 
-export function BookShootView({ controller }: { controller: BookShootController }) {
+export function BookShootView({ controller, singlePage = false }: { controller: BookShootController; singlePage?: boolean }) {
   const {
     isMobile, isEditMode, editShootLoading, packages, packagesLoading, clients, client,
     setClient, address, setAddress, city, setCity, state, setState, zip, setZip, date,
@@ -138,7 +138,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
               <div className="space-y-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <BookingHeader
-                  title={currentStepContent.title}
+                  title={singlePage ? 'One last look.' : currentStepContent.title}
                   description={currentStepContent.description}
                 />
                 {showAddressScheduledWarning && !isCompReshootMode && (
@@ -161,7 +161,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
                 />
               )}
               <div className="flex items-center gap-3">
-                <BookingStepIndicator currentStep={step} totalSteps={wizard.totalSteps} stepLabels={wizard.labels} />
+                {singlePage ? <p className="text-xs text-muted-foreground">✓ Details <span className="mx-3">→</span><strong className="text-primary">2 · Review</strong></p> : <BookingStepIndicator currentStep={step} totalSteps={wizard.totalSteps} stepLabels={wizard.labels} />}
                 {step <= 2 && !isCompReshootMode && shouldCacheForm && hasCachedData && (
                   <Button
                     type="button"
@@ -179,7 +179,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
           </AnimatePresence>
           <AnimatePresence mode="wait">
             {!isComplete && (
-              <BookingStepTransition step={step} title={`Step ${step} of ${wizard.totalSteps}: ${currentStepContent.title}`}>
+              <BookingStepTransition step={step} title={singlePage ? 'Step 2 of 2: Review & Confirm' : `Step ${step} of ${wizard.totalSteps}: ${currentStepContent.title}`}>
               <div
                 className={`grid grid-cols-1 ${{
                   true: 'lg:grid-cols-[minmax(0,1.85fr)_minmax(320px,0.95fr)]',

@@ -12,7 +12,7 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, D
 import { SchedulingPhotographerSection } from './SchedulingPhotographerSection';
 import type { SchedulingFormController } from './useSchedulingFormController';
 
-export function SchedulingFormView({ controller, afterCalendar }: { controller: SchedulingFormController; afterCalendar?: React.ReactNode }) {
+export function SchedulingFormView({ controller, afterCalendar, continueLabel = 'CONFIRM' }: { controller: SchedulingFormController; afterCalendar?: React.ReactNode; continueLabel?: string }) {
   const {
     date, time, formErrors, handleSubmit, goBack, sameDayAddressWarningMessage,
     disabledDates, today, isMobile, timeDialogOpen, tempTime, availabilityPanel,
@@ -306,7 +306,7 @@ export function SchedulingFormView({ controller, afterCalendar }: { controller: 
           className="h-12 min-w-0 flex-1 text-base font-bold bg-blue-600 hover:bg-blue-700 text-white transition-colors"
         >
           {controller.requiresPhotographerAssignment && (controller.isCalculatingDistances || controller.isLoadingAvailability) && <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />}
-          CONFIRM
+          {continueLabel}
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
       </div>

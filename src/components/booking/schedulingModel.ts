@@ -106,6 +106,7 @@ export const canUseProtectedAvailabilityRoutes = (
 ): boolean => Boolean(user && String(user.role ?? '').toLowerCase() !== 'client');
 
 export interface SchedulingFormProps {
+  continueLabel?: string;
   afterCalendar?: React.ReactNode;
   enforceNewBookingEligibility?: boolean;
   hybridTravelEnabled?: boolean;
