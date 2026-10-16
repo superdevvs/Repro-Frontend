@@ -11,10 +11,10 @@ interface Props {
   selected: string; draft: EmailWorkspaceDraft; template: MessageTemplate | null; disabled: boolean;
   onChange: (next: EmailWorkspaceDraft, label: string) => void;
   onSectionAction: (action: 'up' | 'down' | 'duplicate' | 'delete') => void;
-  onClose: () => void; onAsk: () => void; onArtwork: () => void;
+  onClose: () => void; onAsk: () => void; onArtwork: () => void; onPersonalize: () => void;
 }
 
-export function EmailWorkspaceInspector({ selected, draft, template, disabled, onChange, onSectionAction, onClose, onAsk, onArtwork }: Props) {
+export function EmailWorkspaceInspector({ selected, draft, template, disabled, onChange, onSectionAction, onClose, onAsk, onArtwork, onPersonalize }: Props) {
   const [format, setFormat] = useState<'text' | 'html'>('text');
   const section = draft.editor_document_json.sections.find(item => item.id === selected);
   const block = template?.editable_content_blocks?.find(item => item.key === selected);
@@ -47,6 +47,7 @@ export function EmailWorkspaceInspector({ selected, draft, template, disabled, o
         <label>Section content<Textarea rows={12} value={format === 'html' ? blockHtml : plainText(blockHtml)} onChange={event => updateHtml(event.target.value)} className={format === 'html' ? 'font-mono' : ''}/></label>
         {block && <><p className="ews-help">Connected fields use current recipient data. Keep the fields you need in this section.</p><div className="ews-field-list">{block.variables_json?.map(field => <button key={field} onClick={() => updateHtml((format === 'html' ? blockHtml : plainText(blockHtml))+` {{${field}}}`)}>{`{{${field}}}`}</button>)}</div></>}
       </>}
+      {section?.type !== 'divider' && section?.type !== 'image' && <Button variant="outline" onClick={onPersonalize}>Insert personal field</Button>}
       <Button variant="outline" onClick={onAsk}>✧ Ask Robbie about this section</Button>
     </fieldset>
   </aside>;

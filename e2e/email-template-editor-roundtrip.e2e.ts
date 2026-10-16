@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 import { loginAsAdmin } from './helpers/auth';
 import { emailWorkspaceFixture } from './helpers/emailWorkspaceFixture';
 
-for (const width of [390, 1280]) {
+for (const width of [360, 390, 768, 1280]) {
   test(`Robbie workspace manual editing and review at ${width}px`, async ({ page }) => {
     const fixture = await emailWorkspaceFixture(page);
     await page.setViewportSize({ width, height: 900 });
@@ -11,6 +11,12 @@ for (const width of [390, 1280]) {
     await page.getByRole('heading', { name: 'Photographer field notes', exact: true }).click();
     await expect(page.getByLabel('Email subject', { exact: true })).toBeVisible();
     await expect(page.getByText('EMAIL DETAILS', { exact: true })).toHaveCount(0);
+    await expect(page.getByText('Email studio', { exact: true })).toHaveCount(0);
+    const workspace = page.getByRole('dialog', { name: 'Robbie email workspace', exact: true });
+    await expect.poll(() => workspace.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await expect.poll(() => workspace.locator('.ews-toolbar').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    await expect(page.getByRole('button', { name: 'Template actions', exact: true })).toBeInViewport();
+    await expect(page.getByRole('button', { name: 'Add section', exact: true })).toBeInViewport();
     await page.getByRole('button', { name: 'Edit Field notes', exact: true }).click();
     await page.getByLabel('Message', { exact: true }).fill('Pack your equipment. Check your batteries.');
     await page.getByRole('button', { name: 'Close section editor' }).click();

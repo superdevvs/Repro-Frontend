@@ -1,12 +1,15 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MessageTemplate } from '@/types/messaging';
 import { EmailTemplateWorkspace } from './EmailTemplateWorkspace';
 import { safeEditorHtml, safeEmailPreview, startingEmail } from './emailWorkspaceModel';
 
-const mocks = vi.hoisted(() => ({ create: vi.fn(), update: vi.fn(), preview: vi.fn(), send: vi.fn(), suggest: vi.fn(), templates: vi.fn(), navigate: vi.fn(), error: vi.fn(), success: vi.fn(), info: vi.fn() }));
+const mocks = vi.hoisted(() => ({ mobile: false, tablet: false, create: vi.fn(), update: vi.fn(), preview: vi.fn(), send: vi.fn(), suggest: vi.fn(), templates: vi.fn(), navigate: vi.fn(), error: vi.fn(), success: vi.fn(), info: vi.fn() }));
+vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => mocks.mobile }));
+vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: () => mocks.tablet }));
 vi.mock('@/services/messaging', () => ({ createTemplate: mocks.create, updateTemplate: mocks.update, previewTemplate: mocks.preview, testSendTemplate: mocks.send, getTemplates: mocks.templates }));
 vi.mock('@/services/emailTemplateWorkspace', () => ({ suggestEmailTemplate: mocks.suggest, generateEmailArtwork: vi.fn(), getEmailArtwork: vi.fn() }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 7 } }) }));
@@ -21,11 +24,11 @@ function setup(value: MessageTemplate | null = template) {
   const onSuccess = vi.fn(), onClose = vi.fn();
   return { ...render(<QueryClientProvider client={queryClient}><EmailTemplateWorkspace template={value} open onSuccess={onSuccess} onClose={onClose}/></QueryClientProvider>), onSuccess, onClose };
 }
-function tab(name: string) { fireEvent.click(screen.getByRole('tab', { name })); }
+function tab(name: string) { fireEvent.mouseDown(screen.getByRole('tab', { name }), { button: 0, ctrlKey: false }); }
 
 describe('production email workspace', () => {
   beforeEach(() => {
-    vi.clearAllMocks(); localStorage.clear(); vi.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.clearAllMocks(); mocks.mobile = false; mocks.tablet = false; localStorage.clear(); vi.spyOn(window, 'confirm').mockReturnValue(true);
     mocks.preview.mockResolvedValue({ subject: 'Preview subject', html: '<html><body><p>Rendered email</p></body></html>', source_html: '<p>Unresolved {{client_first_name}}</p>' });
     mocks.templates.mockResolvedValue([template]);
     mocks.update.mockImplementation(async (id, data) => ({ ...template, ...data, id }));
@@ -169,6 +172,89 @@ describe('production email workspace', () => {
     fireEvent.change(screen.getByLabelText('Ask Robbie'), { target: { value: 'Make this message warmer.' } });
     fireEvent.click(screen.getByRole('button', { name: /Ask Robbie ↑/ }));
     await waitFor(() => expect(mocks.suggest).toHaveBeenCalledWith(expect.objectContaining({ scope: 'email' })));
+  });
+
+  it('switches mobile editor modes and Robbie without losing the draft', async () => {
+    mocks.mobile = true; setup();
+    expect(screen.queryByRole('complementary', { name: 'Robbie assistant' })).not.toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Email subject'), { target: { value: 'My client update' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Robbie assistant' }));
+    expect(screen.getByRole('complementary', { name: 'Robbie assistant' })).toBeVisible();
+    expect(screen.queryByRole('region', { name: 'Email editor' })).not.toBeInTheDocument();
+    tab('HTML');
+    await screen.findByLabelText('Email HTML content');
+    expect(screen.getByLabelText('Email subject')).toHaveValue('My client update');
+    tab('Edit email');
+    expect(screen.getByRole('button', { name: 'Edit Before you arrive' })).toBeVisible();
+    expect(mocks.create).not.toHaveBeenCalled(); expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('keeps the selected section when moving from the mobile section panel to Robbie', async () => {
+    mocks.mobile = true; setup(); mocks.suggest.mockResolvedValue({ subject: template.subject });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Before you arrive' }));
+    expect(screen.getByRole('dialog', { name: 'Edit email section' })).toBeVisible();
+    fireEvent.change(screen.getByLabelText('Tips · one per line'), { target: { value: 'Bring a spare battery.' } });
+    fireEvent.click(screen.getByRole('button', { name: /Ask Robbie about this section/ }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit email section' })).not.toBeInTheDocument());
+    fireEvent.change(screen.getByLabelText('Ask Robbie'), { target: { value: 'Add a lens cleaning tip.' } });
+    fireEvent.click(screen.getByRole('button', { name: /Ask Robbie ↑/ }));
+    await waitFor(() => expect(mocks.suggest).toHaveBeenCalledWith(expect.objectContaining({
+      scope: 'section', section_id: template.editor_document_json!.sections.find(section => section.type === 'tips')!.id,
+    })));
+    await screen.findByText('Robbie’s suggestion');
+    expect(screen.getByText('Bring a spare battery.')).toBeVisible();
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('opens existing templates and HTML import from the mobile actions menu', async () => {
+    mocks.mobile = true; setup(); const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Template actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Open template' }));
+    expect(await screen.findByRole('dialog', { name: 'Open an existing template' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: /Photographer field notes/ }));
+    await user.click(screen.getByRole('button', { name: 'Template actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Import HTML' }));
+    expect(await screen.findByRole('dialog', { name: 'Paste or import HTML' })).toBeVisible();
+    expect(screen.getByLabelText('Email HTML')).toBeEnabled();
+    expect(mocks.update).not.toHaveBeenCalled(); expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('can collapse the desktop assistant and changes only the delivered preview theme', async () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Robbie assistant' }));
+    expect(screen.queryByRole('complementary', { name: 'Robbie assistant' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Email preview appearance' })).not.toBeInTheDocument();
+    tab('Preview');
+    await screen.findByTitle('Delivered email preview');
+    fireEvent.click(screen.getByRole('button', { name: 'Preview dark email' }));
+    await waitFor(() => expect(mocks.preview).toHaveBeenLastCalledWith(81, undefined, expect.objectContaining({ theme: 'dark' })));
+    expect(screen.getByLabelText('Email subject')).toHaveValue(template.subject);
+    tab('Edit email');
+    expect(screen.queryByRole('button', { name: 'Preview light email' })).not.toBeInTheDocument();
+  });
+
+  it('uses a focused section dialog on tablets and keeps manual edits when it closes', async () => {
+    mocks.tablet = true; setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Before you arrive' }));
+    expect(screen.getByRole('dialog', { name: 'Edit email section' })).toHaveAttribute('data-mobile', 'false');
+    fireEvent.change(screen.getByLabelText('Tips · one per line'), { target: { value: 'Pack a spare memory card.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Close section editor' }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Edit email section' })).not.toBeInTheDocument());
+    expect(screen.getByText('Pack a spare memory card.')).toBeVisible();
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
+  it('inserts personal fields without leaving the mobile section editor', async () => {
+    mocks.mobile = true; setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Before you arrive' }));
+    const message = screen.getByLabelText('Tips · one per line') as HTMLTextAreaElement;
+    fireEvent.change(message, { target: { value: 'Hello ' } });
+    message.focus(); message.setSelectionRange(6, 6); fireEvent.select(message);
+    fireEvent.click(screen.getByRole('button', { name: 'Insert personal field' }));
+    fireEvent.click(screen.getByRole('button', { name: '{{client_name}}' }));
+    await waitFor(() => expect(screen.getByLabelText('Tips · one per line')).toHaveValue('Hello {{client_name}}'));
+    expect(screen.getByRole('dialog', { name: 'Edit email section' })).toBeVisible();
+    expect(mocks.update).not.toHaveBeenCalled();
   });
 });
 
