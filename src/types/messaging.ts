@@ -243,6 +243,7 @@ export interface MessageTemplate {
   editable_body_text?: string | null;
   editable_content_blocks?: TemplateEditableContentBlock[] | null;
   content_blocks_json?: TemplateContentBlockOverrides | null;
+  editor_document_json?: import('./emailTemplateWorkspace').EmailEditorDocument | null;
   variables_json?: string[] | null;
   scope: TemplateScope;
   owner_id?: number;
@@ -596,6 +597,7 @@ export interface MessageRelatedRecord {
 }
 
 export interface TemplatePreviewResult {
+  source_html?: string;
   subject?: string | null;
   html?: string | null;
   text?: string | null;

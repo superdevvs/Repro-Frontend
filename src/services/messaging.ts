@@ -125,7 +125,7 @@ export const previewTemplate = async (
 
 export type TemplateDraft = Pick<MessageTemplate,
   'channel' | 'name' | 'description' | 'category' | 'subject' | 'body_html' | 'body_text'
-> & Partial<Pick<MessageTemplate, 'scope' | 'email_type' | 'override_enabled' | 'variables_json' | 'content_blocks_json'>>;
+> & Partial<Pick<MessageTemplate, 'scope' | 'email_type' | 'override_enabled' | 'variables_json' | 'content_blocks_json' | 'editor_document_json'>>;
 
 // Manual shoot notifications — catalogue-driven (EM Media + Notify Slice 1).
 //

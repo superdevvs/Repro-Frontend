@@ -34,7 +34,7 @@ import {
   type SimpleAutomationDraft,
 } from '@/components/messaging/automations/workflow-utils';
 
-import { TemplateEditorDialog } from '@/components/messaging/templates/TemplateEditorDialog';
+import { TemplateWorkspaceDialog as TemplateEditorDialog } from '@/components/messaging/templates/TemplateWorkspaceDialog';
 import { AutomationSmsSenderField } from './AutomationSmsSenderField';
 import { AutomationScheduleFields } from './AutomationScheduleFields';
 import { SCHEDULE_TRIGGER_TYPES } from './automationWorkflowTypes';

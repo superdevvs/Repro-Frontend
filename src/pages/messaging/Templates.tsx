@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { toast } from '@/lib/sonner-toast';
 import { Plus, Search, MoreVertical, Copy, Edit, Trash2, Send } from 'lucide-react';
 import { getTemplates, deleteTemplate, duplicateTemplate } from '@/services/messaging';
-import { TemplateEditorDialog } from '@/components/messaging/templates/TemplateEditorDialog';
+import { EmailTemplateWorkspace } from '@/components/messaging/templates/workspace/EmailTemplateWorkspace';
 import { BulkTemplateTestDialog } from '@/components/messaging/templates/BulkTemplateTestDialog';
 import { getTemplateErrorMessage } from '@/components/messaging/templates/templatePreviewSupport';
 import type { MessageTemplate } from '@/types/messaging';
@@ -253,7 +253,7 @@ export default function Templates() {
 
         {/* Template Editor Dialog */}
         {(isCreating || editingTemplate) && (
-          <TemplateEditorDialog
+          <EmailTemplateWorkspace
             template={editingTemplate}
             open={true}
             onClose={() => {
@@ -265,8 +265,6 @@ export default function Templates() {
                 current?.map((item) => item.id === savedTemplate.id ? savedTemplate : item),
               );
               queryClient.invalidateQueries({ queryKey: ['templates'] });
-              setIsCreating(false);
-              setEditingTemplate(null);
             }}
           />
         )}

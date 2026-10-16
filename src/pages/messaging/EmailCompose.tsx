@@ -86,7 +86,7 @@ export default function EmailCompose() {
   const [templateCustomized, setTemplateCustomized] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const draftKey = `email-compose-draft:${user?.id ?? 'anonymous'}:${composeMode}:${originalMessage?.id ?? 'new'}`;
+  const draftKey = `email-compose-draft:${user?.id ?? 'anonymous'}:${composeMode}:${originalMessage?.id ?? (composeState.prefillTemplateId ? 'template-'+composeState.prefillTemplateId : 'new')}`;
 
   const currentMode = useMemo(() => {
     if (composeMode === 'reply') {
@@ -687,6 +687,16 @@ export default function EmailCompose() {
     }));
     setTemplateCustomized(false);
   };
+
+  const workspaceTemplateApplied = useRef<number | null>(null);
+  useEffect(() => {
+    const id = composeState.prefillTemplateId;
+    const selected = templates.find(item => item.id === id);
+    if (!draftHydrated || !selected || workspaceTemplateApplied.current === id || draftWasRestored) return;
+    workspaceTemplateApplied.current = id;
+    setForm(current => ({ ...current, template_id: String(id), subject: selected.subject ?? '', body_html: selected.body_html ?? '', body_text: selected.body_text ?? '' }));
+    setTemplateCustomized(false); setPreviewMode(true);
+  }, [composeState.prefillTemplateId, draftHydrated, draftWasRestored, templates]);
 
   const openDirectory = (field: RecipientField) => {
     setDirectoryField(field);

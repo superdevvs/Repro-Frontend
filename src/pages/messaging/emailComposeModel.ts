@@ -13,6 +13,7 @@ export type EmailComposeLocationState = {
   mode?: EmailComposeMode;
   message?: Message;
   prefillBody?: string;
+  prefillTemplateId?: number;
 };
 
 export type ComposeRecipients = Record<RecipientField, string[]>;

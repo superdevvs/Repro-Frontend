@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { TemplateEditorDialog } from '@/components/messaging/templates/TemplateEditorDialog';
+import { TemplateWorkspaceDialog as TemplateEditorDialog } from '@/components/messaging/templates/TemplateWorkspaceDialog';
 import { AutomationSmsSenderField } from '@/components/messaging/automations/AutomationSmsSenderField';
 import { AutomationScheduleFields } from '@/components/messaging/automations/AutomationScheduleFields';
 import { storedReminderSchedule } from '@/components/messaging/automations/automationSchedule';

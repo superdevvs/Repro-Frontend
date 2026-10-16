@@ -3,8 +3,10 @@ import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { previewTemplate, type TemplateDraft } from '@/services/messaging';
 import { getTemplateErrorMessage } from './templatePreviewSupport';
+import { safeEmailPreview } from './workspace/emailWorkspaceModel';
 
 interface Props {
+  compact?: boolean;
   templateId: number | null;
   draft: TemplateDraft;
   enabled: boolean;
@@ -14,7 +16,7 @@ interface Props {
   onViewportChange: (viewport: 'desktop' | 'mobile') => void;
 }
 
-export function TemplateRenderedPreview({ templateId, draft, enabled, theme, viewport, onThemeChange, onViewportChange }: Props) {
+export function TemplateRenderedPreview({ compact, templateId, draft, enabled, theme, viewport, onThemeChange, onViewportChange }: Props) {
   const [previewDraft, setPreviewDraft] = useState(draft);
 
   useEffect(() => {
@@ -39,7 +41,7 @@ export function TemplateRenderedPreview({ templateId, draft, enabled, theme, vie
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-background px-3 py-3 sm:px-6">
+      {!compact && <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-background px-3 py-3 sm:px-6">
         <div className="flex gap-1" role="group" aria-label="Email color theme">
           {(['light', 'dark'] as const).map((value) => (
             <Button key={value} size="sm" variant={theme === value ? 'default' : 'outline'}
@@ -56,7 +58,7 @@ export function TemplateRenderedPreview({ templateId, draft, enabled, theme, vie
             </Button>
           ))}
         </div>
-      </div>
+      </div>}
       <div className="min-h-0 flex-1 overflow-auto bg-muted/40 py-3 sm:p-6">
         <p className="mx-3 mb-3 text-xs text-muted-foreground sm:mx-0">
           Your current message, rendered as an email. Sample recipient and event data fill the dynamic fields.
@@ -80,14 +82,15 @@ export function TemplateRenderedPreview({ templateId, draft, enabled, theme, vie
                 Sample values unavailable for: {missing.join(', ')}. These shortcodes need values when sending.
               </p>
             )}
-            <div className="mx-auto overflow-hidden rounded-xl shadow-sm ring-1 ring-border" style={{ width }}>
+            <div className="mx-auto overflow-hidden rounded-xl shadow-sm ring-1 ring-border" style={{ width, maxWidth: compact ? '100%' : undefined }}>
               <iframe
                 title="Delivered email preview"
                 className="block h-[800px] border-0"
                 width={width}
-                style={{ width, background: theme === 'dark' ? '#080f17' : '#edf2f7', colorScheme: theme }}
+                style={{ width: compact ? '100%' : width, background: theme === 'dark' ? '#080f17' : '#edf2f7', colorScheme: theme }}
                 sandbox=""
-                srcDoc={html}
+                srcDoc={compact ? safeEmailPreview(html) : html}
+                referrerPolicy="no-referrer"
               />
             </div>
           </>

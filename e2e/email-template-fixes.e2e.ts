@@ -1,72 +1,20 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { loginAsAdmin } from './helpers/auth';
+import { emailWorkspaceFixture } from './helpers/emailWorkspaceFixture';
 
-import { ADMIN_EMAIL, ADMIN_PASSWORD, loginAsAdmin } from './helpers/auth';
-
-/**
- * Email Template Fixes — verifies the editor UX changes against the REAL
- * Messaging > Email > Templates UI:
- *   • System templates keep content editable (Subject is NOT disabled).
- *   • New Account body preview carries the new "Thank you for the opportunity." closing.
- *   • The protected-email override controls are present for EMAIL templates.
- *
- * The editor renders saved and draft content through the server's shared email
- * layout. The iframe preserves the delivered styles and supports both themes.
- *
- * ENVIRONMENT — needs the seeded stack + an admin account (E2E_ADMIN_EMAIL /
- * E2E_ADMIN_PASSWORD) with access to /messaging/email/templates. Runs headless and
- * skips gracefully when the templates UI or seeded rows are unavailable.
- */
-
-async function openTemplateByName(page: Page, name: string): Promise<boolean> {
-  await page.goto('/messaging/email/templates');
-  if (!/\/messaging\/email\/templates/.test(page.url())) {
-    return false; // No access / redirected.
-  }
-
-  const search = page.getByPlaceholder('Search templates...');
-  if (!(await search.waitFor({ state: 'visible', timeout: 15_000 }).then(() => true).catch(() => false))) {
-    return false;
-  }
-
-  await search.fill(name);
-  const card = page.locator('h3', { hasText: name }).first();
-  if (!(await card.waitFor({ state: 'visible', timeout: 10_000 }).then(() => true).catch(() => false))) {
-    return false;
-  }
-
-  await card.click();
-  // Editor dialog opens with the Email Subject field.
-  await expect(page.getByLabel('Email Subject *')).toBeVisible({ timeout: 10_000 });
-  return true;
-}
-
-test.describe('Email Template Fixes', () => {
-  test('New Account: system template content is editable + new closing in preview', async ({ page }) => {
-    await loginAsAdmin(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-
-    const opened = await openTemplateByName(page, 'New Account Created');
-    test.skip(!opened, 'Templates UI or "New Account Created" row unavailable; seed to verify.');
-
-    // Editability: the subject (content field) must remain editable for system templates.
-    const subject = page.getByLabel('Email Subject *');
-    await expect(subject).toBeEnabled();
-
-    // The protected-email override control is available for EMAIL templates.
-    await expect(page.getByText('Automated email override')).toBeVisible();
-
-    // Body preview carries the new closing line.
-    await page.getByRole('tab', { name: /preview/i }).click();
-    await expect(page.frameLocator('iframe[title="Delivered email preview"]').locator('[data-email-content="true"]').getByText('Thank you for the opportunity.', { exact: false })).toBeVisible({
-      timeout: 10_000,
-    });
-  });
-
-  test('Payment Reminder: system template subject remains editable', async ({ page }) => {
-    await loginAsAdmin(page, ADMIN_EMAIL, ADMIN_PASSWORD);
-
-    const opened = await openTemplateByName(page, 'Payment Reminder');
-    test.skip(!opened, 'Templates UI or "Payment Reminder" row unavailable; seed to verify.');
-
-    await expect(page.getByLabel('Email Subject *')).toBeEnabled();
-  });
+test('connected system copy remains editable and keeps its runtime wrapper', async ({ page }) => {
+  const fixture = await emailWorkspaceFixture(page);
+  await loginAsAdmin(page); await page.goto('/messaging/email/templates');
+  await page.getByRole('heading', { name: 'Connected account welcome', exact: true }).click();
+  await expect(page.getByLabel('Email subject', { exact: true })).toBeEnabled();
+  await page.getByRole('button', { name: 'Edit Introduction', exact: true }).click();
+  await page.getByLabel('Section content').fill('A warm welcome, {{client_name}}.');
+  await page.getByRole('button', { name: 'Close section editor' }).click();
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('All changes saved', { exact: true })).toBeVisible();
+  expect(fixture.templates[1].body_html).toBe('{{system_body_html}}');
+  expect(fixture.templates[1].content_blocks_json?.['account.intro'].body_text).toBe('A warm welcome, {{client_name}}.');
+  await page.getByRole('button', { name: 'Template settings', exact: true }).click();
+  await expect(page.getByRole('checkbox', { name: 'Use this saved content for the automated email' })).toBeChecked();
+  expect(fixture.sends).toBe(0);
 });
