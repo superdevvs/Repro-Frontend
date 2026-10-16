@@ -153,6 +153,23 @@ describe('production email workspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await waitFor(() => expect(mocks.update).toHaveBeenCalledWith(81, expect.objectContaining({ body_html: '<p>Updated {{client_first_name}}</p>', editor_document_json: expect.objectContaining({ format: 'html' }) })));
   });
+
+  it('keeps a complete document pasted into an existing custom template in its original style', async () => {
+    setup({ ...template, editor_document_json: null }); tab('HTML');
+    const html = '<!doctype html><html><head><style>p{color:teal}</style></head><body><p>New client information</p></body></html>';
+    fireEvent.change(screen.getByLabelText('Email HTML content'), { target: { value: html } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledWith(81, expect.objectContaining({ body_html: html, editor_document_json: expect.objectContaining({ format: 'html' }) })));
+  });
+
+  it('lets Robbie edit an existing unstructured message from its section editor', async () => {
+    setup({ ...template, editor_document_json: null }); mocks.suggest.mockResolvedValue({ subject: template.subject });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit message content' }));
+    fireEvent.click(screen.getByRole('button', { name: /Ask Robbie about this section/ }));
+    fireEvent.change(screen.getByLabelText('Ask Robbie'), { target: { value: 'Make this message warmer.' } });
+    fireEvent.click(screen.getByRole('button', { name: /Ask Robbie ↑/ }));
+    await waitFor(() => expect(mocks.suggest).toHaveBeenCalledWith(expect.objectContaining({ scope: 'email' })));
+  });
 });
 
 describe('untrusted email markup', () => {
