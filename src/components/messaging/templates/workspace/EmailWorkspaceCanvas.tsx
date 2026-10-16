@@ -13,7 +13,7 @@ export function EmailWorkspaceCanvas({ draft, template, selected, disabled, onSe
   const blocks = template?.editable_content_blocks ?? [];
   return <>
     <article className="ews-paper" aria-label="Email canvas">
-      <header className="ews-email-brand"><img src="/images/repro-email-logo-light.png" alt="R/E Pro Photos"/><span>A NOTE FROM REPRO</span></header>
+      <header className="ews-email-brand"><img src="/images/repro-email-logo-grey.png" alt="R/E Pro Photos"/><span>A NOTE FROM REPRO</span></header>
       <div className="ews-email-title">{draft.name === 'Untitled email' ? 'Your next great email.' : draft.name}</div>
       <div className="ews-email-content">
         {draft.editor_document_json.format === 'sections' ? sections.map((section, index) => <button key={section.id} className="ews-editable-section" data-selected={selected === section.id} disabled={disabled} onClick={() => onSelect(section.id)} aria-label={`Edit ${section.heading || section.type+' section '+(index+1)}`} style={{ textAlign: section.alignment, paddingBottom: section.spacing }}>
