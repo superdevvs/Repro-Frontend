@@ -530,6 +530,7 @@ export const useNotifications = () => {
   const canAccessSms = canAccessNotificationSms(role);
   useSmsRealtime({
     enabled: canAccessSms && Boolean(user?.id),
+    userId: user?.id,
     onMessage: canAccessSms ? (message) => {
       addNotification(buildSmsNotification(message, { isMessage: true }, readIdsRef.current, lastSeenAtRef.current), { showToast: true });
     } : undefined,

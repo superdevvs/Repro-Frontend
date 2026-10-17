@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useSyncExternalStore } from 'react';
 import type { SmsMessageDetail, SmsThreadSummary } from '@/types/messaging';
-import { getEchoClient, isRealtimeEnabled } from '@/realtime/echoClient';
+import { getEchoClient, getEchoClientGeneration, isRealtimeEnabled, subscribeEchoClientChanges } from '@/realtime/echoClient';
 
 type SmsRealtimeOptions = {
   enabled?: boolean;
@@ -47,6 +47,7 @@ const retainChannel = (echo: SmsEchoClient, name: string) => {
 };
 
 export const useSmsRealtime = ({ enabled = true, threadId, includeSystem = false, personalOnly = false, userId, onMessage, onThreadUpdated }: SmsRealtimeOptions) => {
+  const generation = useSyncExternalStore(subscribeEchoClientChanges, getEchoClientGeneration, getEchoClientGeneration);
   const callbacks = useRef({ onMessage, onThreadUpdated });
   useEffect(() => { callbacks.current = { onMessage, onThreadUpdated }; }, [onMessage, onThreadUpdated]);
   useEffect(() => {
@@ -106,6 +107,6 @@ export const useSmsRealtime = ({ enabled = true, threadId, includeSystem = false
       removeListeners.forEach(remove => remove());
       releaseChannels.forEach(release => release());
     };
-  }, [enabled, threadId, includeSystem, personalOnly, userId]);
+  }, [enabled, threadId, includeSystem, personalOnly, userId, generation]);
 };
 

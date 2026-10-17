@@ -1,9 +1,17 @@
-import { cleanup, renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { useSmsRealtime } from './use-sms-realtime';
 
 const echo = vi.hoisted(() => ({ private: vi.fn(), leaveChannel: vi.fn() }));
-vi.mock('@/realtime/echoClient', () => ({ isRealtimeEnabled: () => true, getEchoClient: async () => echo }));
+const lifecycle = vi.hoisted(() => ({ generation: 0, listeners: new Set<() => void>() }));
+vi.mock('@/realtime/echoClient', () => ({
+  isRealtimeEnabled: () => true, getEchoClient: async () => echo,
+  getEchoClientGeneration: () => lifecycle.generation,
+  subscribeEchoClientChanges: (listener: () => void) => {
+    lifecycle.listeners.add(listener);
+    return () => { lifecycle.listeners.delete(listener); };
+  },
+}));
 const channel = () => {
   type Handler = (event: unknown) => void;
   const handlers = new Map<string, Set<Handler>>();
@@ -23,6 +31,8 @@ const channel = () => {
 };
 const cachedChannels = new Map<string, ReturnType<typeof channel>>();
 beforeEach(() => {
+  lifecycle.generation = 0;
+  lifecycle.listeners.clear();
   cachedChannels.clear();
   echo.private.mockReset().mockImplementation((name: string) => {
     if (!cachedChannels.has(name)) cachedChannels.set(name, channel());
@@ -120,4 +130,13 @@ it('leaves Echo cache before resubscribing after the last consumer unmounts', as
   expect(current).not.toBe(previous);
   current.dispatch('.SmsThreadUpdated', { thread: { id: '456' } });
   expect(onThreadUpdated).toHaveBeenCalledWith({ id: '456' });
+});
+
+it('resubscribes after the shared connection changes credentials', async () => {
+  renderHook(() => useSmsRealtime({}));
+  await waitFor(() => expect(echo.private).toHaveBeenCalledOnce());
+  const previous = echo.private.mock.results[0].value;
+  act(() => { lifecycle.generation += 1; lifecycle.listeners.forEach(listener => listener()); });
+  await waitFor(() => expect(echo.private).toHaveBeenCalledTimes(2));
+  expect(previous.unsubscribe).toHaveBeenCalledOnce();
 });

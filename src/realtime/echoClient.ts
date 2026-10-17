@@ -20,23 +20,41 @@ const resolveAuthEndpoint = () => {
   return `${base}/broadcasting/auth`;
 };
 
-type EchoClient = Echo<any>;
+type EchoClient = Echo<'pusher'>;
 
 let echoPromise: Promise<EchoClient | null> | null = null;
+let echoModulesPromise: Promise<[typeof import('laravel-echo'), typeof import('pusher-js')]> | null = null;
+let echoAuthIdentity: string | null = null;
+let echoGeneration = 0;
+const echoListeners = new Set<() => void>();
+
+export const subscribeEchoClientChanges = (listener: () => void) => {
+  echoListeners.add(listener);
+  return () => { echoListeners.delete(listener); };
+};
+export const getEchoClientGeneration = () => echoGeneration;
 
 export const getEchoClient = async (): Promise<EchoClient | null> => {
   if (typeof window === 'undefined' || !isRealtimeEnabled()) return null;
+  const authHeaders = getApiHeaders();
+  // Trace headers change on every request; only credentials identify the actor.
+  const authIdentity = JSON.stringify([authHeaders.Authorization ?? '', authHeaders['X-Impersonate-User-Id'] ?? '']);
+  if (echoAuthIdentity !== null && echoAuthIdentity !== authIdentity) disconnectEchoClient();
+  echoAuthIdentity = authIdentity;
   if (window.Echo) return window.Echo;
   if (echoPromise) return echoPromise;
 
   const key = import.meta.env.VITE_PUSHER_APP_KEY;
   if (!key) return null;
 
+  const generation = echoGeneration;
   echoPromise = (async () => {
-    const [{ default: EchoConstructor }, { default: Pusher }] = await Promise.all([
-      import('laravel-echo'),
-      import('pusher-js'),
-    ]);
+    // Dependencies are independent of the authenticated actor. Share their
+    // load while each connection initialization keeps its own actor guard.
+    echoModulesPromise ??= Promise.all([import('laravel-echo'), import('pusher-js')]);
+    const [{ default: EchoConstructor }, { default: Pusher }] = await echoModulesPromise;
+    // An impersonation/login change can occur while the lazy imports load.
+    if (generation !== echoGeneration) return null;
 
     window.Pusher = Pusher;
 
@@ -44,7 +62,6 @@ export const getEchoClient = async (): Promise<EchoClient | null> => {
     const host = import.meta.env.VITE_PUSHER_HOST ?? undefined;
     const scheme = import.meta.env.VITE_PUSHER_SCHEME ?? 'https';
     const forceTLS = scheme === 'https';
-    const authHeaders = getApiHeaders();
 
     window.Echo = new EchoConstructor({
       broadcaster: 'pusher',
@@ -73,4 +90,7 @@ export const disconnectEchoClient = () => {
   window.Echo?.disconnect();
   delete window.Echo;
   echoPromise = null;
+  echoAuthIdentity = null;
+  echoGeneration += 1;
+  echoListeners.forEach(listener => listener());
 };
