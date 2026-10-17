@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Check, ChevronDown, Send, Sparkles, SquarePen, Users, X } from 'lucide-react';
+import { Check, ChevronDown, Search, Send, Sparkles, SquarePen, Users, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -210,6 +210,8 @@ const SmsComposeForActor = ({ open, onOpenChange, onSend, sending, templates = [
   if (!open) return null;
 
   const selectedGroups = (groupsQuery.data ?? []).filter(group => groupIds.includes(group.id));
+  const groupSearch = directorySearch.trim().toLowerCase();
+  const matchingGroups = (groupsQuery.data ?? []).filter(group => group.name.toLowerCase().includes(groupSearch));
 
   return (
     <>
@@ -293,23 +295,41 @@ const SmsComposeForActor = ({ open, onOpenChange, onSend, sending, templates = [
                   {phoneError && <p role="alert" className="mt-1 text-xs text-destructive">{phoneError}</p>}
                 </div>
               </div>
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-border/60 py-2">
-                <div className="flex items-center gap-1">
-                  <Button type="button" variant={browser === 'people' ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 text-xs" aria-expanded={browser === 'people'} disabled={sending} onClick={() => setBrowser(current => current === 'people' ? null : 'people')}>
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/60 py-2">
+                <div className="relative min-w-0 basis-48 flex-1">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <Input
+                    aria-label="Search people and groups"
+                    aria-expanded={browser !== null}
+                    aria-controls={browser === 'people' ? 'sms-compose-people' : browser === 'groups' ? 'sms-compose-groups' : undefined}
+                    value={directorySearch}
+                    disabled={sending}
+                    onChange={event => {
+                      setDirectorySearch(event.target.value);
+                      setBrowser(current => current ?? 'people');
+                    }}
+                    onFocus={() => setBrowser(current => current ?? 'people')}
+                    onKeyDown={event => { if (event.key === 'Escape') setBrowser(null); }}
+                    placeholder={browser === 'groups' ? 'Search groups…' : browser === 'people' ? 'Search people…' : 'Search people or groups…'}
+                    autoComplete="off"
+                    className="h-8 border-transparent bg-background/60 pl-8 pr-8 text-xs shadow-none placeholder:text-muted-foreground/80 focus-visible:border-border focus-visible:ring-1"
+                  />
+                  {directorySearch && <button type="button" aria-label="Clear recipient search" disabled={sending} onClick={() => setDirectorySearch('')} className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+                    <X className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>}
+                </div>
+                <div className="ml-auto flex shrink-0 items-center gap-1">
+                  <Button type="button" variant={browser === 'people' ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 text-xs" aria-expanded={browser === 'people'} aria-controls="sms-compose-people" disabled={sending} onClick={() => setBrowser(current => current === 'people' ? null : 'people')}>
                     <Users className="h-3.5 w-3.5" aria-hidden="true" />People
                   </Button>
-                  <Button type="button" variant={browser === 'groups' ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 text-xs" aria-expanded={browser === 'groups'} disabled={sending} onClick={() => setBrowser(current => current === 'groups' ? null : 'groups')}>
+                  <Button type="button" variant={browser === 'groups' ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 text-xs" aria-expanded={browser === 'groups'} aria-controls="sms-compose-groups" disabled={sending} onClick={() => setBrowser(current => current === 'groups' ? null : 'groups')}>
                     Groups<ChevronDown className="h-3 w-3" aria-hidden="true" />
                   </Button>
                 </div>
-                {recipients.length > 0 && <Button type="button" variant="ghost" size="sm" className="h-8 px-2 text-xs text-muted-foreground" disabled={sending} onClick={() => {
-                  setGroupSeed(recipients.map(recipient => ({ key: recipient.key, name: recipient.label, phone: recipient.phone, userId: recipient.userId })));
-                  setGroupsOpen(true);
-                }}>Save as group</Button>}
               </div>
 
               {browser === 'people' && <div id="sms-compose-people" aria-label="People" className="max-h-52 overflow-y-auto border-t border-border/60 py-2">
-                {directoryQuery.isLoading ? <div role="status" className="flex items-center gap-2 px-2 py-4 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5" />Finding people…</div>
+                {directoryQuery.isLoading || directorySearch.trim() !== debouncedSearch ? <div role="status" className="flex items-center gap-2 px-2 py-4 text-xs text-muted-foreground"><Loader2 className="h-3.5 w-3.5" />Finding people…</div>
                   : directoryQuery.isError ? <div role="alert" className="flex flex-wrap items-center gap-2 px-2 py-3 text-xs text-destructive">Could not load people.<Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => void directoryQuery.refetch()} disabled={sending}>Retry people</Button></div>
                     : directoryGroups.length === 0 ? <p className="px-2 py-4 text-xs text-muted-foreground">{isPlausiblePhone(phoneInput) ? 'Press Enter to add this number.' : 'No matching people. You can also enter a phone number.'}</p>
                       : directoryGroups.map(group => <div key={group.heading} className="py-1">
@@ -325,17 +345,24 @@ const SmsComposeForActor = ({ open, onOpenChange, onSend, sending, templates = [
                       </div>)}
               </div>}
 
-              {browser === 'groups' && <div aria-label="Saved groups" className="border-t border-border/60 pb-3 pt-2">
-                <div className="mb-1 flex items-center justify-between gap-2 px-2">
+              {browser === 'groups' && <div id="sms-compose-groups" aria-label="Saved groups" className="border-t border-border/60 pb-3 pt-2">
+                <div className="mb-1 flex flex-wrap items-center justify-between gap-2 px-2">
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Saved groups</span>
-                  <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={sending} onClick={() => { setGroupSeed([]); setGroupsOpen(true); }}>Manage</Button>
+                  <div className="ml-auto flex items-center gap-1">
+                    {recipients.length > 0 && <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs text-muted-foreground" disabled={sending} onClick={() => {
+                      setGroupSeed(recipients.map(recipient => ({ key: recipient.key, name: recipient.label, phone: recipient.phone, userId: recipient.userId })));
+                      setGroupsOpen(true);
+                    }}>Save as group</Button>}
+                    <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" disabled={sending} onClick={() => { setGroupSeed([]); setGroupsOpen(true); }}>Manage</Button>
+                  </div>
                 </div>
                 {groupsQuery.isLoading ? <p role="status" className="px-2 py-3 text-xs text-muted-foreground">Loading groups…</p>
                   : groupsQuery.isError ? <div role="alert" className="flex flex-wrap items-center gap-2 px-2 py-3 text-xs text-destructive">Could not load groups.<Button type="button" variant="link" size="sm" className="h-auto p-0 text-xs" onClick={() => void groupsQuery.refetch()} disabled={sending}>Retry groups</Button></div>
                     : (groupsQuery.data ?? []).length === 0 ? <p className="px-2 py-3 text-xs text-muted-foreground">No groups yet. Create one in Manage.</p>
-                      : <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto px-2 py-1">{(groupsQuery.data ?? []).map(group => {
+                      : matchingGroups.length === 0 ? <p className="px-2 py-3 text-xs text-muted-foreground">No matching groups. Try another name or clear search.</p>
+                        : <div className="flex max-h-36 flex-wrap gap-2 overflow-y-auto px-2 py-1">{matchingGroups.map(group => {
                         const selected = groupIds.includes(group.id);
-                        return <Button key={group.id} type="button" variant={selected ? 'secondary' : 'outline'} size="sm" aria-pressed={selected} className={`h-9 gap-2 rounded-lg text-xs ${selected ? 'border border-primary/30 bg-primary/10 text-foreground' : ''}`} disabled={sending} onClick={() => toggleGroup(group.id)}>
+                        return <Button key={group.id} type="button" variant={selected ? 'secondary' : 'outline'} size="sm" aria-label={`${group.name}, ${group.member_count} ${group.member_count === 1 ? 'person' : 'people'}`} aria-pressed={selected} className={`h-9 gap-2 rounded-lg text-xs ${selected ? 'border border-primary/30 bg-primary/10 text-foreground' : ''}`} disabled={sending} onClick={() => toggleGroup(group.id)}>
                           {selected ? <Check className="h-3.5 w-3.5 text-primary" /> : <Users className="h-3.5 w-3.5 text-muted-foreground" />}{group.name}<span className="text-muted-foreground">{group.member_count}</span>
                         </Button>;
                       })}</div>}
