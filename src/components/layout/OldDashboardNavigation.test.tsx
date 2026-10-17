@@ -8,6 +8,10 @@ import { Navbar } from './Navbar';
 import { MenuContent } from './mobile-menu/MenuContent';
 import { useMobileMenu } from './mobile-menu/useMobileMenu';
 
+vi.mock('@/hooks/useMessagingBadgeCounts', () => ({
+  useMessagingBadgeCounts: () => ({ email: 0, sms: 0, call: 0 }),
+}));
+
 vi.mock('@/components/auth/AuthProvider', () => ({
   useAuth: () => ({
     user: { id: '1', name: 'Admin User', role: 'admin' },
