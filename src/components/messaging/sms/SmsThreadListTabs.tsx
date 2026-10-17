@@ -8,9 +8,9 @@ interface SmsThreadFilterTabsProps {
 
 const filters: Array<{ value: SmsThreadFilter; label: string }> = [
   { value: 'unanswered', label: 'Unanswered' },
-  { value: 'my_recents', label: 'Recent' },
+  { value: 'my_recents', label: 'Mine' },
   { value: 'clients', label: 'Clients' },
-  { value: 'all', label: 'All' },
+  { value: 'all', label: 'Inbox' },
 ];
 
 export const SmsThreadFilterTabs = ({ value, onValueChange }: SmsThreadFilterTabsProps) => {

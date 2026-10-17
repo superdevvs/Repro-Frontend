@@ -4,7 +4,7 @@ import { NavLink } from './NavLink';
 import { ExpandableNavLink } from './ExpandableNavLink';
 import { usePermission } from '@/hooks/usePermission';
 import { canUseEmailWorkspace } from '@/utils/messagingRoles';
-import { isSupportInbox, MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
+import { MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
@@ -100,7 +100,6 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const canViewSms = permission.can('messaging-sms', 'view');
   const canViewCalls = permission.can('voice-calls', 'view');
   const canViewSupport = permission.can('support', 'view');
-  const supportActive = pathname === '/messaging/email/inbox' && isSupportInbox(location.search);
   const canViewAiEditing = permission.can('ai-editing', 'view');
   const canViewRobbie = permission.can('robbie', 'view');
   const messagingBadges = useMessagingBadgeCounts();
@@ -377,10 +376,9 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           onActivePreview={previewActiveIndicator}
           badge={messagingBadges.total}
           subItems={[
-            ...(canViewEmailInbox ? [{ to: '/messaging/email/inbox', label: 'Emails', badge: messagingBadges.email, isActive: pathname.startsWith('/messaging/email') && !supportActive }] : []),
+            ...(canViewEmailInbox || canViewSupport ? [{ to: canViewEmailInbox ? '/messaging/email/inbox' : MESSAGING_SUPPORT_URL, label: 'Emails', badge: messagingBadges.email, isActive: pathname.startsWith('/messaging/email') }] : []),
             ...(canViewSms ? [{ to: '/messaging/sms', label: 'SMS', badge: messagingBadges.sms }] : []),
             ...(canViewCalls ? [{ to: '/calls', label: 'Calls', badge: messagingBadges.call }] : []),
-            ...(canViewSupport ? [{ to: MESSAGING_SUPPORT_URL, label: 'Support', isActive: supportActive }] : []),
           ]}
         />
       )}

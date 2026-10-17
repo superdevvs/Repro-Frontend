@@ -346,6 +346,7 @@ export interface MessageThread {
 }
 
 export type SmsThreadFilter = 'all' | 'unanswered' | 'my_recents' | 'clients';
+export type SmsInboxScope = 'inbox' | 'system';
 
 export interface SmsContact {
   id: string;
@@ -368,6 +369,8 @@ export interface SmsContact {
 
 export interface SmsThreadSummary {
   id: string;
+  inboxScope?: SmsInboxScope;
+  needsReply?: boolean;
   contact?: SmsContact;
   lastMessageSnippet?: string;
   lastReaction?: SmsReaction | null;

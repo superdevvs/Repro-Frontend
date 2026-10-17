@@ -502,6 +502,7 @@ export const markEmailThreadRead = async (id: number): Promise<void> => {
 
 // SMS
 export const getSmsThreads = async (params?: {
+  scope?: 'inbox' | 'system';
   per_page?: number;
   page?: number;
   filter?: string;

@@ -116,7 +116,7 @@ describe('SmsCenter realtime reactions', () => {
     });
 
     await waitFor(() => expect(vi.mocked(getSmsThread).mock.calls.length).toBeGreaterThan(1));
-    const cached = client.getQueryData<SmsThreadDetail>(['sms-thread', thread.id]);
+    const cached = client.getQueryData<SmsThreadDetail>(['sms-thread', thread.id, undefined, 'client']);
     expect(cached?.messages.filter(({ id }) => id === incoming.id)).toHaveLength(1);
 
     await act(async () => { resolveRefetch(detail([onboarding, original, incoming])); });
@@ -128,7 +128,7 @@ describe('SmsCenter realtime reactions', () => {
     expect(screen.getAllByRole('link', { name: 'https://reprodashboard.com/shoots/2474' })).toHaveLength(1);
     expect(container.textContent).not.toContain('A aprobat');
     expect(container.textContent).not.toContain('Liked your message');
-    expect(client.getQueryData<SmsThreadDetail>(['sms-thread', thread.id])?.messages.map(({ id }) => id))
+    expect(client.getQueryData<SmsThreadDetail>(['sms-thread', thread.id, undefined, 'client'])?.messages.map(({ id }) => id))
       .toEqual([onboarding.id, original.id, incoming.id]);
 
     unmount();

@@ -12,6 +12,9 @@ export const canUseEmailWorkspace = (role?: string | null): boolean =>
 export const canSendExternalEmail = (role?: string | null): boolean =>
   canUseEmailWorkspace(role);
 
+export const canViewSystemSms = (role?: string | null): boolean =>
+  ['superadmin', 'admin'].includes(normalizeMessagingRole(role));
+
 export const isInternalMessagingRole = (role?: string | null): boolean =>
   ['client', 'photographer', 'editor'].includes(normalizeMessagingRole(role));
 

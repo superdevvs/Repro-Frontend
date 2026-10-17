@@ -1,6 +1,6 @@
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { SmsThreadList } from '@/components/messaging/sms/SmsThreadList';
 import { SmsConversation } from '@/components/messaging/sms/SmsConversation';
@@ -17,7 +17,7 @@ import {
   updateSmsContactComment,
   getTemplates,
 } from '@/services/messaging';
-import type { PaginatedResponseMeta, SmsContact, SmsThreadDetail, SmsThreadFilter, SmsThreadSummary } from '@/types/messaging';
+import type { SmsInboxScope, SmsContact, SmsThreadDetail, SmsThreadFilter } from '@/types/messaging';
 import { useSmsRealtime } from '@/hooks/use-sms-realtime';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
@@ -27,32 +27,46 @@ import type { SmsComposePayload } from '@/components/messaging/sms/SmsComposeDia
 import { Skeleton } from '@/components/ui/skeleton';
 import { parseSmsReaction } from '@/components/messaging/sms/smsReaction';
 import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { canViewSystemSms } from '@/utils/messagingRoles';
 
 export default function SmsCenter() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { role, user } = useAuth();
+  const systemSmsAllowed = canViewSystemSms(role);
+  const scope: SmsInboxScope = systemSmsAllowed && searchParams.get('scope') === 'system' ? 'system' : 'inbox';
   const [filter, setFilter] = useState<SmsThreadFilter>('all');
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [page, setPage] = useState(1);
   const [desktopThreadId, setDesktopThreadId] = useState<string | null>(null);
-  const [composerText, setComposerText] = useState('');
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [composeOpen, setComposeOpen] = useState(false);
   const [contactDrawerOpen, setContactDrawerOpen] = useState(false);
   const [contactPanelOpen, setContactPanelOpen] = useState(false);
   const isMobile = useMediaQuery('(max-width: 1024px)');
   const requestedThreadId = searchParams.get('thread');
-  const searchParamsKey = searchParams.toString();
+  const autoSelectThread = useRef(true);
+  const pendingScope = useRef<SmsInboxScope | null>(null);
 
-  const threadsKey = ['sms-threads', { filter, search }];
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(search.trim()), 250);
+    return () => clearTimeout(timeout);
+  }, [search]);
+
+  const threadsKey = ['sms-threads', { userId: user?.id, role, scope, filter, search: debouncedSearch, page }];
 
   const threadsQuery = useQuery({
     queryKey: threadsKey,
     queryFn: () =>
       getSmsThreads({
         filter: filter === 'all' ? undefined : filter,
-        search: search || undefined,
+        scope,
+        search: debouncedSearch || undefined,
+        page,
         per_page: 50,
       }),
-    placeholderData: keepPreviousData,
   });
 
   const threads = useMemo(() => threadsQuery.data?.data ?? [], [threadsQuery.data?.data]);
@@ -61,56 +75,42 @@ export default function SmsCenter() {
   // ?thread=, so Back (and the browser back gesture) can clear it and stay
   // cleared. Auto-selecting the first thread here reopened that conversation
   // the moment Back set the selection to null.
-  // Desktop keeps a split view: adopt a deep link, otherwise open the first
-  // thread. The ref ignores URL echoes of our own writes; comparing the URL
-  // to state on every run oscillated the selection and flooded mark-read.
-  const lastRequestedThreadRef = useRef<string | null>(null);
+  // Desktop keeps a split view and adopts deep links. URL writes happen only
+  // in navigation actions; a second synchronization effect can overwrite a
+  // scope change with the previous render's URL.
   const activeThreadId = isMobile ? requestedThreadId : desktopThreadId;
+  const draftKey = `${user?.id}:${role}:${activeThreadId}`;
+  const composerText = activeThreadId ? drafts[draftKey] ?? '' : '';
+  const setComposerText = (value: string | ((previous: string) => string)) => {
+    if (!activeThreadId) return;
+    setDrafts(previous => ({ ...previous, [draftKey]: typeof value === 'function' ? value(previous[draftKey] ?? '') : value }));
+  };
 
   useEffect(() => {
     if (isMobile) return;
+    if (pendingScope.current) {
+      if (pendingScope.current === scope) pendingScope.current = null;
+      return;
+    }
 
-    if (requestedThreadId && requestedThreadId !== lastRequestedThreadRef.current) {
-      lastRequestedThreadRef.current = requestedThreadId;
+    if (requestedThreadId) {
       setDesktopThreadId(requestedThreadId);
       return;
     }
 
-    if (!desktopThreadId && threads.length > 0) {
+    if (autoSelectThread.current && !desktopThreadId && threads.length > 0) {
       setDesktopThreadId(threads[0].id);
     }
-  }, [isMobile, threads, desktopThreadId, requestedThreadId]);
-
-  useEffect(() => {
-    if (isMobile) return;
-
-    const nextParams = new URLSearchParams(searchParamsKey);
-    const currentThread = nextParams.get('thread');
-
-    if (desktopThreadId) {
-      if (currentThread === desktopThreadId) return;
-      lastRequestedThreadRef.current = desktopThreadId;
-      nextParams.set('thread', desktopThreadId);
-      setSearchParams(nextParams, { replace: true });
-      return;
-    }
-
-    if (!currentThread) return;
-    nextParams.delete('thread');
-    setSearchParams(nextParams, { replace: true });
-  }, [isMobile, desktopThreadId, searchParamsKey, setSearchParams]);
+  }, [isMobile, threads, desktopThreadId, requestedThreadId, scope]);
 
   const openThread = (id: string) => {
-    if (!isMobile) {
-      setDesktopThreadId(id);
-      return;
-    }
+    if (!isMobile) setDesktopThreadId(id);
 
     const nextParams = new URLSearchParams(searchParams);
     nextParams.set('thread', id);
     setContactDrawerOpen(false);
     // Push so the browser or system back gesture returns to the list.
-    setSearchParams(nextParams);
+    setSearchParams(nextParams, { replace: !isMobile });
   };
 
   const closeThread = () => {
@@ -120,17 +120,14 @@ export default function SmsCenter() {
     setSearchParams(nextParams, { replace: true });
   };
 
+  const detailKey = ['sms-thread', activeThreadId, user?.id, role];
   const threadDetailQuery = useQuery({
-    queryKey: ['sms-thread', activeThreadId],
+    queryKey: detailKey,
     queryFn: () => (activeThreadId ? getSmsThread(activeThreadId) : null),
     enabled: !!activeThreadId,
-    // Keep the currently displayed conversation on screen while the next one
-    // loads. Without this the pane unmounts to a skeleton on every switch,
-    // which reads as a flicker/glitch when opening conversations.
-    placeholderData: keepPreviousData,
   });
 
-  const threadDetail = threadDetailQuery.data;
+  const threadDetail = threadDetailQuery.data?.thread.id === activeThreadId ? threadDetailQuery.data : undefined;
   // Only show the skeleton on the very first load (no cached/placeholder data).
   const showThreadSkeleton = threadDetailQuery.isLoading && !threadDetail;
 
@@ -161,27 +158,27 @@ export default function SmsCenter() {
   // render because markRead's onSuccess invalidates the thread list, which
   // re-rendered and re-triggered the effect — a runaway loop that flooded the
   // API with thousands of mark-read requests and exhausted browser connections.
-  const markedThreadsRef = useRef<Set<string>>(new Set());
+  const lastReadRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!activeThreadId) return;
+    if (!activeThreadId) { lastReadRef.current = null; return; }
     setContactPanelOpen(false);
     setContactDrawerOpen(false);
-    if (markedThreadsRef.current.has(activeThreadId)) return;
-    markedThreadsRef.current.add(activeThreadId);
+    const readKey = `${user?.id}:${role}:${activeThreadId}`;
+    if (lastReadRef.current === readKey) return;
+    lastReadRef.current = readKey;
     markThreadRead(activeThreadId);
-  }, [activeThreadId, markThreadRead]);
+  }, [activeThreadId, markThreadRead, user?.id, role]);
 
   const sendMutation = useMutation({
-    mutationFn: (body: string) => {
-      const groupId = threadDetail?.thread.group?.id;
+    mutationFn: ({ body, groupId, threadId }: { body: string; groupId?: number; threadId: string; draftKey: string }) => {
       if (groupId) {
         return sendSms({ group_ids: [groupId], body_text: body });
       }
-      return sendSmsMessageToThread(activeThreadId!, { body });
+      return sendSmsMessageToThread(threadId, { body });
     },
-    onSuccess: () => {
-      setComposerText('');
-      queryClient.invalidateQueries({ queryKey: ['sms-thread', activeThreadId] });
+    onSuccess: (_result, sent) => {
+      setDrafts(previous => previous[sent.draftKey]?.trim() === sent.body ? { ...previous, [sent.draftKey]: '' } : previous);
+      queryClient.invalidateQueries({ queryKey: ['sms-thread', sent.threadId] });
       queryClient.invalidateQueries({ queryKey: threadsKey });
       toast.success('Message sent');
     },
@@ -209,7 +206,17 @@ export default function SmsCenter() {
       }
       queryClient.invalidateQueries({ queryKey: threadsKey });
       if (result.thread?.id) {
-        openThread(result.thread.id);
+        if (scope === 'system') {
+          const nextParams = new URLSearchParams(searchParams);
+          nextParams.delete('scope');
+          nextParams.set('thread', result.thread.id);
+          setSearchParams(nextParams, { replace: true });
+          if (!isMobile) setDesktopThreadId(result.thread.id);
+        }
+        setPage(1);
+        setSearch('');
+        setFilter('all');
+        if (scope !== 'system') openThread(result.thread.id);
         queryClient.invalidateQueries({ queryKey: ['sms-thread', result.thread.id] });
       }
     },
@@ -255,7 +262,7 @@ export default function SmsCenter() {
       return updateSmsContact(threadDetail.contact.id, { sms_ai_enabled: enabled });
     },
     onSuccess: (contact) => {
-      queryClient.setQueryData(['sms-thread', activeThreadId], (prev: SmsThreadDetail | null | undefined) => {
+      queryClient.setQueryData(detailKey, (prev: SmsThreadDetail | null | undefined) => {
         if (!prev) return prev;
         return {
           ...prev,
@@ -274,9 +281,12 @@ export default function SmsCenter() {
 
   useSmsRealtime({
     threadId: activeThreadId,
+    includeSystem: systemSmsAllowed,
+    personalOnly: role === 'photographer',
+    userId: user?.id,
     onMessage: (message) => {
       if (!activeThreadId) return;
-      queryClient.setQueryData(['sms-thread', activeThreadId], (prev: SmsThreadDetail | null | undefined) => {
+      queryClient.setQueryData(detailKey, (prev: SmsThreadDetail | null | undefined) => {
         if (!prev) return prev;
         if (prev.messages.some((existing) => existing.id === message.id)) return prev;
         return { ...prev, messages: [...prev.messages, message] };
@@ -296,23 +306,16 @@ export default function SmsCenter() {
         return;
       }
 
-      queryClient.setQueryData(threadsKey, (prev: { data: SmsThreadSummary[]; meta: PaginatedResponseMeta } | undefined) => {
-        if (!prev) return prev;
-        const existingIndex = prev.data.findIndex((thread) => thread.id === updated.id);
-        if (existingIndex === -1) {
-          return { ...prev, data: [updated, ...prev.data] };
-        }
-        const clone = [...prev.data];
-        clone[existingIndex] = { ...clone[existingIndex], ...updated };
-        return { ...prev, data: clone };
-      });
+      // Reapply the server's scope, search and pagination. Inserting a live
+      // payload directly can put automated or nonmatching threads in this list.
       queryClient.invalidateQueries({ queryKey: ['sms-threads'] });
+      if (updated.id === activeThreadId) queryClient.invalidateQueries({ queryKey: ['sms-thread', activeThreadId] });
     },
   });
 
   const handleSend = () => {
     if (!composerText.trim() || !activeThreadId) return;
-    sendMutation.mutate(composerText.trim());
+    sendMutation.mutate({ body: composerText.trim(), threadId: activeThreadId, draftKey, groupId: threadDetail?.thread.group?.id });
   };
 
   const handleContactUpdate = async (payload: Parameters<typeof updateSmsContact>[1]) => {
@@ -330,6 +333,22 @@ export default function SmsCenter() {
   const conversationVisible = !!activeThreadId || !isMobile;
   const listVisible = !isMobile || !activeThreadId;
 
+  const changeScope = (nextScope: SmsInboxScope) => {
+    if (nextScope === 'system' && !systemSmsAllowed) return;
+    autoSelectThread.current = false;
+    pendingScope.current = nextScope;
+    setDesktopThreadId(null);
+    setPage(1);
+    setFilter('all');
+    setSearch('');
+    setDebouncedSearch('');
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('thread');
+    if (nextScope === 'system') nextParams.set('scope', 'system');
+    else nextParams.delete('scope');
+    setSearchParams(nextParams, { replace: true });
+  };
+
   return (
     <DashboardLayout>
       <div
@@ -345,13 +364,19 @@ export default function SmsCenter() {
               threads={threads}
               activeThreadId={activeThreadId ?? undefined}
               filter={filter}
-              onFilterChange={setFilter}
+              onFilterChange={(value) => { setFilter(value); setPage(1); }}
               search={search}
-              onSearchChange={setSearch}
+              onSearchChange={(value) => { setSearch(value); setPage(1); if (!value.trim()) setDebouncedSearch(''); }}
               onSelectThread={openThread}
               onRefresh={() => threadsQuery.refetch()}
               onCompose={() => setComposeOpen(true)}
               isRefreshing={threadsQuery.isFetching}
+              scope={scope}
+              canViewSystem={systemSmsAllowed}
+              onScopeChange={changeScope}
+              meta={threadsQuery.data?.meta}
+              onPageChange={setPage}
+              error={threadsQuery.isError}
             />
           </div>
         )}
@@ -364,6 +389,8 @@ export default function SmsCenter() {
                 <Skeleton className="h-[60vh] rounded-3xl" />
               </div>
             )}
+            {threadDetailQuery.isError && <div role="alert" className="p-6 text-sm">Could not open this conversation. Choose another conversation or refresh the inbox.</div>}
+            {!activeThreadId && <div className="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground">Select a conversation</div>}
             {threadDetail && (
               <div
                 className={`flex min-h-0 flex-1 flex-col transition-opacity duration-150 ${

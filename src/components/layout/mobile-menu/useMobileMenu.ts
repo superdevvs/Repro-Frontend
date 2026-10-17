@@ -6,7 +6,7 @@ import { getAccountingMode, accountingConfigs } from '@/config/accountingConfig'
 import { OLD_DASHBOARD_URL, canViewOldDashboard } from '@/config/oldDashboard';
 import { usePermission } from '@/hooks/usePermission';
 import { canUseEmailWorkspace } from '@/utils/messagingRoles';
-import { isSupportInbox, MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
+import { MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
 import { canUseListingStudio, canUseListingStudioDashboard, listingStudioHref } from '@/utils/listingStudio';
 
@@ -28,7 +28,6 @@ export const useMobileMenu = () => {
   const permission = usePermission();
   const canViewEmail = canUseEmailWorkspace(role) && permission.can('messaging-email', 'view');
   const canViewOverview = canUseEmailWorkspace(role) && permission.can('messaging-overview', 'view');
-  const supportActive = pathname === '/messaging/email/inbox' && isSupportInbox(location.search);
   const linkedSharedVisibility = useLinkedSharedVisibility();
   const canViewShared = linkedSharedVisibility.data.hasLinkedAccounts;
 
@@ -149,10 +148,9 @@ export const useMobileMenu = () => {
       isActive: pathname.startsWith('/messaging') || pathname.startsWith('/calls'),
       visible: canViewOverview || permission.can('messaging-sms', 'view') || permission.can('voice-calls', 'view') || (!canViewEmail && permission.can('support', 'view')),
       subItems: [
-        ...(canViewEmail ? [{ to: '/messaging/email/inbox', label: 'Emails', isActive: pathname.startsWith('/messaging/email') && !supportActive }] : []),
+        ...(canViewEmail || permission.can('support', 'view') ? [{ to: canViewEmail ? '/messaging/email/inbox' : MESSAGING_SUPPORT_URL, label: 'Emails', isActive: pathname.startsWith('/messaging/email') }] : []),
         ...(permission.can('messaging-sms', 'view') ? [{ to: '/messaging/sms', label: 'SMS' }] : []),
         ...(permission.can('voice-calls', 'view') ? [{ to: '/calls', label: 'Calls' }] : []),
-        ...(permission.can('support', 'view') ? [{ to: MESSAGING_SUPPORT_URL, label: 'Support', isActive: supportActive }] : []),
       ]
     },
     {

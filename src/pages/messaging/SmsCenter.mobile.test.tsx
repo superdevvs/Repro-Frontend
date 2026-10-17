@@ -144,4 +144,18 @@ describe('SmsCenter mobile', () => {
     expect(screen.getByRole('button', { name: /Alex Morgan/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Back to messages' })).not.toBeInTheDocument();
   });
+
+  it('keeps each recipient draft separate when switching conversations', async () => {
+    const user = userEvent.setup();
+    renderSms();
+    await user.click(await screen.findByRole('button', { name: /Alex Morgan/i }));
+    await user.type(await screen.findByPlaceholderText('Write a message to Alex Morgan'), 'Client draft');
+    await user.click(screen.getByRole('button', { name: 'Back to messages' }));
+    await user.click(screen.getByRole('button', { name: /Lee Gedansky/i }));
+    expect(await screen.findByPlaceholderText('Write a message to Lee Gedansky')).toHaveValue('');
+    await user.type(screen.getByPlaceholderText('Write a message to Lee Gedansky'), 'Photographer draft');
+    await user.click(screen.getByRole('button', { name: 'Back to messages' }));
+    await user.click(screen.getByRole('button', { name: /Alex Morgan/i }));
+    expect(await screen.findByPlaceholderText('Write a message to Alex Morgan')).toHaveValue('Client draft');
+  });
 });

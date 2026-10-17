@@ -526,13 +526,15 @@ export const useNotifications = () => {
     await refetch();
   }, [refetch]);
 
-  // SMS real-time events (only for admin/superadmin who can access messaging)
+  // Only staff with SMS access subscribe; system-only traffic stays out of alerts.
   const canAccessSms = canAccessNotificationSms(role);
   useSmsRealtime({
+    enabled: canAccessSms && Boolean(user?.id),
     onMessage: canAccessSms ? (message) => {
       addNotification(buildSmsNotification(message, { isMessage: true }, readIdsRef.current, lastSeenAtRef.current), { showToast: true });
     } : undefined,
     onThreadUpdated: canAccessSms ? (thread) => {
+      if (!thread.needsReply || thread.lastDirection !== 'INBOUND' || thread.lastReaction) return;
       addNotification(buildSmsNotification(thread, { isMessage: false }, readIdsRef.current, lastSeenAtRef.current));
     } : undefined,
   });
