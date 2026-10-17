@@ -29,6 +29,7 @@ interface SmsThreadListProps {
   meta?: PaginatedResponseMeta;
   onPageChange?: (page: number) => void;
   error?: boolean;
+  navigationDisabled?: boolean;
 }
 
 export const SmsThreadList = ({
@@ -48,6 +49,7 @@ export const SmsThreadList = ({
   meta,
   onPageChange,
   error,
+  navigationDisabled,
 }: SmsThreadListProps) => {
   const { user, role } = useAuth();
   const groupsQuery = useQuery({
@@ -94,6 +96,7 @@ export const SmsThreadList = ({
               type="button"
               size="icon"
               onClick={onCompose}
+              disabled={navigationDisabled}
               title="Send new message"
               aria-label="Send new message"
               className="h-10 w-10 rounded-full bg-primary text-primary-foreground shadow-sm hover:bg-primary/90"
@@ -111,9 +114,9 @@ export const SmsThreadList = ({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={onCompose}>Send new message</DropdownMenuItem>
+                <DropdownMenuItem onClick={onCompose} disabled={navigationDisabled}>Send new message</DropdownMenuItem>
                 <DropdownMenuItem onClick={onRefresh}>Refresh list</DropdownMenuItem>
-                {canViewSystem && <DropdownMenuItem onClick={() => onScopeChange?.(scope === 'system' ? 'inbox' : 'system')}>
+                {canViewSystem && <DropdownMenuItem disabled={navigationDisabled} onClick={() => onScopeChange?.(scope === 'system' ? 'inbox' : 'system')}>
                   {scope === 'system' ? 'Back to inbox' : 'System SMS'}
                 </DropdownMenuItem>}
               </DropdownMenuContent>
@@ -122,7 +125,7 @@ export const SmsThreadList = ({
         </div>
 
         {scope === 'system' ? (
-          <Button variant="ghost" size="sm" className="mt-2" onClick={() => onScopeChange?.('inbox')}>
+          <Button variant="ghost" size="sm" className="mt-2" disabled={navigationDisabled} onClick={() => onScopeChange?.('inbox')}>
             <ArrowLeft className="mr-2 h-4 w-4" /> Back to inbox
           </Button>
         ) : <SmsThreadFilterTabs value={filter} onValueChange={onFilterChange} />}
@@ -154,6 +157,7 @@ export const SmsThreadList = ({
               thread={thread}
               active={activeThreadId === thread.id}
               onSelect={() => onSelectThread(thread.id)}
+              disabled={navigationDisabled}
             />
           ))
         )}

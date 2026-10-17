@@ -2,7 +2,7 @@ import '@testing-library/jest-dom/vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
-import { SmsComposeDialog } from './SmsComposeDialog';
+import { SmsComposePane } from './SmsComposePane';
 import { SmsGroupsDialog } from './SmsGroupsDialog';
 import type { SmsDirectoryRecipient, SmsGroupRecord } from '@/services/messaging';
 
@@ -43,8 +43,9 @@ it('isolates cached and delayed admin people/groups and clears selected recipien
   client.setQueryData(['sms-groups', 1, 'admin'], [group]);
   client.setQueryData(['sms-directory', 1, 'admin', '', 20], [person]);
   const send = vi.fn();
-  const app = () => <QueryClientProvider client={client}><SmsComposeDialog open onOpenChange={vi.fn()} onSend={send} /></QueryClientProvider>;
+  const app = () => <QueryClientProvider client={client}><SmsComposePane open onOpenChange={vi.fn()} onSend={send} /></QueryClientProvider>;
   const view = render(app());
+  fireEvent.click(screen.getByRole('button', { name: 'Groups' }));
   fireEvent.click(await screen.findByRole('button', { name: /Private admin group/ }));
   fireEvent.click(screen.getByRole('button', { name: 'People' }));
   fireEvent.click(await screen.findByRole('button', { name: /Private admin client/ }));
@@ -76,8 +77,9 @@ it('also isolates a role change for the same user ID', async () => {
   api.groups.mockResolvedValue([]);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   client.setQueryData(['sms-groups', 1, 'admin'], [group]);
-  const app = () => <QueryClientProvider client={client}><SmsComposeDialog open onOpenChange={vi.fn()} onSend={vi.fn()} /></QueryClientProvider>;
+  const app = () => <QueryClientProvider client={client}><SmsComposePane open onOpenChange={vi.fn()} onSend={vi.fn()} /></QueryClientProvider>;
   const view = render(app());
+  fireEvent.click(screen.getByRole('button', { name: 'Groups' }));
   fireEvent.click(await screen.findByRole('button', { name: /Private admin group/ }));
   fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'Private draft' } });
   auth.role = 'photographer';

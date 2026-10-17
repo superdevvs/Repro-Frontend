@@ -10,9 +10,10 @@ interface SmsThreadListItemProps {
   thread: SmsThreadSummary;
   active?: boolean;
   onSelect?: () => void;
+  disabled?: boolean;
 }
 
-export const SmsThreadListItem = ({ thread, active, onSelect }: SmsThreadListItemProps) => {
+export const SmsThreadListItem = ({ thread, active, onSelect, disabled }: SmsThreadListItemProps) => {
   const phone = thread.group ? undefined : thread.contact?.primaryNumber;
   const name = thread.group?.name || thread.contact?.name || phone || 'Unknown contact';
   const aiPaused = thread.aiPausedUntil ? new Date(thread.aiPausedUntil) > new Date() : false;
@@ -42,10 +43,11 @@ export const SmsThreadListItem = ({ thread, active, onSelect }: SmsThreadListIte
     <button
       type="button"
       onClick={onSelect}
+      disabled={disabled}
       data-active={active ? 'true' : 'false'}
       className={cn(
         'min-h-[4.25rem] w-full border-b border-border/50 px-3 py-3 text-left transition-colors',
-        'hover:bg-muted/50 active:bg-muted/70',
+        'hover:bg-muted/50 active:bg-muted/70 disabled:cursor-wait disabled:opacity-60',
         // Google Messages–style light selection wash
         active && 'bg-primary/10 hover:bg-primary/15',
       )}

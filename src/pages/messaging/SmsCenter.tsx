@@ -5,7 +5,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { SmsThreadList } from '@/components/messaging/sms/SmsThreadList';
 import { SmsConversation } from '@/components/messaging/sms/SmsConversation';
 import { SmsContactPanel } from '@/components/messaging/sms/SmsContactPanel';
-import { SmsComposeDialog } from '@/components/messaging/sms/SmsComposeDialog';
+import { SmsComposePane } from '@/components/messaging/sms/SmsComposePane';
 import {
   getSmsThreads,
   getSmsSenders,
@@ -24,18 +24,31 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { toast } from '@/lib/sonner-toast';
 import { getComposeErrorMessage } from '@/pages/messaging/emailComposeModel';
-import type { SmsComposePayload } from '@/components/messaging/sms/SmsComposeDialog';
+import type { SmsComposePayload } from '@/components/messaging/sms/SmsComposePane';
 import { Skeleton } from '@/components/ui/skeleton';
 import { parseSmsReaction } from '@/components/messaging/sms/smsReaction';
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { canViewSystemSms } from '@/utils/messagingRoles';
 import { SmsSenderSelect } from '@/components/messaging/sms/SmsSenderSelect';
+import { MessageSquarePlus } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 export default function SmsCenter() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const location = useLocation();
+  const currentLocation = useRef(location.key);
+  currentLocation.current = location.key;
   const { role, user } = useAuth();
+  const actorKey = `${user?.id}:${role}`;
+  const currentActor = useRef(actorKey);
+  currentActor.current = actorKey;
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
   const systemSmsAllowed = canViewSystemSms(role);
   const scope: SmsInboxScope = systemSmsAllowed && searchParams.get('scope') === 'system' ? 'system' : 'inbox';
   const [filter, setFilter] = useState<SmsThreadFilter>('all');
@@ -45,7 +58,9 @@ export default function SmsCenter() {
   const [desktopThreadId, setDesktopThreadId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [senderChoices, setSenderChoices] = useState<Record<string, number>>({});
-  const [composeOpen, setComposeOpen] = useState(false);
+  const composeOpen = searchParams.get('compose') === 'new';
+  const currentCompose = useRef(composeOpen);
+  currentCompose.current = composeOpen;
   const [contactDrawerOpen, setContactDrawerOpen] = useState(false);
   const [contactPanelOpen, setContactPanelOpen] = useState(false);
   const isMobile = useMediaQuery('(max-width: 1024px)');
@@ -81,7 +96,7 @@ export default function SmsCenter() {
   // Desktop keeps a split view and adopts deep links. URL writes happen only
   // in navigation actions; a second synchronization effect can overwrite a
   // scope change with the previous render's URL.
-  const activeThreadId = isMobile ? requestedThreadId : desktopThreadId;
+  const activeThreadId = composeOpen ? null : isMobile ? requestedThreadId : desktopThreadId;
   const draftKey = `${user?.id}:${role}:${activeThreadId}`;
   const composerText = activeThreadId ? drafts[draftKey] ?? '' : '';
   const setComposerText = (value: string | ((previous: string) => string)) => {
@@ -90,7 +105,7 @@ export default function SmsCenter() {
   };
 
   useEffect(() => {
-    if (isMobile) return;
+    if (isMobile || composeOpen) return;
     if (pendingScope.current) {
       if (pendingScope.current === scope) pendingScope.current = null;
       return;
@@ -104,12 +119,13 @@ export default function SmsCenter() {
     if (autoSelectThread.current && !desktopThreadId && threads.length > 0) {
       setDesktopThreadId(threads[0].id);
     }
-  }, [isMobile, threads, desktopThreadId, requestedThreadId, scope]);
+  }, [isMobile, composeOpen, threads, desktopThreadId, requestedThreadId, scope]);
 
   const openThread = (id: string) => {
     if (!isMobile) setDesktopThreadId(id);
 
     const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('compose');
     nextParams.set('thread', id);
     setContactDrawerOpen(false);
     // Push so the browser or system back gesture returns to the list.
@@ -158,7 +174,7 @@ export default function SmsCenter() {
     staleTime: 1000 * 60 * 5,
   });
 
-  usePageLoading(threadsQuery.isLoading || threadDetailQuery.isLoading);
+  usePageLoading(!composeOpen && (threadsQuery.isLoading || threadDetailQuery.isLoading));
 
   const smsTemplates =
     templatesQuery.data?.map((template) => ({
@@ -191,16 +207,17 @@ export default function SmsCenter() {
   }, [activeThreadId, markThreadRead, user?.id, role]);
 
   const sendMutation = useMutation({
-    mutationFn: ({ body, threadId, senderId }: { body: string; threadId: string; draftKey: string; senderId?: number }) => {
+    mutationFn: ({ body, threadId, senderId }: { body: string; threadId: string; draftKey: string; senderId?: number; actorKey: string }) => {
       return sendSmsMessageToThread(threadId, { body, sms_number_id: senderId });
     },
     onSuccess: (result, sent) => {
+      queryClient.invalidateQueries({ queryKey: ['sms-threads'] });
+      if (!mounted.current || currentActor.current !== sent.actorKey) return;
       setDrafts(previous => previous[sent.draftKey]?.trim() === sent.body ? { ...previous, [sent.draftKey]: '' } : previous);
       queryClient.invalidateQueries({ queryKey: ['sms-thread', sent.threadId] });
       if (result.thread?.id && result.thread.id !== sent.threadId) {
         queryClient.invalidateQueries({ queryKey: ['sms-thread', result.thread.id] });
       }
-      queryClient.invalidateQueries({ queryKey: ['sms-threads'] });
       setSenderChoices(previous => { const next = { ...previous }; delete next[sent.draftKey]; return next; });
       if (result.thread?.id && (result.thread.id !== sent.threadId || scope === 'system')) {
         const nextParams = new URLSearchParams(searchParams);
@@ -217,11 +234,11 @@ export default function SmsCenter() {
         toast.warning(`${result.failed} ${result.failed === 1 ? 'person was' : 'people were'} not sent`);
       }
     },
-    onError: () => toast.error('Unable to send message'),
+    onError: (_error, sent) => { if (mounted.current && currentActor.current === sent.actorKey) toast.error('Unable to send message'); },
   });
 
   const composeMutation = useMutation({
-    mutationFn: (payload: SmsComposePayload) =>
+    mutationFn: ({ payload }: { payload: SmsComposePayload; actorKey: string; composeKey: string }) =>
       sendSms({
         to: payload.to,
         recipients: payload.recipients,
@@ -229,8 +246,9 @@ export default function SmsCenter() {
         body_text: payload.bodyText,
         sms_number_id: payload.smsNumberId,
       }),
-    onSuccess: (result) => {
-      setComposeOpen(false);
+    onSuccess: (result, sentCompose) => {
+      queryClient.invalidateQueries({ queryKey: ['sms-threads'] });
+      if (!mounted.current || !currentCompose.current || currentActor.current !== sentCompose.actorKey || currentLocation.current !== sentCompose.composeKey) return;
       const sent = result.sent ?? 1;
       if (sent > 1) {
         toast.success(`Sent to ${sent} people`);
@@ -240,24 +258,29 @@ export default function SmsCenter() {
       if (result.failed) {
         toast.warning(`${result.failed} ${result.failed === 1 ? 'person was' : 'people were'} not sent`);
       }
-      queryClient.invalidateQueries({ queryKey: threadsKey });
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.delete('compose');
+      nextParams.delete('scope');
+      nextParams.delete('thread');
       if (result.thread?.id) {
-        if (scope === 'system') {
-          const nextParams = new URLSearchParams(searchParams);
-          nextParams.delete('scope');
-          nextParams.set('thread', result.thread.id);
-          setSearchParams(nextParams, { replace: true });
-          if (!isMobile) setDesktopThreadId(result.thread.id);
-        }
-        setPage(1);
-        setSearch('');
-        setFilter('all');
-        if (scope !== 'system') openThread(result.thread.id);
+        nextParams.set('thread', result.thread.id);
         queryClient.invalidateQueries({ queryKey: ['sms-thread', result.thread.id] });
       }
+      autoSelectThread.current = false;
+      pendingScope.current = null;
+      setDesktopThreadId(result.thread?.id ?? null);
+      setSearchParams(nextParams, { replace: true });
+      setPage(1);
+      setSearch('');
+      setDebouncedSearch('');
+      setFilter('all');
     },
-    onError: (error) => toast.error(getComposeErrorMessage(error, 'Unable to send message')),
+    onError: (error, sentCompose) => {
+      if (mounted.current && currentCompose.current && currentActor.current === sentCompose.actorKey && currentLocation.current === sentCompose.composeKey) toast.error(getComposeErrorMessage(error, 'Unable to send message'));
+    },
   });
+  const composeSending = composeOpen && composeMutation.isPending && composeMutation.variables?.actorKey === actorKey && composeMutation.variables?.composeKey === location.key;
+  const replySending = sendMutation.isPending && sendMutation.variables?.actorKey === actorKey;
 
   const resumeAiMutation = useMutation({
     mutationFn: (threadId: string) => resumeSmsThreadAi(threadId),
@@ -351,7 +374,7 @@ export default function SmsCenter() {
 
   const handleSend = () => {
     if (!composerText.trim() || !activeThreadId || senderUnavailable) return;
-    sendMutation.mutate({ body: composerText.trim(), threadId: activeThreadId, draftKey, senderId: role === 'superadmin' ? selectedSenderId : undefined });
+    sendMutation.mutate({ body: composerText.trim(), threadId: activeThreadId, draftKey, actorKey, senderId: role === 'superadmin' ? selectedSenderId : undefined });
   };
 
   const handleContactUpdate = async (payload: Parameters<typeof updateSmsContact>[1]) => {
@@ -366,10 +389,35 @@ export default function SmsCenter() {
     await updateCommentMutation.mutateAsync(comment);
   };
 
-  const conversationVisible = !!activeThreadId || !isMobile;
-  const listVisible = !isMobile || !activeThreadId;
+  const conversationVisible = composeOpen || !!activeThreadId || !isMobile;
+  const listVisible = !isMobile || (!activeThreadId && !composeOpen);
+
+  const startCompose = () => {
+    if (composeSending || composeOpen) return;
+    pendingScope.current = null;
+    autoSelectThread.current = false;
+    setDesktopThreadId(null);
+    setContactPanelOpen(false);
+    setContactDrawerOpen(false);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('thread');
+    nextParams.set('compose', 'new');
+    setSearchParams(nextParams);
+  };
+
+  const closeCompose = () => {
+    if (composeSending) return;
+    pendingScope.current = null;
+    autoSelectThread.current = false;
+    setDesktopThreadId(null);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('compose');
+    nextParams.delete('thread');
+    setSearchParams(nextParams, { replace: true });
+  };
 
   const changeScope = (nextScope: SmsInboxScope) => {
+    if (composeSending) return;
     if (nextScope === 'system' && !systemSmsAllowed) return;
     autoSelectThread.current = false;
     pendingScope.current = nextScope;
@@ -379,6 +427,7 @@ export default function SmsCenter() {
     setSearch('');
     setDebouncedSearch('');
     const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete('compose');
     nextParams.delete('thread');
     if (nextScope === 'system') nextParams.set('scope', 'system');
     else nextParams.delete('scope');
@@ -395,7 +444,7 @@ export default function SmsCenter() {
         }
       >
         {listVisible && (
-          <div className="flex h-full min-h-0 w-full flex-1 flex-col lg:max-w-md lg:flex-none">
+          <div className="flex h-full min-h-0 w-full flex-1 flex-col lg:w-[20rem] lg:flex-none xl:w-[22rem] 2xl:w-[24rem]">
             <SmsThreadList
               threads={threads}
               activeThreadId={activeThreadId ?? undefined}
@@ -403,9 +452,10 @@ export default function SmsCenter() {
               onFilterChange={(value) => { setFilter(value); setPage(1); }}
               search={search}
               onSearchChange={(value) => { setSearch(value); setPage(1); if (!value.trim()) setDebouncedSearch(''); }}
-              onSelectThread={openThread}
+              onSelectThread={(id) => { if (!composeSending) openThread(id); }}
               onRefresh={() => threadsQuery.refetch()}
-              onCompose={() => setComposeOpen(true)}
+              onCompose={startCompose}
+              navigationDisabled={composeSending}
               isRefreshing={threadsQuery.isFetching}
               scope={scope}
               canViewSystem={systemSmsAllowed}
@@ -419,6 +469,17 @@ export default function SmsCenter() {
 
         {conversationVisible ? (
           <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col">
+            {composeOpen ? <SmsComposePane
+              open
+              onOpenChange={(open) => { if (!open) closeCompose(); }}
+              onSend={(payload) => composeMutation.mutate({ payload, actorKey, composeKey: location.key })}
+              sending={composeSending}
+              templates={smsTemplates}
+              senderNumbers={senderNumbers}
+              senderNumbersLoading={senderNumbersQuery.isLoading}
+              senderNumbersError={senderNumbersQuery.isError}
+              onRetrySenderNumbers={() => void senderNumbersQuery.refetch()}
+            /> : <>
             {showThreadSkeleton && (
               <div className="space-y-4 p-6">
                 <Skeleton className="h-10 w-1/3" />
@@ -426,7 +487,12 @@ export default function SmsCenter() {
               </div>
             )}
             {threadDetailQuery.isError && <div role="alert" className="p-6 text-sm">Could not open this conversation. Choose another conversation or refresh the inbox.</div>}
-            {!activeThreadId && <div className="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground">Select a conversation</div>}
+            {!activeThreadId && <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-background px-6 text-center">
+              <div className="mb-1 rounded-2xl bg-primary/10 p-4 text-primary"><MessageSquarePlus className="h-7 w-7" /></div>
+              <h2 className="text-base font-semibold">Select a conversation</h2>
+              <p className="max-w-xs text-sm leading-relaxed text-muted-foreground">Choose a conversation from the inbox, or start a new message.</p>
+              <Button onClick={startCompose} className="mt-2 rounded-full px-5"><MessageSquarePlus className="mr-2 h-4 w-4" />New SMS</Button>
+            </div>}
             {threadDetail && (
               <div
                 className={`flex min-h-0 flex-1 flex-col transition-opacity duration-150 ${
@@ -440,7 +506,7 @@ export default function SmsCenter() {
                 composerValue={composerText}
                 onComposerChange={setComposerText}
                 onSend={handleSend}
-                sending={sendMutation.isPending}
+                sending={replySending}
                 sendDisabled={senderUnavailable}
                 senderControl={role === 'superadmin' ? <SmsSenderSelect
                   numbers={senderNumbers}
@@ -449,7 +515,7 @@ export default function SmsCenter() {
                   loading={senderNumbersQuery.isLoading}
                   error={senderNumbersQuery.isError}
                   onRetry={() => void senderNumbersQuery.refetch()}
-                  disabled={sendMutation.isPending}
+                  disabled={replySending}
                 /> : conversationNumber ? <p className="text-xs text-muted-foreground">Sending from {conversationNumber}</p> : undefined}
                 isMobile={!!isMobile}
                 onBack={closeThread}
@@ -473,12 +539,13 @@ export default function SmsCenter() {
               />
               </div>
             )}
+            </>}
           </div>
         ) : (
           !listVisible && <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">Select a thread</div>
         )}
 
-        {!isMobile && contactPanelOpen && (
+        {!isMobile && !composeOpen && contactPanelOpen && (
           <div className="hidden w-[320px] border-l border-border/70 xl:block">
             <SmsContactPanel
               contact={threadDetail?.contact}
@@ -505,17 +572,6 @@ export default function SmsCenter() {
         </Drawer>
       )}
 
-      <SmsComposeDialog
-        open={composeOpen}
-        onOpenChange={setComposeOpen}
-        onSend={(payload) => composeMutation.mutate(payload)}
-        sending={composeMutation.isPending}
-        templates={smsTemplates}
-        senderNumbers={senderNumbers}
-        senderNumbersLoading={senderNumbersQuery.isLoading}
-        senderNumbersError={senderNumbersQuery.isError}
-        onRetrySenderNumbers={() => void senderNumbersQuery.refetch()}
-      />
     </DashboardLayout>
   );
 }
