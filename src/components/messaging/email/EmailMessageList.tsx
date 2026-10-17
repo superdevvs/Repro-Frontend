@@ -1,6 +1,5 @@
 import { EmptyState } from '@/components/ui/empty-state';
-import { useState } from 'react';
-import { Search, RefreshCw, Mail, Clock, Send, AlertCircle, Filter, ChevronDown, Check } from 'lucide-react';
+import { Search, RefreshCw, Mail, Clock, Send, AlertCircle, Filter, ChevronDown, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +33,13 @@ interface EmailMessageListProps {
   onSearchChange: (search: string) => void;
   onStatusFilterChange: (status: string | null) => void;
   onRefresh: () => void;
+  searchValue: string;
+  statusFilter: string | null;
+  page: number;
+  lastPage: number;
+  total: number;
+  onPageChange: (page: number) => void;
+  isError: boolean;
 }
 
 const statusIcons = {
@@ -83,9 +89,14 @@ export function EmailMessageList({
   onSearchChange,
   onStatusFilterChange,
   onRefresh,
+  searchValue,
+  statusFilter: filterStatus,
+  page,
+  lastPage,
+  total,
+  onPageChange,
+  isError,
 }: EmailMessageListProps) {
-  const [searchValue, setSearchValue] = useState('');
-  const [filterStatus, setFilterStatus] = useState<string | null>(null);
   const { role, user } = useAuth();
   const isAdmin = role === 'admin' || role === 'superadmin';
 
@@ -95,24 +106,8 @@ export function EmailMessageList({
   };
 
   const handleFilterChange = (status: string | null) => {
-    setFilterStatus(status);
     onStatusFilterChange(status);
   };
-
-  if (isLoading) {
-    return (
-      <div className="flex-1 overflow-y-auto">
-        <div className="p-4 border-b border-border">
-          <Skeleton className="h-10 w-full" />
-        </div>
-        {[...Array(10)].map((_, i) => (
-          <div key={i} className="p-4 border-b border-border">
-            <Skeleton className="h-16 w-full" />
-          </div>
-        ))}
-      </div>
-    );
-  }
 
   const activeFilterLabel = FILTER_OPTIONS.find((o) => o.value === filterStatus)?.label || 'All Messages';
 
@@ -125,10 +120,12 @@ export function EmailMessageList({
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Search messages..."
+              aria-label="Search email messages"
               value={searchValue}
-              onChange={(e) => setSearchValue(e.target.value)}
-              className="pl-8 h-9"
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="pl-8 pr-9 h-9"
             />
+            {searchValue && <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-9 w-9" aria-label="Clear email search" onClick={() => onSearchChange('')}><X className="h-4 w-4" /></Button>}
           </form>
           
           {/* Filter Popover */}
@@ -161,7 +158,7 @@ export function EmailMessageList({
             </PopoverContent>
           </Popover>
 
-          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" onClick={onRefresh}>
+          <Button variant="ghost" size="sm" className="h-9 w-9 p-0" aria-label="Refresh email messages" onClick={onRefresh}>
             <RefreshCw className="h-4 w-4" />
           </Button>
         </div>
@@ -169,12 +166,18 @@ export function EmailMessageList({
 
       {/* Message List */}
       <div className="flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+5rem)] sm:pb-0">
-        {messages.length === 0 ? (
+        {isLoading ? (
+          <div role="status" aria-label="Loading email messages">
+            {[...Array(5)].map((_, index) => <div key={index} className="p-4 border-b border-border"><Skeleton className="h-16 w-full" /></div>)}
+          </div>
+        ) : isError ? (
+          <div role="alert" className="p-6 text-center text-sm">Messages could not be loaded. <Button variant="link" onClick={onRefresh}>Retry</Button></div>
+        ) : messages.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-muted-foreground">
             <div className="text-center space-y-2">
 
-              <EmptyState icon="email" title={<>No messages yet</>} size="compact" />
-              <p className="text-sm">Try sending your first message</p>
+              <EmptyState icon={searchValue.trim() || filterStatus ? 'search' : 'email'} title={searchValue.trim() || filterStatus ? 'No matching messages' : 'No messages yet'} size="compact" />
+              <p className="text-sm">{searchValue.trim() || filterStatus ? 'Try another search or status filter.' : 'Try sending your first message'}</p>
             </div>
           </div>
         ) : (
@@ -257,6 +260,13 @@ export function EmailMessageList({
           })
         )}
       </div>
+      {!isLoading && !isError && total > 0 && <nav aria-label="Email message pages" className="flex shrink-0 items-center justify-between gap-2 border-t p-3 text-xs">
+        <span>Page {page} of {lastPage} · {total} messages</span>
+        <div className="flex gap-1">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>Previous</Button>
+          <Button variant="outline" size="sm" disabled={page >= lastPage} onClick={() => onPageChange(page + 1)}>Next</Button>
+        </div>
+      </nav>}
     </>
   );
 }

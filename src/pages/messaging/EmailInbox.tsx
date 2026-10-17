@@ -32,17 +32,42 @@ function EmailMessagesInbox() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
+  const [searchValue, setSearchValue] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+
+  useEffect(() => {
+    if (searchQuery === searchValue.trim()) return;
+    const timer = window.setTimeout(() => {
+      setSearchQuery(searchValue.trim());
+      setPage(1);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [searchValue, searchQuery]);
+
+  const handleSearchChange = (value: string) => {
+    setSearchValue(value);
+    if (!value.trim()) {
+      setSearchQuery('');
+      setPage(1);
+    }
+  };
+
+  const handleStatusChange = (status: string | null) => {
+    setStatusFilter(status);
+    setPage(1);
+  };
 
   // Fetch messages
-  const { data: messagesData, isLoading, refetch } = useQuery({
-    queryKey: ['email-messages', user?.id, role, statusFilter, searchQuery],
+  const { data: messagesData, isLoading, isError, refetch } = useQuery({
+    queryKey: ['email-messages', user?.id, role, statusFilter, searchQuery, page],
     queryFn: () =>
       getEmailMessages({
         status: statusFilter || undefined,
         search: searchQuery || undefined,
         per_page: 25,
+        page,
       }),
   });
 
@@ -113,8 +138,15 @@ function EmailMessagesInbox() {
                 isLoading={isLoading}
                 selectedMessage={selectedMessage}
                 onSelectMessage={handleSelectMessage}
-                onSearchChange={setSearchQuery}
-                onStatusFilterChange={setStatusFilter}
+                searchValue={searchValue}
+                statusFilter={statusFilter}
+                onSearchChange={handleSearchChange}
+                onStatusFilterChange={handleStatusChange}
+                page={page}
+                lastPage={messagesData?.last_page ?? 1}
+                total={messagesData?.total ?? 0}
+                onPageChange={setPage}
+                isError={isError}
                 onRefresh={refetch}
               />
             </div>
@@ -128,8 +160,15 @@ function EmailMessagesInbox() {
                 isLoading={isLoading}
                 selectedMessage={selectedMessage}
                 onSelectMessage={handleSelectMessage}
-                onSearchChange={setSearchQuery}
-                onStatusFilterChange={setStatusFilter}
+                searchValue={searchValue}
+                statusFilter={statusFilter}
+                onSearchChange={handleSearchChange}
+                onStatusFilterChange={handleStatusChange}
+                page={page}
+                lastPage={messagesData?.last_page ?? 1}
+                total={messagesData?.total ?? 0}
+                onPageChange={setPage}
+                isError={isError}
                 onRefresh={refetch}
               />
             </div>
