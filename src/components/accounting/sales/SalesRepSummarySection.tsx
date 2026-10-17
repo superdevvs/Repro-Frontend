@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { useMemo, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -43,7 +45,7 @@ export function SalesRepSummarySection({ data, loading, error, daysWindow, onRet
         <div className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-3"><h2 className="text-base font-semibold">Clients</h2><span className="text-xs text-muted-foreground">Your accounts</span></div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b p-3">
           <select aria-label="Client list" value={filter} onChange={event => { setFilter(event.target.value); setPage(1); }} className="h-9 rounded-md border bg-background px-2 text-xs"><option value="top">Top clients</option><option value="new">New clients</option><option value="balance">With balance</option></select>
-          <label className="relative min-w-0 flex-1 sm:max-w-56"><Search className="absolute left-3 top-3 h-3.5 w-3.5 text-muted-foreground" /><Input type="search" aria-label="Search clients" placeholder="Search clients" className="h-9 pl-8" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} /></label>
+          <label data-page-search-container className="relative min-w-0 flex-1 sm:max-w-56"><Search className="absolute left-3 top-3 h-3.5 w-3.5 text-muted-foreground" /><PageSearch scope="accounts" scopeLabel="My clients" searchId="accounts" priority={20} searchResults={pageSearchResults(clients, 'accounts', '/accounts?account={id}')} type="search" aria-label="Search clients" placeholder="Search clients" className="h-9 pl-8" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} /></label>
         </div>
         <div role="region" aria-label="Client accounts" tabIndex={0} className="max-h-80 overflow-auto overscroll-contain">
           <table className="w-full min-w-[590px] text-left text-sm"><thead className="sticky top-0 z-10 bg-muted text-xs text-muted-foreground"><tr>{['Client', 'Paid revenue', 'Current balance', filter === 'new' ? 'Added' : 'Last shoot', ''].map((text, index) => <th key={index} className="px-4 py-3 font-medium">{text}</th>)}</tr></thead><tbody>

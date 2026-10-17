@@ -1,3 +1,4 @@
+import { PageSearch } from '@/components/search/PageSearch';
 import { PaymentStatusFilter } from './PaymentStatusFilter'
 import { EmptyState } from '@/components/ui/empty-state';
 import { DASHBOARD_COMPACT_PAGE_X_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel'
@@ -100,6 +101,8 @@ type SharedData = {
 type FilterValue = string | string[] | null | undefined
 
 export type ShootHistoryViewProps = {
+  searchResults?: import('@/components/search/searchTypes').SearchResult[];
+  searchLoading?: boolean;
   gridContainerRef: React.RefObject<HTMLDivElement>
   isSuperAdmin: boolean
   isAdmin: boolean
@@ -532,6 +535,14 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
       isCalendarFill && 'is-calendar-fill flex min-h-0 flex-1 flex-col overflow-hidden sm:space-y-3 sm:pb-3',
       fillDesktopCalendar && !isCalendarFill && 'flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain',
     )}>
+      <PageSearch hidden searchId={`shoots-${activeTab}`} scope="shoots" scopeLabel={`Shoots · ${activeTab}`} priority={40}
+        searchResults={props.searchResults} searchLoading={props.searchLoading}
+        value={activeTab === 'history' ? historyFilters.search : operationalFilters.search}
+        onChange={event => activeTab === 'history' ? onHistoryFilterChange('search', event.target.value) : onOperationalFilterChange('search', event.target.value)}
+        filters={{ tab: activeTab === 'history' ? 'all' : activeTab,
+          client_id: activeTab === 'history' ? historyFilters.clientId : operationalFilters.clientId,
+          photographer_id: activeTab === 'history' ? historyFilters.photographerId : operationalFilters.photographerId,
+          sales_rep_id: activeTab === 'history' ? historyFilters.salesRepId : operationalFilters.salesRepId }} />
       <div className={cn('flex items-start justify-between gap-3', isCalendarFill && 'flex-shrink-0')}>
         {/* Compact title on phones (no description); full heading on desktop.
             Calendar fill drops the description to free vertical space. */}
@@ -684,7 +695,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                   <div className="space-y-2">
                     <span className="text-sm font-medium text-muted-foreground">Search</span>
-                    <Input placeholder="Search by address, client, photographer" value={operationalFilters.search} onChange={(event) => onOperationalFilterChange('search', event.target.value)} />
+                    <PageSearch scope="shoots" scopeLabel="Shoots" searchId="shoots" priority={20} placeholder="Search by address, client, photographer" value={operationalFilters.search} onChange={(event) => onOperationalFilterChange('search', event.target.value)} />
                   </div>
                   <SearchablePersonFilter label="Client" allLabel="All clients" options={operationalOptions.clients} value={operationalFilters.clientId} onChange={value => onOperationalFilterChange('clientId', value)} />
                   <SearchablePersonFilter label="Photographer" allLabel="All photographers" options={operationalOptions.photographers} value={operationalFilters.photographerId} onChange={value => onOperationalFilterChange('photographerId', value)} />
@@ -771,7 +782,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
                       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
                         <div className="space-y-2">
                           <span className="text-sm font-medium text-muted-foreground">Search</span>
-                          <Input placeholder="Client, address, company" value={historyFilters.search} onChange={(event) => onHistoryFilterChange('search', event.target.value)} />
+                          <PageSearch scope="shoots" scopeLabel="Shoots" searchId="shoots" priority={20} placeholder="Client, address, company" value={historyFilters.search} onChange={(event) => onHistoryFilterChange('search', event.target.value)} />
                         </div>
                         <SearchablePersonFilter label="Client" allLabel="All clients" options={historyOptions.clients} value={historyFilters.clientId} onChange={value => onHistoryFilterChange('clientId', value)} />
                         <SearchablePersonFilter label="Photographer" allLabel="All photographers" options={historyOptions.photographers} value={historyFilters.photographerId} onChange={value => onHistoryFilterChange('photographerId', value)} />

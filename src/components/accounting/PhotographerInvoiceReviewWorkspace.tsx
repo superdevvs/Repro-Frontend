@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import {triggerInvoicesRefresh} from '@/realtime/realtimeRefreshBus';
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
@@ -518,10 +520,10 @@ export function PhotographerInvoiceReviewWorkspace({
           <section className="ar-queue" aria-label={resolvedTitle}>
             <div className="ar-queue-controls">
               <div className="flex items-center justify-between gap-2"><h2 className="text-sm font-semibold">{resolvedTitle}</h2><span className="text-xs text-muted-foreground">{queueResponse?.total || 0} invoices</span></div>
-              <div className="relative">
+              <div data-page-search-container className="relative">
                 <Label htmlFor={`invoice-review-search-${role}`} className="sr-only">Search {resolvedPluralLabel.toLowerCase()} by name or email</Label>
                 <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input id={`invoice-review-search-${role}`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name or email" className="h-9 pl-9" />
+                <PageSearch scope="payouts" scopeLabel={`${resolvedShortLabel} invoices`} priority={20} searchId={"payouts-" + role} searchResults={pageSearchResults(queue, 'payouts', '/accounting?invoice={id}')} searchLoading={queueLoading} onResultOpen={result => handleSelectInvoice(Number(result.id))} id={`invoice-review-search-${role}`} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search name or email" className="h-9 pl-9" />
               </div>
               <select aria-label="Review status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as ReviewStatusFilter)} className="ar-select">
                 {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}

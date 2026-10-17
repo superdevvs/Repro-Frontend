@@ -66,8 +66,12 @@ import { useShootFileScanStatusRenderer } from './useShootFileScanStatusRenderer
 import { useUnitMediaScope, useScopedShootFiles } from '@/features/shoot-units/useUnitMediaScope';
 import { canSeeUploadSummaries, getShootMediaRequirements } from './shootMediaRequirements';
 import { ShootUploadSummaries } from './ShootUploadSummaries';
+import { PageSearch } from '@/components/search/PageSearch';
+import { useContextualSearch } from '@/components/search/searchContext';
+import { filterMediaSearch } from './mediaSearch';
 
 interface ShootDetailsMediaTabProps {
+  contextualSearch?: boolean;
   requestMediaFocus?: boolean;
   shoot: ShootData;
   isAdmin: boolean;
@@ -139,6 +143,7 @@ type ClientProgressStageKey = (typeof CLIENT_PROGRESS_STEPS)[number]['key'];
 // MediaFile interface is imported from useShootFiles hook
 
 export function useShootDetailsMediaTab({
+  contextualSearch: bindContextualSearch = false,
   shoot: fullShoot,
   isAdmin,
   isPhotographer,
@@ -155,6 +160,9 @@ export function useShootDetailsMediaTab({
   onDisplayTabChange,
 }: ShootDetailsMediaTabProps) {
   const { shoot, activeUnitId } = useUnitMediaScope(fullShoot);
+  const contextualSearch = useContextualSearch();
+  const [mediaQuery, setMediaQuery] = useState('');
+  const effectiveMediaQuery = bindContextualSearch && contextualSearch?.enabled ? mediaQuery : '';
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { trackUpload, uploads } = useUpload();
@@ -407,6 +415,8 @@ export function useShootDetailsMediaTab({
     toggleSelection,
     clearSelection,
   } = useShootMediaSelectionState({ onSelectionChange });
+  // A search change must not leave an invisible selection available for bulk actions.
+  useEffect(() => { clearSelection(); }, [effectiveMediaQuery, clearSelection]);
   const [viewerSourceTab, setViewerSourceTab] = useState<'uploaded' | 'edited'>('uploaded');
   const [batchRenameOpen, setBatchRenameOpen] = useState(false);
   const openViewerWithSource = useCallback(
@@ -1075,13 +1085,17 @@ export function useShootDetailsMediaTab({
 
 
   const renderMediaGridPane = (
-    files: MediaFile[],
+    sourceFiles: MediaFile[],
     emptyTitle: string,
     emptyDescription: string,
     uploadLabel = 'Upload Files',
     separateExtras = true,
     showPhotoRequirements = false,
   ) => {
+    const files = filterMediaSearch(sourceFiles, effectiveMediaQuery);
+    if (sourceFiles.length > 0 && files.length === 0) {
+      return <p role="status" className="p-6 text-sm text-muted-foreground">No filenames match in this media tab.</p>;
+    }
     const summaries = <ShootUploadSummaries shootId={shoot.id} unitId={activeUnitId} role={role} isClient={isClient}
       uploadType={displayTab === 'edited' ? 'edited' : 'raw'} requirements={mediaRequirements}
       onUploadMore={canUploadInDisplayTab ? () => setActiveSubTab('upload') : undefined} />;
@@ -1226,6 +1240,21 @@ export function useShootDetailsMediaTab({
 
   return (
     <>
+      {bindContextualSearch && <div hidden><PageSearch
+        searchId={`shoot-media:${shoot.id}:${activeUnitId ?? 'property'}:${displayTab}:${displayTab === 'uploaded' ? uploadedMediaTab : editedMediaTab}`}
+        scope="shoot-media" scopeLabel={`Shoot #${shoot.id} · ${displayTab === 'uploaded' ? 'Raw' : 'Edited'} media`}
+        filters={{ shoot_id: shoot.id, unit_id: activeUnitId ?? '', media: displayTab, category: displayTab === 'uploaded' ? uploadedMediaTab : editedMediaTab }}
+        value={mediaQuery} onChange={event => setMediaQuery(event.target.value)}
+        searchResults={filterMediaSearch((displayTab === 'uploaded' ? uploadedMediaTab : editedMediaTab) === 'iguide' ? [] : currentDisplayedFiles, effectiveMediaQuery).map(file => ({
+          type: 'shoot-media', id: file.id, title: getDisplayMediaFilename(file), destination: window.location.pathname,
+          subtitle: file.fileType || file.media_type || 'Media file', metadata: { Filename: getDisplayMediaFilename(file), Type: file.fileType || file.media_type || 'Media file' },
+        }))}
+        onResultOpen={result => {
+          const files = sortMediaFiles(filterMediaSearch(currentDisplayedFiles, effectiveMediaQuery), sortOrder, manualOrder);
+          const index = files.findIndex(file => file.id === result.id);
+          if (index >= 0) openViewerWithSource(index, files, displayTab);
+        }}
+      /></div>}
       <ShootDetailsMediaTabView
         role={role}
         mediaRequirements={mediaRequirements}
@@ -1283,9 +1312,9 @@ export function useShootDetailsMediaTab({
         uploadedVideos={uploadedVideos}
         shootHasVideoService={shootHasVideoService}
         iguideUrl={iguideUrl}
-        iguideFloorplans={iguideFloorplans}
+        iguideFloorplans={iguideFloorplans.filter(file => !effectiveMediaQuery.trim() || String(file.filename ?? '').toLowerCase().includes(effectiveMediaQuery.trim().toLowerCase()))}
         iguideSync={iguideSync}
-        uploadedFloorplans={uploadedFloorplans}
+        uploadedFloorplans={filterMediaSearch(uploadedFloorplans, effectiveMediaQuery)}
         uploadedVirtualStaging={uploadedVirtualStaging}
         uploadedGreenGrass={uploadedGreenGrass}
         uploadedTwilight={uploadedTwilight}
@@ -1304,7 +1333,7 @@ export function useShootDetailsMediaTab({
         setEditedMediaTab={setEditedMediaTab}
         editedPhotos={editedPhotos}
         editedVideos={editedVideos}
-        editedFloorplans={editedFloorplans}
+        editedFloorplans={filterMediaSearch(editedFloorplans, effectiveMediaQuery)}
         editedVirtualStaging={editedVirtualStaging}
         editedGreenGrass={editedGreenGrass}
         editedTwilight={editedTwilight}

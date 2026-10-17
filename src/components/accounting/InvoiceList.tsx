@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import {Input} from '@/components/ui/input';
 import {SendInvoiceDialog} from '@/components/invoices/SendInvoiceDialog';
 import {triggerInvoicesRefresh} from '@/realtime/realtimeRefreshBus';
@@ -471,7 +473,7 @@ export function InvoiceList({
               </Button>
             </div>
           </div>
-<Input aria-label="Search invoices" placeholder="Search client, address or invoice" className="h-8 w-full sm:w-64" value={search} onChange={e=>setSearch(e.target.value)}/>
+<PageSearch scope="invoices" onResultOpen={result => { const invoice = filteredInvoices.find(row => String(row.id) === result.id); if (invoice) onView(invoice); }} scopeLabel="Invoices" searchId="invoices" priority={20} searchResults={pageSearchResults(filteredInvoices, 'invoices', '/accounting?invoice={id}')} aria-label="Search invoices" placeholder="Search client, address or invoice" className="h-8 w-full sm:w-64" value={search} onChange={e=>setSearch(e.target.value)}/>
           <InvoiceDateFilterToolbar
             hideDateFilter={Boolean(reportingRange)}
             filter={dateFilter}

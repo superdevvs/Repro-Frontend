@@ -1,3 +1,10 @@
+import type { UserData } from '@/types/auth';
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
+import { useContextualSearch } from '@/components/search/searchContext';
+import { accountMatchesSearch } from '@/components/search/accountMatchesSearch';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient, getApiHeaders } from '@/services/api';
 import { INSIGHT_ROLE_OPTIONS, INSIGHT_ROLE_VALUES, type InsightRole } from '@/components/accounts/accountInsightRoles';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
@@ -56,26 +63,16 @@ import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { usePermission } from '@/hooks/usePermission';
 import { useResendVerificationEmail } from '@/hooks/useResendVerificationEmail';
 
-type UserType = {
-  id: string;
-  name: string;
-  email: string;
+type UserType = UserData & {
   role: Role;
-  role_label?: string | null;
-  roleLabel?: string | null;
-  editing_capabilities?: string[];
-  editingCapabilities?: string[];
-  editor_type?: string | null;
-  editorType?: string | null;
-  avatar?: string;
-  phone?: string;
-  company?: string;
   accountRep?: string;
   lastShootDate?: string;
-  metadata?: Record<string, any>;
   created_by_name?: string;
   createdBy?: string;
-  [key: string]: any;
+  account_rep_id?: string | number;
+  rep_id?: string | number;
+  created_by_id?: string | number;
+  [key: string]: unknown;
 };
 
 export default function Accounts() {
@@ -150,6 +147,25 @@ export default function Accounts() {
   usePageLoading(loading || shootsLoading);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const contextualSearch = useContextualSearch();
+  const useServerSearch = !!contextualSearch?.enabled && activeTab === 'accounts' && !!searchQuery.trim()
+    && (!accountSort || accountSort.key === 'name');
+  const [debouncedAccountQuery, setDebouncedAccountQuery] = useState(searchQuery.trim());
+  useEffect(() => { const timer = setTimeout(() => setDebouncedAccountQuery(searchQuery.trim()), 250); return () => clearTimeout(timer); }, [searchQuery]);
+  const accountSearch = useQuery({
+    queryKey: ['account-directory-search', contextualSearch?.identity, debouncedAccountQuery, filterRole, repFilter, accountSort, currentPage, itemsPerPage],
+    queryFn: async ({ signal }) => (await apiClient.get<{ users: UserType[]; meta: { total: number; last_page: number } }>('/admin/users/search', {
+      params: { search: debouncedAccountQuery, role: filterRole, rep: repFilter, page: currentPage, per_page: itemsPerPage, sort: accountSort?.key ?? 'default', direction: accountSort?.direction }, signal,
+    })).data,
+    enabled: useServerSearch && debouncedAccountQuery === searchQuery.trim(), retry: false,
+  });
+  const accountParam = searchParams.get('account');
+  const linkedAccount = useQuery({
+    queryKey: ['account-search-detail', contextualSearch?.identity, accountParam],
+    queryFn: async ({ signal }) => (await apiClient.get<{ user: UserType }>(`/admin/users/${encodeURIComponent(accountParam!)}`, { signal })).data.user,
+    enabled: !!accountParam && can('accounts', 'view'), retry: false,
+  });
+  useEffect(() => { if (linkedAccount.data && accountParam) { setSelectedUser(linkedAccount.data); setUserProfileDialogOpen(true); } }, [linkedAccount.data, accountParam]);
   const sessionExpiredRef = useRef(false);
   // Deep link from the account menu: /accounts?tab=permissions&permissionsUser=<id>
   const permissionsUserParam = searchParams.get('permissionsUser');
@@ -213,6 +229,10 @@ export default function Accounts() {
   handleSessionExpiredRef.current = handleSessionExpired;
   useEffect(() => {
     let cancelled = false;
+    const controller = new AbortController();
+    setUsers([]);
+    setSelectedUser(null);
+    setUserProfileDialogOpen(false);
     const fetchUsers = async () => {
       setLoading(true);
       try {
@@ -223,10 +243,8 @@ export default function Accounts() {
           return;
         }
         const res = await fetch(`${API_BASE_URL}/api/admin/users?light=1`, {
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { ...getApiHeaders(), Accept: 'application/json' },
+          signal: controller.signal,
         });
 
         if (cancelled) return;
@@ -268,13 +286,13 @@ export default function Accounts() {
     };
 
     fetchUsers();
-    return () => { cancelled = true; };
-  }, [toast]);
+    return () => { cancelled = true; controller.abort(); };
+  }, [toast, contextualSearch?.identity]);
 
   const getAccountRepInfo = useCallback((user: UserType) => {
     const metadata = user.metadata || {};
-    const explicitRepId = metadata.accountRepId || metadata.account_rep_id || metadata.repId || metadata.rep_id || (user as any).account_rep_id || (user as any).rep_id;
-    const createdById = (user as any).created_by_id;
+    const explicitRepId = metadata.accountRepId || metadata.account_rep_id || metadata.repId || metadata.rep_id || user.account_rep_id || user.rep_id;
+    const createdById = user.created_by_id;
     const rawRepId = explicitRepId || createdById;
     const repUser = rawRepId ? users.find((candidate) => String(candidate.id) === String(rawRepId)) : undefined;
     const hasExplicitRepAssignment = Boolean(explicitRepId);
@@ -340,7 +358,7 @@ export default function Accounts() {
       value,
       label,
     }));
-  }, [users]);
+  }, [users, getAccountRepInfo]);
 
   // Keep current repFilter value in sync with available options
   useEffect(() => {
@@ -376,10 +394,7 @@ export default function Accounts() {
     const normalizedQuery = searchQuery.trim().toLowerCase();
     return users.filter((user) => {
       const roleMatch = filterRole === "all" || user.role === filterRole;
-      const searchMatch = normalizedQuery === "" ||
-        user.name.toLowerCase().includes(normalizedQuery) ||
-        user.email.toLowerCase().includes(normalizedQuery) ||
-        (user.company && user.company.toLowerCase().includes(normalizedQuery));
+      const searchMatch = accountMatchesSearch(user, normalizedQuery);
       const repInfo = getAccountRepInfo(user);
       const repKey = repInfo?.name ? repInfo.name.trim().toLowerCase() : undefined;
       const repMatch =
@@ -393,7 +408,8 @@ export default function Accounts() {
   }, [filterRole, searchQuery, repFilter, users, getAccountRepInfo]);
 
   // Sort the complete filtered collection before slicing it into pages.
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const accountTotal = useServerSearch ? accountSearch.data?.meta.total ?? 0 : filteredUsers.length;
+  const totalPages = Math.ceil(accountTotal / itemsPerPage);
 
   const handleSortChange = useCallback((sort: AccountSort) => {
     setAccountSort(sort);
@@ -566,10 +582,10 @@ export default function Accounts() {
     accountSort,
   ), [filteredUsers, getAccountRep, getLastShootDateForUser, accountSort]);
 
-  const accountListUsers = React.useMemo(() => sortedUsers.slice(
+  const accountListUsers = React.useMemo(() => useServerSearch ? accountSearch.data?.users ?? [] : sortedUsers.slice(
     (currentPage - 1) * itemsPerPage,
     currentPage * itemsPerPage,
-  ), [sortedUsers, currentPage, itemsPerPage]);
+  ), [useServerSearch, accountSearch.data, sortedUsers, currentPage, itemsPerPage]);
 
   const insightAccountsByRole = React.useMemo<Record<InsightRole, InteractionCloudAccount[]>>(() => {
     const buckets: Record<InsightRole, InteractionCloudAccount[]> = {
@@ -635,7 +651,7 @@ export default function Accounts() {
     });
 
     return buckets;
-  }, [users, shoots]);
+  }, [users, getShootsForUser, shouldComputeShootSummaries]);
 
   const activeInsightAccounts = insightAccountsByRole[activeInsightsRole] || [];
   const activeInsightMeta = INSIGHT_ROLE_OPTIONS.find((option) => option.value === activeInsightsRole);
@@ -674,7 +690,7 @@ export default function Accounts() {
     setIsNewAccountOpen(true);
   };
 
-  const handleNewAccount = (created: any) => {
+  const handleNewAccount = (created: Parameters<NonNullable<React.ComponentProps<typeof AccountForm>['onSubmit']>>[0]) => {
     // AccountForm already created on server and passes created shape with id
     const newUser: UserType = {
       id: String(created.id),
@@ -682,10 +698,10 @@ export default function Accounts() {
       email: created.email,
       role: created.role,
       avatar: created.avatar || '/placeholder.svg',
-      phone: created.phone || created.phone_number || undefined,
+      phone: created.phone || undefined,
       office_phone: created.office_phone || created.officePhone || undefined,
       show_office_phone_on_tour: created.show_office_phone_on_tour ?? created.showOfficePhoneOnTour,
-      company: created.company || created.company_name || undefined,
+      company: created.company || undefined,
       created_by_name: created.created_by_name || created.createdBy || undefined,
       createdBy: created.created_by_name || created.createdBy || undefined,
       metadata: created.metadata || {},
@@ -1187,12 +1203,12 @@ export default function Accounts() {
         title: "Account deleted",
         description: `${userPendingDelete.name}'s account has been removed.`,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       if (sessionExpiredRef.current) return;
       console.error('Delete user failed', error);
       toast({
         title: "Delete failed",
-        description: error?.message || 'Unable to delete this account.',
+        description: error instanceof Error ? error.message : 'Unable to delete this account.',
         variant: "destructive",
       });
     } finally {
@@ -1292,9 +1308,9 @@ export default function Accounts() {
           action={
             <div className="flex w-full items-center gap-2 sm:w-auto">
               {/* Search input in header */}
-              <div className="relative min-w-0 flex-1 sm:flex-none">
+              <div data-page-search-container className="relative min-w-0 flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
+                <PageSearch scope="accounts" scopeLabel="Accounts" onResultOpen={result => { const account = accountListUsers.find(row => String(row.id) === result.id) ?? users.find(row => String(row.id) === result.id); if (account) { setSelectedUser(account); setUserProfileDialogOpen(true); } }} searchId="accounts"  active={activeTab === 'accounts'} priority={10} filters={{ role: filterRole, rep: repFilter }} searchLoading={useServerSearch && (accountSearch.isFetching || debouncedAccountQuery !== searchQuery.trim())} searchError={useServerSearch && accountSearch.isError} searchResults={pageSearchResults(useServerSearch ? accountListUsers : sortedUsers, 'accounts', '/accounts?account={id}')}
                   placeholder="Search..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -1401,9 +1417,9 @@ export default function Accounts() {
               />
             )}
 
-            {loading ? (
+            {loading || (useServerSearch && (accountSearch.isLoading || debouncedAccountQuery !== searchQuery.trim())) ? (
               <HorizontalLoader message="Loading accounts..." />
-            ) : filteredUsers.length === 0 ? (
+            ) : accountSearch.isError && useServerSearch ? (<div role="alert">Account search could not load. <Button variant="outline" onClick={() => void accountSearch.refetch()}>Retry</Button></div>) : accountTotal === 0 ? (
               <EmptyState icon={searchQuery || filterRole !== 'all' || repFilter !== 'all' ? 'search' : 'accounts'} title={searchQuery || filterRole !== 'all' || repFilter !== 'all' ? 'No matching accounts' : 'No accounts yet'} description="Accounts will appear here when they are added and match your filters." className="rounded-lg bg-muted/30" action={searchQuery || filterRole !== 'all' || repFilter !== 'all' ? <Button variant="outline" onClick={() => { setSearchQuery(''); setFilterRole('all'); setRepFilter('all'); }}>Clear Filters</Button> : can('accounts', 'create') ? <Button onClick={handleAddAccount}>Add Account</Button> : undefined} />
             ) : viewMode === 'grid' ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-6">
@@ -1449,11 +1465,11 @@ export default function Accounts() {
             )}
 
             {/* Pagination */}
-            {filteredUsers.length > 0 && (
+            {accountTotal > 0 && (
               <AccountsPagination
                 currentPage={currentPage}
                 totalPages={totalPages}
-                totalItems={filteredUsers.length}
+                totalItems={accountTotal}
                 itemsPerPage={itemsPerPage}
                 onPageChange={setCurrentPage}
                 onItemsPerPageChange={(count) => {
@@ -1558,7 +1574,7 @@ export default function Accounts() {
         <>
             <UserProfileDialog
               open={userProfileDialogOpen}
-              onOpenChange={setUserProfileDialogOpen}
+              onOpenChange={open => { setUserProfileDialogOpen(open); if (!open && accountParam) setSearchParams(current => { const next = new URLSearchParams(current); next.delete('account'); return next; }, { replace: true }); }}
               user={selectedUser}
               onEdit={() => handleEditUser(selectedUser)}
               onResendVerification={selectedUser ? handleResendVerification : undefined}

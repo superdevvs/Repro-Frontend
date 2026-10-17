@@ -5,6 +5,7 @@ import { useShootUnitScope } from '@/features/shoot-units/useShootUnitScope';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 
 interface ShootDetailsMediaTabProps {
+  contextualSearch?: boolean;
   requestMediaFocus?: boolean;
   shoot: ShootData;
   isAdmin: boolean;

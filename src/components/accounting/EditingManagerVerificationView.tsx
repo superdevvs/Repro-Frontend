@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 import React, { useEffect, useMemo, useState } from 'react';
 import { format } from 'date-fns';
@@ -291,7 +293,7 @@ export function EditingManagerVerificationView({
         <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-12">
           <div className="space-y-2 xl:col-span-6">
             <p className="text-sm font-medium">Search</p>
-            <Input
+            <PageSearch scope="editing-earnings" scopeLabel="Editing reviews" searchId="editing-earnings" priority={20} searchResults={pageSearchResults(filteredRows, 'editing-earnings', '/accounting')}
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Search by shoot, address, editor, invoice, or service"

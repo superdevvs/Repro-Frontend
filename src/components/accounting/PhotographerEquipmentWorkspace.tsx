@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -518,7 +520,7 @@ export function PhotographerEquipmentWorkspace({ reportingRange }: { reportingRa
             </div>
           </div>
           <div className="grid gap-3 md:grid-cols-[1fr,220px,220px,auto]">
-            <Input
+            <PageSearch scope="equipment" scopeLabel="Equipment" searchId="equipment" priority={20} searchResults={pageSearchResults(filteredEquipments, 'equipment', '/accounting?tab=equipments')}
               value={search}
               onChange={(event) => { setSearch(event.target.value); searchValue.current = event.target.value; }}
               onKeyDown={(event) => {

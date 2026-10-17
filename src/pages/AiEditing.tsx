@@ -36,6 +36,9 @@ export default function AiEditing() {
   const workspaceStatus = workspace?.status;
   const [history, setHistory] = useState<V4Workspace[]>([]);
   const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [historySearching, setHistorySearching] = useState(false);
+  const historyQuery = useRef('');
+  const historySequence = useRef(0);
   const [picker, setPicker] = useState(false);
   const [pickerShoot, setPickerShoot] = useState<StudioShootRef | null>(null);
   const [loading, setLoading] = useState(false);
@@ -51,12 +54,15 @@ export default function AiEditing() {
   const operationEpoch = useRef(0);
   const requestId = useRef(crypto.randomUUID());
   const currentId = useRef(workspaceId); currentId.current = workspaceId;
-  const refreshHistory = useCallback(async () => {
-    try { setHistory(await studioWorkspaceService.list()); setHistoryError(null); }
-    catch (e) { setHistoryError(studioError(e)); }
-    finally { setHistoryLoaded(true); }
+  const refreshHistory = useCallback(async (query = historyQuery.current) => {
+    historyQuery.current = query;
+    const sequence = ++historySequence.current;
+    setHistorySearching(true);
+    try { const next = await studioWorkspaceService.list(query); if (sequence === historySequence.current) { setHistory(next); setHistoryError(null); } }
+    catch (e) { if (sequence === historySequence.current) setHistoryError(studioError(e)); }
+    finally { if (sequence === historySequence.current) { setHistoryLoaded(true); setHistorySearching(false); } }
   }, []);
-  useEffect(() => { void refreshHistory(); }, [refreshHistory]);
+  useEffect(() => { historyQuery.current = ''; setHistory([]); setHistoryLoaded(false); void refreshHistory(); return () => { historySequence.current += 1; }; }, [refreshHistory, user?.id]);
   useEffect(() => {
     if (workspaceId) return;
     const entry = readShootStudioEntry(new URLSearchParams(window.location.search));
@@ -165,7 +171,7 @@ export default function AiEditing() {
       </nav>}
       {loading ? <div className="flex min-h-64 flex-1 items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 size={22} className="" />Opening your workspace…</div> : props ? props.preset.kind === 'video' ? <VideoWorkspace {...props} /> : <PhotoWorkspace {...props} /> : <>
         {(error || historyError) && <div role="alert" className="mx-auto mb-3 flex max-w-[1132px] items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm"><AlertCircle size={17} className="shrink-0 text-destructive" /><span className="flex-1">{error || historyError}</span><Button variant="ghost" size="sm" onClick={() => workspaceId ? void refreshWorkspace(workspaceId) : void refreshHistory()}><RefreshCw size={14} className="mr-1" />Retry</Button>{workspaceId && <Button variant="outline" size="sm" onClick={back}>Back</Button>}</div>}
-        {!workspaceId && <StudioHome capabilities={capabilities} name={user?.name?.split(' ')[0] || 'there'} view={view} onView={setView} mode={mode} onMode={m => { setMode(m); if (m !== 'studio' && preset.kind !== m) setPreset(findPreset(m === 'video' ? 'walkthrough' : 'listing-ready')); }} media={media} label={label} preset={preset} onPreset={setPreset} onMedia={() => setPicker(true)} onStart={(prompt, p) => void start(prompt, p)} busy={busy} workspaces={history} onResume={openWorkspace} onRefresh={() => void refreshHistory()} />}
+        {!workspaceId && <StudioHome onSearch={refreshHistory} historyLoading={historySearching} historyError={!!historyError} capabilities={capabilities} name={user?.name?.split(' ')[0] || 'there'} view={view} onView={setView} mode={mode} onMode={m => { setMode(m); if (m !== 'studio' && preset.kind !== m) setPreset(findPreset(m === 'video' ? 'walkthrough' : 'listing-ready')); }} media={media} label={label} preset={preset} onPreset={setPreset} onMedia={() => setPicker(true)} onStart={(prompt, p) => void start(prompt, p)} busy={busy} workspaces={history} onResume={openWorkspace} onRefresh={() => void refreshHistory()} />}
       </>}
     </div>
     <MediaPicker open={picker} onClose={() => setPicker(false)} selected={media} preset={preset} initialShoot={pickerShoot} onSelect={(items, name) => {

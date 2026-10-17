@@ -97,6 +97,8 @@ const ChatWithReproAi = () => {
   const pendingUploadFilesRef = useRef<File[]>([]);
   const [viewMode, setViewMode] = useState<ViewMode>('home');
   const [tabMode, setTabMode] = useState<TabMode>('chat');
+  const historyRequested = new URLSearchParams(location.search).get('tab') === 'history';
+  useEffect(() => { if (historyRequested) setTabMode('history'); }, [historyRequested]);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [message, setMessage] = useState('');

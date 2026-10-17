@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 
 import React, { useState } from 'react';
@@ -242,9 +244,9 @@ export function ServicesManagement() {
               </TabsList>
             </Tabs>
             
-            <div className="relative w-full sm:w-auto">
+            <div data-page-search-container className="relative w-full sm:w-auto">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
+              <PageSearch scope="services" scopeLabel="Services" searchId="services" priority={20} searchResults={pageSearchResults(filteredServices, 'services', '/scheduling-settings?search={query}')}
                 placeholder="Search services..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}

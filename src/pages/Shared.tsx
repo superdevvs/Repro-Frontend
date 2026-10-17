@@ -1,7 +1,7 @@
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { formatDistanceToNow } from 'date-fns';
 import { Navigate, useNavigate, useSearchParams } from 'react-router-dom';
@@ -17,6 +17,8 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
 import { fetchMyLinkedClientSharedData, fetchMyLinkedClients } from '@/services/accountLinkingService';
 import type { SharedDetails } from '@/types/auth';
+import { PageSearch } from '@/components/search/PageSearch';
+import type { SearchResult } from '@/components/search/searchTypes';
 
 import { normalizeImageUrl } from '@/utils/imageUrl';
 import { buildShootPath } from '@/utils/shootPath';
@@ -95,6 +97,7 @@ export default function Shared() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [sharedSearch, setSharedSearch] = useState('');
   const selectedClientId = searchParams.get('client') || searchParams.get('owner') || '';
 
   const visibility = useLinkedSharedVisibility();
@@ -107,7 +110,7 @@ export default function Shared() {
     retry: 1,
   });
 
-  const clients = clientsQuery.data?.linkedAccounts ?? visibility.data.linkedAccounts ?? [];
+  const clients = useMemo(() => clientsQuery.data?.linkedAccounts ?? visibility.data.linkedAccounts ?? [], [clientsQuery.data, visibility.data.linkedAccounts]);
 
   useEffect(() => {
     if (!clients.length) return;
@@ -144,10 +147,34 @@ export default function Shared() {
 
   const selectedClient = clients.find((client) => client.id === selectedClientId) ?? clients[0] ?? null;
   const clientData = sharedQuery.data;
-  const invoices = clientData?.sharedData.invoiceHistory ?? [];
+  const term = sharedSearch.trim().toLowerCase();
+  const matches = (values: unknown[]) => !term || values.some(value => String(value ?? '').toLowerCase().includes(term));
+  const shoots = (clientData?.link.sharedDetails.shoots ? clientData.sharedData.sharedShoots : [])
+    .filter(shoot => matches([shoot.id, shoot.address, shoot.city, shoot.state, shoot.status, shoot.scheduledDate]));
+  const invoices = (clientData?.link.sharedDetails.invoices ? clientData.sharedData.invoiceHistory : [])
+    .filter(invoice => matches([invoice.id, invoice.invoiceNumber, invoice.amount, invoice.status, invoice.shoot?.address]));
+  const properties = (clientData?.link.sharedDetails.shoots ? clientData.sharedData.properties : [])
+    .filter(property => matches([property.address, property.city, property.state]));
+  const results: SearchResult[] = [
+    ...shoots.map(shoot => ({ type: 'shared-shoot', id: shoot.id, title: shoot.address, subtitle: shoot.status ?? undefined,
+      destination: buildShootPath(shoot), metadata: { Date: shoot.scheduledDate ?? null, Status: shoot.status ?? null } })),
+    ...invoices.map(invoice => ({ type: 'shared-invoice', id: invoice.id, title: invoice.invoiceNumber || `Invoice #${invoice.id}`,
+      subtitle: invoice.shoot?.address, destination: `#shared-invoice-${invoice.id}`,
+      metadata: { Amount: currencyFormatter.format(invoice.amount), Due: currencyFormatter.format(invoice.balanceDue), Status: invoice.status } })),
+    ...properties.map(property => ({ type: 'shared-property', id: property.address, title: property.address,
+      subtitle: [property.city, property.state].filter(Boolean).join(', '), destination: `#shared-property-${encodeURIComponent(property.address)}`,
+      metadata: { Shoots: property.shootCount } })),
+  ];
 
   return (
     <DashboardLayout>
+      <div hidden><PageSearch searchId={`shared:${selectedClientId}`} scope="shared" scopeLabel={`Shared · ${selectedClient?.name ?? 'linked client'}`}
+        filters={{ client_id: selectedClientId }} value={sharedSearch} onChange={event => setSharedSearch(event.target.value)}
+        searchResults={results} searchLoading={sharedQuery.isFetching} searchError={sharedQuery.isError}
+        onResultOpen={result => {
+          if (result.type === 'shared-shoot') navigate(result.destination);
+          else document.getElementById(result.destination.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }} /></div>
       <div className="space-y-6">
         <section className="rounded-[28px] border border-slate-200/70 bg-[radial-gradient(circle_at_top_left,_rgba(79,168,255,0.16),_transparent_32%),linear-gradient(180deg,_rgba(255,255,255,0.94),_rgba(248,250,252,0.96))] p-5 shadow-sm shadow-slate-950/5 dark:border-slate-800 dark:bg-[radial-gradient(circle_at_top_left,_rgba(59,130,246,0.16),_transparent_30%),linear-gradient(180deg,_rgba(2,6,23,0.92),_rgba(15,23,42,0.96))] sm:p-6">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -271,10 +298,10 @@ export default function Shared() {
                     </p>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    {clientData.sharedData.sharedShoots.length === 0 ? (
-                      <EmptyState icon="shared" title={<>No shared shoots are available from this client yet.</>} size="compact" />
+                    {shoots.length === 0 ? (
+                      <EmptyState icon="shared" title={term ? 'No shared shoots match your search.' : 'No shared shoots are available from this client yet.'} size="compact" />
                     ) : (
-                      clientData.sharedData.sharedShoots.map((shoot) => {
+                      shoots.map((shoot) => {
                         const heroImage = normalizeImageUrl(shoot.heroImage);
 
                         return (
@@ -332,10 +359,10 @@ export default function Shared() {
                   </CardHeader>
                   <CardContent className="space-y-3">
                     {invoices.length === 0 ? (
-                      <EmptyState icon="invoices" title={<>No invoices are shared from this client yet.</>} size="compact" />
+                      <EmptyState icon="invoices" title={term ? 'No shared invoices match your search.' : 'No invoices are shared from this client yet.'} size="compact" />
                     ) : (
                       invoices.map((invoice) => (
-                        <div key={invoice.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200/70 p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
+                        <div id={`shared-invoice-${invoice.id}`} key={invoice.id} className="flex flex-col gap-3 rounded-2xl border border-slate-200/70 p-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between">
                           <div>
                             <p className="text-sm font-semibold text-slate-900 dark:text-white">
                               {invoice.invoiceNumber ? `Invoice ${invoice.invoiceNumber}` : 'Invoice'}
@@ -369,11 +396,11 @@ export default function Shared() {
                     </p>
                   </CardHeader>
                   <CardContent className="grid gap-3 md:grid-cols-2">
-                    {clientData.sharedData.properties.length === 0 ? (
-                      <EmptyState icon="listings" title={<>No properties are shared from this client yet.</>} size="compact" className="md:col-span-2" />
+                    {properties.length === 0 ? (
+                      <EmptyState icon="listings" title={term ? 'No shared properties match your search.' : 'No properties are shared from this client yet.'} size="compact" className="md:col-span-2" />
                     ) : (
-                      clientData.sharedData.properties.map((property, index) => (
-                        <div key={`${property.address}-${index}`} className="rounded-2xl border border-slate-200/70 p-4 dark:border-slate-800">
+                      properties.map((property, index) => (
+                        <div id={`shared-property-${encodeURIComponent(property.address)}`} key={`${property.address}-${index}`} className="rounded-2xl border border-slate-200/70 p-4 dark:border-slate-800">
                           <p className="text-sm font-semibold text-slate-900 dark:text-white">{property.address}</p>
                           <p className="mt-1 text-xs text-muted-foreground">
                             {[property.city, property.state].filter(Boolean).join(', ') || 'Location unavailable'}

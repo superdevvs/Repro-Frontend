@@ -1,3 +1,4 @@
+import { PageSearch } from '@/components/search/PageSearch';
 
 import React, { useRef } from 'react';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -45,9 +46,9 @@ const SchedulingSettings = () => {
           action={
             activeTab === 'services' ? (
               <div className="flex w-full items-center gap-2">
-                <div className="relative min-w-0 flex-1 sm:w-48 lg:w-64">
+                <div data-page-search-container className="relative min-w-0 flex-1 sm:w-48 lg:w-64">
                   <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input value={serviceQuery} onChange={event => setServiceQuery(event.target.value)} placeholder="Search services" aria-label="Search services" className="h-9 pl-9 sm:h-10" />
+                  <PageSearch scope="services" scopeLabel="Services" searchId="services" priority={20} value={serviceQuery} onChange={event => setServiceQuery(event.target.value)} placeholder="Search services" aria-label="Search services" className="h-9 pl-9 sm:h-10" />
                 </div>
                 <Button onClick={() => servicesRef.current?.openAddService()} className="h-9 gap-1.5 px-3 sm:h-10 sm:px-4">
                   <Plus className="h-4 w-4" />

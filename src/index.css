@@ -932,3 +932,7 @@ body {
     transform: translateX(var(--name-scroll-distance, 0px));
   }
 }
+/* Primary filters move to the contextual header after the server enables it. */
+[data-page-search-container]:has([data-page-search-binding]) {
+  display: none !important;
+}

@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useEffect, useMemo, useState } from 'react';
@@ -177,10 +179,10 @@ function RolePermissionsPanel() {
     };
   }, [toast]);
 
-  const roles = config?.roles ?? [];
+  const roles = useMemo(() => config?.roles ?? [], [config?.roles]);
   const savedPermissions = config?.permissions ?? {};
   const defaultPermissions = config?.defaults ?? {};
-  const catalog = config?.catalog ?? [];
+  const catalog = useMemo(() => config?.catalog ?? [], [config?.catalog]);
   const activeRoleMeta = roles.find((role) => role.id === activeRole);
   const activeRolePermissions = draftPermissions[activeRole] ?? [];
   const activeDefaultPermissions = defaultPermissions[activeRole] ?? [];
@@ -462,9 +464,9 @@ function RolePermissionsPanel() {
         </div>
 
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="relative hidden w-full lg:max-w-sm sm:block">
+          <div data-page-search-container className="relative hidden w-full lg:max-w-sm sm:block">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <PageSearch scope="permissions" onResultOpen={() => {}} scopeLabel="Permissions" searchId="permissions" priority={20} searchResults={pageSearchResults(visibleGroups.flatMap(group => group.permissions), 'permissions', '/permissions?search={query}')}
               value={searchValue}
               onChange={(event) => setSearchValue(event.target.value)}
               placeholder="Search permissions, resources, or actions..."
@@ -500,9 +502,9 @@ function RolePermissionsPanel() {
         <div className="mx-0 rounded-none border-y border-border/60 bg-muted/30 px-[5px] py-3 sm:mx-0 sm:rounded-2xl sm:border sm:p-3">
           <Tabs value={activeRole} onValueChange={setActiveRole}>
             <div className="sticky top-16 z-30 -mx-[5px] border-y border-border/70 bg-background/95 px-[5px] py-2 backdrop-blur supports-[backdrop-filter]:bg-background/80 sm:hidden">
-              <div className="relative">
+              <div data-page-search-container className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
+                <PageSearch scope="permissions" onResultOpen={() => {}} scopeLabel="Permissions" searchId="permissions" priority={20} searchResults={pageSearchResults(visibleGroups.flatMap(group => group.permissions), 'permissions', '/permissions?search={query}')}
                   value={searchValue}
                   onChange={(event) => setSearchValue(event.target.value)}
                   placeholder="Search permissions..."

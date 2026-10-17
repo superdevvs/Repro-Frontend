@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Search, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -41,12 +43,12 @@ export function PhotographerListPanel({
     <>
       <div className={variant === "desktop" ? "mb-4" : "mt-4 space-y-3"}>
         <div className="flex items-center gap-2">
-          <div className="relative flex-1">
+          <div data-page-search-container className="relative flex-1">
             <Search className={cn(
               "absolute left-3 top-1/2 h-4 w-4 text-muted-foreground",
               variant === "desktop" ? "transform -translate-y-1/2" : "-translate-y-1/2"
             )} />
-            <Input
+            <PageSearch scope="availability" onResultOpen={result => { setSelectedPhotographer(result.id); setEditingWeeklySchedule(false); }} scopeLabel="Availability team" searchId="availability" priority={20} searchResults={pageSearchResults(filteredPhotographers, 'availability', '/availability?photographer={id}')}
               placeholder="Search team..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

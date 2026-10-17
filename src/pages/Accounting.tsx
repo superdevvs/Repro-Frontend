@@ -5,7 +5,7 @@ import { getImpersonatedUserId } from '@/services/api';
 import { usePageLoading } from '@/hooks/use-page-loading';
 
 import React, { lazy, Suspense, useState, useMemo, useEffect, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { AccountingHeader, type AccountingTab } from '@/components/accounting/AccountingHeader';
 import { AccountingDateRangeControl } from '@/components/accounting/AccountingDateRangeControl';
@@ -104,6 +104,7 @@ const LazyShootDetailsModalWrapper = lazy(() =>
 const AccountingPage = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { role, user } = useAuth(); // Use the correct AuthProvider
   const { can } = usePermission();
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
@@ -116,16 +117,37 @@ const AccountingPage = () => {
   const [batchDialogOpen, setBatchDialogOpen] = useState(false);
   const [timeFilter, setTimeFilter] = useState<'day' | 'week' | 'month' | 'quarter' | 'year'>('month');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<AccountingTab>('home');
-  const navigateHomeWorkspace = useCallback((tab: AccountingTab) => {
+  const [activeTab, setActiveTab] = useState<AccountingTab>(() => {
+    const requested = searchParams.get('tab');
+    return ['home', 'photographers', 'sales-reps', 'editors', 'equipments', 'ai-usage'].includes(requested ?? '') ? requested as AccountingTab : 'home';
+  });
+  const selectAccountingTab = useCallback((tab: AccountingTab) => {
     setActiveTab(tab);
+    setSearchParams(current => { const next = new URLSearchParams(current); next.set('tab', tab); return next; }, { replace: true });
+  }, [setSearchParams]);
+  const tabParam = searchParams.get('tab');
+  useEffect(() => {
+    if (tabParam && ['home', 'photographers', 'sales-reps', 'editors', 'equipments', 'ai-usage'].includes(tabParam)) setActiveTab(tabParam as AccountingTab);
+  }, [tabParam]);
+  const invoiceParam = searchParams.get('invoice');
+  const deepInvoice = useQuery({
+    queryKey: ['search-invoice-detail', user?.id, role, getImpersonatedUserId(), invoiceParam],
+    queryFn: ({ signal }) => fetchInvoices({ invoiceId: invoiceParam!, per_page: 1 }, signal),
+    enabled: !!user?.id && !!invoiceParam && can('accounting', 'view'), retry: false,
+  });
+  useEffect(() => {
+    const invoice = deepInvoice.data?.data[0];
+    if (invoice && invoiceParam && String(invoice.id) === invoiceParam) { setSelectedInvoice(invoice); setViewDialogOpen(true); }
+  }, [deepInvoice.data, invoiceParam]);
+  const navigateHomeWorkspace = useCallback((tab: AccountingTab) => {
+    selectAccountingTab(tab);
     requestAnimationFrame(() => {
       document.querySelector('.accounting-page')?.scrollIntoView({ behavior: 'instant', block: 'start' });
       const section = document.querySelector<HTMLButtonElement>('.accounting-header nav[aria-label="Accounting sections"] button[aria-current="page"]');
       section?.scrollIntoView({ behavior: 'instant', block: 'nearest', inline: 'nearest' });
       section?.focus({ preventScroll: true });
     });
-  }, []);
+  }, [selectAccountingTab]);
   useEffect(() => {
     if (role !== 'superadmin' && activeTab === 'ai-usage') setActiveTab('home');
   }, [role, activeTab]);
@@ -330,6 +352,7 @@ const AccountingPage = () => {
 
   const closeViewDialog = () => {
     setViewDialogOpen(false);
+    if (invoiceParam) setSearchParams(current => { const next = new URLSearchParams(current); next.delete('invoice'); return next; }, { replace: true });
   };
 
   const closePaymentDialog = () => {
@@ -486,7 +509,7 @@ const AccountingPage = () => {
             badge={config.sidebarLabel}
             showCreateButton={!isEditingManagerAccounting && canCreateInvoice && accountingMode === 'admin' && activeTab === 'home'}
             activeTab={activeTab}
-            onTabChange={setActiveTab}
+            onTabChange={selectAccountingTab}
             showTabs={!isEditingManagerAccounting && accountingMode === 'admin'}
             showAiUsage={role === 'superadmin'}
             daysWindow={isEditingManagerAccounting ? undefined : daysWindow}

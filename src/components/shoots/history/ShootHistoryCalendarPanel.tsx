@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { Search, X } from 'lucide-react'
 import type { MouseEventHandler } from 'react'
 import { Button } from '@/components/ui/button'
@@ -36,9 +38,11 @@ export function ShootHistoryCalendarPanel({
         {...calendarProps}
         filters={
           <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:gap-2">
-            <div className="relative min-w-0 flex-1">
+            <div data-page-search-container className="relative min-w-0 flex-1">
               <Search aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground sm:left-3 sm:h-4 sm:w-4" />
-              <Input
+              <PageSearch scope="shoots" scopeLabel="Shoots calendar" searchId="shoots-calendar" priority={50}
+                searchResults={pageSearchResults(calendarProps.shoots.map(shoot => ({ id: shoot.id, address: shoot.location?.fullAddress || shoot.location?.address, status: shoot.status })), 'shoots', '/shoots/{id}')}
+                searchLoading={calendarProps.loading} searchError={!!calendarProps.error}
                 aria-label="Search calendar shoots"
                 placeholder={calendarProps.hideClientDetails ? 'Search an address or photographer' : 'Search an address, client or photographer'}
                 className="h-8 bg-background/60 pl-8 pr-8 text-sm sm:h-10 sm:pl-9 sm:pr-9"

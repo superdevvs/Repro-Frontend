@@ -15,6 +15,7 @@ import { AuthProvider, useAuth } from "./components/auth";
 import { LoginRedirect } from './components/auth/LoginRedirect';
 import { FirstLoginLegalAgreementPrompt } from '@/components/auth/FirstLoginLegalAgreementPrompt';
 import { PermissionsProvider } from './context/PermissionsContext';
+import { ContextualSearchProvider } from '@/components/search/ContextualSearchProvider';
 import { BrowserPhoneProvider } from './components/voice/BrowserPhoneProvider';
 import { usePermission } from './hooks/usePermission';
 import { StaffEmailRoute } from '@/pages/messaging/StaffEmailRoute';
@@ -46,6 +47,7 @@ import {
 import { renderDevOnlyPublicRoutes } from './app/devOnlyPublicRoutes';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const SearchPage = lazy(() => import('./pages/Search'));
 const BookShoot = lazy(() => import('./pages/BookShoot'));
 const CopilotConnect = lazy(() => import('./pages/CopilotConnect'));
 const CopilotConnections = lazy(() => import('./pages/CopilotConnections'));
@@ -512,6 +514,7 @@ const AppRoutes = () => {
           <DashboardShell />
         </ProtectedRoute>
       }>
+      <Route path="/search" element={<ProtectedRoute loadingFallback={<DashboardRouteFallback />}><SearchPage /></ProtectedRoute>} />
       <Route path="/dashboard" element={
         <PermissionRoute resource="dashboard" fallbackTo="/">
           <ShootRoutesWrapper>
@@ -793,6 +796,7 @@ function App() {
                   <PerformanceCacheScope />
                   <UserPreferencesProvider>
                     <PermissionsProvider>
+                      <ContextualSearchProvider>
                       <BrowserPhoneProvider>
                       <ShootsProvider>
                         <UploadProvider>
@@ -809,6 +813,7 @@ function App() {
                         </UploadProvider>
                       </ShootsProvider>
                       </BrowserPhoneProvider>
+                      </ContextualSearchProvider>
                     </PermissionsProvider>
                   </UserPreferencesProvider>
                 </AuthProvider>

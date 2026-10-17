@@ -10,8 +10,11 @@ import { API_BASE_URL } from '@/config/env';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { hasSalesRepRole } from '@/utils/shootManagementAccess';
 import { canViewVideoEditorClientContext } from '@/utils/videoEditorClientContext';
+import { PageSearch } from '@/components/search/PageSearch';
+import { useContextualSearch } from '@/components/search/searchContext';
 
 interface ShootNotesTabProps {
+  contextualSearch?: boolean;
   shoot: ShootData;
   isAdmin: boolean;
   isPhotographer: boolean;
@@ -47,7 +50,11 @@ export function ShootNotesTab({
   shoot, 
   role,
   hideEmptySections = false,
+  contextualSearch: bindContextualSearch = false,
 }: ShootNotesTabProps) {
+  const contextualSearch = useContextualSearch();
+  const [noteSearch, setNoteSearch] = useState('');
+  const searchTerm = bindContextualSearch && contextualSearch?.enabled ? noteSearch.trim().toLowerCase() : '';
   const { toast } = useToast();
   const isSuperAdmin = role === 'superadmin';
   const isRealAdmin = role === 'admin' || isSuperAdmin;
@@ -420,7 +427,8 @@ export function ShootNotesTab({
   function shouldRenderNoteSection(noteType: NoteType): boolean {
     const isEditing = activeEdits[noteType];
     const isEditable = canEdit(noteType);
-    return canView(noteType) && (!hideEmptySections || isEditing || isEditable || hasNoteContent(noteType));
+    return canView(noteType) && (!hideEmptySections || isEditing || isEditable || hasNoteContent(noteType))
+      && (isEditing || !searchTerm || `${getNoteTitle(noteType)} ${getNotes(noteType)}`.toLowerCase().includes(searchTerm));
   }
 
   // Helper functions for styled notes with updated colors to match dashboard
@@ -521,7 +529,7 @@ export function ShootNotesTab({
     const isEditable = canEdit(noteType);
 
     return (
-      <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
+      <div id={`shoot-note-${noteType}`} className="rounded-xl border border-border bg-card p-3 shadow-sm">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${accent.iconWrap}`}>
@@ -598,6 +606,15 @@ export function ShootNotesTab({
 
   return (
     <div className="space-y-2.5 w-full mt-0">
+      {bindContextualSearch && <div hidden><PageSearch searchId={`shoot-notes:${shoot.id}`} scope="shoot-notes" scopeLabel={`Shoot #${shoot.id} · Notes`}
+        filters={{ shoot_id: shoot.id }} value={noteSearch} onChange={event => setNoteSearch(event.target.value)}
+        searchResults={noteTypes.filter(shouldRenderNoteSection).filter(hasNoteContent).map(type => ({
+          type: 'shoot-notes', id: type, title: getNoteTitle(type), destination: `#shoot-note-${type}`,
+          excerpt: getNotes(type).slice(0, 180), metadata: { Note: getNotes(type).slice(0, 800) },
+        }))}
+        onResultOpen={result => document.getElementById(result.destination.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+      /></div>}
+      {searchTerm && !noteTypes.some(shouldRenderNoteSection) && <p role="status" className="p-4 text-sm text-muted-foreground">No visible notes match your search.</p>}
       {shouldRenderNoteSection('shootNotes') && renderNoteSection('shootNotes')}
       {shouldRenderNoteSection('approvalNotes') && renderNoteSection('approvalNotes')}
       {shouldRenderNoteSection('photographerNotes') && renderNoteSection('photographerNotes')}

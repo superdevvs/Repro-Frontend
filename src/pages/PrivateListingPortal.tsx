@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
@@ -579,6 +581,9 @@ const PrivateListingPortal = () => {
   // ─── Main Render ───────────────────────────────────────────
   return (
     <DashboardLayout hideFooter={viewMode === 'showcase'}>
+      <PageSearch hidden active={viewMode === 'showcase'} priority={40} searchId="listings-map" scope="listings" scopeLabel="Exclusive listings · Map"
+        value={searchQuery} onChange={event => setSearchQuery(event.target.value)}
+        searchResults={pageSearchResults(presentation.displayedListings, 'listings', '/exclusive-listings/{id}')} />
       <div
         className={
           viewMode === 'showcase'
@@ -683,12 +688,12 @@ const PrivateListingPortal = () => {
             data-testid="listing-browse-toolbar"
           >
             {clientScopeControl}
-            <div
+            <div data-page-search-container
               className="relative min-w-[12rem] flex-1 sm:min-w-[16rem] md:min-w-0"
               data-testid="listing-browse-search"
             >
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
+              <PageSearch scope="listings" scopeLabel="Exclusive listings" searchId="listings" priority={20} searchResults={pageSearchResults(sortedListings, 'listings', '/exclusive-listings/{id}')}
                 aria-label="Search listings"
                 placeholder="Search by address, city, state, zip, price, or client..."
                 value={searchQuery}

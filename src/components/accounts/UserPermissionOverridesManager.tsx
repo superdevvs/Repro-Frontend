@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useCallback, useEffect, useMemo, useState, type ElementType } from 'react';
 import { AlertCircle, Check, Eraser, Lock, Minus, RotateCcw, Save, Search, X } from 'lucide-react';
@@ -593,9 +595,9 @@ export function UserPermissionOverridesManager({ initialUserId = null }: UserPer
         )}
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="relative w-full sm:max-w-sm">
+          <div data-page-search-container className="relative w-full sm:max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <PageSearch scope="permissions" onResultOpen={() => {}} scopeLabel="Permissions" searchId="permissions" priority={20} searchResults={pageSearchResults(visibleGroups.flatMap(group => group.permissions), 'permissions', '/permissions?search={query}')}
               value={permissionSearch}
               onChange={(event) => setPermissionSearch(event.target.value)}
               placeholder="Search permissions, resources, or actions..."

@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useMemo, useState } from 'react';
@@ -309,7 +311,7 @@ export default function Automations() {
           </div>
         </header>
 
-        <Input
+        <PageSearch scope="automations" scopeLabel="Automations" searchId="automations" priority={20} searchResults={pageSearchResults(selected.matched, 'automations', '/messaging/email/automations/{id}')}
           type="search"
           value={query}
           onChange={(event) => setQuery(event.target.value)}

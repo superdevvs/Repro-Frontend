@@ -23,6 +23,7 @@ import { NotificationCenter } from '@/components/notifications/NotificationCente
 import { withApiBase } from '@/config/env';
 import { cn } from '@/lib/utils';
 import { GlobalCommandBar } from '@/components/search/GlobalCommandBar';
+import { useContextualSearch } from '@/components/search/searchContext';
 import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
 import { usesSettingsOnlyAccount } from '@/pages/profileNavigation';
@@ -212,6 +213,7 @@ export function Navbar() {
   );
   const { formatTemperature } = useUserPreferences();
   const [commandOpen, setCommandOpen] = useState(false);
+  const contextualSearch = useContextualSearch();
   const weatherLocationLabel = useMemo(() => {
     if (weatherCoordSource === 'default') {
       return null;
@@ -292,11 +294,11 @@ export function Navbar() {
     };
   }, [providerVersion, weatherCoords.lat, weatherCoords.lon]);
 
-  const sourcePriority: Record<WeatherCoordSource, number> = {
+  const sourcePriority = useMemo<Record<WeatherCoordSource, number>>(() => ({
     default: 0,
     ip: 1,
     browser: 2,
-  };
+  }), []);
 
   const applyWeatherCoords = useCallback((coords: IpLocation, source: Exclude<WeatherCoordSource, 'default'>) => {
     if (sourcePriority[source] < sourcePriority[weatherCoordSourceRef.current]) {
@@ -313,7 +315,7 @@ export function Navbar() {
     } else {
       cacheIpLocation(coords);
     }
-  }, []);
+  }, [sourcePriority]);
 
   // Prefer IP-based location (no prompt). Falls back to stored/default.
   // resolveIpLocation skips network on fresh cache, dedupes in-flight, and backs off on 429.
@@ -474,16 +476,22 @@ export function Navbar() {
               <SearchIcon className="h-4 w-4 text-muted-foreground absolute ml-3" />
               <Input
                 type="search"
-                placeholder="Search..."
+                placeholder={contextualSearch?.enabled ? `Search ${contextualSearch.adapter?.label.toLowerCase() ?? 'everywhere'}…` : 'Search...'}
+                value={contextualSearch?.enabled ? contextualSearch.adapter?.query ?? '' : ''}
+                aria-label={contextualSearch?.enabled ? `Search ${contextualSearch.adapter?.label ?? 'everywhere'}` : 'Search'}
                 className="pl-9 bg-transparent border-0 shadow-none focus-visible:ring-primary/20"
                 readOnly
                 onClick={() => setCommandOpen(true)}
-                onFocus={() => setCommandOpen(true)}
+                onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setCommandOpen(true); } }}
               />
             </div>
             <GlobalCommandBar open={commandOpen} onOpenChange={setCommandOpen} />
           </>
         )}
+        {isSimplifiedLayout && contextualSearch?.enabled && <>
+          <Button variant="ghost" size="icon" aria-label={`Search ${contextualSearch.adapter?.label ?? 'everywhere'}`} onClick={() => setCommandOpen(true)}><SearchIcon className="h-4 w-4" /></Button>
+          <GlobalCommandBar open={commandOpen} onOpenChange={setCommandOpen} />
+        </>}
         </div>
 
         {/* Hide Robbie strip for photographer and editor roles */}

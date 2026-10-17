@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 import React, { useMemo, useState } from 'react';
 import { format } from 'date-fns';
@@ -113,7 +115,7 @@ export function PhotographerShootsTable({ shoots, onViewShoot }: PhotographerSho
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 border-b px-4 pb-3 sm:px-5">
-        <input type="search" aria-label="Search photographer shoots" placeholder="Search property, client or shoot" value={search} onChange={(event) => { setSearch(event.target.value); setCurrentPage(1); }} className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-xs sm:max-w-64" />
+        <PageSearch scope="shoots" scopeLabel="My shoots" searchId="shoots" priority={20} searchResults={pageSearchResults(filteredShoots, 'shoots', '/shoots/{id}')} type="search" aria-label="Search photographer shoots" placeholder="Search property, client or shoot" value={search} onChange={(event) => { setSearch(event.target.value); setCurrentPage(1); }} className="h-9 min-w-0 flex-1 rounded-md border bg-background px-3 text-xs sm:max-w-64" />
         <select aria-label="Photographer payout status" value={payoutFilter} onChange={(event) => { setPayoutFilter(event.target.value); setCurrentPage(1); }} className="h-9 max-w-full rounded-md border bg-background px-2 text-xs"><option value="all">All payouts</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="upcoming">Upcoming</option></select>
         <span className="text-[11px] text-muted-foreground">All assigned shoots</span>
       </div>

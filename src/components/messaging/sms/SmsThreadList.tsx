@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -133,9 +135,9 @@ export const SmsThreadList = ({
         />
 
         <div className="mt-3">
-          <div className="relative">
+          <div data-page-search-container className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
+            <PageSearch scope="sms" onResultOpen={result => onSelectThread(result.id)} scopeLabel="SMS inbox" searchId="sms" priority={20} filters={{ scope, filter }} searchLoading={isRefreshing} searchError={error} searchResults={pageSearchResults(threads, 'sms', '/messaging/sms?thread={id}')}
               className="pl-9 pr-9"
               placeholder="Search name, phone, or message..."
               aria-label="Search SMS"

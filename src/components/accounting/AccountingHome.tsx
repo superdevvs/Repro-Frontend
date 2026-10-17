@@ -1,8 +1,11 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import {buildAccountingReport} from './accountingHomeHelpers';
 import {HomeAmount,Module} from './AccountingHomeParts';
 import {day,money,exportRowsAsCsv,useReducedMotion,workspaceTabs,type Props,type HomeWorkspaceTarget} from './accountingHomeHelpers';
 import { registerInvoicesRefresh } from "@/realtime/realtimeRefreshBus";
 import React, { Suspense, useEffect, useRef, useState } from "react";
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from "@tanstack/react-query";
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
@@ -30,6 +33,8 @@ import { mapInvoiceResponse } from "@/services/invoiceService";
 import type { InvoiceData } from "@/types/invoice";
 import "./accounting-home.css";
 export function AccountingHome({ start, end, invoices, onView, onFilterInvoices, onNavigateTab, canCreateExpense }: Props) {
+  const [searchParams] = useSearchParams();
+  const workspaceParam = searchParams.get('workspace');
   const { user, role } = useAuth(),
     { toast } = useToast(),
     reduced = useReducedMotion();
@@ -57,6 +62,7 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
     [saving, setSaving] = useState(false),
     [saveError, setSaveError] = useState("");
   const records = useRef<HTMLDivElement>(null);
+  useEffect(() => { if (workspaceParam === 'expenses') { setWorkspace('Expenses'); records.current?.scrollIntoView({ block: 'start' }); } }, [workspaceParam]);
   const jump = (tab: HomeWorkspaceTarget, status?: string) => {
     if (tab === "Recipient payouts") { onNavigateTab("photographers"); return; }
     if (tab === "Sales rep payouts") { onNavigateTab("sales-reps"); return; }
@@ -709,9 +715,9 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
             ) : workspace === "Expenses" ? (
               <>
                 <div className="home-toolbar">
-                  <label>
+                  <label data-page-search-container>
                     <Search size={14} />
-                    <input
+                    <PageSearch scope="invoices" scopeLabel="Accounting"  priority={20} searchId={"accounting-" + workspace} searchResults={pageSearchResults(filteredExpenses, 'accounting-records', '/accounting')}
                       aria-label="Search expenses"
                       placeholder="Search expenses"
                       value={search}
@@ -845,9 +851,9 @@ export function AccountingHome({ start, end, invoices, onView, onFilterInvoices,
                 {report === "Cash movement" ? (
                   <>
                     <div className="home-toolbar">
-                      <label>
+                      <label data-page-search-container>
                         <Search size={14} />
-                        <input
+                        <PageSearch scope="invoices" scopeLabel="Accounting"  priority={20} searchId={"accounting-" + workspace} searchResults={pageSearchResults(filteredLedger, 'accounting-records', '/accounting')}
                           aria-label="Search transactions"
                           placeholder="Search name or reference"
                           value={search}

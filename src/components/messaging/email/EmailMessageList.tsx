@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Search, RefreshCw, Mail, Clock, Send, AlertCircle, Filter, ChevronDown, Check, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -116,9 +118,9 @@ export function EmailMessageList({
       {/* Compact Single-Row Header */}
       <div className="p-3 border-b border-border">
         <div className="flex items-center gap-2">
-          <form onSubmit={handleSearchSubmit} className="relative flex-1">
+          <form data-page-search-container onSubmit={handleSearchSubmit} className="relative flex-1">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
+            <PageSearch scope="email" onResultOpen={result => { const message = messages.find(row => String(row.id) === result.id); if (message) onSelectMessage(message); }} scopeLabel="Email inbox" searchId="email" priority={20} filters={{ status: filterStatus }} searchLoading={isLoading} searchError={isError} searchResults={pageSearchResults(messages, 'email', '/messaging/email/inbox?message={id}')}
               placeholder="Search messages..."
               aria-label="Search email messages"
               value={searchValue}

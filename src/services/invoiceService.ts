@@ -57,6 +57,7 @@ const buildHeaders = () => {
 };
 
 export interface FetchInvoicesParams {
+  invoiceId?: string;
   role?: 'client';
   search?:string;
   status?: 'all' | 'pending' | 'paid' | 'overdue';
@@ -87,6 +88,7 @@ export const fetchInvoices = async (params: FetchInvoicesParams = {}, signal?: A
   }
 
   const queryParams = new URLSearchParams();
+  if (params.invoiceId) queryParams.append('invoice_id', params.invoiceId);
   if(params.search)queryParams.append('search',params.search);
   if (params.role) queryParams.append('role',params.role);
   if (params.status) queryParams.append('status', params.status);

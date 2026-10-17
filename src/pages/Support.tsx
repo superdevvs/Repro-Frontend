@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -95,7 +97,7 @@ function SupportWorkspace() {
     </header>
     <div className="grid min-h-0 min-w-0 flex-1 gap-3 overflow-hidden lg:grid-cols-[minmax(260px,330px)_minmax(0,1fr)]">
       <section aria-label="Support request list" className={`min-h-0 min-w-0 flex-col overflow-hidden rounded-xl border bg-card ${ticketId ? 'hidden lg:flex' : 'flex'}`}>
-        <div className="shrink-0 space-y-2 border-b p-3"><div className="flex gap-2"><div className="relative min-w-0 flex-1"><Search aria-hidden className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input aria-label="Search support requests" placeholder="Search requests" value={search} onChange={e => setSearch(e.target.value)} className="h-10 pl-9" /></div><Button variant="ghost" size="icon" className="h-10 w-9 shrink-0" aria-label="Refresh requests" disabled={list.isFetching} onClick={() => void list.refetch()}><RefreshCw className={`h-4 w-4 ${list.isFetching ? 'animate-spin' : ''}`} /></Button></div>
+        <div className="shrink-0 space-y-2 border-b p-3"><div className="flex gap-2"><div data-page-search-container className="relative min-w-0 flex-1"><Search aria-hidden className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><PageSearch scope="support" scopeLabel="Support requests" searchId="support" priority={20} searchLoading={list.isFetching} searchError={list.isError} searchResults={pageSearchResults(listData?.data ?? [], 'support', '/messaging/email/inbox?tab=support&ticket={id}')} onResultOpen={result => select(Number(result.id))} aria-label="Search support requests" placeholder="Search requests" value={search} onChange={e => setSearch(e.target.value)} className="h-10 pl-9" /></div><Button variant="ghost" size="icon" className="h-10 w-9 shrink-0" aria-label="Refresh requests" disabled={list.isFetching} onClick={() => void list.refetch()}><RefreshCw className={`h-4 w-4 ${list.isFetching ? 'animate-spin' : ''}`} /></Button></div>
           <select aria-label="Request status filter" className={`${selectClass} w-full`} value={status} onChange={e => { setStatus(e.target.value); setPage(1); }}><option value="">All statuses</option>{(['open', 'in_progress', 'waiting', 'resolved'] as const).map(value => <option key={value} value={value}>{supportStatusLabel(value)}</option>)}</select>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">

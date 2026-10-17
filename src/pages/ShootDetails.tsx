@@ -687,6 +687,7 @@ const ShootDetails: React.FC = () => {
                       <ShootDetailsPanelUnitChrome shoot={shoot} />
                     </div>
                     <ShootDetailsMediaTab
+                      contextualSearch
                       shoot={shoot}
                       isAdmin={isAdmin}
                       isPhotographer={isPhotographer}
@@ -772,6 +773,7 @@ const ShootDetails: React.FC = () => {
                     <div className="max-w-7xl mx-auto pt-0">
                       <ShootDetailsPanelUnitChrome shoot={shoot} />
                       <ShootDetailsNotesTab
+                        contextualSearch
                         shoot={shoot}
                         isAdmin={isAdmin}
                         isPhotographer={isPhotographer}

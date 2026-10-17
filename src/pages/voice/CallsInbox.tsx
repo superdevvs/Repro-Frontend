@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -160,9 +162,9 @@ export default function CallsInbox() {
 
       <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
         <div className={selectedId ? 'hidden min-h-0 lg:flex lg:flex-col lg:gap-3' : 'flex min-h-0 flex-col gap-3'}>
-          <div className="relative">
+          <div data-page-search-container className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-[var(--calls-muted)]" />
-            <Input
+            <PageSearch scope="calls" scopeLabel="Calls inbox" searchId="calls" priority={20} filters={{ filter }} searchLoading={list.isFetching} searchError={list.isError} searchResults={pageSearchResults(rows, 'calls', '/calls/inbox/{id}')}
               value={search}
               aria-label="Search conversations"
               onChange={(event) => setSearch(event.target.value)}

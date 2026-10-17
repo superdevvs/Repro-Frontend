@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 import { lazy, Suspense, useRef, type ChangeEventHandler, type Dispatch, type MouseEvent, type MutableRefObject, type RefObject, type SetStateAction } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -614,9 +616,9 @@ export function ChatWithReproAiView(props: ChatWithReproAiViewProps) {
   
                 {/* Search Bar and Selection Controls */}
                 <div className="mb-3 md:mb-6 space-y-3">
-                  <div className="relative">
+                  <div data-page-search-container className="relative">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
+                    <PageSearch scope="chat-history" onResultOpen={result => { const session = filteredSessions.find(row => String(row.id) === result.id); if (session) void handleSessionClick(session); }} scopeLabel="My AI chat history" searchId="chat-history" priority={20} searchResults={pageSearchResults(filteredSessions, 'chat-history', '/chat-with-reproai?session={id}')}
                       type="search"
                       placeholder="Search chat history..."
                       value={searchTerm}

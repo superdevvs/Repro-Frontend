@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
@@ -172,7 +174,7 @@ export function InactiveClientsPanel() {
               </SelectContent>
             </Select>
           )}
-          <Input
+          <PageSearch scope="accounts-inactive" scopeLabel="Inactive clients" searchId="accounts-inactive" priority={20} searchResults={pageSearchResults(rows, 'accounts-inactive', '/accounts?account={id}')}
             placeholder="Search name/email/phone"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

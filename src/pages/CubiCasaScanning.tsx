@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -64,7 +66,7 @@ export default function CubiCasaScanning() {
           compactTitleOnMobile
         />
 
-        <Input
+        <PageSearch scope="cubicasa" scopeLabel="Property scans" searchId="cubicasa" priority={20} filters={{ status }} searchLoading={shootsQuery.isFetching} searchError={shootsQuery.isError} searchResults={pageSearchResults(rows, 'cubicasa', '/shoots/{id}')}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search by address"

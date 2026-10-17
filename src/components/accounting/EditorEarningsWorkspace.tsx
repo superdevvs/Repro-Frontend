@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import {triggerInvoicesRefresh} from '@/realtime/realtimeRefreshBus';
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Activity, ChevronLeft, ChevronRight, Download, Filter as FilterIcon, LayoutGrid, List as ListIcon, ListChecks, NotebookPen, Receipt, RefreshCw, Search, Send, Wallet } from 'lucide-react';
@@ -580,9 +582,9 @@ function EditorAdminEarningsWorkspace({ mode = 'admin', startDate: reportingStar
       <Card className="border-border/70 bg-card/80">
         <CardContent className={cn("grid gap-2 p-3 sm:grid-cols-2", controlledDates ? "xl:grid-cols-[minmax(0,1.1fr)_repeat(2,minmax(0,0.6fr))_auto]" : "xl:grid-cols-[minmax(0,1.1fr)_repeat(2,minmax(0,0.6fr))_minmax(0,1fr)_auto]")}>
           {isAdmin ? (
-            <div className="relative">
+            <div data-page-search-container className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
+              <PageSearch scope="editing-earnings" scopeLabel="Editor earnings" searchId="editing-earnings" priority={20} searchResults={pageSearchResults((summaryResponse?.data ?? []).map(item => ({ ...item.editor, ...item })), 'editing-earnings', '/accounting')}
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search editor name or email"

@@ -6,7 +6,7 @@ const base = '/studio/workspaces';
 const path = (id: string) => `${base}/${encodeURIComponent(id)}`;
 export const sourceMedia = (m: SourceMedia): V4Media => ({ id: `file:${m.id}`, fileId: m.id, shootId: m.shootId, name: m.filename, kind: m.mediaType === 'video' ? 'video' : m.mediaType === 'raw' ? 'raw' : 'image', url: m.previewUrl || m.thumbnailUrl || '', thumbnailUrl: m.thumbnailUrl || m.previewUrl || '' });
 export const studioWorkspaceService = {
-  async list(): Promise<V4Workspace[]> { return (await apiClient.get(base)).data.data; },
+  async list(search?: string): Promise<V4Workspace[]> { return (await apiClient.get(base, search ? { params: { search } } : undefined)).data.data; },
   async get(id: string): Promise<V4Workspace> { return (await apiClient.get(path(id))).data.data; },
   async create(input: { name: string; presetId: string; media: V4Media[]; config: V4Config }, requestId: string): Promise<V4Workspace> {
     return (await apiClient.post(base, { ...input, requestId })).data.data;

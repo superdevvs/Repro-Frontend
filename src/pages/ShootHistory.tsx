@@ -1,3 +1,4 @@
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { ShootHistoryDateList } from '@/components/shoots/history/ShootHistoryDateList'
 import { getShootLocalDate } from '@/utils/shootLocalDate'
 import { ShootEmptyState } from '@/components/shoots/ShootEmptyState';
@@ -643,7 +644,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </ShootHistoryDateList>
     )
-  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isSalesRep, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails, role])
+  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, inProgressSubTab, deliveredSubTab, canViewInvoice, canSendToEditing, shouldHideClientDetails, role, canShowShootPaymentStatus])
 
   // Hold-on shoots content
   const holdOnContent = useMemo(() => {
@@ -723,7 +724,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </ShootHistoryDateList>
     )
-  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isSalesRep, isEditingManager, isEditor, canShowShootPaymentStatus, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, holdSubTab, role])
+  }, [hasOperationalFilters, resetOperationalFilters, loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, canShowShootPaymentStatus, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, holdSubTab, role])
 
   const featuredContent = useMemo(() => {
     if (loading && activeTab === 'featured') {
@@ -800,7 +801,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </ShootHistoryDateList>
     )
-  }, [loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isSalesRep, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, handleApproveFeaturedShoot, canViewInvoice, canSendToEditing, shouldHideClientDetails, role])
+  }, [loading, activeTab, filteredOperationalData, viewMode, masonryColumnCount, compactGrid, operationalMarkers, handleShootSelect, canDownloadHistoryShoot, handleDownloadShoot, downloadingShootIds, isSuperAdmin, isAdmin, isClient, isEditingManager, isEditor, handleDeleteShoot, handleViewInvoice, handleOpenPaymentDialog, handleSendToEditing, handleApproveFeaturedShoot, canViewInvoice, canSendToEditing, shouldHideClientDetails, role, canShowShootPaymentStatus])
 
   // Legacy operationalContent for backward compatibility
   const operationalContent = useMemo(() => {
@@ -935,7 +936,7 @@ const ShootHistory: React.FC = () => {
         ))}
       </ShootHistoryDateList>
     )
-  }, [canViewHistory, loading, activeTab, historyFilters, masonryColumnCount, historyAggregates, historyRecords, historyMarkers, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteHistoryRecord, handleViewInvoice, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, formatDisplayDatePref])
+  }, [canViewHistory, loading, activeTab, historyFilters, masonryColumnCount, historyAggregates, historyRecords, historyMarkers, handleHistoryRecordSelect, handlePublishMls, detailLoading, isSuperAdmin, isAdmin, isEditingManager, isEditor, handleDeleteHistoryRecord, handleViewInvoice, handleSendToEditing, canViewInvoice, canSendToEditing, shouldHideClientDetails, formatDisplayDatePref, isSalesRep])
 
   const {
     operationalServicesSelected,
@@ -991,6 +992,8 @@ const ShootHistory: React.FC = () => {
           historySubTab={historySubTab}
           setHistorySubTab={setHistorySubTab}
           operationalFilters={operationalFilters}
+          searchResults={pageSearchResults(activeTab === 'history' ? historyRecords : filteredOperationalData, 'shoots', '/shoots/{id}')}
+          searchLoading={loading}
           onOperationalFilterChange={onOperationalFilterChange}
           operationalOptions={operationalOptions}
           operationalServicesSelected={operationalServicesSelected}

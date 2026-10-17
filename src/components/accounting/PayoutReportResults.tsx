@@ -1,3 +1,5 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +29,7 @@ export function PayoutReportResults({ rows }: { rows: PayoutReportRow[] }) {
       <section className="ar-queue" aria-label="Payout report payees">
         <div className="ar-queue-controls">
           <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold">Payout breakdown</h3><span className="text-xs text-muted-foreground">{filtered.length} payees</span></div>
-          <Input aria-label="Search report payees" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); setSelectedKey(''); }} placeholder="Search name or email" className="h-9" />
+          <PageSearch scope="payouts" scopeLabel="Report payees" searchId="payouts" priority={20} searchResults={pageSearchResults(filtered, 'payouts', '/accounting')} aria-label="Search report payees" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); setSelectedKey(''); }} placeholder="Search name or email" className="h-9" />
         </div>
         <div className="ar-queue-list ar-table-scroll"><table className="ar-table ar-report-table">
           <thead><tr><th>Payee</th><th>Shoots</th><th>Basis</th><th className="text-right">Payout</th></tr></thead>

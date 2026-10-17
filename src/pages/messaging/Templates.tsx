@@ -1,6 +1,9 @@
+import { PageSearch } from '@/components/search/PageSearch';
+import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -26,6 +29,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 export default function Templates() {
   const queryClient = useQueryClient();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const templateId = searchParams.get('template');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedScope, setSelectedScope] = useState<string>('all');
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
@@ -41,6 +46,12 @@ export default function Templates() {
         scope: selectedScope === 'all' ? undefined : selectedScope,
       }),
   });
+
+  useEffect(() => {
+    if (!templateId || !templates) return;
+    const template = templates.find(item => String(item.id) === templateId);
+    if (template) setEditingTemplate(template);
+  }, [templateId, templates]);
 
   usePageLoading(isLoading);
 
@@ -119,9 +130,11 @@ export default function Templates() {
           </div>
 
           {/* Search */}
-          <div className="relative max-w-md">
+          <div data-page-search-container className="relative max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
+            <PageSearch scope="templates" scopeLabel="Templates" searchId="templates" priority={20} searchResults={pageSearchResults(filteredTemplates ?? [], 'templates', '/messaging/email/templates?template={id}')}
+              filters={{ scope: selectedScope }} searchLoading={isLoading} searchError={isError}
+              onResultOpen={result => { const template = templates?.find(item => String(item.id) === result.id); if (template) setEditingTemplate(template); }}
               placeholder="Search templates..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -259,6 +272,7 @@ export default function Templates() {
             onClose={() => {
               setIsCreating(false);
               setEditingTemplate(null);
+              if (templateId) { const next = new URLSearchParams(searchParams); next.delete('template'); setSearchParams(next, { replace: true }); }
             }}
             onSuccess={(savedTemplate) => {
               queryClient.setQueriesData<MessageTemplate[]>({ queryKey: ['templates'] }, (current) =>

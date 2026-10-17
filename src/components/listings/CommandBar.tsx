@@ -37,6 +37,8 @@ import type {
   SuggestionCategory,
 } from '@/lib/listing-presentation/types'
 
+import { useContextualSearch } from '@/components/search/searchContext';
+
 export interface CommandBarProps {
   /** Current search text; mirrors the input value. */
   searchQuery: string
@@ -121,6 +123,7 @@ export function CommandBar({
   variant = 'default',
   trailing,
 }: CommandBarProps) {
+  const contextualSearch = useContextualSearch();
   // `open` tracks whether the input has focus; the dropdown only shows while
   // focused AND there is something worth showing (a query or suggestions).
   const [open, setOpen] = React.useState(false)
@@ -167,7 +170,7 @@ export function CommandBar({
           shouldFilter={false}
           className="relative overflow-visible rounded-none bg-transparent"
         >
-          <div
+          {!contextualSearch?.enabled && <div
             className={cn(
               'flex h-9 items-center gap-2 rounded-lg border px-3',
               variant === 'overlay'
@@ -200,7 +203,7 @@ export function CommandBar({
                   : 'text-foreground placeholder:text-muted-foreground',
               )}
             />
-          </div>
+          </div>}
 
           {showDropdown && (
             <div
