@@ -117,7 +117,7 @@ export function AdditionalFilesPanel({ shoot, onUploadComplete, incomingFiles, o
       <label htmlFor={inputId} className="block text-sm font-medium">Choose images, videos or ZIP files</label>
       <input id={inputId} data-testid="additional-files-input" type="file" multiple disabled={busy}
         accept="image/*,video/*,.zip,.cr2,.cr3,.nef,.arw,.dng,.raf,.rw2,.orf,.pef,.srw,.raw"
-        className="w-full min-w-0 text-sm file:mr-2 file:rounded-md file:border file:bg-background file:px-3 file:py-2"
+        className="w-full min-w-0 text-sm file:mr-2 file:rounded-md file:border file:bg-background file:px-3 file:py-2 file:text-foreground"
         onChange={event => { stage(Array.from(event.target.files || [])); event.target.value = ''; }} />
       <p className="text-xs text-muted-foreground">Up to 1 GB per file. ZIPs: up to 1 GB unpacked and 1,000 entries. Files are checked before acceptance. Additional files do not change charges or required photo counts.</p>
       {busy && <Progress value={progress} aria-label="Additional file upload progress" />}
