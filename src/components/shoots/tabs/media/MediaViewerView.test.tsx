@@ -16,6 +16,23 @@ beforeEach(() => { vi.clearAllMocks(); auth.role = 'admin'; vi.stubGlobal('fetch
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('Focus glass media viewer', () => {
+  it('moves one set of viewing controls between desktop and compact layouts without resetting zoom', async () => {
+    const listeners = new Set<(event: Pick<MediaQueryListEvent, 'matches'>) => void>();
+    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true,
+      addEventListener: (_type: string, listener: (event: Pick<MediaQueryListEvent, 'matches'>) => void) => listeners.add(listener),
+      removeEventListener: (_type: string, listener: (event: Pick<MediaQueryListEvent, 'matches'>) => void) => listeners.delete(listener),
+    })));
+    const user = userEvent.setup();
+    render(<MediaViewer {...base} />);
+    expect(screen.getByRole('button', { name: 'Full' }).closest('header')).not.toBeNull();
+    expect(screen.getAllByRole('button', { name: '+' })).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: '+' }));
+    expect(screen.getByText('125%')).toBeVisible();
+    act(() => { listeners.forEach(listener => listener({ matches: false })); });
+    expect(screen.getByRole('button', { name: 'Full' }).closest('.media-viewer-canvas')).not.toBeNull();
+    expect(screen.getAllByRole('button', { name: '+' })).toHaveLength(1);
+    expect(screen.getByText('125%')).toBeVisible();
+  });
   it('opens compact image information without losing the draft or closing the viewer', async () => {
     const user = userEvent.setup();
     render(<MediaViewer {...base} />);

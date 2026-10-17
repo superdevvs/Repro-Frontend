@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Heart, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatViewerFileSize } from './mediaViewerTypes';
 import { MediaViewerSlideshow } from './MediaViewerSlideshow';
@@ -8,11 +9,13 @@ import { MediaViewerActions, type MediaViewerModel } from './MediaViewerActions'
 import { MediaViewerCanvas } from './MediaViewerCanvas';
 import { MediaViewerInspector } from './MediaViewerInspector';
 import { MediaViewerComposers } from './MediaViewerComposers';
+import { MediaViewerZoomControls } from './MediaViewerControls';
 import './mediaViewerGlass.css';
 
 export function MediaViewerView({ model }: { model: MediaViewerModel }) {
   const { isOpen, onClose, currentFile, displayFilename, currentIndex, files, shoot, isClient, viewerMode, slideshowCurrentFile } = model;
   const [mobileInformationOpen, setMobileInformationOpen] = useState(false);
+  const controlsInHeader = useMediaQuery('(min-width: 1001px)');
   return <>
     <Dialog open={isOpen} onOpenChange={next => { if (!next) onClose(); }}>
       <DialogContent className="media-viewer-dialog" style={{ zIndex: 100 }} onEscapeKeyDown={event => {
@@ -28,13 +31,14 @@ export function MediaViewerView({ model }: { model: MediaViewerModel }) {
               <h2 title={displayFilename}>{displayFilename}</h2>
               <p className="media-viewer-metadata"><span>{currentIndex + 1} of {files.length}</span>{currentFile.width && currentFile.height && <span>{currentFile.width} × {currentFile.height}</span>}{!isClient && Boolean(currentFile.fileSize) && <span>{formatViewerFileSize(currentFile.fileSize)}</span>}</p>
             </div>
+            {controlsInHeader && model.isImg && <div className="media-viewer-header-viewing-controls"><MediaViewerZoomControls model={model} inline /></div>}
             <div className="media-viewer-header-controls">
               {model.canInteractSingleMedia && model.onToggleFavorite && <Button variant="ghost" size="icon" className={`media-viewer-icon-button ${currentFile.is_favorite ? 'media-viewer-liked' : ''}`} onClick={() => model.onToggleFavorite?.(currentFile.id)} aria-label={currentFile.is_favorite ? 'Unlike image' : 'Like image'} aria-pressed={Boolean(currentFile.is_favorite)}><Heart className={currentFile.is_favorite ? 'fill-current' : ''} /></Button>}
               <MediaViewerActions model={model} />
               <Button variant="ghost" size="icon" className="media-viewer-icon-button" onClick={onClose} aria-label="Close media viewer"><X /></Button>
             </div>
           </header>
-          <div className="media-viewer-workspace"><MediaViewerCanvas model={model} /><MediaViewerInspector model={model} mobileOpen={mobileInformationOpen} setMobileOpen={setMobileInformationOpen} /></div>
+          <div className="media-viewer-workspace"><MediaViewerCanvas model={model} controlsInHeader={controlsInHeader} /><MediaViewerInspector model={model} mobileOpen={mobileInformationOpen} setMobileOpen={setMobileInformationOpen} /></div>
           <footer className="media-viewer-keyboard-hint">← → to navigate · + − to zoom · Esc to close</footer>
         </div>}
       </DialogContent>
