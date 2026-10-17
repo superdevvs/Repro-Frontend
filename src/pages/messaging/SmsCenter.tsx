@@ -509,6 +509,7 @@ export default function SmsCenter() {
                 sending={replySending}
                 sendDisabled={senderUnavailable}
                 senderControl={role === 'superadmin' ? <SmsSenderSelect
+                  compact
                   numbers={senderNumbers}
                   value={selectedSenderId}
                   onChange={id => setSenderChoices(previous => ({ ...previous, [draftKey]: id }))}

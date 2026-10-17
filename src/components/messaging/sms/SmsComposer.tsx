@@ -53,7 +53,7 @@ export const SmsComposer = ({
         <Button
           variant="ghost"
           size="icon"
-          className={compact ? 'h-11 w-11 text-muted-foreground' : 'text-muted-foreground'}
+          className={compact ? 'h-11 w-11 text-muted-foreground' : 'h-8 w-8 shrink-0 text-muted-foreground'}
           type="button"
           disabled={!templates.length}
           aria-label="Insert template"
@@ -121,14 +121,14 @@ export const SmsComposer = ({
 
   return (
     <div className="space-y-3 border-t border-border/70 bg-background/80 p-4">
-      {senderControl}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-        <Button variant="ghost" size="icon" className="text-muted-foreground" type="button">
+      <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+        <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-muted-foreground" type="button" aria-label="Attach file">
           <Paperclip className="h-4 w-4" />
         </Button>
         {templateMenu}
-        <span className="ml-auto">
-          {characterCount} chars • {segments} segments
+        {senderControl && <div className="min-w-0 max-w-sm flex-1 [&>div]:grid-cols-[auto_minmax(0,1fr)] [&>div]:gap-x-2">{senderControl}</div>}
+        <span className="ml-auto shrink-0 whitespace-nowrap pl-1 text-[10px]">
+          {characterCount} chars · {segments} {segments === 1 ? 'segment' : 'segments'}
         </span>
       </div>
       <div className="flex items-end gap-3">
