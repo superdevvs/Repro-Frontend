@@ -1,0 +1,61 @@
+import '@testing-library/jest-dom/vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MediaViewer } from './MediaViewer';
+import type { MediaFile } from '@/hooks/useShootFiles';
+
+const auth = vi.hoisted(() => ({ role: 'admin' }));
+const apiGet = vi.hoisted(() => vi.fn(async () => ({ data: { data: { available: false } } })));
+vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ ...auth, user: { id: 7 } }) }));
+vi.mock('@/services/api', () => ({ getApiHeaders: () => ({}), getImpersonatedUserId: () => null, apiClient: { get: apiGet } }));
+vi.mock('framer-motion', async importOriginal => ({ ...await importOriginal<typeof import('framer-motion')>(), useReducedMotion: () => true }));
+const files: MediaFile[] = [1, 2].map(id => ({ id: String(id), filename: `photo-${id}.jpg`, fileType: 'image/jpeg', workflowStage: 'verified', media_type: 'edited', web_url: `/web-${id}.jpg`, original_url: `/original-${id}.jpg`, can_delete: true }));
+const base = { isOpen: true, onClose: vi.fn(), files, currentIndex: 0, onIndexChange: vi.fn(), getImageUrl: () => '/thumb.jpg', shoot: { id: 12, location: { address: 'Example property' } } as never, isAdmin: true, canViewFullSize: true, canInteractSingleMedia: true, canDownloadSingleMedia: true, canRenameFilename: true, canStartSlideshow: true, slideshowFiles: files, canReclassify: true, onReclassify: vi.fn(), onDownloadSingle: vi.fn(), onDeleteFile: vi.fn(), onRenameFilename: vi.fn(), onAddComment: vi.fn(), onToggleHidden: vi.fn() };
+beforeEach(() => { vi.clearAllMocks(); auth.role = 'admin'; vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ data: [] }) }))); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+describe('Focus glass media viewer', () => {
+  it('provides one actions menu including editing and no duplicate comment toolbar', async () => {
+    const user = userEvent.setup();
+    render(<MediaViewer {...base} />);
+    expect(screen.getAllByRole('button', { name: 'Image actions' })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /Editing actions for/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Make hero' })).toBeNull();
+    expect(screen.getByRole('tab', { name: /Comments/ })).toHaveAttribute('aria-selected', 'true');
+    await user.click(screen.getByRole('button', { name: 'Image actions' }));
+    for (const name of ['Make hero', 'Mark as', 'Download', 'Hide image', 'Rename filename', 'Send to editing…', 'Versions / upload saved edit…', 'Photoshop setup / manual editing…', 'Slideshow', 'Request modification', 'Delete file']) expect(await screen.findByRole('menuitem', { name })).toBeInTheDocument();
+    await user.click(screen.getByRole('menuitem', { name: 'Rename filename' }));
+    expect(await screen.findByRole('textbox', { name: 'New filename' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(base.onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Image actions' })).toBeVisible();
+  });
+  it('retains discussion on restricted previews without exposing downloads or editing', async () => {
+    auth.role = 'client';
+    const user = userEvent.setup();
+    render(<MediaViewer {...base} files={files.map(file => ({ ...file, uses_watermark: true, can_download: false, can_delete: false, media_curation_scope: 'customer' }))} isAdmin={false} isClient canViewFullSize={false} canRenameFilename={false} canReclassify={false} />);
+    expect(screen.queryByRole('button', { name: 'Full' })).toBeNull();
+    expect(screen.getByRole('textbox', { name: 'Comment for this image' })).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Image actions' }));
+    expect(screen.queryByRole('menuitem', { name: 'Download' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Send to editing…' })).toBeNull();
+    expect(screen.queryByRole('menuitem', { name: 'Delete file' })).toBeNull();
+    expect(apiGet).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('menuitem', { name: 'Request modification' }));
+    expect(await screen.findByRole('textbox', { name: 'Modification request' })).toBeVisible();
+  });
+  it('lets comments contain zoom shortcuts and arrows without moving the image', async () => {
+    const user = userEvent.setup();
+    render(<MediaViewer {...base} />);
+    const input = screen.getByRole('textbox', { name: 'Comment for this image' });
+    await user.type(input, 'Lift shadows + 10 - 5');
+    fireEvent.keyDown(input, { key: 'ArrowRight' });
+    expect(base.onIndexChange).not.toHaveBeenCalled();
+    expect(screen.getByText('100%')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Post' }));
+    expect(base.onAddComment).toHaveBeenCalledWith('1', 'Lift shadows + 10 - 5');
+    await act(async () => fireEvent.keyDown(window, { key: 'ArrowRight' }));
+    await waitFor(() => expect(base.onIndexChange).toHaveBeenCalledWith(1));
+  });
+});

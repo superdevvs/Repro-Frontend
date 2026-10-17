@@ -46,19 +46,20 @@ export function MediaViewerPreviewSizeControls({ model }: { model: MediaViewerMo
   return renderPreviewSizeControls('hidden md:flex md:justify-self-end');
 }
 
-export function MediaViewerZoomControls({ model }: { model: MediaViewerModel }) {
+export function MediaViewerZoomControls({ model, inline = false }: { model: MediaViewerModel; inline?: boolean }) {
   const { isImg, previewMode, setPreviewMode, canViewFullSize, fullSizeAvailable, handleZoomOut, zoom, handleZoomIn, handleResetZoom } = model;
   const zoomControls = isImg ? (
-    <div className="pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center sm:bottom-4">
-      <div className="pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-black/60 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
-        {canViewFullSize && <div className="flex shrink-0 items-center gap-1 md:hidden">
+    <div className={inline ? 'media-viewer-inline-controls' : 'pointer-events-none absolute inset-x-3 bottom-3 z-40 flex justify-center sm:bottom-4'}>
+      <div className="media-viewer-control-dock pointer-events-auto flex max-w-full items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-black/60 p-1 text-white shadow-[0_12px_30px_rgba(0,0,0,0.35)] backdrop-blur-md">
+        {canViewFullSize && <div className={`flex shrink-0 items-center gap-1 ${inline ? '' : 'md:hidden'}`}>
           <Button
             variant="ghost"
             size="sm"
             className={`h-8 shrink-0 whitespace-nowrap rounded-lg px-2 text-xs text-white hover:bg-white/15 ${
-              previewMode === 'web' ? 'bg-blue-600 text-white hover:bg-blue-600' : ''
+            previewMode === 'web' ? 'bg-primary text-white hover:bg-primary' : ''
             }`}
             onClick={() => setPreviewMode('web')}
+          aria-pressed={previewMode === 'web'}
             title="Use web-sized preview"
           >
             Web
@@ -67,9 +68,10 @@ export function MediaViewerZoomControls({ model }: { model: MediaViewerModel }) 
             variant="ghost"
             size="sm"
             className={`h-8 shrink-0 whitespace-nowrap rounded-lg px-2 text-xs text-white hover:bg-white/15 disabled:opacity-45 ${
-              previewMode === 'full' ? 'bg-blue-600 text-white hover:bg-blue-600' : ''
+            previewMode === 'full' ? 'bg-primary text-white hover:bg-primary' : ''
             }`}
             onClick={() => setPreviewMode('full')}
+            aria-pressed={previewMode === 'full'}
             disabled={!canViewFullSize || !fullSizeAvailable}
             title={
               canViewFullSize && fullSizeAvailable
@@ -80,7 +82,7 @@ export function MediaViewerZoomControls({ model }: { model: MediaViewerModel }) 
             Full
           </Button>
         </div>}
-        {canViewFullSize && <span className="h-5 w-px shrink-0 bg-white/10 md:hidden" aria-hidden />}
+        {canViewFullSize && <span className={`h-5 w-px shrink-0 bg-white/10 ${inline ? '' : 'md:hidden'}`} aria-hidden />}
         <Button
           variant="ghost"
           size="icon"

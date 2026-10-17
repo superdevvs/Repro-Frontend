@@ -114,7 +114,7 @@ export function useMediaViewerController({
   const [renameDraft, setRenameDraft] = useState('');
   const [renamingFilename, setRenamingFilename] = useState(false);
   const [deletingFile, setDeletingFile] = useState(false);
-  const [showFileDetails, setShowFileDetails] = useState(true);
+  const [showFileDetails, setShowFileDetails] = useState(false);
   const [viewerRequests, setViewerRequests] = useState<MediaIssueRequest[]>([]);
   const [requestsLoading, setRequestsLoading] = useState(false);
   const [requestRefreshKey, setRequestRefreshKey] = useState(0);
@@ -182,7 +182,7 @@ export function useMediaViewerController({
   );
   useEffect(() => {
     setCommentDraft('');
-    setShowFileDetails(true);
+    setShowFileDetails(false);
     setShowRequestComposer(false);
     setFlagReason('');
     setVideoSourceIndex(0);
@@ -575,6 +575,8 @@ export function useMediaViewerController({
   useEffect(() => {
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || showRenameComposer || showRequestComposer) return;
+      if (e.target instanceof HTMLElement && e.target.closest('input, textarea, [contenteditable="true"], [role="menu"], [role="menuitem"], [role="tablist"]')) return;
       if (viewerMode === 'slideshow') {
         if (e.key === 'Escape') {
           e.preventDefault();
@@ -625,6 +627,8 @@ export function useMediaViewerController({
     onClose,
     onIndexChange,
     slideshowIndex,
+    showRenameComposer,
+    showRequestComposer,
     viewerMode,
   ]);
   useEffect(() => {
