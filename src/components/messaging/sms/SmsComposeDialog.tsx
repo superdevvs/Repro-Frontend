@@ -20,6 +20,8 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { getSmsGroups, getSmsRecipients, type SmsDirectoryRecipient } from '@/services/messaging';
 import { SmsGroupsDialog, type SmsGroupDraftMember } from './SmsGroupsDialog';
 import { useAuth } from '@/components/auth/AuthProvider';
+import type { SmsNumberConfig } from '@/types/messaging';
+import { SmsSenderSelect } from './SmsSenderSelect';
 
 export type SmsComposeRecipient = {
   key: string;
@@ -33,6 +35,7 @@ export type SmsComposePayload = {
   recipients?: Array<{ phone: string; name?: string; user_id?: number | null }>;
   group_ids?: number[];
   bodyText: string;
+  smsNumberId?: number;
 };
 
 const phoneKey = (value: string) => {
@@ -51,15 +54,27 @@ type SmsComposeDialogProps = {
   onSend: (payload: SmsComposePayload) => void;
   sending?: boolean;
   templates?: Array<{ id: string | number; name: string; body_text?: string }>;
+  senderNumbers?: SmsNumberConfig[];
+  senderNumbersLoading?: boolean;
+  senderNumbersError?: boolean;
+  onRetrySenderNumbers?: () => void;
 };
+
+const EMPTY_SENDER_NUMBERS: SmsNumberConfig[] = [];
 
 export const SmsComposeDialog = (props: SmsComposeDialogProps) => {
   const { user, role } = useAuth();
-  return <SmsComposeForActor key={`${user?.id}:${role}`} {...props} />;
+  return <SmsComposeForActor key={`${user?.id}:${role}:${props.open}`} {...props} />;
 };
 
-const SmsComposeForActor = ({ open, onOpenChange, onSend, sending, templates = [] }: SmsComposeDialogProps) => {
+const SmsComposeForActor = ({ open, onOpenChange, onSend, sending, templates = [], senderNumbers = EMPTY_SENDER_NUMBERS, senderNumbersLoading, senderNumbersError, onRetrySenderNumbers }: SmsComposeDialogProps) => {
   const { user, role } = useAuth();
+  const senderOptions = useMemo(() => senderNumbers.filter(number => Number.isInteger(number.id) && Number(number.id) > 0 && number.phone_number.trim()), [senderNumbers]);
+  const defaultSenderId = senderOptions.find(number => number.is_default)?.id ?? senderOptions[0]?.id;
+  const [selectedSenderId, setSelectedSenderId] = useState<number | undefined>(defaultSenderId);
+  useEffect(() => {
+    setSelectedSenderId(current => senderOptions.some(number => number.id === current) ? current : defaultSenderId);
+  }, [senderOptions, defaultSenderId]);
   const [recipients, setRecipients] = useState<SmsComposeRecipient[]>([]);
   const [phoneInput, setPhoneInput] = useState('');
   const [phoneError, setPhoneError] = useState('');
@@ -164,7 +179,9 @@ const SmsComposeForActor = ({ open, onOpenChange, onSend, sending, templates = [
     ));
   };
 
-  const canSend = (recipients.length > 0 || groupIds.length > 0) && bodyText.trim().length > 0;
+  const validSender = senderOptions.some(number => number.id === selectedSenderId);
+  const senderReady = role !== 'superadmin' || (validSender && !senderNumbersLoading && !senderNumbersError);
+  const canSend = (recipients.length > 0 || groupIds.length > 0) && bodyText.trim().length > 0 && senderReady;
 
   const handleSend = () => {
     if (!canSend) return;
@@ -180,6 +197,7 @@ const SmsComposeForActor = ({ open, onOpenChange, onSend, sending, templates = [
         : undefined,
       group_ids: groupIds.length > 0 ? groupIds : undefined,
       bodyText: bodyText.trim(),
+      ...(role === 'superadmin' && validSender ? { smsNumberId: selectedSenderId } : {}),
     });
   };
 
@@ -204,6 +222,16 @@ const SmsComposeForActor = ({ open, onOpenChange, onSend, sending, templates = [
           </DialogHeader>
 
           <div className="flex min-h-0 flex-col gap-4 overflow-y-auto">
+            <SmsSenderSelect
+              numbers={senderOptions}
+              value={selectedSenderId}
+              onChange={setSelectedSenderId}
+              disabled={sending}
+              loading={senderNumbersLoading}
+              error={senderNumbersError}
+              onRetry={onRetrySenderNumbers}
+              id="sms-compose-from"
+            />
             <div className="grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(16rem,1fr)]">
               <div className="space-y-2">
                 <div className="flex items-center justify-between gap-3">
