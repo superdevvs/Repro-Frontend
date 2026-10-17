@@ -79,6 +79,7 @@ import { CLOUDFLARE_SAFE_UPLOAD_BYTES, uploadMediaRequest } from './uploadMediaR
 import { runUploadConcurrencyPool } from './mediaUploadConcurrency';
 import { prepareRawUploadBatch } from './prepareRawUploadBatch';
 import { rawUploadBlockReason } from './rawUploadAvailability';
+import { AdditionalFilesPanel } from './AdditionalFilesPanel';
 import { createUploadTransferTracker } from './uploadTransferSpeed';
 
 export function RawUploadSection({
@@ -112,6 +113,7 @@ export function RawUploadSection({
   const [isUploading, setIsUploading] = useState(false);
   const [notes, setNotes] = useState('');
   const [selectedServiceId, setSelectedServiceId] = useState('');
+  const [additionalFiles, setAdditionalFiles] = useState<File[]>();
   /** Set once the user picks a service by hand, which stops the auto-selection. */
   const serviceSelectionTouchedRef = useRef(false);
   const inputId = `raw-upload-input-${shoot.id}`;
@@ -121,14 +123,7 @@ export function RawUploadSection({
     () => shootServices.some((service) => /video/i.test(String(service))),
     [shootServices],
   );
-  /**
-   * The lane(s) the staged batch actually needs, from the files' MIME types.
-   *
-   * The selector is capability-gated per lane, so staging a video narrows the list to
-   * services that declare video intake. With nothing staged this is the photo lane,
-   * which is what a raw capture batch defaults to. It deliberately mirrors the
-   * backend's own rule, so the dropdown cannot offer a service the API would refuse.
-   */
+  /** Service targets must support every staged MIME lane. */
   const stagedLanes = useMemo(
     () => resolveUploadLanesForFiles(groups.flatMap((group) => group.files)),
     [groups],
@@ -229,6 +224,7 @@ export function RawUploadSection({
     setIsUploading(false);
     setNotes('');
     setSelectedServiceId('');
+    setAdditionalFiles(undefined);
     serviceSelectionTouchedRef.current = false;
     setUploadLimitHint(buildUploadLimitDescription());
     // Drop any per-service size the user changed, so the next shoot starts from
@@ -289,8 +285,8 @@ export function RawUploadSection({
     if (incomingFiles.length === 0) return;
 
     const unavailable = rawUploadBlockReason(shoot, user, incomingFiles);
-    if (unavailable) {
-      toast({ title: 'Upload blocked', description: unavailable, variant: 'destructive' });
+    if (unavailable || incomingFiles.some(file => /\.zip$/i.test(file.name))) {
+      setAdditionalFiles(incomingFiles);
       return;
     }
 
@@ -770,11 +766,12 @@ export function RawUploadSection({
             />
           ))}
 
+      <AdditionalFilesPanel shoot={shoot} onUploadComplete={onUploadComplete} incomingFiles={additionalFiles} onIncomingConsumed={() => setAdditionalFiles(undefined)} />
       {uploadBlockReason ? (
         <div role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">{uploadBlockReason}</div>
       ) : <UploadDropzone
         empty={stagedFileCount === 0}
-        accept={FULL_UPLOAD_ACCEPT}
+        accept={`${FULL_UPLOAD_ACCEPT},.zip`}
         inputId={inputId}
         inputTestId="raw-upload-input"
         title="No uploaded files yet"

@@ -5,6 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MediaViewer } from './MediaViewer';
 import type { MediaFile } from '@/hooks/useShootFiles';
 
+// jsdom omits this browser API used by the lightbox's zoom-centering effect.
+Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, writable: true, value: vi.fn() });
+
 const auth = vi.hoisted(() => ({ role: 'admin' }));
 const apiGet = vi.hoisted(() => vi.fn(async () => ({ data: { data: { available: false } } })));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ ...auth, user: { id: 7 } }) }));
