@@ -369,6 +369,7 @@ export interface SmsContact {
 
 export interface SmsThreadSummary {
   id: string;
+  businessNumber?: string | null;
   inboxScope?: SmsInboxScope;
   needsReply?: boolean;
   contact?: SmsContact;

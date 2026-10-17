@@ -5,7 +5,7 @@ import type { SmsContact, SmsMessageDetail, SmsThreadSummary } from '@/types/mes
 import { SmsComposer } from './SmsComposer';
 import { SmsMessageBubble } from './SmsMessageBubble';
 import { format, formatDistanceToNow } from 'date-fns';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { buildSmsConversation, type SmsConversationItem } from './smsReaction';
 
 interface SmsConversationProps {
@@ -25,6 +25,8 @@ interface SmsConversationProps {
   resumingAi?: boolean;
   onToggleContactAi?: (enabled: boolean) => void;
   togglingContactAi?: boolean;
+  senderControl?: ReactNode;
+  sendDisabled?: boolean;
 }
 
 export const SmsConversation = ({
@@ -44,6 +46,8 @@ export const SmsConversation = ({
   resumingAi,
   onToggleContactAi,
   togglingContactAi,
+  senderControl,
+  sendDisabled,
 }: SmsConversationProps) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
 
@@ -198,7 +202,8 @@ export const SmsConversation = ({
         value={composerValue}
         onChange={onComposerChange}
         onSend={onSend}
-        disabled={sending || !composerValue.trim()}
+        disabled={sending || sendDisabled || !composerValue.trim()}
+        senderControl={senderControl}
         placeholder={`Write a message to ${name}`}
         templates={templates}
         compact={isMobile}

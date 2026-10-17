@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Paperclip, Send, Sparkles } from 'lucide-react';
@@ -18,6 +18,7 @@ interface SmsComposerProps {
   templates?: Array<{ id: string | number; name: string; body_text?: string }>;
   onSelectTemplate?: (body: string) => void;
   compact?: boolean;
+  senderControl?: ReactNode;
 }
 
 export const SmsComposer = ({
@@ -29,6 +30,7 @@ export const SmsComposer = ({
   templates = [],
   onSelectTemplate,
   compact = false,
+  senderControl,
 }: SmsComposerProps) => {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const characterCount = value.length;
@@ -80,6 +82,7 @@ export const SmsComposer = ({
   if (compact) {
     return (
       <div className="shrink-0 border-t border-border/70 bg-background px-2 py-2">
+        {senderControl && <div className="mb-2 px-1">{senderControl}</div>}
         {characterCount > 0 && (
           <p className="px-12 pb-1 text-right text-[11px] text-muted-foreground">
             {characterCount} chars · {segments} {segments === 1 ? 'segment' : 'segments'}
@@ -118,6 +121,7 @@ export const SmsComposer = ({
 
   return (
     <div className="space-y-3 border-t border-border/70 bg-background/80 p-4">
+      {senderControl}
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Button variant="ghost" size="icon" className="text-muted-foreground" type="button">
           <Paperclip className="h-4 w-4" />

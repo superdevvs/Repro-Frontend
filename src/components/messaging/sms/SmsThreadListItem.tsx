@@ -92,6 +92,7 @@ export const SmsThreadListItem = ({ thread, active, onSelect }: SmsThreadListIte
             {reactionPreview || thread.lastMessageSnippet || 'No messages yet'}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {thread.businessNumber && <span className="text-[10px] text-muted-foreground">Via {thread.businessNumber}</span>}
             {thread.unread && <span className="h-2 w-2 shrink-0 rounded-full bg-primary" aria-label="Unread" />}
             {thread.group ? (
               <Badge variant="outline" className="h-5 px-1.5 text-[10px] font-medium uppercase tracking-wide">

@@ -501,6 +501,11 @@ export const markEmailThreadRead = async (id: number): Promise<void> => {
 };
 
 // SMS
+export const getSmsSenders = async (): Promise<SmsNumberConfig[]> => {
+  const response = await apiClient.get('/messaging/sms/senders');
+  return response.data.numbers ?? [];
+};
+
 export const getSmsThreads = async (params?: {
   scope?: 'inbox' | 'system';
   per_page?: number;
@@ -595,6 +600,8 @@ export const sendSmsMessageToThread = async (
 ): Promise<{
   message: SmsMessageDetail;
   thread: SmsThreadSummary;
+  sent?: number;
+  failed?: number;
 }> => {
   const response = await apiClient.post(`/messaging/sms/threads/${threadId}/messages`, data);
   return response.data;

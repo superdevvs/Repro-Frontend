@@ -8,6 +8,7 @@ import { SmsContactPanel } from '@/components/messaging/sms/SmsContactPanel';
 import { SmsComposeDialog } from '@/components/messaging/sms/SmsComposeDialog';
 import {
   getSmsThreads,
+  getSmsSenders,
   getSmsThread,
   markSmsThreadRead,
   resumeSmsThreadAi,
@@ -29,6 +30,7 @@ import { parseSmsReaction } from '@/components/messaging/sms/smsReaction';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { canViewSystemSms } from '@/utils/messagingRoles';
+import { SmsSenderSelect } from '@/components/messaging/sms/SmsSenderSelect';
 
 export default function SmsCenter() {
   const queryClient = useQueryClient();
@@ -42,6 +44,7 @@ export default function SmsCenter() {
   const [page, setPage] = useState(1);
   const [desktopThreadId, setDesktopThreadId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [senderChoices, setSenderChoices] = useState<Record<string, number>>({});
   const [composeOpen, setComposeOpen] = useState(false);
   const [contactDrawerOpen, setContactDrawerOpen] = useState(false);
   const [contactPanelOpen, setContactPanelOpen] = useState(false);
@@ -128,6 +131,24 @@ export default function SmsCenter() {
   });
 
   const threadDetail = threadDetailQuery.data?.thread.id === activeThreadId ? threadDetailQuery.data : undefined;
+  const senderNumbersQuery = useQuery({
+    queryKey: ['sms-senders', user?.id, role],
+    queryFn: () => getSmsSenders(),
+    enabled: role === 'superadmin',
+    staleTime: 60_000,
+  });
+  const senderNumbers = senderNumbersQuery.data ?? [];
+  const normalizeSender = (phone: string) => {
+    const digits = phone.replace(/\D/g, '');
+    return digits.length === 10 ? `1${digits}` : digits;
+  };
+  const conversationNumber = threadDetail?.thread.businessNumber;
+  const conversationSender = conversationNumber
+    ? senderNumbers.find(number => normalizeSender(number.phone_number) === normalizeSender(conversationNumber))
+    : senderNumbers.find(number => number.is_default) ?? senderNumbers[0];
+  const selectedSenderId = senderChoices[draftKey] ?? conversationSender?.id;
+  const validSender = senderNumbers.some(number => number.id === selectedSenderId);
+  const senderUnavailable = role === 'superadmin' && (senderNumbersQuery.isLoading || senderNumbersQuery.isError || !validSender);
   // Only show the skeleton on the very first load (no cached/placeholder data).
   const showThreadSkeleton = threadDetailQuery.isLoading && !threadDetail;
 
@@ -170,17 +191,31 @@ export default function SmsCenter() {
   }, [activeThreadId, markThreadRead, user?.id, role]);
 
   const sendMutation = useMutation({
-    mutationFn: ({ body, groupId, threadId }: { body: string; groupId?: number; threadId: string; draftKey: string }) => {
-      if (groupId) {
-        return sendSms({ group_ids: [groupId], body_text: body });
-      }
-      return sendSmsMessageToThread(threadId, { body });
+    mutationFn: ({ body, threadId, senderId }: { body: string; threadId: string; draftKey: string; senderId?: number }) => {
+      return sendSmsMessageToThread(threadId, { body, sms_number_id: senderId });
     },
-    onSuccess: (_result, sent) => {
+    onSuccess: (result, sent) => {
       setDrafts(previous => previous[sent.draftKey]?.trim() === sent.body ? { ...previous, [sent.draftKey]: '' } : previous);
       queryClient.invalidateQueries({ queryKey: ['sms-thread', sent.threadId] });
-      queryClient.invalidateQueries({ queryKey: threadsKey });
+      if (result.thread?.id && result.thread.id !== sent.threadId) {
+        queryClient.invalidateQueries({ queryKey: ['sms-thread', result.thread.id] });
+      }
+      queryClient.invalidateQueries({ queryKey: ['sms-threads'] });
+      setSenderChoices(previous => { const next = { ...previous }; delete next[sent.draftKey]; return next; });
+      if (result.thread?.id && (result.thread.id !== sent.threadId || scope === 'system')) {
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.delete('scope');
+        nextParams.set('thread', result.thread.id);
+        setSearchParams(nextParams, { replace: true });
+        if (!isMobile) setDesktopThreadId(result.thread.id);
+        setPage(1);
+        setFilter('all');
+        setSearch('');
+      }
       toast.success('Message sent');
+      if (result.failed) {
+        toast.warning(`${result.failed} ${result.failed === 1 ? 'person was' : 'people were'} not sent`);
+      }
     },
     onError: () => toast.error('Unable to send message'),
   });
@@ -192,6 +227,7 @@ export default function SmsCenter() {
         recipients: payload.recipients,
         group_ids: payload.group_ids,
         body_text: payload.bodyText,
+        sms_number_id: payload.smsNumberId,
       }),
     onSuccess: (result) => {
       setComposeOpen(false);
@@ -314,8 +350,8 @@ export default function SmsCenter() {
   });
 
   const handleSend = () => {
-    if (!composerText.trim() || !activeThreadId) return;
-    sendMutation.mutate({ body: composerText.trim(), threadId: activeThreadId, draftKey, groupId: threadDetail?.thread.group?.id });
+    if (!composerText.trim() || !activeThreadId || senderUnavailable) return;
+    sendMutation.mutate({ body: composerText.trim(), threadId: activeThreadId, draftKey, senderId: role === 'superadmin' ? selectedSenderId : undefined });
   };
 
   const handleContactUpdate = async (payload: Parameters<typeof updateSmsContact>[1]) => {
@@ -405,6 +441,16 @@ export default function SmsCenter() {
                 onComposerChange={setComposerText}
                 onSend={handleSend}
                 sending={sendMutation.isPending}
+                sendDisabled={senderUnavailable}
+                senderControl={role === 'superadmin' ? <SmsSenderSelect
+                  numbers={senderNumbers}
+                  value={selectedSenderId}
+                  onChange={id => setSenderChoices(previous => ({ ...previous, [draftKey]: id }))}
+                  loading={senderNumbersQuery.isLoading}
+                  error={senderNumbersQuery.isError}
+                  onRetry={() => void senderNumbersQuery.refetch()}
+                  disabled={sendMutation.isPending}
+                /> : conversationNumber ? <p className="text-xs text-muted-foreground">Sending from {conversationNumber}</p> : undefined}
                 isMobile={!!isMobile}
                 onBack={closeThread}
                 onOpenContact={() => {
@@ -465,6 +511,10 @@ export default function SmsCenter() {
         onSend={(payload) => composeMutation.mutate(payload)}
         sending={composeMutation.isPending}
         templates={smsTemplates}
+        senderNumbers={senderNumbers}
+        senderNumbersLoading={senderNumbersQuery.isLoading}
+        senderNumbersError={senderNumbersQuery.isError}
+        onRetrySenderNumbers={() => void senderNumbersQuery.refetch()}
       />
     </DashboardLayout>
   );

@@ -18,12 +18,13 @@ vi.mock('@/hooks/use-sms-realtime', () => ({
 vi.mock('@/components/layout/DashboardLayout', () => ({ DashboardLayout: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock('@/services/messaging', () => ({
   getSmsThreads: vi.fn(), getSmsThread: vi.fn(), markSmsThreadRead: vi.fn().mockResolvedValue(undefined),
+  getSmsSenders: vi.fn().mockResolvedValue([]),
   resumeSmsThreadAi: vi.fn(), sendSms: vi.fn(), sendSmsMessageToThread: vi.fn(),
   getSmsGroups: vi.fn().mockResolvedValue([]), getSmsRecipients: vi.fn().mockResolvedValue([]),
   saveSmsGroup: vi.fn(), deleteSmsGroup: vi.fn(), updateSmsContact: vi.fn(), updateSmsContactComment: vi.fn(),
   getTemplates: vi.fn().mockResolvedValue([]),
 }));
-import { getSmsThread, getSmsThreads } from '@/services/messaging';
+import { getSmsSenders, getSmsThread, getSmsThreads, sendSmsMessageToThread } from '@/services/messaging';
 
 const thread = (id: string, name: string): SmsThreadSummary => ({
   id, unread: false, inboxScope: 'inbox',
@@ -54,6 +55,38 @@ beforeEach(() => {
 afterEach(() => { cleanup(); clients.splice(0).forEach(client => client.clear()); });
 
 describe('SMS inbox scopes and search', () => {
+  it('preserves the conversation sender and opens the returned pair when superadmin changes From', async () => {
+    state.role = 'superadmin';
+    const user = userEvent.setup();
+    const alternate = { ...active, id: 'alternate-line', businessNumber: '+12025550102' };
+    const main = { ...active, id: 'main-line', businessNumber: '+12025550101' };
+    vi.mocked(getSmsSenders).mockResolvedValue([
+      { id: 1, phone_number: main.businessNumber, label: 'Main', is_default: true },
+      { id: 2, phone_number: alternate.businessNumber, label: 'Operations' },
+    ]);
+    vi.mocked(getSmsThreads).mockResolvedValue({ data: [alternate], meta: {} });
+    vi.mocked(getSmsThread).mockImplementation(async id => {
+      const selected = id === main.id ? main : alternate;
+      return { thread: selected, contact: selected.contact!, messages: [] };
+    });
+    vi.mocked(sendSmsMessageToThread).mockResolvedValue({
+      thread: main, message: { id: 'sent', threadId: main.id, direction: 'OUTBOUND', body: 'Hello from main' },
+    });
+    const client = mount();
+    client.setQueryData(['sms-thread', main.id, undefined, 'superadmin'], { thread: main, contact: main.contact!, messages: [] });
+    const invalidate = vi.spyOn(client, 'invalidateQueries');
+    await user.click(await screen.findByRole('button', { name: /Client conversation/ }));
+    expect(await screen.findByRole('combobox', { name: 'SMS sender number' })).toHaveValue('2');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'SMS sender number' }), '1');
+    await user.type(screen.getByPlaceholderText('Write a message to Client conversation'), 'Hello from main');
+    await user.click(screen.getByRole('button', { name: 'Send message' }));
+    await waitFor(() => expect(sendSmsMessageToThread).toHaveBeenCalledWith(alternate.id, { body: 'Hello from main', sms_number_id: 1 }));
+    await waitFor(() => expect(getSmsThread).toHaveBeenLastCalledWith(main.id));
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['sms-thread', main.id] });
+    expect(await screen.findByRole('combobox', { name: 'SMS sender number' })).toHaveValue('1');
+    expect(screen.getByPlaceholderText('Write a message to Client conversation')).toHaveValue('');
+  });
+
   it.each([true, false])('opens automated-only messages through the admin menu and returns to Inbox (mobile: %s)', async mobile => {
     state.mobile = mobile;
     const user = userEvent.setup(); mount();
