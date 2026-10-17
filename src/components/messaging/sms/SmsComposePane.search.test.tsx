@@ -49,24 +49,23 @@ beforeEach(() => {
 afterEach(() => { cleanup(); clients.splice(0).forEach(client => client.clear()); });
 
 describe('SMS compose recipient search', () => {
-  it('provides a dedicated search field and requests matching people with trimmed search text', async () => {
+  it('uses To to request matching people with trimmed search text', async () => {
     const user = userEvent.setup(); mount();
-    const search = screen.getByLabelText('Search people and groups');
+    const search = screen.getByLabelText('To');
     expect(search).toBeEnabled();
     expect(search).toHaveValue('');
-    expect(screen.getByLabelText('To')).toHaveValue('');
 
     await user.type(search, '  Cameron  ');
 
     await waitFor(() => expect(api.directory).toHaveBeenLastCalledWith({ search: 'Cameron', limit: 20 }));
     expect(await screen.findByRole('button', { name: /Cameron Photographer/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Lee Client/ })).not.toBeInTheDocument();
-    expect(screen.getByLabelText('To')).toHaveValue('');
+    expect(search).toHaveValue('  Cameron  ');
   });
 
   it('shares the search text between People and Groups and matches group names without case or surrounding-space differences', async () => {
     const user = userEvent.setup(); mount();
-    const search = screen.getByLabelText('Search people and groups');
+    const search = screen.getByLabelText('To');
     await user.type(search, '  PHOTO  ');
     await waitFor(() => expect(api.directory).toHaveBeenLastCalledWith({ search: 'PHOTO', limit: 20 }));
     expect(await screen.findByRole('button', { name: /Cameron Photographer/ })).toBeInTheDocument();
@@ -89,13 +88,13 @@ describe('SMS compose recipient search', () => {
     await user.click(await screen.findByRole('button', { name: /^Photographers\b/ }));
     expect(screen.getByRole('button', { name: 'Remove group Photographers' })).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText('Search people and groups'), 'crew');
+    await user.type(screen.getByLabelText('To'), 'crew');
 
     expect(await screen.findByRole('button', { name: /^Onsite crew\b/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Photographers\b/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Remove group Photographers' })).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Clear recipient search' }));
-    expect(screen.getByLabelText('Search people and groups')).toHaveValue('');
+    expect(screen.getByLabelText('To')).toHaveValue('');
     expect(await screen.findByRole('button', { name: /^Photographers\b/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: /^Sales team\b/ })).toBeInTheDocument();
     await user.type(screen.getByLabelText('Message'), 'Message for the selected photographers');
@@ -107,12 +106,12 @@ describe('SMS compose recipient search', () => {
     const user = userEvent.setup(); mount();
     await user.type(screen.getByLabelText('To'), '+17035550199{Enter}');
     await user.type(screen.getByLabelText('Message'), 'Keep this message draft');
-    await user.type(screen.getByLabelText('Search people and groups'), 'Cameron');
+    await user.type(screen.getByLabelText('To'), 'Cameron');
     await waitFor(() => expect(api.directory).toHaveBeenLastCalledWith({ search: 'Cameron', limit: 20 }));
 
     await user.click(screen.getByRole('button', { name: 'Clear recipient search' }));
 
-    expect(screen.getByLabelText('Search people and groups')).toHaveValue('');
+    expect(screen.getByLabelText('To')).toHaveValue('');
     expect(screen.getByRole('button', { name: 'Remove +17035550199' })).toBeInTheDocument();
     expect(screen.getByLabelText('Message')).toHaveValue('Keep this message draft');
     await waitFor(() => expect(api.directory).toHaveBeenLastCalledWith({ search: undefined, limit: 20 }));
@@ -123,7 +122,7 @@ describe('SMS compose recipient search', () => {
     await user.click(screen.getByRole('button', { name: 'Groups' }));
     await user.click(await screen.findByRole('button', { name: /^Sales team\b/ }));
 
-    await user.type(screen.getByLabelText('Search people and groups'), 'No such group');
+    await user.type(screen.getByLabelText('To'), 'No such group');
 
     expect(await screen.findByText(/^No matching groups\./)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Photographers\b/ })).not.toBeInTheDocument();
@@ -134,11 +133,11 @@ describe('SMS compose recipient search', () => {
 
   it('disables search and its clear control while a message is sending', async () => {
     const user = userEvent.setup(); const view = mount();
-    await user.type(screen.getByLabelText('Search people and groups'), 'Cameron');
+    await user.type(screen.getByLabelText('To'), 'Cameron');
     view.setSending(true);
 
-    expect(screen.getByLabelText('Search people and groups')).toBeDisabled();
+    expect(screen.getByLabelText('To')).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Clear recipient search' })).toBeDisabled();
-    expect(screen.getByLabelText('Search people and groups')).toHaveValue('Cameron');
+    expect(screen.getByLabelText('To')).toHaveValue('Cameron');
   });
 });

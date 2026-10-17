@@ -247,7 +247,7 @@ const SmsComposeForActor = ({ open, onOpenChange, onSend, sending, templates = [
                   id="sms-compose-from"
                 />
               </div>}
-              <div className="grid grid-cols-[2.5rem_minmax(0,1fr)] items-start gap-3 py-3">
+              <div className="grid grid-cols-[2.5rem_minmax(0,1fr)_auto] items-start gap-x-2 py-3 sm:gap-x-3">
                 <Label htmlFor="sms-compose-to" className="pt-2 text-xs text-muted-foreground">To</Label>
                 <div className="min-w-0">
                   <div className="flex max-h-32 flex-wrap items-center gap-1.5 overflow-y-auto">
@@ -264,66 +264,49 @@ const SmsComposeForActor = ({ open, onOpenChange, onSend, sending, templates = [
                         <X className="h-3 w-3" />
                       </button>
                     </Badge>)}
-                    <Input
-                      id="sms-compose-to"
-                      value={phoneInput}
-                      disabled={sending}
-                      onChange={event => {
-                        setPhoneInput(event.target.value);
-                        setDirectorySearch(event.target.value);
-                        setPhoneError('');
-                        setBrowser('people');
-                      }}
-                      onBlur={event => {
-                        if (event.relatedTarget instanceof Element && event.relatedTarget.closest('#sms-compose-people')) return;
-                        if (isPlausiblePhone(phoneInput)) addPhoneInput();
-                      }}
-                      onKeyDown={event => {
-                        if (event.key === 'Enter' || event.key === ',' || event.key === ';') {
-                          event.preventDefault();
-                          addPhoneInput();
-                        }
-                        if (event.key === 'Escape') setBrowser(null);
-                      }}
-                      placeholder={recipients.length || groupIds.length ? 'Add another recipient' : 'Search a name or enter a number'}
-                      autoComplete="off"
-                      aria-expanded={browser === 'people'}
-                      aria-controls={browser === 'people' ? 'sms-compose-people' : undefined}
-                      className="h-8 min-w-[min(10rem,100%)] max-w-full basis-40 flex-1 border-none bg-transparent px-0 shadow-none placeholder:text-muted-foreground/80 focus-visible:ring-0"
-                    />
+                    <div className="relative min-w-[min(10rem,100%)] max-w-full basis-40 flex-1">
+                      <Search className="pointer-events-none absolute left-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                      <Input
+                        id="sms-compose-to"
+                        value={phoneInput}
+                        disabled={sending}
+                        onChange={event => {
+                          setPhoneInput(event.target.value);
+                          setDirectorySearch(event.target.value);
+                          setPhoneError('');
+                          setBrowser(current => current ?? 'people');
+                        }}
+                        onFocus={() => setBrowser(current => current ?? 'people')}
+                        onBlur={event => {
+                          if (event.relatedTarget instanceof Element && event.relatedTarget.closest('#sms-compose-people, [data-sms-recipient-action]')) return;
+                          if (browser !== 'groups' && isPlausiblePhone(phoneInput)) addPhoneInput();
+                        }}
+                        onKeyDown={event => {
+                          if (browser !== 'groups' && (event.key === 'Enter' || event.key === ',' || event.key === ';')) {
+                            event.preventDefault();
+                            addPhoneInput();
+                          }
+                          if (event.key === 'Escape') setBrowser(null);
+                        }}
+                        placeholder={browser === 'groups' ? 'Search groups…' : recipients.length || groupIds.length ? 'Add another recipient' : 'Search a name or enter a number'}
+                        autoComplete="off"
+                        aria-expanded={browser !== null}
+                        aria-controls={browser === 'people' ? 'sms-compose-people' : browser === 'groups' ? 'sms-compose-groups' : undefined}
+                        className="h-8 w-full min-w-0 border-none bg-transparent pl-5 pr-6 shadow-none placeholder:text-muted-foreground/80 focus-visible:ring-0"
+                      />
+                      {phoneInput && <button type="button" data-sms-recipient-action aria-label="Clear recipient search" disabled={sending} onClick={() => { setPhoneInput(''); setDirectorySearch(''); setPhoneError(''); }} className="absolute right-0 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
+                        <X className="h-3.5 w-3.5" aria-hidden="true" />
+                      </button>}
+                    </div>
                   </div>
                   {phoneError && <p role="alert" className="mt-1 text-xs text-destructive">{phoneError}</p>}
                 </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-t border-border/60 py-2">
-                <div className="relative min-w-0 basis-48 flex-1">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                  <Input
-                    aria-label="Search people and groups"
-                    aria-expanded={browser !== null}
-                    aria-controls={browser === 'people' ? 'sms-compose-people' : browser === 'groups' ? 'sms-compose-groups' : undefined}
-                    value={directorySearch}
-                    disabled={sending}
-                    onChange={event => {
-                      setDirectorySearch(event.target.value);
-                      setBrowser(current => current ?? 'people');
-                    }}
-                    onFocus={() => setBrowser(current => current ?? 'people')}
-                    onKeyDown={event => { if (event.key === 'Escape') setBrowser(null); }}
-                    placeholder={browser === 'groups' ? 'Search groups…' : browser === 'people' ? 'Search people…' : 'Search people or groups…'}
-                    autoComplete="off"
-                    className="h-8 border-transparent bg-background/60 pl-8 pr-8 text-xs shadow-none placeholder:text-muted-foreground/80 focus-visible:border-border focus-visible:ring-1"
-                  />
-                  {directorySearch && <button type="button" aria-label="Clear recipient search" disabled={sending} onClick={() => setDirectorySearch('')} className="absolute right-1 top-1/2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50">
-                    <X className="h-3.5 w-3.5" aria-hidden="true" />
-                  </button>}
-                </div>
-                <div className="ml-auto flex shrink-0 items-center gap-1">
-                  <Button type="button" variant={browser === 'people' ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 text-xs" aria-expanded={browser === 'people'} aria-controls="sms-compose-people" disabled={sending} onClick={() => setBrowser(current => current === 'people' ? null : 'people')}>
-                    <Users className="h-3.5 w-3.5" aria-hidden="true" />People
+                <div data-sms-recipient-action className="flex shrink-0 items-center gap-1">
+                  <Button type="button" variant={browser === 'people' ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 text-xs" aria-label="People" title="People" aria-expanded={browser === 'people'} aria-controls="sms-compose-people" disabled={sending} onClick={() => setBrowser(current => current === 'people' ? null : 'people')}>
+                    <Users className="h-3.5 w-3.5" aria-hidden="true" /><span className="hidden sm:inline">People</span>
                   </Button>
-                  <Button type="button" variant={browser === 'groups' ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 text-xs" aria-expanded={browser === 'groups'} aria-controls="sms-compose-groups" disabled={sending} onClick={() => setBrowser(current => current === 'groups' ? null : 'groups')}>
-                    Groups<ChevronDown className="h-3 w-3" aria-hidden="true" />
+                  <Button type="button" variant={browser === 'groups' ? 'secondary' : 'ghost'} size="sm" className="h-8 gap-1.5 px-2 text-xs" aria-label="Groups" title="Groups" aria-expanded={browser === 'groups'} aria-controls="sms-compose-groups" disabled={sending} onClick={() => setBrowser(current => current === 'groups' ? null : 'groups')}>
+                    <Users className="h-3.5 w-3.5 sm:hidden" aria-hidden="true" /><span className="hidden sm:inline">Groups</span><ChevronDown className="h-3 w-3" aria-hidden="true" />
                   </Button>
                 </div>
               </div>
