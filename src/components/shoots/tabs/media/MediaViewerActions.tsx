@@ -5,6 +5,7 @@ import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { MediaEditingMenuItems } from '../../MediaEditingMenu';
 import { canShowMediaEditingActions } from './mediaEditingPermissions';
 import { useAuth } from '@/components/auth/AuthProvider';
+import { useState } from 'react';
 import type { useMediaViewerController } from './useMediaViewerController';
 
 export type MediaViewerModel = NonNullable<ReturnType<typeof useMediaViewerController>>;
@@ -12,16 +13,18 @@ const itemClass = 'media-viewer-menu-item';
 
 export function MediaViewerActions({ model }: { model: MediaViewerModel }) {
   const { role } = useAuth();
+  const [open, setOpen] = useState(false);
+  const closeOnEscape = (event: KeyboardEvent) => { event.preventDefault(); event.stopPropagation(); setOpen(false); };
   const { currentFile, canSetHero, canMarkAs, viewerMarkMenuOptions, canDownloadSingleMedia, onDownloadSingle,
     downloadingFileIds, onToggleHidden, canShowRenameFilename, renameApiEnabled, renamingFilename,
     canDeleteCurrentFile, deletingFile, slideshowAvailable, canRequestModification } = model;
   const downloading = downloadingFileIds.has(String(currentFile.id));
   if (!(canSetHero || canMarkAs || (canDownloadSingleMedia && onDownloadSingle) || onToggleHidden || canShowRenameFilename || canDeleteCurrentFile || slideshowAvailable || canRequestModification || canShowMediaEditingActions(currentFile, model.shoot?.id, role))) return null;
-  return <DropdownMenu>
+  return <DropdownMenu open={open} onOpenChange={setOpen}>
     <DropdownMenuTrigger asChild>
       <Button variant="ghost" className="media-viewer-actions" aria-label="Image actions">Actions <ChevronDown className="h-3.5 w-3.5" /></Button>
     </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" sideOffset={10} className="media-viewer-menu" onCloseAutoFocus={event => {
+    <DropdownMenuContent align="end" sideOffset={10} className="media-viewer-menu" onEscapeKeyDown={closeOnEscape} onCloseAutoFocus={event => {
       // Composers take focus when selected from the menu.
       if (model.showRenameComposer || model.showRequestComposer) event.preventDefault();
     }}>
@@ -29,7 +32,7 @@ export function MediaViewerActions({ model }: { model: MediaViewerModel }) {
       {canSetHero && <DropdownMenuItem className={itemClass} onSelect={model.handleSetHeroImage}><CheckCircle2 />Make hero</DropdownMenuItem>}
       {canMarkAs && <DropdownMenuSub>
         <DropdownMenuSubTrigger className={itemClass}><Tag />Mark as</DropdownMenuSubTrigger>
-        <DropdownMenuSubContent className="media-viewer-menu media-viewer-submenu">
+        <DropdownMenuSubContent className="media-viewer-menu media-viewer-submenu" onEscapeKeyDown={closeOnEscape}>
           {viewerMarkMenuOptions.map(option => <DropdownMenuItem key={option.value} className={itemClass} onSelect={() => { void model.handleMarkAs(option.value); }}>{option.label}</DropdownMenuItem>)}
         </DropdownMenuSubContent>
       </DropdownMenuSub>}

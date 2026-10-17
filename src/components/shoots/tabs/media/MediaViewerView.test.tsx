@@ -25,6 +25,15 @@ describe('Focus glass media viewer', () => {
     expect(screen.getByRole('tab', { name: /Comments/ })).toHaveAttribute('aria-selected', 'true');
     await user.click(screen.getByRole('button', { name: 'Image actions' }));
     for (const name of ['Make hero', 'Mark as', 'Download', 'Hide image', 'Rename filename', 'Send to editing…', 'Versions / upload saved edit…', 'Photoshop setup / manual editing…', 'Slideshow', 'Request modification', 'Delete file']) expect(await screen.findByRole('menuitem', { name })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(base.onClose).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Image actions' }));
+    act(() => { screen.getByRole('menuitem', { name: 'Mark as' }).focus(); });
+    await user.keyboard('{ArrowRight}');
+    expect(await screen.findByRole('menuitem', { name: 'Main photos' })).toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    expect(base.onClose).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Image actions' }));
     await user.click(screen.getByRole('menuitem', { name: 'Rename filename' }));
     expect(await screen.findByRole('textbox', { name: 'New filename' })).toBeVisible();
     await user.click(screen.getByRole('button', { name: 'Cancel' }));
