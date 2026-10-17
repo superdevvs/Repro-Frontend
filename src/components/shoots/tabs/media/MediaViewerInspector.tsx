@@ -1,23 +1,36 @@
-import { useId } from 'react';
-import { ArrowUp, MessageCircle } from 'lucide-react';
+import { useEffect, useId, useRef } from 'react';
+import { ArrowUp, ChevronDown, ChevronUp, Info, MessageCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { formatViewerDateTime, getRequestStatusClassName } from './mediaViewerTypes';
 import type { MediaViewerModel } from './MediaViewerActions';
 
-export function MediaViewerInspector({ model }: { model: MediaViewerModel }) {
+export function MediaViewerInspector({ model, mobileOpen, setMobileOpen }: { model: MediaViewerModel; mobileOpen: boolean; setMobileOpen: (open: boolean) => void }) {
   const { currentFile, fileComments, showFileDetails, setShowFileDetails, detailRows, relatedRequests, requestsLoading,
     canInteractSingleMedia, onAddComment, commentDraft, setCommentDraft, shoot } = model;
   const id = useId();
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const inspector = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    if (mobileOpen) inspector.current?.querySelector<HTMLButtonElement>('[aria-selected=true]')?.focus();
+    else opener.current?.focus();
+  }, [mobileOpen]);
+  const closeInformation = () => { setMobileOpen(false); opener.current?.focus(); };
   const initials = (name: string) => name.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
   const canComment = canInteractSingleMedia && Boolean(onAddComment);
-  return <aside className="media-viewer-inspector" aria-label="Image discussion and details">
+  return <div className="media-viewer-information">
+    <div className="media-viewer-mobile-information">
+      <button type="button" aria-label="Open image comments" aria-expanded={mobileOpen && !showFileDetails} aria-controls={`${id}-information`} onClick={event => { opener.current = event.currentTarget; setShowFileDetails(false); setMobileOpen(true); }}><MessageCircle aria-hidden />Comments <span>{Number(currentFile.comment_count ?? fileComments.length)}</span></button>
+      <button type="button" aria-label="Open image details" aria-expanded={mobileOpen && showFileDetails} aria-controls={`${id}-information`} onClick={event => { opener.current = event.currentTarget; setShowFileDetails(true); setMobileOpen(true); }}><Info aria-hidden />Details <ChevronUp aria-hidden /></button>
+    </div>
+    <aside ref={inspector} id={`${id}-information`} className="media-viewer-inspector" data-mobile-open={mobileOpen} aria-label="Image discussion and details">
     <div className="media-viewer-inspector-tabs" role="tablist" aria-label="Image information">
       <button type="button" id={`${id}-comments`} role="tab" aria-selected={!showFileDetails} aria-controls={`${id}-panel`} tabIndex={!showFileDetails ? 0 : -1} onClick={() => setShowFileDetails(false)} onKeyDown={event => { if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); setShowFileDetails(true); (event.currentTarget.nextElementSibling as HTMLElement)?.focus(); } }}>
         Comments <span>{Number(currentFile.comment_count ?? fileComments.length)}</span>
       </button>
       <button type="button" id={`${id}-details`} role="tab" aria-selected={showFileDetails} aria-controls={`${id}-panel`} tabIndex={showFileDetails ? 0 : -1} onClick={() => setShowFileDetails(true)} onKeyDown={event => { if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') { event.preventDefault(); setShowFileDetails(false); (event.currentTarget.previousElementSibling as HTMLElement)?.focus(); } }}>Details</button>
+      <button type="button" className="media-viewer-mobile-info-close" aria-label="Close image information" onClick={closeInformation}><ChevronDown aria-hidden /></button>
     </div>
     <div className="media-viewer-discussion" id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${showFileDetails ? 'details' : 'comments'}`} tabIndex={0}>
       {showFileDetails ? <>
@@ -46,5 +59,6 @@ export function MediaViewerInspector({ model }: { model: MediaViewerModel }) {
       </div>
     </form>}
     <p className="media-viewer-inspector-foot"><MessageCircle aria-hidden />Notes stay with this image</p>
-  </aside>;
+    </aside>
+  </div>;
 }

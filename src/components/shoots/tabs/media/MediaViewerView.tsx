@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Heart, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -11,11 +12,13 @@ import './mediaViewerGlass.css';
 
 export function MediaViewerView({ model }: { model: MediaViewerModel }) {
   const { isOpen, onClose, currentFile, displayFilename, currentIndex, files, shoot, isClient, viewerMode, slideshowCurrentFile } = model;
+  const [mobileInformationOpen, setMobileInformationOpen] = useState(false);
   return <>
     <Dialog open={isOpen} onOpenChange={next => { if (!next) onClose(); }}>
       <DialogContent className="media-viewer-dialog" style={{ zIndex: 100 }} onEscapeKeyDown={event => {
-        if (model.showRequestComposer || model.showRenameComposer) event.preventDefault();
-        if (viewerMode === 'slideshow') { event.preventDefault(); event.stopPropagation(); model.exitSlideshow(); }
+        if (model.showRequestComposer || model.showRenameComposer) { event.preventDefault(); return; }
+        if (viewerMode === 'slideshow') { event.preventDefault(); event.stopPropagation(); model.exitSlideshow(); return; }
+        if (mobileInformationOpen) { event.preventDefault(); event.stopPropagation(); setMobileInformationOpen(false); }
       }}>
         <DialogHeader className="sr-only"><DialogTitle>Media Viewer</DialogTitle><DialogDescription>View and discuss media files for this shoot</DialogDescription></DialogHeader>
         {viewerMode === 'slideshow' && slideshowCurrentFile ? <MediaViewerSlideshow model={model} /> : <div className="media-viewer-shell">
@@ -31,7 +34,7 @@ export function MediaViewerView({ model }: { model: MediaViewerModel }) {
               <Button variant="ghost" size="icon" className="media-viewer-icon-button" onClick={onClose} aria-label="Close media viewer"><X /></Button>
             </div>
           </header>
-          <div className="media-viewer-workspace"><MediaViewerCanvas model={model} /><MediaViewerInspector model={model} /></div>
+          <div className="media-viewer-workspace"><MediaViewerCanvas model={model} /><MediaViewerInspector model={model} mobileOpen={mobileInformationOpen} setMobileOpen={setMobileInformationOpen} /></div>
           <footer className="media-viewer-keyboard-hint">← → to navigate · + − to zoom · Esc to close</footer>
         </div>}
       </DialogContent>

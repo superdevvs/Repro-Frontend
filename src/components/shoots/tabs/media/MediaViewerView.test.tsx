@@ -16,6 +16,26 @@ beforeEach(() => { vi.clearAllMocks(); auth.role = 'admin'; vi.stubGlobal('fetch
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('Focus glass media viewer', () => {
+  it('opens compact image information without losing the draft or closing the viewer', async () => {
+    const user = userEvent.setup();
+    render(<MediaViewer {...base} />);
+    const comments = screen.getByRole('button', { name: 'Open image comments' });
+    expect(comments).toHaveAttribute('aria-expanded', 'false');
+    await user.click(comments);
+    expect(comments).toHaveAttribute('aria-expanded', 'true');
+    await user.type(screen.getByRole('textbox', { name: 'Comment for this image' }), 'Keep this draft');
+    await user.click(screen.getByRole('button', { name: 'Close image information' }));
+    expect(comments).toHaveAttribute('aria-expanded', 'false');
+    expect(comments).toHaveFocus();
+    await user.click(screen.getByRole('button', { name: 'Open image details' }));
+    expect(screen.getByRole('tab', { name: 'Details' })).toHaveAttribute('aria-selected', 'true');
+    await user.keyboard('{Escape}');
+    expect(screen.getByRole('button', { name: 'Open image details' })).toHaveAttribute('aria-expanded', 'false');
+    expect(base.onClose).not.toHaveBeenCalled();
+    await user.click(comments);
+    expect(screen.getByRole('textbox', { name: 'Comment for this image' })).toHaveValue('Keep this draft');
+    expect(base.onAddComment).not.toHaveBeenCalled();
+  });
   it('provides one actions menu including editing and no duplicate comment toolbar', async () => {
     const user = userEvent.setup();
     render(<MediaViewer {...base} />);

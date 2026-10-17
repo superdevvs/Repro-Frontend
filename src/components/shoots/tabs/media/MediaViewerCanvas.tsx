@@ -17,7 +17,7 @@ export function MediaViewerCanvas({ model }: { model: MediaViewerModel }) {
   useEffect(() => { activeThumbnail.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); }, [currentIndex]);
   return <section className="media-viewer-canvas" aria-label="Media preview">
     <div className="media-viewer-stage-wrap">
-      <span className="media-viewer-media-label">{currentFile.is_hidden ? 'Hidden image' : currentFile.media_type?.replace(/_/g, ' ') || 'Media preview'}</span>
+      <span className="media-viewer-media-label" data-hidden={Boolean(currentFile.is_hidden)}>{currentFile.is_hidden ? 'Hidden image' : currentFile.media_type?.replace(/_/g, ' ') || 'Media preview'}</span>
       <div ref={zoomStageRef} {...swipe} className={`media-viewer-stage ${zoom > 1 ? `${isPanningZoomStage ? 'cursor-grabbing' : 'cursor-grab'} touch-none overflow-auto` : 'overflow-hidden touch-pan-y'}`}
         onPointerDown={model.handleZoomStagePointerDown} onPointerMove={model.handleZoomStagePointerMove} onPointerUp={model.handleZoomStagePointerUp} onPointerCancel={model.handleZoomStagePointerUp} onLostPointerCapture={() => model.stopZoomPan()}>
         {isImg ? <MediaViewerPhoto model={model} /> : isVid ? videoUrl ? <video key={`${currentFile.id}-${videoUrl}`} src={videoUrl} controls playsInline preload="metadata" className={`${fitMediaClassName} bg-black`} onError={() => setVideoSourceIndex(current => Math.min(current + 1, videoUrlCandidates.length - 1))} /> : <div className="media-viewer-unavailable"><FileIcon /><p>Video preview is not available.</p></div> : <div className="media-viewer-unavailable"><FileIcon /><p>{displayFilename}</p></div>}
