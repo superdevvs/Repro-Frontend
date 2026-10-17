@@ -19,6 +19,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { getSmsGroups, getSmsRecipients, type SmsDirectoryRecipient } from '@/services/messaging';
 import { SmsGroupsDialog, type SmsGroupDraftMember } from './SmsGroupsDialog';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export type SmsComposeRecipient = {
   key: string;
@@ -44,19 +45,21 @@ const isPlausiblePhone = (value: string) => {
   return digits.length >= 10 && digits.length <= 15;
 };
 
-export const SmsComposeDialog = ({
-  open,
-  onOpenChange,
-  onSend,
-  sending,
-  templates = [],
-}: {
+type SmsComposeDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSend: (payload: SmsComposePayload) => void;
   sending?: boolean;
   templates?: Array<{ id: string | number; name: string; body_text?: string }>;
-}) => {
+};
+
+export const SmsComposeDialog = (props: SmsComposeDialogProps) => {
+  const { user, role } = useAuth();
+  return <SmsComposeForActor key={`${user?.id}:${role}`} {...props} />;
+};
+
+const SmsComposeForActor = ({ open, onOpenChange, onSend, sending, templates = [] }: SmsComposeDialogProps) => {
+  const { user, role } = useAuth();
   const [recipients, setRecipients] = useState<SmsComposeRecipient[]>([]);
   const [phoneInput, setPhoneInput] = useState('');
   const [phoneError, setPhoneError] = useState('');
@@ -74,15 +77,15 @@ export const SmsComposeDialog = ({
   }, [directorySearch]);
 
   const groupsQuery = useQuery({
-    queryKey: ['sms-groups'],
+    queryKey: ['sms-groups', user?.id, role],
     queryFn: getSmsGroups,
-    enabled: open,
+    enabled: Boolean(user?.id) && open,
   });
 
   const directoryQuery = useQuery({
-    queryKey: ['sms-directory', debouncedSearch],
+    queryKey: ['sms-directory', user?.id, role, debouncedSearch, 20],
     queryFn: () => getSmsRecipients({ search: debouncedSearch || undefined, limit: 20 }),
-    enabled: open && directoryOpen,
+    enabled: Boolean(user?.id) && open && directoryOpen,
   });
 
   const characterCount = bodyText.length;

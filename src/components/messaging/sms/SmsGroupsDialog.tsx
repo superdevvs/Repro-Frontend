@@ -18,6 +18,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { toast } from '@/lib/sonner-toast';
 import { deleteSmsGroup, getSmsGroups, getSmsRecipients, saveSmsGroup, type SmsDirectoryRecipient, type SmsGroupRecord } from '@/services/messaging';
 import { getComposeErrorMessage } from '@/pages/messaging/emailComposeModel';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 export type SmsGroupDraftMember = {
   key: string;
@@ -44,15 +45,21 @@ const ROLE_OPTIONS = [
   { role: 'editor', label: 'All editors' },
 ];
 
-export const SmsGroupsDialog = ({
-  open,
-  onOpenChange,
-  initialMembers = [],
-}: {
+type SmsGroupsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   initialMembers?: SmsGroupDraftMember[];
-}) => {
+};
+
+const EMPTY_MEMBERS: SmsGroupDraftMember[] = [];
+
+export const SmsGroupsDialog = (props: SmsGroupsDialogProps) => {
+  const { user, role } = useAuth();
+  return <SmsGroupsForActor key={`${user?.id}:${role}`} {...props} />;
+};
+
+const SmsGroupsForActor = ({ open, onOpenChange, initialMembers = EMPTY_MEMBERS }: SmsGroupsDialogProps) => {
+  const { user, role } = useAuth();
   const queryClient = useQueryClient();
   const [editing, setEditing] = useState<{ id: number | null; name: string; members: SmsGroupDraftMember[] } | null>(null);
   const [search, setSearch] = useState('');
@@ -64,9 +71,9 @@ export const SmsGroupsDialog = ({
   const initialKey = initialMembers.map((member) => member.key).join('|');
 
   const groupsQuery = useQuery({
-    queryKey: ['sms-groups'],
+    queryKey: ['sms-groups', user?.id, role],
     queryFn: getSmsGroups,
-    enabled: open,
+    enabled: Boolean(user?.id) && open,
   });
 
   useEffect(() => {
@@ -75,9 +82,9 @@ export const SmsGroupsDialog = ({
   }, [search]);
 
   const directoryQuery = useQuery({
-    queryKey: ['sms-directory', debouncedSearch],
+    queryKey: ['sms-directory', user?.id, role, debouncedSearch, 30],
     queryFn: () => getSmsRecipients({ search: debouncedSearch || undefined, limit: 30 }),
-    enabled: open && editing !== null,
+    enabled: Boolean(user?.id) && open && editing !== null,
   });
 
   useEffect(() => {

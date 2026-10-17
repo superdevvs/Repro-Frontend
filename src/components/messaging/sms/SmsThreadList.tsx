@@ -10,6 +10,7 @@ import { getSmsGroups } from '@/services/messaging';
 import { SmsThreadListItem } from './SmsThreadListItem';
 import type { PaginatedResponseMeta, SmsInboxScope, SmsThreadFilter, SmsThreadSummary } from '@/types/messaging';
 import { SmsThreadFilterTabs } from './SmsThreadListTabs';
+import { useAuth } from '@/components/auth/AuthProvider';
 
 interface SmsThreadListProps {
   threads: SmsThreadSummary[];
@@ -48,9 +49,11 @@ export const SmsThreadList = ({
   onPageChange,
   error,
 }: SmsThreadListProps) => {
+  const { user, role } = useAuth();
   const groupsQuery = useQuery({
-    queryKey: ['sms-groups'],
+    queryKey: ['sms-groups', user?.id, role],
     queryFn: getSmsGroups,
+    enabled: Boolean(user?.id),
     staleTime: 60_000,
   });
 
