@@ -11,7 +11,7 @@ import { useMediaQuery } from '@/hooks/use-media-query';
 import { toast } from '@/lib/sonner-toast';
 import { createTemplate, previewTemplate, testSendTemplate, updateTemplate } from '@/services/messaging';
 import { suggestEmailTemplate } from '@/services/emailTemplateWorkspace';
-import type { EmailTemplateSection, EmailWorkspaceDraft } from '@/types/emailTemplateWorkspace';
+import type { EmailAssistantContext, EmailTemplateSection, EmailWorkspaceDraft } from '@/types/emailTemplateWorkspace';
 import type { MessageTemplate } from '@/types/messaging';
 import { getTemplateErrorMessage } from '../templatePreviewSupport';
 import { TemplateRenderedPreview } from '../TemplateRenderedPreview';
@@ -20,6 +20,7 @@ import { EmailWorkspaceInspector } from './EmailWorkspaceInspector';
 import { EmailWorkspacePanels, type WorkspacePanel } from './EmailWorkspacePanels';
 import { EmailWorkspaceChrome, type EmailWorkspaceMode } from './EmailWorkspaceChrome';
 import { newSection, normalizeEmailDocument, plainText, savePayload, startingEmail, validateWorkspaceDraft } from './emailWorkspaceModel';
+import { useSuggestedEmailArtwork } from './useSuggestedEmailArtwork';
 import { useEmailTemplateDraft } from './useEmailTemplateDraft';
 import './emailWorkspace.css';
 
@@ -45,6 +46,14 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
   const [busy, setBusy] = useState<'save' | 'robbie' | 'test' | null>(null);
   const [pending, setPending] = useState<EmailWorkspaceDraft | null>(null);
   const [proposed, setProposed] = useState(true);
+  const [autoArtwork, setAutoArtwork] = useState(true);
+  const [assistantContext, setAssistantContext] = useState<EmailAssistantContext | null>(null);
+  const suggestedArtwork = useSuggestedEmailArtwork(pending ?? draft, Boolean(pending && autoArtwork), Boolean(busy), (id, url) => {
+    const target = pending ?? draft;
+    if (!target.editor_document_json.sections.some(section => section.artwork_id === id && section.image_url !== url)) return;
+    const next = { ...target, editor_document_json: { ...target.editor_document_json, sections: target.editor_document_json.sections.map(section => section.artwork_id === id ? { ...section, image_url: url } : section) } };
+    if (pending) setPending(next); else editor.replace(next, 'Generated artwork ready', false);
+  });
   const [chat, setChat] = useState<{ role: 'user' | 'assistant'; text: string }[]>([]);
   const promptRef = useRef<HTMLTextAreaElement>(null);
   const sourceRef = useRef<HTMLTextAreaElement>(null);
@@ -68,11 +77,11 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
   }
   function start(purpose: 'tips' | 'update' | 'blank') {
     if (dirty && !window.confirm('Start a new email? Your current unsaved changes will be replaced.')) return;
-    editor.load(null, startingEmail(purpose)); setPanel(null); setMode('edit'); setSelected(null); setPending(null); setChat([]);
+    editor.load(null, startingEmail(purpose)); setPanel(null); setMode('edit'); setSelected(null); setPending(null); setAssistantContext(null); setChat([]);
   }
   function openTemplate(next: MessageTemplate) {
     if (dirty && !window.confirm('Open this template? Your current unsaved changes will be replaced.')) return;
-    editor.load(next); setPanel(null); setSelected(null); setMode(next.editor_document_json?.format === 'html' ? 'html' : 'edit'); setPending(null); setChat([]);
+    editor.load(next); setPanel(null); setSelected(null); setMode(next.editor_document_json?.format === 'html' ? 'html' : 'edit'); setPending(null); setAssistantContext(null); setChat([]);
   }
   function close() { if (!dirty || window.confirm('Close the editor? You can restore your local draft when you reopen it.')) { editor.stash(); onClose(); } }
 
@@ -95,7 +104,9 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
     const request = instruction.trim(); setBusy('robbie');
     setChat(current => [...current, { role: 'user', text: request }]);
     try {
-      const proposal = await suggestEmailTemplate({ template_id: template?.id, instruction: request, scope, section_id: selected ?? undefined, draft: savePayload(draft, template) });
+      const { assistant_context, ...proposal } = await suggestEmailTemplate({ template_id: template?.id, instruction: request, scope, section_id: selected ?? undefined, draft: savePayload(draft, template) });
+      setAssistantContext(assistant_context ?? null);
+      if (scope === 'email') setMode('preview');
       setPending({ ...draft, ...proposal, editor_document_json: normalizeEmailDocument(proposal.editor_document_json ?? draft.editor_document_json) }); setProposed(true); setInstruction(''); setSelected(null); setScope('email'); setMobilePanel('email');
       setChat(current => [...current, { role: 'assistant', text: 'Your suggestion is ready. Compare it with your original, then apply it or keep editing your current version.' }]);
     } catch (error) { toast.error(getTemplateErrorMessage(error, 'Robbie could not prepare that revision. Your draft is unchanged.')); }
@@ -104,7 +115,7 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
 
   function addSection(type: EmailTemplateSection['type']) {
     const section = newSection(type);
-    if (type === 'image') section.image_url = window.location.origin+'/images/email-atelier/v6/editing.png';
+    if (type === 'image' || type === 'feature') section.image_url = window.location.origin+'/images/email-atelier/v6/editing.png';
     change({ ...draft, editor_document_json: { ...draft.editor_document_json, sections: [...draft.editor_document_json.sections, section] } }, 'Add '+type, false);
     setSelected(section.id); setSectionPanelOpen(true); setPanel(null);
   }
@@ -152,7 +163,7 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
     toast.info('Click the text field where you want to insert a personal field first.'); setPanel(null);
   }
   function useArtwork(url: string, alt: string) {
-    const current = draft.editor_document_json.sections.find(section => section.id === selected && section.type === 'image');
+    const current = draft.editor_document_json.sections.find(section => section.id === selected && ['image', 'hero', 'feature'].includes(section.type));
     const image = { ...newSection('image'), image_url: url, alt: alt.slice(0, 500) };
     if (draft.editor_document_json.format !== 'sections') {
       const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -168,7 +179,7 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
       setPanel(null); return;
     }
     change({ ...draft, editor_document_json: { ...draft.editor_document_json,
-      sections: current ? draft.editor_document_json.sections.map(section => section.id === current.id ? { ...section, image_url: url, alt: alt.slice(0, 500) } : section) : [...draft.editor_document_json.sections, image] } }, 'Add generated artwork', false);
+      sections: current ? draft.editor_document_json.sections.map(section => section.id === current.id ? { ...section, image_url: url, alt: alt.slice(0, 500), image_prompt: '', artwork_id: null } : section) : [...draft.editor_document_json.sections, image] } }, 'Add generated artwork', false);
     setSelected(current?.id ?? image.id); setPanel(null);
   }
   async function testSend(email: string) {
@@ -183,6 +194,7 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
     finally { setBusy(null); }
   }
   async function continueToRecipients() {
+    if (suggestedArtwork.running) { toast.info('Artwork is still generating. You can keep editing while it finishes.'); return; }
     const saved = await save(); if (!saved) return;
     onClose(); navigate('/messaging/email/compose', { state: { mode: 'compose', prefillTemplateId: saved.id } });
   }
@@ -193,15 +205,17 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
     <DialogTitle className="sr-only">Robbie email workspace</DialogTitle><DialogDescription className="sr-only">Create and edit email templates manually, in HTML, or with Robbie.</DialogDescription>
     <EmailWorkspaceChrome name={draft.name} status={dirty ? 'Unsaved changes' : template ? 'All changes saved' : 'New template'} saving={busy === 'save'} disabled={disabled}
       mode={mode} assistantOnly={isMobile && mobilePanel === 'robbie'} assistantActive={isMobile ? mobilePanel === 'robbie' : assistantOpen}
-      canUndo={Boolean(editor.past.length)} canRedo={Boolean(editor.future.length)} canAdd={document.format === 'sections'}
+      reviewDisabled={suggestedArtwork.running} canUndo={Boolean(editor.past.length)} canRedo={Boolean(editor.future.length)} canAdd={document.format === 'sections'}
       onClose={close} onSave={() => void save()} onPanel={setPanel} onUndo={editor.undo} onRedo={editor.redo}
       onMode={value => { setMode(value); setSelected(null); setMobilePanel('email'); }}
       onAssistant={() => { if (isMobile) { setMobilePanel(mobilePanel === 'robbie' ? 'email' : 'robbie'); setSectionPanelOpen(false); } else setAssistantOpen(!assistantOpen); }}/>
     <main className="ews-workspace" data-mobile-panel={mobilePanel} data-assistant-open={assistantOpen}>
-      <aside className="ews-robbie" aria-label="Robbie assistant" hidden={isMobile ? mobilePanel !== 'robbie' : !assistantOpen}><div className="ews-robbie-heading"><span><Sparkles size={19}/></span><div><h2>Robbie</h2><p>Draft and refine your email</p></div></div><div className="ews-conversation" aria-live="polite"><div className="ews-welcome"><h3>How can I help?</h3><p>Start fresh, open a template, or select a section. Tell me what you need and we’ll shape it together.</p>{['Write a helpful email with photographer preparation tips', 'Create a client update using the details I provide', 'Make this email shorter and warmer'].map(text => <button key={text} disabled={disabled} onClick={() => { setInstruction(text); promptRef.current?.focus(); }}>{text}<span>↗</span></button>)}</div>{chat.map((message, index) => <div key={index} className={'ews-chat ews-chat-'+message.role}>{message.role === 'assistant' && <strong>✧ Robbie</strong>}<p>{message.text}</p></div>)}{busy === 'robbie' && <p role="status">✧ Robbie is preparing a suggestion…</p>}</div><div className="ews-composer"><label>Change<select value={scope} disabled={disabled} onChange={event => setScope(event.target.value as typeof scope)}><option value="email">Whole email</option><option value="subject">Subject & preview text</option><option value="section" disabled={!selected || selected === '__body'}>Selected section</option></select></label><Textarea ref={promptRef} rows={4} aria-label="Ask Robbie" placeholder="Tell Robbie what to create or change…" value={instruction} disabled={disabled} onChange={event => setInstruction(event.target.value)} onKeyDown={event => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') void askRobbie(); }}/><div><span>Review every change.</span><Button onClick={() => void askRobbie()} disabled={disabled || !instruction.trim()}><Sparkles size={14}/>Ask Robbie ↑</Button></div></div></aside>
+      <aside className="ews-robbie" aria-label="Robbie assistant" hidden={isMobile ? mobilePanel !== 'robbie' : !assistantOpen}><div className="ews-robbie-heading"><span><Sparkles size={19}/></span><div><h2>Robbie</h2><p>Draft and refine your email</p></div></div><div className="ews-conversation" aria-live="polite"><div className="ews-welcome"><h3>How can I help?</h3><p>Start fresh, open a template, or select a section. Tell me what you need and we’ll shape it together.</p>{['Write a helpful email with photographer preparation tips', 'Create a client update using the details I provide', 'Make this email shorter and warmer'].map(text => <button key={text} disabled={disabled} onClick={() => { setInstruction(text); promptRef.current?.focus(); }}>{text}<span>↗</span></button>)}</div>{chat.map((message, index) => <div key={index} className={'ews-chat ews-chat-'+message.role}>{message.role === 'assistant' && <strong>✧ Robbie</strong>}<p>{message.text}</p></div>)}{busy === 'robbie' && <p role="status">✧ Robbie is preparing a suggestion…</p>}</div><div className="ews-composer"><label>Change<select value={scope} disabled={disabled} onChange={event => setScope(event.target.value as typeof scope)}><option value="email">Whole email</option><option value="subject">Subject & preview text</option><option value="section" disabled={!selected || selected === '__body'}>Selected section</option></select></label><Textarea ref={promptRef} rows={4} aria-label="Ask Robbie" placeholder="Tell Robbie what to create or change…" value={instruction} disabled={disabled} onChange={event => setInstruction(event.target.value)} onKeyDown={event => { if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') void askRobbie(); }}/><label className="ews-auto-artwork"><input type="checkbox" checked={autoArtwork} disabled={disabled} onChange={event => setAutoArtwork(event.target.checked)}/>Generate suggested artwork <span>up to 3 images</span></label><div><span>Review every change.</span><Button onClick={() => void askRobbie()} disabled={disabled || !instruction.trim()}><Sparkles size={14}/>Ask Robbie ↑</Button></div></div></aside>
       <section className="ews-editor" aria-label="Email editor" hidden={isMobile && mobilePanel === 'robbie'} onFocusCapture={event => { const element = event.target; if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) fieldTarget.current = { element, start: element.selectionStart ?? element.value.length, end: element.selectionEnd ?? element.value.length }; }} onSelectCapture={event => { const element = event.target; if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) fieldTarget.current = { element, start: element.selectionStart ?? element.value.length, end: element.selectionEnd ?? element.value.length }; }}>
         {editor.recovery && <div className="ews-recovery"><span>An unsaved local draft is available.</span><button onClick={() => editor.recover(true)}>Restore</button><button onClick={() => editor.recover(false)}>Discard</button></div>}
-        {pending && <div className="ews-suggestion"><div><strong>Robbie’s suggestion</strong><span>Your current email is kept until you apply.</span></div><div className="ews-small-tabs"><button aria-pressed={!proposed} onClick={() => setProposed(false)}>Original</button><button aria-pressed={proposed} onClick={() => setProposed(true)}>Proposed</button></div><Button size="sm" onClick={() => { editor.replace(pending, 'Apply Robbie suggestion'); setPending(null); }}>Apply changes</Button><Button size="sm" variant="ghost" onClick={() => setPending(null)}>Discard</Button></div>}
+        {pending && <div className="ews-suggestion"><div><strong>Robbie’s suggestion</strong><span>Your current email is kept until you apply.</span></div><div className="ews-small-tabs"><button aria-pressed={!proposed} onClick={() => setProposed(false)}>Original</button><button aria-pressed={proposed} onClick={() => setProposed(true)}>Proposed</button></div><Button size="sm" onClick={() => { editor.replace(pending, 'Apply Robbie suggestion'); setPending(null); setMode('edit'); }}>Apply changes</Button><Button size="sm" variant="ghost" onClick={() => { setPending(null); setAssistantContext(null); }}>Discard</Button></div>}
+        {suggestedArtwork.total > 0 && <div className="ews-artwork-progress" role="status">{suggestedArtwork.running ? `Creating matching artwork · ${suggestedArtwork.completed}/${suggestedArtwork.total} ready. You can keep editing; each ready image is added as an unsaved change.` : suggestedArtwork.failed ? 'Some artwork could not be confirmed. Existing brand images are kept; you can apply them or check the same requests again.' : `Your generated artwork is in place. You can replace any image${pending ? ' after applying' : ''}.`}{suggestedArtwork.failed && <Button size="sm" variant="ghost" onClick={suggestedArtwork.retry}>Check artwork again</Button>}</div>}
+        {assistantContext && <details className="ews-dashboard-context"><summary>Dashboard context · {assistantContext.sources.length ? `${assistantContext.sources.length} guides used` : 'No matching guide'}</summary>{assistantContext.sources.length ? <ul>{assistantContext.sources.map(source => <li key={source.id}><a href={source.url} target="_blank" rel="noreferrer">{source.title}</a></li>)}</ul> : <p>Check any dashboard instructions before sending. Robbie used your supplied details.</p>}</details>}
         <div className={'ews-canvas-scroll ews-viewport-'+viewport} id="ews-email-panel" role="tabpanel" aria-labelledby={'ews-mode-'+mode}>
           <div className="ews-envelope"><div className="ews-subject"><label htmlFor="ews-subject">Subject</label><Input id="ews-subject" aria-label="Email subject" ref={subjectRef} maxLength={255} value={visible.subject ?? ''} placeholder="Add a subject…" disabled={disabled} onChange={event => change({ ...draft, subject: event.target.value }, 'Edit subject')}/><button aria-expanded={preheaderOpen} aria-controls="ews-preheader" onClick={() => setPreheaderOpen(!preheaderOpen)}>Preview text<ChevronDown size={13}/></button></div>{preheaderOpen && <label id="ews-preheader" className="ews-preheader">Inbox preview<Input aria-label="Email preview text" maxLength={255} value={document.preheader} disabled={disabled} placeholder="A short line beside the subject in the inbox" onChange={event => change({ ...draft, editor_document_json: { ...document, preheader: event.target.value } }, 'Edit preview text')}/>{document.format === 'html' && <small>Add the inbox preheader to your supplied HTML for it to appear in the sent email.</small>}</label>}</div>
           {mode === 'edit' && document.format !== 'html' ? <EmailWorkspaceCanvas draft={visible} template={template} selected={selected} disabled={disabled} onSelect={id => { setSelected(id); setSectionPanelOpen(true); }} onAdd={() => setPanel('sections')}/>

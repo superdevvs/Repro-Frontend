@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import type { EmailTemplateSection, EmailWorkspaceDraft } from '@/types/emailTemplateWorkspace';
 import type { MessageTemplate } from '@/types/messaging';
+import { EmailSectionTextField } from './EmailSectionTextField';
 import { plainText } from './emailWorkspaceModel';
 
 interface Props {
@@ -35,9 +36,19 @@ export function EmailWorkspaceInspector({ selected, draft, template, disabled, o
     <div className="ews-inspector-heading"><div><span>EDIT SECTION</span><h3>{block?.label ?? (section?.type === 'image' ? 'Image' : 'Your content')}</h3></div><Button size="icon" variant="ghost" onClick={onClose} aria-label="Close section editor"><X size={16}/></Button></div>
     <fieldset disabled={disabled} className="ews-inspector-fields">
       {section ? <>
+        <label>Section layout<select value={section.type} onChange={event => {
+          const type = event.target.value as EmailTemplateSection['type'];
+          updateSection({ type, layout: type === 'feature' ? 'image-left' : 'stacked', tone: ['notice', 'steps', 'details'].includes(type) ? 'soft' : 'plain',
+            ...(type === 'feature' && !section.image_url ? { image_url: window.location.origin+'/images/email-atelier/v6/editing.png' } : {}) });
+        }}>{Object.entries({ text: 'Body text', hero: 'Headline + hero', feature: 'Image + text', tips: 'Bullet list', steps: 'Numbered steps', details: 'Details card', notice: 'Callout', image: 'Image', button: 'Button', divider: 'Divider' }).map(([type, label]) => <option key={type} value={type}>{label}</option>)}</select></label>
+        {!['image', 'button', 'divider'].includes(section.type) && <label>Eyebrow / label<Input value={section.eyebrow ?? ''} placeholder="FOR YOUR NEXT SHOOT" onChange={event => updateSection({ eyebrow: event.target.value })}/></label>}
         {!['image', 'divider'].includes(section.type) && <label>Heading<Input value={section.heading} onChange={event => updateSection({ heading: event.target.value })}/></label>}
-        {['text', 'tips', 'notice'].includes(section.type) && <label>{section.type === 'tips' ? 'Tips · one per line' : 'Message'}<Textarea rows={8} value={section.body} onChange={event => updateSection({ body: event.target.value })}/></label>}
-        {section.type === 'image' && <><label>Image URL<Input type="url" value={section.image_url} onChange={event => updateSection({ image_url: event.target.value })}/></label><label>Image description<Input value={section.alt} onChange={event => updateSection({ alt: event.target.value })}/></label><Button variant="outline" onClick={onArtwork}>Generate matching artwork</Button><p className="ews-help">Leave the description empty for a decorative image.</p></>}
+        {['text', 'tips', 'notice', 'hero', 'feature', 'steps', 'details'].includes(section.type) && <EmailSectionTextField label={section.type === 'tips' ? 'Tips · one per line' : section.type === 'steps' ? 'Steps · one per line' : section.type === 'details' ? 'Details · Label | Value per line' : 'Message'} value={section.body} onChange={body => updateSection({ body })}/>}
+        {section.type === 'feature' && <label>Image position<select value={section.layout ?? 'image-left'} onChange={event => updateSection({ layout: event.target.value as EmailTemplateSection['layout'] })}><option value="image-left">Image left of text</option><option value="image-right">Image right of text</option><option value="stacked">Image above text</option></select></label>}
+        {!['image', 'button', 'divider'].includes(section.type) && <label>Section background<select value={section.tone ?? 'plain'} onChange={event => updateSection({ tone: event.target.value as EmailTemplateSection['tone'] })}><option value="plain">White / email background</option><option value="soft">Soft card</option><option value="accent">Navy feature card</option></select></label>}
+        {['image', 'feature', 'hero'].includes(section.type) && <><label>Image URL<Input type="url" value={section.image_url} onChange={event => updateSection({ image_url: event.target.value, image_prompt: '', artwork_id: null })}/></label><label>Image description<Input value={section.alt} onChange={event => updateSection({ alt: event.target.value })}/></label><label>Existing brand artwork<select value="" onChange={event => { if (event.target.value) updateSection({ image_url: window.location.origin+'/images/email-atelier/v6/'+event.target.value+'.png', image_prompt: '', artwork_id: null }); }}><option value="">Choose an existing image…</option>{['editing', 'invoice', 'invoice_pending_approval', 'invoice_approved', 'schedule', 'delivery_access', 'welcome'].map(key => <option key={key} value={key}>{key.replace(/_/g, ' ')}</option>)}</select></label>
+        {section.type === 'feature' && <label>Image width<select value={section.image_width ?? 160} onChange={event => updateSection({ image_width: Number(event.target.value) })}>{[80, 120, 160, 200, 240, 280].map(width => <option key={width} value={width}>{width}px</option>)}</select></label>}
+        <Button variant="outline" onClick={onArtwork}>Generate / replace artwork</Button><p className="ews-help">Leave the description empty for a decorative image.</p></>}
         {section.type === 'button' && <label>Button link<Input value={section.url} placeholder="https://… or {{portal_url}}" onChange={event => updateSection({ url: event.target.value })}/></label>}
         <label>Alignment<select value={section.alignment} onChange={event => updateSection({ alignment: event.target.value as EmailTemplateSection['alignment'] })}><option>left</option><option>center</option><option>right</option></select></label>
         <label>Space below<select value={section.spacing} onChange={event => updateSection({ spacing: Number(event.target.value) })}>{[8, 16, 24, 32, 40, 48].map(value => <option key={value} value={value}>{value}px</option>)}</select></label>

@@ -5,12 +5,15 @@ import { getTemplateOverrideDefaults } from '../templateOverrideDefaults';
 export const newSection = (type: EmailTemplateSection['type'] = 'text'): EmailTemplateSection => ({
   id: crypto.randomUUID(), type, heading: type === 'button' ? 'Learn more' : type === 'tips' ? 'A few useful tips' : '',
   body: '', image_url: '', alt: '', url: '', alignment: 'left', spacing: 24,
+  eyebrow: '', layout: type === 'feature' ? 'image-left' : 'stacked', tone: ['notice', 'steps', 'details'].includes(type) ? 'soft' : 'plain', image_width: 160, image_prompt: '', artwork_key: '',
 });
 
 export function normalizeEmailDocument(document: EmailEditorDocument): EmailEditorDocument {
   return { ...document, preheader: document.preheader ?? '', sections: (document.sections ?? []).map(section => ({
     ...section, heading: section.heading ?? '', body: section.body ?? '', image_url: section.image_url ?? '',
     alt: section.alt ?? '', url: section.url ?? '', alignment: section.alignment ?? 'left', spacing: section.spacing ?? 24,
+    eyebrow: section.eyebrow ?? '', layout: section.layout ?? (section.type === 'feature' ? 'image-left' : 'stacked'),
+    tone: section.tone ?? (['notice', 'steps', 'details'].includes(section.type) ? 'soft' : 'plain'), image_width: section.image_width ?? 160, image_prompt: section.image_prompt ?? '', artwork_key: section.artwork_key ?? '',
   })) };
 }
 
@@ -37,7 +40,7 @@ export function startingEmail(purpose: 'tips' | 'update' | 'blank'): EmailWorksp
   draft.subject = tips ? 'A few tips for your next shoot' : 'A quick update from R/E Pro Photos';
   draft.editor_document_json.preheader = tips ? 'Small preparations. Better photographs.' : 'Here’s what you need to know.';
   draft.editor_document_json.sections = [
-    { ...newSection(), heading: tips ? 'Good preparation makes the difference.' : 'Keeping you in the loop.', body: (tips ? 'Hi team,\nA few practical reminders for your next shoot.' : 'Hello,\nWe have an update to share with you.') },
+    { ...newSection('hero'), eyebrow: tips ? 'PHOTOGRAPHER FIELD NOTES' : 'A NOTE FROM REPRO', heading: tips ? 'Good preparation makes the difference.' : 'Keeping you in the loop.', body: (tips ? 'Hi team,\nA few practical reminders for your next shoot.' : 'Hello,\nWe have an update to share with you.') },
     tips ? { ...newSection('tips'), heading: 'Before you arrive', body: 'Review the shoot brief and property access instructions.\nCheck your equipment and batteries before leaving.\nShare any questions with the team ahead of the shoot.' }
       : { ...newSection(), heading: 'What’s new', body: 'Add the details of your update here. Explain what changed, why it helps, and what your clients should do next.' },
     { ...newSection(), body: 'Have a question? Reply to this email and our team will help.\nThe R/E Pro Photos team' },
@@ -85,7 +88,7 @@ export function validateWorkspaceDraft(draft: EmailWorkspaceDraft): string | nul
   if (draft.editor_document_json.format === 'sections') {
     const sections = draft.editor_document_json.sections;
     if (!sections.length || !sections.some(section => section.heading.trim() || section.body.trim() || section.image_url.trim())) return 'Add some email content.';
-    if (sections.some(section => section.type === 'image' && !/^https?:\/\//i.test(section.image_url))) return 'Add a complete image URL or remove the empty image section.';
+    if (sections.some(section => (section.type === 'image' || Boolean(section.image_url)) && !/^https?:\/\//i.test(section.image_url))) return 'Add a complete image URL or remove the empty image section.';
     if (sections.some(section => section.type === 'button' && !/^(https?:\/\/|mailto:|tel:|\{\{[\w.]+\}\})/i.test(section.url))) return 'Add a valid link to each button.';
   } else if (!draft.body_html?.trim() && !draft.body_text?.trim()) return 'Add some email content.';
   return null;

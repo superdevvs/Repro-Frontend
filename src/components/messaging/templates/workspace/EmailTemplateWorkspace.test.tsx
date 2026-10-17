@@ -5,13 +5,13 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MessageTemplate } from '@/types/messaging';
 import { EmailTemplateWorkspace } from './EmailTemplateWorkspace';
-import { safeEditorHtml, safeEmailPreview, startingEmail } from './emailWorkspaceModel';
+import { safeEditorHtml, safeEmailPreview, startingEmail, newSection } from './emailWorkspaceModel';
 
-const mocks = vi.hoisted(() => ({ mobile: false, tablet: false, create: vi.fn(), update: vi.fn(), preview: vi.fn(), send: vi.fn(), suggest: vi.fn(), templates: vi.fn(), navigate: vi.fn(), error: vi.fn(), success: vi.fn(), info: vi.fn() }));
+const mocks = vi.hoisted(() => ({ mobile: false, tablet: false, generate: vi.fn(), artwork: vi.fn(), create: vi.fn(), update: vi.fn(), preview: vi.fn(), send: vi.fn(), suggest: vi.fn(), templates: vi.fn(), navigate: vi.fn(), error: vi.fn(), success: vi.fn(), info: vi.fn() }));
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => mocks.mobile }));
 vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: () => mocks.tablet }));
 vi.mock('@/services/messaging', () => ({ createTemplate: mocks.create, updateTemplate: mocks.update, previewTemplate: mocks.preview, testSendTemplate: mocks.send, getTemplates: mocks.templates }));
-vi.mock('@/services/emailTemplateWorkspace', () => ({ suggestEmailTemplate: mocks.suggest, generateEmailArtwork: vi.fn(), getEmailArtwork: vi.fn() }));
+vi.mock('@/services/emailTemplateWorkspace', () => ({ suggestEmailTemplate: mocks.suggest, generateEmailArtwork: mocks.generate, getEmailArtwork: mocks.artwork }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 7 } }) }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => mocks.navigate }));
 vi.mock('@/lib/sonner-toast', () => ({ toast: { error: mocks.error, success: mocks.success, info: mocks.info } }));
@@ -256,6 +256,101 @@ describe('production email workspace', () => {
     expect(screen.getByRole('dialog', { name: 'Edit email section' })).toBeVisible();
     expect(mocks.update).not.toHaveBeenCalled();
   });
+
+  it('adds image-and-text layouts and formats selected copy without losing manual controls', async () => {
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Before you arrive' }));
+    fireEvent.change(screen.getByLabelText('Section layout'), { target: { value: 'feature' } });
+    fireEvent.change(screen.getByLabelText('Image position'), { target: { value: 'image-left' } });
+    const field = screen.getByLabelText('Message') as HTMLTextAreaElement;
+    fireEvent.change(field, { target: { value: 'Review your invoice.' } });
+    field.focus(); field.setSelectionRange(0, 6);
+    fireEvent.click(screen.getByRole('button', { name: 'Bold text' }));
+    expect(field).toHaveValue('**Review** your invoice.');
+    expect(screen.getByText('Review', { selector: 'strong' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledWith(81, expect.objectContaining({ editor_document_json: expect.objectContaining({ sections: expect.arrayContaining([expect.objectContaining({ type: 'feature', layout: 'image-left', body: '**Review** your invoice.' })]) }) })));
+  });
+
+  it('shows a designed Robbie proposal with dashboard sources and generated artwork in place', async () => {
+    const image = { ...newSection('feature'), id: 'invoice-feature', heading: 'Review your invoice', body: 'Open **Earnings**.', image_url: 'https://example.com/brand.png', alt: 'Blue invoice illustration', image_prompt: 'Blue glass invoice', artwork_id: '550e8400-e29b-41d4-a716-446655440000' };
+    mocks.suggest.mockResolvedValue({ subject: 'Review and submit your invoice', editor_document_json: { version: 1, format: 'sections', preheader: 'A simple guide', sections: [image] }, assistant_context: { model: 'gpt-6-astra', sources: [{ id: 'photographer-invoice-review', title: 'Review and submit a photographer weekly invoice', url: 'https://reprodashboard.com/help' }] } });
+    mocks.generate.mockResolvedValue({ id: image.artwork_id, kind: 'icon', status: 'completed', url: 'https://example.com/generated.png', error: null });
+    setup();
+    fireEvent.change(screen.getByLabelText('Ask Robbie'), { target: { value: 'Create a photographer invoice guide' } });
+    fireEvent.click(screen.getByRole('button', { name: /Ask Robbie ↑/ }));
+    await screen.findByText('Robbie’s suggestion');
+    expect(screen.getByRole('tab', { name: 'Preview' })).toHaveAttribute('aria-selected', 'true');
+    await waitFor(() => expect(mocks.generate).toHaveBeenCalledWith({ id: image.artwork_id, kind: 'icon', prompt: 'Blue glass invoice' }));
+    await screen.findByText(/Your generated artwork is in place/);
+    expect(screen.getByRole('link', { name: 'Review and submit a photographer weekly invoice', hidden: true })).toHaveAttribute('href', 'https://reprodashboard.com/help');
+    fireEvent.click(screen.getByRole('button', { name: 'Apply changes' }));
+    expect(screen.getByRole('img', { name: 'Blue invoice illustration' })).toHaveAttribute('src', 'https://example.com/generated.png');
+    expect(mocks.update).not.toHaveBeenCalled(); expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('lets the user edit while an applied suggestion generates its image in the background', async () => {
+    const image = { ...newSection('feature'), id: 'bg-image', heading: 'Check your invoice', body: 'Original guidance', image_url: 'https://example.com/brand.png', alt: 'Invoice artwork', image_prompt: 'A blue invoice icon', artwork_id: '550e8400-e29b-41d4-a716-446655440001' };
+    let finish!: (value: unknown) => void;
+    mocks.generate.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    mocks.suggest.mockResolvedValue({ editor_document_json: { version: 1, format: 'sections', preheader: '', sections: [image] } });
+    setup();
+    fireEvent.change(screen.getByLabelText('Ask Robbie'), { target: { value: 'Design my email' } });
+    fireEvent.click(screen.getByRole('button', { name: /Ask Robbie ↑/ }));
+    await screen.findByText('Robbie’s suggestion');
+    await waitFor(() => expect(mocks.generate).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Check your invoice' }));
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'My manual invoice guidance' } });
+    finish({ id: image.artwork_id, status: 'completed', url: 'https://example.com/ready.png', error: null });
+    await waitFor(() => expect(screen.getByRole('img', { name: 'Invoice artwork' })).toHaveAttribute('src', 'https://example.com/ready.png'));
+    expect(screen.getByLabelText('Message')).toHaveValue('My manual invoice guidance');
+    expect(mocks.generate).toHaveBeenCalledTimes(1);
+    expect(mocks.update).not.toHaveBeenCalled(); expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('keeps a finished image as an unsaved change when it arrives during a save', async () => {
+    const image = { ...newSection('feature'), id: 'saving-image', heading: 'Invoice guide', body: 'Review in Earnings', image_url: 'https://example.com/brand.png', alt: 'Invoice artwork', image_prompt: 'Blue invoice', artwork_id: '550e8400-e29b-41d4-a716-446655440003' };
+    let finishImage!: (value: unknown) => void;
+    let finishSave!: () => void;
+    mocks.generate.mockReturnValue(new Promise(resolve => { finishImage = resolve; }));
+    mocks.suggest.mockResolvedValue({ editor_document_json: { version: 1, format: 'sections', preheader: '', sections: [image] } });
+    mocks.update.mockImplementation((id, data) => new Promise(resolve => { finishSave = () => resolve({ ...template, ...data, id }); }));
+    setup();
+    fireEvent.change(screen.getByLabelText('Ask Robbie'), { target: { value: 'Design an invoice guide' } });
+    fireEvent.click(screen.getByRole('button', { name: /Ask Robbie ↑/ }));
+    await screen.findByText('Robbie’s suggestion');
+    await waitFor(() => expect(mocks.generate).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledTimes(1));
+    finishImage({ id: image.artwork_id, status: 'completed', url: 'https://example.com/finished.png', error: null });
+    finishSave();
+    await waitFor(() => expect(screen.getByRole('img', { name: 'Invoice artwork' })).toHaveAttribute('src', 'https://example.com/finished.png'));
+    expect(screen.getByText('Unsaved changes')).toBeInTheDocument();
+    expect(mocks.update).toHaveBeenCalledTimes(1);
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('never overwrites an image the user replaces while a suggested generation is running', async () => {
+    const image = { ...newSection('feature'), id: 'replace-image', heading: 'My guide', body: 'Helpful copy', image_url: 'https://example.com/brand.png', alt: 'Invoice artwork', image_prompt: 'Blue icon', artwork_id: '550e8400-e29b-41d4-a716-446655440002' };
+    let finish!: (value: unknown) => void;
+    mocks.generate.mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    mocks.suggest.mockResolvedValue({ editor_document_json: { version: 1, format: 'sections', preheader: '', sections: [image] } });
+    setup();
+    fireEvent.change(screen.getByLabelText('Ask Robbie'), { target: { value: 'Design my email' } });
+    fireEvent.click(screen.getByRole('button', { name: /Ask Robbie ↑/ }));
+    await screen.findByText('Robbie’s suggestion');
+    await waitFor(() => expect(mocks.generate).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit My guide' }));
+    fireEvent.change(screen.getByLabelText('Image URL'), { target: { value: 'https://example.com/my-choice.png' } });
+    finish({ id: image.artwork_id, status: 'completed', url: 'https://example.com/late-result.png', error: null });
+    await waitFor(() => expect(screen.getByLabelText('Image URL')).toHaveValue('https://example.com/my-choice.png'));
+    expect(screen.getByRole('img', { name: 'Invoice artwork' })).toHaveAttribute('src', 'https://example.com/my-choice.png');
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+
 });
 
 describe('untrusted email markup', () => {

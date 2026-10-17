@@ -9,7 +9,7 @@ export type EmailWorkspaceMode = 'edit' | 'html' | 'preview';
 interface Props {
   name: string; status: string; saving: boolean; disabled: boolean;
   mode: EmailWorkspaceMode; assistantActive: boolean; assistantOnly: boolean;
-  canUndo: boolean; canRedo: boolean; canAdd: boolean;
+  reviewDisabled?: boolean; canUndo: boolean; canRedo: boolean; canAdd: boolean;
   onClose: () => void; onSave: () => void; onMode: (mode: EmailWorkspaceMode) => void;
   onAssistant: () => void; onUndo: () => void; onRedo: () => void;
   onPanel: (panel: WorkspacePanel) => void;
@@ -28,7 +28,7 @@ export function EmailWorkspaceChrome(props: Props) {
       </div>
       <div className="ews-header-actions">
         <Button variant="outline" onClick={props.onSave} disabled={disabled} aria-label={props.saving ? 'Saving…' : 'Save'} title="Save template"><Save size={16}/><span>{props.saving ? 'Saving…' : 'Save'}</span></Button>
-        <Button onClick={() => onPanel('review')} disabled={disabled} aria-label="Review & send" title="Review & send"><Send size={16}/><span>Review & send</span></Button>
+        <Button onClick={() => onPanel('review')} disabled={disabled || props.reviewDisabled} aria-label="Review & send" title="Review & send"><Send size={16}/><span>Review & send</span></Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" aria-label="Template actions" title="More actions"><MoreHorizontal size={20}/></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="ews-actions-menu w-56">
