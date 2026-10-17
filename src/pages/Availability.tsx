@@ -1,5 +1,4 @@
-import { PageSearch } from '@/components/search/PageSearch';
-import { pageSearchResults } from '@/components/search/pageSearchResults';
+import { AvailabilitySearchBinding } from '@/components/availability/AvailabilitySearchBinding';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, addMonths, eachDayOfInterval, endOfMonth, endOfWeek, format, isSameDay, isToday, startOfDay, startOfMonth, startOfWeek, subMonths } from "date-fns";
@@ -563,10 +562,7 @@ export default function Availability() {
 
   return (
     <>
-      <PageSearch hidden searchId="availability-team" scope="availability" scopeLabel="Availability team" priority={40}
-        value={searchQuery} onChange={event => setSearchQuery(event.target.value)}
-        searchResults={pageSearchResults(filteredPhotographers, 'availability', '/availability?photographer={id}')}
-        onResultOpen={result => { setSelectedPhotographer(result.id); setEditingWeeklySchedule(false); }} />
+      <AvailabilitySearchBinding photographers={filteredPhotographers} query={searchQuery} onQueryChange={setSearchQuery} onSelect={id => { setSelectedPhotographer(id); setEditingWeeklySchedule(false); }} />
       <div className={cn("flex-1 flex flex-col min-h-0 h-full", isCompactLayout ? "overflow-y-auto overscroll-y-contain pb-6" : "overflow-hidden")}>
         <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "px-0 pt-1.5 pb-6" : "h-full min-h-0 px-6 pb-4 pt-0 overflow-hidden")}>
           <AvailabilityPageHeader
