@@ -416,14 +416,14 @@ export default function SmsCenter() {
     setSearchParams(nextParams, { replace: true });
   };
 
-  const changeScope = (nextScope: SmsInboxScope) => {
+  const changeScope = (nextScope: SmsInboxScope, nextFilter: SmsThreadFilter = 'all') => {
     if (composeSending) return;
     if (nextScope === 'system' && !systemSmsAllowed) return;
     autoSelectThread.current = false;
     pendingScope.current = nextScope;
     setDesktopThreadId(null);
     setPage(1);
-    setFilter('all');
+    setFilter(nextScope === 'system' ? 'all' : nextFilter);
     setSearch('');
     setDebouncedSearch('');
     const nextParams = new URLSearchParams(searchParams);

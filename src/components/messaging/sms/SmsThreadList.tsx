@@ -5,7 +5,7 @@ import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, Plus, RefreshCcw, Search, MoreHorizontal, X } from 'lucide-react';
+import { Plus, RefreshCcw, Search, MoreHorizontal, X } from 'lucide-react';
 import { getSmsGroups } from '@/services/messaging';
 import { SmsThreadListItem } from './SmsThreadListItem';
 import type { PaginatedResponseMeta, SmsInboxScope, SmsThreadFilter, SmsThreadSummary } from '@/types/messaging';
@@ -25,7 +25,7 @@ interface SmsThreadListProps {
   isRefreshing?: boolean;
   scope?: SmsInboxScope;
   canViewSystem?: boolean;
-  onScopeChange?: (scope: SmsInboxScope) => void;
+  onScopeChange?: (scope: SmsInboxScope, filter?: SmsThreadFilter) => void;
   meta?: PaginatedResponseMeta;
   onPageChange?: (page: number) => void;
   error?: boolean;
@@ -116,19 +116,21 @@ export const SmsThreadList = ({
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={onCompose} disabled={navigationDisabled}>Send new message</DropdownMenuItem>
                 <DropdownMenuItem onClick={onRefresh}>Refresh list</DropdownMenuItem>
-                {canViewSystem && <DropdownMenuItem disabled={navigationDisabled} onClick={() => onScopeChange?.(scope === 'system' ? 'inbox' : 'system')}>
-                  {scope === 'system' ? 'Back to inbox' : 'System SMS'}
-                </DropdownMenuItem>}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         </div>
 
-        {scope === 'system' ? (
-          <Button variant="ghost" size="sm" className="mt-2" disabled={navigationDisabled} onClick={() => onScopeChange?.('inbox')}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Back to inbox
-          </Button>
-        ) : <SmsThreadFilterTabs value={filter} onValueChange={onFilterChange} />}
+        <SmsThreadFilterTabs
+          value={scope === 'system' ? 'system' : filter === 'clients' ? 'all' : filter}
+          canViewSystem={canViewSystem}
+          disabled={navigationDisabled}
+          onValueChange={value => {
+            if (value === 'system') onScopeChange?.('system');
+            else if (scope === 'system') onScopeChange?.('inbox', value);
+            else onFilterChange(value);
+          }}
+        />
 
         <div className="mt-3">
           <div className="relative">

@@ -87,26 +87,66 @@ describe('SMS inbox scopes and search', () => {
     expect(screen.getByPlaceholderText('Write a message to Client conversation')).toHaveValue('');
   });
 
-  it.each([true, false])('opens automated-only messages through the admin menu and returns to Inbox (mobile: %s)', async mobile => {
+  it.each(['admin', 'superadmin'])('orders Inbox first for %s and moves System out of the actions menu', async role => {
+    state.role = role;
+    const user = userEvent.setup(); mount();
+    await screen.findByRole('button', { name: /Client conversation/ });
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Inbox', 'Unanswered', 'Mine', 'System']);
+    expect(screen.getByRole('tab', { name: 'Inbox' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('tab', { name: 'Clients' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Conversation actions' }));
+    expect(screen.queryByRole('menuitem', { name: /System|Back to inbox/ })).not.toBeInTheDocument();
+  });
+
+  it.each([true, false])('opens automated-only messages through the System tab and returns to Inbox (mobile: %s)', async mobile => {
     state.mobile = mobile;
     const user = userEvent.setup(); mount();
     await screen.findByRole('button', { name: /Client conversation/ });
-    await user.click(screen.getByRole('button', { name: 'Conversation actions' }));
-    await user.click(screen.getByRole('menuitem', { name: 'System SMS' }));
+    await user.click(screen.getByRole('tab', { name: 'System' }));
     expect(await screen.findByRole('button', { name: /Automated reminder/ })).toBeInTheDocument();
     expect(getSmsThreads).toHaveBeenLastCalledWith(expect.objectContaining({ scope: 'system', page: 1 }));
     expect(screen.queryByRole('button', { name: /Client conversation/ })).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Back to inbox' }));
+    expect(screen.getByRole('tab', { name: 'System' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.queryByRole('button', { name: 'Back to inbox' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Conversation actions' }));
+    expect(screen.queryByRole('menuitem', { name: /System|Back to inbox/ })).not.toBeInTheDocument();
+    await user.keyboard('{Escape}');
+    await user.click(screen.getByRole('tab', { name: 'Inbox' }));
     expect(await screen.findByRole('button', { name: /Client conversation/ })).toBeInTheDocument();
     expect(getSmsThreads).toHaveBeenLastCalledWith(expect.objectContaining({ scope: 'inbox' }));
   });
 
-  it.each(['editing_manager', 'salesRep', 'photographer'])('keeps System SMS out of the %s menu and query', async role => {
+  it.each(['editing_manager', 'salesRep', 'photographer'])('keeps only Inbox, Unanswered, and Mine for %s and rejects a System deep link', async role => {
     state.role = role; const user = userEvent.setup(); mount('/messaging/sms?scope=system');
     await screen.findByRole('button', { name: /Client conversation/ });
+    expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Inbox', 'Unanswered', 'Mine']);
+    expect(screen.queryByRole('tab', { name: 'Clients' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', { name: 'System' })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Conversation actions' }));
-    expect(screen.queryByRole('menuitem', { name: 'System SMS' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: /System|Back to inbox/ })).not.toBeInTheDocument();
     expect(getSmsThreads).toHaveBeenLastCalledWith(expect.objectContaining({ scope: 'inbox' }));
+  });
+
+  it.each([
+    { tab: 'Inbox', filter: undefined },
+    { tab: 'Unanswered', filter: 'unanswered' },
+    { tab: 'Mine', filter: 'my_recents' },
+  ])('switches System to $tab on page one and clears the selected conversation', async ({ tab, filter }) => {
+    state.mobile = false;
+    const user = userEvent.setup(); mount('/messaging/sms?scope=system&thread=system');
+    await screen.findByPlaceholderText('Write a message to Automated reminder');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() => expect(getSmsThreads).toHaveBeenLastCalledWith(expect.objectContaining({ scope: 'system', page: 2 })));
+    vi.mocked(getSmsThread).mockClear();
+
+    await user.click(screen.getByRole('tab', { name: tab }));
+
+    await waitFor(() => expect(getSmsThreads).toHaveBeenLastCalledWith(expect.objectContaining({ scope: 'inbox', filter, page: 1 })));
+    expect(await screen.findByRole('button', { name: /Client conversation/ })).toHaveAttribute('data-active', 'false');
+    expect(screen.getByRole('tab', { name: tab })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByText('Select a conversation')).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Write a message to Automated reminder')).not.toBeInTheDocument();
+    expect(getSmsThread).not.toHaveBeenCalled();
   });
 
   it('searches trimmed historical text from page one and clears back to the full inbox', async () => {
