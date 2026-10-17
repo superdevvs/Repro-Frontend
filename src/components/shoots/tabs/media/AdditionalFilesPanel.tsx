@@ -67,6 +67,7 @@ export function AdditionalFilesPanel({ shoot, onUploadComplete, incomingFiles, o
         body.append('route_media', routeMedia ? '1' : '0');
         if (serviceId) body.append('shoot_service_id', serviceId);
         const headers = getApiHeaders(); delete headers['Content-Type'];
+        let accepted = false;
         try {
           const result = await uploadMediaRequest({
             url: `${API_BASE_URL.replace(/\/$/, '')}/api/shoots/${shoot.id}/upload`, body, headers,
@@ -74,6 +75,7 @@ export function AdditionalFilesPanel({ shoot, onUploadComplete, incomingFiles, o
           });
           if (result.ok === false) throw new Error(result.message);
           const response = JSON.parse(result.responseText) as { message?: string; success_count?: number; error_count?: number; file_outcomes?: Outcome[]; errors?: { message?: string }[] };
+          accepted = result.status >= 200 && result.status < 300 && (response.success_count ?? 0) > 0;
           if (result.status < 200 || result.status >= 300 || response.error_count || !response.success_count) {
             throw new Error(response.errors?.[0]?.message || response.message || 'The file could not be saved. Retry the upload.');
           }
@@ -82,7 +84,7 @@ export function AdditionalFilesPanel({ shoot, onUploadComplete, incomingFiles, o
           setFiles(current => current.map(row => row.key === item.key ? { ...row, state: 'failed', message: error instanceof Error ? error.message : 'Upload interrupted. Retry to finish.' } : row));
         }
         await client.invalidateQueries({ queryKey: ['shoot-additional-files', shoot.id] });
-        onUploadComplete();
+        if (accepted) onUploadComplete();
       }
     } finally { setBusy(false); }
   };

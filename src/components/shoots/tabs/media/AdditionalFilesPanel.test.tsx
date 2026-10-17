@@ -56,6 +56,7 @@ describe('additional files on every assigned shoot', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Upload additional files' }));
     const retry = await screen.findByRole('button', { name: 'Retry remaining files' });
     await waitFor(() => expect(retry).toBeEnabled());
+    expect(mocks.complete).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Additional file service')).toBeDisabled();
     fireEvent.click(retry);
     await screen.findByText('Saved');
@@ -65,6 +66,20 @@ describe('additional files on every assigned shoot', () => {
     expect(first.get('files[]')).toBe(second.get('files[]'));
     expect(second.get('shoot_service_id')).toBe('2635');
     expect(second.get('route_media')).toBe('1');
+    expect(mocks.complete).toHaveBeenCalledOnce();
+  });
+
+  it('refreshes accepted media after a partial ZIP result while keeping its retry available', async () => {
+    mocks.upload.mockResolvedValueOnce({ ok: true, status: 207, responseText: JSON.stringify({ success_count: 1, error_count: 1, errors: [{ message: 'One photo needs another attempt' }] }) });
+    wrapper(<AdditionalFilesPanel shoot={shoot('photo')} onUploadComplete={mocks.complete} />);
+    fireEvent.click(screen.getByRole('button', { name: /Additional files/ }));
+    fireEvent.change(screen.getByTestId('additional-files-input'), { target: { files: [new File(['zip'], 'frames.zip', { type: 'application/zip' })] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload additional files' }));
+    const retry = await screen.findByRole('button', { name: 'Retry remaining files' });
+    await waitFor(() => expect(retry).toBeEnabled());
+    expect(mocks.complete).toHaveBeenCalledOnce();
+    expect(screen.getByText('One photo needs another attempt')).toBeVisible();
+    expect(screen.queryByText('Saved')).not.toBeInTheDocument();
   });
 
   it('hands ZIP selection in the RAW picker to the dedicated intake without uploading or counting it', async () => {
