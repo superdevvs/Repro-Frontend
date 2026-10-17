@@ -272,6 +272,18 @@ describe('production email workspace', () => {
     await waitFor(() => expect(mocks.update).toHaveBeenCalledWith(81, expect.objectContaining({ editor_document_json: expect.objectContaining({ sections: expect.arrayContaining([expect.objectContaining({ type: 'feature', layout: 'image-left', body: '**Review** your invoice.' })]) }) })));
   });
 
+  it('can format a text link using a connected recipient field', () => {
+    vi.spyOn(window, 'prompt').mockReturnValue('{{portal_url}}');
+    setup();
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Before you arrive' }));
+    const field = screen.getByLabelText('Tips · one per line') as HTMLTextAreaElement;
+    fireEvent.change(field, { target: { value: 'Open your invoice' } });
+    field.focus(); field.setSelectionRange(0, field.value.length);
+    fireEvent.click(screen.getByRole('button', { name: 'Add text link' }));
+    expect(field).toHaveValue('[Open your invoice]({{portal_url}})');
+    expect(mocks.error).not.toHaveBeenCalled();
+  });
+
   it('shows a designed Robbie proposal with dashboard sources and generated artwork in place', async () => {
     const image = { ...newSection('feature'), id: 'invoice-feature', heading: 'Review your invoice', body: 'Open **Earnings**.', image_url: 'https://example.com/brand.png', alt: 'Blue invoice illustration', image_prompt: 'Blue glass invoice', artwork_id: '550e8400-e29b-41d4-a716-446655440000' };
     mocks.suggest.mockResolvedValue({ subject: 'Review and submit your invoice', editor_document_json: { version: 1, format: 'sections', preheader: 'A simple guide', sections: [image] }, assistant_context: { model: 'gpt-6-astra', sources: [{ id: 'photographer-invoice-review', title: 'Review and submit a photographer weekly invoice', url: 'https://reprodashboard.com/help' }] } });

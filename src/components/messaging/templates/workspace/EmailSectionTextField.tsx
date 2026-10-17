@@ -14,7 +14,7 @@ export function EmailSectionTextField({ label, value, onChange }: { label: strin
     if (type === 'link') {
       const url = window.prompt('Link URL', 'https://');
       if (url === null) return;
-      if (!/^(https?:\/\/[^\s]+|mailto:[^\s]+|tel:[+\d()-]+)$/i.test(url)) { toast.error('Enter a complete https://, email or phone link.'); return; }
+      if (!/^(https?:\/\/[^\s]+|mailto:[^\s]+|tel:[+\d()-]+|\{\{\s*[a-z_][a-z0-9_.]*\s*\}\})$/i.test(url)) { toast.error('Enter a complete https://, email or phone link, or a connected link field.'); return; }
       text = '['+selected+']('+url+')';
     }
     onChange(value.slice(0, start)+text+value.slice(end));
