@@ -13,7 +13,10 @@ export function MediaViewerView({ model }: { model: MediaViewerModel }) {
   const { isOpen, onClose, currentFile, displayFilename, currentIndex, files, shoot, isClient, viewerMode, slideshowCurrentFile } = model;
   return <>
     <Dialog open={isOpen} onOpenChange={next => { if (!next) onClose(); }}>
-      <DialogContent className="media-viewer-dialog" style={{ zIndex: 100 }} onEscapeKeyDown={event => { if (model.showRequestComposer || model.showRenameComposer || viewerMode === 'slideshow') event.preventDefault(); }}>
+      <DialogContent className="media-viewer-dialog" style={{ zIndex: 100 }} onEscapeKeyDown={event => {
+        if (model.showRequestComposer || model.showRenameComposer) event.preventDefault();
+        if (viewerMode === 'slideshow') { event.preventDefault(); event.stopPropagation(); model.exitSlideshow(); }
+      }}>
         <DialogHeader className="sr-only"><DialogTitle>Media Viewer</DialogTitle><DialogDescription>View and discuss media files for this shoot</DialogDescription></DialogHeader>
         {viewerMode === 'slideshow' && slideshowCurrentFile ? <MediaViewerSlideshow model={model} /> : <div className="media-viewer-shell">
           <header className="media-viewer-header">

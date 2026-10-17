@@ -67,4 +67,14 @@ describe('Focus glass media viewer', () => {
     await act(async () => fireEvent.keyDown(window, { key: 'ArrowRight' }));
     await waitFor(() => expect(base.onIndexChange).toHaveBeenCalledWith(1));
   });
+  it('exits slideshow on Escape while keeping the standard viewer open', async () => {
+    const user = userEvent.setup();
+    render(<MediaViewer {...base} />);
+    await user.click(screen.getByRole('button', { name: 'Image actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Slideshow' }));
+    expect(await screen.findByRole('button', { name: 'Exit slideshow' })).toBeVisible();
+    await user.keyboard('{Escape}');
+    expect(await screen.findByRole('button', { name: 'Image actions' })).toBeVisible();
+    expect(base.onClose).not.toHaveBeenCalled();
+  });
 });
