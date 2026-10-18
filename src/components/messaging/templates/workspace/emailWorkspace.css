@@ -248,6 +248,7 @@
 .ews-feature-image, .ews-feature-copy { min-width:0; }
 .ews-feature-image img { width:100%; height:auto; }
 .ews-hero-image { padding-top:12px; }
+.ews-hero-image .ews-section-image { width:100%; max-height:none; height:auto; }
 .ews-numbered-steps { list-style:none; display:flex; flex-direction:column; gap:16px; }
 .ews-numbered-steps li { display:grid; grid-template-columns:28px minmax(0,1fr); gap:12px; font-size:14px; line-height:1.7; }
 .ews-numbered-steps li > span { color:var(--ews-blue); font-weight:600; }

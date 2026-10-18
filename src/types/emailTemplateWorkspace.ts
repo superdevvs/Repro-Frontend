@@ -30,9 +30,10 @@ export type EmailWorkspaceDraft = Pick<MessageTemplate,
   'name' | 'description' | 'category' | 'subject' | 'body_html' | 'body_text' | 'scope' | 'email_type' | 'override_enabled' | 'content_blocks_json'
 > & { channel: 'EMAIL'; editor_document_json: EmailEditorDocument };
 
+export type EmailArtworkKind = 'illustration' | 'icon' | 'header';
 export interface EmailTemplateArtwork {
   id: string;
-  kind: 'illustration' | 'icon';
+  kind: EmailArtworkKind;
   status: 'queued' | 'processing' | 'completed' | 'failed' | 'unknown';
   url: string | null;
   error: string | null;

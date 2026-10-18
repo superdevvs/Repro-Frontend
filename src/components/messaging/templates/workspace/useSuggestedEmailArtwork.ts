@@ -2,11 +2,11 @@ import { useEffect, useRef } from 'react';
 import { useQueries } from '@tanstack/react-query';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { generateEmailArtwork, getEmailArtwork } from '@/services/emailTemplateWorkspace';
-import type { EmailWorkspaceDraft } from '@/types/emailTemplateWorkspace';
+import type { EmailWorkspaceDraft, EmailArtworkKind } from '@/types/emailTemplateWorkspace';
 
-type Request = { id: string; prompt: string; kind: 'icon' | 'illustration' };
+type Request = { id: string; prompt: string; kind: EmailArtworkKind };
 function restore(key: string): Request[] {
-  try { const value = JSON.parse(localStorage.getItem(key) ?? '[]'); return Array.isArray(value) ? value.filter(item => typeof item?.id === 'string' && typeof item.prompt === 'string' && ['icon', 'illustration'].includes(item.kind)).slice(-24) : []; }
+  try { const value = JSON.parse(localStorage.getItem(key) ?? '[]'); return Array.isArray(value) ? value.filter(item => typeof item?.id === 'string' && typeof item.prompt === 'string' && ['icon', 'illustration', 'header'].includes(item.kind)).slice(-24) : []; }
   catch { return []; }
 }
 
@@ -22,7 +22,7 @@ export function useSuggestedEmailArtwork(target: EmailWorkspaceDraft, canStart: 
   const imageSections = target.editor_document_json.sections.filter(section => ['hero', 'feature', 'image'].includes(section.type));
   if (canStart && user?.id) {
     for (const section of imageSections.filter(item => item.artwork_id && item.image_prompt).slice(0, 3)) {
-      if (!registry.current.requests.some(item => item.id === section.artwork_id)) registry.current.requests.push({ id: section.artwork_id!, prompt: section.image_prompt!, kind: section.type === 'feature' ? 'icon' : 'illustration' });
+      if (!registry.current.requests.some(item => item.id === section.artwork_id)) registry.current.requests.push({ id: section.artwork_id!, prompt: section.image_prompt!, kind: section.type === 'feature' ? 'icon' : 'header' });
     }
     registry.current.requests = registry.current.requests.slice(-24);
   }

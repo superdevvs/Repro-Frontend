@@ -162,8 +162,9 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
     }
     toast.info('Click the text field where you want to insert a personal field first.'); setPanel(null);
   }
-  function useArtwork(url: string, alt: string) {
-    const current = draft.editor_document_json.sections.find(section => section.id === selected && ['image', 'hero', 'feature'].includes(section.type));
+  function useArtwork(url: string, alt: string, kind: 'header' | 'icon' | 'illustration') {
+    const selectedImage = draft.editor_document_json.sections.find(section => section.id === selected && ['image', 'hero', 'feature'].includes(section.type));
+    const current = kind === 'header' && selectedImage?.type !== 'image' ? draft.editor_document_json.sections.find(section => section.type === 'hero') : selectedImage;
     const image = { ...newSection('image'), image_url: url, alt: alt.slice(0, 500) };
     if (draft.editor_document_json.format !== 'sections') {
       const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -171,15 +172,16 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
       const block = template?.editable_content_blocks?.find(item => item.key === selected);
       if (block) {
         const content = draft.content_blocks_json?.[block.key] ?? block;
-        change({ ...draft, content_blocks_json: { ...draft.content_blocks_json, [block.key]: { body_html: content.body_html+markup, body_text: content.body_text } } }, 'Add generated artwork', false);
+        change({ ...draft, content_blocks_json: { ...draft.content_blocks_json, [block.key]: { body_html: kind === 'header' ? markup+content.body_html : content.body_html+markup, body_text: content.body_text } } }, 'Add generated artwork', false);
       } else {
         const html = draft.body_html ?? '';
-        change({ ...draft, body_html: /<\/body>/i.test(html) ? html.replace(/<\/body>/i, markup+'</body>') : html+markup }, 'Add generated artwork', false);
+        const next = kind === 'header' ? /<body\b[^>]*>/i.test(html) ? html.replace(/<body\b[^>]*>/i, opening => opening+markup) : markup+html : /<\/body>/i.test(html) ? html.replace(/<\/body>/i, () => markup+'</body>') : html+markup;
+        change({ ...draft, body_html: next }, 'Add generated artwork', false);
       }
       setPanel(null); return;
     }
     change({ ...draft, editor_document_json: { ...draft.editor_document_json,
-      sections: current ? draft.editor_document_json.sections.map(section => section.id === current.id ? { ...section, image_url: url, alt: alt.slice(0, 500), image_prompt: '', artwork_id: null } : section) : [...draft.editor_document_json.sections, image] } }, 'Add generated artwork', false);
+      sections: current ? draft.editor_document_json.sections.map(section => section.id === current.id ? { ...section, image_url: url, alt: alt.slice(0, 500), image_prompt: '', artwork_id: null } : section) : kind === 'header' ? [image, ...draft.editor_document_json.sections] : [...draft.editor_document_json.sections, image] } }, 'Add generated artwork', false);
     setSelected(current?.id ?? image.id); setPanel(null);
   }
   async function testSend(email: string) {
@@ -227,6 +229,6 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
     </main>
     {sectionOverlay && <Dialog open={Boolean(sectionEditor) && sectionPanelOpen} onOpenChange={value => { if (!value) { setSectionPanelOpen(false); setSelected(null); } }}><DialogContent className="ews-section-dialog" data-mobile={isMobile} onCloseAutoFocus={event => { if (panel) event.preventDefault(); if (mobilePanel === 'robbie') { event.preventDefault(); promptRef.current?.focus(); } }}><DialogTitle className="sr-only">Edit email section</DialogTitle><DialogDescription className="sr-only">Edit the selected section manually or ask Robbie to revise it.</DialogDescription>{sectionEditor}</DialogContent></Dialog>}
     <input id="ews-import" ref={fileRef} type="file" accept=".html,.htm,text/html" className="sr-only" onChange={event => { const file = event.target.files?.[0]; if (file) { if (file.size > 250000) toast.error('Choose an HTML file smaller than 250 KB.'); else void file.text().then(value => importHtml(value, file.name)); } event.target.value = ''; }}/>
-    <EmailWorkspacePanels panel={panel} draft={draft} template={template} busy={Boolean(busy)} onClose={() => setPanel(null)} onStart={start} onOpen={openTemplate} onChange={patch => change({ ...draft, ...patch }, 'Edit settings')} onAdd={addSection} onInsert={insertField} onUseArtwork={useArtwork} onImport={importHtml} onNavigatePanel={setPanel} onImportPanel={() => setPanel('import')} onSave={copy => void save(copy)} onContinue={() => void continueToRecipients()} onTest={email => void testSend(email)} history={editor.past} onRestore={next => { change(next, 'Restore version', false); setPanel(null); }} />
+    <EmailWorkspacePanels panel={panel} draft={draft} template={template} busy={Boolean(busy)} onClose={() => setPanel(null)} onStart={start} onOpen={openTemplate} onChange={patch => change({ ...draft, ...patch }, 'Edit settings')} onAdd={addSection} onInsert={insertField} onUseArtwork={useArtwork} artworkTarget={draft.editor_document_json.sections.find(section => section.id === selected)} onImport={importHtml} onNavigatePanel={setPanel} onImportPanel={() => setPanel('import')} onSave={copy => void save(copy)} onContinue={() => void continueToRecipients()} onTest={email => void testSend(email)} history={editor.past} onRestore={next => { change(next, 'Restore version', false); setPanel(null); }} />
   </DialogContent></Dialog>;
 }

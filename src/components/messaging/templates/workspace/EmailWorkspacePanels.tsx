@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { getTemplates } from '@/services/messaging';
 import type { MessageTemplate } from '@/types/messaging';
-import type { EmailWorkspaceDraft, EmailTemplateSection } from '@/types/emailTemplateWorkspace';
+import type { EmailWorkspaceDraft, EmailTemplateSection, EmailArtworkKind } from '@/types/emailTemplateWorkspace';
 import { PROTECTED_EMAIL_TYPES } from '../templateOverrideDefaults';
 import { EmailWorkspaceArtwork } from './EmailWorkspaceArtwork';
 
@@ -15,7 +15,7 @@ interface Props {
   panel: WorkspacePanel; draft: EmailWorkspaceDraft; template: MessageTemplate | null; busy: boolean;
   onClose: () => void; onStart: (purpose: 'tips' | 'update' | 'blank') => void; onOpen: (template: MessageTemplate) => void;
   onChange: (patch: Partial<EmailWorkspaceDraft>) => void; onAdd: (type: EmailTemplateSection['type']) => void;
-  onInsert: (value: string) => void; onUseArtwork: (url: string, alt: string) => void;
+  onInsert: (value: string) => void; onUseArtwork: (url: string, alt: string, kind: EmailArtworkKind) => void; artworkTarget?: EmailTemplateSection;
   onImport: (html: string) => void; onImportPanel: () => void;
   onNavigatePanel: (panel: WorkspacePanel) => void;
   onSave: (copy?: boolean) => void; onContinue: () => void; onTest: (email: string) => void;
@@ -55,7 +55,7 @@ export function EmailWorkspacePanels(props: Props) {
     {panel === 'fields' && <div className="ews-personalize"><p>Insert at the current subject or section cursor. Use matching booking or account context when sending.</p>{fields.map(field => <Button key={field} variant="outline" onClick={() => props.onInsert(`{{${field}}}`)}>{`{{${field}}}`}</Button>)}</div>}
     {panel === 'history' && <div className="ews-history"><p>Changes from this editing session. Restoring a version can be undone.</p>{props.history.slice().reverse().map((entry, index) => <button key={index} onClick={() => props.onRestore(entry.draft)}><strong>{entry.label}</strong><span>{entry.draft.subject || 'Untitled subject'}</span></button>)}{!props.history.length && <p>No earlier changes yet.</p>}</div>}
     {panel === 'review' && <div className="ews-review"><span className="ews-eyebrow">READY FOR THE NEXT STEP</span><h3>{draft.subject || 'Add a subject before continuing'}</h3><p>{draft.editor_document_json.preheader}</p><p>Save your template, then choose recipients and review the final message in the email composer.</p>{connected && <p className="ews-help">Automated emails require the correct booking, invoice, or account context. Review the connected data before sending.</p>}<Button disabled={busy} onClick={props.onContinue}>{busy ? 'Saving…' : 'Save & choose recipients'}</Button><hr/><label>Send a test to<Input type="email" value={testEmail} placeholder="you@company.com" onChange={event => setTestEmail(event.target.value)}/></label><Button variant="outline" disabled={busy || !testEmail.trim()} onClick={() => props.onTest(testEmail.trim())}>{template ? 'Send test email' : 'Save & send test email'}</Button><p className="ews-help">The test uses sample recipient and event data. It sends only when you press this button.</p></div>}
-    {panel === 'artwork' && <EmailWorkspaceArtwork onUse={props.onUseArtwork}/>}
+    {panel === 'artwork' && <EmailWorkspaceArtwork onUse={props.onUseArtwork} target={props.artworkTarget}/>}
     {panel === 'import' && <div className="ews-settings"><p className="ews-help">Paste a complete HTML email or fragment. Its layout, styles, and tables will be kept.</p><label>Email HTML<Textarea className="min-h-[240px] font-mono text-xs" value={importSource} placeholder="<!doctype html>…" onChange={event => setImportSource(event.target.value)}/></label><Button disabled={!importSource.trim()} onClick={() => props.onImport(importSource)}>Use this HTML</Button><Button variant="outline" onClick={() => document.getElementById('ews-import')?.click()}>Choose an HTML file</Button></div>}
   </DialogContent></Dialog>;
 }

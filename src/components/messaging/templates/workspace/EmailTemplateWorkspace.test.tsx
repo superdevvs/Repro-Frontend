@@ -301,6 +301,42 @@ describe('production email workspace', () => {
     expect(mocks.update).not.toHaveBeenCalled(); expect(mocks.send).not.toHaveBeenCalled();
   });
 
+  it('generates a wide hero and separate square icons in the same Robbie proposal', async () => {
+    const hero = { ...newSection('hero'), heading: 'A new view', alt: 'Wide header scene', image_prompt: 'Wide blue camera and homes scene', artwork_id: '550e8400-e29b-41d4-a716-446655440005' };
+    const icon = { ...newSection('feature'), heading: 'Your gift', alt: 'Gift icon', image_prompt: 'Blue glass gift box', artwork_id: '550e8400-e29b-41d4-a716-446655440006' };
+    mocks.suggest.mockResolvedValue({ editor_document_json: { version: 1, format: 'sections', preheader: '', sections: [hero, icon] } });
+    mocks.generate.mockImplementation(async request => ({ ...request, status: 'completed', url: `https://example.com/${request.kind}.png`, error: null }));
+    setup();
+    fireEvent.change(screen.getByLabelText('Ask Robbie'), { target: { value: 'Create a conference follow-up with a wide header and a gift icon' } });
+    fireEvent.click(screen.getByRole('button', { name: /Ask Robbie ↑/ }));
+    await screen.findByText(/Your generated artwork is in place/);
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ id: hero.artwork_id, kind: 'header' }));
+    expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ id: icon.artwork_id, kind: 'icon' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply changes' }));
+    expect(screen.getByRole('img', { name: 'Wide header scene' })).toHaveAttribute('src', 'https://example.com/header.png');
+    expect(screen.getByRole('img', { name: 'Gift icon' })).toHaveAttribute('src', 'https://example.com/icon.png');
+    expect(mocks.update).not.toHaveBeenCalled(); expect(mocks.send).not.toHaveBeenCalled();
+  });
+
+  it('places a manually generated header in the hero while preserving a selected feature icon', async () => {
+    const hero = { ...newSection('hero'), heading: 'Nice to meet you' };
+    const icon = { ...newSection('feature'), heading: 'Your gift', image_url: 'https://example.com/gift.png', alt: 'Gift icon' };
+    const completed = { id: 'manual-header', kind: 'header', status: 'completed', url: 'https://example.com/wide-header.png', error: null };
+    mocks.generate.mockResolvedValue(completed); mocks.artwork.mockResolvedValue(completed);
+    setup({ ...template, editor_document_json: { version: 1, format: 'sections', preheader: '', sections: [hero, icon] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Your gift' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Regenerate transparent PNG' }));
+    expect(screen.getByLabelText('Artwork type')).toHaveValue('icon');
+    fireEvent.change(screen.getByLabelText('Artwork type'), { target: { value: 'header' } });
+    fireEvent.change(screen.getByLabelText('Describe the image'), { target: { value: 'Wide blue conference scene' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Generate artwork' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Use as header image' }));
+    expect(screen.getByRole('img', { name: 'Wide blue conference scene' })).toHaveAttribute('src', completed.url);
+    expect(screen.getByRole('img', { name: 'Gift icon' })).toHaveAttribute('src', icon.image_url);
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(mocks.update).toHaveBeenCalledWith(template.id, expect.objectContaining({ editor_document_json: expect.objectContaining({ sections: expect.arrayContaining([expect.objectContaining({ id: hero.id, image_url: completed.url }), expect.objectContaining({ id: icon.id, image_url: icon.image_url })]) }) })));
+  });
+
   it('lets the user edit while an applied suggestion generates its image in the background', async () => {
     const image = { ...newSection('feature'), id: 'bg-image', heading: 'Check your invoice', body: 'Original guidance', image_url: 'https://example.com/brand.png', alt: 'Invoice artwork', image_prompt: 'A blue invoice icon', artwork_id: '550e8400-e29b-41d4-a716-446655440001' };
     let finish!: (value: unknown) => void;

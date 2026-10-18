@@ -1,5 +1,5 @@
 import { apiClient } from './api';
-import type { EmailTemplateArtwork, EmailWorkspaceDraft, EmailTemplateProposal } from '@/types/emailTemplateWorkspace';
+import type { EmailTemplateArtwork, EmailWorkspaceDraft, EmailTemplateProposal, EmailArtworkKind } from '@/types/emailTemplateWorkspace';
 
 export async function suggestEmailTemplate(data: {
   template_id?: number; instruction: string; scope: 'email' | 'subject' | 'section'; section_id?: string; draft: EmailWorkspaceDraft;
@@ -8,7 +8,7 @@ export async function suggestEmailTemplate(data: {
   return { ...response.data.draft, assistant_context: response.data.context };
 }
 
-export async function generateEmailArtwork(data: { id: string; kind: 'illustration' | 'icon'; prompt: string }): Promise<EmailTemplateArtwork> {
+export async function generateEmailArtwork(data: { id: string; kind: EmailArtworkKind; prompt: string }): Promise<EmailTemplateArtwork> {
   const response = await apiClient.post('/messaging/templates/artwork', data);
   return response.data;
 }
