@@ -8,6 +8,8 @@ export function useEmailTemplateDraft(initialTemplate: MessageTemplate | null) {
   const { user } = useAuth();
   const [template, setTemplate] = useState(initialTemplate);
   const [draft, setDraft] = useState(() => initialEmailDraft(initialTemplate));
+  const currentDraft = useRef(draft);
+  function setWorkingDraft(next: EmailWorkspaceDraft) { currentDraft.current = next; setDraft(next); }
   const [saved, setSaved] = useState(() => JSON.stringify(draft));
   const [past, setPast] = useState<{ draft: EmailWorkspaceDraft; label: string }[]>([]);
   const [future, setFuture] = useState<EmailWorkspaceDraft[]>([]);
@@ -42,35 +44,40 @@ export function useEmailTemplateDraft(initialTemplate: MessageTemplate | null) {
     return () => window.removeEventListener('beforeunload', preventLoss);
   }, [dirty, draft, storageKey]);
 
-  function replace(next: EmailWorkspaceDraft, label: string, groupTyping = false) {
+  function replace(value: EmailWorkspaceDraft | ((current: EmailWorkspaceDraft) => EmailWorkspaceDraft), label: string, groupTyping = false) {
+    const current = currentDraft.current;
+    const next = typeof value === 'function' ? value(current) : value;
+    if (next === current) return;
     if (!groupTyping || lastChange.current.label !== label || Date.now() - lastChange.current.time > 800) {
-      setPast(current => [...current.slice(-39), { draft: structuredClone(draft), label }]);
+      setPast(history => [...history.slice(-39), { draft: structuredClone(current), label }]);
     }
     lastChange.current = { label, time: Date.now() };
-    setFuture([]); setDraft(next);
+    setFuture([]); setWorkingDraft(next);
   }
 
   function load(next: MessageTemplate | null, workingDraft?: EmailWorkspaceDraft) {
     const data = initialEmailDraft(next);
-    setTemplate(next); setDraft(workingDraft ?? data); setSaved(JSON.stringify(data)); setPast([]); setFuture([]);
+    setTemplate(next); setWorkingDraft(workingDraft ?? data); setSaved(JSON.stringify(data)); setPast([]); setFuture([]);
   }
 
   function markSaved(next: MessageTemplate) {
     try { localStorage.removeItem(storageKey); } catch { /* No stored draft. */ }
     setRecovery(null);
     const data = initialEmailDraft(next);
-    setTemplate(next); setDraft(data); setSaved(JSON.stringify(data));
+    setTemplate(next); setWorkingDraft(data); setSaved(JSON.stringify(data));
     setPast([]); setFuture([]);
   }
 
   function undo() {
     const previous = past.at(-1); if (!previous) return;
-    setFuture(current => [...current, structuredClone(draft)]); setPast(current => current.slice(0, -1)); setDraft(previous.draft);
+    const snapshot = structuredClone(currentDraft.current);
+    setFuture(current => [...current, snapshot]); setPast(current => current.slice(0, -1)); setWorkingDraft(previous.draft);
     lastChange.current = { label: '', time: 0 };
   }
   function redo() {
     const next = future.at(-1); if (!next) return;
-    setPast(current => [...current, { draft: structuredClone(draft), label: 'Redo' }]); setFuture(current => current.slice(0, -1)); setDraft(next);
+    const snapshot = structuredClone(currentDraft.current);
+    setPast(current => [...current, { draft: snapshot, label: 'Redo' }]); setFuture(current => current.slice(0, -1)); setWorkingDraft(next);
   }
   function recover(restore: boolean) {
     if (restore && recovery) replace({ ...recovery, editor_document_json: normalizeEmailDocument(recovery.editor_document_json) }, 'Restore local draft');
