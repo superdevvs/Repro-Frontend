@@ -21,7 +21,7 @@ export function useSuggestedEmailArtwork(target: EmailWorkspaceDraft, canStart: 
   const onReadyRef = useRef(onReady); onReadyRef.current = onReady;
   const imageSections = target.editor_document_json.sections.filter(section => ['hero', 'feature', 'image'].includes(section.type));
   if (canStart && user?.id) {
-    for (const section of imageSections.filter(item => item.artwork_id && item.image_prompt).slice(0, 3)) {
+    for (const section of imageSections.filter(item => item.artwork_id && item.image_prompt).sort((left, right) => Number(right.type === 'hero') - Number(left.type === 'hero')).slice(0, 3)) {
       if (!registry.current.requests.some(item => item.id === section.artwork_id)) registry.current.requests.push({ id: section.artwork_id!, prompt: section.image_prompt!, kind: section.type === 'feature' ? 'icon' : 'header' });
     }
     registry.current.requests = registry.current.requests.slice(-24);

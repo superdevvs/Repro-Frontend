@@ -320,6 +320,21 @@ describe('production email workspace', () => {
     expect(mocks.update).not.toHaveBeenCalled(); expect(mocks.send).not.toHaveBeenCalled();
   });
 
+  it('reserves an automatic generation slot for a header added after existing image sections', async () => {
+    const icons = ['550e8400-e29b-41d4-a716-446655440010', '550e8400-e29b-41d4-a716-446655440011', '550e8400-e29b-41d4-a716-446655440012'].map((id, index) => ({ ...newSection('feature'), id, heading: `Feature ${index}`, alt: `Icon ${index}`, image_url: `https://example.com/existing-${index}.png`, image_prompt: `Blue icon ${index}`, artwork_id: id }));
+    const hero = { ...newSection('hero'), alt: 'New wide header', image_prompt: 'A wide blue glass conference scene', artwork_id: '550e8400-e29b-41d4-a716-446655440013' };
+    mocks.suggest.mockResolvedValue({ editor_document_json: { version: 1, format: 'sections', preheader: '', sections: [...icons, hero] } });
+    mocks.generate.mockImplementation(async request => ({ ...request, status: 'completed', url: `https://example.com/${request.id}.png`, error: null }));
+    setup({ ...template, editor_document_json: { version: 1, format: 'sections', preheader: '', sections: icons } });
+    fireEvent.change(screen.getByLabelText('Ask Robbie'), { target: { value: 'Add a wide header image' } });
+    fireEvent.click(screen.getByRole('button', { name: /Ask Robbie ↑/ }));
+    await waitFor(() => expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ id: hero.artwork_id, kind: 'header' })));
+    expect(mocks.generate).toHaveBeenCalledTimes(3);
+    fireEvent.click(screen.getByRole('button', { name: 'Apply changes' }));
+    expect(await screen.findByRole('img', { name: 'New wide header' })).toHaveAttribute('src', `https://example.com/${hero.artwork_id}.png`);
+    expect(screen.getByRole('img', { name: 'Icon 2' })).toHaveAttribute('src', icons[2].image_url);
+  });
+
   it('places a manually generated header in the hero while preserving a selected feature icon', async () => {
     const hero = { ...newSection('hero'), heading: 'Nice to meet you' };
     const icon = { ...newSection('feature'), heading: 'Your gift', image_url: 'https://example.com/gift.png', alt: 'Gift icon' };
