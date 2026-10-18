@@ -21,7 +21,7 @@ vi.mock('./overview/shootOverviewEditorSupport', async (importOriginal) => ({
   ...await importOriginal<typeof import('./overview/shootOverviewEditorSupport')>(),
   useOverviewLookupData: vi.fn(), usePhotographerAssignmentOptions: vi.fn(), usePhotographerDistanceAvailability: vi.fn(),
 }));
-vi.mock('./overview/OverviewPropertyLocationSection', () => ({ OverviewPropertyLocationSection: ({ isEditMode, propertyMetrics }: { isEditMode: boolean; propertyMetrics: { label: string; value: string }[] }) => <><input aria-label="Property edit" readOnly={!isEditMode} /><output aria-label="Year built">{propertyMetrics.find(metric => metric.label === 'Year built')?.value}</output></> }));
+vi.mock('./overview/OverviewPropertyLocationSection', () => ({ OverviewPropertyLocationSection: ({ isEditMode, propertyMetrics }: { isEditMode: boolean; propertyMetrics: { label: string; value: string }[] }) => <><input aria-label="Property edit" readOnly={!isEditMode} /><output aria-label="Property metrics">{propertyMetrics.map(metric => metric.label).join(', ')}</output></> }));
 vi.mock('./overview/OverviewAccessSection', () => ({ OverviewAccessSection: () => null, OverviewAccessDescription: () => null }));
 vi.mock('./overview/OverviewClientSection', () => ({ OverviewClientSection: ({ isEditMode }: { isEditMode: boolean }) => <input aria-label="Client edit" readOnly={!isEditMode} /> }));
 vi.mock('./overview/OverviewPaymentSummarySection', () => ({ OverviewPaymentSummarySection: ({ isEditMode }: { isEditMode: boolean }) => <input aria-label="Price edit" readOnly={!isEditMode} /> }));
@@ -57,11 +57,11 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe('delivered sales rep overview edit scope', () => {
-  it('displays the stored year without thousands grouping in read-only mode', () => {
+  it('limits read-only property metrics to beds, baths, and square footage', () => {
     render(<MemoryRouter><ShootDetailsOverviewTab shoot={shoot} role="salesRep" isAdmin={false} isRep
       isPhotographer={false} isEditor={false} isClient={false} isEditMode={false} onShootUpdate={vi.fn()} />
     </MemoryRouter>);
-    expect(screen.getByLabelText('Year built')).toHaveTextContent(/^2026$/);
+    expect(screen.getByLabelText('Property metrics')).toHaveTextContent(/^Beds, Baths, Sqft$/);
     expect(screen.getByLabelText('Property edit')).toHaveAttribute('readonly');
   });
 

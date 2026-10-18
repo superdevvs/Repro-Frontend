@@ -24,7 +24,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { CalendarIcon, ClockIcon, MapPinIcon, UserIcon, PhoneIcon, MailIcon, CameraIcon, Sun, CloudRain, Cloud, Snowflake, UserPlus, Search, ArrowUpDown, MapPin, Save, XCircle, X, Key, UserCheck, Link2, BedDouble, ShowerHead, Ruler, Check, Star } from 'lucide-react';
+import { ClockIcon, MapPinIcon, UserIcon, PhoneIcon, MailIcon, CameraIcon, Sun, CloudRain, Cloud, Snowflake, UserPlus, Search, ArrowUpDown, MapPin, Save, XCircle, X, Key, UserCheck, Link2, BedDouble, ShowerHead, Ruler, Check, Star } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import axios from 'axios';
 import { ShootData } from '@/types/shoots';
@@ -846,11 +846,6 @@ function ShootDetailsOverviewTabContent({
       label: 'Sqft',
       icon: Ruler,
       value: formatPropertyMetricValue(metricDisplayValues.sqft),
-    },
-    {
-      label: 'Year built',
-      icon: CalendarIcon,
-      value: String((isEditMode ? propertyYearBuiltEdit : propertyDetails?.year_built) ?? '').trim() || '—',
     },
   ];
 
