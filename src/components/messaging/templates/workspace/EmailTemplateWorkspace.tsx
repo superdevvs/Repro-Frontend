@@ -164,7 +164,7 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
   }
   function useArtwork(url: string, alt: string, kind: 'header' | 'icon' | 'illustration') {
     const selectedImage = draft.editor_document_json.sections.find(section => section.id === selected && ['image', 'hero', 'feature'].includes(section.type));
-    const current = kind === 'header' && selectedImage?.type !== 'image' ? draft.editor_document_json.sections.find(section => section.type === 'hero') : selectedImage;
+    const current = kind === 'header' ? selectedImage && ['hero', 'image'].includes(selectedImage.type) ? selectedImage : draft.editor_document_json.sections.find(section => section.type === 'hero') : selectedImage;
     const image = { ...newSection('image'), image_url: url, alt: alt.slice(0, 500) };
     if (draft.editor_document_json.format !== 'sections') {
       const escape = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
