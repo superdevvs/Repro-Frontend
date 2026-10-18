@@ -14,7 +14,6 @@ import type { EditingRequest } from "@/services/editingRequestService";
 import type { WeatherInfo } from "@/services/weatherService";
 import { useEditorDashboardQueue } from "@/hooks/useEditorDashboardQueue";
 import { useEditorEditingTasks } from "@/hooks/useEditorEditingTasks";
-import { EditingTasks } from "@/components/shoots/EditingTasks";
 import { mergeEditorShootQueue } from "@/utils/mergeEditorShootQueue";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -84,10 +83,8 @@ export const EditorDashboardView = ({
   const taskQueue = useEditorEditingTasks(userId, user?.role === 'editor');
   const taskShootIds = React.useMemo(() => [...new Set((taskQueue.data ?? []).map(task => String(task.shoot_id)))], [taskQueue.data]);
   const effectiveEditorUpcoming = React.useMemo(() => mergeEditorShootQueue(legacyEditorUpcoming, taskQueue.data ?? []), [legacyEditorUpcoming, taskQueue.data]);
-  const [selectedTaskShoot, setSelectedTaskShoot] = useState<number | null>(null);
   const selectEditorShoot = (shoot: DashboardShootSummary, weather?: WeatherInfo | null) => {
-    if (shoot.hasScopedEditingTasks) setSelectedTaskShoot(shoot.id);
-    else onSelectShoot(shoot, weather);
+    onSelectShoot(shoot, weather);
   };
   const beforeShoots = taskQueue.isError
     ? <p role="alert">Could not load all assigned shoots. <button onClick={() => { void taskQueue.refetch(); }}>Retry</button></p>
@@ -219,7 +216,7 @@ export const EditorDashboardView = ({
         upcomingEmptyStateText="No edits in progress yet."
         pendingReviews={editorPendingReviews}
         pendingCard={editorRequestsCard}
-        onSelectShoot={onSelectShoot}
+        onSelectShoot={selectEditorShoot}
         role="editor"
         mobileTab={mobileTab}
         onMobileTabChange={setMobileTab}
@@ -245,9 +242,6 @@ export const EditorDashboardView = ({
         onHelpOpened={editorOnboarding.recordHelpOpened}
         onHelpMessage={editorOnboarding.recordHelpMessage}
       />
-      {selectedTaskShoot !== null && <EditingTasks key={selectedTaskShoot} shootId={selectedTaskShoot} open hideTrigger
-        onOpenChange={open => { if (!open) { setSelectedTaskShoot(null); void taskQueue.refetch(); } }}
-        onTasksChanged={() => { void taskQueue.refetch(); }} />}
       {shootDetailsModal}
     </>
   );

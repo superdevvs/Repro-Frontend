@@ -23,8 +23,9 @@ import API_ROUTES from '@/lib/api';
 import type { AddressDetails } from '@/utils/addressLookup';
 import type { ServiceSelectionOption } from '@/components/booking/ServiceSelectionDialog';
 import { getBookedServiceQuantities, getBookedServiceUnitPrices, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
-import { getDayAvailability, type DayAvailability } from '@/utils/availabilityProvider';
-import { isTimeOutsideDayAvailability, extractStartTimeScheduleError } from '@/utils/editPickerBounds';
+import { type DayAvailability } from '@/utils/availabilityProvider';
+import { useShootEditAvailability } from './useShootEditAvailability';
+import { extractStartTimeScheduleError } from '@/utils/editPickerBounds';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
 import { calculatePricingBreakdown, type PricingDiscountType } from '@/utils/pricing';
 import { buildWallClockIso } from '@/utils/wallClockDateTime';
@@ -558,30 +559,13 @@ export function useShootEditModalController({
     fetchAvailability();
     return () => abortController.abort();
   }, [isOpen, photographers.length, scheduledDate, scheduledTime, address, city, state, zip, shootDetails, availabilityDurationKey]);
-  useEffect(() => {
-    if (!isOpen || !photographerId || photographerId === 'unassigned' || !scheduledDate) {
-      setEditDayAvailability(null);
-      return;
-    }
-    const controller = new AbortController();
-    (async () => {
-      try {
-        const result = await getDayAvailability(photographerId, scheduledDate, controller.signal);
-        setEditDayAvailability(result.day);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        setEditDayAvailability(null);
-      }
-    })();
-    return () => controller.abort();
-  }, [isOpen, photographerId, scheduledDate]);
-  useEffect(() => {
-    setScheduleError(null);
-  }, [scheduledTime, scheduledDate, photographerId]);
-  const isEditTimeDisabled = React.useCallback(
-    (value: string): boolean => isTimeOutsideDayAvailability(editDayAvailability, value),
-    [editDayAvailability],
-  );
+  const editAvailabilityTargets = selectedServiceCategoryGroups.flatMap(group =>
+    group.serviceIds.filter(id => availableServices.find(service => String(service.id) === id)?.photographer_required !== false)
+      .map(id => ({ serviceId: id, photographerId: perCategoryPhotographers[group.key] || photographerId,
+        date: serviceSchedules[id]?.date || (scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '') })));
+  const isEditTimeDisabled = useShootEditAvailability(isOpen, String(shootId), editAvailabilityTargets.length ? editAvailabilityTargets
+    : [{ serviceId: '', photographerId, date: scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '' }]);
+  useEffect(() => { setScheduleError(null); }, [scheduledTime, scheduledDate, photographerId, perCategoryPhotographers]);
   const openPhotographerPicker = (context: PhotographerPickerContext) => {
     const singleCategory = selectedServiceCategoryGroups[0];
     const initialId = context?.categoryKey

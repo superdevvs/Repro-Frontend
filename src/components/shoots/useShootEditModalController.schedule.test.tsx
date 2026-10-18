@@ -1,6 +1,7 @@
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import axios from 'axios';
+import * as availability from '@/utils/availabilityProvider';
 import { useShootEditModalController } from './useShootEditModalController';
 
 const mocks = vi.hoisted(() => ({
@@ -30,9 +31,37 @@ beforeEach(() => {
     { id: 11, name: 'Floorplan', price: 50, photographer_required: false },
   ] } });
 });
-afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe('editing the main shoot appointment', () => {
+  it('uses Jaz availability after reassigning both service categories from Paul', async () => {
+    const dayLookup = vi.spyOn(availability, 'getDayAvailability').mockImplementation(async id => ({ status: 'success', day: {
+      workingHours: { start: '09:00', end: '18:00' }, blocked: String(id) === '1' ? [{ start: '13:45', end: '15:45' }] : [],
+      timezone: 'America/New_York', fromConfig: true,
+    } }));
+    vi.mocked(axios.get).mockResolvedValue({ data: { data: [
+      { id: 2, name: 'Photos', category: { name: 'Photos' }, price: 100, photographer_required: true },
+      { id: 81, name: 'Zillow', category: { name: '3D Tours' }, price: 100, photographer_required: true },
+    ] } });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: {
+      id: 2505, status: 'requested', address: '413 Mahan Ln', scheduled_at: '2026-10-21T19:00:00Z', timezone: 'America/New_York',
+      photographer_id: 1, photographer: { id: 1, name: 'Paul' },
+      service_items: [{ service_id: 2, name: 'Photos', photographer_id: 1, duration_minutes: 60 },
+        { service_id: 81, name: 'Zillow', photographer_id: 1, duration_minutes: 60 }],
+    } }) }));
+    const { result } = renderHook(() => useShootEditModalController({ isOpen: true, onClose: vi.fn(), shootId: '2505' }));
+    await waitFor(() => expect(result.current.selectedServiceCategoryGroups).toHaveLength(2));
+    await waitFor(() => expect(result.current.isEditTimeDisabled('15:00')).toBe(true));
+    for (const group of result.current.selectedServiceCategoryGroups) {
+      act(() => result.current.openPhotographerPicker({ categoryKey: group.key, categoryName: group.name }));
+      act(() => result.current.setPickerPhotographerId('1104'));
+      act(() => result.current.handleConfirmPhotographerPicker());
+    }
+    await waitFor(() => expect(result.current.isEditTimeDisabled('15:00')).toBe(false));
+    expect(result.current.isEditTimeDisabled('15:00', '2')).toBe(false);
+    expect(result.current.isEditTimeDisabled('15:00', '81')).toBe(false);
+    expect(dayLookup).toHaveBeenLastCalledWith('1104', expect.any(Date), expect.any(AbortSignal), '2505');
+  });
   it('saves a confirmed package edit through PATCH with the warning token and selected notifications', async () => {
     const savedShoot = { id: 42, status: 'scheduled', address: '42 Service Lane', scheduled_at: '2026-10-13T15:30:00Z', timezone: 'America/New_York',
       photographer_id: 9, photographer: { id: 9, name: 'Pat', email: 'pat@example.test' }, client: { id: 4, email: 'client@example.test' },

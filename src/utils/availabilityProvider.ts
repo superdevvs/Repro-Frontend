@@ -92,6 +92,7 @@ export async function getDayAvailability(
   photographerId: string | number,
   date: Date,
   signal?: AbortSignal,
+  excludeShootId?: string | number,
 ): Promise<AvailabilityResult> {
   const token = localStorage.getItem('authToken');
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -106,6 +107,7 @@ export async function getDayAvailability(
     body: JSON.stringify({
       photographer_id: photographerIdNum,
       date: toDateParam(date),
+      ...(excludeShootId ? { shoot_id: Number(excludeShootId) } : {}),
     }),
     signal,
   });

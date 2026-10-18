@@ -327,7 +327,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
                           value={schedule.time || scheduledTime}
                           options={timeOptions}
                           onChange={(value) => updateServiceSchedule(id, 'time', value)}
-                          isTimeDisabled={isEditTimeDisabled}
+                          isTimeDisabled={(value) => isEditTimeDisabled(value, id)}
                           triggerClassName="h-8 rounded-lg px-2"
                         />
                       </div>
