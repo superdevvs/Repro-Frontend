@@ -48,10 +48,11 @@ export function EmailTemplateWorkspace({ template: initialTemplate, open, onClos
   const [proposed, setProposed] = useState(true);
   const [autoArtwork, setAutoArtwork] = useState(true);
   const [assistantContext, setAssistantContext] = useState<EmailAssistantContext | null>(null);
-  const suggestedArtwork = useSuggestedEmailArtwork(pending ?? draft, Boolean(pending && autoArtwork), Boolean(busy), (id, url) => {
+  const suggestedArtwork = useSuggestedEmailArtwork(pending ?? draft, Boolean(pending && autoArtwork), Boolean(busy), images => {
     const target = pending ?? draft;
-    if (!target.editor_document_json.sections.some(section => section.artwork_id === id && section.image_url !== url)) return;
-    const next = { ...target, editor_document_json: { ...target.editor_document_json, sections: target.editor_document_json.sections.map(section => section.artwork_id === id ? { ...section, image_url: url } : section) } };
+    const ready = new Map(images.map(image => [image.id, image.url]));
+    if (!target.editor_document_json.sections.some(section => section.artwork_id && ready.has(section.artwork_id) && section.image_url !== ready.get(section.artwork_id))) return;
+    const next = { ...target, editor_document_json: { ...target.editor_document_json, sections: target.editor_document_json.sections.map(section => section.artwork_id && ready.has(section.artwork_id) ? { ...section, image_url: ready.get(section.artwork_id)! } : section) } };
     if (pending) setPending(next); else editor.replace(next, 'Generated artwork ready', false);
   });
   const [chat, setChat] = useState<{ role: 'user' | 'assistant'; text: string }[]>([]);

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -305,16 +305,18 @@ describe('production email workspace', () => {
     const hero = { ...newSection('hero'), heading: 'A new view', alt: 'Wide header scene', image_prompt: 'Wide blue camera and homes scene', artwork_id: '550e8400-e29b-41d4-a716-446655440005' };
     const icon = { ...newSection('feature'), heading: 'Your gift', alt: 'Gift icon', image_prompt: 'Blue glass gift box', artwork_id: '550e8400-e29b-41d4-a716-446655440006' };
     mocks.suggest.mockResolvedValue({ editor_document_json: { version: 1, format: 'sections', preheader: '', sections: [hero, icon] } });
-    mocks.generate.mockImplementation(async request => ({ ...request, status: 'completed', url: `https://example.com/${request.kind}.png`, error: null }));
+    const finishers = new Map<string, () => void>();
+    mocks.generate.mockImplementation(request => new Promise(resolve => finishers.set(request.kind, () => resolve({ ...request, status: 'completed', url: `https://example.com/${request.kind}.png`, error: null }))));
     setup();
     fireEvent.change(screen.getByLabelText('Ask Robbie'), { target: { value: 'Create a conference follow-up with a wide header and a gift icon' } });
     fireEvent.click(screen.getByRole('button', { name: /Ask Robbie ↑/ }));
-    await screen.findByText(/Your generated artwork is in place/);
+    await waitFor(() => expect(mocks.generate).toHaveBeenCalledTimes(2));
     expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ id: hero.artwork_id, kind: 'header' }));
     expect(mocks.generate).toHaveBeenCalledWith(expect.objectContaining({ id: icon.artwork_id, kind: 'icon' }));
     fireEvent.click(screen.getByRole('button', { name: 'Apply changes' }));
-    expect(screen.getByRole('img', { name: 'Wide header scene' })).toHaveAttribute('src', 'https://example.com/header.png');
-    expect(screen.getByRole('img', { name: 'Gift icon' })).toHaveAttribute('src', 'https://example.com/icon.png');
+    await act(async () => { for (const finish of finishers.values()) finish(); });
+    expect(await screen.findByRole('img', { name: 'Wide header scene' })).toHaveAttribute('src', 'https://example.com/header.png');
+    expect(await screen.findByRole('img', { name: 'Gift icon' })).toHaveAttribute('src', 'https://example.com/icon.png');
     expect(mocks.update).not.toHaveBeenCalled(); expect(mocks.send).not.toHaveBeenCalled();
   });
 

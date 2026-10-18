@@ -12,7 +12,7 @@ function restore(key: string): Request[] {
 
 /** Paid requests survive applying a draft/reloading. A replacement image clears
  * its ID, so a late result can never overwrite the user's replacement. */
-export function useSuggestedEmailArtwork(target: EmailWorkspaceDraft, canStart: boolean, paused: boolean, onReady: (id: string, url: string) => void) {
+export function useSuggestedEmailArtwork(target: EmailWorkspaceDraft, canStart: boolean, paused: boolean, onReady: (images: { id: string; url: string }[]) => void) {
   const { user } = useAuth();
   const key = `repro-email-suggested-artwork:${user?.id ?? 'anonymous'}`;
   const registry = useRef({ key, requests: restore(key) });
@@ -44,7 +44,8 @@ export function useSuggestedEmailArtwork(target: EmailWorkspaceDraft, canStart: 
   const targetKey = JSON.stringify(imageSections.map(section => [section.artwork_id, section.image_url]));
   useEffect(() => {
     if (paused) return;
-    for (const item of JSON.parse(completedKey) as { id: string; url: string }[]) onReadyRef.current(item.id, item.url);
+    const images = JSON.parse(completedKey) as { id: string; url: string }[];
+    if (images.length) onReadyRef.current(images);
   }, [completedKey, targetKey, paused]);
   return {
     running: queries.some(query => query.isPending || ['queued', 'processing'].includes(query.data?.status ?? '')),
