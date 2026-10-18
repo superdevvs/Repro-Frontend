@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import NewCallDialog from './NewCallDialog';
-import { CallGlassButton } from '@/components/voice/CallGlass';
+import { Button } from '@/components/ui/button';
 import type { BrowserPhoneContextValue } from '@/context/BrowserPhoneContext';
 
 const mocks = vi.hoisted(() => ({ getVoiceNumbers: vi.fn(), getVoiceHealth: vi.fn(), getVoiceDirectory: vi.fn(), placeVoiceCall: vi.fn(), toast: vi.fn(), can: vi.fn(), phone: {} as BrowserPhoneContextValue, startHuman: vi.fn(), cancelPending: vi.fn() }));
@@ -15,7 +15,7 @@ vi.mock('@/services/voice', () => mocks);
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: mocks.toast }) }));
 const renderDialog = () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  render(<MemoryRouter><QueryClientProvider client={client}><NewCallDialog initialTo="+12025550123" initialFrom="+18888041663" trigger={<CallGlassButton>Open new call</CallGlassButton>} /></QueryClientProvider></MemoryRouter>);
+  render(<MemoryRouter><QueryClientProvider client={client}><NewCallDialog initialTo="+12025550123" initialFrom="+18888041663" trigger={<Button className="calls-call">Open new call</Button>} /></QueryClientProvider></MemoryRouter>);
   return client;
 };
 const open = async () => { const client = renderDialog(); await userEvent.click(screen.getByRole('button', { name: 'Open new call' })); return client; };

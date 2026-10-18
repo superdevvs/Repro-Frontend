@@ -81,21 +81,8 @@
   .call-glass-button:not(:disabled):hover { transform: none; }
 }
 
-.calls-toolbar-call { min-height: 44px; padding: 0 15px; }
-.calls-toolbar-call .call-glass-icon { width: 26px; height: 26px; }
 .call-connection-summary { display: flex; justify-content: center; padding: 3px 0 7px; }
 .calls-workspace.browser-call-dock { background: linear-gradient(155deg, #fffffff5, #f8f5fcf2); color: hsl(var(--foreground)); border-color: #ffffffed; --calls-text: hsl(var(--foreground)); --calls-muted: hsl(var(--muted-foreground)); --calls-border: hsl(var(--border)); --calls-surface: hsl(var(--card)); --calls-subtle: hsl(var(--secondary)); box-shadow: 0 15px 50px -18px #69507845; backdrop-filter: blur(20px); }
 .calls-workspace.browser-call-dock .call-control-strip { --calls-text: hsl(var(--foreground)); --calls-subtle: hsl(var(--secondary)); }
 .dark .calls-workspace.browser-call-dock { background: linear-gradient(155deg, #272330f7, #1f1c28f2); border-color: #66536e61; box-shadow: 0 15px 50px -18px #000a; }
 .call-control-strip .calls-secondary { min-height: 44px; }
-.call-glass-launch { position: relative; isolation: isolate; display: grid; place-items: center; width: 100%; min-height: 94px; border-radius: 22px; overflow: hidden; }
-.call-launch-rings { position: absolute; z-index: -1; left: 50%; top: 50%; width: 150px; height: 150px; transform: translate(-50%, -50%); pointer-events: none; }
-.call-launch-rings i { position: absolute; inset: 0; border: 1px solid #ac99d5; border-radius: 50%; animation: call-launch-ring 5s ease-in-out infinite; opacity: .16; }
-.call-launch-rings i:nth-child(2) { inset: 13px; animation-delay: -1.7s; opacity: .12; }
-.call-launch-rings i:nth-child(3) { inset: 27px; animation-delay: -3.4s; opacity: .1; }
-.call-glass-launch .call-glass-button { min-height: 64px; max-width: calc(100% - 16px); }
-.call-glass-launch .call-glass-icon { width: 38px; height: 38px; }
-.call-glass-launch .call-glass-label { font-size: 15px; }
-.call-glass-launch:has(button:disabled) .call-launch-rings i { animation: none; opacity: .05; }
-@keyframes call-launch-ring { 0%, 100% { scale: .88; } 50% { scale: 1.08; } }
-@media (prefers-reduced-motion: reduce) { .call-launch-rings i { animation: none; } }
