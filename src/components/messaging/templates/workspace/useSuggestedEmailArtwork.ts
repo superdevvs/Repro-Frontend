@@ -3,6 +3,7 @@ import { useQueries } from '@tanstack/react-query';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { generateEmailArtwork, getEmailArtwork } from '@/services/emailTemplateWorkspace';
 import type { EmailWorkspaceDraft, EmailArtworkKind } from '@/types/emailTemplateWorkspace';
+import type { EmailArtworkStates } from './emailArtworkPreview';
 
 type Request = { id: string; prompt: string; kind: EmailArtworkKind };
 function restore(key: string): Request[] {
@@ -47,7 +48,15 @@ export function useSuggestedEmailArtwork(target: EmailWorkspaceDraft, canStart: 
     const images = JSON.parse(completedKey) as { id: string; url: string }[];
     if (images.length) onReadyRef.current(images);
   }, [completedKey, targetKey, paused]);
+  const images: EmailArtworkStates = Object.fromEntries(requests.map((request, index) => {
+    const query = queries[index];
+    return [request.id, { kind: request.kind,
+      status: query.data?.status === 'completed' && query.data.url ? 'ready' : query.isError || ['failed', 'unknown'].includes(query.data?.status ?? '') ? 'failed' : 'loading',
+      url: query.data?.url ?? undefined,
+    }];
+  }));
   return {
+    images,
     running: queries.some(query => query.isPending || ['queued', 'processing'].includes(query.data?.status ?? '')),
     failed: queries.some(query => query.isError || ['failed', 'unknown'].includes(query.data?.status ?? '')),
     total: requests.length, completed: completed.length,

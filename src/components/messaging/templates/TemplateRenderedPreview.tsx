@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect, useState, type ReactNode } from 'react';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { previewTemplate, type TemplateDraft } from '@/services/messaging';
 import { getTemplateErrorMessage } from './templatePreviewSupport';
 import { safeEmailPreview } from './workspace/emailWorkspaceModel';
+import { artworkRenderDraft, emailArtworkPreview, type EmailArtworkStates } from './workspace/emailArtworkPreview';
+
+const noArtwork: EmailArtworkStates = {};
 
 interface Props {
   compact?: boolean;
@@ -14,17 +17,20 @@ interface Props {
   viewport: 'desktop' | 'mobile';
   onThemeChange: (theme: 'light' | 'dark') => void;
   onViewportChange: (viewport: 'desktop' | 'mobile') => void;
+  artwork?: EmailArtworkStates;
+  fallback?: ReactNode;
 }
 
-export function TemplateRenderedPreview({ compact, templateId, draft, enabled, theme, viewport, onThemeChange, onViewportChange }: Props) {
-  const [previewDraft, setPreviewDraft] = useState(draft);
+export function TemplateRenderedPreview({ compact, templateId, draft, enabled, theme, viewport, onThemeChange, onViewportChange, artwork = noArtwork, fallback }: Props) {
+  const renderDraftKey = JSON.stringify(artworkRenderDraft(draft, artwork));
+  const [previewDraft, setPreviewDraft] = useState<TemplateDraft>(() => JSON.parse(renderDraftKey));
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setPreviewDraft(draft), 350);
+    const timer = window.setTimeout(() => setPreviewDraft(JSON.parse(renderDraftKey)), 350);
     return () => window.clearTimeout(timer);
-  }, [draft]);
+  }, [renderDraftKey]);
 
-  const isUpdating = previewDraft !== draft;
+  const isUpdating = JSON.stringify(previewDraft) !== renderDraftKey;
   const preview = useQuery({
     queryKey: ['template-editor-preview', templateId, previewDraft, theme],
     queryFn: () => previewTemplate(templateId, undefined, {
@@ -33,9 +39,11 @@ export function TemplateRenderedPreview({ compact, templateId, draft, enabled, t
     }),
     enabled: enabled && !isUpdating,
     retry: false,
+    placeholderData: keepPreviousData,
     staleTime: 0,
   });
-  const html = preview.data?.body_html || preview.data?.html;
+  const sourceHtml = preview.data?.body_html || preview.data?.html;
+  const html = sourceHtml ? emailArtworkPreview(sourceHtml, draft, artwork, theme) : undefined;
   const missing = preview.data?.missing_variables ?? preview.data?.missing ?? [];
   const width = viewport === 'desktop' ? 720 : 375;
 
@@ -66,17 +74,19 @@ export function TemplateRenderedPreview({ compact, templateId, draft, enabled, t
         {preview.data?.subject && !isUpdating && (
           <p className="mx-3 mb-3 break-words text-sm sm:mx-0"><strong>Subject:</strong> {preview.data.subject}</p>
         )}
-        {isUpdating || preview.isPending || preview.isFetching ? (
+        {fallback && (isUpdating || preview.isPlaceholderData) ? fallback : !html && (isUpdating || preview.isPending || preview.isFetching) ? fallback ?? (
           <div role="status" className="flex min-h-[320px] items-center justify-center rounded-xl border bg-background text-sm text-muted-foreground">
             Rendering email preview…
           </div>
-        ) : preview.isError || !html ? (
+        ) : !html ? (
           <div role="alert" className="rounded-xl border bg-background p-6">
             <p className="text-sm">{getTemplateErrorMessage(preview.error, 'The server did not return an email preview.')}</p>
             <Button variant="outline" size="sm" className="mt-3" onClick={() => void preview.refetch()}>Retry preview</Button>
           </div>
         ) : (
           <>
+            {(isUpdating || preview.isFetching) && <p role="status" className="mb-3 text-xs text-muted-foreground">Updating email preview…</p>}
+            {preview.isError && <p role="alert" className="mb-3 text-sm text-muted-foreground">Could not refresh the preview. Your email is still here. <button className="underline" onClick={() => void preview.refetch()}>Retry</button></p>}
             {missing.length > 0 && (
               <p className="mb-3 text-sm text-muted-foreground" role="status">
                 Sample values unavailable for: {missing.join(', ')}. These shortcodes need values when sending.

@@ -1,5 +1,6 @@
 import { Fragment, type ReactNode, type CSSProperties } from 'react';
 import type { EmailTemplateSection } from '@/types/emailTemplateWorkspace';
+import { artworkLabel, artworkRatio, type EmailArtworkState } from './emailArtworkPreview';
 
 /** A small, inert inline preview: text never becomes executable HTML. */
 export function EmailInlineText({ text }: { text: string }) {
@@ -15,9 +16,14 @@ export function EmailInlineText({ text }: { text: string }) {
   return <>{nodes}</>;
 }
 
-export function EmailSectionContent({ section }: { section: EmailTemplateSection }) {
-  const hasImage = /^https?:\/\//i.test(section.image_url);
-  const image = hasImage ? <img className="ews-section-image" src={section.image_url} alt={section.alt} referrerPolicy="no-referrer"/> : <div className="ews-image-placeholder">Add an image or generate one with Robbie</div>;
+export function EmailSectionContent({ section, artwork }: { section: EmailTemplateSection; artwork?: EmailArtworkState }) {
+  const url = artwork?.status === 'ready' ? artwork.url ?? section.image_url : section.image_url;
+  const hasImage = /^https?:\/\//i.test(url);
+  const loading = artwork?.status === 'loading';
+  const hasSlot = hasImage || Boolean(artwork);
+  const image = loading || (artwork?.status === 'failed' && !hasImage)
+    ? <div className="ews-artwork-loading" role="status" aria-label={`${artworkLabel(artwork.kind)}: ${section.alt || section.heading}`} style={{ aspectRatio: artworkRatio(artwork.kind) }}><span className="ews-artwork-indicator" aria-hidden="true">{loading ? '◌' : '◇'}</span><span>{loading ? artworkLabel(artwork.kind)+'…' : 'Image could not be created'}</span></div>
+    : hasImage ? <img className="ews-section-image" src={url} alt={section.alt} referrerPolicy="no-referrer"/> : <div className="ews-image-placeholder">Add an image or generate one with Robbie</div>;
   const lines = section.body.split('\n').filter(line => line.trim());
   const copy = <>
     {section.eyebrow && <span className="ews-section-eyebrow">{section.eyebrow}</span>}
@@ -31,7 +37,7 @@ export function EmailSectionContent({ section }: { section: EmailTemplateSection
   if (section.type === 'divider') return <hr/>;
   if (section.type === 'button') return <span className="ews-email-button">{section.heading || 'Button label'}</span>;
   return <div className={'ews-section-design ews-section-'+section.type} data-tone={section.tone ?? (section.type === 'notice' ? 'soft' : 'plain')}>
-    {section.type === 'feature' && hasImage ? <div className="ews-feature" data-layout={section.layout ?? 'image-left'} style={{ '--ews-image-width': (section.image_width ?? 160)+'px' } as CSSProperties}><div className="ews-feature-image">{image}</div><div className="ews-feature-copy">{copy}</div></div>
-      : <>{copy}{section.type === 'hero' && hasImage && <div className="ews-hero-image">{image}</div>}</>}
+    {section.type === 'feature' && hasSlot ? <div className="ews-feature" data-layout={section.layout ?? 'image-left'} style={{ '--ews-image-width': (section.image_width ?? 160)+'px' } as CSSProperties}><div className="ews-feature-image">{image}</div><div className="ews-feature-copy">{copy}</div></div>
+      : <>{copy}{section.type === 'hero' && hasSlot && <div className="ews-hero-image">{image}</div>}</>}
   </div>;
 }

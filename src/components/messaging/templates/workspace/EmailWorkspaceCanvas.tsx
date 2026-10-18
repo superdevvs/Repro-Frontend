@@ -3,13 +3,15 @@ import type { EmailWorkspaceDraft } from '@/types/emailTemplateWorkspace';
 import type { MessageTemplate } from '@/types/messaging';
 import { EmailSectionContent } from './EmailSectionContent';
 import { safeEditorHtml } from './emailWorkspaceModel';
+import type { EmailArtworkStates } from './emailArtworkPreview';
 
 interface Props {
   draft: EmailWorkspaceDraft; template: MessageTemplate | null; selected: string | null;
   disabled: boolean; onSelect: (id: string) => void; onAdd: () => void;
+  artwork?: EmailArtworkStates;
 }
 
-export function EmailWorkspaceCanvas({ draft, template, selected, disabled, onSelect, onAdd }: Props) {
+export function EmailWorkspaceCanvas({ draft, template, selected, disabled, onSelect, onAdd, artwork }: Props) {
   const sections = draft.editor_document_json.sections;
   const blocks = template?.editable_content_blocks ?? [];
   return <>
@@ -18,7 +20,7 @@ export function EmailWorkspaceCanvas({ draft, template, selected, disabled, onSe
       <div className="ews-email-content">
         {draft.editor_document_json.format === 'sections' ? sections.map((section, index) => <button key={section.id} className="ews-editable-section" data-selected={selected === section.id} disabled={disabled} onClick={() => onSelect(section.id)} aria-label={`Edit ${section.heading || section.type+' section '+(index+1)}`} style={{ textAlign: section.alignment, paddingBottom: section.spacing }}>
           <span className="ews-section-tag">{section.type} · click to edit</span>
-          <EmailSectionContent section={section}/>
+          <EmailSectionContent section={section} artwork={section.artwork_id ? artwork?.[section.artwork_id] : undefined}/>
         </button>) : blocks.length ? <>
           <p className="ews-connected-note"><LockKeyhole size={14}/>Live details and conditional sections stay connected.</p>
           {blocks.map(block => <button key={block.key} disabled={disabled} className="ews-editable-section" data-selected={selected === block.key} onClick={() => onSelect(block.key)} aria-label={`Edit ${block.label}`}><span className="ews-section-tag">{block.label}</span><div className="ews-rich-copy" dangerouslySetInnerHTML={{ __html: safeEditorHtml(draft.content_blocks_json?.[block.key]?.body_html ?? block.body_html) }}/></button>)}

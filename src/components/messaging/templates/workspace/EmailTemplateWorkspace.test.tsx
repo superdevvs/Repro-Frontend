@@ -320,6 +320,35 @@ describe('production email workspace', () => {
     expect(mocks.update).not.toHaveBeenCalled(); expect(mocks.send).not.toHaveBeenCalled();
   });
 
+  it('shows new email copy immediately with individual loading slots and keeps editing as images arrive', async () => {
+    const hero = { ...newSection('hero'), id: 'immediate-header', heading: 'Invoice review made simple', body: 'Your weekly guide is ready.', alt: 'Wide invoice header', image_prompt: 'Wide blue invoice scene', artwork_id: '550e8400-e29b-41d4-a716-446655440020' };
+    const icon = { ...newSection('feature'), id: 'immediate-icon', heading: 'Submit in Earnings', body: 'Review every line before submitting.', alt: 'Review invoice icon', image_prompt: 'Blue invoice icon', artwork_id: '550e8400-e29b-41d4-a716-446655440021' };
+    mocks.preview.mockReturnValue(new Promise(() => {}));
+    mocks.suggest.mockResolvedValue({ subject: 'Your invoice guide', editor_document_json: { version: 1, format: 'sections', preheader: '', sections: [hero, icon] } });
+    const finishers = new Map<string, () => void>();
+    mocks.generate.mockImplementation(request => new Promise(resolve => finishers.set(request.kind, () => resolve({ ...request, status: 'completed', url: `https://example.com/${request.kind}.png`, error: null }))));
+    setup();
+    fireEvent.change(screen.getByLabelText('Ask Robbie'), { target: { value: 'Create an invoice guide' } });
+    fireEvent.click(screen.getByRole('button', { name: /Ask Robbie ↑/ }));
+    expect(await screen.findByText('Your weekly guide is ready.')).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Creating wide header: Wide invoice header' })).toBeInTheDocument();
+    expect(screen.getByRole('status', { name: 'Creating icon: Review invoice icon' })).toBeInTheDocument();
+    await waitFor(() => expect(finishers.size).toBe(2));
+    fireEvent.click(screen.getByRole('button', { name: 'Apply changes' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Submit in Earnings' }));
+    fireEvent.change(screen.getByLabelText('Message'), { target: { value: 'My own review instructions.' } });
+    await act(async () => { finishers.get('header')!(); });
+    expect(await screen.findByRole('img', { name: 'Wide invoice header' })).toHaveAttribute('src', 'https://example.com/header.png');
+    expect(screen.getByRole('status', { name: 'Creating icon: Review invoice icon' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Message')).toHaveValue('My own review instructions.');
+    expect(screen.getByRole('button', { name: 'Save' })).toBeEnabled();
+    await act(async () => { finishers.get('icon')!(); });
+    expect(await screen.findByRole('img', { name: 'Review invoice icon' })).toHaveAttribute('src', 'https://example.com/icon.png');
+    expect(screen.queryByRole('status', { name: /Creating icon:/ })).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Message')).toHaveValue('My own review instructions.');
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+
   it('reserves an automatic generation slot for a header added after existing image sections', async () => {
     const icons = ['550e8400-e29b-41d4-a716-446655440010', '550e8400-e29b-41d4-a716-446655440011', '550e8400-e29b-41d4-a716-446655440012'].map((id, index) => ({ ...newSection('feature'), id, heading: `Feature ${index}`, alt: `Icon ${index}`, image_url: `https://example.com/existing-${index}.png`, image_prompt: `Blue icon ${index}`, artwork_id: id }));
     const hero = { ...newSection('hero'), alt: 'New wide header', image_prompt: 'A wide blue glass conference scene', artwork_id: '550e8400-e29b-41d4-a716-446655440013' };
