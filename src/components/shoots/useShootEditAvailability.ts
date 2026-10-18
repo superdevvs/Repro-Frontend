@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getDayAvailability, type DayAvailability } from '@/utils/availabilityProvider';
 import { isTimeOutsideDayAvailability } from '@/utils/editPickerBounds';
 
-export interface EditAvailabilityTarget { serviceId: string; photographerId: string; date: string }
+export interface EditAvailabilityTarget { serviceId: string; photographerId: string; date: string; followsMain?: boolean }
 const keyOf = (target: EditAvailabilityTarget) => `${target.photographerId}:${target.date}`;
 
 /** Keep each service picker tied to its current assignee and appointment day. */
@@ -25,6 +25,6 @@ export function useShootEditAvailability(open: boolean, shootId: string, targets
     return () => controller.abort();
   }, [open, shootId, stableTargets]);
   return (value: string, serviceId?: string) => stableTargets
-    .filter(target => !serviceId || target.serviceId === serviceId)
+    .filter(target => serviceId ? target.serviceId === serviceId : target.followsMain !== false)
     .some(target => isTimeOutsideDayAvailability(days[keyOf(target)] ?? null, value));
 }

@@ -61,6 +61,11 @@ describe('editing the main shoot appointment', () => {
     expect(result.current.isEditTimeDisabled('15:00', '2')).toBe(false);
     expect(result.current.isEditTimeDisabled('15:00', '81')).toBe(false);
     expect(dayLookup).toHaveBeenLastCalledWith('1104', expect.any(Date), expect.any(AbortSignal), '2505');
+    const separateGroup = result.current.selectedServiceCategoryGroups.find(group => group.serviceIds.includes('81'))!;
+    act(() => result.current.updateServiceSchedule('81', 'date', '2026-10-22'));
+    act(() => result.current.setPerCategoryPhotographers(current => ({ ...current, [separateGroup.key]: '1' })));
+    await waitFor(() => expect(result.current.isEditTimeDisabled('15:00', '81')).toBe(true));
+    expect(result.current.isEditTimeDisabled('15:00')).toBe(false);
   });
   it('saves a confirmed package edit through PATCH with the warning token and selected notifications', async () => {
     const savedShoot = { id: 42, status: 'scheduled', address: '42 Service Lane', scheduled_at: '2026-10-13T15:30:00Z', timezone: 'America/New_York',

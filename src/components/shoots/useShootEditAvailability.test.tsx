@@ -26,11 +26,12 @@ it('uses each service date and assignee and combines only the main appointment c
   vi.mocked(getDayAvailability).mockImplementation(id => Promise.resolve(id === 'A' ? day('10:00', '11:00') : day('15:00', '16:00')));
   const { result } = renderHook(() => useShootEditAvailability(true, '42', [
     { serviceId: 'photo', photographerId: 'A', date: '2026-10-21' },
-    { serviceId: 'video', photographerId: 'B', date: '2026-10-22' },
+    { serviceId: 'video', photographerId: 'B', date: '2026-10-22', followsMain: false },
   ]));
   await waitFor(() => expect(result.current('15:30', 'video')).toBe(true));
   expect(result.current('15:30', 'photo')).toBe(false);
   expect(result.current('10:30', 'video')).toBe(false);
   expect(result.current('10:30')).toBe(true);
+  expect(result.current('15:30')).toBe(false);
   expect(vi.mocked(getDayAvailability).mock.calls[1][1].getDate()).toBe(22);
 });

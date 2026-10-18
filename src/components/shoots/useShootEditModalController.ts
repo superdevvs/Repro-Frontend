@@ -562,6 +562,7 @@ export function useShootEditModalController({
   const editAvailabilityTargets = selectedServiceCategoryGroups.flatMap(group =>
     group.serviceIds.filter(id => availableServices.find(service => String(service.id) === id)?.photographer_required !== false)
       .map(id => ({ serviceId: id, photographerId: perCategoryPhotographers[group.key] || photographerId,
+        followsMain: inheritedServiceScheduleIds.current.has(id) || !serviceSchedules[id],
         date: serviceSchedules[id]?.date || (scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '') })));
   const isEditTimeDisabled = useShootEditAvailability(isOpen, String(shootId), editAvailabilityTargets.length ? editAvailabilityTargets
     : [{ serviceId: '', photographerId, date: scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '' }]);
