@@ -50,6 +50,48 @@ beforeEach(() => {
 afterEach(() => { cleanup(); localStorage.clear(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe('Overview year built save', () => {
+  it.each([false, true])('saves a unit correction in the street and property metadata (admin=%s)', async isAdmin => {
+    const record = { ...shoot, address: '4016 47th St NW',
+      location: { ...shoot.location, address: '4016 47th St NW, Unit 101' },
+      propertyDetails: { ...shoot.propertyDetails, aptSuite: 'Unit 101' },
+    } as ShootData;
+    const { result } = mount(record, isAdmin);
+    await waitFor(() => expect(result.current.editor.state.addressInput).toBe('4016 47th St NW'));
+    act(() => result.current.editor.actions.updateField('location.address', '4016 47th St NW Unit 1'));
+    if (isAdmin) await waitFor(() => expect(result.current.editor.travel.result?.enabled).toBe(false));
+    await act(async () => { await result.current.editor.actions.handleSave(); });
+    await act(async () => { await result.current.save.handleConfirmSave(); });
+    expect(vi.mocked(submitShootServiceMutation).mock.calls[0][0].payload).toMatchObject({
+      address: '4016 47th St NW Unit 1', property_details: { aptSuite: 'Unit 1', custom_fact: { keep: true } },
+    });
+  });
+
+  it('does not feed a stale appended unit back into the address editor', async () => {
+    const record = { ...shoot, address: '4016 47th St NW Unit 1',
+      location: { ...shoot.location, address: '4016 47th St NW Unit 1, Unit 101' },
+      propertyDetails: { ...shoot.propertyDetails, aptSuite: 'Unit 101' },
+    } as ShootData;
+    const { result } = mount(record);
+    await waitFor(() => expect(result.current.editor.state.addressInput).toBe('4016 47th St NW Unit 1'));
+    expect(result.current.editor.state.editedShoot.location?.address).toBe('4016 47th St NW Unit 1');
+  });
+
+  it('clears saved unit aliases when a unit is removed from the address', async () => {
+    const record = { ...shoot, address: '4016 47th St NW Unit 101',
+      location: { ...shoot.location, address: '4016 47th St NW, Unit 101' },
+      propertyDetails: { ...shoot.propertyDetails, aptSuite: 'Unit 101', apt_suite: '101' },
+    } as ShootData;
+    const { result } = mount(record, true);
+    await waitFor(() => expect(result.current.editor.state.addressInput).toContain('Unit 101'));
+    act(() => result.current.editor.actions.updateField('location.address', '4016 47th St NW'));
+    await waitFor(() => expect(result.current.editor.travel.result?.enabled).toBe(false));
+    await act(async () => { await result.current.editor.actions.handleSave(); });
+    await act(async () => { await result.current.save.handleConfirmSave(); });
+    expect(vi.mocked(submitShootServiceMutation).mock.calls[0][0].payload).toMatchObject({
+      address: '4016 47th St NW', property_details: { aptSuite: null, apt_suite: null },
+    });
+  });
+
   it.each([false, true])('sends only paired year aliases through existing confirmation (admin=%s)', async isAdmin => {
     const view = mount(shoot, isAdmin);
     await waitFor(() => expect(view.result.current.editor.state.propertyYearBuiltEdit).toBe('1941'));

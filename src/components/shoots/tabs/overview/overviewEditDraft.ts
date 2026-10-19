@@ -1,4 +1,5 @@
 import type { ShootData } from '@/types/shoots';
+import { getOverviewEditableAddress } from './overviewAddress';
 
 /** Capture the starting record/version once; live refreshes must not reset a draft. */
 export function buildOverviewEditDraft(shoot: ShootData, date: string): Partial<ShootData> {
@@ -7,7 +8,7 @@ export function buildOverviewEditDraft(shoot: ShootData, date: string): Partial<
     scheduledDate: date,
     time: shoot.time,
     location: {
-      address: shoot.location?.address || '', city: shoot.location?.city || '',
+      address: getOverviewEditableAddress(shoot), city: shoot.location?.city || '',
       state: shoot.location?.state || '', zip: shoot.location?.zip || '',
       fullAddress: shoot.location?.fullAddress || '',
     },

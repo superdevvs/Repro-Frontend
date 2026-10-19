@@ -4,6 +4,7 @@ import { buildForceSaveChanges } from '@/features/travel/forceSaveChanges';
 import { localSchedule, shiftScheduleFields } from '@/features/travel/daySchedule';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { buildOverviewEditDraft } from './overviewEditDraft';
+import { getOverviewEditableAddress, syncOverviewAddressDetails } from './overviewAddress';
 import { buildOverviewPropertyDetails, getOverviewYearBuilt, hasOverviewBookingEdits } from './overviewYearBuilt';
 import { comparePhotographerDistance } from '@/utils/photographerDistanceSort';
 import { resolveServicePrice } from './shootOverviewServicePricing';
@@ -293,7 +294,7 @@ export function useShootOverviewEditor({
     const propertyDetails = (shoot.propertyDetails ?? legacyShoot.property_details ?? {}) as Record<string, unknown>;
     setServiceSchedules({});
     setEditedShoot(buildOverviewEditDraft(shoot, shoot.scheduledDate ? formatDateForInput(shoot.scheduledDate) : ''));
-    setAddressInput(shoot.location?.address || shoot.location?.fullAddress || legacyShoot.address || '');
+    setAddressInput(getOverviewEditableAddress(shoot));
     initializeMetricsFromShoot();
     if (shoot.client) setSelectedClientId(String(shoot.client.id));
     setSelectedPhotographerIdEdit(shoot.photographer?.id != null ? String(shoot.photographer.id) : '');
@@ -420,7 +421,6 @@ export function useShootOverviewEditor({
   const { confirmForceSave, confirmSave } = travel;
   const handleSave = useCallback(async (withWarning = false) => {
     if (!onSave) return;
-
     // The draft only ever holds display fields; the service payload keys below
     // are request-shaped, so the two types deliberately do not overlap.
     const updates = { ...editedShoot } as unknown as ShootOverviewUpdatePayload;
@@ -437,7 +437,7 @@ export function useShootOverviewEditor({
       toast({ title: 'Check year built', description: error instanceof Error ? error.message : 'Enter a valid year.', variant: 'destructive' });
       return;
     }
-    updates.propertyDetails = propertyUpdate.details;
+    updates.propertyDetails = syncOverviewAddressDetails(shoot, updates.location?.address, propertyUpdate.details);
     if (propertyUpdate.yearOnly && !servicePlanTouchedRef.current && !serviceSelectionTouchedRef.current
       && !hasComplimentaryServices && Object.keys(serviceEditors.serviceEditorChanges).length === 0
       && !hasOverviewBookingEdits(updates as unknown as Partial<ShootData>, shoot)) {
