@@ -683,7 +683,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
       {hasVideo && (
         <section id="video" className="max-w-6xl mx-auto px-6 mt-10">
           <h2 className="text-2xl font-bold text-foreground mb-6">Video Tour</h2>
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 gap-6">
             {videoLink && (
               <div className="relative aspect-video rounded-2xl overflow-hidden border border-border/40 shadow-md col-span-full">
                 {getEmbedUrl(videoLink)?.includes('youtube.com') || getEmbedUrl(videoLink)?.includes('vimeo.com') ? (
