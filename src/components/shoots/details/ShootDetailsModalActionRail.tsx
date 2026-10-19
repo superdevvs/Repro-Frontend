@@ -85,6 +85,8 @@ interface ShootDetailsModalActionRailProps {
   onMarkPaid?: () => void;
   canProcessPayment?: boolean;
   onProcessPayment?: () => void;
+  canShowInvoice?: boolean;
+  onShowInvoice?: () => void;
   canOpenAiEdit?: boolean;
   handleOpenAiEdit?: () => void;
   aiEditLabel?: string;
@@ -158,6 +160,8 @@ export function ShootDetailsModalActionRail({
   onMarkPaid,
   canProcessPayment = false,
   onProcessPayment,
+  canShowInvoice = false,
+  onShowInvoice,
   canOpenAiEdit = false,
   handleOpenAiEdit,
   aiEditLabel = 'AI Studio',
@@ -232,7 +236,7 @@ export function ShootDetailsModalActionRail({
 
   return (
     <>
-      <div className="hidden sm:flex absolute top-4 z-[80] flex-col items-end right-16 max-w-[calc(100%-6rem)]">
+      <div className="hidden xl:flex absolute top-4 z-[80] flex-col items-end right-16 max-w-[calc(100%-6rem)]">
         <div className="flex flex-wrap items-center justify-end gap-1.5">
           {isEditMode ? (
             <>
@@ -444,8 +448,8 @@ export function ShootDetailsModalActionRail({
 
 {isMobileActionsOpen ? (
             <Drawer open={isMobileActionsOpen} onOpenChange={setIsMobileActionsOpen} shouldScaleBackground={false}>
-        <DrawerContent className="z-[80] max-h-[85dvh] sm:hidden">
-          <DrawerHeader className="pb-2 text-left">
+        <DrawerContent className="z-[80] max-h-[85dvh] overflow-hidden xl:hidden [&>div:first-child]:shrink-0">
+          <DrawerHeader className="shrink-0 pb-2 text-left">
             <DrawerTitle className="text-base">Actions</DrawerTitle>
             <DrawerDescription asChild>
               <div className="text-xs text-muted-foreground">
@@ -456,7 +460,7 @@ export function ShootDetailsModalActionRail({
               </div>
             </DrawerDescription>
           </DrawerHeader>
-          <div className="px-3 pb-3 space-y-1">
+          <div className="min-h-0 overflow-y-auto overscroll-contain px-3 pb-3 space-y-1">
             {onRenameMedia && !isEditMode && !isRequestedStatus && (
               <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
@@ -655,6 +659,40 @@ export function ShootDetailsModalActionRail({
                 Downloads
               </button>
             )}
+            {canShowInvoice && !isEditMode && onShowInvoice && (
+              <button
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors hover:bg-muted"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  blurActiveElement();
+                  onShowInvoice();
+                }}
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/40">
+                  <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                </div>
+                Invoice
+              </button>
+            )}
+            {showPublishToBrightMls && !isEditMode && (
+              <button
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-colors hover:bg-muted disabled:opacity-60"
+                onClick={() => {
+                  setIsMobileActionsOpen(false);
+                  handleSendToBrightMls();
+                }}
+                disabled={isPublishingToBrightMls}
+              >
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/40">
+                  {isPublishingToBrightMls ? (
+                    <Loader2 aria-hidden="true" className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                  ) : (
+                    <Share2 className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                  )}
+                </div>
+                Publish to Bright MLS
+              </button>
+            )}
             {canPrivilegedProgressDownload && !isEditMode && (
               <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors"
@@ -742,7 +780,7 @@ export function ShootDetailsModalActionRail({
               </button>
             )}
           </div>
-          <div className="px-3 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
+          <div className="shrink-0 px-3 pb-[calc(env(safe-area-inset-bottom,0px)+1rem)]">
             <Button variant="outline" className="w-full rounded-xl" onClick={() => setIsMobileActionsOpen(false)}>
               Cancel
             </Button>
@@ -799,10 +837,10 @@ export function ShootDetailsModalHeader({
 
   return (
     <div className="z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85 flex-shrink-0">
-      <div className="px-2 sm:px-4 pt-1.5 sm:pt-4 pb-1 sm:pb-1.5">
-        <div className="flex items-start justify-between gap-2 sm:gap-4">
-          <div className="flex-1 min-w-0 w-full sm:w-auto">
-            <div className="flex min-w-0 items-center gap-1.5 sm:gap-3 mb-0.5 sm:mb-2">
+      <div className="px-2 sm:px-4 pt-1.5 sm:pt-3 xl:pt-4 pb-1 sm:pb-1.5">
+        <div className="flex items-start justify-between gap-2 xl:gap-4">
+          <div className="flex-1 min-w-0 w-full xl:w-auto">
+            <div className="flex min-w-0 items-center gap-1.5 xl:gap-3 mb-0.5 xl:mb-2">
               <div className="group/address flex min-w-0 flex-1 items-center gap-1.5">
                 <OverflowRevealAddressTitle
                   compactAddress={addressTitle}
@@ -823,25 +861,25 @@ export function ShootDetailsModalHeader({
                     <Copy className="h-3.5 w-3.5" />
                   )}
                 </Button>
-                <div className="hidden sm:flex flex-shrink-0">{statusBadge}</div>
-                {paymentBadge ? <div className="hidden sm:flex flex-shrink-0">{paymentBadge}</div> : null}
+                <div className="hidden xl:flex flex-shrink-0">{statusBadge}</div>
+                {paymentBadge ? <div className="hidden xl:flex flex-shrink-0">{paymentBadge}</div> : null}
                 {needsRawSubmission && onOpenRawSubmission ? (
                   <button
                     type="button"
                     onClick={onOpenRawSubmission}
-                    className="hidden sm:inline-flex flex-shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-200"
+                    className="hidden xl:inline-flex flex-shrink-0 items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-200"
                   >
                     <Upload className="h-3 w-3" />
                     Needs submission
                   </button>
                 ) : null}
               </div>
-              <div className="sm:hidden flex-shrink-0">{statusBadge}</div>
-              {paymentBadge ? <div className="sm:hidden flex-shrink-0">{paymentBadge}</div> : null}
+              <div className="xl:hidden flex-shrink-0">{statusBadge}</div>
+              {paymentBadge ? <div className="xl:hidden flex-shrink-0">{paymentBadge}</div> : null}
             </div>
 
             {createdByLabel && (
-              <div className="hidden sm:flex text-[11px] text-muted-foreground text-left items-center gap-1.5">
+              <div className="hidden xl:flex text-[11px] text-muted-foreground text-left items-center gap-1.5">
                 <span>Created by: {createdByLabel}</span>
               </div>
             )}
@@ -849,7 +887,7 @@ export function ShootDetailsModalHeader({
               <button
                 type="button"
                 onClick={onOpenRawSubmission}
-                className="sm:hidden inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-900 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-200"
+                className="xl:hidden inline-flex items-center gap-1 rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-[10px] font-semibold text-amber-900 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-200"
               >
                 <Upload className="h-3 w-3" />
                 Needs submission
@@ -857,12 +895,12 @@ export function ShootDetailsModalHeader({
             ) : null}
           </div>
 
-          <div className="sm:hidden flex items-center gap-1.5">
+          <div className="xl:hidden flex items-center gap-1.5">
             <Button
               aria-label="More actions"
               variant="outline"
               size="icon"
-              className="h-8 w-8 rounded-full"
+              className="h-8 w-8 rounded-full sm:h-10 sm:w-10"
               onClick={() => {
                 blurActiveElement();
                 setIsMobileActionsOpen(true);
@@ -870,7 +908,7 @@ export function ShootDetailsModalHeader({
             >
               <MoreVertical className="h-4 w-4" />
             </Button>
-            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={onClose}>
+            <Button aria-label="Close" variant="ghost" size="icon" className="h-8 w-8 rounded-full sm:h-10 sm:w-10" onClick={onClose}>
               <X className="h-4 w-4" />
             </Button>
           </div>
@@ -878,7 +916,7 @@ export function ShootDetailsModalHeader({
 
       </div>
 
-      <div className="sm:hidden px-2 pb-0.5 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div className="xl:hidden px-2 sm:px-4 pb-0.5 overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         <div className="flex gap-0.5 rounded-lg bg-muted/50 p-0.5 min-w-max" role="tablist" aria-label="Shoot sections">
           {[...visibleTabs.filter((tab) => tab.id !== 'media').slice(0, 1), { id: 'media', label: 'Media' }, ...visibleTabs.filter((tab) => tab.id !== 'media').slice(1)].map((tab) => {
             const TabIcon = getModalTabIcon(tab.id);
@@ -897,7 +935,7 @@ export function ShootDetailsModalHeader({
                   handleTabChange(tab.id);
                 }}
                 disabled={tab.disabled}
-                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-semibold transition whitespace-nowrap ${
+                className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-[10px] sm:px-3 sm:py-2 sm:text-xs font-semibold transition whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'bg-blue-600/10 text-blue-500 ring-1 ring-blue-500/50'
                     : tab.disabled

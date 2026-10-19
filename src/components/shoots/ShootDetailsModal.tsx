@@ -715,7 +715,7 @@ export function ShootDetailsModal({
   return (
     <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent onCloseAutoFocus={onCloseAutoFocus} className="w-screen h-[100dvh] max-w-none rounded-none overflow-hidden flex flex-col gap-0 p-0 sm:max-w-[95vw] sm:max-h-[95vh] sm:h-[95vh] sm:rounded-lg [&>button.absolute]:hidden [&>button.absolute]:sm:flex">
+      <DialogContent onCloseAutoFocus={onCloseAutoFocus} className="top-0 translate-y-0 w-screen h-[100dvh] max-w-none rounded-none overflow-hidden flex flex-col gap-0 p-0 sm:top-4 sm:w-[calc(100vw-2rem)] sm:max-w-[1440px] sm:max-h-[calc(100dvh-2rem)] sm:h-[calc(100dvh-2rem)] sm:rounded-lg [&>button.absolute]:hidden [&>button.absolute]:xl:flex">
         {/* DialogHeader for accessibility - must be first child */}
         <DialogHeader className="sr-only">
             <DialogTitle>
@@ -772,7 +772,8 @@ export function ShootDetailsModal({
           canMarkPaid={!isRequestedStatus && !isCancelledOrDeclined && can('payments', 'mark-paid') && !isPaid}
           onMarkPaid={() => setIsMarkPaidDialogOpen(true)}
           canProcessPayment={!isRequestedStatus && !isCancelledOrDeclined && (isAdmin || isRep) && !isPaid && !isPhotographer && !isEditor && !isEditingManager}
-          onProcessPayment={handleProcessPayment}
+          onProcessPayment={handleProcessPayment} onShowInvoice={handleShowInvoice}
+          canShowInvoice={!isRequestedStatus && !isCancelledOrDeclined && (canShowInvoiceButton || (isAdmin && isPaid)) && !isPhotographer && !isEditor}
           canOpenAiEdit={canOpenAiEdit && !isCancelledOrDeclined}
           handleOpenAiEdit={handleOpenAiEdit}
           aiEditLabel={aiEditLabel}
