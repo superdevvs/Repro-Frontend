@@ -332,6 +332,93 @@
   background: var(--calls-surface);
 }
 
+.calls-new-call-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+@media (max-width: 1023px) {
+  .calls-new-call[role='dialog'] {
+    top: var(--calls-dialog-top, 0px);
+    left: 0;
+    width: 100%;
+    max-width: none;
+    height: var(--calls-dialog-height, 100dvh);
+    max-height: none;
+    transform: none;
+    transition: none;
+    animation: none;
+    border-radius: 0;
+  }
+
+  .calls-new-call-header {
+    padding: calc(16px + env(safe-area-inset-top, 0px)) 16px 12px;
+  }
+
+  .calls-new-call-description { padding-right: 32px; font-size: 12px; }
+  .calls-new-call[role='dialog'] > button:last-child { top: calc(8px + env(safe-area-inset-top, 0px)); }
+
+  .calls-new-call-body {
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .calls-new-call-directory {
+    flex: 1;
+    min-height: 0;
+    gap: 8px;
+    overflow: hidden;
+    padding: 12px 16px;
+  }
+
+  .calls-new-call-results {
+    flex: 1;
+    min-height: 0;
+    max-height: none;
+  }
+
+  .calls-new-call-results > .calls-item { padding: 10px; }
+  .calls-new-call-directory .calls-pagination { min-height: 44px; padding: 0 4px 0 10px; }
+
+  .calls-new-call-pane {
+    flex-shrink: 0;
+    min-height: 0;
+  }
+
+  .calls-new-call-details {
+    min-height: 0;
+    max-height: calc(var(--calls-dialog-height, 100dvh) * .36);
+    gap: 4px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 8px 16px;
+  }
+
+  .calls-new-call-details > * { flex-shrink: 0; }
+  .calls-new-call-details label { display: block; margin-bottom: 4px; }
+  .calls-new-call-line > p { font-size: 12px; }
+  .calls-new-call-options { font-size: 12px; }
+
+  .calls-new-call-footer {
+    gap: 0;
+    padding: 12px 16px max(8px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .calls-new-call-footer > .calls-call { order: 1; }
+
+  .calls-new-call[data-keyboard='true'] .calls-new-call-description,
+  .calls-new-call[data-keyboard='true'] .calls-new-call-directory .calls-filter-row,
+  .calls-new-call[data-keyboard='true'] .calls-new-call-directory .calls-pagination {
+    display: none;
+  }
+
+  .calls-new-call[data-short='true'] .calls-new-call-description { display: none; }
+  .calls-new-call[data-short='true'] .calls-new-call-directory { overflow-y: auto; padding: 8px 16px; }
+  .calls-new-call[data-short='true'] .calls-new-call-results { flex: none; min-height: 60px; max-height: 120px; }
+}
+
 @media (min-width: 1024px) {
   .calls-new-call-body {
     display: grid;

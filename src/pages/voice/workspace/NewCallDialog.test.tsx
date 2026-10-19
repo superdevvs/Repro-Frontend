@@ -30,7 +30,23 @@ describe('NewCallDialog', () => {
     mocks.placeVoiceCall.mockResolvedValue({ id: 99 });
     mocks.startHuman.mockResolvedValue({ id: 103 });
   });
-  afterEach(() => { cleanup(); vi.clearAllMocks(); });
+  afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
+  it('fits the initial visible viewport and follows keyboard resizing until closed', async () => {
+    const viewport = Object.assign(new EventTarget(), { height: 568, offsetTop: 0 });
+    const removeListener = vi.spyOn(viewport, 'removeEventListener');
+    vi.stubGlobal('visualViewport', viewport);
+    await open();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog.style.getPropertyValue('--calls-dialog-height')).toBe('568px');
+    expect(dialog).toHaveAttribute('data-short', 'true');
+    act(() => { viewport.height = 360; viewport.offsetTop = 24; viewport.dispatchEvent(new Event('resize')); });
+    expect(dialog.style.getPropertyValue('--calls-dialog-height')).toBe('360px');
+    expect(dialog.style.getPropertyValue('--calls-dialog-top')).toBe('24px');
+    expect(dialog).toHaveAttribute('data-keyboard', 'true');
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
+    expect(removeListener).toHaveBeenCalledWith('resize', expect.any(Function));
+    expect(removeListener).toHaveBeenCalledWith('scroll', expect.any(Function));
+  });
   it('defaults to a one-action human call before the browser is connected', async () => {
     await open();
     const call = await screen.findByRole('button', { name: 'Call +12025550123' });
