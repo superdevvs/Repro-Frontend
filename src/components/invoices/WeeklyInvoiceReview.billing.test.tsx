@@ -20,6 +20,29 @@ afterEach(cleanup);
 beforeEach(() => { vi.clearAllMocks(); mocks.role = 'salesRep'; mocks.fetch.mockResolvedValue({ data: [1, 2, 3, 4, 5].map((id) => invoice(id)), current_page: 1, last_page: 1, total: 5 }); });
 
 describe('weekly billing workspace', () => {
+  it.each(['photographer', 'salesRep'])('shows the emailed calendar period for %s in a U.S. browser and CSV export', async role => {
+    const originalTimezone = process.env.TZ;
+    process.env.TZ = 'America/New_York';
+    try {
+      mocks.role = role;
+      mocks.fetch.mockResolvedValue({ data: [invoice(2441, {
+        billing_period_start: '2026-10-11T00:00:00.000000Z',
+        billing_period_end: '2026-10-17T00:00:00.000000Z',
+        total_amount: 100,
+      })], current_page: 1, last_page: 1, total: 1 });
+      render(<WeeklyInvoiceReview />);
+      await screen.findByRole('heading', { name: 'Oct 11 – Oct 17, 2026' });
+      expect(screen.getByRole('checkbox', { name: 'Select invoice for Oct 11 – Oct 17, 2026' })).toBeInTheDocument();
+      expect(screen.queryByText(/Oct 10, 2026/)).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+      await waitFor(() => expect(mocks.csv).toHaveBeenCalled());
+      expect(mocks.csv.mock.calls[0][2][0].week).toBe('Oct 11, 2026 - Oct 17, 2026');
+    } finally {
+      if (originalTimezone === undefined) delete process.env.TZ;
+      else process.env.TZ = originalTimezone;
+    }
+  });
+
   it.each([
     ['photographer', 'Shoots', '1'],
     ['salesRep', 'Commission Lines', '2'],
