@@ -13,6 +13,7 @@ import {
   startOfWeek,
   startOfYear,
 } from 'date-fns';
+import { parseInvoiceCalendarDate } from './invoiceCalendarDate';
 
 export const INVOICE_DATE_PRESETS = [
   { value: 'all', label: 'All' },
@@ -129,8 +130,13 @@ const resolveItemPeriod = (
     return point ? { start: point, end: point } : null;
   }
 
-  const parsedStart = parseInvoiceDateInput(value.startDate ?? value.endDate);
-  const parsedEnd = parseInvoiceDateInput(value.endDate ?? value.startDate);
+  // Period boundaries are invoice calendar dates; point dates above can still
+  // represent payment/activity instants and retain their timezone conversion.
+  const parseBoundary = (boundary: InvoiceDateInput) => typeof boundary === 'string'
+    ? parseInvoiceCalendarDate(boundary)
+    : parseInvoiceDateInput(boundary);
+  const parsedStart = parseBoundary(value.startDate ?? value.endDate);
+  const parsedEnd = parseBoundary(value.endDate ?? value.startDate);
   if (!parsedStart || !parsedEnd) return null;
 
   const [start, end] = orderedDates(parsedStart, parsedEnd);

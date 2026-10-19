@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { calendarDay } from '@/lib/date';
+import { formatBillingPeriod } from '@/components/accounting/invoiceReviewWorkspaceUtils';
 import { CheckCircle2, Plus, ReceiptText, Trash2 } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
@@ -87,28 +88,6 @@ const formatLongDate = (value?: string | null) => {
   } catch {
     return value;
   }
-};
-
-const formatBillingPeriod = (start?: string, end?: string) => {
-  if (!start && !end) return 'N/A';
-  const startDate = start ? new Date(start) : null;
-  const endDate = end ? new Date(end) : null;
-  const sameDay =
-    startDate && endDate &&
-    Math.abs(endDate.getTime() - startDate.getTime()) < 1000 * 60 * 60 * 24;
-
-  let weekStart = startDate;
-  let weekEnd = endDate;
-  if (sameDay && startDate) {
-    const dayOfWeek = startDate.getDay();
-    weekStart = new Date(startDate);
-    weekStart.setDate(startDate.getDate() - dayOfWeek);
-    weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
-  }
-
-  if (!weekStart || !weekEnd) return formatLongDate(start || end);
-  return `${formatLongDate(weekStart.toISOString())} – ${formatLongDate(weekEnd.toISOString())}`;
 };
 
 const statusConfig: Record<string, { label: string; className: string }> = {

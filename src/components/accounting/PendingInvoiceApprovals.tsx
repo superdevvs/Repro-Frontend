@@ -1,4 +1,5 @@
 import { EmptyState } from '@/components/ui/empty-state';
+import { formatInvoiceCalendarDate } from '@/utils/invoiceCalendarDate';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -37,10 +38,7 @@ const formatCurrency = (amount: number | string) => {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num || 0);
 };
 
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return 'N/A';
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-};
+const formatDate = formatInvoiceCalendarDate;
 
 export const PendingInvoiceApprovals: React.FC = () => {
   const { toast } = useToast();

@@ -4,9 +4,9 @@ import { AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 import type { WeeklyInvoice } from '@/services/invoiceService';
 import {
   filterInvoiceItemsByDate,
-  parseInvoiceDateInput,
   type InvoiceDateFilter,
 } from '@/utils/invoiceDateFilters';
+import { formatInvoiceCalendarDate, parseInvoiceCalendarDate } from '@/utils/invoiceCalendarDate';
 
 export const ITEMS_PER_PAGE = 4;
 export const FETCH_PAGE_SIZE = 100;
@@ -117,37 +117,20 @@ export const formatWeeklyInvoiceCurrency = (amount: number | string) => {
 };
 
 export const formatWeeklyInvoiceDate = (date: string) => {
-  if (!date) return 'N/A';
-  const parsed = parseInvoiceDateInput(date);
-  if (!parsed) return 'N/A';
-  return parsed.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  return formatInvoiceCalendarDate(date);
 };
 
 export const formatWeeklyBillingPeriod = (start: string, end: string): string => {
   if (!start && !end) return 'N/A';
-  const startDate = parseInvoiceDateInput(start);
-  const endDate = parseInvoiceDateInput(end);
-  const sameDay = startDate && endDate
-    && Math.abs(endDate.getTime() - startDate.getTime()) < 1000 * 60 * 60 * 24;
-  let weekStart: Date | null = startDate;
-  let weekEnd: Date | null = endDate;
-  if (sameDay && startDate) {
-    weekStart = new Date(startDate);
-    weekStart.setDate(startDate.getDate() - startDate.getDay());
-    weekEnd = new Date(weekStart);
-    weekEnd.setDate(weekStart.getDate() + 6);
+  const startDate = parseInvoiceCalendarDate(start);
+  const endDate = parseInvoiceCalendarDate(end);
+  if (!startDate) return formatWeeklyInvoiceDate(end);
+  if (!endDate || startDate.getTime() === endDate.getTime()) return formatWeeklyInvoiceDate(start);
+  if (startDate.getFullYear() === endDate.getFullYear()) {
+    const startShort = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return `${startShort} – ${formatWeeklyInvoiceDate(end)}`;
   }
-  if (!weekStart) return formatWeeklyInvoiceDate(end);
-  if (!weekEnd) return formatWeeklyInvoiceDate(start);
-  if (weekStart.getFullYear() === weekEnd.getFullYear()) {
-    const startShort = weekStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-    return `${startShort} – ${formatWeeklyInvoiceDate(weekEnd.toISOString())}`;
-  }
-  return `${formatWeeklyInvoiceDate(weekStart.toISOString())} – ${formatWeeklyInvoiceDate(weekEnd.toISOString())}`;
+  return `${formatWeeklyInvoiceDate(start)} – ${formatWeeklyInvoiceDate(end)}`;
 };
 
 export const getWeeklyInvoiceChargeTotal = (invoice: WeeklyInvoice): number =>
