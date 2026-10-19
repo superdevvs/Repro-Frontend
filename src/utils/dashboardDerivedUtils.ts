@@ -442,6 +442,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
     photographerDisplayName: getShootPhotographerDisplayName(shoot),
     id: toNumericId(shoot.id, `${location.address}-${shoot.scheduledDate}`),
     completedAt: shoot.completedDate ?? null,
+    deliveredAt: shoot.deliveredAt ?? null,
     dayLabel: getDayLabel(localDay ?? start),
     timeLabel: shoot.time || (start ? format(start, "h:mm a") : null),
     scheduledLocalDate,
@@ -531,6 +532,17 @@ export const sortByStartAsc = (a: DashboardShootSummary, b: DashboardShootSummar
 
 export const sortByStartDesc = (a: DashboardShootSummary, b: DashboardShootSummary) =>
   -sortByStartAsc(a, b);
+
+const deliveryTimestamp = (shoot: DashboardShootSummary): number => {
+  for (const value of [shoot.deliveredAt, shoot.completedAt, shoot.deliveryDeadline, shoot.startTime]) {
+    const timestamp = value ? Date.parse(value) : NaN;
+    if (Number.isFinite(timestamp)) return timestamp;
+  }
+  return 0;
+};
+
+export const sortByDeliveryDesc = (a: DashboardShootSummary, b: DashboardShootSummary) =>
+  deliveryTimestamp(b) - deliveryTimestamp(a) || sortByStartDesc(a, b);
 
 export const filterUpcomingShoots = (shoots: DashboardShootSummary[], userRole?: string) => {
   const normalizedRole = normalizeDashboardRole(userRole);
@@ -640,7 +652,7 @@ export const filterCompletedShoots = (shoots: DashboardShootSummary[]) =>
 export const filterDeliveredShoots = (shoots: DashboardShootSummary[], userRole?: string) =>
   shoots.filter((shoot) => STAFF_QUEUE_ROLES.has(normalizeDashboardRole(userRole))
     ? STAFF_DELIVERED_STATUSES.has(getStatusKey(shoot)) && !(normalizeDashboardRole(userRole) === "editor" && shoot.hasPendingEditorWork)
-    : matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)).sort(sortByStartDesc);
+    : matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)).sort(sortByDeliveryDesc);
 
 export const filterScheduledShoots = (shoots: DashboardShootSummary[]) =>
   shoots

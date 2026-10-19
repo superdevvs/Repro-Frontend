@@ -1,6 +1,6 @@
 import type { AvailableTab } from './shootHistoryUtils'
 
-export type ShootHistorySort = 'today_upcoming' | 'next_up' | 'date_asc' | 'date_desc'
+export type ShootHistorySort = 'today_upcoming' | 'next_up' | 'date_asc' | 'date_desc' | 'delivered_desc'
 
 export const SHOOT_HISTORY_SORT_STORAGE_KEY = 'shootHistory_sortByTab'
 
@@ -8,6 +8,7 @@ const BE_SUPPORTED_SORTS: ReadonlySet<ShootHistorySort> = new Set([
   'next_up',
   'date_asc',
   'date_desc',
+  'delivered_desc',
 ])
 
 export const SHOOT_HISTORY_SORT_OPTIONS: ReadonlyArray<{ value: ShootHistorySort; label: string }> = [
@@ -17,12 +18,14 @@ export const SHOOT_HISTORY_SORT_OPTIONS: ReadonlyArray<{ value: ShootHistorySort
 ]
 
 export const getDefaultShootHistorySort = (tab: AvailableTab): ShootHistorySort =>
-  tab === 'scheduled' ? 'next_up' : 'date_desc'
+  tab === 'scheduled' ? 'next_up' : tab === 'delivered' || tab === 'history' ? 'delivered_desc' : 'date_desc'
 
 export const getShootHistorySortOptions = (
   tab: AvailableTab,
 ): ReadonlyArray<{ value: ShootHistorySort; label: string }> =>
-  tab === 'scheduled'
+  tab === 'delivered' || tab === 'history'
+    ? [{ value: 'delivered_desc', label: 'Recently delivered' }, ...SHOOT_HISTORY_SORT_OPTIONS.filter((option) => option.value !== 'next_up')]
+    : tab === 'scheduled'
     ? SHOOT_HISTORY_SORT_OPTIONS
     : SHOOT_HISTORY_SORT_OPTIONS.filter((option) => option.value !== 'next_up')
 

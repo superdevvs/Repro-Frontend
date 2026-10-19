@@ -21,6 +21,7 @@ import { streetWithAptSuite } from '@/utils/shootAddressDisplay';
 const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSummary => ({
   id: shoot.id,
   completedAt: shoot.completed_at ?? null,
+  deliveredAt: shoot.delivered_at ?? shoot.completed_at ?? null,
   dayLabel: shoot.day_label ?? 'Unscheduled',
   timeLabel: shoot.time_label ?? null,
   // The backend's start_time ISO carries the shoot's local date in its prefix;

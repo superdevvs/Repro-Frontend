@@ -62,6 +62,7 @@ export interface DashboardIssueResponse {
 export interface DashboardShootSummaryResponse {
   id: number;
   completed_at?: string | null;
+  delivered_at?: string | null;
   day_label?: string | null;
   time_label?: string | null;
   start_time?: string | null;
@@ -235,6 +236,7 @@ export interface DashboardShootSummary {
   hasPendingEditorWork?: boolean;
   id: number;
   completedAt?: string | null;
+  deliveredAt?: string | null;
   dayLabel: string;
   timeLabel: string | null;
   /**

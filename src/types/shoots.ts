@@ -626,6 +626,7 @@ export interface ShootData {
   createdAt?: string;
   updatedAt?: string;
   completedDate?: string;
+  deliveredAt?: string | null;
   package?: ShootPackageInfo;
   package_details?: ShootPackageInfo;
   bracketMode?: BracketMode;

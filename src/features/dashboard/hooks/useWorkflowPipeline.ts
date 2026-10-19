@@ -35,8 +35,7 @@ export const useWorkflowPipeline = ({
     [allSummaries, workflow],
   );
 
-  // The server selects by original completion date before limiting the results.
-  // Workflow records are selected by operational updates and can be old imports.
+  // Select by delivery time before limiting so a newly delivered old booking stays visible.
   const deliveredShoots = useMemo(() => {
     if (latestDeliveries !== undefined) return selectLatestDeliveries(latestDeliveries);
     return selectLatestDeliveries([

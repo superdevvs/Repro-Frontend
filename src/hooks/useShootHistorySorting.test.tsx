@@ -9,6 +9,7 @@ import {
 } from '@/components/shoots/history/shootHistoryUtils'
 import { useShootHistoryFilters } from './useShootHistoryFilters'
 import { useShootHistoryData, type UseShootHistoryDataArgs } from './useShootHistoryData'
+import { getShootHistorySortOptions } from '@/components/shoots/history/shootHistorySorting'
 
 const mocks = vi.hoisted(() => ({ get: vi.fn(), toast: vi.fn() }))
 vi.mock('@/services/api', () => ({ apiClient: { get: mocks.get }, getApiHeaders: () => ({}), getImpersonatedUserId: () => null }))
@@ -85,7 +86,7 @@ describe('Shoot History sort selection', () => {
       act(() => result.current.setViewMode('grid'))
       expect(result.current.shootSort).toBe('date_asc')
       act(() => result.current.setActiveTab(role === 'editor' ? 'edited' : 'delivered'))
-      expect(result.current.shootSort).toBe('date_desc')
+      expect(result.current.shootSort).toBe(role === 'editor' ? 'date_desc' : 'delivered_desc')
       act(() => result.current.setActiveTab(initialTab))
       expect(result.current.shootSort).toBe('date_asc')
       expect(JSON.parse(localStorage.getItem('shootHistory_sortByTab') ?? '{}')).toMatchObject({
@@ -94,18 +95,28 @@ describe('Shoot History sort selection', () => {
     },
   )
 
-  it('defaults completed, delivered, hold, featured, and history to latest first', () => {
+  it('defaults delivered and history to recent delivery and other finished tabs to latest date', () => {
     const { result } = renderHook(() => useShootHistoryFilters({
       role: 'admin', isEditor: false, canViewHistory: true,
     }), { wrapper: router })
     for (const tab of ['completed', 'delivered', 'hold', 'featured', 'history'] as const) {
       act(() => result.current.setActiveTab(tab))
-      expect(result.current.shootSort).toBe('date_desc')
+      expect(result.current.shootSort).toBe(tab === 'delivered' || tab === 'history' ? 'delivered_desc' : 'date_desc')
     }
   })
 })
 
 describe('Shoot History server ordering', () => {
+  it.each(['delivered', 'history'] as const)('requests recent deliveries before pagination for %s', async (tab) => {
+    const args: UseShootHistoryDataArgs = { ...baseArgs, activeTab: tab, shootSort: 'delivered_desc' }
+    const { result } = renderHook(() => useShootHistoryData(args), { wrapper: QueryWrapper })
+    await waitFor(() => expect(result.current.loading).toBe(false))
+    expect(mocks.get).toHaveBeenCalledWith(tab === 'history' ? '/shoots/history' : '/shoots', expect.objectContaining({
+      params: expect.objectContaining({ sort: 'delivered_desc', page: 1 }),
+    }))
+    expect(getShootHistorySortOptions(tab).map(option => option.value)).toEqual(['delivered_desc', 'date_asc', 'date_desc'])
+  })
+
   it('keeps the server sequence and sort selection when switching list and grid', async () => {
     const { result, rerender } = renderHook((args: UseShootHistoryDataArgs) => useShootHistoryData(args), {
       wrapper: QueryWrapper, initialProps: baseArgs,

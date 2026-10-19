@@ -23,7 +23,7 @@ import {
   isOnHoldRecord,
   shootDataToSummary,
   sortByStartAsc,
-  sortByStartDesc,
+  sortByDeliveryDesc,
 } from "@/utils/dashboardDerivedUtils";
 
 interface UseDashboardDerivedDataParams {
@@ -265,7 +265,7 @@ export const useDashboardDerivedData = ({
   const clientCompletedRecords = useMemo(() => {
     return clientRecords
       .filter((record) => isClientVisibleCompletedRecord(record))
-      .sort((a, b) => sortByStartDesc(a.summary, b.summary));
+      .sort((a, b) => sortByDeliveryDesc(a.summary, b.summary));
   }, [clientRecords]);
 
   const clientOnHoldRecords = useMemo(() => {

@@ -1,13 +1,5 @@
 import type { DashboardShootSummary } from '@/types/dashboard';
-
-const deliveryTime = (shoot: DashboardShootSummary): number => {
-  for (const value of [shoot.completedAt, shoot.deliveryDeadline, shoot.startTime]) {
-    if (!value) continue;
-    const time = Date.parse(value);
-    if (Number.isFinite(time)) return time;
-  }
-  return -Infinity;
-};
+import { sortByDeliveryDesc } from '@/utils/dashboardDerivedUtils';
 
 export const selectLatestDeliveries = (
   shoots: DashboardShootSummary[],
@@ -19,6 +11,6 @@ export const selectLatestDeliveries = (
     if (!unique.has(shoot.id)) unique.set(shoot.id, shoot);
   }
   return [...unique.values()]
-    .sort((a, b) => (deliveryTime(b) - deliveryTime(a)) || b.id - a.id)
+    .sort((a, b) => sortByDeliveryDesc(a, b) || b.id - a.id)
     .slice(0, limit);
 };

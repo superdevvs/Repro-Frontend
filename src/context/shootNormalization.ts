@@ -819,6 +819,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     submittedForReviewAt: shoot.submitted_for_review_at ?? undefined,
     createdBy: shoot.created_by || 'System',
     completedDate: completedDate ?? undefined,
+    deliveredAt: shoot.admin_verified_at || shoot.completed_at || null,
     expectedFinalCount: toNumber(shoot.expected_final_count),
     expectedRawCount: toNumber(shoot.expected_raw_count),
     bracketMode: (() => {
