@@ -130,6 +130,66 @@ test('history keeps pagination reachable after an older page fails', async ({ pa
   await expect(page.getByRole('button', { name: 'Previous conversations' })).toBeEnabled(); await page.getByRole('button', { name: 'Previous conversations' }).click(); await expect(page.getByText('Review Person 01', { exact: true })).toBeVisible();
 });
 
+for (const [width, height, theme] of [
+  [1440, 900, 'light'], [1440, 900, 'dark'],
+  [390, 844, 'light'], [390, 844, 'dark'],
+  [1024, 600, 'dark'], [768, 700, 'light'],
+] as const) {
+  test(`Call dialog layout and controls ${width}px ${theme}`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height });
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    const state = await fixture(page, baseURL, theme);
+    await page.goto('/calls/inbox');
+    await page.getByRole('button', { name: 'Call', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog.getByRole('button', { name: /Review Person 01/ })).toBeVisible();
+    await dialog.evaluate(node => Promise.all(node.getAnimations().map(animation => animation.finished)));
+    const directory = dialog.getByRole('group', { name: 'Find someone' });
+    const details = dialog.getByRole('region', { name: 'Call details' });
+    const directoryBounds = (await directory.boundingBox())!;
+    const detailBounds = (await details.boundingBox())!;
+    if (width >= 1024) {
+      expect((await dialog.boundingBox())!.width).toBeGreaterThan(990);
+      expect(directoryBounds.x + directoryBounds.width).toBeLessThanOrEqual(detailBounds.x + 1);
+      expect(Math.abs(directoryBounds.y - detailBounds.y)).toBeLessThan(2);
+    } else {
+      expect(directoryBounds.y + directoryBounds.height).toBeLessThanOrEqual(detailBounds.y + 1);
+    }
+    await dialog.getByRole('button', { name: 'Next contacts' }).click();
+    await dialog.getByRole('button', { name: /Review Person 07/ }).click();
+    await expect(dialog.getByLabel('Review Person 07')).toHaveValue(people[6].phone);
+    await dialog.getByRole('button', { name: 'Photographers', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: /Review Person 01/ })).toBeVisible();
+    await dialog.getByRole('textbox', { name: 'Search everyone or enter a number' }).fill('Person 04');
+    await dialog.getByRole('button', { name: /Review Person 04/ }).click();
+    await expect(dialog.getByLabel('Review Person 04')).toHaveValue(people[3].phone);
+    await dialog.getByRole('textbox', { name: 'Search everyone or enter a number' }).fill('');
+    await dialog.getByRole('button', { name: 'All', exact: true }).click();
+    await expect(dialog.getByRole('button', { name: /Review Person 01/ })).toBeVisible();
+    if (width < 1024) await directory.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(output, `${width}-${theme}-call-dialog.png`) });
+    await page.setViewportSize({ width, height: 600 });
+    await dialog.getByRole('button', { name: 'Business line & options' }).click();
+    await expect(dialog.getByLabel('Business line', { exact: true })).toHaveValue('+12025550100');
+    await dialog.getByLabel('Private reason (optional)').fill('Confirm access');
+    await dialog.getByRole('button', { name: 'Ask Robbie to call instead' }).click();
+    await expect(dialog.getByLabel('What should Robbie say?')).toHaveValue('Confirm access');
+    const action = dialog.getByRole('button', { name: 'Start Robbie call' });
+    if (width < 1024) await action.scrollIntoViewIfNeeded();
+    const actionBounds = (await action.boundingBox())!;
+    expect(actionBounds.y).toBeGreaterThanOrEqual(0);
+    expect(actionBounds.y + actionBounds.height).toBeLessThanOrEqual(600);
+    expect(await dialog.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: path.join(output, `${width}-${theme}-call-dialog-expanded-short.png`) });
+    await page.keyboard.press('Escape');
+    await expect(dialog).not.toBeVisible();
+    expect(state.requests.filter(request => request.path === '/voice/calls/human' || request.path === '/voice/calls/outbound')).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}
+
 for (const width of [1440, 390]) for (const theme of ['light', 'dark']) {
   test(`Calls timezone dropdowns preserve and save values ${width}px ${theme}`, async ({ page, baseURL }) => {
     test.setTimeout(180_000);

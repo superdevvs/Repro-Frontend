@@ -298,6 +298,99 @@
   padding-right: 24px;
 }
 
+.calls-new-call[role='dialog'] {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+  padding: 0;
+}
+
+.calls-new-call-body {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.calls-new-call-directory,
+.calls-new-call-details {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 12px;
+  padding: 20px;
+}
+
+.calls-new-call-directory > :not(.calls-new-call-results) {
+  flex-shrink: 0;
+}
+
+.calls-new-call-results {
+  min-height: 48px;
+  max-height: 25dvh;
+  overscroll-behavior: contain;
+}
+
+.calls-new-call-pane {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  border-top: 1px solid var(--calls-border);
+  background: var(--calls-subtle);
+}
+
+.calls-new-call-footer {
+  flex-shrink: 0;
+  margin-top: auto;
+  border-top: 1px solid var(--calls-border);
+  padding: 16px 20px;
+  background: var(--calls-surface);
+}
+
+@media (min-width: 1024px) {
+  .calls-new-call-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+    height: min(660px, calc(100dvh - 160px));
+    overflow: hidden;
+  }
+
+  .calls-new-call-directory {
+    min-height: 0;
+    border-right: 1px solid var(--calls-border);
+    padding: 24px;
+  }
+
+  .calls-new-call-results {
+    flex: 1;
+    min-height: 48px;
+    max-height: none;
+  }
+
+  .calls-new-call-pane {
+    min-height: 0;
+    overflow: hidden;
+    border-top: 0;
+  }
+
+  .calls-new-call-details {
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 24px;
+  }
+
+  .calls-new-call-details > * {
+    flex-shrink: 0;
+  }
+
+  .calls-new-call-footer {
+    padding: 16px 24px;
+  }
+}
+
 @media (max-width: 767px), (pointer: coarse) {
   .calls-workspace :where(button:not([role='switch']):not([role='checkbox']), a.calls-primary, a.calls-secondary, .calls-filter, [role='combobox'], select, input:not([type='checkbox']):not([type='radio'])) {
     min-height: 44px;
