@@ -3,7 +3,7 @@ import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUpRight, Calendar, ChevronRight, Phone, RefreshCw, Search, Send, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Calendar, ChevronRight, CircleAlert, Headphones, Phone, RefreshCw, Search, Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -92,6 +92,10 @@ export default function CallsInbox() {
 
   const rows = list.data?.data ?? [];
   const liveRows = live.data?.data ?? [];
+  const attentionCount = attention.data?.total ?? 0;
+  const attentionLabel = `${attentionCount} ${attentionCount === 1 ? 'conversation needs' : 'conversations need'} attention`;
+  const liveCount = live.data?.total ?? liveRows.length;
+  const liveLabel = live.data ? `Team queue: ${liveCount} live ${liveCount === 1 ? 'call' : 'calls'}` : 'Team queue';
   const call = selected.data ?? rows.find((item) => item.id === selectedId) ?? null;
 
   useEffect(() => {
@@ -154,13 +158,15 @@ export default function CallsInbox() {
         <div className={`calls-inbox-list ${selectedId ? 'hidden min-h-0 lg:flex lg:flex-col' : 'flex min-h-0 flex-col'}`}>
           <div className="calls-inbox-list-header">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-base font-semibold tracking-tight">Conversations</h2>
-              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" aria-label="Refresh conversations" disabled={list.isFetching} onClick={() => void list.refetch()}><RefreshCw className={`h-4 w-4 ${list.isFetching ? 'animate-spin' : ''}`} /></Button>
+              <div className="flex min-w-0 items-center gap-2">
+                <h2 className="min-w-0 truncate text-base font-semibold tracking-tight">Conversations</h2>
+                <div className="flex shrink-0 items-center gap-1">
+                  {attention.data && <span role="img" aria-label={attentionLabel} title={attentionLabel} className="calls-inbox-count calls-inbox-count-attention"><CircleAlert aria-hidden="true" className="h-3.5 w-3.5" /><span aria-hidden="true">{attentionCount}</span></span>}
+                  <Link to="/calls/live" aria-label={liveLabel} title={liveLabel} className="calls-inbox-count calls-inbox-count-live"><Headphones aria-hidden="true" className="h-3.5 w-3.5" />{live.data && <span>{liveCount}</span>}</Link>
+                </div>
+              </div>
+              <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-full" aria-label="Refresh conversations" disabled={list.isFetching} onClick={() => void list.refetch()}><RefreshCw className={`h-4 w-4 ${list.isFetching ? 'animate-spin' : ''}`} /></Button>
             </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {attention.data && <span className="calls-chip calls-chip-warning">{attention.data.total ?? 0} need attention</span>}
-            <Link to="/calls/live" className="calls-chip calls-chip-success">Team queue{live.data ? ` · ${live.data.total ?? liveRows.length} live` : ''}</Link>
-          </div>
           <div data-page-search-container className="relative mt-3">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--calls-muted)]" />
             <PageSearch scope="calls" scopeLabel="Calls inbox" searchId="calls" priority={20} filters={{ filter }} searchLoading={list.isFetching} searchError={list.isError} searchResults={pageSearchResults(rows, 'calls', '/calls/inbox/{id}')}
