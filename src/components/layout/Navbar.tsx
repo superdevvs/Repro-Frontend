@@ -229,7 +229,7 @@ export function Navbar() {
   // Photographers and editors get simplified nav with menu in top bar
   const isSimplifiedLayout = role === 'photographer' || role === 'editor';
   const showRobbieStrip = role !== 'photographer' && role !== 'editor';
-  const robbieStripViewport = useMediaQuery('(min-width: 640px)');
+  const robbieStripViewport = useMediaQuery('(min-width: 1024px)');
 
   useEffect(() => {
     const unsubscribe = subscribeToWeatherProvider(() => {
@@ -403,12 +403,9 @@ export function Navbar() {
 
   return (
     <div className="w-full bg-background">
-      <div className="flex h-16 items-center justify-between px-4">
+      <div className="flex h-16 items-center justify-between gap-2 px-4 sm:gap-4">
         <div
-          className={cn(
-            'flex min-w-0 items-center gap-2 pl-0 sm:gap-4 sm:pl-4',
-            showRobbieStrip ? 'flex-1 sm:flex-none sm:w-[220px] lg:w-[280px]' : 'flex-1'
-          )}
+          className="flex min-w-0 flex-1 items-center gap-2 pl-0 sm:gap-4 sm:pl-4 lg:flex-[1.25]"
         >
         {/* Logo for simplified layout (photographer/editor) */}
         {isSimplifiedLayout && (
@@ -474,14 +471,14 @@ export function Navbar() {
               </Button>
             )}
           
-            <div className="relative flex min-w-[110px] flex-1 items-center gap-1.5 sm:flex-none sm:min-w-[100px] sm:max-w-[100px] md:min-w-[110px] md:max-w-[110px] lg:min-w-[120px] lg:max-w-[120px]">
+            <div className="relative flex min-w-0 flex-1 items-center gap-1.5">
               <SearchIcon className="h-4 w-4 text-muted-foreground absolute ml-3" />
               <Input
                 type="search"
                 placeholder={contextualSearch?.enabled ? `Search ${contextualSearch.adapter?.label.toLowerCase() ?? 'everywhere'}…` : 'Search...'}
                 value={contextualSearch?.enabled ? contextualSearch.adapter?.query ?? '' : ''}
                 aria-label={contextualSearch?.enabled ? `Search ${contextualSearch.adapter?.label ?? 'everywhere'}` : 'Search'}
-                className="pl-9 bg-transparent border-0 shadow-none focus-visible:ring-primary/20"
+                className="min-w-0 pl-9 bg-transparent border-0 shadow-none focus-visible:ring-primary/20"
                 readOnly
                 onClick={() => setCommandOpen(true)}
                 onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setCommandOpen(true); } }}
@@ -498,7 +495,7 @@ export function Navbar() {
 
         {/* Hide Robbie strip for photographer and editor roles */}
         {showRobbieStrip && (
-          <div className="hidden sm:flex flex-[1.6] min-w-0 pl-3 items-center">
+          <div className="hidden min-w-0 flex-1 items-center lg:flex">
             <div className="h-8 w-px shrink-0 bg-border/60" />
             {robbieStripViewport && <RobbieInsightStrip
               role={role}
@@ -518,7 +515,7 @@ export function Navbar() {
             onClick={requestPreciseWeatherLocation}
             className={cn(
               'hidden items-center gap-2 text-sm text-muted-foreground leading-none rounded-md px-2 py-1 transition-colors hover:bg-accent hover:text-foreground',
-              isSimplifiedLayout ? 'xl:flex' : 'md:flex',
+              isSimplifiedLayout ? 'xl:flex' : 'lg:flex',
             )}
             title="Click to use your exact location"
           >

@@ -36,7 +36,7 @@ vi.mock('@/components/ai/RobbieInsightStrip', () => ({
   RobbieInsightStrip: () => <div>Robbie insights</div>,
 }));
 vi.mock('@/hooks/use-media-query', () => ({
-  useMediaQuery: (query: string) => query === '(min-width: 640px)' && auth.wideViewport,
+  useMediaQuery: (query: string) => query === '(min-width: 1024px)' && auth.wideViewport,
 }));
 vi.mock('@/services/weatherService', () => ({
   getWeatherByCoordinates: vi.fn(() => new Promise(() => undefined)),
