@@ -13,6 +13,7 @@ import {
 } from '@/services/voiceAutomations';
 import { formatWhen } from './callDisplay';
 import { automationTriggers } from './voiceAutomationCatalog';
+import { TimezoneSelect } from './TimezoneSelect';
 const fields: Record<VoiceAutomationTrigger, string[]> = {
   missed_call_callback: ['known_caller', 'direction', 'intent'], failed_transfer_callback: ['known_caller', 'direction', 'intent'],
   shoot_reminder: ['known_caller', 'shoot_status'], delivery_follow_up: ['known_caller', 'shoot_status'],
@@ -91,7 +92,7 @@ export function VoiceAutomationEditor({ rule, assignees, onClose, onSaved }: {
           {draft.quiet_hours.enabled && <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="quiet-start">Quiet from</Label><Input id="quiet-start" required type="time" value={draft.quiet_hours.start} onChange={(event) => change({ quiet_hours: { ...draft.quiet_hours, start: event.target.value } })} /></div>
             <div className="space-y-2"><Label htmlFor="quiet-end">Quiet until</Label><Input id="quiet-end" required type="time" value={draft.quiet_hours.end} onChange={(event) => change({ quiet_hours: { ...draft.quiet_hours, end: event.target.value } })} /></div>
-            <div className="space-y-2 sm:col-span-2"><Label htmlFor="quiet-timezone">Time zone</Label><Input id="quiet-timezone" required value={draft.quiet_hours.timezone} onChange={(event) => change({ quiet_hours: { ...draft.quiet_hours, timezone: event.target.value } })} placeholder="America/New_York" /></div>
+            <div className="space-y-2 sm:col-span-2"><Label htmlFor="quiet-timezone">Time zone</Label><TimezoneSelect id="quiet-timezone" className={selectClass} required value={draft.quiet_hours.timezone} onChange={(event) => change({ quiet_hours: { ...draft.quiet_hours, timezone: event.target.value } })} /></div>
           </div>}
           <p className="text-xs text-[var(--calls-muted)]">Global quiet hours also apply. Calls wait until both windows allow them; task due times use the same timing. Equal start and end means no additional quiet window.</p>
         </section>

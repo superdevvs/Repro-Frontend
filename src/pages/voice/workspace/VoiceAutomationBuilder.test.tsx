@@ -57,11 +57,13 @@ describe('Voice automation builder', () => {
     await user.click(screen.getByRole('button', { name: 'Create an internal task' }));
     await user.type(screen.getByLabelText('Task title'), 'Confirm property access');
     await user.selectOptions(screen.getByLabelText('Assign to'), '8');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Time zone' }), 'Asia/Kolkata');
     await user.click(screen.getByRole('button', { name: 'Save disabled rule' }));
     await waitFor(() => expect(mocks.saveVoiceAutomationRule).toHaveBeenCalled());
     expect(mocks.saveVoiceAutomationRule.mock.calls[0][0]).toMatchObject({ draft: {
       enabled: false, conditions: [{ field: 'known_caller', operator: 'eq', value: true }], delay_minutes: 60,
       action_type: 'internal_task', action_config: { task_title: 'Confirm property access', assigned_to_user_id: 8 },
+      quiet_hours: { enabled: true, start: '20:00', end: '08:00', timezone: 'Asia/Kolkata' },
     } });
     expect(saved).toHaveBeenCalled();
   });

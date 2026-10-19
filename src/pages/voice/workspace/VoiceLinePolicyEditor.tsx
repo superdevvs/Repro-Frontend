@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { updateVoiceNumber, uploadVoiceGreeting } from '@/services/voice';
 import type { VoiceLinePolicy, VoiceNumberConfig } from '@/types/voice';
 import PrivateVoiceAudio from './PrivateVoiceAudio';
+import { TimezoneSelect } from './TimezoneSelect';
 
 const officeWeek = Object.fromEntries(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map(day => [day, ['sat', 'sun'].includes(day) ? [] : [{ start: '09:00', end: '18:00' }]]));
 const checkNames: Record<string, string> = {
@@ -47,9 +48,7 @@ export default function VoiceLinePolicyEditor({ number, staff, canManage }: { nu
       </label>
       {policy.mode === 'staff_voicemail' && <>
         <label className="block text-sm">Timezone (daylight saving adjusts automatically)
-          <select className="mt-1 block h-10 w-full rounded-md border bg-background px-3" value={policy.timezone} onChange={e => setPolicy({ ...policy, timezone: e.target.value })}>
-            {Array.from(new Set(['Asia/Kolkata', 'America/New_York', 'Europe/London', 'UTC', policy.timezone])).map(zone => <option key={zone}>{zone}</option>)}
-          </select>
+          <TimezoneSelect className="mt-1 block" value={policy.timezone} onChange={e => setPolicy({ ...policy, timezone: e.target.value })} />
         </label>
         <div className="space-y-2"><p className="text-sm">Ring all active members of these roles</p>{(['editing_manager', 'superadmin'] as const).map(role => <label key={role} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={policy.recipient_roles?.includes(role) ?? false} onChange={e => { const roles = e.target.checked ? [...(policy.recipient_roles ?? []), role] : (policy.recipient_roles ?? []).filter(item => item !== role); setPolicy({ ...policy, recipient_roles: roles, recipient_role: roles[0] ?? null }); }} />{role === 'editing_manager' ? 'Editing managers' : 'Superadmins'}</label>)}</div>
         <div className="space-y-2"><p className="text-sm">Additional recipients</p>{staff.map(person => <label key={person.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={policy.recipient_ids.includes(person.id)} onChange={e => setPolicy({ ...policy, recipient_ids: e.target.checked ? [...policy.recipient_ids, person.id] : policy.recipient_ids.filter(id => id !== person.id) })} />{person.name}</label>)}</div>

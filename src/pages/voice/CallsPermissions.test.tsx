@@ -59,7 +59,7 @@ describe('Calls permission boundaries', () => {
     renderPage(<CallsSettings />);
     await userEvent.click(screen.getByRole('button', { name: 'Business lines & routing' }));
     expect(await screen.findByRole('button', { name: 'Save settings' })).toBeDisabled();
-    for (const control of [...screen.getAllByRole('textbox'), ...screen.getAllByRole('switch')]) expect(control).toBeDisabled();
+    for (const control of [...screen.getAllByRole('textbox'), ...screen.getAllByRole('combobox'), ...screen.getAllByRole('switch')]) expect(control).toBeDisabled();
     await user.click(screen.getByRole('button', { name: /Allow all/i }));
     await user.click(screen.getAllByRole('switch')[0]);
     expect(mocks.updateVoiceNumber).not.toHaveBeenCalled();
@@ -71,7 +71,7 @@ describe('Calls permission boundaries', () => {
     renderPage(<CallsSchedule />);
     expect(await screen.findByRole('button', { name: 'Save hours' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Save holidays' })).toBeDisabled();
-    expect(screen.getByPlaceholderText('America/New_York')).toBeDisabled();
+    for (const control of screen.getAllByRole('combobox', { name: 'Timezone' })) expect(control).toBeDisabled();
     for (const control of screen.getAllByRole('button')) expect(control).toBeDisabled();
   });
 
@@ -82,6 +82,38 @@ describe('Calls permission boundaries', () => {
     expect(await screen.findByRole('button', { name: 'Save settings' })).toBeEnabled();
     expect(screen.getByPlaceholderText('+12025550100')).toBeEnabled();
     for (const control of screen.getAllByRole('switch')) expect(control).toBeEnabled();
+  });
+
+  it('saves business and quiet-hour selections without dropping the other schedule fields', async () => {
+    mocks.can.mockReturnValue(true);
+    const settings = { business_hours: { timezone: 'US/Eastern', weekly: { monday: [['09:00', '17:00']] } }, quiet_hours: { enabled: true, start: '20:00', end: '08:00', timezone: 'Asia/Calcutta' } };
+    mocks.getVoiceSettings.mockResolvedValue(settings);
+    mocks.updateVoiceSettings.mockImplementation(async patch => ({ ...settings, ...patch }));
+    renderPage(<CallsSchedule />);
+    const [businessZone, quietZone] = await screen.findAllByRole('combobox', { name: 'Timezone' });
+    await waitFor(() => expect(businessZone).toHaveValue('US/Eastern'));
+    expect(quietZone).toHaveValue('Asia/Calcutta');
+    await userEvent.selectOptions(businessZone, 'America/Los_Angeles');
+    await userEvent.click(screen.getByRole('button', { name: 'Save hours' }));
+    await waitFor(() => expect(mocks.updateVoiceSettings).toHaveBeenCalledWith({ business_hours: { timezone: 'America/Los_Angeles', weekly: settings.business_hours.weekly } }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save messages' })).toBeEnabled());
+    await userEvent.selectOptions(quietZone, 'Europe/London');
+    await userEvent.click(screen.getByRole('button', { name: 'Save messages' }));
+    await waitFor(() => expect(mocks.updateVoiceSettings).toHaveBeenCalledWith(expect.objectContaining({ quiet_hours: { ...settings.quiet_hours, timezone: 'Europe/London' } })));
+  });
+
+  it('preserves a saved settings alias until a manager chooses another timezone', async () => {
+    mocks.can.mockReturnValue(true);
+    const settings = { quiet_hours: { enabled: true, start: '20:00', end: '08:00', timezone: 'Asia/Calcutta' } };
+    mocks.getVoiceSettings.mockResolvedValue(settings);
+    mocks.updateVoiceSettings.mockImplementation(async patch => ({ ...settings, ...patch }));
+    renderPage(<CallsSettings />);
+    await userEvent.click(screen.getByRole('button', { name: 'Business lines & routing' }));
+    const zone = await screen.findByRole('combobox', { name: 'Timezone' });
+    await waitFor(() => expect(zone).toHaveValue('Asia/Calcutta'));
+    await userEvent.selectOptions(zone, 'Asia/Kolkata');
+    await userEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+    await waitFor(() => expect(mocks.updateVoiceSettings).toHaveBeenCalledWith(expect.objectContaining({ quiet_hours: { ...settings.quiet_hours, timezone: 'Asia/Kolkata' } })));
   });
 
   it('allows an operator to cancel callbacks without editing automation rules', async () => {

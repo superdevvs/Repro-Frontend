@@ -129,3 +129,142 @@ test('history keeps pagination reachable after an older page fails', async ({ pa
   await expect(page.getByRole('alert').filter({ hasText: 'Could not load conversations' })).toBeVisible({ timeout:30000 });
   await expect(page.getByRole('button', { name: 'Previous conversations' })).toBeEnabled(); await page.getByRole('button', { name: 'Previous conversations' }).click(); await expect(page.getByText('Review Person 01', { exact: true })).toBeVisible();
 });
+
+for (const width of [1440, 390]) for (const theme of ['light', 'dark']) {
+  test(`Calls timezone dropdowns preserve and save values ${width}px ${theme}`, async ({ page, baseURL }) => {
+    test.setTimeout(180_000);
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+    const state = await fixture(page, baseURL, theme);
+    const errors: string[] = [];
+    page.on('pageerror', error => errors.push(error.message));
+    let savedSettings = structuredClone(settings);
+    savedSettings.business_hours.timezone = 'US/Eastern';
+    savedSettings.quiet_hours.timezone = 'Asia/Calcutta';
+    let number = {
+      id: 1, phone_number: '+12025550100', label: 'Main business line', voice_ai_enabled: false,
+      line_policy: { mode: 'staff_voicemail', recipient_roles: ['editing_manager'], recipient_ids: [], timezone: 'US/Eastern', weekly_hours: { mon: [{ start: '09:00', end: '18:00' }] } },
+    };
+    const rule = {
+      id: 1, name: 'Review timezone', trigger_type: 'missed_call_callback', enabled: false, conditions: [], delay_minutes: 60,
+      quiet_hours: { enabled: true, start: '20:00', end: '08:00', timezone: 'Etc/GMT+5' },
+      max_attempts: 3, retry_delay_minutes: 60, action_type: 'ai_callback', action_config: {},
+    };
+    const rules = [structuredClone(rule)];
+    const writes: { path: string; body: Record<string, unknown> }[] = [];
+    let rejectRule = true;
+    const reply = (route: Route, body: unknown, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    await page.route('**/api/voice/settings', async route => {
+      if (route.request().method() === 'PATCH') {
+        const body = route.request().postDataJSON();
+        writes.push({ path: 'settings', body });
+        savedSettings = { ...savedSettings, ...body };
+      }
+      return reply(route, savedSettings);
+    });
+    await page.route('**/api/voice/numbers', route => reply(route, { numbers: [number] }));
+    await page.route('**/api/voice/numbers/1', route => {
+      const body = route.request().postDataJSON();
+      writes.push({ path: 'number', body });
+      number = { ...number, ...body };
+      return reply(route, number);
+    });
+    await page.route('**/api/voice/automation-rules', route => {
+      if (route.request().method() === 'POST') {
+        const body = route.request().postDataJSON();
+        writes.push({ path: 'new-rule', body });
+        const created = { ...rule, ...body, id: 2 };
+        rules.push(created);
+        return reply(route, created);
+      }
+      return reply(route, { rules, managed_triggers: [], assignees: [] });
+    });
+    await page.route('**/api/voice/automation-rules/1', route => {
+      const body = route.request().postDataJSON();
+      writes.push({ path: 'rule', body });
+      if (rejectRule) return reply(route, { message: 'Choose a valid timezone.' }, 422);
+      rules[0] = { ...rules[0], ...body };
+      return reply(route, rules[0]);
+    });
+
+    await page.goto('/calls/schedule');
+    const businessZone = page.locator('#business-hours-timezone');
+    const scheduleQuietZone = page.locator('#schedule-quiet-hours-timezone');
+    await expect(businessZone).toHaveValue('US/Eastern');
+    await expect(scheduleQuietZone).toHaveValue('Asia/Calcutta');
+    await expect(page.getByRole('combobox', { name: 'Timezone', exact: true })).toHaveCount(2);
+    await businessZone.selectOption('America/Los_Angeles');
+    await page.getByRole('button', { name: 'Save hours', exact: true }).click();
+    await expect.poll(() => savedSettings.business_hours.timezone).toBe('America/Los_Angeles');
+    expect(savedSettings.business_hours.weekly).toEqual(settings.business_hours.weekly);
+    await expect(page.getByRole('button', { name: 'Save messages', exact: true })).toBeEnabled();
+    await scheduleQuietZone.selectOption('Europe/London');
+    await page.getByRole('button', { name: 'Save messages', exact: true }).click();
+    await expect.poll(() => savedSettings.quiet_hours.timezone).toBe('Europe/London');
+    expect(savedSettings.quiet_hours).toEqual({ ...settings.quiet_hours, timezone: 'Europe/London' });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await page.screenshot({ path: path.join(output, `${width}-${theme}-timezone-schedule.png`), fullPage: true });
+
+    await page.goto('/calls/settings?section=business');
+    const settingsZone = page.getByRole('combobox', { name: 'Timezone', exact: true });
+    await expect(settingsZone).toHaveValue('Europe/London');
+    await settingsZone.selectOption('Asia/Kolkata');
+    await page.getByRole('button', { name: 'Save settings', exact: true }).click();
+    await expect.poll(() => savedSettings.quiet_hours.timezone).toBe('Asia/Kolkata');
+    await page.getByRole('button', { name: 'Configure routing', exact: true }).click();
+    const lineZone = page.getByRole('combobox', { name: /Timezone \(daylight/ });
+    await expect(lineZone).toHaveValue('US/Eastern');
+    await lineZone.selectOption('America/Chicago');
+    await page.getByRole('button', { name: 'Save routing', exact: true }).click();
+    await expect.poll(() => number.line_policy.timezone).toBe('America/Chicago');
+    expect(number.line_policy.weekly_hours).toEqual({ mon: [{ start: '09:00', end: '18:00' }] });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    await settingsZone.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(output, `${width}-${theme}-timezone-settings.png`) });
+
+    await page.goto('/calls/automations');
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    const automationZone = page.getByRole('combobox', { name: 'Time zone', exact: true });
+    await expect(automationZone).toHaveValue('Etc/GMT+5');
+    await expect(automationZone).toHaveAttribute('required', '');
+    await automationZone.selectOption('Australia/Sydney');
+    await page.getByRole('button', { name: 'Save disabled rule', exact: true }).click();
+    await expect(page.getByRole('alert').filter({ hasText: 'Choose a valid timezone.' })).toBeVisible();
+    await expect(automationZone).toHaveValue('Australia/Sydney');
+    expect(await page.getByRole('dialog').evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
+    await automationZone.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: path.join(output, `${width}-${theme}-timezone-automation.png`) });
+    rejectRule = false;
+    await page.getByRole('button', { name: 'Save disabled rule', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(rules[0].quiet_hours).toEqual({ ...rule.quiet_hours, timezone: 'Australia/Sydney' });
+    await page.goto('/calls/automations');
+    await page.getByRole('button', { name: 'Edit', exact: true }).click();
+    await expect(automationZone).toHaveValue('Australia/Sydney');
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+    await page.getByRole('button', { name: 'Build rule', exact: true }).click();
+    await expect(automationZone).toHaveValue(await page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone));
+    await page.getByRole('textbox', { name: 'Rule name' }).fill('New timezone rule');
+    await automationZone.selectOption('Europe/London');
+    await page.getByRole('button', { name: 'Save disabled rule', exact: true }).click();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    expect(writes.find(write => write.path === 'new-rule')?.body).toMatchObject({ quiet_hours: { timezone: 'Europe/London' }, enabled: false });
+    await page.goto('/calls/schedule');
+    await expect(businessZone).toHaveValue('America/Los_Angeles');
+    await expect(scheduleQuietZone).toHaveValue('Asia/Kolkata');
+    expect(state.requests.filter(request => request.path === '/voice/calls/human' || request.path === '/voice/calls/outbound')).toEqual([]);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('Calls timezone dropdowns remain disabled for viewers', async ({ page, baseURL }) => {
+  await fixture(page, baseURL, 'light');
+  await page.route('**/api/me/permissions', route => route.fulfill({ contentType: 'application/json', body: JSON.stringify({ permissions: [{ resource: 'voice-calls', action: 'view' }], permissionIds: ['voice-calls:view'] }) }));
+  await page.goto('/calls/schedule');
+  await expect(page.locator('#business-hours-timezone')).toBeDisabled();
+  await expect(page.locator('#schedule-quiet-hours-timezone')).toBeDisabled();
+  await page.goto('/calls/settings?section=business');
+  await expect(page.locator('#settings-quiet-hours-timezone')).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Configure routing', exact: true })).toHaveCount(0);
+  await page.goto('/calls/automations');
+  await expect(page.getByRole('button', { name: 'Build rule', exact: true })).toBeDisabled();
+});

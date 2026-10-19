@@ -18,6 +18,7 @@ import { useBrowserPhone } from '@/context/BrowserPhoneContext';
 import BrowserPhoneControls, { BrowserPhoneConnectButton } from '@/components/voice/BrowserPhoneControls';
 import GroundwireSettings from '@/components/voice/GroundwireSettings';
 import { VoiceNotificationSettings } from '@/components/voice/VoiceNotificationSettings';
+import { TimezoneSelect } from './workspace/TimezoneSelect';
 
 const voiceTools = [
   'search_support_knowledge',
@@ -166,8 +167,9 @@ function BusinessSettings() {
             />
           </div>
           <div className="space-y-1">
-            <label className="text-sm font-medium">Timezone</label>
-            <Input
+            <label htmlFor="settings-quiet-hours-timezone" className="text-sm font-medium">Timezone</label>
+            <TimezoneSelect
+              id="settings-quiet-hours-timezone"
               value={draft.quiet_hours?.timezone ?? 'UTC'}
               onChange={(event) =>
                 setDraft((current) => ({

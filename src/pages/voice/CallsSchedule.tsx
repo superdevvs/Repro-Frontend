@@ -21,6 +21,7 @@ import type { VoiceScheduleOverride, VoiceSettings } from '@/types/voice';
 import { EmptyCalls } from './workspace/bits';
 import { CallsQueryError } from './workspace/CallsQueryError';
 import { usePermissions } from '@/context/PermissionsContext';
+import { TimezoneSelect } from './workspace/TimezoneSelect';
 
 const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'] as const;
 
@@ -131,14 +132,14 @@ export default function CallsSchedule() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-1">
-            <label className="text-sm font-medium">Timezone</label>
-            <Input
+            <label htmlFor="business-hours-timezone" className="text-sm font-medium">Timezone</label>
+            <TimezoneSelect
+              id="business-hours-timezone"
               className="max-w-xs"
               value={draft.business_hours?.timezone ?? 'UTC'}
               onChange={(e) =>
                 setDraft((c) => ({ ...c, business_hours: { ...(c.business_hours ?? {}), timezone: e.target.value } }))
               }
-              placeholder="America/New_York"
             />
           </div>
 
@@ -277,8 +278,9 @@ export default function CallsSchedule() {
               />
             </div>
             <div className="space-y-1">
-              <label className="text-sm font-medium">Timezone</label>
-              <Input
+              <label htmlFor="schedule-quiet-hours-timezone" className="text-sm font-medium">Timezone</label>
+              <TimezoneSelect
+                id="schedule-quiet-hours-timezone"
                 value={draft.quiet_hours?.timezone ?? 'UTC'}
                 onChange={(e) => setDraft((c) => ({ ...c, quiet_hours: { ...(c.quiet_hours ?? {}), timezone: e.target.value } }))}
               />
