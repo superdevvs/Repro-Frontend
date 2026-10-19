@@ -191,6 +191,10 @@ for (const width of [1440, 390]) for (const theme of ['light', 'dark']) {
     const scheduleQuietZone = page.locator('#schedule-quiet-hours-timezone');
     await expect(businessZone).toHaveValue('US/Eastern');
     await expect(scheduleQuietZone).toHaveValue('Asia/Calcutta');
+    for (const zone of [businessZone, scheduleQuietZone]) {
+      await expect(zone.locator('..').locator('svg')).toBeVisible();
+      expect(await zone.evaluate(node => getComputedStyle(node).appearance)).toBe('none');
+    }
     await expect(page.getByRole('combobox', { name: 'Timezone', exact: true })).toHaveCount(2);
     await businessZone.selectOption('America/Los_Angeles');
     await page.getByRole('button', { name: 'Save hours', exact: true }).click();
@@ -207,12 +211,14 @@ for (const width of [1440, 390]) for (const theme of ['light', 'dark']) {
     await page.goto('/calls/settings?section=business');
     const settingsZone = page.getByRole('combobox', { name: 'Timezone', exact: true });
     await expect(settingsZone).toHaveValue('Europe/London');
+    await expect(settingsZone.locator('..').locator('svg')).toBeVisible();
     await settingsZone.selectOption('Asia/Kolkata');
     await page.getByRole('button', { name: 'Save settings', exact: true }).click();
     await expect.poll(() => savedSettings.quiet_hours.timezone).toBe('Asia/Kolkata');
     await page.getByRole('button', { name: 'Configure routing', exact: true }).click();
     const lineZone = page.getByRole('combobox', { name: /Timezone \(daylight/ });
     await expect(lineZone).toHaveValue('US/Eastern');
+    await expect(lineZone.locator('..').locator('svg')).toBeVisible();
     await lineZone.selectOption('America/Chicago');
     await page.getByRole('button', { name: 'Save routing', exact: true }).click();
     await expect.poll(() => number.line_policy.timezone).toBe('America/Chicago');
@@ -225,6 +231,7 @@ for (const width of [1440, 390]) for (const theme of ['light', 'dark']) {
     await page.getByRole('button', { name: 'Edit', exact: true }).click();
     const automationZone = page.getByRole('combobox', { name: 'Time zone', exact: true });
     await expect(automationZone).toHaveValue('Etc/GMT+5');
+    await expect(automationZone.locator('..').locator('svg')).toBeVisible();
     await expect(automationZone).toHaveAttribute('required', '');
     await automationZone.selectOption('Australia/Sydney');
     await page.getByRole('button', { name: 'Save disabled rule', exact: true }).click();

@@ -8,6 +8,16 @@ import { TimezoneSelect } from './TimezoneSelect';
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('Calls timezone dropdown', () => {
+  it('provides a separate visible dropdown indicator when global styles hide the native arrow', () => {
+    render(<TimezoneSelect aria-label="Timezone" value="UTC" containerClassName="max-w-xs" />);
+    const select = screen.getByRole('combobox');
+    const container = select.parentElement!;
+    expect(container).toHaveClass('relative', 'max-w-xs');
+    expect(container.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
+    expect(container.querySelector('svg')).toHaveClass('pointer-events-none');
+    expect(select).toHaveClass('appearance-none', 'pr-10');
+  });
+
   it.each(['Asia/Calcutta', 'US/Eastern', 'Etc/GMT+5', 'UTC'])('retains the exact saved identifier %s without an edit', (value) => {
     const onChange = vi.fn();
     render(<TimezoneSelect aria-label="Timezone" value={value} onChange={onChange} />);

@@ -135,7 +135,7 @@ export default function CallsSchedule() {
             <label htmlFor="business-hours-timezone" className="text-sm font-medium">Timezone</label>
             <TimezoneSelect
               id="business-hours-timezone"
-              className="max-w-xs"
+              containerClassName="max-w-xs"
               value={draft.business_hours?.timezone ?? 'UTC'}
               onChange={(e) =>
                 setDraft((c) => ({ ...c, business_hours: { ...(c.business_hours ?? {}), timezone: e.target.value } }))
