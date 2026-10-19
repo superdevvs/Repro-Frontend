@@ -24,6 +24,7 @@ import { CopilotIntegration } from '@/components/integrations/CopilotIntegration
 import { IntegrationTabs } from '@/components/integrations/IntegrationTabs';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
+import { BRAND_NAME } from '@/config/brand';
 
 type BrightMlsSettings = {
   apiMode: string;
@@ -204,6 +205,7 @@ const inferBrightMlsMode = (value?: Partial<BrightMlsSettings> | null): 'legacy'
 };
 
 const normalizeBrightMlsSettings = (value?: Partial<BrightMlsSettings> | null): BrightMlsSettings => {
+  const vendorName = value?.vendorName?.trim() ?? '';
   const apiMode = inferBrightMlsMode(value);
   const environment = value?.environment === 't1' ? 't1' : 'p1';
   const defaults = getBrightMlsDefaults(apiMode, environment);
@@ -226,9 +228,7 @@ const normalizeBrightMlsSettings = (value?: Partial<BrightMlsSettings> | null): 
     apiUser: value?.apiUser ?? '',
     apiKey: value?.apiKey ?? '',
     vendorId: value?.vendorId ?? '',
-    vendorName: !value?.vendorName?.trim() || /^repro photos$/i.test(value.vendorName.trim())
-      ? 'R/E Pro Photos'
-      : value.vendorName.trim(),
+    vendorName: !vendorName || /^repro photos$/i.test(vendorName) ? BRAND_NAME : vendorName,
     defaultDocVisibility: value?.defaultDocVisibility ?? 'private',
     enabled: value?.enabled ?? true,
   };
@@ -423,6 +423,8 @@ export const IntegrationsSettingsContent = () => {
 
       const normalizedMmmSettings = normalizeMmmSettings(mmmSettings);
       setMmmSettings(normalizedMmmSettings);
+      const normalizedBrightMlsSettings = normalizeBrightMlsSettings(brightMlsSettings);
+      setBrightMlsSettings(normalizedBrightMlsSettings);
 
       // Save Zillow settings
       await storeAdminSetting(
@@ -440,7 +442,7 @@ export const IntegrationsSettingsContent = () => {
       // Save Bright MLS settings
       await storeAdminSetting(
         'integrations.bright_mls',
-        normalizeBrightMlsSettings(brightMlsSettings),
+        normalizedBrightMlsSettings,
         'Bright MLS API credentials',
       );
 
@@ -854,7 +856,7 @@ export const IntegrationsSettingsContent = () => {
                         onChange={(e) =>
                           setBrightMlsSettings({ ...brightMlsSettings, vendorName: e.target.value })
                         }
-                        placeholder="R/E Pro Photos"
+                        placeholder={BRAND_NAME}
                       />
                       <Label htmlFor="bright-mls-doc-visibility">Default Doc Visibility</Label>
                       <select
