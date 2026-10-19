@@ -77,7 +77,7 @@ export default function NewCallDialog({ trigger, initialTo = '', initialFrom = '
       <div className="calls-new-call-body min-w-0">
         <fieldset disabled={call.isPending} aria-label="Find someone" className="calls-new-call-directory">
         <h3 className="text-sm font-semibold">Find someone</h3>
-        <div className="relative"><Search className="absolute left-3 top-4 h-4 w-4 text-[var(--calls-muted)]" /><Input aria-label="Search everyone or enter a number" className="calls-search pl-10" placeholder="Search everyone or enter a number" value={search} onChange={(event) => { const value = event.target.value; setSearch(value); setPage(1); if (/^[+\d\s().-]+$/.test(value)) { setTo(value); setSelectedName(''); } }} /></div>
+        <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--calls-muted)]" /><Input aria-label="Search everyone or enter a number" className="calls-search pl-10" placeholder="Search everyone or enter a number" value={search} onChange={(event) => { const value = event.target.value; setSearch(value); setPage(1); if (/^[+\d\s().-]+$/.test(value)) { setTo(value); setSelectedName(''); } }} /></div>
         <div className="calls-filter-row" aria-label="Directory roles">{directoryRoles.slice(0, 4).map(([value, label]) => <button key={value} type="button" className="calls-filter" data-active={role === value} aria-pressed={role === value} onClick={() => { setRole(value); setPage(1); }}>{label}</button>)}</div>
         <div className="calls-new-call-results space-y-2 overflow-y-auto p-0.5" aria-label="Call directory">
           {directory.isLoading && <p role="status" className="p-3 text-sm text-[var(--calls-muted)]">Loading people…</p>}

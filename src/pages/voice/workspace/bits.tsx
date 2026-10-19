@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
-import { EmptyStateArtwork, type EmptyStateIcon } from '@/components/ui/empty-state';
+import { EmptyState, type EmptyStateIcon } from '@/components/ui/empty-state';
 import { waveBars } from './callDisplay';
 
 export function CallsAvatar({ initials, size = 36, className }: { initials: string; size?: number; className?: string }) {
@@ -51,13 +51,6 @@ export function EmptyCalls({ title, description, action, icon = 'calls', fill = 
   compact?: boolean;
 }) {
   return (
-    <div className={cn('calls-empty', fill && 'calls-panel calls-empty-fill', compact && 'calls-empty-compact')}>
-      <div className="calls-empty-artwork" aria-hidden="true">
-        <EmptyStateArtwork icon={icon} className={compact ? 'h-16 w-16' : 'h-24 w-24'} />
-      </div>
-      <h3 className={cn('max-w-sm font-semibold', compact ? 'text-sm' : 'text-base')}>{title}</h3>
-      {description ? <p className="max-w-sm text-sm text-[var(--calls-muted)]">{description}</p> : null}
-      {action}
-    </div>
+    <EmptyState className={cn('calls-empty', fill && 'calls-panel calls-empty-fill')} icon={icon} title={title} description={description} action={action} size={compact ? 'compact' : 'default'} />
   );
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, Phone, Settings2 } from 'lucide-react';
+import { BarChart3, ChevronLeft, ChevronRight, Clock, Headphones, Inbox, Phone, Settings2, Sparkles, Users } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -22,12 +22,12 @@ import CallsFollowUps from './CallsFollowUps';
 import './workspace/callsTheme.css';
 
 const tabs = [
-  { to: '/calls/inbox', label: 'Inbox' },
-  { to: '/calls/people', label: 'People' },
-  { to: '/calls/follow-ups', label: 'Follow-ups' },
-  { to: '/calls/live', label: 'Team queue' },
-  { to: '/calls/assistant', label: 'Robbie' },
-  { to: '/calls/insights', label: 'Insights' },
+  { to: '/calls/inbox', label: 'Inbox', icon: Inbox },
+  { to: '/calls/people', label: 'People', icon: Users },
+  { to: '/calls/follow-ups', label: 'Follow-ups', icon: Clock },
+  { to: '/calls/live', label: 'Team queue', icon: Headphones },
+  { to: '/calls/assistant', label: 'Robbie', icon: Sparkles },
+  { to: '/calls/insights', label: 'Insights', icon: BarChart3 },
   { to: '/calls/settings', label: 'Audio & alerts' },
   { to: '/calls/settings?section=business', label: 'Business settings' },
   { to: '/calls/schedule', label: 'Business hours' },
@@ -80,16 +80,20 @@ export default function CallsLayout() {
     <div className="calls-workspace calls-shell">
       <h1 className="sr-only">Calls</h1>
       <div className="calls-toolbar">
-        <div className="calls-product-title"><span><Phone size={17} /></span>Calls</div>
         {tabScroll.overflow && <Button variant="ghost" size="icon" className="h-10 w-7 shrink-0" aria-label="Earlier Calls tabs" title="Earlier Calls tabs" disabled={!tabScroll.previous} onClick={() => { const navigation = navigationRef.current; navigation?.scrollBy({ left: -navigation.clientWidth * 0.8 }); }}><ChevronLeft className="h-4 w-4" /></Button>}
         <nav ref={navigationRef} aria-label="Calls navigation" className="calls-tabs">
-          {tabs.slice(0, 6).map((tab) => <Link key={tab.to} to={tab.to} aria-current={active(tab.to) ? 'page' : undefined} className="calls-nav-link" onFocus={(event) => { if (navigationRef.current) revealTab(navigationRef.current, event.currentTarget); }}>{tab.label}</Link>)}
+          {tabs.slice(0, 6).map((tab) => {
+            const Icon = tab.icon;
+            return <Button key={tab.to} asChild variant={active(tab.to) ? 'secondary' : 'ghost'} size="sm" className="calls-nav-link h-9 shrink-0">
+              <Link to={tab.to} aria-current={active(tab.to) ? 'page' : undefined} onFocus={(event) => { if (navigationRef.current) revealTab(navigationRef.current, event.currentTarget); }}>{Icon && <Icon className="h-4 w-4" />}{tab.label}</Link>
+            </Button>;
+          })}
         </nav>
         {tabScroll.overflow && <Button variant="ghost" size="icon" className="h-10 w-7 shrink-0" aria-label="More Calls tabs" title="More Calls tabs" disabled={!tabScroll.next} onClick={() => { const navigation = navigationRef.current; navigation?.scrollBy({ left: navigation.clientWidth * 0.8 }); }}><ChevronRight className="h-4 w-4" /></Button>}
-        <DropdownMenu><DropdownMenuTrigger asChild><Button variant="ghost" className="calls-settings-menu h-10 shrink-0 rounded-xl" data-active={tabs.slice(6).some(tab => active(tab.to))} aria-label="Calls settings and tools"><Settings2 size={16} /><span>Settings</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="min-w-56">{tabs.slice(6).map(tab => <DropdownMenuItem asChild key={tab.to}><Link to={tab.to} aria-current={active(tab.to) ? 'page' : undefined}>{tab.label}</Link></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
-        <NewCallDialog initialFrom={defaultNumber?.phone_number} trigger={<Button disabled={!can('voice-calls', 'operate')} className="calls-call h-11 shrink-0 rounded-lg px-4 text-sm"><Phone className="h-4 w-4" />Call</Button>} />
+        <DropdownMenu><DropdownMenuTrigger asChild><Button variant={tabs.slice(6).some(tab => active(tab.to)) ? 'secondary' : 'ghost'} size="sm" className="calls-settings-menu shrink-0" data-active={tabs.slice(6).some(tab => active(tab.to))} aria-label="Calls settings and tools"><Settings2 size={16} /><span>Settings</span></Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="min-w-56">{tabs.slice(6).map(tab => <DropdownMenuItem asChild key={tab.to}><Link to={tab.to} aria-current={active(tab.to) ? 'page' : undefined}>{tab.label}</Link></DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
+        <NewCallDialog initialFrom={defaultNumber?.phone_number} trigger={<Button size="sm" disabled={!can('voice-calls', 'operate')} className="calls-call shrink-0"><Phone className="h-4 w-4" /><span className="hidden sm:inline">Call</span><span className="sr-only sm:hidden">Call</span></Button>} />
       </div>
-      <div className="calls-route-content">
+      <div className={`calls-route-content ${pathname.startsWith('/calls/inbox') && !pathname.endsWith('/wrap-up') ? 'calls-route-inbox' : ''}`}>
           <Routes>
             <Route index element={<Navigate to={new URLSearchParams(search).has('offer') ? `live${search}` : 'inbox'} replace />} />
             <Route path="inbox" element={<CallsInbox />} /><Route path="inbox/:id" element={<CallsInbox />} /><Route path="inbox/:id/wrap-up" element={<CallsWrapUp />} />

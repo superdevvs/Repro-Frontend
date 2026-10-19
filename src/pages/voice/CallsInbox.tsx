@@ -3,7 +3,7 @@ import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowUpRight, Calendar, ChevronRight, Phone, Search, Send, Sparkles } from 'lucide-react';
+import { ArrowUpRight, Calendar, ChevronRight, Phone, RefreshCw, Search, Send, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -149,21 +149,20 @@ export default function CallsInbox() {
   };
 
   return (
-    <div className="calls-fill-page">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
-          <h2 className="text-[28px] font-semibold leading-9">Conversations</h2>
+    <div className="calls-fill-page calls-inbox">
+      <div className="calls-inbox-grid grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+        <div className={`calls-inbox-list ${selectedId ? 'hidden min-h-0 lg:flex lg:flex-col' : 'flex min-h-0 flex-col'}`}>
+          <div className="calls-inbox-list-header">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base font-semibold tracking-tight">Conversations</h2>
+              <Button variant="ghost" size="icon" className="h-9 w-9 rounded-full" aria-label="Refresh conversations" disabled={list.isFetching} onClick={() => void list.refetch()}><RefreshCw className={`h-4 w-4 ${list.isFetching ? 'animate-spin' : ''}`} /></Button>
+            </div>
           <div className="flex flex-wrap items-center gap-2">
             {attention.data && <span className="calls-chip calls-chip-warning">{attention.data.total ?? 0} need attention</span>}
             <Link to="/calls/live" className="calls-chip calls-chip-success">Team queue{live.data ? ` · ${live.data.total ?? liveRows.length} live` : ''}</Link>
           </div>
-        </div>
-      </div>
-
-      <div className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
-        <div className={selectedId ? 'hidden min-h-0 lg:flex lg:flex-col lg:gap-3' : 'flex min-h-0 flex-col gap-3'}>
-          <div data-page-search-container className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-[var(--calls-muted)]" />
+          <div data-page-search-container className="relative mt-3">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--calls-muted)]" />
             <PageSearch scope="calls" scopeLabel="Calls inbox" searchId="calls" priority={20} filters={{ filter }} searchLoading={list.isFetching} searchError={list.isError} searchResults={pageSearchResults(rows, 'calls', '/calls/inbox/{id}')}
               value={search}
               aria-label="Search conversations"
@@ -172,14 +171,15 @@ export default function CallsInbox() {
               className="calls-search pl-9"
             />
           </div>
-          <div className="calls-filter-row">
+          <div className="calls-filter-row calls-inbox-filters" aria-label="Conversation filters">
             {filters.map((item) => (
               <button key={item.id} type="button" className="calls-filter" data-active={filter === item.id} aria-pressed={filter === item.id} onClick={() => setFilter(item.id)}>
                 {item.label}
               </button>
             ))}
           </div>
-          <div key={`${filter}-${debounced}-${page}`} className="calls-scroll space-y-2" aria-label="Conversation results" tabIndex={0}>
+          </div>
+          <div key={`${filter}-${debounced}-${page}`} className="calls-scroll calls-conversation-results" aria-label="Conversation results" tabIndex={0}>
             {list.isLoading && <p role="status" className="p-4 text-sm text-[var(--calls-muted)]">Loading conversations…</p>}
             {rows.map((item) => (
               <button
@@ -187,12 +187,13 @@ export default function CallsInbox() {
                 type="button"
                 data-selected={item.id === selectedId}
                 onClick={() => navigate(`/calls/inbox/${item.id}?${searchParams.toString()}`)}
-                className="calls-item calls-panel flex w-full flex-col gap-1.5 p-3 text-left"
+                aria-current={item.id === selectedId ? 'true' : undefined}
+                className="calls-item calls-conversation-row flex w-full flex-col gap-1.5 px-4 py-3 text-left"
               >
                 <div className="flex items-center gap-3">
                   <CallsAvatar initials={callerInitials(item)} size={40} />
-                  <span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{callerName(item)}</span><span className="mt-1 block truncate text-xs text-[var(--calls-muted)]">{inboxDetail(item)} · {inboxStatusLine(item)}</span></span>
-                  <span className="text-xs text-[var(--calls-muted)]">{formatRelative(item.ended_at || item.started_at || item.created_at)}</span>
+                  <span className="min-w-0 flex-1"><span className="block truncate text-[15px] font-semibold tracking-tight">{callerName(item)}</span><span className="mt-0.5 block truncate text-sm text-[var(--calls-muted)]">{inboxDetail(item)} · {inboxStatusLine(item)}</span></span>
+                  <span className="shrink-0 text-xs tabular-nums text-[var(--calls-muted)]">{formatRelative(item.ended_at || item.started_at || item.created_at)}</span>
                 </div>
                 {item.voicemail && <p className="text-xs text-[var(--calls-muted)]">{item.voicemail.phone_number} · {item.voicemail.read_at ? 'Read' : 'Unread'} · {item.voicemail.duration_seconds ?? 0}s · {item.voicemail.state}{item.voicemail.resolved_at ? ' · Resolved' : ''}</p>}
               </button>
@@ -211,7 +212,7 @@ export default function CallsInbox() {
           </div>
           <CallsPagination label="Conversations" page={page} pages={list.data?.last_page} total={list.data?.total} count={rows.length} pending={list.isFetching} error={list.isError} onChange={setPage} />
           {liveRows[0] && (
-            <Link to={`/calls/live/${liveRows[0].id}`} className="calls-panel flex items-center gap-3 bg-[var(--calls-brand-soft)] p-3 text-sm">
+            <Link to={`/calls/live/${liveRows[0].id}`} className="calls-inbox-live flex items-center gap-3 border-t border-[var(--calls-border)] bg-muted/30 p-3 text-sm">
               <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--calls-surface)]">
                 <Phone className="h-4 w-4 text-[var(--calls-brand)]" />
               </span>
@@ -224,7 +225,7 @@ export default function CallsInbox() {
           )}
         </div>
 
-        <div className={!selectedId ? 'calls-scroll hidden lg:block' : 'calls-scroll'} aria-label="Conversation detail">
+        <div className={`calls-scroll calls-inbox-detail ${!selectedId ? 'hidden lg:block' : ''}`} aria-label="Conversation detail">
           {selected.isError && (
             <div role="alert" className="calls-panel p-5 text-sm text-[var(--calls-danger)]">
               Could not load this conversation.
@@ -235,8 +236,8 @@ export default function CallsInbox() {
             <EmptyCalls fill icon="conversations" title="Select a conversation" description="Choose a call to see its recap, transcript and next steps." />
           )}
           {call && (
-            <div className="calls-panel min-h-full overflow-hidden">
-              <div className="flex flex-col gap-4 border-b border-[var(--calls-border)] p-5">
+            <div className="min-h-full overflow-hidden bg-background">
+              <div className="flex flex-col gap-4 border-b border-[var(--calls-border)] p-4">
                 <div className="lg:hidden">
                   <Button variant="ghost" className="h-11 px-2" onClick={() => navigate(`/calls/inbox?${searchParams.toString()}`)}>
                     Back to inbox
@@ -246,7 +247,7 @@ export default function CallsInbox() {
                   <div className="flex items-start gap-3">
                     <CallsAvatar initials={callerInitials(call)} size={40} />
                     <div>
-                      <h3 className="text-[22px] font-semibold leading-7">{callerName(call)}</h3>
+                      <h3 className="text-lg font-semibold leading-7">{callerName(call)}</h3>
                       <p className="text-xs text-[var(--calls-muted)]">
                         {[phone, formatClock(call.started_at || call.created_at)].filter(Boolean).join(' · ')}
                       </p>
@@ -268,7 +269,7 @@ export default function CallsInbox() {
                 </div>
                 {call.voicemail && <VoicemailPanel call={call} canOperate={canOperate} />}
                 {shoot && (
-                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-[var(--calls-subtle)] p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-[var(--calls-subtle)] p-4">
                     <div className="flex items-start gap-3">
                       <Calendar className="mt-0.5 h-4 w-4 text-[var(--calls-muted)]" />
                       <div>
@@ -287,8 +288,8 @@ export default function CallsInbox() {
                 )}
               </div>
 
-              <div className="space-y-4 p-5">
-                <div className="rounded-2xl bg-[var(--calls-ai-soft)] p-4">
+              <div className="space-y-4 p-4">
+                <div className="rounded-lg border border-border bg-muted/30 p-4">
                   <div className="flex items-center justify-between gap-3">
                     <p className="flex items-center gap-2 text-sm font-medium text-[var(--calls-ai)]">
                       <Sparkles className="h-4 w-4" />
@@ -344,7 +345,7 @@ export default function CallsInbox() {
                   </div>
                 )}
 
-                <div className="rounded-2xl bg-[var(--calls-subtle)] p-3">
+                <div className="rounded-lg border border-border bg-background p-3">
                   <Textarea
                     value={draft}
                     disabled={!canOperate || (composeMode === 'sms' && !canSendSms)}

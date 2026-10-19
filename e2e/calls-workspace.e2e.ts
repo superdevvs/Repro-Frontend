@@ -23,6 +23,7 @@ async function fixture(page: Page, baseURL: string | undefined, theme: string) {
       return reply(route, { permissions, permissionIds: permissions.map(({ resource, action }) => `${resource}:${action}`) });
     }
     if (p === '/voice/browser/config') return reply(route, { enabled: false, ready: false, blockers: ['Carrier connectivity is disabled in local review.'], capabilities: { human_outbound: false, receive_calls: false } });
+    if (p === '/voice/sip/devices') return reply(route, { configured: false, lines: [], devices: [] });
     if (p === '/voice/numbers') return reply(route, { numbers: [{ id: 1, phone_number: '+12025550100', label: 'Main business line', is_default: true, voice_ai_enabled: true, sms_ai_enabled: false }] });
     if (p === '/voice/health') return reply(route, { can_place_calls: false, readiness_blockers: ['Carrier connectivity is disabled in local review.'], outbound_mode: 'none', assistant_sync: { status: 'current', policy_instructions_current: true, missing_tools: [] } });
     if (p === '/voice/settings') return reply(route, settings);
@@ -63,16 +64,24 @@ for (const width of [1440,390]) for (const theme of ['light','dark']) {
       if (width === 1440) await expect(page.getByTestId('application-sidebar')).toBeVisible();
       else await expect(page.locator('[data-mobile-bottom-nav]')).toBeVisible();
       await expect(page.locator('.calls-sidebar, .calls-mobile-nav')).toHaveCount(0);
-      await expect(page.locator('main footer')).toHaveCount(0);
+      await expect(page.locator('main > footer')).toHaveCount(0);
       const navigation = page.getByRole('navigation', { name: 'Calls navigation' });
       expect((await navigation.boundingBox())!.height).toBeLessThanOrEqual(48);
       const current = navigation.locator('[aria-current="page"]');
-      await expect(current).toHaveCount(1);
-      await expect.poll(async () => {
-        const navBounds = (await navigation.boundingBox())!;
-        const currentBounds = (await current.boundingBox())!;
-        return currentBounds.x >= navBounds.x - 1 && currentBounds.x + currentBounds.width <= navBounds.x + navBounds.width + 1;
-      }).toBe(true);
+      if (['schedule', 'automations', 'settings', 'business-settings'].includes(name)) {
+        const settingsMenu = page.getByRole('button', { name: 'Calls settings and tools' });
+        await expect(settingsMenu).toHaveAttribute('data-active', 'true');
+        await settingsMenu.click();
+        await expect(page.getByRole('menu').locator('[aria-current="page"]')).toHaveCount(1);
+        await page.keyboard.press('Escape');
+      } else {
+        await expect(current).toHaveCount(1);
+        await expect.poll(async () => {
+          const navBounds = (await navigation.boundingBox())!;
+          const currentBounds = (await current.boundingBox())!;
+          return currentBounds.x >= navBounds.x - 1 && currentBounds.x + currentBounds.width <= navBounds.x + navBounds.width + 1;
+        }).toBe(true);
+      }
       await expect(page.getByText('This view could not load')).toHaveCount(0);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       await page.screenshot({ path: path.join(output, `${width}-${theme}-${name}.png`) });
