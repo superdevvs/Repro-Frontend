@@ -8,7 +8,8 @@ import { to12Hour } from '@/utils/availabilityUtils';
 import { readEditingCapabilities } from '@/utils/shootEditorAssignments';
 import { getShootMediaRequirements } from '../media/shootMediaRequirements';
 import { canSeeServiceImageCounts, countServicePhotos } from './serviceImageCounts';
-import { deriveRowStatuses, STATUS_DOT_CLASS } from './overviewServiceStatus';
+import { getServiceProgress } from './serviceProgress';
+import { ServiceProgressBadge } from './ServiceProgressBadge';
 import './OverviewServiceRows.css';
 
 interface Props {
@@ -55,7 +56,6 @@ export function OverviewServiceRows(props: Props) {
   const hasPhotos = countServices.length > 0;
   const raw = useShootFiles(props.shoot.id, 'raw', { enabled: showCounts && hasPhotos });
   const edited = useShootFiles(props.shoot.id, 'edited', { enabled: showCounts && hasPhotos && !props.isPhotographer });
-  const statuses = deriveRowStatuses(props.serviceItems);
   return <section className="overview-service-rows" aria-label="Booked services">
     <h3 className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Services</h3>
     {props.serviceItems.map(item => {
@@ -66,9 +66,9 @@ export function OverviewServiceRows(props: Props) {
       const responsibility = item.source.reshootResponsibility ?? item.source.reshoot_responsibility ?? linked?.responsibility;
       const from = item.source.sourceServiceName ?? item.source.source_service_name
         ?? linked?.sourceService?.name ?? linked?.source_service?.name ?? linked?.sourceServiceName ?? linked?.source_service_name;
-      const status = statuses.get(item.id) ?? 'unfinished';
+      const progress = getServiceProgress(item);
       return <div key={item.id} className="overview-service-row" data-testid={`service-summary-${item.id}`}>
-        <span data-testid="status-dot" data-status={status} aria-hidden="true" className={`service-row-status ${STATUS_DOT_CLASS[status]}`} />
+        {progress && <span data-testid="status-dot" data-status={progress.code} data-tone={progress.tone} aria-hidden="true" className="service-row-status" />}
         <div className="service-row-top">
           <div className="service-row-heading">
             <span className="service-row-name">{props.formatServiceLabel(item.source) || item.name}</span>
@@ -77,7 +77,10 @@ export function OverviewServiceRows(props: Props) {
           <span className="service-row-price" aria-label={`${props.isPhotographer || props.isEditor ? 'Pay' : 'Price'} ${props.getReadonlyServiceDisplayPrice(item.source)}`}>{props.getReadonlyServiceDisplayPrice(item.source)}</span>
         </div>
         <div className="service-row-bottom">
-          <span className="service-row-person">{!props.isPhotographer && !props.isEditor ? item.photographerName || item.editorName || 'Unassigned' : null}</span>
+          <div className="service-row-assignee">
+            {!props.isPhotographer && !props.isEditor && <span className="service-row-person">{item.photographerName || item.editorName || 'Unassigned'}</span>}
+            {progress && <ServiceProgressBadge progress={progress} serviceName={item.name} />}
+          </div>
           {showCounts && target && <div className="service-row-counts" aria-label="Image counts">
             <span><span className="service-count-label"><span className="service-count-required-full">Required</span><span className="service-count-required-short" aria-hidden="true">Req</span></span><strong>{target.finalCount ?? '—'}</strong></span>
             <span><span className="service-count-label">Raw</span><strong>{raw.data ? countServicePhotos(raw.data, id) : '—'}<span className="service-count-denominator">/{target.required ?? '—'}</span></strong></span>

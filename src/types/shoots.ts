@@ -316,6 +316,9 @@ export interface ShootServiceObject {
   scheduledAt?: string | null;
   workflow_status?: string | null;
   workflowStatus?: string | null;
+  /** Read-only, per-service operational progress from the API. */
+  progress_status?: string | null;
+  progressStatus?: string | null;
   delivery_status?: string | null;
   deliveryStatus?: string | null;
   ready_at?: string | null;

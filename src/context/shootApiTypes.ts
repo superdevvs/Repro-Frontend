@@ -85,6 +85,8 @@ export type ApiServiceRecord = {
   scheduledAt?: string | null;
   workflow_status?: string | null;
   workflowStatus?: string | null;
+  progress_status?: string | null;
+  progressStatus?: string | null;
   delivery_status?: string | null;
   deliveryStatus?: string | null;
   ready_at?: string | null;

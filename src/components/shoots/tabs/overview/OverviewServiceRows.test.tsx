@@ -31,6 +31,36 @@ function mount(role = 'admin', source = shoot, isClient = role === 'client') {
 beforeEach(() => { mocks.files.mockClear(); mocks.capabilities = []; mocks.loaded = true; mocks.raw = [photo('11'), photo('11'), photo('12'), photo('11', true), photo('')]; mocks.edited = [photo('11')]; });
 afterEach(cleanup);
 describe('compact service rows', () => {
+  it('places the soft status badge beside the photographer, preserving counts and the service-name line', () => {
+    mount('admin', { ...shoot, serviceItems: [{ ...services[0], progress_status: 'delivered' }] });
+    const row = screen.getByTestId('service-summary-11');
+    const badge = within(row).getByLabelText(`${services[0].name}: Delivered`);
+    expect(badge).toHaveClass('service-progress-badge');
+    expect(badge).toHaveAttribute('data-tone', 'delivered');
+    expect(row.querySelector('.service-row-assignee')).toContainElement(badge);
+    expect(row.querySelector('.service-row-assignee')).toHaveTextContent('Christopher Alexander Johnson');
+    expect(row.querySelector('.service-row-top')).not.toContainElement(badge);
+    expect(within(row).getByLabelText('Image counts')).toHaveTextContent('Raw2/225');
+  });
+  it.each(['admin', 'superadmin', 'editing_manager', 'salesRep', 'client', 'photographer', 'editor'])('shows actual progress for %s without expanding assignment visibility', role => {
+    mount(role, { ...shoot, serviceItems: [{ ...services[0], progress_status: 'in_editing' }] });
+    expect(screen.getByLabelText(`${services[0].name}: In editing`)).toBeVisible();
+    if (role === 'photographer' || role === 'editor') expect(screen.queryByText('Christopher Alexander Johnson')).not.toBeInTheDocument();
+  });
+  it('keeps ready and cancelled distinct from delivered', () => {
+    mount('admin', { ...shoot, serviceItems: [
+      { ...services[0], workflow_status: 'ready', delivery_status: 'ready' },
+      { ...services[1], workflow_status: 'cancelled', delivery_status: 'cancelled' },
+    ] });
+    expect(screen.getByLabelText(`${services[0].name}: Ready`)).toHaveAttribute('data-tone', 'active');
+    expect(screen.getByLabelText(`${services[1].name}: Cancelled`)).toHaveAttribute('data-tone', 'neutral');
+    expect(screen.queryByText('Delivered')).not.toBeInTheDocument();
+  });
+  it('displays the complete Showcase waiting label beside an unassigned assignee', () => {
+    mount('admin', { ...shoot, serviceItems: [{ ...services[2], progress_status: 'awaiting_assets' }] });
+    expect(screen.getByLabelText(`${services[2].name}: Awaiting links & floor plans`)).toBeVisible();
+    expect(screen.getByText('Unassigned').closest('.service-row-assignee')).toHaveTextContent('Awaiting links & floor plans');
+  });
   it.each(['admin', 'superadmin', 'editing_manager', 'salesRep', 'editor'])('shows distinct per-service counts for %s', role => {
     mount(role);
     const hdr = within(screen.getByTestId('service-summary-11'));

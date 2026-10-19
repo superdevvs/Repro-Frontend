@@ -9,8 +9,24 @@
 .service-row-schedule-short { display: none; }
 .service-row-price { font-size: 12px; line-height: 18px; font-weight: 750; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .service-row-bottom { margin-top: 4px; }
+.service-row-bottom { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 8px; }
+.service-row-assignee { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; max-width: 100%; }
+.service-progress-badge { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; min-width: 0; padding: 1px 5px; border-radius: 4px; font-size: 10px; line-height: 13px; font-weight: 500; color: hsl(var(--muted-foreground)); background: hsl(var(--muted)); }
+.service-progress-badge > span:last-child { min-width: 0; overflow-wrap: anywhere; }
+.service-progress-badge svg { width: 10px; height: 10px; flex: none; }
+.service-progress-dot { width: 4px; height: 4px; border-radius: 50%; background: currentColor; flex: none; }
+.service-progress-badge[data-tone="delivered"] { color: #116344; background: #e0f3e9; }
+.service-progress-badge[data-tone="active"] { color: #245992; background: #e7f0fd; }
+.service-progress-badge[data-tone="waiting"] { color: #805208; background: #fff0cf; }
+.dark .service-progress-badge[data-tone="delivered"] { color: #6edbb1; background: #10362c; }
+.dark .service-progress-badge[data-tone="active"] { color: #86baff; background: #182f48; }
+.dark .service-progress-badge[data-tone="waiting"] { color: #edc575; background: #392f1d; }
+.service-row-status[data-tone="delivered"] { background: #10b981; }
+.service-row-status[data-tone="active"] { background: #3b82f6; }
+.service-row-status[data-tone="waiting"] { background: #fbbf24; }
+.service-row-status[data-tone="neutral"] { background: hsl(var(--muted-foreground)); }
 .service-row-person { min-width: 0; overflow-wrap: anywhere; font-size: 11px; line-height: 15px; color: hsl(var(--muted-foreground)); }
-.service-row-counts { display: flex; gap: 10px; justify-self: end; font-size: 10px; line-height: 15px; font-variant-numeric: tabular-nums; }
+.service-row-counts { display: flex; flex-wrap: wrap; gap: 10px; margin-left: auto; justify-content: flex-end; font-size: 10px; line-height: 15px; font-variant-numeric: tabular-nums; }
 .service-row-counts > span { display: inline-flex; align-items: baseline; gap: 3px; white-space: nowrap; text-align: right; }
 .service-row-counts > span + span { border-left: 1px solid hsl(var(--border)); padding-left: 7px; }
 .service-count-required-short { display: none; }
