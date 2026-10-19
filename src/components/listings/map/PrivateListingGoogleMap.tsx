@@ -3,7 +3,6 @@ import { createRoot, type Root } from 'react-dom/client'
 import { Minus, Plus, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
-import { FloatingMapActions } from '@/components/listings/map/FloatingMapActions'
 import { createPinIcon } from './standardListingPinIcon'
 import { createGooglePhotoMarker } from './googlePhotoMarker'
 import { MarkerPreview } from '@/components/listings/map/MarkerPreview'
@@ -62,7 +61,6 @@ interface ListingMarkerEntry {
 
 export interface PrivateListingGoogleMapProps {
   compactMode?: boolean
-  onToggleCompactMode?: () => void
   apiKey?: string
   className?: string
   formatPrice: (price: number | undefined | null) => string
@@ -70,7 +68,6 @@ export interface PrivateListingGoogleMapProps {
   onLoadError?: (error: Error) => void
   onOpenListing: (listing: ShowcaseListing) => void
   onSelectListing: (id: string) => void
-  onToggleLabels: () => void
   resolveImageUrl: (value: string | null | undefined) => string | null
   selectedListingId: string | null
   showMarkerLabels: boolean
@@ -233,13 +230,11 @@ export function PrivateListingGoogleMap({
   apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY ?? '',
   className,
   compactMode = true,
-  onToggleCompactMode,
   formatPrice,
   listings,
   onLoadError,
   onOpenListing,
   onSelectListing,
-  onToggleLabels,
   resolveImageUrl,
   selectedListingId,
   showMarkerLabels,
@@ -264,8 +259,6 @@ export function PrivateListingGoogleMap({
   const [isReady, setIsReady] = React.useState(false)
   const [loadError, setLoadError] = React.useState<Error | null>(null)
   const [retryVersion, setRetryVersion] = React.useState(0)
-  const [drawAreaActive, setDrawAreaActive] = React.useState(false)
-  const [isFullscreen, setIsFullscreen] = React.useState(false)
   const [previewRequested, setPreviewRequested] = React.useState(!compactMode)
   const [dismissedPreviewId, setDismissedPreviewId] = React.useState<string | null>(null)
   const previewStateRef = React.useRef({ previewRequested, dismissedPreviewId })
@@ -732,22 +725,6 @@ export function PrivateListingGoogleMap({
     }
   }, [fitAllLocations, mapsApi, scheduleSelectedPreviewPosition])
 
-  React.useEffect(() => {
-    if (typeof document === 'undefined') return
-    const handleFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement))
-    document.addEventListener('fullscreenchange', handleFullscreenChange)
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange)
-  }, [])
-
-  const handleToggleFullscreen = React.useCallback(() => {
-    if (typeof document === 'undefined' || !canvasRef.current) return
-    if (document.fullscreenElement) {
-      void document.exitFullscreen?.()
-    } else {
-      void canvasRef.current.requestFullscreen?.()
-    }
-  }, [])
-
   const changeZoom = React.useCallback((delta: number) => {
     const map = mapRef.current
     if (!map) return
@@ -821,19 +798,6 @@ export function PrivateListingGoogleMap({
               <Minus className="h-4 w-4" aria-hidden="true" />
             </Button>
           </div>
-          <FloatingMapActions
-            position="bottom-left"
-            onRecenter={fitAllLocations}
-            onToggleDrawArea={() => setDrawAreaActive((value) => !value)}
-            onToggleLabels={onToggleLabels}
-            onToggleCompactMode={onToggleCompactMode}
-            compactMode={compactMode}
-            onToggleFullscreen={handleToggleFullscreen}
-            showLabels={showMarkerLabels}
-            drawAreaActive={drawAreaActive}
-            isFullscreen={isFullscreen}
-            className="!bottom-[6.75rem] !left-3 border-slate-300/80 bg-white/82 text-slate-700 shadow-xl backdrop-blur-xl lg:!left-4 dark:border-white/15 dark:bg-slate-950/72 dark:text-white [&_button]:text-slate-700 [&_button:hover]:bg-blue-600 [&_button:hover]:text-white dark:[&_button]:text-slate-200"
-          />
         </>
       ) : null}
 

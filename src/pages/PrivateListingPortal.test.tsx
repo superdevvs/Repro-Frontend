@@ -289,7 +289,7 @@ function renderPortal() {
 /** Waits for the initial load to settle: the summary cards + Map Tab render. */
 async function waitForLoaded() {
   // Summary cards render once `loading` flips to false after the fetch resolves.
-  await screen.findByTestId('summary-cards')
+  await screen.findByTestId('map-tab-toolbar')
   // The lazy (Suspense) map canvas resolves to the mocked <div data-testid="map">.
   await screen.findByTestId('map')
 }
@@ -398,32 +398,14 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     expect(listingType).toHaveClass('dark:text-white/80')
   })
 
-  it('R5.1 + R6.1: renders the summary cards and toolbar over the Map Tab canvas', async () => {
+  it('groups view navigation with map actions and floats filtering separately', async () => {
     renderPortal()
     await waitForLoaded()
 
-    // The compact overlay keeps only the total inventory metric and places it
-    // in the same non-wrapping command row as search and filters.
-    const summaryCards = screen.getByTestId('summary-cards')
-    expect(within(summaryCards).getByTestId('summary-card-total')).toHaveTextContent(
-      'Total Listings',
-    )
-    expect(within(summaryCards).queryByTestId('summary-card-mapped')).not.toBeInTheDocument()
-    expect(within(summaryCards).queryByTestId('summary-card-unmapped')).not.toBeInTheDocument()
-    expect(within(summaryCards).queryByTestId('summary-card-private')).not.toBeInTheDocument()
-    expect(within(summaryCards).queryByTestId('summary-card-hidden')).not.toBeInTheDocument()
-
-    // The four listings yield total=4; the Mapped statistic is not rendered.
-    expect(screen.getByTestId('summary-value-total')).toHaveTextContent('4')
-    expect(screen.queryByTestId('summary-value-mapped')).not.toBeInTheDocument()
-
-    // R6.1: the MapTabToolbar keeps Filters and the Map/Grid/List ViewSwitcher,
-    // while Saved views lives in the header immediately before Add Listing.
+    expect(screen.queryByTestId('summary-cards')).not.toBeInTheDocument()
     const filtersButton = screen.getByRole('button', { name: /Filters/i })
     expect(filtersButton).toBeInTheDocument()
-    expect(within(filtersButton).getByText('Filters')).toHaveClass('lg:max-2xl:hidden')
     const sortButton = screen.getByRole('button', { name: 'Sort: Newest' })
-    expect(within(sortButton).getByText('Newest')).toHaveClass('lg:max-2xl:hidden')
     const savedViewsButton = screen.getByRole('button', { name: /Saved views/i })
     const addListingButton = screen.getByRole('button', { name: 'Add Listing' })
     const headerActions = screen.getByTestId('listing-header-actions')
@@ -437,24 +419,19 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     expect(screen.getByRole('radio', { name: 'Grid view' })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: 'List view' })).toBeInTheDocument()
 
-    // The redesigned Map Tab keeps the summary cards and toolbar inside the
-    // same full-canvas map workspace as floating overlays.
     const map = screen.getByTestId('map')
     const canvas = screen.getByTestId('showcase-map-canvas')
     const toolbar = within(canvas).getByTestId('map-tab-toolbar')
-    const primaryRow = within(toolbar).getByTestId('map-toolbar-primary-row')
-    const commandBar = within(toolbar).getByTestId('listing-command-bar')
-    const searchShell = within(commandBar).getByTestId('listing-search-shell')
-    const mapControls = within(canvas).getByTestId('map-controls-overlay')
+    const mapActions = within(canvas).getByRole('group', { name: 'Map controls' })
     expect(canvas).toContainElement(map)
-    expect(canvas).toContainElement(summaryCards)
-    expect(canvas).toContainElement(filtersButton)
-    expect(primaryRow).toContainElement(summaryCards)
-    expect(summaryCards.querySelector('dt')).toHaveTextContent('Total listings')
-    expect(primaryRow).toHaveClass('min-w-0', 'flex-col', 'sm:flex-row')
-    expect(commandBar).toHaveClass('min-w-0', 'flex-col', 'sm:flex-row')
-    expect(searchShell).toHaveClass('min-w-0', 'w-full', 'sm:flex-1')
-    expect(mapControls).toHaveClass('lg:right-[412px]', '2xl:right-[452px]')
+    expect(toolbar).toContainElement(filtersButton)
+    expect(toolbar).toContainElement(sortButton)
+    expect(within(toolbar).queryByRole('radio')).not.toBeInTheDocument()
+    expect(within(mapActions).getAllByRole('radio')).toHaveLength(3)
+    expect(within(mapActions).getByRole('button', { name: 'Expand listing previews' })).toBeInTheDocument()
+    for (const name of ['Recenter map', 'Draw area', 'Fullscreen map']) {
+      expect(within(canvas).queryByRole('button', { name })).not.toBeInTheDocument()
+    }
     expect(within(canvas).queryByRole('button', { name: /Saved views/i })).not.toBeInTheDocument()
   })
 
@@ -465,21 +442,23 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     const map = screen.getByTestId('map')
     const canvas = screen.getByTestId('showcase-map-canvas')
     const toolbar = screen.getByTestId('map-tab-toolbar')
-    const compact = within(canvas).getByRole('button', { name: 'Compact mode' })
+    const compact = within(canvas).getByRole('button', { name: 'Expand listing previews' })
 
-    expect(within(toolbar).queryByLabelText('Compact mode')).not.toBeInTheDocument()
-    expect(within(toolbar).getAllByRole('radio')).toHaveLength(3)
+    expect(within(toolbar).queryByRole('radio')).not.toBeInTheDocument()
+    expect(within(screen.getByTestId('map-actions')).getAllByRole('radio')).toHaveLength(3)
     expect(compact).toHaveAttribute('aria-pressed', 'false')
     expect(compact.parentElement).toHaveClass('flex-col', 'bottom-2', 'left-2')
     expect(screen.getByRole('button', { name: /Browse listings/ })).toBeInTheDocument()
     expect(screen.getByTestId('listing-inspector-overlay')).toHaveClass('hidden', 'lg:block')
     await user.click(compact)
+    expect(compact).toHaveAccessibleName('Shrink listing previews')
     expect(compact).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('radio', { name: 'Map view' })).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByTestId('map')).toBe(map)
     expect(screen.getByTestId('showcase-map-canvas')).toBe(canvas)
     expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
     await user.click(compact)
+    expect(compact).toHaveAccessibleName('Expand listing previews')
     expect(compact).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
     expect(screen.getByTestId('map')).toBe(map)
@@ -490,25 +469,25 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     const user = userEvent.setup()
     renderPortal()
     await waitForLoaded()
-    await user.click(screen.getByRole('button', { name: 'Compact mode' }))
+    await user.click(screen.getByRole('button', { name: 'Expand listing previews' }))
     await user.click(screen.getByRole('radio', { name: 'Grid view' }))
 
     for (const mode of ['List view', 'Grid view']) {
       const switcher = screen.getByTestId('listing-browse-view-switcher')
       expect(within(switcher).getAllByRole('button')).toHaveLength(3)
-      expect(screen.queryByLabelText('Compact mode')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('map-actions')).not.toBeInTheDocument()
       await user.click(within(switcher).getByRole('button', { name: mode }))
     }
     await user.click(screen.getByRole('button', { name: 'Map view' }))
-    expect(await screen.findByRole('button', { name: 'Compact mode' })).toHaveAttribute('aria-pressed', 'true')
+    expect(await screen.findByRole('button', { name: 'Shrink listing previews' })).toHaveAttribute('aria-pressed', 'true')
     expect(screen.getByRole('radio', { name: 'Map view' })).toHaveAttribute('aria-checked', 'true')
     expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
 
-    await user.click(screen.getByRole('button', { name: 'Compact mode' }))
+    await user.click(screen.getByRole('button', { name: 'Shrink listing previews' }))
     await user.click(screen.getByRole('radio', { name: 'List view' }))
-    expect(screen.queryByLabelText('Compact mode')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('map-actions')).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Map view' }))
-    expect(await screen.findByRole('button', { name: 'Compact mode' })).toHaveAttribute('aria-pressed', 'false')
+    expect(await screen.findByRole('button', { name: 'Expand listing previews' })).toHaveAttribute('aria-pressed', 'false')
     expect(screen.getByTestId('listing-inspector-overlay')).toBeInTheDocument()
     expect(shootFetchCount()).toBe(1)
   })
@@ -519,7 +498,6 @@ describe('PrivateListingPortal — Map Tab integration', () => {
     await waitForLoaded()
 
     // Baseline: 4 listings shown, and exactly one network load has occurred.
-    expect(screen.getByTestId('summary-value-total')).toHaveTextContent('4')
     expect(screen.getByTestId('pins')).toBeInTheDocument()
     // One pin per displayed listing (the mocked CustomPinMarkers).
     expect(screen.getAllByTestId(/^pin-/)).toHaveLength(4)
@@ -535,9 +513,6 @@ describe('PrivateListingPortal — Map Tab integration', () => {
 
     // R4.3 + R5.3: the displayed set and the summary recompute to the 2 for_sale
     // listings — entirely client-side.
-    await waitFor(() => {
-      expect(screen.getByTestId('summary-value-total')).toHaveTextContent('2')
-    })
     await waitFor(() => {
       expect(screen.getAllByTestId(/^pin-/)).toHaveLength(2)
     })

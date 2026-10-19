@@ -26,7 +26,7 @@ export interface SortMenuProps {
   sort: SortOption
   /** Called with the newly selected sort option. */
   onSortChange: (s: SortOption) => void
-  /** Collapse the trigger label at constrained desktop map widths. */
+  /** Collapse the trigger label on phone-sized map canvases. */
   compact?: boolean
 }
 
@@ -48,7 +48,7 @@ export function SortMenu({ sort, onSortChange, compact = false }: SortMenuProps)
           aria-label={`Sort: ${labelFor(sort)}`}
         >
           <ArrowUpDown className="h-4 w-4" />
-          <span className={cn('truncate', compact && 'hidden sm:inline lg:max-2xl:hidden')}>
+          <span className={cn('truncate', compact && 'hidden sm:inline')}>
             {labelFor(sort)}
           </span>
         </Button>

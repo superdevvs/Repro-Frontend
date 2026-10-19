@@ -28,6 +28,7 @@ import { ExclusiveListingsShowcase } from '@/components/listings/ExclusiveListin
 import { ExclusiveListingGridCard } from '@/components/listings/ExclusiveListingGridCard';
 import { useListingPresentation } from '@/hooks/useListingPresentation';
 import { MapTabToolbar } from '@/components/listings/MapTabToolbar';
+import { ViewSwitcher } from '@/components/listings/ViewSwitcher';
 import { SavedViewsMenu } from '@/components/listings/SavedViewsMenu';
 import {
   SAVED_VIEWS_KEY,
@@ -63,7 +64,7 @@ const PrivateListingPortal = () => {
   usePageLoading(loading);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'showcase' | 'grid' | 'list'>('showcase');
-  const [compactMap, setCompactMap] = useState(false);
+  const [compactMap, setCompactMap] = useState(true);
   const toggleCompactMap = useCallback(() => setCompactMap((compact) => !compact), []);
   const [listingScope, setListingScope] = useState<'mine' | 'all'>('all');
   const [geoCache, setGeoCache] = useState<Record<string, { lat: number; lng: number }>>(readGeoCache);
@@ -833,6 +834,7 @@ const PrivateListingPortal = () => {
             selectedListingId={presentation.selectedListingId}
             onSelectListing={presentation.selectListing}
             showMarkerLabels={false}
+            viewControls={<ViewSwitcher viewMode={viewMode} onChange={setViewMode} variant="overlay" orientation="vertical" />}
             controlsOverlay={
               <div className="flex min-w-0 flex-col items-stretch gap-2 sm:flex-row sm:flex-nowrap sm:items-stretch">
                 {clientScopeControl}
@@ -855,7 +857,7 @@ const PrivateListingPortal = () => {
                   viewMode={viewMode}
                   onViewModeChange={setViewMode}
                   variant="overlay"
-                  className="min-w-0 flex-1"
+                  className="min-w-0"
                 />
               </div>
             }

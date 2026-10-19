@@ -101,6 +101,7 @@ interface ExclusiveListingsShowcaseProps {
   onSelectListing?: (id: string) => void
   showMarkerLabels?: boolean
   controlsOverlay?: ReactNode
+  viewControls?: ReactNode
 }
 
 export const hasCoords = (l: ShowcaseListing): boolean =>
@@ -109,11 +110,9 @@ export const hasCoords = (l: ShowcaseListing): boolean =>
 interface ListingMapCanvasProps {
   listings: ShowcaseListing[]
   compactMode?: boolean
-  onToggleCompactMode: () => void
   selectedListingId: string | null
   onSelectListing: (id: string) => void
   showMarkerLabels: boolean
-  onToggleLabels: () => void
   resolveImageUrl: (value: string | null | undefined) => string | null
   formatPrice: (price: number | undefined | null) => string
   onOpenListing: (listing: ShowcaseListing) => void
@@ -163,11 +162,9 @@ const LazyListingMapCanvas = lazy(() =>
     const ListingMapCanvas: ComponentType<ListingMapCanvasProps> = ({
       listings,
       compactMode = true,
-      onToggleCompactMode,
       selectedListingId,
       onSelectListing,
       showMarkerLabels,
-      onToggleLabels,
       resolveImageUrl,
       formatPrice,
       onOpenListing,
@@ -175,8 +172,6 @@ const LazyListingMapCanvas = lazy(() =>
     }) => {
       const mapRef = useRef<MapHandle>(null)
       const canvasRef = useRef<HTMLDivElement>(null)
-      const [drawAreaActive, setDrawAreaActive] = useState(false)
-      const [isFullscreen, setIsFullscreen] = useState(false)
 
       const markers = useMemo(() => buildMarkers(listings), [listings])
       const center = useMemo(
@@ -236,30 +231,6 @@ const LazyListingMapCanvas = lazy(() =>
         }
       }, [getFitPadding, markers])
 
-      // Draw-area mode is a local stub toggle for now (R8.1).
-      const handleToggleDrawArea = useCallback(() => {
-        setDrawAreaActive((prev) => !prev)
-      }, [])
-
-      // Fullscreen the map container; restore on exit (R8.4).
-      const handleToggleFullscreen = useCallback(() => {
-        const container = canvasRef.current
-        if (!container) return
-        if (typeof document === 'undefined') return
-        if (document.fullscreenElement) {
-          void document.exitFullscreen?.()
-        } else {
-          void container.requestFullscreen?.()
-        }
-      }, [])
-
-      useEffect(() => {
-        if (typeof document === 'undefined') return
-        const handleChange = () => setIsFullscreen(Boolean(document.fullscreenElement))
-        document.addEventListener('fullscreenchange', handleChange)
-        return () => document.removeEventListener('fullscreenchange', handleChange)
-      }, [])
-
       return (
         <div ref={canvasRef} className="absolute inset-0 bg-background">
           <Map
@@ -287,21 +258,6 @@ const LazyListingMapCanvas = lazy(() =>
               onOpenListing={onOpenListing}
             />
           </Map>
-
-          {/* Floating map actions: recenter / draw / labels / fullscreen (R8). */}
-          <FloatingMapActions
-            position="bottom-left"
-            onRecenter={handleRecenter}
-            onToggleDrawArea={handleToggleDrawArea}
-            onToggleLabels={onToggleLabels}
-            onToggleCompactMode={onToggleCompactMode}
-            compactMode={compactMode}
-            onToggleFullscreen={handleToggleFullscreen}
-            showLabels={showMarkerLabels}
-            drawAreaActive={drawAreaActive}
-            isFullscreen={isFullscreen}
-            className="!bottom-[6.75rem] !left-3 border-slate-300/80 bg-white/82 text-slate-700 shadow-xl backdrop-blur-xl lg:!left-4 dark:border-white/15 dark:bg-slate-950/72 dark:text-white [&_button]:text-slate-700 [&_button:hover]:bg-blue-600 [&_button:hover]:text-white dark:[&_button]:text-slate-200"
-          />
 
           {markers.length === 0 && (
             <div className="pointer-events-none absolute inset-x-0 bottom-4 flex justify-center px-6">
@@ -336,6 +292,7 @@ export function ExclusiveListingsShowcase({
   onSelectListing: onSelectListingProp,
   showMarkerLabels: showMarkerLabelsProp,
   controlsOverlay,
+  viewControls,
   compactMode: compactModeProp,
   onToggleCompactMode,
 }: ExclusiveListingsShowcaseProps) {
@@ -487,11 +444,9 @@ export function ExclusiveListingsShowcase({
               apiKey={googleMapsApiKey}
               listings={listings}
               compactMode={compactMode}
-              onToggleCompactMode={handleToggleCompactMode}
               selectedListingId={selectedListingId}
               onSelectListing={handleSelectListing}
               showMarkerLabels={showMarkerLabels}
-              onToggleLabels={handleToggleLabels}
               resolveImageUrl={resolveImageUrl}
               formatPrice={formatPrice}
               onOpenListing={onOpenListing}
@@ -503,11 +458,9 @@ export function ExclusiveListingsShowcase({
           <LazyListingMapCanvas
             listings={listings}
             compactMode={compactMode}
-            onToggleCompactMode={handleToggleCompactMode}
             selectedListingId={selectedListingId}
             onSelectListing={handleSelectListing}
             showMarkerLabels={showMarkerLabels}
-            onToggleLabels={handleToggleLabels}
             resolveImageUrl={resolveImageUrl}
             formatPrice={formatPrice}
             onOpenListing={onOpenListing}
@@ -515,6 +468,16 @@ export function ExclusiveListingsShowcase({
           />
         )}
       </Suspense>
+
+      <FloatingMapActions
+        position="bottom-left"
+        viewControls={viewControls}
+        onToggleLabels={handleToggleLabels}
+        onToggleCompactMode={handleToggleCompactMode}
+        compactMode={compactMode}
+        showLabels={showMarkerLabels}
+        className="!bottom-[6.75rem] !left-3 border-slate-300/80 bg-white/82 text-slate-700 shadow-xl backdrop-blur-xl lg:!left-4 dark:border-white/15 dark:bg-slate-950/72 dark:text-white [&_button:hover]:bg-blue-600 [&_button:hover]:text-white"
+      />
 
       {googleMapError && googleMapsApiKey ? (
         <div
@@ -536,7 +499,7 @@ export function ExclusiveListingsShowcase({
 
       {controlsOverlay ? (
         <div
-          className="pointer-events-none absolute inset-x-3 top-3 z-20 lg:left-4 lg:top-4 lg:right-[412px] 2xl:right-[452px]"
+          className="pointer-events-none absolute right-3 top-3 z-20 max-w-[calc(100%-1.5rem)] lg:top-4 lg:right-[412px] 2xl:right-[452px]"
           data-testid="map-controls-overlay"
           data-map-overlay="controls"
         >

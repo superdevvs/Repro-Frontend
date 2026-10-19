@@ -1,5 +1,5 @@
 import * as React from 'react'
-import { Crosshair, Layers3, Maximize2, Minimize2, Square } from 'lucide-react'
+import { Layers3, Maximize2, Minimize2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -13,20 +13,11 @@ import { cn } from '@/lib/utils'
 export interface FloatingMapActionsProps {
   onToggleCompactMode?: () => void
   compactMode?: boolean
-  /** Recenter the map on the loaded mapped listings (R8.2). */
-  onRecenter: () => void
-  /** Toggle the draw-area mode (R8.1). */
-  onToggleDrawArea: () => void
+  viewControls?: React.ReactNode
   /** Show or hide the price / short label on the markers (R8.3). */
   onToggleLabels: () => void
-  /** Expand the map to fullscreen / restore it (R8.4). */
-  onToggleFullscreen: () => void
   /** Reflects the current label-visibility state on the labels button. */
   showLabels?: boolean
-  /** Reflects whether draw-area mode is currently active. */
-  drawAreaActive?: boolean
-  /** Reflects whether the map is currently in fullscreen. */
-  isFullscreen?: boolean
   className?: string
   position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
 }
@@ -50,23 +41,17 @@ interface ActionDef {
 }
 
 /**
- * FloatingMapActions renders exactly four tooltip icon buttons floating over the
- * map: Recenter map, Draw area, Toggle property labels, and Fullscreen map.
- *
- * No satellite/imagery action is rendered (R8.5).
+ * Shared map controls stay available while either map provider is loading.
+ * One preview-size button switches between compact and expanded listing pins.
  */
 const FloatingMapActions = React.forwardRef<HTMLDivElement, FloatingMapActionsProps>(
   (
     {
-      onRecenter,
       onToggleCompactMode,
-      compactMode = false,
-      onToggleDrawArea,
+      compactMode = true,
+      viewControls,
       onToggleLabels,
-      onToggleFullscreen,
       showLabels = false,
-      drawAreaActive = false,
-      isFullscreen = false,
       className,
       position = 'top-right',
     },
@@ -75,24 +60,11 @@ const FloatingMapActions = React.forwardRef<HTMLDivElement, FloatingMapActionsPr
     const actions: ActionDef[] = [
       ...(onToggleCompactMode ? [{
         key: 'compact',
-        label: 'Compact mode',
-        icon: Minimize2,
+        label: compactMode ? 'Expand listing previews' : 'Shrink listing previews',
+        icon: compactMode ? Maximize2 : Minimize2,
         onClick: onToggleCompactMode,
-        active: compactMode,
+        active: !compactMode,
       }] : []),
-      {
-        key: 'recenter',
-        label: 'Recenter map',
-        icon: Crosshair,
-        onClick: onRecenter,
-      },
-      {
-        key: 'draw-area',
-        label: 'Draw area',
-        icon: Square,
-        onClick: onToggleDrawArea,
-        active: drawAreaActive,
-      },
       {
         key: 'toggle-labels',
         label: 'Toggle property labels',
@@ -100,25 +72,25 @@ const FloatingMapActions = React.forwardRef<HTMLDivElement, FloatingMapActionsPr
         onClick: onToggleLabels,
         active: showLabels,
       },
-      {
-        key: 'fullscreen',
-        label: 'Fullscreen map',
-        icon: Maximize2,
-        onClick: onToggleFullscreen,
-        active: isFullscreen,
-      },
     ]
 
     return (
       <TooltipProvider delayDuration={300}>
         <div
           ref={ref}
+          role="group"
+          aria-label="Map controls"
+          data-testid="map-actions"
           className={cn(
-            'absolute z-10 flex flex-col gap-1 rounded-xl border border-border bg-background/80 p-1 shadow-md backdrop-blur-sm',
+            'absolute z-30 flex flex-col gap-1 rounded-xl border border-border bg-background/80 p-1 shadow-md backdrop-blur-sm',
             positionClasses[position],
             className
           )}
         >
+          {viewControls ? <>
+            {viewControls}
+            <div className="mx-1 border-t border-border" aria-hidden="true" />
+          </> : null}
           {actions.map(({ key, label, icon: Icon, onClick, active }) => (
             <Tooltip key={key}>
               <TooltipTrigger asChild>
@@ -134,7 +106,7 @@ const FloatingMapActions = React.forwardRef<HTMLDivElement, FloatingMapActionsPr
                   <Icon className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="left">{label}</TooltipContent>
+              <TooltipContent side={position.endsWith('left') ? 'right' : 'left'}>{label}</TooltipContent>
             </Tooltip>
           ))}
         </div>

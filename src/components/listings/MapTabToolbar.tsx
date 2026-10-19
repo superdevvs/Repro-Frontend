@@ -1,20 +1,5 @@
-// MapTabToolbar — the cohesive control group rendered above the Exclusive
-// Listings Map Tab.
-//
-// This is a thin, composed UI renderer that arranges three existing pieces into
-// a single, aligned control group (R4.1, R6.1):
-//   1. `CommandBar`    — search + filter trigger + sort + saved-views
-//   2. `ViewSwitcher`  — Map/Grid/List segmented control
-//   3. `FilterChipBar` — removable chips for the active filters
-//
-// Layout: a top row aligns the `CommandBar` on the left (it grows to fill the
-// available width) with the `ViewSwitcher` on the right, in one horizontal
-// control group that wraps responsively. Below that row, the `FilterChipBar`
-// shows the active filter chips (it renders nothing when there are no filters).
-//
-// Visual consistency (R9.3, R9.4): the toolbar surface uses a single consistent
-// corner radius (`rounded-xl`) and a single border style (`border-border`) with
-// theme tokens, so it reads as one cohesive surface with the rest of the Map Tab.
+// The map overlay floats only the filtering/sorting controls and active chips.
+// Map/Grid/List navigation belongs to the shared left-side map controls.
 
 import * as React from 'react'
 import { Building2 } from 'lucide-react'
@@ -63,9 +48,8 @@ export interface MapTabToolbarProps {
 }
 
 /**
- * Composes `CommandBar`, `ViewSwitcher`, and `FilterChipBar` into one aligned
- * control group above the Map Tab. The matching props are forwarded down to
- * each child; this component owns only layout and visual cohesion.
+ * Floats filtering and active chips over the map. The default presentation also
+ * includes the inventory summary and horizontal view navigation.
  */
 export function MapTabToolbar({
   totalListings,
@@ -93,22 +77,20 @@ export function MapTabToolbar({
   return (
     <div
       className={cn(
-        'flex min-w-0 flex-col rounded-xl border',
+        'flex min-w-0 flex-col',
         overlay
-          ? 'gap-2 border-slate-300/80 bg-white/82 p-2.5 text-slate-950 shadow-xl backdrop-blur-xl dark:border-white/15 dark:bg-slate-950/72 dark:text-white'
-          : 'gap-3 border-border bg-card p-3',
+          ? 'items-end gap-2'
+          : 'gap-3 rounded-xl border border-border bg-card p-3',
         className,
       )}
       data-testid="map-tab-toolbar"
     >
-      {/* Primary row: inventory context, search, filters, sorting, and view mode
-          share one command surface. The search is the only flexible item, so
-          it gives up width first on narrower desktop canvases. */}
+      {/* Overlay controls size to their content rather than spanning the map. */}
       <div
         className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-nowrap sm:items-center"
         data-testid="map-toolbar-primary-row"
       >
-        <dl
+        {!overlay && <dl
           className="flex shrink-0 items-center"
           data-testid="summary-cards"
           aria-label="Listing summary"
@@ -145,10 +127,10 @@ export function MapTabToolbar({
               {totalListings}
             </dd>
           </div>
-        </dl>
+        </dl>}
 
         <CommandBar
-          className="min-w-0 flex-1"
+          className={overlay ? 'min-w-0' : 'min-w-0 flex-1'}
           variant={variant}
           searchQuery={searchQuery}
           onSearchChange={onSearchChange}
@@ -165,7 +147,7 @@ export function MapTabToolbar({
           showSavedViews={showSavedViews}
           cityOptions={cityOptions}
           trailing={
-            <ViewSwitcher
+            !overlay && <ViewSwitcher
               viewMode={viewMode}
               onChange={onViewModeChange}
               variant={variant}

@@ -157,7 +157,7 @@ export function CommandBar({
       data-testid="listing-command-bar"
     >
       {/* Search input + categorized cmdk suggestions dropdown. */}
-      <div
+      {!contextualSearch?.enabled && <div
         className={cn(
           'relative',
           variant === 'overlay'
@@ -170,7 +170,7 @@ export function CommandBar({
           shouldFilter={false}
           className="relative overflow-visible rounded-none bg-transparent"
         >
-          {!contextualSearch?.enabled && <div
+          <div
             className={cn(
               'flex h-9 items-center gap-2 rounded-lg border px-3',
               variant === 'overlay'
@@ -203,7 +203,7 @@ export function CommandBar({
                   : 'text-foreground placeholder:text-muted-foreground',
               )}
             />
-          </div>}
+          </div>
 
           {showDropdown && (
             <div
@@ -235,7 +235,7 @@ export function CommandBar({
             </div>
           )}
         </Command>
-      </div>
+      </div>}
 
       {/* Filter / sort / saved-views controls. */}
       <div className={cn(variant === 'overlay' && 'flex shrink-0 items-center gap-2')}>

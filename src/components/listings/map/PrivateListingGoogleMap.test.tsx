@@ -182,7 +182,6 @@ const renderMap = (
       selectedListingId={selectedListingId}
       onSelectListing={onSelectListing}
       showMarkerLabels={false}
-      onToggleLabels={vi.fn()}
       resolveImageUrl={() => null}
       formatPrice={(price) => `$${price ?? 0}`}
       onOpenListing={vi.fn()}
@@ -222,50 +221,33 @@ describe('PrivateListingGoogleMap', () => {
     expect(region.parentElement).not.toHaveClass('h-full')
   })
 
-  it('toggles compact photos and previews from map actions without reconstructing the map', async () => {
+  it('updates compact photos and previews without reconstructing the map', async () => {
     const listings = [listing('listing-1', 30.2672, -97.7431)]
-    function ToggleableMap() {
-      const [compactMap, setCompactMap] = React.useState(false)
-      return <PrivateListingGoogleMap
-        apiKey="browser-key-for-test"
-        listings={listings}
-        selectedListingId="listing-1"
-        compactMode={compactMap}
-        onToggleCompactMode={() => setCompactMap((value) => !value)}
-        onSelectListing={vi.fn()}
-        showMarkerLabels={false}
-        onToggleLabels={vi.fn()}
-        resolveImageUrl={() => null}
-        formatPrice={(price) => `$${price ?? 0}`}
-        onOpenListing={vi.fn()}
-        theme="light"
-      />
+    const props: React.ComponentProps<typeof PrivateListingGoogleMap> = {
+      apiKey: 'browser-key-for-test', listings, selectedListingId: 'listing-1',
+      onSelectListing: vi.fn(), showMarkerLabels: false,
+      resolveImageUrl: () => null, formatPrice: (price) => `$${price ?? 0}`,
+      onOpenListing: vi.fn(), theme: 'light',
     }
-    render(<ToggleableMap />)
-    const compact = await screen.findByRole('button', { name: 'Compact mode' })
-    expect(compact).toHaveAttribute('aria-pressed', 'false')
-    expect(compact.parentElement).toHaveClass('flex-col', 'bottom-2', 'left-2')
-    expect(markerRecords.at(-1)?.options).toEqual(expect.objectContaining({ visible: true, clickable: true }))
+    const { rerender } = render(<PrivateListingGoogleMap {...props} compactMode={false} />)
     expect(await screen.findByRole('region', { name: 'Selected listing listing-1 Main Street' })).toBeInTheDocument()
+    expect(markerRecords.at(-1)?.options).toEqual(expect.objectContaining({ visible: true, clickable: true }))
     const map = mapInstances[0]
 
-    act(() => compact.click())
-    expect(compact).toHaveAttribute('aria-pressed', 'true')
+    rerender(<PrivateListingGoogleMap {...props} compactMode />)
     expect(markerRecords.at(-1)?.options).toEqual(expect.objectContaining({ visible: false, clickable: false }))
     expect((await screen.findByRole('button', { name: `Select ${listings[0].fullAddress}` })).querySelector('img')).not.toBeNull()
     expect(screen.queryByRole('region', { name: 'Selected listing listing-1 Main Street' })).not.toBeInTheDocument()
     expect(mapInstances).toEqual([map])
     expect(h.loadGoogleMaps).toHaveBeenCalledTimes(1)
 
-    act(() => compact.click())
-    expect(compact).toHaveAttribute('aria-pressed', 'false')
+    rerender(<PrivateListingGoogleMap {...props} compactMode={false} />)
     expect(markerRecords.at(-1)?.options).toEqual(expect.objectContaining({ visible: true, clickable: true }))
     expect(screen.queryByRole('button', { name: `Select ${listings[0].fullAddress}` })).not.toBeInTheDocument()
     expect(await screen.findByRole('region', { name: 'Selected listing listing-1 Main Street' })).toBeInTheDocument()
     expect(mapInstances).toEqual([map])
     expect(infoWindowRecords).toHaveLength(2)
   })
-
   it('discards invalid coordinates, groups a shared location, and selects the active listing', async () => {
     const onSelectListing = vi.fn()
     const listings = [
@@ -410,7 +392,6 @@ describe('PrivateListingGoogleMap', () => {
       listings: [listing('listing-1', 30.2672, -97.7431, '100 Congress Avenue')],
       selectedListingId: 'listing-1',
       onSelectListing: vi.fn(),
-      onToggleLabels: vi.fn(),
       resolveImageUrl: () => null,
       formatPrice: (price: number | undefined | null) => `$${price ?? 0}`,
       onOpenListing: vi.fn(),
@@ -473,7 +454,6 @@ describe('PrivateListingGoogleMap', () => {
       selectedListingId: null,
       onSelectListing: vi.fn(),
       showMarkerLabels: false,
-      onToggleLabels: vi.fn(),
       resolveImageUrl: () => null,
       formatPrice: (price: number | undefined | null) => `$${price ?? 0}`,
       onOpenListing: vi.fn(),
@@ -519,7 +499,6 @@ describe('PrivateListingGoogleMap', () => {
         selectedListingId={null}
         onSelectListing={vi.fn()}
         showMarkerLabels={false}
-        onToggleLabels={vi.fn()}
         resolveImageUrl={() => null}
         formatPrice={(price) => `$${price ?? 0}`}
         onOpenListing={vi.fn()}

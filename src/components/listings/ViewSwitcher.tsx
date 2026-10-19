@@ -16,6 +16,7 @@ export interface ViewSwitcherProps {
   viewMode: ViewMode
   onChange: (mode: ViewMode) => void
   variant?: 'default' | 'overlay'
+  orientation?: 'horizontal' | 'vertical'
 }
 
 interface ViewOption {
@@ -33,8 +34,8 @@ const VIEW_OPTIONS: ViewOption[] = [
 ]
 
 /**
- * Segmented Map/Grid/List/Compact view switcher (R6).
- * Renders a single toggle-group with four items; the item matching `viewMode`
+ * Segmented Map/Grid/List view switcher (R6).
+ * Renders a single toggle-group with three items; the item matching `viewMode`
  * shows a strong blue active state (R6.2). Selecting an item calls `onChange`
  * with the corresponding value (R6.3), and each item exposes a hover tooltip
  * naming the view (R6.4).
@@ -43,11 +44,13 @@ export function ViewSwitcher({
   viewMode,
   onChange,
   variant = 'default',
+  orientation = 'horizontal',
 }: ViewSwitcherProps) {
   return (
     <TooltipProvider delayDuration={200}>
       <ToggleGroup
         type="single"
+        orientation={orientation}
         value={viewMode}
         onValueChange={(value) => {
           // Radix emits '' when an active item is re-clicked; ignore that so a
@@ -59,10 +62,13 @@ export function ViewSwitcher({
         variant="outline"
         size="sm"
         className={cn(
-          'gap-0 rounded-lg border p-1 shadow-sm',
-          variant === 'overlay'
+          'gap-0',
+          orientation === 'vertical'
+            ? 'flex-col border-0 bg-transparent p-0 shadow-none'
+            : 'rounded-lg border p-1 shadow-sm',
+          orientation !== 'vertical' && variant === 'overlay'
             ? 'border-slate-300/80 bg-white/76 dark:border-white/15 dark:bg-slate-950/55'
-            : 'border-border bg-background dark:bg-background',
+            : orientation !== 'vertical' && 'border-border bg-background dark:bg-background',
         )}
         aria-label="View mode"
       >
@@ -85,7 +91,7 @@ export function ViewSwitcher({
                 <Icon className="h-4 w-4" />
               </ToggleGroupItem>
             </TooltipTrigger>
-            <TooltipContent>{tooltip}</TooltipContent>
+            <TooltipContent side={orientation === 'vertical' ? 'right' : 'top'}>{tooltip}</TooltipContent>
           </Tooltip>
         ))}
       </ToggleGroup>
