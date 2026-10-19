@@ -215,6 +215,9 @@ export function Navbar() {
   const { formatTemperature } = useUserPreferences();
   const [commandOpen, setCommandOpen] = useState(false);
   const contextualSearch = useContextualSearch();
+  const searchPlaceholder = contextualSearch?.enabled
+    ? `Search ${contextualSearch.adapter?.label.toLowerCase() ?? 'everywhere'}…`
+    : 'Search...';
   const weatherLocationLabel = useMemo(() => {
     if (weatherCoordSource === 'default') {
       return null;
@@ -405,7 +408,10 @@ export function Navbar() {
     <div className="w-full bg-background">
       <div className="flex h-16 items-center justify-between gap-2 px-4 sm:gap-4">
         <div
-          className="flex min-w-0 flex-1 items-center gap-2 pl-0 sm:gap-4 sm:pl-4 lg:flex-[1.25]"
+          className={cn(
+            'flex min-w-0 flex-1 items-center gap-2 pl-0 sm:gap-4 sm:pl-4',
+            isSimplifiedLayout ? 'lg:flex-[1.25]' : 'lg:flex-initial',
+          )}
         >
         {/* Logo for simplified layout (photographer/editor) */}
         {isSimplifiedLayout && (
@@ -471,14 +477,15 @@ export function Navbar() {
               </Button>
             )}
           
-            <div className="relative flex min-w-0 flex-1 items-center gap-1.5">
-              <SearchIcon className="h-4 w-4 text-muted-foreground absolute ml-3" />
+            <div className="relative grid w-max min-w-0 max-w-full items-center">
+              <span aria-hidden="true" className="invisible h-10 whitespace-pre pl-9 pr-3 text-base md:text-sm">{searchPlaceholder}</span>
+              <SearchIcon className="absolute left-3 h-4 w-4 text-muted-foreground" />
               <Input
                 type="search"
-                placeholder={contextualSearch?.enabled ? `Search ${contextualSearch.adapter?.label.toLowerCase() ?? 'everywhere'}…` : 'Search...'}
+                placeholder={searchPlaceholder}
                 value={contextualSearch?.enabled ? contextualSearch.adapter?.query ?? '' : ''}
                 aria-label={contextualSearch?.enabled ? `Search ${contextualSearch.adapter?.label ?? 'everywhere'}` : 'Search'}
-                className="min-w-0 pl-9 bg-transparent border-0 shadow-none focus-visible:ring-primary/20"
+                className="absolute inset-0 min-w-0 pl-9 bg-transparent border-0 shadow-none focus-visible:ring-primary/20 [&::-webkit-search-cancel-button]:hidden [&::-webkit-search-decoration]:hidden"
                 readOnly
                 onClick={() => setCommandOpen(true)}
                 onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setCommandOpen(true); } }}
