@@ -17,6 +17,7 @@ import { hasUploadsProtectedFromNavigation, stopUploadsForAuthChange, subscribeU
 import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { trackTelemetryBlocker } from '@/features/system-overview/telemetryClient';
 import { fetchCurrentUserProfile } from '@/utils/userProfileClient';
+import { dismissDashboardInstallSuggestion, startDashboardInstallSuggestion } from '@/hooks/useDashboardInstallSuggestion';
 
 // Define the Role type via shared types
 export type Role = UserRole;
@@ -263,6 +264,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const hydratedProfileUserIdRef = useRef<string | null>(null);
 
   const clearStoredAuth = useCallback(() => {
+    dismissDashboardInstallSuggestion();
     if (typeof window === 'undefined') return;
     refreshAbortRef.current?.abort();
     refreshAbortRef.current = null;
@@ -428,6 +430,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setRole(roleToUse);
 
     if (tokenToUse) {
+      startDashboardInstallSuggestion();
       syncSessionForUser(normalizedUser, roleToUse);
     } else {
       setSession(null);

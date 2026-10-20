@@ -5,17 +5,19 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { initializeDashboardInstall } from '@/hooks/useDashboardInstall';
 import { DashboardInstallButton } from './DashboardInstallButton';
 import { DashboardInstallBanner } from './DashboardInstallBanner';
+import { dismissDashboardInstallSuggestion, startDashboardInstallSuggestion } from '@/hooks/useDashboardInstallSuggestion';
 
 let standalone = false;
 let dispose: () => void;
 beforeEach(() => {
   standalone = false;
   localStorage.clear();
+  startDashboardInstallSuggestion();
   vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('iPhone Safari');
   vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: standalone, addEventListener: vi.fn(), removeEventListener: vi.fn() })));
   dispose = initializeDashboardInstall();
 });
-afterEach(() => { cleanup(); dispose(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); dispose(); dismissDashboardInstallSuggestion(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 it('shows Safari instructions and the enable-alerts step without requesting notifications', async () => {
   const requestPermission = vi.fn();
@@ -80,5 +82,54 @@ it('lets users dismiss the dashboard suggestion without removing the settings in
 it('does not show a mobile install banner on a desktop browser', () => {
   vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Desktop Chrome');
   render(<DashboardInstallBanner />);
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+});
+
+it('hides exactly 30 seconds after login and stays hidden after remounting', () => {
+  vi.useFakeTimers();
+  startDashboardInstallSuggestion();
+  const view = render(<DashboardInstallBanner />);
+  expect(screen.getByRole('complementary')).toBeVisible();
+  act(() => { vi.advanceTimersByTime(29_999); });
+  expect(screen.getByRole('complementary')).toBeVisible();
+  act(() => { vi.advanceTimersByTime(1); });
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  view.unmount();
+  render(<DashboardInstallBanner />);
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+});
+
+it('keeps the original deadline through navigation and refresh instead of starting another 30 seconds', () => {
+  vi.useFakeTimers();
+  startDashboardInstallSuggestion();
+  const view = render(<DashboardInstallBanner />);
+  act(() => { vi.advanceTimersByTime(20_000); });
+  view.unmount();
+  render(<DashboardInstallBanner />);
+  expect(screen.getByRole('complementary')).toBeVisible();
+  act(() => { vi.advanceTimersByTime(10_000); });
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+});
+
+it('shows again on the next successful login, including after an early dismissal', () => {
+  render(<DashboardInstallBanner />);
+  fireEvent.click(screen.getByRole('button', { name: 'Dismiss Home Screen suggestion' }));
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  act(() => { startDashboardInstallSuggestion(); });
+  expect(screen.getByRole('complementary')).toBeVisible();
+});
+
+it('does not show when opening an existing session without a fresh login', () => {
+  dismissDashboardInstallSuggestion();
+  render(<DashboardInstallBanner />);
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+});
+
+it('expires after a backgrounded page resumes past its deadline', () => {
+  vi.useFakeTimers();
+  startDashboardInstallSuggestion();
+  render(<DashboardInstallBanner />);
+  vi.setSystemTime(Date.now() + 40_000);
+  act(() => { document.dispatchEvent(new Event('visibilitychange')); });
   expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
 });
