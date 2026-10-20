@@ -1,6 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 
-export type Scenario = 'available' | 'same-building' | 'incoming' | 'outgoing' | 'overlap' | 'unknown' | 'disabled';
+export type Scenario = 'available' | 'same-building' | 'incoming' | 'outgoing' | 'overlap' | 'unknown' | 'disabled' | 'outside-hours' | 'hours-overlap';
 export async function bookingScheduleFixture(page: Page, baseURL: string | undefined, scenario: Scenario, role = 'admin', draftOptions: { legacyDuration?: number; overrideDuration?: number; selectedDuration?: number; catalogDuration?: number; multiUnit?: boolean; restrictedClient?: boolean; date?: string; time?: string } = {}) {
   if (!baseURL || !['localhost', '127.0.0.1'].includes(new URL(baseURL).hostname)) throw new Error('Booking fixtures must run locally.');
   await page.clock.setFixedTime(new Date('2026-10-02T12:00:00Z'));
@@ -43,12 +43,12 @@ export async function bookingScheduleFixture(page: Page, baseURL: string | undef
     else if (p === '/photographer/availability/check') data = { data: slots, timezone: 'America/New_York', from_config: true };
     else if (p === '/photographer/availability/for-booking') data = { hybrid_travel_enabled: scenario !== 'disabled', data: people.map(x => ({ ...x, distance: 2, availability_slots: slots, net_available_slots: slots, booked_slots: [], unavailable_slots: [], is_available_at_time: true, has_availability: true, eligible_service_ids: [501], requires_travel_check: scenario !== 'disabled' })) };
     else if (p === '/photographer/availability/feasibility') {
-      const result = feasibility(scenario, body ?? {}); previews.push(result); data = { data: result };
+      const result = feasibility(scenario, body ?? {}, role); previews.push(result); data = { data: result };
     }
     else if (p === '/voice/browser/config') data = { enabled: false, ready: false, blockers: [] };
     else if (p === '/notifications') data = { data: { activity_log: [], unread_count: 0 } };
     else if (p === '/shoots' && request.method() === 'POST') {
-      const current = feasibility(scenario, body ?? {});
+      const current = feasibility(scenario, body ?? {}, role);
       if (body?.travel_override && body.travel_override_confirmation_version !== current.confirmation_version) {
         return route.fulfill({ status: 422, json: { feasibility: current, errors: { travel_override_confirmation_version: ['Review the current itinerary.'] } } });
       }
@@ -79,8 +79,10 @@ export async function bookingScheduleFixture(page: Page, baseURL: string | undef
   return { requests, previews, errors, saves: () => requests.filter(r => r.path === '/shoots' && r.method === 'POST') };
 }
 
-function feasibility(scenario: Scenario, body: Record<string, unknown>) {
-  const issue = ['incoming', 'outgoing', 'overlap', 'unknown'].includes(scenario);
+function feasibility(scenario: Scenario, body: Record<string, unknown>, role = 'admin') {
+  const hours = scenario === 'outside-hours' || scenario === 'hours-overlap';
+  const overlap = scenario === 'overlap' || scenario === 'hours-overlap';
+  const issue = hours || ['incoming', 'outgoing', 'overlap', 'unknown'].includes(scenario);
   const outgoing = scenario === 'outgoing';
   const unknown = scenario === 'unknown';
   const same = scenario === 'same-building';
@@ -93,9 +95,11 @@ function feasibility(scenario: Scenario, body: Record<string, unknown>) {
   const availableMinutes = outgoing ? 30 - duration : 15;
   return {
     enabled: scenario !== 'disabled', status: unknown ? 'review_required' : issue ? 'conflict' : 'available', available: !issue,
-    reason_codes: scenario === 'overlap' ? ['capture_overlap'] : issue ? [unknown ? 'travel_review_required' : 'insufficient_travel_time'] : [],
-    can_override: issue && scenario !== 'overlap', can_confirm_location: unknown, policy_version: 'fixture-policy', schedule_version: 'fixture-schedule', confirmation_version: confirmationVersion,
-    transitions: scenario === 'available' || scenario === 'disabled' || scenario === 'overlap' ? [] : [{
+    reason_codes: hours ? ['outside_working_hours', ...(overlap ? ['capture_overlap'] : [])] : overlap ? ['capture_overlap'] : issue ? [unknown ? 'travel_review_required' : 'insufficient_travel_time'] : [],
+    can_override: issue && !hours && !overlap, can_confirm_location: unknown, policy_version: 'fixture-policy', schedule_version: 'fixture-schedule', confirmation_version: confirmationVersion,
+    can_override_working_hours: hours && !overlap && role === 'superadmin', working_hours_confirmation_version: hours ? 'fixture-hours-confirmation' : undefined,
+    visits: hours ? [{ photographer_id: 201, start: start.toISOString(), end: end.toISOString(), scheduled_at: start.toISOString(), duration_minutes: duration, timezone: 'America/New_York' }] : [],
+    transitions: hours || scenario === 'available' || scenario === 'disabled' || overlap ? [] : [{
       id: 'transition-1', direction: outgoing ? 'outgoing' : 'incoming', source: same ? 'same_building' : unknown ? 'unknown' : 'google_routes',
       required_minutes: same ? 0 : unknown ? null : 25, available_minutes: same ? 0 : availableMinutes, shortfall_minutes: same ? 0 : unknown ? null : Math.max(0, 25 - availableMinutes),
       reason_code: same ? 'same_building' : unknown ? 'location_unknown' : 'insufficient_travel_time',

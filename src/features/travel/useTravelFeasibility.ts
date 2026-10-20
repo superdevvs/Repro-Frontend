@@ -3,7 +3,7 @@ import { API_BASE_URL } from '@/config/env';
 import { readTravelFeasibility, type ScheduleAdjustment, type TravelConfirmation, type TravelFeasibility, type TravelPayload } from './types';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import type { ScheduleChange } from './daySchedule';
-import { canConfirmTravelException, useTravelSaveConfirmation } from './useTravelSaveConfirmation';
+import { canConfirmTravelException, canConfirmWorkingHoursException, useTravelSaveConfirmation } from './useTravelSaveConfirmation';
 import { useForceSaveConfirmation } from './useForceSaveConfirmation';
 import type { ForceSaveChange } from './forceSaveChanges';
 import { travelRequestError } from './travelRequestError';
@@ -85,12 +85,13 @@ export function useTravelFeasibility({ payload: originalPayload, requestedOnly =
     ...(!requestedOnly && (notificationsSupported || notificationPreference) ? { notify_client: notifications.client, notify_photographer: notifications.photographer } : {}),
   }), [locationConfirmed, scheduleAdjustments, requestedOnly, notifications, notificationsSupported, notificationPreference]);
   const canOverride = canConfirmTravelException(result, requestedOnly);
+  const canOverrideWorkingHours = canConfirmWorkingHoursException(result, payload, requestedOnly);
   // An unknown feature state is not a successful check. Staff must receive the
   // selected itinerary's response before saving; an explicit disabled result
   // still preserves legacy scheduling, and client intake remains request-only.
   const blocked = !requestedOnly && Boolean(key) && (loading || Boolean(error?.key === key)
-    || Boolean(enabled && result && !result.available && !canOverride));
-  const saveConfirmation = useTravelSaveConfirmation({ key, result, loading, blocked, requestedOnly, confirmation });
+    || Boolean(enabled && result && !result.available && !canOverride && !canOverrideWorkingHours));
+  const saveConfirmation = useTravelSaveConfirmation({ key, result, payload, loading, blocked, requestedOnly, confirmation });
   const forceConfirmation = useForceSaveConfirmation({ key, result, payload, loading, error: error?.key === key, requestedOnly, confirmation });
   const acceptServerError = useCallback((data: unknown) => {
     if (currentKey.current !== key) return false;
@@ -106,7 +107,7 @@ export function useTravelFeasibility({ payload: originalPayload, requestedOnly =
     proposedLocation: [payload?.address, payload?.city, payload?.state, payload?.zip].filter(value => typeof value === 'string' && value).join(', '),
     error: error?.key === key ? error.message : null,
     visible: Boolean(key && (enabled || loading || error?.key === key)),
-    blocked, canOverride, confirmation, locationConfirmed, ...saveConfirmation, ...forceConfirmation,
+    blocked, canOverride, canOverrideWorkingHours, confirmation, locationConfirmed, ...saveConfirmation, ...forceConfirmation,
     setLocationConfirmed: (confirmed: boolean) => setLocation({ key, confirmed }),
     retry: () => request(false, locationConfirmed),
     loadAlternatives: () => request(true, locationConfirmed),

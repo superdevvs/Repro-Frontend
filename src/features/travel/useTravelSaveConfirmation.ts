@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { TravelConfirmation, TravelFeasibility } from './types';
+import type { TravelConfirmation, TravelFeasibility, TravelPayload } from './types';
+
+export function canConfirmWorkingHoursException(result: TravelFeasibility | null, payload: TravelPayload | null, requestedOnly: boolean) {
+  const reasons = [...(result?.reason_codes ?? []), ...(result?.transitions ?? []).map(leg => leg.reason_code)];
+  return Boolean(!requestedOnly && payload?.action_mode === 'create' && !payload.shoot_id
+    && result?.enabled && !result.available && result.can_override_working_hours && result.working_hours_confirmation_version
+    && reasons.includes('outside_working_hours') && !reasons.some(reason => /overlap/.test(reason)));
+}
 
 export function canConfirmTravelException(result: TravelFeasibility | null, requestedOnly: boolean) {
   const reasons = [...(result?.reason_codes ?? []), ...(result?.transitions ?? []).map(leg => leg.reason_code)];
@@ -8,15 +15,16 @@ export function canConfirmTravelException(result: TravelFeasibility | null, requ
 }
 
 /** Confirmation belongs to one evaluated itinerary and resumes exactly one pending save. */
-export function useTravelSaveConfirmation({ key, result, loading, blocked, requestedOnly, confirmation }: {
+export function useTravelSaveConfirmation({ key, result, payload, loading, blocked, requestedOnly, confirmation }: {
   key: string; result: TravelFeasibility | null; loading: boolean; blocked: boolean;
+  payload: TravelPayload | null;
   requestedOnly: boolean; confirmation: TravelConfirmation;
 }) {
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState('');
   const pending = useRef<{ key: string; result: TravelFeasibility; resolve: (value: TravelConfirmation | null) => void } | null>(null);
-  const latest = useRef({ key, result, loading, blocked, requestedOnly, confirmation });
-  latest.current = { key, result, loading, blocked, requestedOnly, confirmation };
+  const latest = useRef({ key, result, payload, loading, blocked, requestedOnly, confirmation });
+  latest.current = { key, result, payload, loading, blocked, requestedOnly, confirmation };
   const cancel = useCallback(() => {
     const request = pending.current; pending.current = null;
     setOpen(false); setReason(''); request?.resolve(null);
@@ -26,20 +34,24 @@ export function useTravelSaveConfirmation({ key, result, loading, blocked, reque
   const confirmSave = useCallback(async (): Promise<TravelConfirmation | null> => {
     const current = latest.current;
     if (pending.current || current.blocked) return null;
-    if (!canConfirmTravelException(current.result, current.requestedOnly)) return current.confirmation;
+    const hours = canConfirmWorkingHoursException(current.result, current.payload, current.requestedOnly);
+    if (!hours && !canConfirmTravelException(current.result, current.requestedOnly)) return current.confirmation;
     const legs = current.result?.transitions ?? [];
     const short = legs.filter(leg => leg.shortfall_minutes != null && leg.shortfall_minutes > 0);
-    setReason(short.length && legs.every(leg => leg.required_minutes != null)
+    setReason(!hours && short.length && legs.every(leg => leg.required_minutes != null)
       ? `I accept the shorter travel gap (${Math.min(...short.map(leg => Math.max(0, leg.available_minutes)))} minutes) and have reviewed this photographer’s schedule.` : '');
     setOpen(true);
     return new Promise(resolve => { pending.current = { key: current.key, result: current.result!, resolve }; });
   }, []);
   const complete = useCallback(() => {
     const request = pending.current; const current = latest.current;
+    const hours = canConfirmWorkingHoursException(current.result, current.payload, current.requestedOnly);
     if (!request || request.key !== current.key || request.result !== current.result || current.loading || current.blocked
-      || !canConfirmTravelException(current.result, current.requestedOnly) || reason.trim().length < 5 || reason.trim().length > 2000) return;
+      || (!hours && !canConfirmTravelException(current.result, current.requestedOnly)) || reason.trim().length < 5 || reason.trim().length > (hours ? 500 : 2000)) return;
     pending.current = null; setOpen(false); setReason('');
-    request.resolve({ ...current.confirmation, travel_override: true, travel_override_reason: reason.trim(), travel_override_confirmed: true, travel_override_confirmation_version: current.result!.confirmation_version });
+    request.resolve(hours ? { ...current.confirmation, working_hours_override: true, working_hours_override_confirmed: true,
+      working_hours_override_reason: reason.trim(), working_hours_override_confirmation_version: current.result!.working_hours_confirmation_version }
+      : { ...current.confirmation, travel_override: true, travel_override_reason: reason.trim(), travel_override_confirmed: true, travel_override_confirmation_version: current.result!.confirmation_version });
   }, [reason]);
   return { confirmSave, overrideDialog: { open, reason, setReason, cancel, complete } };
 }
