@@ -16,7 +16,7 @@ describe('Shoot Details unit chrome placement', () => {
     expect(source).not.toMatch(/variant="compact"/);
     expect(source).not.toMatch(/border-b bg-background px-2 py-1[\s\S]*ShootUnitScopeBar/);
     expect(source).toContain('ShootDetailsPanelUnitChrome');
-    expect(source).toMatch(/activeTab !== 'overview' && activeTab !== 'tours'/);
+    expect(source).toMatch(/activeDetailsTab !== 'overview' && activeDetailsTab !== 'tours'/);
   });
 
   it('does not mount a full-width ShootUnitScopeBar above page tabs', () => {
