@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { PageSearch } from '@/components/search/PageSearch';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { useMemo, useState } from 'react';
@@ -30,6 +31,7 @@ export function SalesRepSummarySection({ data, loading, error, daysWindow, onRet
   }, [data, filter, search]);
   const pages = Math.max(1, Math.ceil(clients.length / 5)), safePage = Math.min(page, pages);
   const rows = clients.slice((safePage - 1) * 5, safePage * 5);
+  const paginationListRef = usePaginationScrollReset(page, { isLoading: loading });
   if (loading) return <div role="status" aria-label="Loading sales summary" className="h-72 animate-pulse rounded-xl border bg-muted/30" />;
   if (error || !data) return <div role="alert" className="rounded-xl border p-6"><h2 className="font-semibold">Unable to load sales summary</h2><p className="mt-2 text-sm text-muted-foreground">{error || 'Please try again.'}</p><Button variant="outline" className="mt-3" onClick={onRetry}>Try again</Button></div>;
   const { summary } = data;
@@ -47,7 +49,7 @@ export function SalesRepSummarySection({ data, loading, error, daysWindow, onRet
           <select aria-label="Client list" value={filter} onChange={event => { setFilter(event.target.value); setPage(1); }} className="h-9 rounded-md border bg-background px-2 text-xs"><option value="top">Top clients</option><option value="new">New clients</option><option value="balance">With balance</option></select>
           <label data-page-search-container className="relative min-w-0 flex-1 sm:max-w-56"><Search className="absolute left-3 top-3 h-3.5 w-3.5 text-muted-foreground" /><PageSearch scope="accounts" scopeLabel="My clients" searchId="accounts" priority={20} searchResults={pageSearchResults(clients, 'accounts', '/accounts?account={id}')} type="search" aria-label="Search clients" placeholder="Search clients" className="h-9 pl-8" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} /></label>
         </div>
-        <div role="region" aria-label="Client accounts" tabIndex={0} className="max-h-80 overflow-auto overscroll-contain">
+        <div ref={paginationListRef} data-pagination-list role="region" aria-label="Client accounts" tabIndex={0} className="max-h-80 overflow-auto overscroll-contain">
           <table className="w-full min-w-[590px] text-left text-sm"><thead className="sticky top-0 z-10 bg-muted text-xs text-muted-foreground"><tr>{['Client', 'Paid revenue', 'Current balance', filter === 'new' ? 'Added' : 'Last shoot', ''].map((text, index) => <th key={index} className="px-4 py-3 font-medium">{text}</th>)}</tr></thead><tbody>
             {rows.map(client => <tr key={client.client_id} className="border-t"><td className="px-4 py-4 font-medium">{client.client_name}</td><td className="whitespace-nowrap px-4 py-4">{money(client.paid_revenue)}</td><td className="whitespace-nowrap px-4 py-4">{money(client.outstanding_balance)}</td><td className="whitespace-nowrap px-4 py-4 text-xs text-muted-foreground">{date(filter === 'new' && 'created_at' in client ? String(client.created_at || '') : client.last_shoot_date)}</td><td className="px-4 py-4"><Button size="sm" variant="ghost" onClick={() => setSelected(client)} aria-label={`View ${client.client_name}`}>View</Button></td></tr>)}
             {!rows.length && <tr><td colSpan={5} className="p-8 text-center text-sm text-muted-foreground">{search ? 'No clients match your search.' : filter === 'new' ? 'No new clients in this period.' : 'No matching clients in this period.'}</td></tr>}

@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -50,9 +51,10 @@ export default function CallsLive() {
   const queueEmpty = canOperate && offers.isSuccess && live.isSuccess
     && !incoming.length && !rows.length && (live.data.total ?? 0) === 0;
   const linkedOffer = params.get('offer');
+  const paginationListRef = usePaginationScrollReset(page, { isLoading: live.isFetching });
   return <div className="calls-fill-page">
     <header className="calls-page-heading flex flex-wrap items-center justify-between gap-2"><div><h2>Team queue</h2><p>Answer an incoming call or open a conversation in progress.</p></div><span className="calls-chip calls-chip-neutral">{schedule.data?.state.label || 'Checking coverage…'}</span></header>
-    <div className={queueEmpty ? 'calls-scroll flex flex-col gap-4' : 'calls-scroll space-y-4'} aria-label="Team call queue" tabIndex={0}>
+    <div ref={paginationListRef} data-pagination-list className={queueEmpty ? 'calls-scroll flex flex-col gap-4' : 'calls-scroll space-y-4'} aria-label="Team call queue" tabIndex={0}>
       {canOperate && offers.isError && <CallsQueryError message="Could not check incoming calls." retry={() => void offers.refetch()} />}
       {linkedOffer && offers.data && !offers.data.some((offer) => offer.id === linkedOffer && offer.can_claim) && <p role="status" className="rounded-xl bg-[var(--calls-warning-soft)] p-3 text-sm text-[var(--calls-warning)]">That call is no longer waiting for an answer. It may have been answered or ended.</p>}
       {!!incoming.length && <div className="incoming-call-grid">{incoming.map(offer => <div key={offer.id}><IncomingCallCard compact offer={offer} onDismiss={() => dismiss(offer.id)} onAnswer={() => answer.mutate({ id: offer.id, device: 'browser' })} answering={answer.isPending && answer.variables?.id === offer.id} />{answer.isPending && answer.variables?.id === offer.id && <Button variant="ghost" className="mt-2 h-11" onClick={() => void phone.cancelPending()}>Cancel connection</Button>}</div>)}</div>}

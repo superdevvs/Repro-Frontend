@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useId, useState } from 'react';
 import { ChevronDown, ChevronLeft, ChevronRight, Download, History, ImageIcon, RefreshCw } from 'lucide-react';
@@ -93,8 +94,9 @@ export function PreviousEdits() {
     } catch (reason) { setError(studioError(reason)); }
   };
 
+  const paginationListRef = usePaginationScrollReset(page, { isLoading: busy });
   if (!allowed) return null;
-  return <section className="mt-8 overflow-hidden rounded-2xl border border-border/60 bg-card">
+  return <section ref={paginationListRef} data-pagination-list className="mt-8 overflow-hidden rounded-2xl border border-border/60 bg-card">
     <button type="button" className="flex min-h-14 w-full items-center gap-3 px-4 py-3 text-left" aria-expanded={open} aria-controls={contentId} onClick={() => setOpen(value => !value)}>
       <History className="h-5 w-5 shrink-0 text-muted-foreground" /><span className="min-w-0 flex-1"><span className="block text-sm font-medium">Previous edits</span><span className="block text-xs text-muted-foreground">Earlier photo edits, reels, and listing videos</span></span><ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} />
     </button>

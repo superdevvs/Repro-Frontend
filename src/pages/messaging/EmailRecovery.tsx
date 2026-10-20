@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
@@ -230,11 +231,12 @@ export default function EmailRecovery() {
     return counts;
   }, [deliveries]);
 
+  const paginationListRef = usePaginationScrollReset(page, { isLoading: isFetching });
   return (
     <DashboardLayout>
       <div className="flex flex-col h-full min-h-screen bg-background">
         <EmailNavigation />
-        <div className="flex-1 px-0 sm:px-6 py-4 sm:py-6 overflow-y-auto max-md:overflow-y-visible">
+        <div ref={paginationListRef} data-pagination-list className="flex-1 px-0 sm:px-6 py-4 sm:py-6 overflow-y-auto max-md:overflow-y-visible">
           <div className="mx-auto max-w-7xl space-y-4 sm:space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>

@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { useMemo, useState } from 'react';
 import { eachDayOfInterval, eachMonthOfInterval, eachWeekOfInterval, endOfDay, endOfMonth, endOfWeek, format } from 'date-fns';
 import { Area, Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -41,6 +42,7 @@ export function PhotographerEarningsOverview({ shoots, dateRange }: { shoots: Sh
     };
   }, [shoots, user, dateRange]);
   const pages = Math.max(1, Math.ceil(values.current.length / 5)), safePage = Math.min(page, pages);
+  const paginationListRef = usePaginationScrollReset(page);
   return <div className="min-w-0 space-y-5">
     <AccountingMetricStrip label="Photographer earnings summary" metrics={values.metrics} />
     <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.75fr)_minmax(270px,1fr)]">
@@ -54,7 +56,7 @@ export function PhotographerEarningsOverview({ shoots, dateRange }: { shoots: Sh
       </section>
       <section className="flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card" aria-label="Recent earnings">
         <div className="border-b px-4 py-3"><h2 className="text-base font-semibold">Recent earnings</h2><p className="mt-1 text-xs text-muted-foreground">Completion dates · selected period</p></div>
-        <div role="region" tabIndex={0} aria-label="Recent completed shoot earnings" className="max-h-[265px] min-h-0 flex-1 overflow-y-auto overscroll-contain divide-y">
+        <div ref={paginationListRef} data-pagination-list role="region" tabIndex={0} aria-label="Recent completed shoot earnings" className="max-h-[265px] min-h-0 flex-1 overflow-y-auto overscroll-contain divide-y">
           {values.current.slice((safePage - 1) * 5, safePage * 5).map(shoot => <div key={shoot.id} className="flex items-start justify-between gap-3 px-4 py-3"><div className="min-w-0"><p className="truncate text-sm font-medium">{shoot.location?.address || 'Property'}</p><p className="mt-1 text-xs text-muted-foreground">{shoot.location?.city}{shoot.location?.city ? ' · ' : ''}{getShootCompletedDate(shoot) ? format(getShootCompletedDate(shoot)!, 'MMM d, yyyy') : 'Unknown date'}</p></div><div className="text-right"><p className="text-sm font-medium">{money(getPhotographerPayForShoot(shoot, user))}</p><span className="text-[11px] text-muted-foreground">{getPhotographerPayoutStatus(shoot) === 'paid' ? 'Paid' : 'Pending'}</span></div></div>)}
           {!values.current.length && <p className="p-6 text-sm text-muted-foreground">No completed shoots in this period.</p>}
         </div>

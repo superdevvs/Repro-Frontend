@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { AlertCircle, ChevronLeft, ChevronRight, CreditCard, Loader2, RefreshCw, Search } from 'lucide-react';
@@ -99,7 +100,8 @@ export function ListingStudioSubscriptions({ identity, canReview }: { identity: 
     setSearch(searchInput.trim());
   };
   const filtered = Boolean(search || status);
-  return <div className="space-y-4">
+  const paginationListRef = usePaginationScrollReset(page, { isLoading: subscriptions.isFetching });
+  return <div ref={paginationListRef} data-pagination-list className="space-y-4">
     <div className="flex items-start justify-between gap-3">
       <p className="text-sm text-muted-foreground">{canReview ? 'Website subscriptions and payments sync here automatically.' : 'Website subscriptions for clients assigned to you appear here automatically.'}</p>
       <Button variant="ghost" size="icon" className="shrink-0" aria-label="Refresh subscriptions" disabled={subscriptions.isFetching} onClick={() => subscriptions.refetch()}><RefreshCw className={`h-4 w-4 ${subscriptions.isFetching ? 'animate-spin' : ''}`} /></Button>

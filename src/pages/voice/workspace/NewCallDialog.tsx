@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -88,6 +89,7 @@ export default function NewCallDialog({ trigger, initialTo = '', initialFrom = '
     onError: (error) => toast({ title: 'Unable to start the call', description: error instanceof Error ? error.message : 'Check calling readiness.', variant: 'destructive' }),
   });
   const close = (next: boolean) => { if (call.isPending) return; if (!next || canOperate) setOpen(next); };
+  const paginationListRef = usePaginationScrollReset(page, { isLoading: directory.isFetching });
   return <Dialog open={open} onOpenChange={close}>
     {trigger && <DialogTrigger asChild disabled={!canOperate}>{trigger}</DialogTrigger>}
     <DialogContent ref={dialog} className="calls-workspace calls-new-call sm:max-w-[600px] lg:max-w-[1040px]" onOpenAutoFocus={(event) => { fitViewport(); if (window.innerWidth < 1024) { event.preventDefault(); dialog.current?.focus({ preventScroll: true }); } }}>
@@ -97,7 +99,7 @@ export default function NewCallDialog({ trigger, initialTo = '', initialFrom = '
         <h3 className="hidden text-sm font-semibold lg:block">Find someone</h3>
         <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--calls-muted)]" /><Input aria-label="Search everyone or enter a number" className="calls-search pl-10" placeholder="Search everyone or enter a number" value={search} onChange={(event) => { const value = event.target.value; setSearch(value); setPage(1); if (/^[+\d\s().-]+$/.test(value)) { setTo(value); setSelectedName(''); } }} /></div>
         <div className="calls-filter-row" aria-label="Directory roles">{directoryRoles.slice(0, 4).map(([value, label]) => <button key={value} type="button" className="calls-filter" data-active={role === value} aria-pressed={role === value} onClick={() => { setRole(value); setPage(1); }}>{label}</button>)}</div>
-        <div className="calls-new-call-results space-y-2 overflow-y-auto p-0.5" aria-label="Call directory" tabIndex={0}>
+        <div ref={paginationListRef} data-pagination-list className="calls-new-call-results space-y-2 overflow-y-auto p-0.5" aria-label="Call directory" tabIndex={0}>
           {directory.isLoading && <p role="status" className="p-3 text-sm text-[var(--calls-muted)]">Loading people…</p>}
           {directory.isError && <div role="alert" className="text-sm text-[var(--calls-danger)]">Could not load people. Enter a phone number or <button type="button" className="underline" onClick={() => void directory.refetch()}>try again</button>.</div>}
           {directory.data?.data.map((person) => <button key={person.id} type="button" disabled={!person.callable} className="calls-panel calls-item flex w-full items-center gap-3 p-3 text-left disabled:opacity-50" data-selected={to === person.phone} onClick={() => { setTo(person.phone || ''); setSelectedName(person.name); }}><CallsAvatar initials={nameInitials(person.name)} size={36} /><span className="min-w-0 flex-1"><span className="block truncate text-sm font-semibold">{person.name}</span><span className="block truncate text-xs text-[var(--calls-muted)]">{directoryRoleLabel(person.role)} · {person.phone || 'No phone number'}</span></span></button>)}

@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { PageSearch } from '@/components/search/PageSearch';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -280,6 +281,7 @@ export function EditingManagerVerificationView({
     }
   };
 
+  const paginationListRef = usePaginationScrollReset(currentPage, { pageSize: rowsPerPage, isLoading: loading });
   return (
     <>
       <div className="space-y-4 sm:space-y-6">
@@ -393,7 +395,7 @@ export function EditingManagerVerificationView({
             Compare editor service subtotal against linked invoice subtotal, with tax shown separately.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent ref={paginationListRef} data-pagination-list className="space-y-4">
           {loading ? (
             <div className="rounded-lg border border-dashed px-6 py-10 text-center text-sm text-muted-foreground">
               Loading accounting verification data...

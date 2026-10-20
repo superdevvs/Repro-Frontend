@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
 import { useTravelFeasibility, type TravelController } from '@/features/travel/useTravelFeasibility';
 import { approvalScheduleChanges } from './approvalScheduleChanges';
@@ -66,9 +67,10 @@ export function MultiUnitApprovalDialog({ open, onClose, source, photographers, 
       setError(Object.values(data?.errors ?? {}).flat().join(' ') || data?.message || 'Approval failed. Review the assignments and try again.');
     } finally { setBusy(false); }
   };
+  const paginationListRef = usePaginationScrollReset(page);
   return <Dialog open={open} onOpenChange={value => { if (!value && !busy) onClose(); }}><DialogContent data-shoot-dialog data-shoot-layout={editor.layout} data-shoot-short={editor.short} style={editor.style} className="shoot-editor-shell flex flex-col overflow-hidden p-0">
     <DialogHeader data-shoot-header className="shrink-0 border-b px-4 pb-4 pt-5 text-left sm:px-6"><DialogTitle className="pr-12 text-lg">Approve booking</DialogTitle><DialogDescription className="pr-8"><span className="block break-words font-medium text-foreground">{shoot.location?.address}</span><span className="block mt-1">{shoot.client?.name} · {lines.length} services · {units.length} {units.length === 1 ? 'unit / area' : 'units / areas'}</span></DialogDescription></DialogHeader>
-    <div data-shoot-body className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
+    <div ref={paginationListRef} data-pagination-list data-shoot-body className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6">
       <div className="shoot-editor-toolbar">
         <div className="min-w-0"><ShootUnitScopeBar variant="compact" shoot={shoot} disabled={busy} /></div>
         <div className="min-w-0 flex-1"><TravelFeasibilityPanel compact travel={travel} /></div>

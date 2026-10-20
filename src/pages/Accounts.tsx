@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import type { UserData } from '@/types/auth';
 import { PageSearch } from '@/components/search/PageSearch';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
@@ -1296,6 +1297,7 @@ export default function Accounts() {
     }
   };
 
+  const paginationListRef = usePaginationScrollReset(currentPage, { pageSize: itemsPerPage, isLoading: loading || (useServerSearch && accountSearch.isFetching) });
   return (
     <DashboardLayout>
       <div className="space-y-3 px-0 pt-1.5 pb-3 sm:space-y-4 sm:px-6 sm:pb-6 sm:pt-0">
@@ -1406,7 +1408,7 @@ export default function Accounts() {
             )}
           </div>
 
-          <TabsContent value="accounts" className="space-y-3 sm:space-y-6">
+          <TabsContent ref={paginationListRef} data-pagination-list value="accounts" className="space-y-3 sm:space-y-6">
             {/* Stats Cards - role pills for admin/superadmin and sales reps */}
             {(isAdminOrSuperAdmin || isSalesRep) && (
               <AccountsStatsCards

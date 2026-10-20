@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
@@ -20,7 +21,8 @@ export default function SearchPage() {
   useEffect(() => { if (draft === query) return; const timer = setTimeout(() => setParams({ search: draft, scope }), 250); return () => clearTimeout(timer); }, [draft, query, scope, setParams]);
   const results = useQuery({ queryKey: ['contextual-search-full', search?.identity, scope, query, page],
     queryFn: ({ signal }) => contextualSearch.search(scope, query, {}, page, signal), enabled: !!search?.enabled && !!query.trim(), retry: false });
-  return <DashboardLayout><div className="mx-auto w-full max-w-5xl space-y-4">
+  const paginationListRef = usePaginationScrollReset(page, { isLoading: results.isFetching });
+  return <DashboardLayout><div ref={paginationListRef} data-pagination-list className="mx-auto w-full max-w-5xl space-y-4">
     <PageHeader title="Search results" description="Results from workspaces you can access." />
     <div className="flex flex-wrap gap-2"><PageSearch searchId={`global-results-${scope}`} scope={scope} scopeLabel={scope === "everywhere" ? "Everywhere" : search?.scopes.find(item => item.id === scope)?.label ?? "Results"} aria-label="Search everywhere" placeholder="Search everywhere…" value={draft} maxLength={200} onChange={event => setDraft(event.target.value)} className="min-w-0 flex-1" /><select aria-label="Result type" className="rounded-md border bg-background px-3" value={scope} onChange={event => setParams({ search: query, scope: event.target.value })}><option value="everywhere">Everywhere</option>{search?.scopes.filter(item => !item.local).map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></div>
     {!search?.enabled && <p>Search is not available yet.</p>}

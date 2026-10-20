@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import type { Dispatch, SetStateAction } from 'react';
 import { Activity, ChevronLeft, ChevronRight, Download, Filter as FilterIcon, LayoutGrid, List as ListIcon, ListChecks, NotebookPen, Receipt, RefreshCw, Send, Wallet } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -97,6 +98,7 @@ export function EditorSelfEarningsPanel({
   sendLoading,
   resolveEffective,
 }: EditorSelfEarningsPanelProps) {
+  const paginationListRef = usePaginationScrollReset(shootListPage, { isLoading: detailLoading || loading });
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -221,7 +223,7 @@ export function EditorSelfEarningsPanel({
               </span>
             </div>
           </CardHeader>
-          <CardContent className="flex flex-1 flex-col gap-2 px-2 pb-3">
+          <CardContent ref={paginationListRef} data-pagination-list className="flex flex-1 flex-col gap-2 px-2 pb-3">
             {totalShoots === 0 ? (
               <div className="rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
                 No shoots match the current filters.

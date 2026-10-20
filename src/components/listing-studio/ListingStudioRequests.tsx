@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Check, ChevronLeft, ChevronRight, Clock3, Loader2, RefreshCw } from 'lucide-react';
@@ -44,7 +45,8 @@ export function ListingStudioRequests({ catalog, canReview, identity, refreshVer
   const [page, setPage] = useState(1);
   const requests = useQuery({ queryKey: ['listing-studio-requests', identity, page, refreshVersion], queryFn: () => listingStudioService.requests(page) });
   const lastPage = requests.data?.meta.last_page;
-  return <div className="space-y-4">
+  const paginationListRef = usePaginationScrollReset(page, { isLoading: requests.isFetching });
+  return <div ref={paginationListRef} data-pagination-list className="space-y-4">
     <div className="flex items-center justify-between gap-3"><p className="text-sm text-muted-foreground">{canReview ? 'Review signup, callback and change requests.' : 'Track your requests and responses from the team.'}</p><Button variant="ghost" size="icon" aria-label="Refresh requests" disabled={requests.isFetching} onClick={() => requests.refetch()}><RefreshCw className={`h-4 w-4 ${requests.isFetching ? 'animate-spin' : ''}`} /></Button></div>
     {requests.isPending && <div role="status" className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />Loading requests…</div>}
     {requests.isError && <div role="alert" className="rounded-xl border border-destructive/30 p-4 text-sm"><p className="text-destructive">Unable to load requests.</p><Button className="mt-3" variant="outline" size="sm" onClick={() => requests.refetch()}>Try again</Button></div>}

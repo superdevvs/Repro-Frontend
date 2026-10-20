@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { PageSearch } from '@/components/search/PageSearch';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { useMemo } from 'react';
@@ -85,6 +86,7 @@ export const SmsThreadList = ({
     });
   }, [threads, groupsQuery.data]);
 
+  const paginationListRef = usePaginationScrollReset(meta?.current_page ?? 1, { isLoading: isRefreshing });
   return (
     <div className="flex h-full min-h-0 flex-col bg-background lg:border-r lg:border-border/70">
       <div className="border-b border-border/70 p-3 sm:p-4">
@@ -151,7 +153,7 @@ export const SmsThreadList = ({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
+      <div ref={paginationListRef} data-pagination-list className="flex-1 overflow-y-auto">
         {error ? <div role="alert" className="p-4 text-sm">Could not load conversations. <Button variant="link" onClick={onRefresh}>Retry</Button></div> : threads.length === 0 ? (
           <EmptyState icon="conversations" title={isRefreshing ? 'Loading conversations…' : search.trim() ? 'No matching conversations.' : scope === 'system' ? 'No system messages.' : 'No conversations yet.'} size="compact" />
         ) : (

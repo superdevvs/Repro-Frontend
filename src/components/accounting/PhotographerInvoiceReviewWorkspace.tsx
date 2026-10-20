@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { PageSearch } from '@/components/search/PageSearch';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import {triggerInvoicesRefresh} from '@/realtime/realtimeRefreshBus';
@@ -483,6 +484,7 @@ export function PhotographerInvoiceReviewWorkspace({
     }
   };
 
+  const paginationListRef = usePaginationScrollReset(page, { pageSize, isLoading: queueLoading });
   return (
     <Tabs
       value={workspaceTab}
@@ -529,7 +531,7 @@ export function PhotographerInvoiceReviewWorkspace({
                 {STATUS_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </div>
-            <div className="ar-queue-list" aria-busy={queueLoading}>
+            <div ref={paginationListRef} data-pagination-list className="ar-queue-list" aria-busy={queueLoading}>
               {queueLoading ? <div className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground"><Loader2 className="size-4" /> Loading invoices…</div> : queue.length === 0 ? <EmptyQueueState statusLabel={selectedStatusLabel} payeePlural={resolvedPluralLabel.toLowerCase()} /> : queue.map((invoice) => {
                 const payee = (role === 'salesRep' ? invoice.salesRep : invoice.photographer) ?? invoice.payee;
                 return <div key={invoice.id} className={cn('ar-queue-row', invoice.id === selectedInvoiceId && 'ar-selected')}>

@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { PageSearch } from '@/components/search/PageSearch';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import {Input} from '@/components/ui/input';
@@ -407,6 +408,7 @@ export function InvoiceList({
     }
   };
 
+  const paginationListRef = usePaginationScrollReset(server?.page ?? currentPage, { pageSize, isLoading: loading });
   return (
     <div className="w-full">
 {sendInvoice&&<SendInvoiceDialog invoice={sendInvoice} isOpen onClose={()=>setSendInvoice(null)} onSent={()=>triggerInvoicesRefresh()}/>}
@@ -490,7 +492,7 @@ export function InvoiceList({
           />
         </div>
 
-        <div role="region" aria-label="Invoice results, scroll for more" tabIndex={0} className="max-h-[430px] overflow-auto overscroll-contain">
+        <div ref={paginationListRef} data-pagination-list role="region" aria-label="Invoice results, scroll for more" tabIndex={0} className="max-h-[430px] overflow-auto overscroll-contain">
           {viewMode === 'list' ? (
             isMobile ? (
               <div className="space-y-2 p-3">

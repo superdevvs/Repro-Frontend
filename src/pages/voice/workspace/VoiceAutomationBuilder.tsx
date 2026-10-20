@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Archive, ArrowRight, Check, Clock3, History, ListTodo, Pencil, PhoneCall, Plus, RotateCcw, Workflow } from 'lucide-react';
@@ -35,6 +36,7 @@ export function VoiceAutomationBuilder() {
   const archive = useMutation({ mutationFn: archiveVoiceAutomationRule, onSuccess: () => { refresh(); toast({ title: 'Rule archived', description: 'Pending callbacks were cancelled. Existing tasks and run history remain. Standard automation stays suppressed.' }); }, onError: (error) => toast({ title: 'Could not archive rule', description: automationError(error), variant: 'destructive' }) });
   const task = useMutation({ mutationFn: updateVoiceAutomationTask, onSuccess: refresh, onError: (error) => toast({ title: 'Could not update task', description: automationError(error), variant: 'destructive' }) });
 
+  const paginationListRef = usePaginationScrollReset(page, { isLoading: runs.isFetching });
   return <section className="space-y-4" aria-labelledby="custom-rules-title">
     <div className="calls-panel overflow-hidden">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--calls-border)] p-5">
@@ -54,7 +56,7 @@ export function VoiceAutomationBuilder() {
         {(rules.data?.managed_triggers.length ?? 0) > 0 && <p className="text-xs text-[var(--calls-muted)]">Custom rules own their triggers, including after disabling or archiving. The matching standard toggle stays suppressed. Multiple enabled rules can create separate actions for the same event.</p>}
       </div>
     </div>
-    <div className="calls-panel p-4 sm:p-5">
+    <div ref={paginationListRef} data-pagination-list className="calls-panel p-4 sm:p-5">
       <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="flex items-center gap-2 font-semibold"><History className="h-4 w-4 text-[var(--calls-brand)]" />Workflow run history</h3><label className="flex items-center gap-2 text-sm"><span>Show</span><select aria-label="Filter workflow history" className="h-11 max-w-64 rounded-md border border-[var(--calls-border)] bg-[var(--calls-surface)] px-2" value={ruleFilter ?? ''} onChange={(event) => { setRuleFilter(event.target.value ? Number(event.target.value) : undefined); setPage(1); }}><option value="">All rules, including archived</option>{rules.data?.rules.map((rule) => <option key={rule.id} value={rule.id}>{rule.name}</option>)}</select></label></div>
       <p className="mt-2 text-xs text-[var(--calls-muted)]">One recorded outcome per rule and source event. Callback status follows the actual call; a queued call is not yet a completed conversation.</p>
       <div className="mt-4 space-y-3">

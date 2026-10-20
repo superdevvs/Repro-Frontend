@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { PageSearch } from '@/components/search/PageSearch';
 import { PaymentStatusFilter } from './PaymentStatusFilter'
 import { EmptyState } from '@/components/ui/empty-state';
@@ -488,6 +489,7 @@ export function ShootHistoryView(props: ShootHistoryViewProps) {
   } = props
 
   const activeView = activeTab === 'history' ? historyFilters.viewAs : viewMode
+  usePaginationScrollReset(`${activeTab}:${activeTab === 'history' ? historyMeta?.current_page ?? 1 : operationalMeta?.current_page ?? operationalPage}`, { pageSize, isLoading: props.searchLoading, targetRef: gridContainerRef });
   // xl+ Shoot History calendar owns overflow inside the shell (DashboardLayout
   // fillDesktopCalendar). List/grid/map keep an inner page scroller instead.
   const fillDesktopCalendar = useMediaQuery('(min-width: 1280px)')

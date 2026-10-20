@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
@@ -283,6 +284,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
     [],
   );
 
+  const paginationListRef = usePaginationScrollReset(currentPage, { pageSize, isLoading: loading });
   if (loading) {
     return <WeeklyInvoiceLoadingState message={reviewCopy.loading} />;
   }
@@ -359,7 +361,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
               </select>
             </label>
           </div>
-          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]" tabIndex={0} aria-label="Weekly invoice history">
+          <div ref={paginationListRef} data-pagination-list className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1 [scrollbar-gutter:stable]" tabIndex={0} aria-label="Weekly invoice history">
             {pagedInvoices.map((invoice) => {
               const active = detailInvoice?.id === invoice.id;
               const status = approvalStatusConfig[invoice.approval_status] || approvalStatusConfig.pending;

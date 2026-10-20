@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { Link } from 'react-router-dom';
 import { ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import type { OverdueClientsState } from '@/features/dashboard/hooks/useOverdueC
 const money = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 
 export function OverdueClientsPanel({ overdue }: { overdue: OverdueClientsState }) {
+  const paginationListRef = usePaginationScrollReset(overdue.page, { isLoading: overdue.loading });
   if (overdue.loading) return <p role="status" className="p-3 text-sm text-muted-foreground">Loading overdue clients...</p>;
   if (overdue.error) return (
     <div role="alert" className="space-y-2 p-3 text-sm">
@@ -18,7 +20,7 @@ export function OverdueClientsPanel({ overdue }: { overdue: OverdueClientsState 
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <p className="text-xs text-muted-foreground">Unpaid balances more than 30 days after completion and delivery.</p>
       {!overdue.clients.length ? <EmptyState icon="clear" title="No overdue clients." size="compact" /> : (
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+        <div ref={paginationListRef} data-pagination-list className="min-h-0 flex-1 space-y-2 overflow-y-auto">
           {overdue.clients.map((client) => (
             <details key={client.id} className="group rounded-lg border border-border/60 bg-muted/20 p-2.5">
               <summary className="flex cursor-pointer list-none items-start gap-2 [&::-webkit-details-marker]:hidden">

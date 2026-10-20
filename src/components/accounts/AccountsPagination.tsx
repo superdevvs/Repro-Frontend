@@ -74,7 +74,7 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
             value={itemsPerPage.toString()}
             onValueChange={(value) => onItemsPerPageChange(parseInt(value))}
           >
-            <SelectTrigger className="h-7 w-[60px] sm:w-[70px] text-xs">
+            <SelectTrigger aria-label="Accounts per page" className="h-7 w-[60px] sm:w-[70px] text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -94,6 +94,7 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
           size="icon"
           className="hidden sm:inline-flex h-8 w-8"
           onClick={() => onPageChange(1)}
+          aria-label="First accounts page"
           disabled={currentPage === 1}
         >
           <ChevronsLeft className="h-4 w-4" />
@@ -103,6 +104,7 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
           size="icon"
           className="h-7 w-7 sm:h-8 sm:w-8"
           onClick={() => onPageChange(currentPage - 1)}
+          aria-label="Previous accounts page"
           disabled={currentPage === 1}
         >
           <ChevronLeft className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -119,6 +121,8 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
                 size="icon"
                 className="h-8 w-8 text-sm"
                 onClick={() => onPageChange(page as number)}
+                aria-label={`Go to accounts page ${page}`}
+                aria-current={currentPage === page ? 'page' : undefined}
               >
                 {page}
               </Button>
@@ -136,6 +140,7 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
           size="icon"
           className="h-7 w-7 sm:h-8 sm:w-8"
           onClick={() => onPageChange(currentPage + 1)}
+          aria-label="Next accounts page"
           disabled={currentPage === totalPages}
         >
           <ChevronRight className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
@@ -145,6 +150,7 @@ export const AccountsPagination: React.FC<AccountsPaginationProps> = ({
           size="icon"
           className="hidden sm:inline-flex h-8 w-8"
           onClick={() => onPageChange(totalPages)}
+          aria-label="Last accounts page"
           disabled={currentPage === totalPages}
         >
           <ChevronsRight className="h-4 w-4" />

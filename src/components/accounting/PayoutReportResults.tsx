@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { PageSearch } from '@/components/search/PageSearch';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { useMemo, useState } from 'react';
@@ -18,6 +19,7 @@ export function PayoutReportResults({ rows }: { rows: PayoutReportRow[] }) {
   const visible = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
   const selected = filtered.find((row) => row.key === selectedKey) ?? visible[0];
   const total = rows.reduce((sum, row) => sum + row.payout, 0);
+  const paginationListRef = usePaginationScrollReset(page, { pageSize });
   return <>
     <div className="ar-summary">
       <div><span>Report payout</span><strong>{formatCurrency(total)}</strong></div>
@@ -31,7 +33,7 @@ export function PayoutReportResults({ rows }: { rows: PayoutReportRow[] }) {
           <div className="flex items-center justify-between gap-2"><h3 className="text-sm font-semibold">Payout breakdown</h3><span className="text-xs text-muted-foreground">{filtered.length} payees</span></div>
           <PageSearch scope="payouts" scopeLabel="Report payees" searchId="payouts" priority={20} searchResults={pageSearchResults(filtered, 'payouts', '/accounting')} aria-label="Search report payees" value={search} onChange={(event) => { setSearch(event.target.value); setPage(1); setSelectedKey(''); }} placeholder="Search name or email" className="h-9" />
         </div>
-        <div className="ar-queue-list ar-table-scroll"><table className="ar-table ar-report-table">
+        <div ref={paginationListRef} data-pagination-list className="ar-queue-list ar-table-scroll"><table className="ar-table ar-report-table">
           <thead><tr><th>Payee</th><th>Shoots</th><th>Basis</th><th className="text-right">Payout</th></tr></thead>
           <tbody>{visible.map((row) => <tr key={row.key} className={selected?.key === row.key ? 'bg-primary/5' : ''}>
             <td><button className="text-left font-medium hover:text-primary" onClick={() => setSelectedKey(row.key)} aria-pressed={selected?.key === row.key}>{row.name}</button><p className="mt-1 text-[11px] text-muted-foreground">{groupLabel[row.group]}</p></td>

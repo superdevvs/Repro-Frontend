@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { apiClient } from '@/services/api';
 import { studioError } from '@/services/studioWorkspaceService';
@@ -24,6 +25,8 @@ export function EditingTasks({ shootId, open: controlledOpen, onOpenChange, hide
   const setOpen = (value: boolean) => { setInternalOpen(value); onOpenChange?.(value); };
   const [tasks, setTasks] = useState<Task[]>([]);
   const [page, setPage] = useState(1);
+  const [loadedPage, setLoadedPage] = useState<number | null>(null);
+  const paginationListRef = usePaginationScrollReset(page, { isLoading: loadedPage !== page });
   const [lastPage, setLastPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -36,8 +39,8 @@ export function EditingTasks({ shootId, open: controlledOpen, onOpenChange, hide
     if (!allowed) return;
     try {
       const { data } = await apiClient.get<{ data: Task[]; last_page: number }>(`/editing-tasks?page=${page}${shootId ? `&shoot_id=${shootId}` : ''}`, { signal });
-      setTasks(data.data); setLastPage(data.last_page);
-    } catch (e) { if (!signal?.aborted) setError(studioError(e)); }
+      setTasks(data.data); setLastPage(data.last_page); setLoadedPage(page);
+    } catch (e) { if (!signal?.aborted) { setError(studioError(e)); setLoadedPage(page); } }
   }, [allowed, page, shootId]);
   useEffect(() => { setTasks([]); setInternalOpen(false); }, [role, user?.id]);
   useEffect(() => {
@@ -92,7 +95,7 @@ export function EditingTasks({ shootId, open: controlledOpen, onOpenChange, hide
     {!hideTrigger && <Button variant="outline" size="sm" className="mb-3 w-full shrink-0 justify-between" onClick={() => setOpen(true)}>Editing tasks<ChevronRight className="h-3.5 w-3.5" aria-hidden="true" /></Button>}
     <Dialog open={open} onOpenChange={value => { if (!busy) setOpen(value); }}><DialogContent className="flex max-h-[90dvh] max-w-4xl flex-col">
       <DialogHeader><DialogTitle>Editing tasks</DialogTitle><DialogDescription>Exact media assignments, saved returns and progress for each request.</DialogDescription></DialogHeader>
-      <div className="min-h-0 space-y-4 overflow-auto">
+      <div ref={paginationListRef} data-pagination-list className="min-h-0 space-y-4 overflow-auto">
         {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {message && <p role="status" className="text-sm">{message}</p>}
         <Button variant="outline" size="sm" disabled={!!busy} onClick={() => void load()}>Refresh tasks</Button>

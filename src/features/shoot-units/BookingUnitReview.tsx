@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,6 +13,7 @@ export function BookingUnitReview({ open, onClose, photographers }: { open: bool
   const units = useBookingUnits();
   const [query, setQuery] = useState('');
   const [page, setPage] = useState(0);
+  const paginationListRef = usePaginationScrollReset(page);
   if (!units?.enabled) return null;
   const matches = units.draft.units.filter(unit => unit.label.toLowerCase().includes(query.toLowerCase()));
   const rows = matches.slice(page * 8, page * 8 + 8);
@@ -19,7 +21,7 @@ export function BookingUnitReview({ open, onClose, photographers }: { open: bool
     <DialogContent className="flex max-h-[90dvh] w-[calc(100vw-1rem)] max-w-2xl flex-col overflow-hidden rounded-xl p-4">
       <DialogHeader><DialogTitle>Unit booking breakdown</DialogTitle><DialogDescription>Review each unit’s access, services, appointments, and prices.</DialogDescription></DialogHeader>
       <Input aria-label="Search unit breakdown" placeholder="Search units…" value={query} onChange={event => { setQuery(event.target.value); setPage(0); }} />
-      <div className="min-h-0 space-y-3 overflow-y-auto">
+      <div ref={paginationListRef} data-pagination-list className="min-h-0 space-y-3 overflow-y-auto">
         {rows.map(unit => <section key={draftUnitKey(unit)} aria-label={`${unit.label} booking`} className="space-y-2 rounded-lg border p-3">
           <h3 className="font-semibold">{unit.label}</h3>
           <p className="text-xs text-muted-foreground">{unit.beds ?? 0} beds · {unit.baths ?? 0} baths · {unit.sqft?.toLocaleString() ?? '—'} sq ft</p>

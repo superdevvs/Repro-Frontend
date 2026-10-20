@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 
 import React, { useState } from 'react';
 import { UserIcon, ChevronRightIcon, MapPinIcon, PhoneIcon, MailIcon, Building2Icon, GlobeIcon, Camera } from 'lucide-react';
@@ -75,8 +76,9 @@ export const ClientCards: React.FC<ClientCardsProps> = ({
     return colors[hash % colors.length];
   };
 
+  const paginationListRef = usePaginationScrollReset(currentPage, { pageSize: cardsPerPage });
   return (
-    <div className="p-4 space-y-4 client-cards-container">
+    <div ref={paginationListRef} data-pagination-list className="p-4 space-y-4 client-cards-container">
       {clients.length > 0 ? (
         <>
           <AnimatePresence mode="wait">

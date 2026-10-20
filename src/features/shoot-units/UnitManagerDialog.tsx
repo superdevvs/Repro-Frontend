@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import React, { useEffect, useMemo, useState } from 'react';
 import type { ShootUnit } from '@/types/shoots';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
@@ -55,8 +56,9 @@ export function UnitManagerDialog({ open, onClose, units, onChange, activeUnitId
     const template = units.find(unit => draftUnitKey(unit) === activeUnitId);
     change([...units, ...labels.map(label => makeUnitDraft({ label, sqft: template?.sqft ?? null, beds: template?.beds ?? null, baths: template?.baths ?? null, access_notes: template?.access_notes ?? '', kind: template?.kind ?? 'unit' }))]);
   };
+  const paginationListRef = usePaginationScrollReset(page);
   const content = <>
-    <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
+    <div ref={paginationListRef} data-pagination-list className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6">
       {editing ? <form id="unit-details-form" onSubmit={save} className="space-y-4">
         <div><Label htmlFor="unit-label">Unit or common area label</Label><Input id="unit-label" value={editing.label} onChange={event => setEditing({ ...editing, label: event.target.value })} required maxLength={120} /></div>
         <div><Label htmlFor="unit-kind">Kind</Label><select id="unit-kind" className="h-10 w-full rounded-md border bg-background px-3 text-sm" value={editing.kind} onChange={event => setEditing({ ...editing, kind: event.target.value as ShootUnit['kind'] })}><option value="unit">Unit</option><option value="common_area">Common area</option></select></div>

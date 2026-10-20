@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { formatDistanceToNow } from 'date-fns';
 import {
   Bell,
@@ -131,6 +132,7 @@ export const ClientRequestManagerContent: React.FC = () => {
   const [sortOption, setSortOption] = useState<SortOption>('newest');
   const [activeSection, setActiveSection] = useState<RequestSection>('active');
   const [historyPage, setHistoryPage] = useState(1);
+  const paginationListRef = usePaginationScrollReset(historyPage);
   const [updatingRequestId, setUpdatingRequestId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -461,7 +463,7 @@ export const ClientRequestManagerContent: React.FC = () => {
               <span className="text-xs text-muted-foreground">{resultSummary}</span>
             </div>
 
-            <div data-request-list className="min-h-0 flex-1 overflow-y-auto">
+            <div ref={paginationListRef} data-pagination-list data-request-list className="min-h-0 flex-1 overflow-y-auto">
               {visibleRequests.length === 0 ? (
                 <div className="flex h-full min-h-44 flex-col items-center justify-center px-6 text-center">
                   <span className="mb-3 grid h-11 w-11 place-items-center rounded-full bg-muted text-muted-foreground">

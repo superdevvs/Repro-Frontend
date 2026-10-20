@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { PageSearch } from '@/components/search/PageSearch';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -105,6 +106,7 @@ export function PhotographerShootsTable({ shoots, onViewShoot }: PhotographerSho
   const rangeEnd = Math.min(safePage * pageSize, filteredShoots.length);
   const placeholderImage = getShootPlaceholderSrc(theme);
 
+  const paginationListRef = usePaginationScrollReset(currentPage, { pageSize });
   return (
     <Card className="min-w-0 overflow-hidden border-border/70">
       <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-5">
@@ -119,7 +121,7 @@ export function PhotographerShootsTable({ shoots, onViewShoot }: PhotographerSho
         <select aria-label="Photographer payout status" value={payoutFilter} onChange={(event) => { setPayoutFilter(event.target.value); setCurrentPage(1); }} className="h-9 max-w-full rounded-md border bg-background px-2 text-xs"><option value="all">All payouts</option><option value="paid">Paid</option><option value="pending">Pending</option><option value="upcoming">Upcoming</option></select>
         <span className="text-[11px] text-muted-foreground">All assigned shoots</span>
       </div>
-      <div className="h-[26rem] overflow-auto overscroll-contain [scrollbar-gutter:stable]" tabIndex={0} aria-label="Photographer shoots and earnings">
+      <div ref={paginationListRef} data-pagination-list className="h-[26rem] overflow-auto overscroll-contain [scrollbar-gutter:stable]" tabIndex={0} aria-label="Photographer shoots and earnings">
         {filteredShoots.length === 0 ? <div className="p-8"><EmptyState icon="shoots" title={<>No shoots match these filters</>} size="compact" /></div> : viewMode === 'grid' ? <div className="grid gap-3 p-3 sm:grid-cols-2 xl:grid-cols-3">
           {paginatedShoots.map((shoot) => <ShootEarningsGridCard key={shoot.id} shoot={shoot} user={user} placeholderImage={placeholderImage} onViewShoot={onViewShoot} />)}
         </div> : <table className="w-full min-w-[42rem] text-left text-xs">

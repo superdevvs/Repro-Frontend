@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -44,6 +45,7 @@ export default function RobbieKnowledgePanel({ onAsk }: RobbieKnowledgePanelProp
   const lastPage = pagination?.last_page ?? 1;
   const ask = (title: string, id?: string) => onAsk(`Help me with: ${title}`, { intent: 'support_faq', source: 'knowledge_base', knowledge_article_id: id });
 
+  const paginationListRef = usePaginationScrollReset(page, { isLoading: catalog.isFetching });
   return <section aria-label="Help and guides" className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 px-4 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
     <header className="shrink-0 space-y-2">
       <p className="text-xs font-semibold uppercase tracking-wide text-primary">{roleHelpLabel(user?.role)} support</p>
@@ -56,7 +58,7 @@ export default function RobbieKnowledgePanel({ onAsk }: RobbieKnowledgePanelProp
         <label className="block text-sm"><span className="sr-only">Guide category</span><select aria-label="Guide category" value={category} onChange={(event) => { setCategory(event.target.value); setPage(1); }} className="h-11 w-full rounded-md border border-input bg-background px-3"><option value="">All topics</option>{(catalog.data?.meta.categories ?? []).map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
         <p role="status" className="text-xs text-muted-foreground">{catalog.isLoading ? 'Loading guides…' : catalog.isError ? 'Guides are unavailable' : `${total} guide${total === 1 ? '' : 's'} · ${roleHelpLabel(user?.role)}`}</p>
         {catalog.isError && <div role="alert" className="rounded-lg border p-4 text-sm"><p>We could not load the guides. Try again.</p><Button variant="outline" className="mt-3 min-h-11" onClick={() => void catalog.refetch()}>Retry guides</Button></div>}
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1" aria-label="Guide results">
+        <div ref={paginationListRef} data-pagination-list className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1" aria-label="Guide results">
           {(catalog.data?.data ?? []).map((item) => <Link key={item.id} to={articleUrl(item.id)} aria-current={articleId === item.id ? 'page' : undefined} className={`block rounded-xl border p-4 transition-colors hover:bg-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring ${articleId === item.id ? 'border-primary bg-primary/5' : 'bg-card'}`}><p className="mb-1 text-xs text-muted-foreground">{item.category}</p><h2 className="text-sm font-semibold">{item.title}</h2><p className="mt-1 text-sm text-muted-foreground">{item.summary}</p></Link>)}
         </div>
         {!catalog.isLoading && !catalog.isError && catalog.data?.data.length === 0 && <div className="rounded-xl border border-dashed p-5 text-sm"><p className="font-medium">No matching guide</p><p className="mt-1 text-muted-foreground">Try a shorter phrase or ask Robbie to help describe the issue.</p><Button variant="outline" className="mt-3 min-h-11" onClick={() => ask(query || 'I need help with the dashboard')}>Ask Robbie</Button></div>}

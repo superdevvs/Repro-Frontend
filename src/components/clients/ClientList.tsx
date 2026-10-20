@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,8 +45,9 @@ export const ClientList: React.FC<ClientListProps> = ({
   const currentClients = filteredClients.slice(indexOfFirstClient, indexOfLastClient);
   const totalPages = Math.ceil(filteredClients.length / clientsPerPage);
 
+  const paginationListRef = usePaginationScrollReset(currentPage, { pageSize: clientsPerPage });
   return (
-    <Card className="glass-card">
+    <Card ref={paginationListRef} data-pagination-list className="glass-card">
       <CardHeader className="px-4 py-3 sm:p-6 flex flex-row items-center justify-between">
         <CardTitle className="text-xl">Client Directory</CardTitle>
         {!isMobile && (

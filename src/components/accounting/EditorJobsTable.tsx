@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { EmptyState } from '@/components/ui/empty-state';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Calendar as CalendarIcon, Edit, Eye, Wallet } from 'lucide-react';
@@ -154,8 +155,9 @@ export function EditorJobsTable({ jobs }: EditorJobsTableProps) {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
   };
 
+  const paginationListRef = usePaginationScrollReset(currentPage);
   return (
-    <div className="w-full">
+    <div ref={paginationListRef} data-pagination-list className="w-full">
       <Card className="mb-6 overflow-hidden">
         <div className="border-b p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

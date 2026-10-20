@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { PageSearch } from '@/components/search/PageSearch';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -496,6 +497,7 @@ export function PhotographerEquipmentWorkspace({ reportingRange }: { reportingRa
     </div>
   );
 
+  const paginationListRef = usePaginationScrollReset(page, { isLoading: loading });
   return (
     <div className="space-y-4">
       <Card>
@@ -556,7 +558,7 @@ export function PhotographerEquipmentWorkspace({ reportingRange }: { reportingRa
             <Button variant="outline" onClick={loadEquipments}>Search</Button>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent ref={paginationListRef} data-pagination-list className="space-y-3">
           {loading ? (
             <div className="rounded-md border p-6 text-sm text-muted-foreground">Loading equipments...</div>
           ) : filteredEquipments.length === 0 ? (

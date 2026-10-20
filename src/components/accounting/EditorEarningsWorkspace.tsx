@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { PageSearch } from '@/components/search/PageSearch';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import {triggerInvoicesRefresh} from '@/realtime/realtimeRefreshBus';
@@ -547,6 +548,7 @@ function EditorAdminEarningsWorkspace({ mode = 'admin', startDate: reportingStar
       resolveEffective={resolveEffective}
     />
   );
+  const paginationListRef = usePaginationScrollReset(editorPage, { pageSize: editorPageSize, isLoading: loading });
   return (
     <div className="flex flex-col gap-4">
       {isAdmin ? (
@@ -638,7 +640,7 @@ function EditorAdminEarningsWorkspace({ mode = 'admin', startDate: reportingStar
               <CardTitle className="text-base">Editors Queue</CardTitle>
               <CardDescription>{summaryResponse?.data.length || 0} editors in this filtered payout view</CardDescription>
             </CardHeader>
-            <CardContent className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-3 [scrollbar-gutter:stable]" tabIndex={0} aria-label="Editor earnings queue">
+            <CardContent ref={paginationListRef} data-pagination-list className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-3 pb-3 [scrollbar-gutter:stable]" tabIndex={0} aria-label="Editor earnings queue">
               {(summaryResponse?.data || []).length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border/70 px-4 py-10 text-center text-sm text-muted-foreground">
                   No editor earnings were found for the current filters.

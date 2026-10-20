@@ -1,3 +1,4 @@
+import { usePaginationScrollReset } from '@/hooks/usePaginationScrollReset';
 import { PageSearch } from '@/components/search/PageSearch';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -113,6 +114,7 @@ export function EmailMessageList({
 
   const activeFilterLabel = FILTER_OPTIONS.find((o) => o.value === filterStatus)?.label || 'All Messages';
 
+  const paginationListRef = usePaginationScrollReset(page, { isLoading });
   return (
     <>
       {/* Compact Single-Row Header */}
@@ -167,7 +169,7 @@ export function EmailMessageList({
       </div>
 
       {/* Message List */}
-      <div className="flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+5rem)] sm:pb-0">
+      <div ref={paginationListRef} data-pagination-list className="flex-1 overflow-y-auto pb-[calc(env(safe-area-inset-bottom,0px)+5rem)] sm:pb-0">
         {isLoading ? (
           <div role="status" aria-label="Loading email messages">
             {[...Array(5)].map((_, index) => <div key={index} className="p-4 border-b border-border"><Skeleton className="h-16 w-full" /></div>)}
