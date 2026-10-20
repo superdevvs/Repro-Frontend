@@ -14,6 +14,19 @@ const options = (overrides: Partial<Options> = {}): Options => ({
   ...overrides,
 });
 describe('prospective capture duration for booking availability', () => {
+  it('allows a superadmin hours exception to be selected while retaining booked and unavailable blocks', () => {
+    const base = options({ workingWindowMinutes: { start: 540, end: 1020 }, hybridTravelEnabled: true,
+      getPhotographerScheduleData: () => ({ id: '9', name: 'Pat', availabilitySlots: [{ start_time: '09:00', end_time: '17:00' }],
+        bookedSlots: [{ start_time: '17:30', end_time: '18:00' }], unavailableSlots: [{ start_time: '18:30', end_time: '19:00' }] }) });
+    const { result, rerender } = renderHook(useBookingIntervalAvailability, { initialProps: base });
+    expect(result.current.isPhotographerTimeDisabled('9', '17:00')).toBe(true);
+    rerender({ ...base, allowOutsideWorkingHours: true });
+    expect(result.current.isPhotographerTimeDisabled('9', '17:00')).toBe(false);
+    expect(result.current.isPhotographerTimeDisabled('9', '17:45')).toBe(true);
+    expect(result.current.isPhotographerTimeDisabled('9', '18:40')).toBe(true);
+    rerender({ ...base, allowOutsideWorkingHours: false });
+    expect(result.current.isPhotographerTimeDisabled('9', '17:00')).toBe(true);
+  });
   it('only removes the fixed buffer when hybrid travel is enabled, retaining real overlaps and hours', () => {
     const base = options({ getPhotographerScheduleData: () => ({ id: '9', name: 'Pat', availabilitySlots: [{ start_time: '09:00', end_time: '17:00' }], bookedSlots: [{ start_time: '09:00', end_time: '09:15' }] }) });
     const { result, rerender } = renderHook(useBookingIntervalAvailability, { initialProps: base });

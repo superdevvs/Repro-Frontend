@@ -89,6 +89,7 @@ export const useSchedulingFormController = ({
   const [availabilityDataDate, setAvailabilityDataDate] = useState('');
   const [hybridEnabledByApi, setHybridEnabledByApi] = useState(false);
   const useHybridTravel = hybridTravelEnabled || hybridEnabledByApi;
+  const allowOutsideWorkingHours = user?.role === 'superadmin' && enforceNewBookingEligibility;
   const retryBookingEligibility = () => setBookingEligibilityRetry(value => value + 1);
   const {
     disabledDates, today, toast, isMobile, isLocationLoading, timeDialogOpen,
@@ -339,19 +340,20 @@ export const useSchedulingFormController = ({
   const { bookingAvailabilityDuration, bookingDurationForPhotographer, isPhotographerTimeDisabled } = useBookingIntervalAvailability({
     selectedServices, serviceSchedules, servicePhotographers, sqft, photographer, defaultServiceDate, defaultServiceTime,
     pickerServiceId, bookingAvailabilityDate, bookingAvailabilityTime, availabilityDataDate,
-    dayAvailability, workingWindowMinutes, getPhotographerScheduleData, hybridTravelEnabled: useHybridTravel,
+    dayAvailability, workingWindowMinutes, getPhotographerScheduleData, hybridTravelEnabled: useHybridTravel, allowOutsideWorkingHours,
   });
 
   const durationGroups = new Map<number, number[]>();
   photographers.forEach(person => { const duration = bookingDurationForPhotographer(person.id); durationGroups.set(duration, [...(durationGroups.get(duration) ?? []), Number(person.id)]); });
   const availabilityDurationKey = JSON.stringify([...durationGroups].map(([duration_minutes, photographer_ids]) => ({ duration_minutes, photographer_ids })));
   const availableTimesForSelectedPhotographer = useMemo(
-    () => buildTimeOptionsForRangePure(
+    () => [...buildTimeOptionsForRangePure(
       5,
       workingWindowMinutes?.start,
       workingWindowMinutes?.end,
-    ).filter((option) => !isPhotographerTimeDisabled(photographer, option)),
-    [isPhotographerTimeDisabled, photographer, workingWindowMinutes]
+    ), ...(allowOutsideWorkingHours ? buildServiceTimeOptions().map(option => option.value) : [])]
+      .filter((option) => !isPhotographerTimeDisabled(photographer, option)),
+    [allowOutsideWorkingHours, isPhotographerTimeDisabled, photographer, workingWindowMinutes]
   );
   const suggestedTimes = useMemo(() => {
     if (!date) return [];

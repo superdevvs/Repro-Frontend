@@ -10,6 +10,7 @@ import type { SchedulingFormProps, SchedulingPhotographerView } from './scheduli
 
 type Options = Required<Pick<SchedulingFormProps, 'selectedServices' | 'serviceSchedules' | 'servicePhotographers' | 'sqft' | 'photographer'>> & {
   hybridTravelEnabled?: boolean;
+  allowOutsideWorkingHours?: boolean;
   defaultServiceDate: string;
   defaultServiceTime: string;
   pickerServiceId?: string | null;
@@ -25,7 +26,7 @@ type Options = Required<Pick<SchedulingFormProps, 'selectedServices' | 'serviceS
 export function useBookingIntervalAvailability({
   selectedServices, serviceSchedules, servicePhotographers, sqft, photographer, defaultServiceDate, defaultServiceTime,
   pickerServiceId, bookingAvailabilityDate, bookingAvailabilityTime, availabilityDataDate,
-  dayAvailability, workingWindowMinutes, getPhotographerScheduleData, hybridTravelEnabled = false,
+  dayAvailability, workingWindowMinutes, getPhotographerScheduleData, hybridTravelEnabled = false, allowOutsideWorkingHours = false,
 }: Options) {
   const units = useBookingUnits();
   const unitDraft = units?.enabled ? units.draft : undefined;
@@ -71,13 +72,13 @@ export function useBookingIntervalAvailability({
     return isBookingIntervalDisabled({
       time: value, travelBufferMinutes: hybridTravelEnabled ? 0 : undefined,
       durationMinutes: durationForSelection(serviceId, requestedDate, value, photographerId),
-      workingWindow: usesMainDay ? workingWindowMinutes : null,
+      workingWindow: !allowOutsideWorkingHours && usesMainDay ? workingWindowMinutes : null,
       blocked: usesMainDay ? dayAvailability?.blocked ?? [] : [],
       bookedSlots: photographerItem?.bookedSlots ?? [],
       unavailableSlots: photographerItem?.unavailableSlots ?? [],
-      availableSlots: netSlots.length ? netSlots : photographerItem?.availabilitySlots ?? [],
+      availableSlots: allowOutsideWorkingHours ? [] : netSlots.length ? netSlots : photographerItem?.availabilitySlots ?? [],
     });
-  }, [hybridTravelEnabled, availabilityDataDate, dayAvailability, defaultServiceDate, durationForSelection, getPhotographerScheduleData, photographer, serviceSchedules, workingWindowMinutes]);
+  }, [allowOutsideWorkingHours, hybridTravelEnabled, availabilityDataDate, dayAvailability, defaultServiceDate, durationForSelection, getPhotographerScheduleData, photographer, serviceSchedules, workingWindowMinutes]);
 
   const bookingDurationForPhotographer = useCallback((id: string | number) => durationForSelection(pickerServiceId, bookingAvailabilityDate, bookingAvailabilityTime, id),
     [durationForSelection, pickerServiceId, bookingAvailabilityDate, bookingAvailabilityTime]);

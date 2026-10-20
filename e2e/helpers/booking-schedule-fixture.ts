@@ -7,7 +7,7 @@ export async function bookingScheduleFixture(page: Page, baseURL: string | undef
   const user = { id: 900503, name: 'Scheduling QA', email: 'schedule@example.test', role, account_status: 'active', email_verified_at: '2026-10-01T09:00:00Z', metadata: { terms_accepted_at: '2026-10-01T09:00:00Z' } };
   const service = { service_group_ids: ['2'], id: '501', name: '10 Exterior HDR', price: 100, quantity: 1, shoot_duration_minutes: draftOptions.catalogDuration ?? 15, booking_duration_default_minutes: draftOptions.catalogDuration ?? 15, photographer_required: true, category: { id: '1', name: 'Photography' }, pricing_type: 'fixed' };
   const people = [{ id: '201', name: 'QA Delmar', role: 'photographer' }, { id: '202', name: 'QA Jaz', role: 'photographer' }];
-  const slots = [{ start_time: '07:00', end_time: '21:00', status: 'available' }];
+  const slots = [{ start_time: '07:00', end_time: scenario === 'outside-hours' || scenario === 'hours-overlap' ? '17:00' : '21:00', status: 'available' }];
   const requests: { path: string; method: string; body: Record<string, unknown> | null }[] = [];
   const previews: ReturnType<typeof feasibility>[] = [];
   const errors: string[] = [];
