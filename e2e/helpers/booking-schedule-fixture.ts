@@ -88,7 +88,7 @@ function feasibility(scenario: Scenario, body: Record<string, unknown>, role = '
   const overlap = scenario === 'overlap' || scenario === 'hours-overlap';
   const priorDuration = ((body.schedule_adjustments as { service_durations?: { duration_minutes: number }[] }[] | undefined)?.[0]?.service_durations?.[0]?.duration_minutes) ?? 75;
   const adjustedDay = scenario === 'adjust-day';
-  const issue = hours || ['incoming', 'outgoing', 'overlap', 'unknown'].includes(scenario) || (adjustedDay && priorDuration > 60);
+  const issue = hours || ['incoming', 'outgoing', 'overlap', 'unknown'].includes(scenario) || (adjustedDay && priorDuration > 65);
   const outgoing = scenario === 'outgoing';
   const unknown = scenario === 'unknown';
   const same = scenario === 'same-building';
@@ -98,7 +98,7 @@ function feasibility(scenario: Scenario, body: Record<string, unknown>, role = '
     : `fixture-confirmation-${rows.map(row => `${row.client_key ?? row.service_id}:${row.duration_minutes}:${row.scheduled_at}`).join('|')}`;
   const start = new Date(String(rows[0]?.scheduled_at ?? body.scheduled_at ?? '2026-10-05T08:30:00-04:00'));
   const end = new Date(start.getTime() + duration * 60_000);
-  const availableMinutes = outgoing ? 30 - duration : 15;
+  const availableMinutes = adjustedDay ? 90 - priorDuration : outgoing ? 30 - duration : 15;
   return {
     enabled: scenario !== 'disabled', status: unknown ? 'review_required' : issue ? 'conflict' : 'available', available: !issue,
     reason_codes: hours ? ['outside_working_hours', ...(overlap ? ['capture_overlap'] : [])] : overlap ? ['capture_overlap'] : issue ? [unknown ? 'travel_review_required' : 'insufficient_travel_time'] : [],
@@ -108,7 +108,7 @@ function feasibility(scenario: Scenario, body: Record<string, unknown>, role = '
     transitions: hours || scenario === 'available' || scenario === 'disabled' || overlap ? [] : [{
       id: 'transition-1', direction: outgoing ? 'outgoing' : 'incoming', source: same ? 'same_building' : unknown ? 'unknown' : 'google_routes',
       required_minutes: same ? 0 : unknown ? null : 25, available_minutes: same ? 0 : availableMinutes, shortfall_minutes: same ? 0 : unknown ? null : Math.max(0, 25 - availableMinutes),
-      reason_code: same ? 'same_building' : unknown ? 'location_unknown' : 'insufficient_travel_time',
+      reason_code: same ? 'same_building' : unknown ? 'location_unknown' : availableMinutes < 25 ? 'insufficient_travel_time' : 'available',
       ...(same || unknown ? {} : { drive_minutes: 18, attribution: 'Google Maps' }),
       candidate_start: start.toISOString(), candidate_end: end.toISOString(),
       neighbor: { shoot_id: 99000, scheduled_at: outgoing ? '2026-10-05T09:00:00-04:00' : '2026-10-05T08:00:00-04:00', end_at: outgoing ? '2026-10-05T09:15:00-04:00' : '2026-10-05T08:15:00-04:00', timezone: 'America/New_York', services: [{ id: 501, name: '10 Exterior HDR' }], photographer: { id: 201, name: 'QA Delmar' }, can_view_details: true },
