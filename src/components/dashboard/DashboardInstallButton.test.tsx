@@ -111,12 +111,15 @@ it('keeps the original deadline through navigation and refresh instead of starti
   expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
 });
 
-it('shows again on the next successful login, including after an early dismissal', () => {
+it('stays dismissed after closing, including after another login and remount', () => {
   render(<DashboardInstallBanner />);
   fireEvent.click(screen.getByRole('button', { name: 'Dismiss Home Screen suggestion' }));
   expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
   act(() => { startDashboardInstallSuggestion(); });
-  expect(screen.getByRole('complementary')).toBeVisible();
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  cleanup();
+  render(<DashboardInstallBanner />);
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
 });
 
 it('does not show when opening an existing session without a fresh login', () => {
@@ -132,4 +135,27 @@ it('expires after a backgrounded page resumes past its deadline', () => {
   vi.setSystemTime(Date.now() + 40_000);
   act(() => { document.dispatchEvent(new Event('visibilitychange')); });
   expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+});
+
+it('stops suggesting after an install click while keeping the instructions available', async () => {
+  render(<DashboardInstallBanner />);
+  fireEvent.click(screen.getByRole('button', { name: 'Add to Home Screen' }));
+  expect(await screen.findByRole('dialog')).toHaveTextContent('Safari');
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Got it' }));
+  act(() => { startDashboardInstallSuggestion(); });
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  cleanup();
+  render(<DashboardInstallBanner />);
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+});
+
+it('allows another login suggestion after a timeout without a click or close', () => {
+  vi.useFakeTimers();
+  startDashboardInstallSuggestion();
+  render(<DashboardInstallBanner />);
+  act(() => { vi.advanceTimersByTime(30_000); });
+  expect(screen.queryByRole('complementary')).not.toBeInTheDocument();
+  act(() => { startDashboardInstallSuggestion(); });
+  expect(screen.getByRole('complementary')).toBeVisible();
 });

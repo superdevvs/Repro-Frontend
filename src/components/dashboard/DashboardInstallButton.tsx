@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useDashboardInstall } from '@/hooks/useDashboardInstall';
 
-export function DashboardInstallButton({ forCalls = false }: { forCalls?: boolean }) {
+export function DashboardInstallButton({ forCalls = false, onActivate }: { forCalls?: boolean; onActivate?: () => void }) {
   const install = useDashboardInstall();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -14,6 +14,7 @@ export function DashboardInstallButton({ forCalls = false }: { forCalls?: boolea
     if (busy) return;
     setBusy(true);
     try {
+      onActivate?.();
       if (install.ios || await install.prompt() === 'unavailable') setOpen(true);
     } finally { setBusy(false); }
   };
