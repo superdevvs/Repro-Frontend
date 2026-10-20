@@ -2,10 +2,11 @@ import { getShootSchedule } from '@/utils/shootSchedule';
 import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import type { TravelPayload, TravelTransition } from './types';
 
-export type DayBooking = { id: string; start: string; end: string; duration_minutes: number; photographer_id: number; label: string; shoot_id: number | null; can_adjust: boolean; expected_edit_version: string | null; target?: boolean };
+export type DayDuration = { key: string; name: string; duration_minutes: number; min_minutes?: number; max_minutes?: number };
+export type DayBooking = { id: string; start: string; end: string; duration_minutes: number; duration_items?: DayDuration[]; photographer_id: number; label: string; shoot_id: number | null; can_adjust: boolean; expected_edit_version: string | null; target?: boolean };
 export type DaySchedule = { date: string; timezone: string; photographer: { id: number; name: string }; bookings: DayBooking[]; schedule_version: string };
 export type VisitScope = { photographerId: number; date: string };
-export type ScheduleChange = { visitScope?: VisitScope; scheduledAt: string; offsetMinutes: number; timezone: string; photographerId?: number; fromStart?: string; fromEnd?: string };
+export type ScheduleChange = { visitScope?: VisitScope; scheduledAt: string; offsetMinutes: number; timezone: string; photographerId?: number; fromStart?: string; fromEnd?: string; serviceDurations?: Record<string, number> };
 export type ScheduleFields = { date?: string; time?: string; duration_minutes?: number };
 
 export function localSchedule(at: string, timezone: string) {
@@ -26,7 +27,7 @@ export function shiftScheduleFields<T extends ScheduleFields>(fields: Record<str
     const at = buildShootScheduleTimestamp(row.date || base.date || '', row.time || base.time || '', change.timezone);
     if (!at) return [key, row];
     const next = localSchedule(new Date(Date.parse(at) + change.offsetMinutes * 60000).toISOString(), change.timezone);
-    return [key, { ...row, ...next }];
+    return [key, { ...row, ...next, ...(change.serviceDurations?.[key] != null ? { duration_minutes: change.serviceDurations[key] } : {}) }];
   }));
 }
 /** Preserve legacy floating clocks when previewing an adjusted draft. */
@@ -57,15 +58,47 @@ export function shiftTravelVisit(payload: TravelPayload, change: ScheduleChange)
     const clock = getShootSchedule({ scheduled_at: typeof row.scheduled_at === 'string' ? row.scheduled_at : undefined, timezone: payload.timezone });
     const timestamp = buildShootScheduleTimestamp(clock.date, clock.time, change.timezone);
     const at = timestamp ? Date.parse(timestamp) : NaN;
-    return Number(row.photographer_id) === change.photographerId && at >= Date.parse(change.fromStart!)
-      && at < Date.parse(change.fromEnd || change.fromStart!) + (change.fromEnd ? 0 : 1);
+    return rowPhotographer(payload, row) === change.photographerId && at === Date.parse(change.fromStart!);
   };
   const next = { ...payload };
   if (matches(payload)) next.scheduled_at = shiftTravelPayload(payload, change.offsetMinutes, change.timezone).scheduled_at;
   for (const field of ['services', 'service_items', 'service_lines']) {
     if (Array.isArray(payload[field])) next[field] = payload[field].map(row => row && typeof row === 'object' && matches(row)
-      ? { ...row, scheduled_at: shiftTravelPayload({ ...payload, scheduled_at: row.scheduled_at }, change.offsetMinutes, change.timezone).scheduled_at } : row);
+      ? { ...row, scheduled_at: shiftTravelPayload({ ...payload, scheduled_at: row.scheduled_at }, change.offsetMinutes, change.timezone).scheduled_at,
+        ...(change.serviceDurations?.[durationKey(row)] != null ? { duration_minutes: change.serviceDurations[durationKey(row)] } : {}) } : row);
   }
+  return next;
+}
+export function durationKey(row: Record<string, unknown>) {
+  return String(row.shoot_service_id ?? row.service_id ?? row.id ?? row.client_key ?? '');
+}
+/** Resolved payload lines already carry booking durations, independent of catalogue prices. */
+export function visitDurationItems(payload: TravelPayload | null, photographer: number, start: string, timezone: string): DayDuration[] {
+  if (!payload) return [];
+  const rows = [payload.service_lines, payload.service_items, payload.services].find(Array.isArray) as Record<string, unknown>[] | undefined;
+  return (rows ?? []).flatMap(row => {
+    const clock = getShootSchedule({ scheduled_at: typeof row.scheduled_at === 'string' ? row.scheduled_at : String(payload.scheduled_at ?? ''), timezone: payload.timezone });
+    const at = buildShootScheduleTimestamp(clock.date, clock.time, timezone);
+    if (!at || rowPhotographer(payload, row) !== photographer || Date.parse(at) !== Date.parse(start)
+      || !(Number(row.duration_minutes) > 0)) return [];
+    return [{ key: durationKey(row), name: String(row.service_name ?? row.name ?? `Service ${row.service_id ?? row.id ?? ''}`), duration_minutes: Number(row.duration_minutes),
+      min_minutes: Number(row.booking_duration_min_minutes) || 5, max_minutes: Number(row.booking_duration_max_minutes) || 300 }];
+  });
+}
+function rowPhotographer(payload: TravelPayload, row: Record<string, unknown>) {
+  const assignments = Array.isArray(payload.service_photographers) ? payload.service_photographers as Record<string, unknown>[] : [];
+  return Number(row.photographer_id ?? assignments.find(item => String(item.service_id) === String(row.service_id ?? row.id))?.photographer_id ?? payload.photographer_id);
+}
+export function scheduleFieldsAfterVisit<T extends ScheduleFields>(payload: TravelPayload, fields: Record<string, T>, change: ScheduleChange) {
+  const shifted = shiftTravelVisit(payload, change);
+  const field = ['service_items', 'services', 'service_lines'].find(key => Array.isArray(payload[key]));
+  const next = { ...fields };
+  if (field) (shifted[field] as Record<string, unknown>[]).forEach((row, index) => {
+    const before = (payload[field] as Record<string, unknown>[])[index];
+    if (row.scheduled_at === before.scheduled_at && row.duration_minutes === before.duration_minutes) return;
+    const key = durationKey(row);
+    next[key] = { ...fields[key], ...getShootSchedule({ scheduled_at: row.scheduled_at, timezone: payload.timezone }), duration_minutes: Number(row.duration_minutes) };
+  });
   return next;
 }
 export function sameDayTransitions(transitions: TravelTransition[], timezone: string) {

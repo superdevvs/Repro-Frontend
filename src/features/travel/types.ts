@@ -41,7 +41,7 @@ export type TravelFeasibility = {
   budget?: { used_elements: number; limit_elements: number; remaining_elements: number; usage_percent: number; alert_level: 0 | 75 | 90 | 100; budget_usd: number };
 };
 export type TravelPayload = Record<string, unknown>;
-export type ScheduleAdjustment = { shoot_id: number; photographer_id: number; from_start: string; scheduled_at: string; expected_edit_version: string };
+export type ScheduleAdjustment = { shoot_id: number; photographer_id: number; from_start: string; scheduled_at: string; expected_edit_version: string; service_durations?: Array<{ shoot_service_id: number; duration_minutes: number }> };
 export type TravelConfirmation = { travel_override?: boolean; travel_override_reason?: string; travel_override_confirmed?: boolean; travel_override_confirmation_version?: string; working_hours_override?: boolean; working_hours_override_confirmed?: boolean; working_hours_override_reason?: string; working_hours_override_confirmation_version?: string; force_save?: boolean; force_save_confirmed?: boolean; force_save_reason?: string; force_save_confirmation_version?: string; travel_location_confirmed?: boolean; schedule_adjustments?: ScheduleAdjustment[]; notify_client?: boolean; notify_photographer?: boolean };
 
 export function readTravelFeasibility(value: unknown): TravelFeasibility | null {

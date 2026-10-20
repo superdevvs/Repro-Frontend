@@ -1,7 +1,7 @@
 import { useOverviewTravel } from '@/features/travel/useOverviewTravel';
 import { useOverviewEditActionRegistration } from './useOverviewEditActionRegistration';
 import { buildForceSaveChanges } from '@/features/travel/forceSaveChanges';
-import { localSchedule, shiftScheduleFields } from '@/features/travel/daySchedule';
+import { localSchedule, scheduleFieldsAfterVisit, shiftTravelVisit } from '@/features/travel/daySchedule';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { buildOverviewEditDraft } from './overviewEditDraft';
 import { getOverviewEditableAddress, syncOverviewAddressDetails } from './overviewAddress';
@@ -413,9 +413,10 @@ export function useShootOverviewEditor({
     perCategoryPhotographers, serviceEditorChanges: serviceEditors.serviceEditorChanges, servicesList, effectiveSqft,
     onScheduleChange: change => {
       const next = localSchedule(change.scheduledAt, change.timezone);
-      const base = getShootSchedule({ ...shoot, ...editedShoot });
-      setServiceSchedules(current => shiftScheduleFields(current, base, change));
-      setEditedShoot(current => ({ ...current, scheduledDate: next.date, time: next.time }));
+      if (!travel.payload) return;
+      setServiceSchedules(current => scheduleFieldsAfterVisit(travel.payload!, current, change));
+      if (shiftTravelVisit(travel.payload, change).scheduled_at !== travel.payload.scheduled_at)
+        setEditedShoot(current => ({ ...current, scheduledDate: next.date, time: next.time }));
     },
     assignment: !isEditMode && assignPhotographerOpen && selectedPhotographerId ? buildAssignmentPayload('photographer_id', selectedPhotographerId) : null });
   const { confirmForceSave, confirmSave } = travel;

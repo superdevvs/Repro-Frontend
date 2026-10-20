@@ -3,7 +3,7 @@ import { toBackendTime, type ServicePackage } from '@/pages/bookShootModel';
 import { resolveBookingTimezone } from '@/pages/bookShootTimezone';
 import { buildBookShootServiceSchedule } from '@/pages/bookShootServiceSchedule';
 import { resolveServicePhotographerId } from '@/utils/photographerAssignment';
-import { resolveServiceShootDuration } from '@/utils/shootDuration';
+import { resolveServiceShootDuration, serviceDurationLimits } from '@/utils/shootDuration';
 import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { useTravelFeasibility } from './useTravelFeasibility';
 import type { TravelPayload } from './types';
@@ -50,6 +50,7 @@ export function useBookingTravel(options: Options) {
       service_name: service.name,
       photographer_name: options.photographers?.find(person => String(person.id) === String(resolveServicePhotographerId(service, servicePhotographers, photographer)))?.name,
       duration_minutes: resolveServiceShootDuration(service, sqft, serviceSchedules[service.id]?.duration_minutes),
+      booking_duration_min_minutes: serviceDurationLimits(service).minMinutes, booking_duration_max_minutes: serviceDurationLimits(service).maxMinutes,
       photographer_id: resolveServicePhotographerId(service, servicePhotographers, photographer),
       scheduled_at: buildBookShootServiceSchedule(service.id, serviceSchedules, day, time, { ...source, timezone }),
     })) }),

@@ -17,17 +17,22 @@ export function bookingDayScheduleHandler({ date, time, setDate, setTime, setSer
         const updated = { ...current };
         services.forEach(service => {
           const row = current[service.id] ?? {};
-          const at = buildShootScheduleTimestamp(row.date ?? (date ? format(date, 'yyyy-MM-dd') : ''), row.time ?? time, change.timezone);
+          const at = buildShootScheduleTimestamp(row.date ?? (date ? format(date, 'yyyy-MM-dd') : ''), toBackendTime(row.time ?? time), change.timezone);
           if (Number(resolveServicePhotographerId(service, assignments, photographer)) === change.photographerId && at
-            && Date.parse(at) >= Date.parse(change.fromStart!) && Date.parse(at) < Date.parse(change.fromEnd || change.fromStart!) + (change.fromEnd ? 0 : 1)) {
-            updated[service.id] = { ...row, ...localSchedule(new Date(Date.parse(at) + change.offsetMinutes * 60000).toISOString(), change.timezone) };
+            && Date.parse(at) === Date.parse(change.fromStart!)) {
+            updated[service.id] = { ...row, ...localSchedule(new Date(Date.parse(at) + change.offsetMinutes * 60000).toISOString(), change.timezone),
+              ...(change.serviceDurations?.[service.id] != null ? { duration_minutes: change.serviceDurations[service.id] } : {}) };
           }
         });
         return updated;
       });
       return;
     }
-    setServiceSchedules(current => shiftScheduleFields(current, { date: date ? format(date, 'yyyy-MM-dd') : '', time: toBackendTime(time) }, change));
+    setServiceSchedules(current => {
+      const next = shiftScheduleFields(current, { date: date ? format(date, 'yyyy-MM-dd') : '', time: toBackendTime(time) }, change);
+      for (const [key, duration_minutes] of Object.entries(change.serviceDurations ?? {})) next[key] = { ...next[key], duration_minutes };
+      return next;
+    });
     setDate(new Date(`${next.date}T12:00:00`)); setTime(next.time);
   };
 }

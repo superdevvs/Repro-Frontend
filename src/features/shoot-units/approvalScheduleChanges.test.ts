@@ -26,4 +26,9 @@ describe('approval day adjustments', () => {
     expect(approvalScheduleChanges(lines, 'America/New_York', { scheduledAt: lines[0].scheduled_at!, offsetMinutes: 0,
       timezone: 'America/New_York' })).toEqual({});
   });
+  it('resizes only a selected visit without moving other units or photographers', () => {
+    expect(approvalScheduleChanges(lines, 'America/New_York', { scheduledAt: lines[0].scheduled_at!, offsetMinutes: 0,
+      timezone: 'America/New_York', photographerId: 9, fromStart: lines[0].scheduled_at!, fromEnd: '2026-10-13T18:45:00Z',
+      serviceDurations: { '1': 45 } })).toEqual({ '1': { scheduled_at: '2026-10-13T17:30:00.000Z', duration_minutes: 45 } });
+  });
 });
