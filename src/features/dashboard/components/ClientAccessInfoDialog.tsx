@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { PropertyAccessToggle } from '@/components/shoots/PropertyAccessToggle';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { Key, UserRound, Home } from 'lucide-react';
 import { toast } from '@/lib/sonner-toast';
 import { updateShootAccessInfo, type ShootAccessInfo } from '@/services/shoots';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
@@ -31,7 +30,7 @@ interface ClientAccessInfoDialogProps {
 export const ClientAccessInfoDialog = ({ open, onOpenChange, record, onSaved }: ClientAccessInfoDialogProps) => {
   const refreshShootMutations = useShootMutationRefresh();
 
-  const [presenceOption, setPresenceOption] = useState<PresenceOption>('self');
+  const [presenceOption, setPresenceOption] = useState<PresenceOption | ''>('');
   const [lockboxCode, setLockboxCode] = useState('');
   const [lockboxLocation, setLockboxLocation] = useState('');
   const [accessContactName, setAccessContactName] = useState('');
@@ -42,7 +41,7 @@ export const ClientAccessInfoDialog = ({ open, onOpenChange, record, onSaved }: 
     if (!open) return;
     const existing = record?.data.propertyDetails ?? {};
     const presence = existing.presenceOption;
-    setPresenceOption(presence === 'lockbox' || presence === 'other' ? presence : 'self');
+    setPresenceOption(presence === 'lockbox' || presence === 'other' || presence === 'self' ? presence : '');
     setLockboxCode(existing.lockboxCode ?? '');
     setLockboxLocation(existing.lockboxLocation ?? '');
     setAccessContactName(existing.accessContactName ?? '');
@@ -62,12 +61,16 @@ export const ClientAccessInfoDialog = ({ open, onOpenChange, record, onSaved }: 
 
   const handleSubmit = () => {
     if (!record) return;
-    if (presenceOption === 'lockbox' && !lockboxCode.trim() && !lockboxLocation.trim()) {
-      toast.error('Add the lockbox code or its location so the photographer can get in.');
+    if (!presenceOption) {
+      toast.error('Choose how the photographer will get into the property.');
       return;
     }
-    if (presenceOption === 'other' && !accessContactName.trim() && !accessContactPhone.trim()) {
-      toast.error('Add a name or phone number for whoever will provide access.');
+    if (presenceOption === 'lockbox' && !lockboxCode.trim()) {
+      toast.error('Add the lockbox or gate code so the photographer can get in.');
+      return;
+    }
+    if (presenceOption === 'other' && (!accessContactName.trim() || !accessContactPhone.trim())) {
+      toast.error('Add a name and phone number for whoever will provide access.');
       return;
     }
     mutation.mutate({
@@ -92,36 +95,8 @@ export const ClientAccessInfoDialog = ({ open, onOpenChange, record, onSaved }: 
         </DialogHeader>
 
         <div className="space-y-4">
-          <RadioGroup
-            value={presenceOption}
-            onValueChange={(value) => setPresenceOption(value as PresenceOption)}
-            className="grid gap-2"
-          >
-            <label
-              htmlFor="access-self"
-              className="flex items-center gap-2 rounded-lg border p-2.5 text-sm cursor-pointer hover:bg-muted/50"
-            >
-              <RadioGroupItem value="self" id="access-self" />
-              <Home className="h-4 w-4 text-muted-foreground" />
-              I (or someone) will be there to let them in
-            </label>
-            <label
-              htmlFor="access-lockbox"
-              className="flex items-center gap-2 rounded-lg border p-2.5 text-sm cursor-pointer hover:bg-muted/50"
-            >
-              <RadioGroupItem value="lockbox" id="access-lockbox" />
-              <Key className="h-4 w-4 text-muted-foreground" />
-              There's a lockbox / gate code
-            </label>
-            <label
-              htmlFor="access-other"
-              className="flex items-center gap-2 rounded-lg border p-2.5 text-sm cursor-pointer hover:bg-muted/50"
-            >
-              <RadioGroupItem value="other" id="access-other" />
-              <UserRound className="h-4 w-4 text-muted-foreground" />
-              Someone else will provide access
-            </label>
-          </RadioGroup>
+          <PropertyAccessToggle value={presenceOption} onChange={setPresenceOption} disabled={mutation.isPending} />
+          {presenceOption === 'self' && <p className="text-sm text-muted-foreground">I will be at the property to let the photographer in.</p>}
 
           {presenceOption === 'lockbox' && (
             <div className="grid gap-3 sm:grid-cols-2">

@@ -61,13 +61,13 @@ export const buildOverviewPropertyDetails = (draft: PropertyDraft) => {
     && metrics.baths === formatEditableValue(original.baths ?? original.bathrooms ?? original.bath ?? legacy.baths ?? legacy.bathrooms ?? '')
     && metrics.sqft === formatEditableValue(original.sqft ?? original.squareFeet ?? original.square_feet ?? legacy.sqft ?? legacy.squareFeet ?? legacy.square_feet ?? legacy.livingArea ?? legacy.living_area ?? '');
   const savedPresence = original.presenceOption;
-  const accessUnchanged = presenceOption === (savedPresence === 'lockbox' || savedPresence === 'other' ? savedPresence : 'self')
+  const accessUnchanged = presenceOption === (savedPresence === 'lockbox' || savedPresence === 'other' || savedPresence === 'self' ? savedPresence : '')
     && lockboxCode === text('lockboxCode') && lockboxLocation === text('lockboxLocation')
     && accessContactName === text('accessContactName') && accessContactPhone === text('accessContactPhone');
   if (yearChanged && !incoming && metricsUnchanged && accessUnchanged) {
     return { details: { year_built: yearValue, yearBuilt: yearValue } as Record<string, unknown>, yearOnly: true };
   }
-  return { details: { ...details, presenceOption,
+  return { details: { ...details, ...(presenceOption ? { presenceOption } : {}),
     lockboxCode: presenceOption === 'lockbox' ? lockboxCode || null : null,
     lockboxLocation: presenceOption === 'lockbox' ? lockboxLocation || null : null,
     accessContactName: presenceOption === 'other' ? accessContactName || null : null,

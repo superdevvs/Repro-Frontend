@@ -317,7 +317,7 @@ export const useClientPropertyFormController = ({
       initialData.property_details?.presenceOption;
     return initialPresence === 'other' || initialPresence === 'lockbox' || initialPresence === 'self'
       ? initialPresence
-      : '';
+      : 'self';
   });
   const [propertyDetailsData, setPropertyDetailsData] = useState<PropertyDetailsDraft | null>(
     () => initialData.propertyDetails || initialData.property_details || null,

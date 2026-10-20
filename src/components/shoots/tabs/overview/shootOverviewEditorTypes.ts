@@ -2,7 +2,7 @@ import type { TravelAvailabilityMetadata } from '@/features/travel/availabilityM
 import type { ServiceDurationSource } from '@/utils/shootDuration';
 import type { BookingAvailabilitySlot } from '@/types/availability';
 
-export type PresenceOption = 'self' | 'other' | 'lockbox';
+export type PresenceOption = 'self' | 'other' | 'lockbox' | '';
 
 export type ServiceOption = ServiceDurationSource & {
   duration_minutes?: number | null;

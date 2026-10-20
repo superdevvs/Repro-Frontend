@@ -1,9 +1,8 @@
 import { Key, UserCheck } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { PropertyAccessToggle } from '@/components/shoots/PropertyAccessToggle';
 
-type PresenceOption = 'self' | 'other' | 'lockbox';
+type PresenceOption = 'self' | 'other' | 'lockbox' | '';
 
 type OverviewAccessSectionProps = {
   unitAccessNotes?: string;
@@ -117,24 +116,7 @@ export function OverviewAccessSection({
         </span>
       </div>
         <div className="space-y-3 text-xs">
-          <RadioGroup
-            value={presenceOption}
-            onValueChange={(value) => setPresenceOption(value as PresenceOption)}
-            className="grid grid-cols-1 gap-1.5"
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="self" id="presence-self" />
-              <Label htmlFor="presence-self" className="text-xs cursor-pointer">Self</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="other" id="presence-other" />
-              <Label htmlFor="presence-other" className="text-xs cursor-pointer whitespace-nowrap">Other contact</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="lockbox" id="presence-lockbox" />
-              <Label htmlFor="presence-lockbox" className="text-xs cursor-pointer">Lockbox</Label>
-            </div>
-          </RadioGroup>
+          <PropertyAccessToggle value={presenceOption} onChange={setPresenceOption} />
           {presenceOption === 'lockbox' && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <div className="flex flex-col gap-1">

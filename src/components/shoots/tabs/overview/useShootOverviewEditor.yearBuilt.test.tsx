@@ -39,6 +39,21 @@ const mount = (record = shoot, isAdmin = false) => renderHook(() => {
   return { editor, save, toast };
 });
 
+it('does not display an unsaved default and persists an explicit Self choice alongside a year correction', async () => {
+  const { result } = mount({ ...shoot, canManageBooking: false }, true);
+  await waitFor(() => expect(result.current.editor.travel.result?.enabled).toBe(false));
+  expect(result.current.editor.state.presenceOption).toBe('');
+  act(() => {
+    result.current.editor.actions.setPresenceOption('self');
+    result.current.editor.actions.setPropertyYearBuiltEdit('2026');
+  });
+  await act(async () => { await result.current.editor.actions.handleSave(); });
+  await act(async () => { await result.current.save.handleConfirmSave(); });
+  await waitFor(() => expect(submitShootServiceMutation).toHaveBeenCalled());
+  const request = vi.mocked(submitShootServiceMutation).mock.calls.at(-1)?.[0];
+  expect(request?.payload.property_details).toMatchObject({ presenceOption: 'self', year_built: 2026 });
+});
+
 beforeEach(() => {
   localStorage.setItem('authToken', 'test-token');
   vi.mocked(submitShootServiceMutation).mockResolvedValue({ kind: 'success', data: { data: shoot } });

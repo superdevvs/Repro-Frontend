@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { PropertyAccessToggle } from '@/components/shoots/PropertyAccessToggle';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,7 +25,7 @@ import { EmailHealthBadge } from '@/components/accounts/EmailHealthBadge';
 import { getAvatarUrl } from '@/utils/defaultAvatars';
 import { cn } from '@/lib/utils';
 import { ServiceSelectionDialog } from '@/components/booking/ServiceSelectionDialog';
-import type { ClientPropertyFormController, PackageOption, PresenceOption } from './useClientPropertyFormController';
+import type { ClientPropertyFormController, PackageOption } from './useClientPropertyFormController';
 import { ClientPropertyFormActions } from './ClientPropertyFormActions';
 import { MobileClientPicker } from './MobileClientPicker';
 import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
@@ -785,32 +786,10 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                 <div>
                   <h3 className="text-base font-semibold">Who will be at the property? <span className="text-destructive">*</span></h3>
                 </div>
-                <RadioGroup
-                  className="flex flex-wrap gap-4"
-                  value={presenceOption}
-                  onValueChange={(value) => {
-                    const nextPresenceOption = value as PresenceOption;
-                    setPresenceOption(nextPresenceOption);
-                    onPropertyDraftChange?.(
-                      buildPropertyDraftData(undefined, {
-                        presenceOption: nextPresenceOption,
-                      }),
-                    );
-                  }}
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem id="presence-self" value="self" />
-                    <Label htmlFor="presence-self">Self / client</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem id="presence-other" value="other" />
-                    <Label htmlFor="presence-other">Another contact</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem id="presence-lockbox" value="lockbox" />
-                    <Label htmlFor="presence-lockbox">Lockbox</Label>
-                  </div>
-                </RadioGroup>
+                <PropertyAccessToggle value={presenceOption} onChange={(nextPresenceOption) => {
+                  setPresenceOption(nextPresenceOption);
+                  onPropertyDraftChange?.(buildPropertyDraftData(undefined, { presenceOption: nextPresenceOption }));
+                }} />
               </div>
               {presenceOption === 'other' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

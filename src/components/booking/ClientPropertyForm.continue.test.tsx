@@ -35,29 +35,26 @@ describe('Continue validates the visible booking slide', () => {
     await waitFor(() => expect(input.onComplete).toHaveBeenCalledTimes(1));
   });
 
-  it.each([false, true])('advances a new property with no services or access choice (client account: %s), then requires visible access', async (isClientAccount) => {
+  it.each([false, true])('persists default self access through both slides without clicking it (client account: %s)', async (isClientAccount) => {
     const input = { ...props(), isClientAccount };
     const { rerender } = render(<ClientPropertyForm {...input} />);
     expect(screen.queryByRole('radio', { name: 'Self / client' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(input.onComplete).toHaveBeenCalledTimes(1));
-    expect(screen.queryByText('Choose who will be at the property.')).not.toBeInTheDocument();
+    expect(input.onComplete).toHaveBeenLastCalledWith(expect.objectContaining({ property_details: expect.objectContaining({ presenceOption: 'self' }) }));
 
     rerender(<ClientPropertyForm {...input} slide="services" selectedServices={[service]} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Choose who will be at the property.'));
-    expect(input.onComplete).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('radio', { name: 'Self / client' })).toBeChecked();
     fireEvent.click(screen.getByRole('radio', { name: 'Self / client' }));
+    expect(screen.getByRole('radio', { name: 'Self / client' })).toBeChecked();
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(input.onComplete).toHaveBeenCalledTimes(2));
     expect(input.onComplete).toHaveBeenLastCalledWith(expect.objectContaining({ property_details: expect.objectContaining({ presenceOption: 'self' }) }));
   });
 
-  it('removes a services-only warning on Back and preserves property and access when navigating again', async () => {
+  it('preserves property and access when navigating back and forward', async () => {
     const input = props();
     const { rerender } = render(<ClientPropertyForm {...input} slide="services" selectedServices={[service]} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-    await screen.findByRole('alert');
     rerender(<ClientPropertyForm {...input} />);
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Street Address'), { target: { value: '20 Changed St' } });

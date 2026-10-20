@@ -118,7 +118,7 @@ export function useShootOverviewEditor({
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [servicePanelCategory, setServicePanelCategory] = useState('all');
   const [serviceModalSearch, setServiceModalSearch] = useState('');
-  const [presenceOption, setPresenceOption] = useState<PresenceOption>('self');
+  const [presenceOption, setPresenceOption] = useState<PresenceOption>('');
   const [lockboxCode, setLockboxCode] = useState('');
   const [lockboxLocation, setLockboxLocation] = useState('');
   const [accessContactName, setAccessContactName] = useState('');
@@ -319,7 +319,7 @@ export function useShootOverviewEditor({
       return nextSchedules;
     });
     const presenceOptionValue = propertyDetails.presenceOption;
-    setPresenceOption(presenceOptionValue === 'lockbox' || presenceOptionValue === 'other' ? presenceOptionValue : 'self');
+    setPresenceOption(presenceOptionValue === 'lockbox' || presenceOptionValue === 'other' || presenceOptionValue === 'self' ? presenceOptionValue : '');
     setLockboxCode(typeof propertyDetails.lockboxCode === 'string' ? propertyDetails.lockboxCode : '');
     setLockboxLocation(typeof propertyDetails.lockboxLocation === 'string' ? propertyDetails.lockboxLocation : '');
     setAccessContactName(typeof propertyDetails.accessContactName === 'string' ? propertyDetails.accessContactName : '');

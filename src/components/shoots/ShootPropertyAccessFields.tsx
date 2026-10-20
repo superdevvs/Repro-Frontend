@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { PropertyAccessToggle, type PropertyAccessOption } from './PropertyAccessToggle';
 import type { PropertyDetails } from './shootEditModalTypes';
 
 export function ShootPropertyAccessFields({ details, onChange }: {
@@ -13,16 +13,8 @@ export function ShootPropertyAccessFields({ details, onChange }: {
   return (
     <div className="space-y-2 rounded-lg border border-border p-3">
       <Label id={`${id}-label`} className="text-xs font-semibold">Property access</Label>
-      <RadioGroup aria-labelledby={`${id}-label`} value={presence}
-        onValueChange={(presenceOption) => onChange({ presenceOption })}
-        className="flex flex-wrap gap-3 text-xs">
-        {([['self', 'Self / client'], ['other', 'Another contact'], ['lockbox', 'Lockbox']] as const).map(([value, label]) => (
-          <div key={value} className="flex items-center gap-1.5">
-            <RadioGroupItem id={`${id}-${value}`} value={value} />
-            <Label htmlFor={`${id}-${value}`} className="text-xs font-normal">{label}</Label>
-          </div>
-        ))}
-      </RadioGroup>
+      <PropertyAccessToggle value={presence as PropertyAccessOption | ''}
+        onChange={(presenceOption) => onChange({ presenceOption })} />
       {presence === 'other' && (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Input aria-label="On-site contact name" placeholder="Contact name" className="h-8 text-xs"
