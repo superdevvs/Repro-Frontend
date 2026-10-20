@@ -15,6 +15,25 @@ beforeEach(() => {
 });
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); localStorage.clear(); });
 describe('reschedule travel confirmation integration', () => {
+  it('lets a superadmin explicitly confirm a 4:30 PM working-hours reschedule', async () => {
+    mocks.role = 'superadmin';
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: { enabled: true, status: 'conflict', available: false,
+      can_override: false, can_override_working_hours: true, working_hours_confirmation_version: 'signed-reschedule',
+      reason_codes: ['outside_working_hours'], transitions: [], alternatives: [], policy_version: '1', schedule_version: '1',
+      visits: [{ photographer_id: 9, start: '2026-10-08T20:30:00Z', end: '2026-10-08T21:05:00Z', scheduled_at: '2026-10-08T20:30:00Z', duration_minutes: 35, timezone: 'America/New_York' }] } }))));
+    render(<RescheduleDialog shoot={shoot} isOpen onClose={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText('New time'), { target: { value: '4:30 PM' } });
+    await screen.findByText(/As superadmin/);
+    fireEvent.click(screen.getByRole('button', { name: 'Reschedule Shoot' }));
+    await screen.findByText('Save outside working hours');
+    const confirm = screen.getByRole('button', { name: 'Confirm and save outside hours' });
+    expect(confirm).toBeDisabled(); expect(mocks.post).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Working-hours exception reason'), { target: { value: 'Photographer approved this schedule.' } });
+    fireEvent.click(confirm);
+    await waitFor(() => expect(mocks.post).toHaveBeenCalledOnce());
+    expect(mocks.post.mock.calls[0][1]).toMatchObject({ requested_time: '16:30', working_hours_override: true,
+      working_hours_override_confirmed: true, working_hours_override_confirmation_version: 'signed-reschedule' });
+  });
   it('previews the requested schedule, blocks staff until an explained exception, and passes only that authorized confirmation', async () => {
     render(<RescheduleDialog shoot={shoot} isOpen onClose={vi.fn()} />);
     await screen.findByText('Review travel time'); expect(screen.getByRole('button', { name: 'Reschedule Shoot' })).toBeEnabled();

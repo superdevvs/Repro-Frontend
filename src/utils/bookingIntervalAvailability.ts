@@ -26,7 +26,15 @@ export function isBookingIntervalDisabled({
       && start < slotTimeToMinutes(slot.end_time) + buffer
       && end + buffer > slotTimeToMinutes(slot.start_time));
   if (overlaps(bookedSlots, travelBufferMinutes) || overlaps(unavailableSlots, 0)) return true;
-  return availableSlots.length > 0 && !availableSlots.some(slot =>
-    slot.start_time && slot.end_time
-      && start >= slotTimeToMinutes(slot.start_time) && end <= slotTimeToMinutes(slot.end_time));
+  if (!availableSlots.length) return false;
+  const windows = availableSlots.flatMap(slot => slot.start_time && slot.end_time
+    ? [{ start: slotTimeToMinutes(slot.start_time), end: slotTimeToMinutes(slot.end_time) }] : []).sort((a, b) => a.start - b.start);
+  let coveredUntil = start;
+  for (const window of windows) {
+    if (window.end <= coveredUntil) continue;
+    if (window.start > coveredUntil) break;
+    coveredUntil = window.end;
+    if (coveredUntil >= end) return false;
+  }
+  return true;
 }
