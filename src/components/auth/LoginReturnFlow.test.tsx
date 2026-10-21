@@ -35,6 +35,7 @@ function mountAt(path: string) {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/dashboard" element={<DashboardDestination />} />
+        <Route path="/listing-studio/free-edits" element={mocks.isAuthenticated ? <div>Free edit intake</div> : <LoginRedirect />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -60,6 +61,14 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('upload guide sign-in return flow', () => {
+  it('returns a website offer link to the free edit intake after sign-in', async () => {
+    mocks.post.mockResolvedValueOnce(loginResponse);
+    mountAt('/listing-studio/free-edits');
+    await screen.findByRole('heading', { name: 'Log in to your dashboard' });
+    expect(screen.getByTestId('location').textContent).toBe('/?returnTo=%2Flisting-studio%2Ffree-edits');
+    submitCredentials();
+    await waitFor(() => expect(screen.getByTestId('location').textContent).toBe('/listing-studio/free-edits'));
+  });
   it('takes an email deep link through login and back to its guide query', async () => {
     mocks.post.mockResolvedValueOnce(loginResponse);
     mountAt('/dashboard?guide=uploads');

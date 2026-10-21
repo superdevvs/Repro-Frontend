@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { useAuth } from '@/components/auth/AuthProvider';
 import { API_BASE_URL } from '@/config/env';
+import { listingStudioVerificationReturn } from '@/config/listingStudio';
 import { useToast } from '@/hooks/use-toast';
 import { getAuthToken } from '@/utils/authToken';
 
@@ -28,6 +29,7 @@ export function useResendVerificationEmail() {
     path: string,
     emailHint?: string | null,
     applyCurrentUser = false,
+    returnTo?: string,
   ): Promise<ResendVerificationResult> => {
     const token = getAuthToken();
     if (!token) {
@@ -50,6 +52,7 @@ export function useResendVerificationEmail() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
+        ...(returnTo ? { body: JSON.stringify({ return_to: returnTo }) } : {}),
       });
       const payload = await response.json().catch(() => ({})) as {
         sent?: boolean;
@@ -106,8 +109,9 @@ export function useResendVerificationEmail() {
     }
   };
 
-  const resendVerification = async () => (
-    runResend('/api/profile/email-verification/resend', undefined, true)
+  const resendVerification = async (returnTo?: string) => (
+    runResend('/api/profile/email-verification/resend', undefined, true,
+      listingStudioVerificationReturn(returnTo ?? (typeof window !== 'undefined' ? window.location.pathname : undefined)))
   );
 
   const resendForAccount = async (user: AccountLike) => {

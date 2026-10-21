@@ -3,7 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-li
 import userEvent from '@testing-library/user-event';
 import { AxiosError } from 'axios';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import RegisterForm from './RegisterForm';
 import { LoginForm } from './LoginForm';
 
@@ -53,6 +53,29 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('registration error recovery', () => {
+  it('preserves the free edit destination through signup and its verification email', async () => {
+    mocks.post.mockResolvedValueOnce({ data: { token: 'test-token', user: {
+      id: 41, name: 'New Client', email: 'client@example.com', role: 'client',
+      email_health: { status: 'unverified' },
+    } } });
+    render(<MemoryRouter initialEntries={['/?returnTo=%2Flisting-studio%2Ffree-edits']}><Routes>
+      <Route path="/" element={<LoginForm />} />
+      <Route path="/listing-studio/free-edits" element={<h1>Verify email for free edits</h1>} />
+    </Routes></MemoryRouter>);
+    await userEvent.click(screen.getByRole('tab', { name: 'Register' }));
+    await submitRegistration();
+    expect(await screen.findByRole('heading', { name: 'Verify email for free edits' })).toBeVisible();
+    expect(mocks.post).toHaveBeenCalledWith(expect.stringMatching(/\/api\/register$/), expect.objectContaining({ return_to: '/listing-studio/free-edits' }), { headers: { Accept: 'application/json' } });
+    expect(mocks.login).toHaveBeenCalledWith(expect.objectContaining({ role: 'client' }), 'test-token');
+  });
+
+  it.each([undefined, '/dashboard', 'https://unsafe.example', '//unsafe.example', '/listing-studio/free-edits?returnTo=unsafe'])('does not add a verification redirect for %s', async verificationReturnTo => {
+    mocks.post.mockRejectedValueOnce(duplicate());
+    render(<RegisterForm onSuccess={vi.fn()} verificationReturnTo={verificationReturnTo} isActive />);
+    await submitRegistration();
+    await screen.findByRole('alert');
+    expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('return_to');
+  });
   it.each([false, true])('keeps duplicate-account feedback visible and actionable (mobile: %s)', async (mobile) => {
     mocks.mobile = mobile;
     mocks.post.mockRejectedValueOnce(duplicate());

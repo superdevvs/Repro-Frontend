@@ -71,6 +71,7 @@ const Accounting = lazy(() => import('./pages/Accounting'));
 const Integrations = lazy(() => import('./pages/Integrations'));
 const MlsPublishingQueue = lazy(() => import('./pages/MlsPublishingQueue'));
 const PrivateListingPortal = lazy(() => import('./pages/PrivateListingPortal'));
+const ListingStudioFreeEdits = lazy(() => import('./pages/ListingStudioFreeEdits'));
 const ExclusiveListingDetails = lazy(() => import('./pages/ExclusiveListingDetails'));
 const ChatWithReproAi = lazy(() => import('./pages/ChatWithReproAi'));
 const AiEditing = lazy(() => import('./pages/AiEditing'));
@@ -515,6 +516,7 @@ const AppRoutes = () => {
         </ProtectedRoute>
       }>
       <Route path="/search" element={<ProtectedRoute loadingFallback={<DashboardRouteFallback />}><SearchPage /></ProtectedRoute>} />
+      <Route path="/listing-studio/free-edits" element={<PermissionRoute resource="support"><ListingStudioFreeEdits /></PermissionRoute>} />
       <Route path="/dashboard" element={
         <PermissionRoute resource="dashboard" fallbackTo="/">
           <ShootRoutesWrapper>

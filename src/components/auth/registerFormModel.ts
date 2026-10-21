@@ -272,5 +272,6 @@ export type RegisterFormProps = {
   onLogin?: (email: string) => void;
   onStepChange?: (step: 1 | 2) => void;
   isActive?: boolean;
+  verificationReturnTo?: string;
 };
 import { accountPasswordError } from '@/utils/accountPassword';

@@ -20,6 +20,7 @@ import {
 import { toast } from '@/components/ui/use-toast';
 import type { EmailHealth } from '@/types/auth';
 import { API_BASE_URL } from '@/config/env';
+import { listingStudioVerificationReturn } from '@/config/listingStudio';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { EmailHealthInlineHint } from '@/components/email/EmailHealthInlineHint';
 import { analyzeEmailInput } from '@/utils/emailHealth';
@@ -32,7 +33,7 @@ import {
   type RegisterFormValues,
 } from './registerFormModel';
 
-const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, onLogin, isActive = false }) => {
+const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, onLogin, isActive = false, verificationReturnTo }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [currentStep, setCurrentStep] = useState<1 | 2>(1);
@@ -348,6 +349,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, on
         marketing_sms_opt_in: values.marketingSmsOptIn ?? false,
         transactional_sms_opt_in: values.transactionalSmsOptIn ?? false,
         email_warning_override: emailWarningOverride,
+        ...(listingStudioVerificationReturn(verificationReturnTo) ? { return_to: listingStudioVerificationReturn(verificationReturnTo) } : {}),
       }, { headers: { Accept: 'application/json' } });
 
       const result = registrationSuccess(response.data);
