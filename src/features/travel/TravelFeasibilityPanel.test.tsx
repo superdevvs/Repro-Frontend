@@ -50,7 +50,7 @@ describe('travel explanations and permission controls', () => {
   });
   it('keeps explicit travel confirmation without offering the removed alternatives search', () => {
     const travel = controller(); render(<TravelFeasibilityPanel travel={travel} />);
-    expect(screen.getByText(/explicit acknowledgement when saving/)).toBeInTheDocument();
+    expect(screen.getByText(/when saving or approving this booking/)).toBeInTheDocument();
     expect(screen.queryByLabelText('Approve an exception to this travel allowance')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Find up to 3 alternatives' })).not.toBeInTheDocument();
     expect(travel.loadAlternatives).not.toHaveBeenCalled();
