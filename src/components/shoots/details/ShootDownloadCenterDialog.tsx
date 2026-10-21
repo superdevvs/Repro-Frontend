@@ -14,6 +14,8 @@ import { ShootUnitScopeBar } from '@/features/shoot-units/ShootUnitScope';
 import { projectUnitTour } from '@/features/shoot-units/unitTourData';
 import { filterUnitFiles } from '@/features/shoot-units/unitMutations';
 import { buildShootDownloadCenterModel, type LinkDownload } from './shootDownloadCenterModel';
+import { normalizeShootDetailsStatus } from '../modal/shootDetailsCapabilities';
+import { ListingStudioDeliveryOffer } from '@/components/listing-studio/ListingStudioDeliveryOffer';
 
 export type DownloadTarget = {
   shootServiceId?: string | number | null;
@@ -143,6 +145,7 @@ export function ShootDownloadCenterDialog({
   const photoServices = downloadModel.services.filter(service =>
     downloadModel.services.length > 1 || service.photoCount !== downloadModel.wholeShootPhotoCount);
   const hasDownloads = hasPhotos || sections.some(section => section.items.length > 0);
+  const isDelivered = [shoot?.workflowStatus, shoot?.status].some(status => normalizeShootDetailsStatus(status) === 'delivered');
 
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="max-h-[86vh] overflow-hidden p-0 sm:w-[calc(100%-3rem)] sm:max-w-7xl">
@@ -175,6 +178,7 @@ export function ShootDownloadCenterDialog({
               <div className="space-y-2 md:max-h-80 md:overflow-y-auto md:pr-1">{section.items.map(renderDownload)}</div>
             </section>)}
           </div>}
+          {open && isClient && isDelivered && hasPhotos && !downloadBusy && <ListingStudioDeliveryOffer onNavigate={() => onOpenChange(false)} />}
         </div>
         <div className="flex justify-end border-t px-5 py-3"><Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button></div>
       </div>
