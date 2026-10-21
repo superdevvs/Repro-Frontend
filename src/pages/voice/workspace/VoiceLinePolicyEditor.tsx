@@ -43,15 +43,18 @@ export default function VoiceLinePolicyEditor({ number, staff, canManage }: { nu
     {expanded && <fieldset disabled={disabled} className="space-y-4">
       <label className="block text-sm">Routing
         <select className="mt-1 block h-10 w-full rounded-md border bg-background px-3" value={policy.mode} onChange={e => setPolicy({ ...policy, mode: e.target.value as VoiceLinePolicy['mode'] })}>
-          <option value="staff_voicemail">Dashboard staff, then voicemail</option><option value="robbie">Robbie, 24/7</option><option value="sms_only">SMS only</option>
+          <option value="staff_voicemail">Calls and SMS · staff, then voicemail</option><option value="robbie">Robbie, 24/7</option><option value="sms_only">Text only · no calls</option>
         </select>
       </label>
+      {policy.mode !== 'robbie' && <>
+        <p className="text-xs text-muted-foreground">{policy.mode === 'sms_only' ? 'Assigned staff can text in Groundwire. This line will not make or receive calls. Your staff assignments stay saved when you switch modes.' : 'Assigned staff can call and text. Unanswered calls go to voicemail.'}</p>
+        <div className="space-y-2"><p className="text-sm">Assigned roles</p>{(['editing_manager', 'superadmin'] as const).map(role => <label key={role} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={policy.recipient_roles?.includes(role) ?? false} onChange={e => { const roles = e.target.checked ? [...(policy.recipient_roles ?? []), role] : (policy.recipient_roles ?? []).filter(item => item !== role); setPolicy({ ...policy, recipient_roles: roles, recipient_role: roles[0] ?? null }); }} />{role === 'editing_manager' ? 'Editing managers' : 'Superadmins'}</label>)}</div>
+        <div className="space-y-2"><p className="text-sm">Additional staff</p>{staff.map(person => <label key={person.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={policy.recipient_ids.includes(person.id)} onChange={e => setPolicy({ ...policy, recipient_ids: e.target.checked ? [...policy.recipient_ids, person.id] : policy.recipient_ids.filter(id => id !== person.id) })} />{person.name}</label>)}</div>
+      </>}
       {policy.mode === 'staff_voicemail' && <>
         <label className="block text-sm">Timezone (daylight saving adjusts automatically)
           <TimezoneSelect containerClassName="mt-1" value={policy.timezone} onChange={e => setPolicy({ ...policy, timezone: e.target.value })} />
         </label>
-        <div className="space-y-2"><p className="text-sm">Ring all active members of these roles</p>{(['editing_manager', 'superadmin'] as const).map(role => <label key={role} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={policy.recipient_roles?.includes(role) ?? false} onChange={e => { const roles = e.target.checked ? [...(policy.recipient_roles ?? []), role] : (policy.recipient_roles ?? []).filter(item => item !== role); setPolicy({ ...policy, recipient_roles: roles, recipient_role: roles[0] ?? null }); }} />{role === 'editing_manager' ? 'Editing managers' : 'Superadmins'}</label>)}</div>
-        <div className="space-y-2"><p className="text-sm">Additional recipients</p>{staff.map(person => <label key={person.id} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={policy.recipient_ids.includes(person.id)} onChange={e => setPolicy({ ...policy, recipient_ids: e.target.checked ? [...policy.recipient_ids, person.id] : policy.recipient_ids.filter(id => id !== person.id) })} />{person.name}</label>)}</div>
         <div className="space-y-2"><p className="text-sm font-medium">Weekly opening hours</p>{['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'].map(day => {
           const slots = policy.weekly_hours[day] ?? [];
           const change = (windows: Array<{ start: string; end: string }>) => setPolicy({ ...policy, weekly_hours: { ...policy.weekly_hours, [day]: windows } });

@@ -35,4 +35,11 @@ describe('Groundwire setup', () => {
     show(); fireEvent.click(await screen.findByRole('button',{name:'Revoke device'}));
     await waitFor(() => expect(revokeSipDevice).toHaveBeenCalledWith(device.id));
   });
+  it('shows texting readiness without an empty caller ID selector for a text-only line', async () => {
+    vi.mocked(getSipDevices).mockResolvedValue({configured:true,lines:[],devices:[{...device,sms:{number:line.number,available_numbers:[line.number],ready:true,phone_connected:true,push_registered:true,last_fetch_at:null,last_send_at:null,setup_url:'https://example.test/setup'}}]});
+    show();
+    await screen.findByText('Text only · Groundwire SMS is available. Calls are off for your assigned line.');
+    expect(screen.queryByLabelText('Outgoing caller ID')).toBeNull();
+    expect(revealSipCredentials).not.toHaveBeenCalled();
+  });
 });
