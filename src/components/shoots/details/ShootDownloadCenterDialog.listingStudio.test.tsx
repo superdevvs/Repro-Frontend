@@ -79,7 +79,7 @@ describe('Listing Studio offer in the client Download Center', () => {
 
   it('removes the offer when a successful claim updates the shared eligibility cache', async () => {
     const { client } = mount(); await screen.findByRole('link', { name: 'Try 3 free edits' });
-    act(() => client.setQueryData(['listing-studio-free-edits', 'client-41'], { ...available, eligible: false, reason: 'already_claimed' }));
+    act(() => { client.setQueryData(['listing-studio-free-edits', 'client-41'], { ...available, eligible: false, reason: 'already_claimed' }); });
     await waitFor(() => expect(screen.queryByRole('link', { name: 'Try 3 free edits' })).not.toBeInTheDocument());
   });
 
