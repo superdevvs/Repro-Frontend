@@ -1,11 +1,19 @@
 import React from 'react';
-import { act, cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, render as renderWithProviders, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardLayout } from './DashboardLayout';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
+
+function render(ui: React.ReactNode) {
+  const queryClient = new QueryClient();
+  return renderWithProviders(ui, {
+    wrapper: ({ children }) => <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>,
+  });
+}
 
 vi.mock('./Sidebar', () => ({ Sidebar: () => <nav><a href="/dashboard">Dashboard</a></nav> }));
 vi.mock('./Navbar', () => ({ Navbar: () => <header><button>Navigation</button></header> }));
