@@ -12,16 +12,16 @@ type ManualReceipt = {
 };
 type Order = {
   id: number; connection_id: number; request_id: string | null; listing_id: string | null;
-  discovery: { address: string; requester_email: string; required: Record<keyof Counts, number | null> | null; source_kind?: string };
+  discovery: { address: string; requester_email: string | null; requester_name?: string | null; required: Record<keyof Counts, number | null> | null; source_kind?: string };
   inventory: { complete: boolean; assets: Asset[]; manual_delivery_receipt?: ManualReceipt } | null; inventory_checked_at: string | null;
   readiness: { eligible: boolean; blockers: string[]; dashboard?: { paid: boolean; delivered: boolean; summary_required: boolean }; available: Counts; media_version: string; assets: { id: number; filename: string; type: string }[]; tours?: { id: string }[] };
   jobs: AryeoJob[];
 };
 type Panel = {
   configured: boolean;
-  connections: { id: number; name: string; online: boolean; last_seen_at: string | null; processing_enabled: boolean; executor_ready: boolean; shoot_enabled: boolean }[];
+  connections: { id: number; name: string; online: boolean; last_seen_at: string | null; processing_enabled: boolean; executor_ready: boolean; shoot_enabled: boolean; discovery_only?: boolean }[];
   orders: Order[];
-  unmatched: { id: number; source_id: string; address: string; requester_email: string; unit_label: string | null }[];
+  unmatched: { id: number; source_id: string; address: string; requester_email: string | null; requester_name?: string | null; unit_label: string | null }[];
 };
 const kinds: (keyof Counts)[] = ['photos', 'floorplans', 'videos', 'tours'];
 const labels = { photos: 'Photos', floorplans: 'Floor plans', videos: 'Video', tours: 'Tours' };
@@ -109,8 +109,8 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {!panel && !error && <p className="text-sm text-muted-foreground">Checking Aryeo Flow…</p>}
     {panel && !panel.configured && <p className="text-sm text-muted-foreground">Aryeo Flow is not connected for this client yet.</p>}
-    {panel?.connections.map(c => <p key={c.id} className="text-xs text-muted-foreground">{c.name}: {c.online ? 'Online' : 'Offline'} · Last seen {date(c.last_seen_at)}{!c.processing_enabled || !c.shoot_enabled ? ' · Read-only' : !c.executor_ready ? ' · Worker setup required' : ''}</p>)}
-    {panel?.configured && panel.orders.length === 0 && <p className="text-sm text-muted-foreground">{panel.connections.every(c => !c.last_seen_at) ? 'Waiting for the Mac to sync Aryeo requests.' : 'No Aryeo request matched to this shoot yet.'}</p>}
+    {panel?.connections.map(c => <p key={c.id} className="text-xs text-muted-foreground">{c.name}: {c.online ? 'Online' : 'Offline'} · Last seen {date(c.last_seen_at)}{c.discovery_only ? ' · Request sync enabled · Delivery not enabled' : !c.processing_enabled || !c.shoot_enabled ? ' · Read-only' : !c.executor_ready ? ' · Worker setup required' : ''}</p>)}
+    {panel?.configured && panel.orders.length === 0 && <p className="text-sm text-muted-foreground">{panel.unmatched.length > 0 ? 'Aryeo request received. Confirm the client match below.' : panel.connections.every(c => !c.last_seen_at) ? 'Waiting for the Mac to sync Aryeo requests.' : 'No Aryeo request matched to this shoot yet.'}</p>}
     {panel?.orders.map(order => {
       const c = panel.connections.find(c => c.id === order.connection_id);
       const job = order.jobs[0];
@@ -122,11 +122,12 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
       const deliveryReceipt = manualDelivered ? order.inventory?.manual_delivery_receipt : job?.receipt;
       const inventoryKnown = Boolean(order.inventory?.complete && order.inventory_checked_at && Number.isFinite(Date.parse(order.inventory_checked_at)));
       const inventoryFresh = inventoryKnown && Date.now() - Date.parse(order.inventory_checked_at!) < 120000;
-      const canProcess = Boolean(c?.online && c.processing_enabled && c.shoot_enabled && c.executor_ready && order.request_id && !error);
+      const canProcess = Boolean(c?.online && c.processing_enabled && c.shoot_enabled && c.executor_ready && order.request_id && order.discovery.requester_email && !error);
       return <div key={order.id} className="space-y-3 border-t pt-3">
         <p className="text-sm font-medium">Aryeo request received</p>
-        <div className="flex flex-wrap justify-between gap-2 text-sm"><span className="font-medium">{supervised ? `Listing ${order.listing_id}` : `Order ${order.request_id ?? 'awaiting Aryeo verification'}`}</span><span>{supervised ? (manualDelivered ? 'Delivered manually' : 'Manual delivery needs verification') : job?.receipt ? (job.status === 'completed' ? (sameDelivered ? 'Delivered' : 'Update available') : 'Delivered · follow-up pending') : job ? readable(job.status) : order.readiness.eligible ? 'Ready to process' : 'Waiting'}</span></div>
-        <p className="text-xs text-muted-foreground">{order.discovery.address} · {order.discovery.requester_email}{order.listing_id ? ` · Listing ${order.listing_id}` : ''}</p>
+        <div className="flex flex-wrap justify-between gap-2 text-sm"><span className="min-w-0 break-all font-medium">{supervised ? `Listing ${order.listing_id}` : `Order ${order.request_id ?? 'awaiting Aryeo verification'}`}</span><span>{supervised ? (manualDelivered ? 'Delivered manually' : 'Manual delivery needs verification') : job?.receipt ? (job.status === 'completed' ? (sameDelivered ? 'Delivered' : 'Update available') : 'Delivered · follow-up pending') : job ? readable(job.status) : order.readiness.eligible ? 'Ready to process' : 'Waiting'}</span></div>
+        <p className="break-words text-xs text-muted-foreground">{order.discovery.address} · {order.discovery.requester_email || order.discovery.requester_name || 'Requester email pending'}{order.listing_id ? ` · Listing ${order.listing_id}` : ''}</p>
+        {!order.discovery.requester_email && <p className="text-xs text-amber-700 dark:text-amber-400">Requester email needs verification before delivery.</p>}
         {supervised && <p className="text-xs text-muted-foreground">Original Aryeo request ID unavailable. {manualDelivered ? 'Delivery verified from the listing and supervised record.' : 'Supervised delivery evidence must be verified.'}</p>}
         {order.readiness.dashboard && <p className="text-xs text-muted-foreground">Dashboard: {order.readiness.dashboard.paid ? 'Paid' : 'Awaiting payment'} · {order.readiness.dashboard.delivered ? 'Delivered' : 'Awaiting delivery'} · Summary email not required</p>}
         <div className="overflow-x-auto"><table className="w-full text-xs text-left"><thead><tr className="text-muted-foreground"><th className="py-2 pr-3">Media</th><th className="px-2">Requested</th><th className="px-2">Ready</th><th className="px-2">In Aryeo</th><th className="pl-2">Delivered</th></tr></thead><tbody>
@@ -148,8 +149,9 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
         </div>
       </div>;
     })}
-    {panel && panel.unmatched.length > 0 && <details className="text-xs border-t pt-3"><summary className="cursor-pointer">Match an existing request</summary><div className="mt-2 space-y-2">
-      <select className="w-full min-w-0 rounded border bg-background p-2" aria-label="Unmatched Aryeo request" value={selected} onChange={e => { setSelected(e.target.value); setConfirmed(false); }}><option value="">Select a request</option>{panel.unmatched.map(o => <option key={o.id} value={o.id}>{o.address}{o.unit_label ? ` / ${o.unit_label}` : ''} — {o.requester_email}</option>)}</select>
+    {panel && panel.unmatched.length > 0 && <details open={panel.orders.length === 0} className="text-xs border-t pt-3"><summary className="cursor-pointer">Match an existing request</summary><div className="mt-2 space-y-2">
+      {panel.unmatched.map(o => <p key={o.id} className="break-words">{o.requester_name ? `${o.requester_name} — ` : ''}{o.address}{o.requester_email ? ` · ${o.requester_email}` : ' · Requester email pending'}</p>)}
+      <select className="w-full min-w-0 rounded border bg-background p-2" aria-label="Unmatched Aryeo request" value={selected} onChange={e => { setSelected(e.target.value); setConfirmed(false); }}><option value="">Select a request</option>{panel.unmatched.map(o => <option key={o.id} value={o.id}>{o.address}{o.unit_label ? ` / ${o.unit_label}` : ''} — {o.requester_email || o.requester_name || 'Requester email pending'}</option>)}</select>
       <label className="flex gap-2 items-start"><input type="checkbox" checked={confirmed} onChange={e => setConfirmed(e.target.checked)} />I verified this request belongs to this shoot and selected unit.</label>
       <Button size="sm" variant="outline" disabled={busy || !selected || !confirmed} onClick={() => void action(`requests/${selected}/match`, { unit_id: unitId ?? null, confirm_identity: true })}>Match request</Button>
     </div></details>}

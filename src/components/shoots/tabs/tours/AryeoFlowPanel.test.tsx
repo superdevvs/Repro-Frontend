@@ -60,6 +60,51 @@ describe('Aryeo Flow panel', () => {
     render(<AryeoFlowPanel shootId={4} />);
     expect(await screen.findByRole('button', { name: 'Process & deliver' })).toBeDisabled();
   });
+  it('shows a scheduled metadata-only request before approved media exists', async () => {
+    const original = fixture();
+    const data = { ...original,
+      connections: [{ ...original.connections[0], shoot_enabled: false, discovery_only: true }],
+      orders: [{ ...original.orders[0], discovery: { ...original.orders[0].discovery, address: '413 Mahan Ln',
+        required: { photos: null, floorplans: 0, videos: 0, tours: null } },
+      readiness: { ...original.orders[0].readiness, eligible: false, blockers: ['editing_not_approved'],
+        available: { photos: 0, floorplans: 0, videos: 0, tours: 0 }, assets: [] } }],
+    };
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => data });
+    vi.stubGlobal('fetch', fetch);
+    render(<AryeoFlowPanel shootId={2505} />);
+    expect(await screen.findByText('Aryeo request received')).toBeVisible();
+    expect(screen.getByText(/Request sync enabled/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Process & deliver' })).toBeDisabled();
+    expect(screen.queryByText(/not connected for this client/)).not.toBeInTheDocument();
+    expect(fetch.mock.calls.every(call => call[1].method === 'GET')).toBe(true);
+  });
+  it('shows an email-only review candidate and requires an explicit match without starting delivery', async () => {
+    const original = fixture();
+    const data = { ...original, orders: [], unmatched: [{ id: 7, source_id: 'gmail-new', address: '413 Mahan Ln',
+      requester_email: null, requester_name: 'Trish May', unit_label: null }] };
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => data });
+    vi.stubGlobal('fetch', fetch);
+    render(<AryeoFlowPanel shootId={2505} />);
+    expect(await screen.findByText('Aryeo request received. Confirm the client match below.')).toBeVisible();
+    expect(screen.getByText(/Trish May — 413 Mahan Ln/)).toBeVisible();
+    const match = screen.getByRole('button', { name: 'Match request' });
+    expect(match).toBeDisabled();
+    fireEvent.change(screen.getByRole('combobox', { name: 'Unmatched Aryeo request' }), { target: { value: '7' } });
+    expect(match).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(match);
+    await waitFor(() => expect(fetch.mock.calls.some(call => call[0].endsWith('/shoots/2505/aryeo/requests/7/match') && call[1].method === 'POST')).toBe(true));
+    expect(fetch.mock.calls.some(call => call[0].endsWith('/process'))).toBe(false);
+  });
+  it('cannot queue delivery before the requester email is verified', async () => {
+    const original = fixture();
+    const data = { ...original, orders: [{ ...original.orders[0],
+      discovery: { ...original.orders[0].discovery, requester_email: null, requester_name: 'Trish May' } }] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => data }));
+    render(<AryeoFlowPanel shootId={2505} />);
+    expect(await screen.findByText('Requester email needs verification before delivery.')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Process & deliver' })).toBeDisabled();
+  });
   it('retains a labelled last verified inventory instead of presenting stale counts as current', async () => {
     const original = fixture();
     const data = { ...original, orders: [{ ...original.orders[0],
