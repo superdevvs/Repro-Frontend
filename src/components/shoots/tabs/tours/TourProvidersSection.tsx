@@ -134,7 +134,7 @@ function ProviderStatus({ kind, children }: { kind: 'ready' | 'working' | 'faile
         ? 'border-destructive/30 bg-destructive/10 text-destructive'
         : 'border-border bg-muted/40 text-muted-foreground';
 
-  return <Badge variant="outline" className={`h-5 rounded-full px-2 text-[10px] font-medium ${className}`}>{children}</Badge>;
+  return <Badge variant="outline" className={`h-5 shrink-0 whitespace-nowrap rounded-full px-2 text-[10px] font-medium ${className}`}>{children}</Badge>;
 }
 
 function ProviderRow({
@@ -151,10 +151,10 @@ function ProviderRow({
 }: ProviderRowProps) {
   return (
     <div data-testid={`tour-provider-${id}`}>
-      <div className="flex min-h-[58px] items-center gap-2 px-3 py-2">
+      <div className="flex min-h-[58px] flex-wrap items-center gap-2 px-3 py-2">
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex min-w-0 flex-[1_1_14rem] items-center gap-2.5 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-expanded={open}
           aria-controls={`tour-provider-panel-${id}`}
           onClick={() => onToggle(id)}
@@ -163,7 +163,7 @@ function ProviderRow({
             {icon}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="flex min-w-0 items-center gap-1.5">
+            <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
               <span className="truncate text-sm font-medium">{title}</span>
               {status}
             </span>
@@ -171,8 +171,12 @@ function ProviderRow({
           </span>
           <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
-        {action}
-        {menu}
+        {(action || menu) && (
+          <div data-testid={`tour-provider-actions-${id}`} className="ml-auto flex shrink-0 items-center gap-2">
+            {action}
+            {menu}
+          </div>
+        )}
       </div>
       {open && (
         <div id={`tour-provider-panel-${id}`} className="border-t bg-muted/15 px-3 py-3">
