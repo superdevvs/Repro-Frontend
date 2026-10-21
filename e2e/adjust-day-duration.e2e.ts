@@ -2,10 +2,10 @@ import { expect, test } from '@playwright/test';
 import { bookingScheduleFixture } from './helpers/booking-schedule-fixture';
 
 test.use({ timezoneId: 'Asia/Kolkata', video: 'off' });
-for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
-  test(`adjusts selected current and previous durations atomically at ${viewport.width}px`, async ({ page, baseURL }) => {
+for (const role of ['superadmin', 'salesRep']) for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+  test(`${role} adjusts selected current and previous durations atomically at ${viewport.width}px`, async ({ page, baseURL }) => {
     await page.setViewportSize(viewport);
-    const qa = await bookingScheduleFixture(page, baseURL, 'adjust-day', 'superadmin');
+    const qa = await bookingScheduleFixture(page, baseURL, 'adjust-day', role);
     await page.getByRole('button', { name: 'Adjust this day', exact: true }).click();
     const dialog = page.getByRole('dialog').filter({ has: page.getByRole('heading', { name: 'Adjust this day' }) });
     await expect(dialog.getByRole('slider', { name: 'Shoot duration for 10 Exterior HDR' })).toBeVisible();
@@ -22,7 +22,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     await expect(apply).toBeEnabled();
     await apply.scrollIntoViewIfNeeded();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    if (process.env.BOOKING_QA_OUTPUT) await page.screenshot({ path: `${process.env.BOOKING_QA_OUTPUT}/adjust-duration-${viewport.width}.png` });
+    if (process.env.BOOKING_QA_OUTPUT) await page.screenshot({ path: `${process.env.BOOKING_QA_OUTPUT}/adjust-duration-${role}-${viewport.width}.png` });
     expect(qa.saves()).toHaveLength(0);
     await apply.click();
     await expect(dialog).toHaveCount(0);

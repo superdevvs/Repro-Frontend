@@ -24,10 +24,10 @@ function preview(response = warning) {
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: response }))));
 }
 
-describe('superadmin working-hours booking confirmation', () => {
+describe('authorized working-hours booking confirmation', () => {
   it('unlocks booking only for a signed offer, requires a typed reason, and saves once with notification choices', async () => {
     preview(); const save = vi.fn(); render(<Harness save={save} />);
-    await screen.findByText(/As superadmin/);
+    await screen.findByText(/You can approve this appointment outside working hours/);
     const book = screen.getByRole('button', { name: 'Book Shoot' }); expect(book).toBeEnabled();
     fireEvent.click(book);
     const dialog = await screen.findByRole('dialog');
@@ -48,7 +48,7 @@ describe('superadmin working-hours booking confirmation', () => {
 
   it('cancels without booking', async () => {
     preview(); const save = vi.fn(); render(<Harness save={save} />);
-    await screen.findByText(/As superadmin/); fireEvent.click(screen.getByRole('button', { name: 'Book Shoot' }));
+    await screen.findByText(/You can approve this appointment outside working hours/); fireEvent.click(screen.getByRole('button', { name: 'Book Shoot' }));
     fireEvent.click(await screen.findByRole('button', { name: 'Go back without saving' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument()); expect(save).not.toHaveBeenCalled();
   });

@@ -3,10 +3,10 @@ import { bookingScheduleFixture, reviewBooking } from './helpers/booking-schedul
 
 test.use({ timezoneId: 'Asia/Kolkata', video: 'off' });
 
-for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
-  test(`superadmin books outside hours with deliberate confirmation at ${viewport.width}px`, async ({ page, baseURL }) => {
+for (const role of ['superadmin', 'salesRep']) for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844 }]) {
+  test(`${role} books outside hours with deliberate confirmation at ${viewport.width}px`, async ({ page, baseURL }) => {
     await page.setViewportSize(viewport);
-    const qa = await bookingScheduleFixture(page, baseURL, 'outside-hours', 'superadmin', { time: '4:55 PM' });
+    const qa = await bookingScheduleFixture(page, baseURL, 'outside-hours', role, { time: '4:55 PM' });
     await page.getByRole('button', { name: '4:55 PM', exact: true }).click();
     await page.getByRole('button', { name: 'Type time', exact: true }).click();
     await page.getByLabel('Exact time', { exact: true }).fill('5:00 PM');
@@ -24,7 +24,7 @@ for (const viewport of [{ width: 1440, height: 1000 }, { width: 390, height: 844
     await expect(confirm).toBeEnabled();
     await confirm.scrollIntoViewIfNeeded();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
-    if (process.env.BOOKING_QA_OUTPUT) await page.screenshot({ path: `${process.env.BOOKING_QA_OUTPUT}/hours-confirm-${viewport.width}.png` });
+    if (process.env.BOOKING_QA_OUTPUT) await page.screenshot({ path: `${process.env.BOOKING_QA_OUTPUT}/hours-confirm-${role}-${viewport.width}.png` });
     await confirm.click();
     await expect.poll(() => qa.saves().length).toBe(1);
     expect(qa.saves()[0].body).toMatchObject({ working_hours_override: true, working_hours_override_confirmed: true,

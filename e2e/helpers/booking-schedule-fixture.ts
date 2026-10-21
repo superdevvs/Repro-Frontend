@@ -103,7 +103,7 @@ function feasibility(scenario: Scenario, body: Record<string, unknown>, role = '
     enabled: scenario !== 'disabled', status: unknown ? 'review_required' : issue ? 'conflict' : 'available', available: !issue,
     reason_codes: hours ? ['outside_working_hours', ...(overlap ? ['capture_overlap'] : [])] : overlap ? ['capture_overlap'] : issue ? [unknown ? 'travel_review_required' : 'insufficient_travel_time'] : [],
     can_override: issue && !hours && !overlap, can_confirm_location: unknown, policy_version: 'fixture-policy', schedule_version: 'fixture-schedule', confirmation_version: confirmationVersion,
-    can_override_working_hours: hours && !overlap && role === 'superadmin', working_hours_confirmation_version: hours ? 'fixture-hours-confirmation' : undefined,
+    can_override_working_hours: hours && !overlap && ['superadmin', 'salesRep'].includes(role), working_hours_confirmation_version: hours ? 'fixture-hours-confirmation' : undefined,
     visits: hours || adjustedDay ? [{ photographer_id: 201, start: start.toISOString(), end: end.toISOString(), scheduled_at: start.toISOString(), duration_minutes: duration, timezone: 'America/New_York' }] : [],
     transitions: hours || scenario === 'available' || scenario === 'disabled' || overlap ? [] : [{
       id: 'transition-1', direction: outgoing ? 'outgoing' : 'incoming', source: same ? 'same_building' : unknown ? 'unknown' : 'google_routes',

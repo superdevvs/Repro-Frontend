@@ -23,6 +23,20 @@ const eligibilityProps = (): SchedulingFormProps => ({
 });
 
 describe('per-service booking photographer availability', () => {
+  it.each(['superadmin', 'salesRep', 'sales_rep', 'representative', 'admin', 'client'])(
+    'selects an outside-hours appointment only for an authorized staff role: %s', async role => {
+      mocks.role = role;
+      mocks.getDayAvailability.mockReturnValue(new Promise(() => {}));
+      vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ data: [{
+        id: 9, name: 'Pat', availability_slots: [{ start_time: '09:00', end_time: '17:00' }],
+        net_available_slots: [{ start_time: '09:00', end_time: '17:00' }],
+      }] }) })));
+      const props = eligibilityProps();
+      const { result } = renderHook(() => useSchedulingFormController(props));
+      await waitFor(() => expect(result.current.canConfirmPhotographer).toBe(true));
+      expect(result.current.isPhotographerTimeDisabled('9', '17:00')).toBe(['admin', 'client'].includes(role));
+    },
+  );
   it('requests authoritative eligibility immediately even when geocoding never finishes', async () => {
     mocks.role = 'admin';
     mocks.geocode.mockReturnValue(new Promise(() => {}));

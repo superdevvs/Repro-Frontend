@@ -36,6 +36,7 @@ import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 import { buildShootPath, shootPathNeedsCanonicalising } from '@/utils/shootPath';
+import { isDeliveredShootForManagement } from '@/utils/shootManagementAccess';
 
 // Import tab components
 import { ShootDetailsMediaTab } from '@/components/shoots/tabs/ShootDetailsMediaTab';
@@ -123,6 +124,8 @@ const ShootDetails: React.FC = () => {
   const isSuperAdmin = normalizedRole === 'superadmin';
   const isAdminOrSuperAdmin = isAdmin;
   const canReviewHoldRequest = isAdminOrRep && (shoot?.canManageShootActions ?? true) && isHoldRequested;
+  const canReschedule = isAdmin || Boolean(isRep && shoot?.canManageBooking && shoot.canManageShootActions
+    && !isDeliveredShootForManagement(shoot) && !['cancelled', 'canceled', 'declined'].includes(workflowStatusKey));
   const workflowBadge = getShootDetailsWorkflowBadge(shoot?.workflowStatus || shoot?.status);
   const paymentBadge = getShootDetailsPaymentBadge(shoot);
   const shootServices = getShootDetailsServiceNames(shoot);
@@ -799,7 +802,7 @@ const ShootDetails: React.FC = () => {
                 isEditingManager={isEditingManager}
                 onShootUpdate={loadShoot}
                 onMarkPaid={() => setIsMarkPaidDialogOpen(true)}
-                onReschedule={isAdmin ? () => setIsRescheduleDialogOpen(true) : undefined}
+                onReschedule={canReschedule ? () => setIsRescheduleDialogOpen(true) : undefined}
                 serviceActions={isAdmin ? <AddServiceDialog shoot={shoot} onShootUpdate={loadShoot} /> : undefined}
               />
             </div>
@@ -818,7 +821,7 @@ const ShootDetails: React.FC = () => {
                   isEditingManager={isEditingManager}
                   onShootUpdate={loadShoot}
                   onMarkPaid={() => setIsMarkPaidDialogOpen(true)}
-                  onReschedule={isAdmin ? () => setIsRescheduleDialogOpen(true) : undefined}
+                  onReschedule={canReschedule ? () => setIsRescheduleDialogOpen(true) : undefined}
                   serviceActions={isAdmin ? <AddServiceDialog shoot={shoot} onShootUpdate={loadShoot} /> : undefined}
                 />
               </div>

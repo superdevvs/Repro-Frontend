@@ -45,7 +45,7 @@ export function TravelFeasibilityPanel({ travel, durationAdjuster, issuesOnly = 
       {travel.error && <Button type="button" variant="outline" size="sm" onClick={() => void travel.retry()}>Retry travel check</Button>}
     </div>
     {issue && travel.canOverride && <p className="text-xs text-muted-foreground">You can confirm a shorter travel gap with an explicit acknowledgement when saving.</p>}
-    {issue && travel.canOverrideWorkingHours && <p className="text-xs text-muted-foreground">As superadmin, you can approve this appointment outside working hours. Save or reschedule the shoot to review the warnings and enter a required reason.</p>}
+    {issue && travel.canOverrideWorkingHours && <p className="text-xs text-muted-foreground">You can approve this appointment outside working hours. Save or reschedule the shoot to review the warnings and enter a required reason.</p>}
     {showNotifications && travel.notificationsSupported && !travel.requestedOnly && <TravelNotifications value={travel.notifications} onChange={travel.setNotifications} />}
     {travel.scheduleAdjustments?.length > 0 && <p className="text-xs text-violet-600 dark:text-violet-300">{travel.scheduleAdjustments.length} existing booking(s) will move with this shoot when you save.</p>}
     {result?.budget && result.budget.alert_level > 0 && <p role="status" className="rounded-lg border border-amber-500/40 p-2 text-xs">Route lookup budget: {result.budget.alert_level}% threshold reached ({result.budget.used_elements.toLocaleString()} of {result.budget.limit_elements.toLocaleString()} elements).{result.budget.alert_level === 100 ? ' Google route lookups are paused until usage drops below the limit.' : ''}</p>}

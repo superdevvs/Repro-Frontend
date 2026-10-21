@@ -29,6 +29,7 @@ import {
 import { readBookingJobCoords } from '@/components/photographers/map/photographerMapFields';
 import type { ShootMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 import { useAuth } from '@/components/auth';
+import { hasSalesRepRole } from '@/utils/shootManagementAccess';
 
 
 /** Client-side ceiling so Confirm cannot hang forever if for-booking/geocode never settles. */
@@ -89,7 +90,7 @@ export const useSchedulingFormController = ({
   const [availabilityDataDate, setAvailabilityDataDate] = useState('');
   const [hybridEnabledByApi, setHybridEnabledByApi] = useState(false);
   const useHybridTravel = hybridTravelEnabled || hybridEnabledByApi;
-  const allowOutsideWorkingHours = user?.role === 'superadmin' && enforceNewBookingEligibility;
+  const allowOutsideWorkingHours = (user?.role === 'superadmin' || hasSalesRepRole(user)) && enforceNewBookingEligibility;
   const retryBookingEligibility = () => setBookingEligibilityRetry(value => value + 1);
   const {
     disabledDates, today, toast, isMobile, isLocationLoading, timeDialogOpen,
