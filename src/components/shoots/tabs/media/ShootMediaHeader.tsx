@@ -1,9 +1,10 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronUp, Download, FileIcon, GripVertical, LayoutGrid, List, Pencil, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, Download, FileIcon, LayoutGrid, List, MoreHorizontal, Trash2, Upload } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { MediaSortControl } from './MediaSortControl';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { MediaFile } from '@/hooks/useShootFiles';
 import type { ReclassifyMediaType } from './useShootMediaActions';
@@ -71,7 +72,7 @@ export function ShootMediaHeader({
   presentationActions,
   canCreateRequest = true,
 }: ShootMediaHeaderProps) {
-  const isManualSort = sortOrder === 'manual';
+  const hasMoreActions = canMarkSelectedFiles || (isClient && canCreateRequest) || canDelete;
   const libraryCount = visibleFileCount ?? (displayTab === 'edited' ? editedFiles.length : rawFiles.length);
 
   return (
@@ -103,7 +104,7 @@ export function ShootMediaHeader({
                 setActiveSubTab('edited');
                 setDisplayTab('edited');
               }
-            }} className="shoot-media-header-tabs flex-1 min-w-0">
+            }} className="shoot-media-header-tabs flex-1 min-w-0 overflow-x-auto">
               <TabsList className="shoot-media-segments w-full justify-start h-7 sm:h-8 bg-background p-0 min-w-max sm:min-w-0 border-b rounded-none">
                 {/* Media tab - visible to all */}
                 <TabsTrigger 
@@ -138,256 +139,48 @@ export function ShootMediaHeader({
             </Tabs>
           )}
           
-          {/* List / Grid view toggle - visible on all screen sizes */}
-          {(rawFiles.length > 0 || editedFiles.length > 0) && (
-            <div className="shoot-media-mobile-view flex sm:hidden items-center border rounded-md overflow-hidden flex-shrink-0">
-              <button
-                onClick={() => toggleMediaViewMode('list')}
-                className={`h-7 w-7 flex items-center justify-center transition-colors ${mediaViewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
-                title="List view"
-                aria-label="List view"
-                aria-pressed={mediaViewMode === 'list'}
-              >
-                <List className="h-3.5 w-3.5" />
-              </button>
-              <button
-                onClick={() => toggleMediaViewMode('grid')}
-                className={`h-7 w-7 flex items-center justify-center transition-colors ${mediaViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
-                title="Grid view"
-                aria-label="Grid view"
-                aria-pressed={mediaViewMode === 'grid'}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          )}
-
-          {/* Upload and Download buttons - Inline on desktop, below on mobile */}
-          <div className="shoot-media-toolbar hidden sm:flex items-center gap-1.5 flex-shrink-0">
-            {/* Sort dropdown - hidden for editors */}
-            {!isEditor && (rawFiles.length > 0 || editedFiles.length > 0) && (
-              <DropdownMenu open={sortMenuOpen} onOpenChange={setSortMenuOpen}>
-                <div className="flex items-center rounded-md border overflow-hidden">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className={`h-7 text-[11px] px-2 rounded-none border-0 ${
-                      isManualSort && isDragMode
-                        ? 'bg-green-600 hover:bg-green-700 text-white'
-                        : 'bg-transparent'
-                    }`}
-                    // Selecting Manual from the menu arms dragging, so this
-                    // segment is how you stop it. Stopping keeps the manual
-                    // arrangement - it only stops accepting drags - so the label
-                    // still reads "Manual" afterwards.
-                    onClick={() => {
-                      if (isManualSort) {
-                        toggleDragMode();
-                        return;
-                      }
-
-                      setSortMenuOpen(true);
-                    }}
-                    title={
-                      isManualSort
-                        ? isDragMode
-                          ? 'Sort mode is on - click to stop. Your order is saved.'
-                          : 'Photos are in your manual order - click to start reordering'
-                        : 'Change photo order'
-                    }
-                  >
-                    {isManualSort ? (
-                      <GripVertical className="h-3 w-3 mr-1" />
-                    ) : (
-                      <ArrowUpDown className="h-3 w-3 mr-1" />
-                    )}
-                    <span>
-                      {isManualSort && isDragMode
-                        ? 'Sort Mode'
-                        : `Sort: ${sortOrder === 'name' ? 'Name' : sortOrder === 'date' ? 'Date' : sortOrder === 'manual' ? 'Manual' : 'Time'}`}
-                    </span>
-                    {sortSaveStatus === 'saving' && (
-                      <Loader2 aria-hidden="true" className={`h-3 w-3 ml-1 ${isManualSort && isDragMode ? 'text-white/80' : 'text-muted-foreground'}`} />
-                    )}
-                    {sortSaveStatus === 'saved' && (
-                      <Check className={`h-3 w-3 ml-1 ${isManualSort && isDragMode ? 'text-white' : 'text-green-500'}`} />
-                    )}
-                  </Button>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className={`h-7 w-7 px-0 rounded-none border-l ${
-                        isManualSort && isDragMode
-                          ? 'border-white/20 bg-green-600 hover:bg-green-700 text-white'
-                          : 'bg-transparent'
-                      }`}
-                      aria-label="Choose media sort order"
-                    >
-                      <ChevronDown className="h-3 w-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                </div>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => changeSortOrder('manual')}>
-                    <span className={sortOrder === 'manual' ? 'font-medium' : ''}>Manual (Drag &amp; Drop)</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => changeSortOrder('time')}>
-                    <span className={sortOrder === 'time' ? 'font-medium' : ''}>Time Captured</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => changeSortOrder('name')}>
-                    <span className={sortOrder === 'name' ? 'font-medium' : ''}>File Name</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => changeSortOrder('date')}>
-                    <span className={sortOrder === 'date' ? 'font-medium' : ''}>Date Added</span>
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            {/* List / Grid view toggle */}
+          <div className="shoot-media-toolbar flex shrink-0 items-center gap-1.5">
             {(rawFiles.length > 0 || editedFiles.length > 0) && (
-              <div className="flex items-center border rounded-md overflow-hidden">
-                <button
+              <div className="flex shrink-0 items-center overflow-hidden rounded-md border" role="group" aria-label="Media view">
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => toggleMediaViewMode('list')}
-                  className={`h-7 w-7 flex items-center justify-center transition-colors ${mediaViewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                  className={`h-9 w-8 gap-0 rounded-none sm:h-8 ${mediaViewMode === 'list' ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : 'text-muted-foreground'}`}
                   title="List view"
                   aria-label="List view"
                   aria-pressed={mediaViewMode === 'list'}
                 >
-                  <List className="h-3.5 w-3.5" />
-                </button>
-                <button
+                  <List />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => toggleMediaViewMode('grid')}
-                  className={`h-7 w-7 flex items-center justify-center transition-colors ${mediaViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
+                  className={`h-9 w-8 gap-0 rounded-none sm:h-8 ${mediaViewMode === 'grid' ? 'bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground' : 'text-muted-foreground'}`}
                   title="Grid view"
                   aria-label="Grid view"
                   aria-pressed={mediaViewMode === 'grid'}
                 >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                </button>
+                  <LayoutGrid />
+                </Button>
               </div>
             )}
-            {/* Upload More button - only shown when files already exist */}
             {showUploadTab && (rawFiles.length > 0 || editedFiles.length > 0) && (
               <Button
                 type="button"
-                variant="default"
                 size="sm"
-                className="h-7 text-[11px] px-2 bg-blue-600 hover:bg-blue-700 text-white"
+                className="hidden h-8 gap-1.5 px-2 text-xs sm:inline-flex"
                 onClick={() => setActiveSubTab('upload')}
+                title="Upload More"
+                aria-label="Upload More"
               >
-                <Upload className="h-3 w-3 mr-1" />
-                <span>Upload More</span>
+                <Upload />
+                <span className="hidden lg:inline">Upload More</span>
               </Button>
             )}
-            {/* Selection actions */}
-            {(canDownload || canDelete || canBatchRename || canMarkSelectedFiles || presentationActions) && selectedFiles.size > 0 && (
-              <>
-                {presentationActions}
-                {/* Mark selected files - admin only */}
-                {canMarkSelectedFiles && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-7 text-[11px] px-2"
-                        title={`Mark ${selectedFiles.size} file(s)`}
-                      >
-                        <FileIcon className="h-3.5 w-3.5 mr-1" />
-                        <span>Mark</span>
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {markMenuOptions.map((option) => (
-                        <DropdownMenuItem key={option.value} onClick={() => handleReclassify(option.value)}>
-                          {option.label}
-                        </DropdownMenuItem>
-                      ))}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-
-                {/* Show Create Request button for clients when photos are selected */}
-                {isClient && canCreateRequest && (
-                  <Button
-                    size="sm"
-                    className="h-7 text-[11px] px-2 bg-blue-600 hover:bg-blue-700 text-white"
-                    onClick={() => setRequestManagerOpen(true)}
-                  >
-                    <AlertCircle className="h-3 w-3 mr-1" />
-                    <span>Create Request ({selectedFiles.size})</span>
-                  </Button>
-                )}
-                {canDownload && (
-                  isEditor && displayTab === 'uploaded' ? (
-                    <Button
-                      size="sm"
-                      className="h-7 text-[11px] px-2"
-                      disabled={downloading} aria-busy={downloading} aria-label="Download selected files"
-                      onClick={() => handleEditorDownloadRaw(false)}
-                      title={`Download ${selectedFiles.size} raw file(s)`}
-                    >
-                      {downloading ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5 mr-1" /> : <Download className="h-3.5 w-3.5 mr-1" />}
-                      <span>Download</span>
-                      {selectedFiles.size > 0 && (
-                        <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-primary-foreground/20 px-1 text-[9px] font-bold leading-none text-current ml-1">
-                          {selectedFiles.size}
-                        </span>
-                      )}
-                    </Button>
-                  ) : (
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="icon" className="h-7 w-7 relative" disabled={downloading} aria-busy={downloading} aria-label="Download selected files" title={`Download ${selectedFiles.size} file(s)`}>
-                          {downloading ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-                          {selectedFiles.size > 0 && (
-                            <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1">
-                              {selectedFiles.size}
-                            </span>
-                          )}
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleDownload('small')}>
-                          <Download className="h-4 w-4 mr-2" />
-                          <div>
-                            <div className="font-medium text-sm">MLS Optimized</div>
-                            <div className="text-xs text-muted-foreground">Best for MLS uploads</div>
-                          </div>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDownload('original')}>
-                          <Download className="h-4 w-4 mr-2" />
-                          <div>
-                            <div className="font-medium text-sm">Print Resolution</div>
-                            <div className="text-xs text-muted-foreground">Large files for print/design</div>
-                          </div>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  )
-                )}
-                {canDelete && (
-                  <Button
-                    size="icon"
-                    variant="destructive"
-                    className="h-7 w-7 relative bg-red-600 hover:bg-red-700 text-white"
-                    onClick={handleDeleteFiles}
-                    title={`Delete ${selectedFiles.size} file(s)`}
-                    aria-label={`Delete ${selectedFiles.size} selected file${selectedFiles.size === 1 ? '' : 's'}`}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    {selectedFiles.size > 0 && (
-                      <span className="absolute -top-1.5 -right-1.5 bg-white text-red-600 text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 border border-red-300">
-                        {selectedFiles.size}
-                      </span>
-                    )}
-                  </Button>
-                )}
-              </>
-            )}
           </div>
-          
+
           {/* Expand/Collapse Button - Mobile only, on extreme right */}
           {onToggleExpand && (
             <button
@@ -405,121 +198,117 @@ export function ShootMediaHeader({
         </div>
       </div>
       
-      {/* Selected-file actions - Below tabs on mobile only */}
-      {(canDownload || canDelete || canBatchRename || canMarkSelectedFiles || presentationActions) && selectedFiles.size > 0 && (
-        <div className="mb-1.5 pb-1 border-b flex-shrink-0 sm:hidden">
-          <div className="flex items-center justify-end gap-1.5 flex-wrap">
-            {presentationActions}
-            {/* Mark selected files - mobile */}
-            {canMarkSelectedFiles && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+      {/* A single action row is shared by mobile and desktop. Secondary actions expand into a menu. */}
+      {((!isEditor && (rawFiles.length > 0 || editedFiles.length > 0)) || selectedFiles.size > 0) && (
+        <div className="shoot-media-selection-toolbar mb-1.5 flex shrink-0 flex-nowrap items-center gap-1 border-b py-1.5" role="group" aria-label="Media actions">
+          {!isEditor && (rawFiles.length > 0 || editedFiles.length > 0) && (
+            <MediaSortControl
+              open={sortMenuOpen}
+              onOpenChange={setSortMenuOpen}
+              sortOrder={sortOrder}
+              isDragMode={isDragMode}
+              sortSaveStatus={sortSaveStatus}
+              changeSortOrder={changeSortOrder}
+              toggleDragMode={toggleDragMode}
+              compact={sortOrder === 'manual' && selectedFiles.size > 0}
+            />
+          )}
+          {selectedFiles.size > 0 && (
+            <>
+              <span className="min-w-0 flex-1 truncate pr-1 text-xs font-medium tabular-nums text-muted-foreground" title={`${selectedFiles.size} selected`}>
+                {selectedFiles.size}<span className="sr-only min-[360px]:not-sr-only"> selected</span>
+              </span>
+              {presentationActions}
+              {canDownload && (
+                isEditor && displayTab === 'uploaded' ? (
                   <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-[11px] px-2 flex-shrink-0"
-                    title={`Mark ${selectedFiles.size} file(s)`}
+                    size="icon"
+                    className="h-9 w-9 shrink-0 gap-0 sm:h-8 sm:w-8"
+                    disabled={downloading}
+                    aria-busy={downloading}
+                    aria-label="Download selected files"
+                    onClick={() => handleEditorDownloadRaw(false)}
+                    title={`Download ${selectedFiles.size} raw file(s)`}
                   >
-                    <FileIcon className="h-3 w-3 mr-1" />
-                    <span>Mark</span>
+                    {downloading ? <Loader2 aria-hidden="true" /> : <Download />}
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {markMenuOptions.map((option) => (
-                    <DropdownMenuItem key={option.value} onClick={() => handleReclassify(option.value)}>
-                      {option.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-
-            {/* Show Create Request button for clients when photos are selected */}
-            {isClient && canCreateRequest && (
-              <Button
-                size="sm"
-                className="h-7 text-[11px] px-2 flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white"
-                onClick={() => setRequestManagerOpen(true)}
-              >
-                <AlertCircle className="h-3 w-3 mr-1" />
-                <span>Create Request</span>
-              </Button>
-            )}
-            {canDownload && (
-              isEditor && displayTab === 'uploaded' ? (
-                <Button
-                  size="sm"
-                  className="h-7 px-2 text-[11px] gap-1.5 flex-shrink-0"
-                  disabled={downloading} aria-busy={downloading} aria-label="Download selected files"
-                  onClick={() => handleEditorDownloadRaw(false)}
-                  title={`Download ${selectedFiles.size} raw file(s)`}
-                >
-                  {downloading ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-                  <span>Download</span>
-                  {selectedFiles.size > 0 && (
-                    <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-primary-foreground/20 px-1 text-[9px] font-bold leading-none text-current">
-                      {selectedFiles.size}
-                    </span>
-                  )}
-                </Button>
-              ) : (
+                ) : (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        size="icon"
+                        className="h-9 w-9 shrink-0 gap-0 sm:h-8 sm:w-8"
+                        disabled={downloading}
+                        aria-busy={downloading}
+                        aria-label="Download selected files"
+                        title={`Download ${selectedFiles.size} file(s)`}
+                      >
+                        {downloading ? <Loader2 aria-hidden="true" /> : <Download />}
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" collisionPadding={12}>
+                      <DropdownMenuLabel>Download {selectedFiles.size} selected</DropdownMenuLabel>
+                      <DropdownMenuItem className="min-h-10" onClick={() => handleDownload('small')}>
+                        <Download className="mr-2 h-4 w-4" />
+                        <div>
+                          <div className="text-sm font-medium">MLS Optimized</div>
+                          <div className="text-xs text-muted-foreground">Best for MLS uploads</div>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem className="min-h-10" onClick={() => handleDownload('original')}>
+                        <Download className="mr-2 h-4 w-4" />
+                        <div>
+                          <div className="text-sm font-medium">Print Resolution</div>
+                          <div className="text-xs text-muted-foreground">Large files for print/design</div>
+                        </div>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )
+              )}
+              {hasMoreActions && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button
-                      size="sm"
-                      className="h-7 px-2 text-[11px] gap-1.5 flex-shrink-0"
-                      disabled={downloading} aria-busy={downloading} aria-label="Download selected files"
-                      title={`Download ${selectedFiles.size} file(s)`}
-                    >
-                      {downloading ? <Loader2 aria-hidden="true" className="h-3.5 w-3.5" /> : <Download className="h-3.5 w-3.5" />}
-                      <span>Download</span>
-                      {selectedFiles.size > 0 && (
-                        <span className="inline-flex min-w-[16px] h-4 items-center justify-center rounded-full bg-primary-foreground/20 px-1 text-[9px] font-bold leading-none text-current">
-                          {selectedFiles.size}
-                        </span>
-                      )}
+                    <Button size="icon" variant="outline" className="h-9 w-9 shrink-0 gap-0 sm:h-8 sm:w-8" aria-label="More selected file actions" title="More actions">
+                      <MoreHorizontal />
                     </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleDownload('small')}>
-                      <Download className="h-4 w-4 mr-2" />
-                      <div>
-                        <div className="font-medium text-sm">MLS Optimized</div>
-                        <div className="text-xs text-muted-foreground">Best for MLS uploads</div>
-                      </div>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handleDownload('original')}>
-                      <Download className="h-4 w-4 mr-2" />
-                      <div>
-                        <div className="font-medium text-sm">Print Resolution</div>
-                        <div className="text-xs text-muted-foreground">Large files for print/design</div>
-                      </div>
-                    </DropdownMenuItem>
+                  <DropdownMenuContent align="end" collisionPadding={12}>
+                    <DropdownMenuLabel>{selectedFiles.size} selected</DropdownMenuLabel>
+                    {canMarkSelectedFiles && (
+                      <DropdownMenuSub>
+                        <DropdownMenuSubTrigger className="min-h-10">
+                          <FileIcon className="mr-2 h-4 w-4" />Mark as
+                        </DropdownMenuSubTrigger>
+                        <DropdownMenuSubContent collisionPadding={12}>
+                          {markMenuOptions.map(option => (
+                            <DropdownMenuItem key={option.value} className="min-h-10" onClick={() => handleReclassify(option.value)}>
+                              {option.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuSubContent>
+                      </DropdownMenuSub>
+                    )}
+                    {isClient && canCreateRequest && (
+                      <DropdownMenuItem className="min-h-10" onClick={() => setRequestManagerOpen(true)}>
+                        <AlertCircle className="mr-2 h-4 w-4" />Create request
+                      </DropdownMenuItem>
+                    )}
+                    {canDelete && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem className="min-h-10 text-destructive focus:text-destructive" onClick={handleDeleteFiles}>
+                          <Trash2 className="mr-2 h-4 w-4" />Delete {selectedFiles.size} selected file{selectedFiles.size === 1 ? '' : 's'}
+                        </DropdownMenuItem>
+                      </>
+                    )}
                   </DropdownMenuContent>
                 </DropdownMenu>
-              )
-            )}
-            {canDelete && (
-              <Button
-                size="icon"
-                variant="destructive"
-                className="h-7 w-7 relative flex-shrink-0 bg-red-600 hover:bg-red-700 text-white"
-                onClick={handleDeleteFiles}
-                title={`Delete ${selectedFiles.size} file(s)`}
-                aria-label={`Delete ${selectedFiles.size} selected file${selectedFiles.size === 1 ? '' : 's'}`}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                {selectedFiles.size > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 bg-white text-red-600 text-[9px] font-bold rounded-full min-w-[16px] h-4 flex items-center justify-center px-1 border border-red-300">
-                    {selectedFiles.size}
-                  </span>
-                )}
-              </Button>
-            )}
-          </div>
+              )}
+            </>
+          )}
         </div>
       )}
-
     </>
   );
 }

@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MediaEditingMenu } from '../../MediaEditingMenu';
 import { Checkbox } from '@/components/ui/checkbox';
 import { CheckCircle2, ChevronLeft, ChevronRight, Circle, GripVertical, Heart, Image as ImageIcon, MessageSquare, Play } from 'lucide-react';
 import { type MediaFile } from '@/hooks/useShootFiles';
@@ -757,7 +756,6 @@ export function MediaGrid({
           )}
           {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
           {renderDownloadAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-          {canInteractWithFile?.(file) !== false && <MediaEditingMenu file={file} className="h-7 w-7" />}
           {renderPresentationActions(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
         </div>
       </div>
@@ -907,7 +905,6 @@ export function MediaGrid({
               )}
               {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
               {renderDownloadAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-              {canInteractWithFile?.(file) !== false && <MediaEditingMenu file={file} className="h-7 w-7" />}
               {renderPresentationActions(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
             </div>
           </div>

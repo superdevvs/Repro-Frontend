@@ -15,18 +15,18 @@ export function MediaPresentationSelectionActions({ files, selectedFiles, role, 
   const canManageAll = selected.every(file => canManageMediaVisibility(file, role));
   return <>
     {onToggleHidden && canManageAll && selected.some(file => !file.is_hidden) && (
-      <Button variant="outline" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onToggleHidden(selected.map(file => file.id), true)}>
-        <EyeOff className="mr-1 h-3.5 w-3.5" />Hide selected
+      <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 gap-0 sm:h-8 sm:w-8" title="Hide selected" onClick={() => onToggleHidden(selected.map(file => file.id), true)}>
+        <EyeOff /><span className="sr-only">Hide selected</span>
       </Button>
     )}
     {onToggleHidden && canManageAll && selected.some(file => file.is_hidden) && (
-      <Button variant="outline" size="sm" className="h-7 px-2 text-[11px]" onClick={() => onToggleHidden(selected.map(file => file.id), false)}>
-        <Eye className="mr-1 h-3.5 w-3.5" />Unhide selected
+      <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 gap-0 sm:h-8 sm:w-8" title="Unhide selected" onClick={() => onToggleHidden(selected.map(file => file.id), false)}>
+        <Eye /><span className="sr-only">Unhide selected</span>
       </Button>
     )}
     {onSetHero && selected.length === 1 && canSetMediaHero(selected[0], role) && (
-      <Button variant="outline" size="sm" className="h-7 px-2 text-[11px]" disabled={selected[0].is_cover} onClick={() => onSetHero(selected[0].id)}>
-        <ImagePlus className="mr-1 h-3.5 w-3.5" />Set hero image
+      <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 gap-0 sm:h-8 sm:w-8" title="Set hero image" disabled={selected[0].is_cover} onClick={() => onSetHero(selected[0].id)}>
+        <ImagePlus /><span className="sr-only">Set hero image</span>
       </Button>
     )}
   </>;

@@ -65,7 +65,7 @@
 }
 
 .shoot-details-workspace .shoot-media-toolbar {
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   min-width: 0;
   justify-content: flex-end;
   gap: 8px;
