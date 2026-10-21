@@ -261,3 +261,6 @@ describe('dashboard page loading integration', () => {
     expect(screen.getByText(/Terms and Conditions/)).toBeInTheDocument();
   });
 });
+// Resume behavior has its own authenticated/query-provider integration tests.
+// Keep these shell/scroll assertions independent of that background lifecycle.
+vi.mock('@/components/dashboard/DashboardResumeRefresh', () => ({ DashboardResumeRefresh: () => null }));

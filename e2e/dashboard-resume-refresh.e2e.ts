@@ -20,6 +20,7 @@ async function setup(page: Page, baseURL: string | undefined, role: string) {
   page.on('request', request => { if (request.isNavigationRequest() && request.frame() === page.mainFrame()) documents++; });
   await page.goto('/shoot-history?view=grid');
   await expect(page.locator('main').first()).toBeVisible();
+  await page.waitForLoadState('networkidle');
   return { fixture, documents: () => documents };
 }
 
