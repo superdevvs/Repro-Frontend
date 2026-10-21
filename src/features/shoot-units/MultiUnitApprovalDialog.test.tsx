@@ -1,6 +1,6 @@
 import React from 'react';
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MultiUnitApprovalDialog } from './MultiUnitApprovalDialog';
 
@@ -25,6 +25,38 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe('large property approval', () => {
+  it('reviews a signed hours exception before approving a unit and preserves its revision', async () => {
+    const source = { id: 42, units_revision: 1, timezone: 'America/New_York',
+      units: [{ id: 7, client_key: 'u7', label: 'One', kind: 'unit', sqft: 900 }],
+      service_lines: [{ shoot_service_id: 101, service_id: 10, shoot_unit_id: 7, name: 'Photos',
+        duration_minutes: 75, photographer_id: 9, scheduled_at: '2026-10-22T18:00:00Z', price: 100 }],
+    };
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: {
+      enabled: true, available: false, status: 'conflict', reason_codes: ['outside_working_hours'],
+      transitions: [], alternatives: [], can_override: false, can_override_working_hours: true,
+      working_hours_confirmation_version: 'signed-unit-hours-v1', policy_version: '1', schedule_version: '1',
+      visits: [{ photographer_id: 9, start: '2026-10-22T18:00:00Z', end: '2026-10-22T19:15:00Z',
+        scheduled_at: '2026-10-22T18:00:00Z', duration_minutes: 75, timezone: 'America/New_York' }],
+    } }))));
+    render(<MultiUnitApprovalDialog open source={source} photographers={[{ id: 9, name: 'QA Photographer' }]} onClose={vi.fn()} />);
+    const approve = await screen.findByRole('button', { name: 'Review and approve 1 units / areas' });
+    await waitFor(() => expect(approve).toBeEnabled());
+    fireEvent.click(approve);
+    const dialog = await screen.findByRole('dialog', { name: 'Approve outside working hours' });
+    expect(post).not.toHaveBeenCalled();
+    const confirm = within(dialog).getByRole('button', { name: 'Confirm and approve outside hours' });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(within(dialog).getByLabelText('Working-hours exception reason'),
+      { target: { value: 'Photographer reviewed the full appointment.' } });
+    fireEvent.click(confirm);
+    await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
+    expect(post.mock.calls[0]).toEqual(['/shoots/42/approve', expect.objectContaining({
+      expected_units_revision: 1, working_hours_override: true, working_hours_override_confirmed: true,
+      working_hours_override_confirmation_version: 'signed-unit-hours-v1',
+      service_lines: [expect.objectContaining({ shoot_service_id: '101', duration_minutes: 75 })],
+    })]);
+  });
+
   it('includes the current unit revision in the travel preview before enabling approval', async () => {
     const source = {
       id: 2441, units_revision: 1, timezone: 'America/New_York',

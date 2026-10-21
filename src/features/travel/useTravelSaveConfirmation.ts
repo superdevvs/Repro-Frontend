@@ -3,7 +3,7 @@ import type { TravelConfirmation, TravelFeasibility, TravelPayload } from './typ
 
 export function canConfirmWorkingHoursException(result: TravelFeasibility | null, payload: TravelPayload | null, requestedOnly: boolean) {
   const reasons = [...(result?.reason_codes ?? []), ...(result?.transitions ?? []).map(leg => leg.reason_code)];
-  const actionAllowed = payload?.shoot_id ? ['update', 'reschedule'].includes(String(payload.action_mode)) : payload?.action_mode === 'create';
+  const actionAllowed = payload?.shoot_id ? ['update', 'reschedule', 'approve'].includes(String(payload.action_mode)) : payload?.action_mode === 'create';
   return Boolean(!requestedOnly && actionAllowed
     && result?.enabled && !result.available && result.can_override_working_hours && result.working_hours_confirmation_version
     && reasons.includes('outside_working_hours') && !reasons.some(reason => /overlap/.test(reason)));

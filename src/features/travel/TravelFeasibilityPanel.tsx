@@ -24,7 +24,8 @@ export function TravelFeasibilityPanel({ travel, durationAdjuster, issuesOnly = 
   const unknownLocation = result?.transitions?.some(leg => leg.source === 'unknown') || result?.reason_codes?.some(code => /location|building|geocod|address/.test(code));
   const canAdjust = Boolean(!travel.requestedOnly && travel.onScheduleChange && result?.enabled && result.visits?.length);
   const items = travel.payload?.service_items ?? travel.payload?.service_lines;
-  const title = travel.loading ? 'Checking travel · time is provisional' : travel.error ? 'Travel check unavailable' : result?.available ? 'Travel time checked' : overlap ? 'Already booked at this time' : 'Review travel time';
+  const outsideHours = result?.reason_codes?.some(reason => /working_hours|outside_hours/.test(reason));
+  const title = travel.loading ? 'Checking travel · time is provisional' : travel.error ? 'Travel check unavailable' : result?.available ? 'Travel time checked' : overlap ? 'Already booked at this time' : outsideHours ? 'Outside working hours' : 'Review travel time';
   const warningAction = travel.canForceSave && travel.onSaveWithWarning && <Button type="button" size="sm" className="min-h-10 bg-amber-600 text-white hover:bg-amber-700 sm:min-h-7" disabled={travel.forceSaveBusy} onClick={() => { setDetailsOpen(false); travel.onSaveWithWarning?.(); }}>Save with warning</Button>;
   const detailPanel = <section aria-label="Travel feasibility" className={`min-w-0 space-y-3 rounded-xl border p-3 text-sm ${hasError ? 'border-red-500 dark:border-red-400 bg-red-500/5' : 'bg-muted/30'}`}>
     <div role={hasError ? 'alert' : 'status'} aria-live="polite"><p className={`font-semibold ${hasError ? 'text-red-600 dark:text-red-400' : ''}`}>{title}</p>
@@ -44,8 +45,8 @@ export function TravelFeasibilityPanel({ travel, durationAdjuster, issuesOnly = 
       {canAdjust && <Button type="button" variant="outline" size="sm" disabled={travel.loading} onClick={() => { setDetailsOpen(false); setAdjusting(true); }}>Adjust this day</Button>}
       {travel.error && <Button type="button" variant="outline" size="sm" onClick={() => void travel.retry()}>Retry travel check</Button>}
     </div>
-    {issue && travel.canOverride && <p className="text-xs text-muted-foreground">You can confirm a shorter travel gap with an explicit acknowledgement when saving.</p>}
-    {issue && travel.canOverrideWorkingHours && <p className="text-xs text-muted-foreground">You can approve this appointment outside working hours. Save or reschedule the shoot to review the warnings and enter a required reason.</p>}
+    {issue && travel.canOverride && <p className="text-xs text-muted-foreground">Review and confirm the travel exception when saving or approving this booking. A reason is required.</p>}
+    {issue && travel.canOverrideWorkingHours && <p className="text-xs text-muted-foreground">You can approve this appointment outside working hours. Use the save or approval button to review the warnings and enter a required reason.</p>}
     {showNotifications && travel.notificationsSupported && !travel.requestedOnly && <TravelNotifications value={travel.notifications} onChange={travel.setNotifications} />}
     {travel.scheduleAdjustments?.length > 0 && <p className="text-xs text-violet-600 dark:text-violet-300">{travel.scheduleAdjustments.length} existing booking(s) will move with this shoot when you save.</p>}
     {result?.budget && result.budget.alert_level > 0 && <p role="status" className="rounded-lg border border-amber-500/40 p-2 text-xs">Route lookup budget: {result.budget.alert_level}% threshold reached ({result.budget.used_elements.toLocaleString()} of {result.budget.limit_elements.toLocaleString()} elements).{result.budget.alert_level === 100 ? ' Google route lookups are paused until usage drops below the limit.' : ''}</p>}

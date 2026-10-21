@@ -63,7 +63,7 @@ describe('save with warning acknowledgement', () => {
       ...(scenario === 'signature' ? { force_save_confirmation_version: undefined } : {}),
       ...(scenario === 'overlap' ? { reason_codes: ['capture_overlap'] } : {}) };
     render(<Harness save={vi.fn()} result={result} client={scenario === 'client'} action={scenario === 'pending' ? 'approve' : 'update'} />);
-    await screen.findByText(scenario === 'overlap' ? 'Already booked at this time' : 'Review travel time');
+    await screen.findByText(scenario === 'overlap' ? 'Already booked at this time' : 'Outside working hours');
     expect(screen.queryByRole('button', { name: 'Save with warning' })).not.toBeInTheDocument();
   });
 });
