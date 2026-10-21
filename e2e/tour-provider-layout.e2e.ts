@@ -46,6 +46,9 @@ for (const { width, theme, surface, role } of cases) {
       expect(bounds.textLeft).toBeGreaterThanOrEqual(bounds.left);
       expect(bounds.textRight).toBeLessThanOrEqual(bounds.right + 1);
       const rowBox = await row.boundingBox();
+      // Keep the original compact row height; moving actions underneath must
+      // not trade the clipping bug for a much taller mobile list.
+      expect(rowBox!.height).toBeLessThanOrEqual(64);
       for (const control of await row.getByRole('button').all()) {
         const controlBox = await control.boundingBox();
         expect(controlBox!.x).toBeGreaterThanOrEqual(rowBox!.x - 1);

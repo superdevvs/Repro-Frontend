@@ -1,0 +1,35 @@
+.tour-provider-row {
+  container-name: tour-provider;
+  container-type: inline-size;
+}
+
+@container tour-provider (max-width: 420px) {
+  .tour-provider-row .tour-provider-header {
+    gap: 6px;
+  }
+
+  .tour-provider-row .tour-provider-heading {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .tour-provider-row .tour-provider-summary {
+    display: none;
+  }
+
+  .tour-provider-row .tour-provider-actions {
+    gap: 4px;
+  }
+
+  .tour-provider-row .tour-provider-actions button {
+    padding-inline: 8px;
+    font-size: 12px;
+  }
+}
+
+@container tour-provider (max-width: 360px) {
+  .tour-provider-row .tour-provider-icon {
+    display: none;
+  }
+}

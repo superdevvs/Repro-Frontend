@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import './tourProviders.css';
 import { Box, Check, ChevronDown, Copy, Download, Edit3, ExternalLink, FileArchive, Home, MapPinned, MoreHorizontal, RefreshCw, Share2, Trash2, UploadCloud, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Badge } from '@/components/ui/badge';
@@ -150,29 +151,29 @@ function ProviderRow({
   title,
 }: ProviderRowProps) {
   return (
-    <div data-testid={`tour-provider-${id}`}>
-      <div className="flex min-h-[58px] flex-wrap items-center gap-2 px-3 py-2">
+    <div data-testid={`tour-provider-${id}`} className="tour-provider-row">
+      <div className="tour-provider-header flex min-h-[58px] items-center gap-2 px-3 py-2">
         <button
           type="button"
-          className="flex min-w-0 flex-[1_1_14rem] items-center gap-2.5 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          className="flex min-w-0 flex-1 items-center gap-2.5 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
           aria-expanded={open}
           aria-controls={`tour-provider-panel-${id}`}
           onClick={() => onToggle(id)}
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <span className="tour-provider-icon flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
             {icon}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
+            <span className="tour-provider-heading flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1">
               <span className="truncate text-sm font-medium">{title}</span>
               {status}
             </span>
-            <span className="block truncate text-[11px] text-muted-foreground">{summary}</span>
+            <span className="tour-provider-summary block truncate text-[11px] text-muted-foreground">{summary}</span>
           </span>
           <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${open ? 'rotate-180' : ''}`} />
         </button>
         {(action || menu) && (
-          <div data-testid={`tour-provider-actions-${id}`} className="ml-auto flex shrink-0 items-center gap-2">
+          <div data-testid={`tour-provider-actions-${id}`} className="tour-provider-actions ml-auto flex shrink-0 items-center gap-2">
             {action}
             {menu}
           </div>
