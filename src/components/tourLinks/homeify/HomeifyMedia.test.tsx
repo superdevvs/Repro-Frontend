@@ -8,6 +8,13 @@ import { homeifyEmbedUrl } from './homeifyMediaUtils';
 afterEach(cleanup);
 
 describe('Homeify media sources', () => {
+  it('renders a hosted listing film once instead of also showing its uploaded copy', () => {
+    const { container } = render(<HomeifyMedia data={normalizePublicTourData({ videos: ['https://media.test/4421-Bradley-Lane.mp4'], video_link: 'https://vimeo.com/1234761777?share=copy' }, 'branded')} />);
+    expect(screen.getAllByTitle(/Property video/)).toHaveLength(1);
+    expect(screen.getByTitle('Property video 1')).toHaveAttribute('src', 'https://player.vimeo.com/video/1234761777');
+    expect(container.querySelector('video')).toBeNull();
+  });
+
   it.each(['javascript:alert(1)', 'data:text/html,<script>alert(1)</script>', '<script>alert(1)</script>', '<iframe srcdoc="<script>alert(1)</script>"></iframe>', '<iframe src="javascript:alert(1)"></iframe>'])(
     'rejects executable or source-free markup: %s', (value) => { expect(homeifyEmbedUrl(value)).toBe(''); },
   );

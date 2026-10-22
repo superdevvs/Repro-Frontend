@@ -5,6 +5,7 @@ import {
   findTourMediaDuplicateConflict,
   getTourMediaEmbedUrl,
   normalizeTourMediaCompareKey,
+  uniqueTourMediaUrls,
 } from './tourMediaEmbedUrl';
 
 describe('getTourMediaEmbedUrl', () => {
@@ -40,6 +41,36 @@ describe('getTourMediaEmbedUrl', () => {
 
   it('returns null for empty input', () => {
     expect(getTourMediaEmbedUrl('')).toBeNull();
+  });
+
+  it('preserves Vimeo private access hashes while normalizing share and player URLs', () => {
+    expect(getTourMediaEmbedUrl('https://vimeo.com/123456789/abc123?share=copy')).toBe('https://player.vimeo.com/video/123456789?h=abc123');
+    expect(getTourMediaEmbedUrl('https://player.vimeo.com/video/123456789?h=abc123')).toBe('https://player.vimeo.com/video/123456789?h=abc123');
+  });
+
+  it('converts reordered YouTube queries, shorts, and privacy embeds without rewriting lookalike hosts', () => {
+    for (const value of ['https://www.youtube.com/watch?feature=share&v=AbCdEfGhijk', 'https://youtube.com/shorts/AbCdEfGhijk', 'https://www.youtube-nocookie.com/embed/AbCdEfGhijk']) {
+      expect(getTourMediaEmbedUrl(value)).toBe('https://www.youtube.com/embed/AbCdEfGhijk');
+    }
+    expect(getTourMediaEmbedUrl('https://fake-youtube.com/watch?v=AbCdEfGhijk')).toBe('https://fake-youtube.com/watch?v=AbCdEfGhijk');
+  });
+});
+
+describe('listing video identity', () => {
+  it('keeps one source across provider URL variants and retains the first access hash', () => {
+    const privateVimeo = 'https://vimeo.com/123456789/abc123';
+    expect(uniqueTourMediaUrls([privateVimeo, 'https://player.vimeo.com/video/123456789?h=abc123&autoplay=1'])).toEqual([privateVimeo]);
+    expect(uniqueTourMediaUrls(['https://youtu.be/AbCdEfGhijk', 'https://youtube.com/watch?feature=share&v=AbCdEfGhijk'])).toHaveLength(1);
+  });
+
+  it('preserves distinct videos and case-sensitive paths, IDs, and access query values', () => {
+    const videos = ['https://youtube.com/watch?v=AbCdEfGhijk', 'https://youtube.com/watch?v=abcdefghijk', 'https://media.test/Video.mp4', 'https://media.test/video.mp4', 'https://media.test/video.mp4?token=AbC', 'https://media.test/video.mp4?token=abc'];
+    expect(uniqueTourMediaUrls(videos)).toEqual(videos);
+  });
+
+  it('ignores playback controls and query ordering while excluding an already shown primary video', () => {
+    expect(uniqueTourMediaUrls(['https://media.test/video.mp4?b=2&a=1&autoplay=1', 'https://media.test/other.mp4'], ['https://media.test/video.mp4?a=1&b=2'])).toEqual(['https://media.test/other.mp4']);
+    expect(normalizeTourMediaCompareKey('<iframe src="https://youtube.com/watch?feature=share&amp;v=AbCdEfGhijk"></iframe>')).toBe('youtube:AbCdEfGhijk');
   });
 });
 

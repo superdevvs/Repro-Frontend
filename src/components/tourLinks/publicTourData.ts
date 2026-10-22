@@ -9,7 +9,7 @@ import {
   type PublicIguideSources,
   type PublicTourVariant,
 } from './publicIguideModel';
-import { filterVirtualTourEmbeds } from './tourMediaEmbedUrl';
+import { filterVirtualTourEmbeds, uniqueTourMediaUrls } from './tourMediaEmbedUrl';
 
 type RecordValue = Record<string, unknown>;
 type PropertyValue = string | number | null;
@@ -212,8 +212,12 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
     // Retain generated previews and all provider metadata instead of flattening a PDF to a URL.
     return [{ ...floorplan } as TourFloorplan];
   });
-  const videos = locked || videoRestricted ? [] : urls(root.videos);
   const videoLink = locked || videoRestricted ? '' : normalizePublicTourUrl(canonicalSource(root, 'video_link', videoFallback));
+  // A configured listing video is the published presentation of ordinary
+  // uploads (often the same film hosted on Vimeo). Historical imports can
+  // contain several separately published films, so retain their additional videos.
+  const videos = locked || videoRestricted || (videoLink && !flag(root.historical_import))
+    ? [] : uniqueTourMediaUrls(urls(root.videos), [videoLink]);
   // Virtual Tours must not re-show listing video (or duplicate embed URLs).
   const virtualTourEmbeds = filterVirtualTourEmbeds(embeds, {
     videoUrls: [videoLink, ...videos, text(videoFallback)],

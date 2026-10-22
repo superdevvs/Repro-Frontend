@@ -21,6 +21,25 @@ describe('public tour endpoint selection', () => {
 });
 
 describe('normalizePublicTourData', () => {
+  it.each(['branded', 'mls', 'generic-mls'] as const)('prefers the published %s video over uploaded copies while retaining distinct explicit embeds', (variant) => {
+    const video = 'https://vimeo.com/1234761777?share=copy';
+    const result = normalizePublicTourData({ video_link: video, videos: ['https://media.test/4421-Bradley-Lane.mp4'], tour_links: { embeds: [
+      { id: 'same', branded: 'https://player.vimeo.com/video/1234761777', mls: 'https://player.vimeo.com/video/1234761777' },
+      { id: 'other', branded: 'https://youtu.be/AbCdEfGhijk', mls: 'https://youtu.be/abcdefghijk' },
+    ] } }, variant);
+    expect(result.videoLink).toBe(video);
+    expect(result.videos).toEqual([]);
+    expect(result.embeds.map((embed) => embed.id)).toEqual(['other']);
+    expect(result.embeds[0].value).toBe(variant === 'branded' ? 'https://youtu.be/AbCdEfGhijk' : 'https://youtu.be/abcdefghijk');
+  });
+
+  it('retains separate historical videos in delivery order and removes canonical provider duplicates', () => {
+    const result = normalizePublicTourData({ historical_import: true, video_link: 'https://vimeo.com/123456789', videos: [
+      'https://player.vimeo.com/video/123456789', 'https://media.test/additional.mp4', 'https://media.test/additional.mp4?autoplay=1', 'https://media.test/another.mp4',
+    ] }, 'branded');
+    expect(result.videos).toEqual(['https://media.test/additional.mp4', 'https://media.test/another.mp4']);
+  });
+
   it('preserves real media order and complete floorplan preview metadata', () => {
     const floorplan = { url: 'https://media.test/floor.pdf', preview_images: ['https://media.test/floor.jpg'], label: 'First floor', floor_id: 5, units: 'imperial' };
     const result = normalizePublicTourData({

@@ -83,6 +83,7 @@ export const useSchedulingFormController = ({
   const primaryPhotographer = primaryService ? resolveServicePhotographerId(primaryService, servicePhotographers, bookingPhotographer) || '' : '';
   const [pickerPhotographer, setPhotographer] = useState(primaryPhotographer);
   const canUseProtectedAvailability = canUseProtectedAvailabilityRoutes(user);
+  const canReviewLocationExceptions = ['admin', 'superadmin'].includes(user?.role ?? '') || hasSalesRepRole(user);
     const [bookingJobCoords, setBookingJobCoords] = useState<ShootMapCoordinates | null>(null);
   const [bookingEligiblePhotographerIds, setBookingEligiblePhotographerIds] = useState<Set<string> | null>(null);
   const [bookingEligibilityError, setBookingEligibilityError] = useState<string | null>(null);
@@ -433,8 +434,9 @@ export const useSchedulingFormController = ({
   const filteredPhotographersForService = useMemo(() => {
     if (!requiresPerServiceAssignment || activeServiceCapabilityForPicker.serviceIds.size === 0) return null; // null = no filtering
     return photographerOptions.filter(p => {
+      if (p.eligibleServiceIds) return [...activeServiceCapabilityForPicker.serviceIds].some(id => p.eligibleServiceIds!.includes(Number(id)));
       const specialties = p.metadata?.specialties || p.specialties || [];
-      if (!specialties.length) return true; // No specialties defined = show (can do anything)
+      if (!specialties.length) return false; // Capabilities require affirmative profile evidence.
       return hasCategorySpecialty(
         specialties,
         activeServiceCapabilityForPicker.categorySpecialtyId,
@@ -623,6 +625,7 @@ export const useSchedulingFormController = ({
             photographer_ids: photographers.map(p => Number(p.id)),
             service_ids: photographerRequiredServices(selectedServices).map(service => Number(service.id)).filter(Number.isFinite),
             require_all_services: false, // Each service can have its own specialist.
+            include_location_exceptions: canReviewLocationExceptions,
           }),
         }, JSON.parse(availabilityDurationKey)), abortController.signal);
         if (isCancelled) return;
@@ -679,6 +682,8 @@ export const useSchedulingFormController = ({
             shootsCountToday: p.shoots_count_today,
             distanceFrom: p.distance_from,
             previousShootId: canUseProtectedAvailability ? p.previous_shoot_id : undefined,
+            locationExceptionRequired: p.location_exception_required === true,
+            eligibleServiceIds: p.eligible_service_ids,
             travel_range: photographer?.travel_range ?? photographer?.metadata?.travel_range,
             travel_range_unit: photographer?.travel_range_unit ?? photographer?.metadata?.travel_range_unit ?? 'miles',
           };
@@ -838,7 +843,7 @@ export const useSchedulingFormController = ({
     };
   }, [
     address, city, state, zip, photographers, date, requiresPhotographerAssignment,
-    normalizeDayOfWeek, canUseProtectedAvailability, selectedServices, bookingEligibilityRetry, bookingAvailabilityDate, bookingAvailabilityTime, bookingAvailabilityDuration, availabilityDurationKey,
+    normalizeDayOfWeek, canUseProtectedAvailability, canReviewLocationExceptions, selectedServices, bookingEligibilityRetry, bookingAvailabilityDate, bookingAvailabilityTime, bookingAvailabilityDuration, availabilityDurationKey,
     setIsCalculatingDistances, setIsLoadingAvailability, setPhotographerAvailability,
     setPhotographersWithDistance,
   ]);

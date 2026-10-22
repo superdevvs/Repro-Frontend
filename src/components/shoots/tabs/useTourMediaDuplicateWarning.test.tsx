@@ -75,4 +75,16 @@ describe('tour editor duplicate warning', () => {
     expect(onSave).toHaveBeenCalledOnce();
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
+
+  it('blocks reordered YouTube share URLs but preserves videos with different case-sensitive IDs', async () => {
+    const onSave = vi.fn();
+    const existing = { ...embed, branded: 'https://www.youtube-nocookie.com/embed/AbCdEfGhijk' };
+    const { rerender } = render(<WarningHarness onSave={onSave} attempt={(guard) => guard.warnIfVideoDuplicate('https://youtube.com/watch?feature=share&v=AbCdEfGhijk', [existing])} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'OK' }));
+    rerender(<WarningHarness onSave={onSave} attempt={(guard) => guard.warnIfVideoDuplicate('https://youtu.be/abcdefghijk', [existing])} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(onSave).toHaveBeenCalledOnce();
+  });
 });

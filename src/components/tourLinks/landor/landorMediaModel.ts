@@ -1,6 +1,7 @@
 import type { PublicTourData } from '../publicTourData';
 import { normalizePublicTourUrl } from '../publicIguideModel';
 import { homeifyEmbedUrl } from '../homeify/homeifyMediaUtils';
+import { uniqueTourMediaUrls } from '../tourMediaEmbedUrl';
 
 export type LandorMediaTab = 'photos' | 'plans' | 'video' | 'tour';
 
@@ -12,7 +13,7 @@ export function getLandorMedia(data: PublicTourData) {
     ...(Array.isArray(plan.previewImages) ? plan.previewImages : []),
     ...(Array.isArray(plan.preview_images) ? plan.preview_images : []),
   ].some((value) => Boolean(normalizePublicTourUrl(value))));
-  const videos = data.locked ? [] : Array.from(new Set([...data.videos, data.videoLink].map((video) => homeifyEmbedUrl(video)).filter(Boolean)));
+  const videos = data.locked ? [] : uniqueTourMediaUrls([data.videoLink, ...data.videos]).map((video) => homeifyEmbedUrl(video)).filter(Boolean);
   const embeds = data.locked ? [] : data.embeds.map((embed) => ({ ...embed, url: homeifyEmbedUrl(embed.value) })).filter((embed) => Boolean(embed.url));
   const hasProviders = !data.locked && Boolean(normalizePublicTourUrl(data.iguide.inlineUrl) || normalizePublicTourUrl(data.matterportUrl));
   const available: { id: LandorMediaTab; label: string }[] = [

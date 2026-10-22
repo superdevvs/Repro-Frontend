@@ -14,6 +14,16 @@ const url = '/api/shoots';
 beforeEach(() => vi.clearAllMocks());
 
 describe('final new-booking photographer eligibility', () => {
+  it('includes location exceptions only after deliberate staff confirmation while still requiring all service capabilities', async () => {
+    vi.mocked(axios.post).mockResolvedValue({ data: { data: [{ id: 9 }] } });
+    await submitNewShootWithEligibility(url, { ...payload, travel_override: true, travel_override_confirmed: true }, config);
+    expect(axios.post).toHaveBeenNthCalledWith(1, API_ROUTES.photographerAvailability.forBooking,
+      expect.objectContaining({ include_location_exceptions: true, service_ids: [1], require_all_services: true }), expect.anything());
+    vi.clearAllMocks();
+    await submitNewShootWithEligibility(url, { ...payload, travel_override: true, travel_override_confirmed: false }, config);
+    expect(axios.post).toHaveBeenNthCalledWith(1, API_ROUTES.photographerAvailability.forBooking,
+      expect.objectContaining({ include_location_exceptions: false }), expect.anything());
+  });
   it('checks repeated catalog services at each unit line schedule without requiring flat service arrays', async () => {
     vi.mocked(axios.post).mockResolvedValue({ data: { data: [{ id: 9 }] } });
     const { services: _services, ...shared } = payload;

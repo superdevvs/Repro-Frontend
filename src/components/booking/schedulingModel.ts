@@ -39,6 +39,8 @@ export interface SchedulingPhotographerView extends SchedulingPhotographer, Trav
   distance?: number;
   distanceFrom?: 'home' | 'previous_shoot';
   previousShootId?: number;
+  locationExceptionRequired?: boolean;
+  eligibleServiceIds?: number[];
   availabilitySlots?: SchedulingSlot[];
   unavailableSlots?: SchedulingSlot[];
   bookedSlots?: SchedulingSlot[];
@@ -69,6 +71,8 @@ export type BookingPhotographerPayload = Omit<SchedulingPhotographerView, 'id' |
   shoots_count_today?: number;
   distance_from?: 'home' | 'previous_shoot';
   previous_shoot_id?: number;
+  location_exception_required?: boolean;
+  eligible_service_ids?: number[];
   service_area_label?: string;
   miles_to_job?: number | null;
   milesToJob?: number | null;

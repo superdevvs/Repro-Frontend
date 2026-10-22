@@ -20,6 +20,16 @@ const payload = {
 };
 
 describe('Landor media tabs', () => {
+  it('renders the published film once while preserving separate historical videos', () => {
+    const source = { videos: ['https://media.test/upload.mp4'], video_link: 'https://vimeo.com/1234761777?share=copy' };
+    const { container, rerender } = render(<LandorMedia data={normalizePublicTourData(source, 'branded')} />);
+    expect(screen.getAllByTitle(/Property video/)).toHaveLength(1);
+    expect(screen.getByTitle('Property video 1')).toHaveAttribute('src', 'https://player.vimeo.com/video/1234761777');
+    expect(container.querySelector('video')).toBeNull();
+    rerender(<LandorMedia data={normalizePublicTourData({ ...source, historical_import: true }, 'branded')} />);
+    expect(screen.getAllByTitle(/Property video/)).toHaveLength(2);
+  });
+
   it('shows only published media with real previews and never invents missing assets', () => {
     const data = normalizePublicTourData({ shoot: payload.shoot, photos: payload.photos, floorplans: [
       { url: 'https://media.test/plan.pdf' }, { url: 'https://media.test/legacy.pdf', preview_images: 4 },

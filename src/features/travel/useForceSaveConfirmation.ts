@@ -5,7 +5,7 @@ export function canConfirmForceSave(result: TravelFeasibility | null, payload: T
   const reasons = [...(result?.reason_codes ?? []), ...(result?.transitions ?? []).map(leg => leg.reason_code)];
   return Boolean(!requestedOnly && payload?.shoot_id && payload.action_mode === 'update'
     && result?.enabled && !result.available && result.can_force_save === true && result.force_save_confirmation_version
-    && !reasons.some(reason => /overlap/.test(reason)));
+    && !reasons.some(reason => /overlap|capability|category/.test(reason)));
 }
 
 /** A staff warning acknowledgement authorizes one save of the evaluated edit. */

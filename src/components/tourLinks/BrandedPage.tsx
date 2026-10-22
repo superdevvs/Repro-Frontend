@@ -13,7 +13,7 @@ import { BedDouble, Bath, Maximize, ChevronLeft, ChevronRight, FileText, Mail, P
 import { NeoTour } from "./NeoTour";
 import { trackPageView, trackMediaView } from '@/lib/tourTracking';
 import { restrictedVideoProps, sanitizeTourEmbedHtml } from './videoControlRestrictions';
-import { filterVirtualTourEmbeds, getTourMediaEmbedUrl } from './tourMediaEmbedUrl';
+import { filterVirtualTourEmbeds, getTourMediaEmbedUrl, uniqueTourMediaUrls } from './tourMediaEmbedUrl';
 import { formatTourPrice, normalizeTourDescription } from './tourDisplayUtils';
 import { FloorplanSection } from './FloorplanSection';
 import { TourStatsGrid } from './TourStatsGrid';
@@ -700,7 +700,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
                 )}
               </div>
             )}
-            {videos.filter(url => url !== videoLink).map((url, index) => <div key={url} className="overflow-hidden rounded-2xl border border-border/40">
+            {uniqueTourMediaUrls(videos, [videoLink]).map((url, index) => <div key={url} className="overflow-hidden rounded-2xl border border-border/40">
               <video src={url} controls {...restrictedVideoProps} preload="metadata" className="w-full" aria-label={`Property video ${index + 1}`} />
             </div>)}
           </div>

@@ -50,6 +50,13 @@ describe('historical branded tour media', () => {
     expect(screen.queryByRole('link', { name: 'Open Zillow 3D tour' })).not.toBeInTheDocument();
   });
 
+  it('does not repeat the primary film when imported playback URLs use different controls', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ ...payload, videos: [`${primary}?autoplay=1`, second, `${second}?mute=1`] }) });
+    const { container } = render(<BrandedPage />);
+    expect(await screen.findByRole('heading', { name: 'Video Tour' })).toBeInTheDocument();
+    expect(Array.from(container.querySelectorAll('video')).map(video => video.getAttribute('src'))).toEqual([primary, second]);
+  });
+
   it('keeps the payment lock ahead of all imported videos and external tour links', async () => {
     fetchMock.mockResolvedValue({ ok: false, json: async () => ({ ...payload, locked: true, message: 'Payment is pending.' }) });
     const { container } = render(<BrandedPage />);

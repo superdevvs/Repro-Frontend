@@ -5,6 +5,7 @@ import { Public3dTourViewer } from '../Public3dTourViewer';
 import { restrictedVideoProps } from '../videoControlRestrictions';
 import { trackLinkClick } from '@/lib/tourTracking';
 import { homeifyEmbedUrl } from './homeifyMediaUtils';
+import { uniqueTourMediaUrls } from '../tourMediaEmbedUrl';
 
 function MediaFrame({ value, title, autoplay, poster }: { value: string; title: string; autoplay: boolean; poster?: string }) {
   const url = homeifyEmbedUrl(value, autoplay);
@@ -15,7 +16,7 @@ function MediaFrame({ value, title, autoplay, poster }: { value: string; title: 
 }
 
 export function HomeifyMedia({ data }: { data: PublicTourData }) {
-  const videos = Array.from(new Set([...data.videos, data.videoLink].map((video) => homeifyEmbedUrl(video)).filter(Boolean)));
+  const videos = uniqueTourMediaUrls([data.videoLink, ...data.videos]).map((video) => homeifyEmbedUrl(video)).filter(Boolean);
   const embeds = data.embeds.map((embed) => ({ ...embed, url: homeifyEmbedUrl(embed.value) })).filter((embed) => Boolean(embed.url));
   const hasProviders = Boolean(data.iguide.inlineUrl || data.matterportUrl);
   const track = (type: string, url: string) => { if (data.analytics.shootId !== null) trackLinkClick(data.analytics.shootId, data.analytics.tourType, type, url); };

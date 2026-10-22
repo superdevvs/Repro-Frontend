@@ -23,6 +23,26 @@ const eligibilityProps = (): SchedulingFormProps => ({
 });
 
 describe('per-service booking photographer availability', () => {
+  it('uses server-verified per-service capabilities and exposes staff location exceptions deliberately', async () => {
+    mocks.role = 'admin';
+    mocks.getDayAvailability.mockReturnValue(new Promise(() => {}));
+    const fetchMock = vi.fn(async (_url: string, _options?: RequestInit) => ({ ok: true, json: async () => ({ data: [
+      { id: 9, name: 'Photo specialist', eligible_service_ids: [1], location_exception_required: true },
+      { id: 10, name: 'Video specialist', eligible_service_ids: [2], location_exception_required: false },
+    ] }) }));
+    vi.stubGlobal('fetch', fetchMock);
+    const props = { ...eligibilityProps(), selectedServices: [{ id: '1', name: 'Photos', price: 100 }, { id: '2', name: 'Video', price: 100 }] };
+    const { result } = renderHook(() => useSchedulingFormController(props));
+    await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
+    expect(JSON.parse(String(fetchMock.mock.calls.find(([url]) => url.includes('for-booking'))?.[1]?.body)))
+      .toMatchObject({ include_location_exceptions: true });
+    act(() => result.current.setActiveServiceForPicker('1'));
+    await waitFor(() => expect(result.current.filteredAndSortedPhotographers.map(person => person.id)).toEqual(['9']));
+    expect(result.current.filteredAndSortedPhotographers[0].locationExceptionRequired).toBe(true);
+    expect(result.current.canConfirmPhotographer).toBe(true);
+    act(() => result.current.setActiveServiceForPicker('2'));
+    await waitFor(() => expect(result.current.filteredAndSortedPhotographers.map(person => person.id)).toEqual(['10']));
+  });
   it.each(['superadmin', 'salesRep', 'sales_rep', 'representative', 'admin', 'client'])(
     'selects an outside-hours appointment only for an authorized staff role: %s', async role => {
       mocks.role = role;
@@ -186,7 +206,8 @@ describe('per-service booking photographer availability', () => {
     vi.stubGlobal('fetch', fetchMock);
     const props: SchedulingFormProps = { ...eligibilityProps(), selectedServices: [
       { id: '1', name: 'Photos', price: 100, shoot_duration_minutes: 15 }, { id: '2', name: 'Video', price: 100, shoot_duration_minutes: 30 },
-    ], servicePhotographers: { '1': '9', '2': '9' } };
+    ], photographers: eligibilityProps().photographers!.map(person => ({ ...person, specialties: ['1', '2'] })),
+    servicePhotographers: { '1': '9', '2': '9' } };
     const { result } = renderHook(() => useSchedulingFormController(props));
     await waitFor(() => expect(result.current.isLoadingAvailability).toBe(false));
     act(() => { result.current.setActiveServiceForPicker('1'); result.current.setShowAllPhotographers(false); });
@@ -272,6 +293,7 @@ describe('per-service booking photographer availability', () => {
       selectedServices: [{ id: '1', name: 'Photos', price: 100 }, { id: '2', name: 'Video', price: 100 }],
       servicePhotographers: { '1': '9', '2': '10' },
       serviceSchedules: { '1': { date: '2026-10-06', time: '13:00' }, '2': { date: '2026-10-07', time: '14:00' } },
+      photographers: eligibilityProps().photographers!.map(person => ({ ...person, specialties: ['1', '2'] })),
     };
     const { result } = renderHook(() => useSchedulingFormController(props));
     await waitFor(() => expect(result.current.isCalculatingDistances).toBe(false));

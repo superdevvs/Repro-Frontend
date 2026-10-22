@@ -236,6 +236,7 @@ export function SchedulingPhotographerSection({ controller }: { controller: Sche
                     <p className={cn("min-w-0 font-semibold text-slate-900 dark:text-slate-100 break-words", mobileDrawer ? "text-base" : "text-sm") }>
                       {photographerItem.name}
                     </p>
+                    {photographerItem.locationExceptionRequired && <span className="rounded border border-amber-400/50 bg-amber-500/10 px-1.5 py-0.5 text-[10px] text-amber-700 dark:text-amber-300">Location exception required</span>}
                     {canSeePhotographerAddress && distanceLabel ? (
                       <TooltipProvider delayDuration={100}>
                         <Tooltip>

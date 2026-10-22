@@ -6,13 +6,13 @@ export function canConfirmWorkingHoursException(result: TravelFeasibility | null
   const actionAllowed = payload?.shoot_id ? ['update', 'reschedule', 'approve'].includes(String(payload.action_mode)) : payload?.action_mode === 'create';
   return Boolean(!requestedOnly && actionAllowed
     && result?.enabled && !result.available && result.can_override_working_hours && result.working_hours_confirmation_version
-    && reasons.includes('outside_working_hours') && !reasons.some(reason => /overlap/.test(reason)));
+    && reasons.includes('outside_working_hours') && !reasons.some(reason => /overlap|capability|category/.test(reason)));
 }
 
 export function canConfirmTravelException(result: TravelFeasibility | null, requestedOnly: boolean) {
   const reasons = [...(result?.reason_codes ?? []), ...(result?.transitions ?? []).map(leg => leg.reason_code)];
   return Boolean(!requestedOnly && result?.enabled && !result.available && result.can_override && result.confirmation_version
-    && !reasons.some(reason => /overlap|working_hours|outside_hours/.test(reason)));
+    && !reasons.some(reason => /overlap|working_hours|outside_hours|capability|category/.test(reason)));
 }
 
 /** Confirmation belongs to one evaluated itinerary and resumes exactly one pending save. */

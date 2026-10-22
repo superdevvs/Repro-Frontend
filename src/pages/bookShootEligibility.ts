@@ -5,6 +5,8 @@ import { resolveShootDuration } from '@/utils/shootDuration';
 type NewBookingPayload = {
   address: string; city: string; state: string; zip: string;
   scheduled_date: string; time: string;
+  travel_override?: boolean;
+  travel_override_confirmed?: boolean;
   services?: Array<{ id?: unknown; photographer_id?: unknown; scheduled_at?: unknown; duration_minutes?: unknown }>;
   service_lines?: Array<{ service_id?: unknown; photographer_id?: unknown; scheduled_at?: unknown; duration_minutes?: unknown }>;
 };
@@ -38,6 +40,7 @@ export async function submitNewShootWithEligibility(
         date: group.date, time: group.time, duration_minutes: group.durationMinutes,
         shoot_address: payload.address, shoot_city: payload.city, shoot_state: payload.state, shoot_zip: payload.zip,
         photographer_ids: [group.photographerId], service_ids: group.serviceIds, require_all_services: true,
+        include_location_exceptions: payload.travel_override === true && payload.travel_override_confirmed === true,
       }, { ...config, timeout: 15000 });
       if (!Array.isArray(response.data?.data)) throw new Error('Invalid eligibility response');
       eligible = response.data.data.some(person => String(person.id) === String(group.photographerId));
