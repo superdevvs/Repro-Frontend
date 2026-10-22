@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ShootsProvider } from './ShootsProvider';
 import { useShoots } from './shootsContextState';
+import { DashboardRefreshNotice } from '@/components/dashboard/DashboardRefreshNotice';
 
 const auth = vi.hoisted(() => ({
   user: { id: '42', name: 'Office', role: 'admin' },
@@ -20,6 +21,7 @@ const response = (payload: unknown, status = 200) => ({
 const Probe = () => {
   const { shoots, isInitialLoading, fetchShoots, refreshIssue, updateShoot } = useShoots();
   return <>
+    <DashboardRefreshNotice />
     <button onClick={() => void fetchShoots()}>Refresh</button>
     <button onClick={() => void updateShoot('101', { workflowStatus: 'ready' }, { skipApi: true })}>Commit submission</button>
     <output data-testid="issue">{refreshIssue}</output>
@@ -29,7 +31,7 @@ const Probe = () => {
     <output data-testid="today">{shoots.filter(shoot => shoot.scheduledDate?.startsWith('2026-09-28')).length}</output>
   </>;
 };
-const showProbe = () => render(<MemoryRouter initialEntries={['/dashboard']}><ShootsProvider><Probe /></ShootsProvider></MemoryRouter>);
+const showProbe = (path = '/dashboard') => render(<MemoryRouter initialEntries={[path]}><ShootsProvider><Probe /></ShootsProvider></MemoryRouter>);
 const record = (id: number) => ({ id, status: 'scheduled', address: `Property ${id}`, scheduled_date: id <= 9 ? '2026-09-28' : '2026-10-02', time: '10:00' });
 
 beforeEach(() => { localStorage.clear(); localStorage.setItem('authToken', 'test-token'); auth.logout.mockClear(); effects.toast.mockClear(); });
@@ -148,6 +150,8 @@ describe('complete scheduled shoot hydration', () => {
       expect(urls.filter(url => url.includes('tab=completed'))).toHaveLength(2);
       expect(urls.filter(url => url.includes('tab=completed')).every(url => url.includes('dashboard_open=true'))).toBe(true);
       expect(urls.some(url => url.includes('tab=delivered&page=2'))).toBe(false);
+      expect(urls.every(url => url.includes('include_filters=false'))).toBe(true);
+      expect(urls.every(url => new URL(url, 'https://example.test').searchParams.get('view') === (role === 'editing_manager' ? 'card' : null))).toBe(true);
     },
   );
 
@@ -162,6 +166,38 @@ describe('complete scheduled shoot hydration', () => {
     await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
     expect(fetchMock.mock.calls).toHaveLength(3);
     expect(fetchMock.mock.calls.every(([url]) => !String(url).includes('dashboard_open'))).toBe(true);
+    expect(fetchMock.mock.calls.every(([url]) => String(url).includes('include_filters=false') && !String(url).includes('view=card'))).toBe(true);
+  });
+
+  it('keeps detailed file refreshes and non-dashboard editing-manager reads on their full payload contract', async () => {
+    auth.user.role = 'editing_manager';
+    const fetchMock = vi.fn(async (_input: RequestInfo | URL) => response({ data: [] }));
+    vi.stubGlobal('fetch', fetchMock);
+    showProbe('/accounts');
+    await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.every(([url]) => !String(url).includes('view=card'))).toBe(true);
+    fetchMock.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls.every(([url]) => String(url).includes('include_files=true') && !String(url).includes('view=card'))).toBe(true);
+  });
+
+  it('retries failed editing-manager dashboard sections with compact cards and no unused filter catalog', async () => {
+    auth.user.role = 'editing_manager';
+    let fail = true;
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => response({ data: [] }, fail && String(input).includes('tab=delivered') ? 500 : 200));
+    vi.stubGlobal('fetch', fetchMock);
+    showProbe();
+    await waitFor(() => expect(screen.getByTestId('issue').textContent).toContain('delivered, page 1'));
+    fail = false;
+    fetchMock.mockClear();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry dashboard refresh' }));
+    await waitFor(() => expect(screen.getByTestId('issue').textContent).toBe(''));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock.mock.calls.every(([url]) => String(url).includes('view=card') && String(url).includes('include_filters=false') && String(url).includes('include_files=false'))).toBe(true);
+    vi.restoreAllMocks();
   });
 
   it('keeps the schedule without publishing a partial completed lane when a later page fails', async () => {

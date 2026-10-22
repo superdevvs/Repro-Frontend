@@ -176,6 +176,10 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   ): Promise<ShootData[]> => {
     const token = getAuthToken();
     const includeFiles = options?.includeFiles ?? true;
+    // This provider uses pagination metadata, not the global filter catalog.
+    // Start compact cards with the affected dashboard role; detailed reads and
+    // other roles retain their existing payload contract.
+    const listProfile = `&include_filters=false${clientRole === 'editing_manager' && !includeFiles && locationRef.current === '/dashboard' ? '&view=card' : ''}`;
     if (!token) {
       handleSessionExpired('Please log in to view the latest shoots.');
       setShoots([]);
@@ -196,7 +200,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const readOperationalPages = async (response: Response, tab = 'scheduled'): Promise<ShootListPayload> => {
       const first = await parseJsonResponse<ShootListPayload>(response);
       const result = await readShootListPages(first, async (nextPage) => {
-        const nextResponse = await fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&page=${nextPage}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}${tab === 'completed' ? '&dashboard_open=true' : ''}`, {
+        const nextResponse = await fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&page=${nextPage}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}${listProfile}${tab === 'completed' ? '&dashboard_open=true' : ''}`, {
           headers: buildFetchHeaders(token),
           signal,
         });
@@ -229,7 +233,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (isAdmin || isPhotographer || isEditor || isEditingManager || isSalesRep) {
         const tabs = isAdmin ? ['scheduled', 'completed'] : ['scheduled', 'completed', 'delivered'];
         const results = await Promise.allSettled(tabs.map(tab => readDashboardSection<ApiShoot, ShootListPayload>(tab, (nextPage, requestSignal) =>
-          fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&page=${nextPage}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}${tab === 'completed' ? '&dashboard_open=true' : ''}`, {
+          fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&page=${nextPage}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}${listProfile}${tab === 'completed' ? '&dashboard_open=true' : ''}`, {
             headers: buildFetchHeaders(token), signal: requestSignal,
           }), { page, signal, allPages: tab !== 'delivered' }).then(payload => {
             if (tab === 'scheduled' && startingRecords.size === 0 && generation === fetchGeneration.current && !signal?.aborted) {
@@ -285,7 +289,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const clientTabResponses = await Promise.all(
           clientTabRequests.map(async ({ tab, requestPage, requestPerPage }) => {
             try {
-              const response = await fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&page=${requestPage}&per_page=${requestPerPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
+              const response = await fetch(`${API_BASE_URL}/api/shoots?tab=${tab}&page=${requestPage}&per_page=${requestPerPage}&include_files=${includeFiles ? 'true' : 'false'}${listProfile}`, {
                 headers,
                 signal,
               });
@@ -367,7 +371,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } else {
         // Remaining roles use the default scheduled tab
         const headers = buildFetchHeaders(token);
-        const response = await fetch(`${API_BASE_URL}/api/shoots?page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}`, {
+        const response = await fetch(`${API_BASE_URL}/api/shoots?page=${page}&per_page=${perPage}&include_files=${includeFiles ? 'true' : 'false'}${listProfile}`, {
           headers,
           signal,
         });

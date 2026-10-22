@@ -1,7 +1,12 @@
 import { readShootListPages, type ShootPage } from '@/utils/readShootListPages';
 
+const RESPONSE_TIMEOUT_MS = 30000;
+const BODY_TIMEOUT_MS = 30000;
+type ReadPhase = 'response' | 'body' | 'payload';
+
 export class DashboardSectionError extends Error {
-  constructor(public section: string, public page: number, public status?: number, public reference?: string) {
+  constructor(public section: string, public page: number, public status?: number, public reference?: string,
+    public phase: ReadPhase = 'response', public timedOut = false) {
     super(`The ${section} section could not refresh (page ${page}).`);
     this.name = 'DashboardSectionError';
   }
@@ -23,7 +28,9 @@ export const readDashboardSection = async <T, P extends ShootPage<T>>(
       const controller = new AbortController();
       const abort = () => controller.abort();
       let timedOut = false;
-      const timeout = setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
+      let phase: ReadPhase = 'response';
+      const expire = () => { timedOut = true; controller.abort(); };
+      let timeout = setTimeout(expire, RESPONSE_TIMEOUT_MS);
       options.signal?.addEventListener('abort', abort, { once: true });
       try {
         const response = await read(page, controller.signal);
@@ -32,16 +39,28 @@ export const readDashboardSection = async <T, P extends ShootPage<T>>(
         reference = response.headers?.get('X-Correlation-ID') ?? response.headers?.get('X-Request-ID') ?? undefined;
         if (status === 401 || status === 419) throw new Error('Unauthorized');
         if (!response.ok) throw new Error('Request failed');
-        const payload = JSON.parse(await response.text()) as P;
+        // Fetch resolves at headers. A cold server response must not consume the
+        // mobile connection's entire transfer budget before its body arrives.
+        clearTimeout(timeout);
+        phase = 'body';
+        timeout = setTimeout(expire, BODY_TIMEOUT_MS);
+        const body = await response.text();
+        clearTimeout(timeout);
+        phase = 'payload';
+        const payload = JSON.parse(body) as P;
         checkAborted();
         if (!Array.isArray(payload.data)) throw new Error('Invalid shoot response');
         return payload;
       } catch (error) {
         checkAborted();
+        // Release any unread error body before retrying or rejecting this page.
+        controller.abort();
+        clearTimeout(timeout);
+        options.signal?.removeEventListener('abort', abort);
         if (((error as Error)?.name === 'AbortError' && !timedOut) || (error as Error)?.message === 'Unauthorized') throw error;
         if (attempt >= 2 || (status !== undefined && status >= 400 && status < 500 && status !== 429)) {
-          const failure = new DashboardSectionError(section, page, status, reference);
-          console.error('Dashboard section refresh failed', { section, page, status, reference, attempts: attempt + 1 });
+          const failure = new DashboardSectionError(section, page, status, reference, phase, timedOut);
+          console.error('Dashboard section refresh failed', { section, page, status, reference, phase, timedOut, attempts: attempt + 1 });
           throw failure;
         }
         // Retry just this failed page; successful sections and earlier pages remain intact.
