@@ -280,7 +280,7 @@ export function ShootDetailsModalBody({
       <ShootActionRequestBanner shoot={shoot} className="mx-2 my-1.5 shrink-0 shootDesktop:mx-4" />
       <div className={`flex flex-1 min-h-0 flex-col shootDesktop:flex-row overflow-hidden ${showMobileFooter ? 'pb-14' : 'pb-0'} shootDesktop:pb-0`}>
         <div
-          className={`relative min-w-0 w-full shootDesktop:w-[37.5%] border-r shootDesktop:border-r border-b shootDesktop:border-b-0 ${activeTab === 'media' ? 'hidden shootDesktop:flex' : 'flex'} flex-col shootDesktop:min-h-0 overflow-hidden bg-muted/30 flex-1 shootDesktop:flex-none`}
+          className={`relative min-w-0 w-full shootDesktop:w-[37.5%] shootDesktop:max-w-[540px] border-r shootDesktop:border-r border-b shootDesktop:border-b-0 ${activeTab === 'media' ? 'hidden shootDesktop:flex' : 'flex'} flex-col shootDesktop:min-h-0 overflow-hidden bg-muted/30 flex-1 shootDesktop:flex-none`}
         >
           <div className="hidden shootDesktop:block px-2 shootDesktop:px-4 py-1.5 shootDesktop:py-2 border-b bg-background flex-shrink-0 overflow-x-auto">
             <Tabs value={activeDetailsTab} onValueChange={handleTabChange}>
@@ -456,7 +456,7 @@ export function ShootDetailsModalBody({
           </div>
         </div>
 
-        <div className="hidden shootDesktop:flex min-w-0 w-[62.5%] min-h-0 flex-1 flex-col bg-background border-t shootDesktop:border-t-0">
+        <div className="hidden shootDesktop:flex min-w-0 min-h-0 flex-1 flex-col bg-background border-t shootDesktop:border-t-0">
           <div className="flex-1 min-h-0 overflow-y-auto px-2 shootDesktop:px-4">
             {showTourAnalytics ? (
               <React.Suspense fallback={null}>

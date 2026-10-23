@@ -125,7 +125,7 @@ for (const role of ['client', 'salesRep', 'editor', 'photographer'] as ShootWork
 test.describe('compact desktop shoot workspace', () => {
   test.use({ hasTouch: false });
 
-  for (const width of [1024, 1180, 1280, 1440]) {
+  for (const width of [1024, 1180, 1280, 1440, 1920, 2560, 2718]) {
     test(`keeps details beside compact photographs at ${width}px`, async ({ page, baseURL }) => {
       await page.setViewportSize({ width, height: 800 });
       const state = await installShootDetailsWorkspaceFixture(page, baseURL, 'admin', 'dark');
@@ -148,6 +148,13 @@ test.describe('compact desktop shoot workspace', () => {
       }));
       expect(grid.columns).toBeGreaterThanOrEqual(3);
       expect(grid.cardWidth).toBeLessThanOrEqual(260);
+      if (width >= 1920) {
+        // Wide monitors must provide more gallery room, rather than stopping
+        // at the old 1440px pop-out cap and four thumbnail columns.
+        expect((await dialog.boundingBox())!.width).toBeGreaterThanOrEqual(width - 34);
+        expect(detailsBox.width).toBeLessThanOrEqual(540);
+        expect(grid.columns).toBeGreaterThanOrEqual(width >= 2560 ? 10 : 6);
+      }
       const squareFeet = dialog.getByLabel('Property details', { exact: true }).getByText('2,800', { exact: true });
       await expect(squareFeet).toBeVisible();
       expect((await squareFeet.boundingBox())!.height).toBeLessThanOrEqual(18);
@@ -184,6 +191,14 @@ test.describe('compact desktop shoot workspace', () => {
       await page.setViewportSize({ width, height: 800 });
       await expect(sections.getByRole('tab', { name: 'Overview', exact: true })).toHaveAttribute('aria-selected', 'true');
       await expect(gallery).toBeVisible();
+      if (width >= 1920) {
+        // Resize the same open gallery in both directions: columns must
+        // collapse on laptops and return when the monitor width is restored.
+        await page.setViewportSize({ width: 1024, height: 800 });
+        await expect.poll(async () => gallery.evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(3);
+        await page.setViewportSize({ width, height: 800 });
+        await expect.poll(async () => gallery.evaluate(element => getComputedStyle(element).gridTemplateColumns.split(' ').length)).toBe(grid.columns);
+      }
       expect(state.businessWrites).toEqual([]);
       expect(state.pageErrors).toEqual([]);
     });
