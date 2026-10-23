@@ -3,7 +3,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ShootData } from '@/types/shoots';
 
-const mocks = vi.hoisted(() => ({ archive: vi.fn(), raw: vi.fn(), file: vi.fn(), toast: vi.fn() }));
+const mocks = vi.hoisted(() => ({ archive: vi.fn(), raw: vi.fn(), file: vi.fn(), selection: vi.fn(), toast: vi.fn() }));
+vi.mock('@/utils/shootSelectedMediaDownload', () => ({ downloadShootSelectedMedia: mocks.selection }));
 vi.mock('@/utils/shootMediaDownload', () => ({
   downloadShootMediaArchive: mocks.archive, downloadShootRawFiles: mocks.raw, downloadShootMediaFile: mocks.file,
   getShootMediaDownloadSizeLabel: (size: string) => size,
@@ -30,6 +31,22 @@ beforeEach(() => { vi.clearAllMocks(); vi.spyOn(console, 'error').mockImplementa
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('Download Center loading buttons', () => {
+  it('downloads only the editor selected final images and keeps an unselected download photo-only', async () => {
+    mocks.selection.mockResolvedValue({ mode: 'blob', waited: false });
+    mocks.archive.mockResolvedValue({ mode: 'blob', waited: false });
+    const { result } = renderHook(() => useShootDetailsModalActions({ shoot, isPhotographer: false, isEditor: true, refreshShoot: async () => shoot, toast: mocks.toast }));
+    act(() => result.current.setSelectedFileIds(['229089', '229090', '229091', '229093']));
+    await act(async () => { await result.current.handleDownloadMedia('original'); });
+    expect(mocks.selection).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+      shootId: shoot.id, fileIds: ['229089', '229090', '229091', '229093'], size: 'original',
+    }));
+    expect(mocks.archive).not.toHaveBeenCalled();
+    expect(mocks.raw).not.toHaveBeenCalled();
+    act(() => result.current.setSelectedFileIds([]));
+    await act(async () => { await result.current.handleDownloadMedia('original'); });
+    expect(mocks.archive).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({ type: 'edited', assetType: 'photos' }));
+  });
+
   it('keeps archive and raw downloads inside the selected unit after switching', async () => {
     const multi = { ...shoot, id: 'download-units', units: [
       { id: 71, label: 'Apartment A', kind: 'unit', sqft: 900, beds: 1, baths: 1 },

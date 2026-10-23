@@ -157,7 +157,7 @@ const downloadReadyAsset = async (url: string, _fallbackFilename?: string, _sign
   return { mode: 'redirect' as const, url: safeUrl };
 };
 
-const deliverAuthenticatedArchiveBody = async (
+export const deliverAuthenticatedArchiveBody = async (
   response: Response,
   suggestedFilename: string,
 ): Promise<{ mode: 'redirect'; url: string } | { mode: 'blob'; filename: string }> => {

@@ -6,7 +6,7 @@ import { ShootDetailsModalActionRail } from './ShootDetailsModalActionRail';
 
 const noop = () => undefined;
 
-function MobileActions({ role, download, sync, invoice }: { role: 'admin' | 'editor'; download: () => Promise<void>; sync?: () => void; invoice?: () => void }) {
+function MobileActions({ role, download, sync, invoice, overrides }: { role: 'admin' | 'editor'; download: () => Promise<void>; sync?: () => void; invoice?: () => void; overrides?: Partial<ComponentProps<typeof ShootDetailsModalActionRail>> }) {
   const [open, setOpen] = useState(true);
   const props: ComponentProps<typeof ShootDetailsModalActionRail> = {
     shootAddress: '12 Oak Street', statusBadge: <span>Uploaded</span>, isEditMode: false, editActions: null,
@@ -25,12 +25,30 @@ function MobileActions({ role, download, sync, invoice }: { role: 'admin' | 'edi
     handleDownloadMedia: download, handleSendToBrightMls: sync ?? noop, handleOpenMmm: noop, handleStartMmmPunchout: async () => {},
     handleEditorDownloadRaw: download, handleUploadEdits: noop, handleGenerateShareLink: noop, onClose: noop,
   };
-  return <ShootDetailsModalActionRail {...props} />;
+  return <ShootDetailsModalActionRail {...props} {...overrides} />;
 }
 
 afterEach(cleanup);
 
 describe('mobile and tablet shoot actions', () => {
+  it.each([
+    ['mobile', 0], ['desktop', 0], ['mobile', 24], ['desktop', 24],
+  ] as const)('downloads edited images from the %s editor action with %s raw files', async (surface, rawFileCount) => {
+    const raw = vi.fn();
+    const edited = vi.fn();
+    render(<MobileActions role="editor" download={raw} overrides={{
+      activeMediaDisplayTab: 'edited', rawFileCount, editedMediaCount: 4,
+      selectedFileIds: rawFileCount ? ['229089', '229090', '229091', '229093'] : [],
+      handleDownloadMedia: edited, isMobileActionsOpen: surface === 'mobile',
+    }} />);
+    const scope = surface === 'mobile' ? within(screen.getByRole('dialog', { name: 'Actions' })) : screen;
+    const button = scope.getByRole('button', { name: 'Download' });
+    expect(button).toBeEnabled();
+    await act(async () => { fireEvent.click(button); });
+    expect(edited).toHaveBeenCalledExactlyOnceWith('original');
+    expect(raw).not.toHaveBeenCalled();
+  });
+
   it('preserves invoice access when tablet actions use the drawer', () => {
     const invoice = vi.fn();
     render(<MobileActions role="admin" download={async () => {}} invoice={invoice} />);

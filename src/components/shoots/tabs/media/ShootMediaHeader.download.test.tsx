@@ -53,11 +53,11 @@ describe('selected media download buttons', () => {
   });
 
   it.each([
-    ['MLS Optimized', 'small'],
-    ['Print Resolution', 'original'],
-  ] as const)('downloads the selected files at %s resolution', async (label, size) => {
+    ['MLS Optimized', 'small', false], ['Print Resolution', 'original', false],
+    ['MLS Optimized', 'small', true], ['Print Resolution', 'original', true],
+  ] as const)('downloads the selected files at %s resolution (%s, editor=%s)', async (label, size, isEditor) => {
     const user = userEvent.setup();
-    const options = { ...props(), isEditor: false, displayTab: 'edited' as const };
+    const options = { ...props(), isEditor, activeSubTab: 'edited' as const, displayTab: 'edited' as const };
     render(<ShootMediaHeader {...options} />);
     await user.click(screen.getByRole('button', { name: 'Download selected files' }));
     await user.click(screen.getByRole('menuitem', { name: new RegExp(label) }));

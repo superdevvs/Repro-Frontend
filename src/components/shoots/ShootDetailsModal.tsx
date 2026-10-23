@@ -457,7 +457,7 @@ export function ShootDetailsModal({
     handleDownloadFile,
   } = useShootDetailsModalActions({
     shoot,
-    isPhotographer,
+    isPhotographer, isEditor,
     refreshShoot,
     toast,
   });

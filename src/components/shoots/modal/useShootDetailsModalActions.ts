@@ -16,6 +16,7 @@ import {
 import { mmmService } from '@/services/mmmService';
 import { useShootUnitScope } from '@/features/shoot-units/useShootUnitScope';
 import { filterUnitFiles } from '@/features/shoot-units/unitMutations';
+import { downloadShootSelectedMedia } from '@/utils/shootSelectedMediaDownload';
 
 interface ToastApi {
   toast: (options: {
@@ -28,6 +29,7 @@ interface ToastApi {
 interface UseShootDetailsModalActionsOptions {
   shoot: ShootData | null;
   isPhotographer: boolean;
+  isEditor?: boolean;
   refreshShoot: () => Promise<ShootData | null>;
   toast: ToastApi['toast'];
 }
@@ -63,6 +65,7 @@ const getMmmErrorMessage = (error: unknown, fallback: string) => {
 export function useShootDetailsModalActions({
   shoot,
   isPhotographer,
+  isEditor = false,
   refreshShoot,
   toast,
 }: UseShootDetailsModalActionsOptions) {
@@ -253,12 +256,14 @@ export function useShootDetailsModalActions({
           : `Preparing ${getShootMediaDownloadSizeLabel(size)} files...`
       );
       const downloadType = isPhotographer ? 'raw' : 'edited';
-      const result = await downloadShootMediaArchive({
+      const result = isEditor && selectedFileIds.length > 0
+        ? await downloadShootSelectedMedia({ shootId: shoot.id, fileIds: unitFileIds(), size, address: getShootDownloadAddress(shoot) })
+        : await downloadShootMediaArchive({
         shootId: shoot.id,
         type: downloadType,
         size,
         shootServiceId: options.shootServiceId,
-        ...(options.assetType ? { assetType: options.assetType } : {}),
+        ...(isEditor ? { assetType: 'photos' as const } : options.assetType ? { assetType: options.assetType } : {}),
         ...(isMultiUnit ? { shootUnitId: activeUnitId } : {}),
         address: getShootDownloadAddress(shoot),
         onPreparing: ({ message }) => {

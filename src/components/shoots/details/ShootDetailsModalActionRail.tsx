@@ -230,7 +230,7 @@ export function ShootDetailsModalActionRail({
       ? !hasRawDownloadSelection
       : editedMediaCount === 0);
   const isEditorDownloadDisabled =
-    activeDownloadControl === 'editor_raw' || (rawFileCount === 0 && selectedFileIds.length === 0);
+    activeDownloadControl === 'editor_raw' || ((activeMediaDisplayTab === 'edited' ? editedMediaCount : rawFileCount) === 0 && selectedFileIds.length === 0);
   const isEditorShareDisabled =
     isGeneratingShareLink || (rawFileCount === 0 && selectedFileIds.length === 0);
 
@@ -418,7 +418,7 @@ export function ShootDetailsModalActionRail({
                     variant="outline"
                     size="sm"
                     className="h-7 text-xs px-3 bg-green-50 hover:bg-green-100 text-green-700 border-green-200 dark:bg-green-950 dark:hover:bg-green-900 dark:text-green-300 dark:border-green-800"
-                    onClick={() => runDownloadControl('editor_raw', handleEditorDownloadRaw)}
+                    onClick={() => runDownloadControl('editor_raw', handleProgressMediaDownload)}
                     disabled={isEditorDownloadDisabled}
                     aria-busy={activeDownloadControl === 'editor_raw'}
                   >
@@ -749,7 +749,7 @@ export function ShootDetailsModalActionRail({
               <button
                 className="flex items-center gap-3 w-full rounded-xl px-3 py-3 text-sm font-medium hover:bg-muted transition-colors disabled:opacity-60"
                 onClick={() => {
-                  runDownloadControl('editor_raw', handleEditorDownloadRaw);
+                  runDownloadControl('editor_raw', handleProgressMediaDownload);
                 }}
                 disabled={isEditorDownloadDisabled}
                 aria-busy={activeDownloadControl === 'editor_raw'}

@@ -152,6 +152,7 @@ const ShootDetails: React.FC = () => {
   } = useShootDetailsModalActions({
     shoot,
     isPhotographer,
+    isEditor,
     refreshShoot: loadShoot,
     toast,
   });
@@ -546,7 +547,7 @@ const ShootDetails: React.FC = () => {
   const isDownloadDisabled =
     isDownloading ||
     (isEditor
-      ? !hasRawDownloadSelection
+      ? activeMediaDisplayTab === 'edited' ? editedMediaCount === 0 && selectedFileIds.length === 0 : !hasRawDownloadSelection
       : canPrivilegedProgressDownload
         ? activeMediaDisplayTab === 'uploaded'
           ? !hasRawDownloadSelection
@@ -559,7 +560,7 @@ const ShootDetails: React.FC = () => {
       return;
     }
 
-    if (!isEditor && activeMediaDisplayTab === 'edited') {
+    if (activeMediaDisplayTab === 'edited') {
       void handleDownloadMedia('original');
       return;
     }
@@ -570,7 +571,6 @@ const ShootDetails: React.FC = () => {
     canOpenDeliveredDownloadDialog,
     handleDownloadMedia,
     handleEditorDownloadRaw,
-    isEditor,
     setIsDownloadDialogOpen,
   ]);
 
