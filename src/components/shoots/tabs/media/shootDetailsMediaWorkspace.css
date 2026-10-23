@@ -7,12 +7,15 @@
   gap: 8px;
 }
 
+.shoot-media-workspace {
+  container: shoot-media / inline-size;
+}
+
 /* The full shoot page shares its media components with the overview modal.
    Keep this presentation inside the page so modal sizing and scrolling stay intact. */
 .shoot-details-workspace .shoot-media-workspace {
   min-height: 0 !important;
   padding-inline: 0;
-  container: shoot-media / inline-size;
 }
 
 .shoot-details-workspace .shoot-media-header {
@@ -142,43 +145,43 @@
 }
 
 @container shoot-media (max-width: 699px) {
-  .shoot-details-workspace .shoot-media-list-row {
+  .shoot-media-list-row {
     flex-wrap: wrap;
     gap: 8px;
     min-width: 0;
     padding: 8px;
   }
 
-  .shoot-details-workspace .shoot-media-list-preview {
+  .shoot-media-list-preview {
     width: 56px;
     height: 44px;
   }
 
-  .shoot-details-workspace .shoot-media-list-filename {
+  .shoot-media-list-filename {
     min-width: 0;
     align-self: center;
   }
 
-  .shoot-details-workspace .shoot-media-list-filename > p:first-child {
+  .shoot-media-list-filename > p:first-child {
     white-space: normal;
     overflow-wrap: anywhere;
     text-overflow: clip;
     line-height: 1.5;
   }
 
-  .shoot-details-workspace .shoot-media-list-header,
-  .shoot-details-workspace .shoot-media-list-date,
-  .shoot-details-workspace .shoot-media-list-size {
+  .shoot-media-list-header,
+  .shoot-media-list-date,
+  .shoot-media-list-size {
     display: none;
   }
 
-  .shoot-details-workspace .shoot-media-list-mobile-date {
+  .shoot-media-list-mobile-date {
     display: block;
     margin-top: 3px;
     line-height: 1.5;
   }
 
-  .shoot-details-workspace .shoot-media-list-actions {
+  .shoot-media-list-actions {
     flex-basis: 100%;
     min-width: 0;
     flex-wrap: wrap;
@@ -186,7 +189,7 @@
     gap: 5px;
   }
 
-  .shoot-details-workspace .shoot-media-list-actions > button {
+  .shoot-media-list-actions > button {
     min-width: 32px;
     min-height: 32px;
   }

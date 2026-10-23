@@ -151,6 +151,18 @@ test.describe('compact desktop shoot workspace', () => {
       const squareFeet = dialog.getByLabel('Property details', { exact: true }).getByText('2,800', { exact: true });
       await expect(squareFeet).toBeVisible();
       expect((await squareFeet.boundingBox())!.height).toBeLessThanOrEqual(18);
+      await dialog.getByRole('button', { name: 'List view', exact: true }).filter({ visible: true }).click();
+      const firstRow = dialog.locator('.shoot-media-list-row').filter({ visible: true }).first();
+      const listLayout = await firstRow.evaluate(row => {
+        const filename = row.querySelector('.shoot-media-list-filename')!;
+        const actions = row.querySelector('.shoot-media-list-actions')!;
+        const box = filename.getBoundingClientRect();
+        return { width: box.width, overflow: row.scrollWidth - row.clientWidth, actionsTop: actions.getBoundingClientRect().top, filenameBottom: box.bottom };
+      });
+      expect(listLayout.width).toBeGreaterThan(100);
+      expect(listLayout.overflow).toBeLessThanOrEqual(1);
+      if (width <= 1180) expect(listLayout.actionsTop).toBeGreaterThanOrEqual(listLayout.filenameBottom);
+      await dialog.getByRole('button', { name: 'Grid view', exact: true }).filter({ visible: true }).click();
       expect(await dialog.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
       await expectFitsViewport(page, dialog.getByRole('button', { name: 'Close', exact: true }).filter({ visible: true }));
       const sync = dialog.getByRole('button', { name: 'Publish to Bright MLS', exact: true });
