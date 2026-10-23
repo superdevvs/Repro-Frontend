@@ -146,6 +146,10 @@ export async function installDashboardMobileFixtures(
       permissions: permissionResources.flatMap(resource => ['view', 'create', 'update'].map(action => ({ resource, action }))),
     });
     if (path === '/dashboard/overview') return data(route, overview);
+    if (/^\/shoots\/\d+$/.test(path) && method === 'GET') {
+      const shoot = scheduledShoots.find(item => String(item.id) === path.split('/').pop());
+      return shoot ? data(route, shoot) : reply(route, { message: 'Fixture shoot not found' }, 404);
+    }
     if (path === '/shoots' && method === 'GET') {
       const rows = ['completed', 'delivered'].includes(url.searchParams.get('tab') || '') ? [] : scheduledShoots;
       return reply(route, { success: true, data: rows, meta: {

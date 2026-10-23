@@ -161,11 +161,13 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             <main tabIndex={-1} style={compactMainStyle} className={`flex-1 min-w-0 min-h-0 ${lockMainScroll ? 'flex flex-col overflow-hidden overflow-x-hidden' : 'overflow-y-auto'} overscroll-y-contain [-webkit-overflow-scrolling:touch] bg-background text-foreground ${contentPadding} ${className || ''}`}>
               <PageTransition className={lockMainScroll ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden' : 'flex flex-col min-h-full'}>
                 <EmailVerificationNotice>
-                  {isCallsWorkspace || isSupportWorkspace || lockCompactDashboard || fillSms || fillDesktopCalendar ? (
-                    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">{children || <Outlet />}</div>
-                  ) : (
-                    children || <Outlet />
-                  )}
+                  {/* Keep the page mounted when resizing changes its scroll shell.
+                      Adding/removing this wrapper resets open dialogs and page state. */}
+                  <div className={isCallsWorkspace || isSupportWorkspace || lockCompactDashboard || fillSms || fillDesktopCalendar
+                    ? 'flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden'
+                    : 'contents'}>
+                    {children || <Outlet />}
+                  </div>
                 </EmailVerificationNotice>
               </PageTransition>
               {!shouldHideFooter && (

@@ -50,6 +50,38 @@ beforeEach(() => { viewport.mobile = false; viewport.compact = false; viewport.t
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); });
 
 describe('dashboard page loading integration', () => {
+  it.each(['/dashboard', '/shoot-history', '/availability'])('preserves an open page dialog across responsive layouts at %s', path => {
+    function StatefulPage() {
+      const [open, setOpen] = React.useState(false);
+      const [tab, setTab] = React.useState('Overview');
+      return <>
+        <button onClick={() => setOpen(true)}>Open shoot</button>
+        {open && <div role="dialog" aria-label="Shoot details">
+          <button onClick={() => setTab('Notes')}>Notes</button>
+          <p>{tab} content</p>
+        </div>}
+      </>;
+    }
+    const view = () => <MemoryRouter initialEntries={[path]}><DashboardLayout><StatefulPage /></DashboardLayout></MemoryRouter>;
+    viewport.availabilityDesktop = true;
+    const { rerender } = render(view());
+    act(() => { screen.getByRole('button', { name: 'Open shoot' }).click(); });
+    const dialog = screen.getByRole('dialog', { name: 'Shoot details' });
+    for (const compact of [true, false, true]) {
+      viewport.compact = compact;
+      viewport.availabilityDesktop = !compact;
+      rerender(view());
+      expect(screen.getByRole('dialog', { name: 'Shoot details' })).toBe(dialog);
+      expect(screen.getByText('Overview content')).toBeInTheDocument();
+    }
+    act(() => { screen.getByRole('button', { name: 'Notes' }).click(); });
+    viewport.compact = false;
+    viewport.availabilityDesktop = true;
+    rerender(view());
+    expect(screen.getByRole('dialog', { name: 'Shoot details' })).toBe(dialog);
+    expect(screen.getByText('Notes content')).toBeInTheDocument();
+  });
+
   it.each([['desktop', '/calls/inbox'], ['phone', '/calls/inbox'], ['desktop', '/messaging/email/inbox?tab=support'], ['phone', '/messaging/email/inbox?tab=support']])('keeps the original dashboard navigation on %s %s', (surface, path) => {
     viewport.mobile = surface === 'phone';
     const { container } = render(<MemoryRouter initialEntries={[path]}><DashboardLayout><DashboardLayout hideFooter><button>Conversations</button></DashboardLayout></DashboardLayout></MemoryRouter>);
