@@ -361,6 +361,13 @@ const AccountingPage = () => {
 
   const handlePaymentComplete = async (payload: InvoicePaymentCompletePayload) => {
     const { invoiceId, paymentMethod, paymentDetails, paymentDate, amount } = payload;
+    // Stripe has already recorded this payment. Reload server totals rather
+    // than submitting the completed charge as another manual invoice payment.
+    if (paymentMethod === 'stripe') {
+      setPaymentDialogOpen(false);
+      triggerInvoicesRefresh();
+      return;
+    }
     try {
       const markPaidPayload = {
         ...(amount !== undefined ? { amount_paid: amount } : {}),

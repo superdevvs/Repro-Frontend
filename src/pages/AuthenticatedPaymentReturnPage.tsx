@@ -10,7 +10,7 @@ import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { triggerDashboardOverviewRefresh, triggerInvoicesRefresh, triggerShootDetailRefresh, triggerShootHistoryRefresh } from '@/realtime/realtimeRefreshBus';
 import { canUseSafeHistoryFallback, sanitizeRelativeReturnTo } from '@/utils/paymentReturn';
 import { confirmPaymentReturnWithRetry } from '@/utils/paymentConfirmationRetry';
-import { getStripeConfirmationFailureMessage, isStripeSessionPaymentRecorded, isStripeSessionRefundedAsStale, type StripeConfirmationResult } from '@/utils/stripeConfirmation';
+import { getStripeConfirmationFailureMessage, isStripeConfirmationPending, isStripeSessionPaymentRecorded, isStripeSessionRefundedAsStale, readStripeConfirmation, type StripeConfirmationResult } from '@/utils/stripeConfirmation';
 
 type PaymentConfirmationResult = StripeConfirmationResult & { confirmationHttpStatus?: number; malformed?: boolean };
 type ConfirmationState = { kind: 'confirming' | 'confirmed' | 'pending' | 'unavailable' | 'refunded' | 'failed'; message?: string; amount?: number | null };
@@ -20,15 +20,6 @@ const toFiniteNumber = (value: unknown): number | null => {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 };
-
-function readConfirmation(value: unknown): PaymentConfirmationResult {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return { malformed: true };
-  const record = value as Record<string, unknown>;
-  if (typeof record.session_id !== 'string'
-    || ['outcome', 'session_payment_status', 'message', 'return_to'].some(key => record[key] != null && typeof record[key] !== 'string')
-    || ['payment_recorded', 'payment_refunded', 'reconciled'].some(key => record[key] != null && typeof record[key] !== 'boolean')) return { malformed: true };
-  return record as PaymentConfirmationResult;
-}
 
 function unconfirmedState(result: PaymentConfirmationResult | null, sessionId: string): ConfirmationState {
   if (isStripeSessionRefundedAsStale(result, sessionId)) {
@@ -44,7 +35,7 @@ function unconfirmedState(result: PaymentConfirmationResult | null, sessionId: s
     return { kind: 'unavailable', message: 'We could not verify this checkout session. Contact support before making another payment.' };
   }
   const outcome = result?.outcome?.toLowerCase();
-  if (!result || ['busy', 'pending', 'unpaid', 'not_found'].includes(outcome ?? '')) {
+  if (isStripeConfirmationPending(result, sessionId)) {
     return { kind: 'pending', message: 'We are still checking this payment. Check its status again or contact support before making another payment.' };
   }
   if (['expired', 'cancelled', 'canceled'].includes(outcome ?? '')
@@ -93,17 +84,7 @@ export default function AuthenticatedPaymentReturnPage() {
             signal: controller.signal, timeout: 10000,
             headers: { ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}), 'Content-Type': 'application/json' },
           });
-        const confirmation = readConfirmation(response.data?.data ?? response.data);
-        const outcome = confirmation.outcome?.toLowerCase();
-        const paymentStatus = confirmation.session_payment_status?.toLowerCase();
-        // A failed reconciliation can describe a successful Stripe charge. Retry
-        // that same session until the backend proves its recorded outcome.
-        if (confirmation.session_id === sessionId && (outcome === 'failed'
-          || (paymentStatus === 'paid' && ['expired', 'cancelled', 'canceled', 'declined'].includes(outcome ?? ''))
-          || (outcome === 'declined' && paymentStatus !== 'unpaid'))) {
-          return { ...confirmation, outcome: 'pending' };
-        }
-        return confirmation;
+        return readStripeConfirmation(response.data?.data ?? response.data) ?? { malformed: true };
       } catch (error) {
         if (controller.signal.aborted) return null;
         const status = axios.isAxiosError(error) ? error.response?.status : undefined;

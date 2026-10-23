@@ -1,7 +1,7 @@
 import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { usePermission } from '@/hooks/usePermission';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { format } from 'date-fns';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import {
@@ -130,8 +130,21 @@ export function BulkActionsDialog({
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [stripePaymentOpen, setStripePaymentOpen] = useState(false);
   const [isMarkPaidDialogOpen, setIsMarkPaidDialogOpen] = useState(false);
+  const completionGeneration = useRef(0);
+  const stripeRefreshPending = useRef(false);
+  const selectedTarget = [...selectedShoots].sort().join('|');
 
   useEffect(() => {
+    completionGeneration.current += 1;
+    if (stripeRefreshPending.current) {
+      stripeRefreshPending.current = false;
+      setProcessing(false);
+    }
+  }, [isOpen, activeAction, selectedTarget]);
+  useEffect(() => () => { completionGeneration.current += 1; }, []);
+
+  useEffect(() => {
+    setProcessing(false);
     if (!isOpen) {
       setDetailShootId(null);
       setIsDetailOpen(false);
@@ -358,39 +371,30 @@ export function BulkActionsDialog({
   };
 
   const handleStripePaymentSuccess = async () => {
+    const generation = completionGeneration.current;
+    const isCurrent = () => generation === completionGeneration.current;
+    stripeRefreshPending.current = true;
     setStripePaymentOpen(false);
     setProcessing(true);
 
     try {
-      await Promise.all(
-        eligibleShoots.map((shoot) => {
-          const quote = shoot.payment?.totalQuote ?? 0;
-          const paid = shoot.payment?.totalPaid ?? 0;
-          const amount = Math.max(quote - paid, 0);
-          return apiClient.post(`/shoots/${shoot.id}/mark-paid`, {
-            payment_type: 'stripe',
-            amount,
-          });
-        }),
-      );
-
-      toast({
-        title: 'Payment recorded',
-        description: `${eligibleShoots.length} shoot(s) updated.`,
-      });
-
+      // The exact Stripe session already recorded every payment. Reload the
+      // list; a second manual mark-paid request would duplicate the ledger.
       if (onComplete) {
         await onComplete();
       }
-      onClose();
-    } catch (error: any) {
+    } catch {
+      if (!isCurrent()) return;
       toast({
-        title: 'Payment update failed',
-        description: error?.response?.data?.message || 'Please try again.',
-        variant: 'destructive',
+        title: 'Payment confirmed; refresh unavailable',
+        description: 'Your Stripe payment is already recorded. Refresh the shoot list before making another payment.',
       });
     } finally {
-      setProcessing(false);
+      if (isCurrent()) {
+        stripeRefreshPending.current = false;
+        setProcessing(false);
+        onClose();
+      }
     }
   };
 

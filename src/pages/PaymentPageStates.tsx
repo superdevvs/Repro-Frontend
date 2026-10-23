@@ -22,6 +22,7 @@ type PaymentErrorStateProps = {
   title?: string;
   retryLabel?: string;
   onRetry?: () => void;
+  pending?: boolean;
 };
 
 export function PaymentErrorState({
@@ -29,14 +30,15 @@ export function PaymentErrorState({
   title = 'Unable to Load Payment',
   retryLabel = 'Try again',
   onRetry,
+  pending = false,
 }: PaymentErrorStateProps) {
   return (
     <div className="min-h-screen bg-[#060a0e] flex items-center justify-center p-4">
-      <Card className="max-w-md w-full bg-[#0a0f1a] border-red-500/30">
+      <Card className={`max-w-md w-full bg-[#0a0f1a] ${pending ? 'border-amber-500/30' : 'border-red-500/30'}`}>
         <CardContent className="pt-6 text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <AlertCircle className={`h-12 w-12 mx-auto mb-4 ${pending ? 'text-amber-500' : 'text-red-500'}`} />
           <h2 className="text-xl font-semibold text-white mb-2">{title}</h2>
-          <p className="text-gray-400" role="alert">{message}</p>
+          <p className="text-gray-400" role={pending ? 'status' : 'alert'}>{message}</p>
           <div className="mt-5 flex flex-wrap justify-center gap-3">
             {onRetry && <Button onClick={onRetry}>{retryLabel}</Button>}
             <Button variant="outline" asChild><a href="/login">Go to login</a></Button>

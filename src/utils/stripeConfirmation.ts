@@ -22,6 +22,31 @@ export type StripeConfirmationResult = {
   message?: string | null;
 };
 
+/** Validate the common confirmation contract before interpreting a response. */
+export function readStripeConfirmation(value: unknown): StripeConfirmationResult | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const record = value as Record<string, unknown>;
+  if (typeof record.session_id !== 'string'
+    || ['outcome', 'session_payment_status', 'message', 'return_to'].some(key => record[key] != null && typeof record[key] !== 'string')
+    || ['payment_recorded', 'payment_refunded', 'reconciled'].some(key => record[key] != null && typeof record[key] !== 'boolean')) return null;
+  return record as StripeConfirmationResult;
+}
+
+/** A processing error is not proof that Stripe failed to collect a payment. */
+export function isStripeConfirmationPending(
+  result: StripeConfirmationResult | null | undefined,
+  expectedSessionId: string | null | undefined,
+): boolean {
+  if (!expectedSessionId) return false;
+  if (!result) return true;
+  if (result.session_id !== expectedSessionId) return false;
+  const outcome = typeof result.outcome === 'string' ? result.outcome.toLowerCase() : '';
+  const paymentStatus = typeof result.session_payment_status === 'string' ? result.session_payment_status.toLowerCase() : '';
+  return ['busy', 'pending', 'unpaid', 'not_found', 'failed'].includes(outcome)
+    || (paymentStatus === 'paid' && ['expired', 'cancelled', 'canceled', 'declined'].includes(outcome))
+    || (outcome === 'declined' && paymentStatus !== 'unpaid');
+}
+
 const RECORDED_OUTCOMES = new Set<StripeConfirmationOutcome>([
   'processed',
   'already_processed',

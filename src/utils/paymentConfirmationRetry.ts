@@ -1,9 +1,7 @@
-import type { StripeConfirmationResult } from './stripeConfirmation';
+import { isStripeConfirmationPending, type StripeConfirmationResult } from './stripeConfirmation';
 
 export const PAYMENT_CONFIRMATION_MAX_ATTEMPTS = 6;
 export const PAYMENT_CONFIRMATION_RETRY_DELAY_MS = 2000;
-
-const retryableOutcomes = new Set(['busy', 'unpaid', 'pending', 'not_found']);
 
 function waitForRetry(signal: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
@@ -27,10 +25,7 @@ export async function confirmPaymentReturnWithRetry<T extends StripeConfirmation
   let confirmation: T | null = null;
   for (let attempt = 0; attempt < PAYMENT_CONFIRMATION_MAX_ATTEMPTS && !signal.aborted; attempt += 1) {
     confirmation = await confirm();
-    const retryable = !confirmation || (
-      confirmation.session_id === sessionId
-      && retryableOutcomes.has(confirmation.outcome?.toLowerCase() ?? '')
-    );
+    const retryable = isStripeConfirmationPending(confirmation, sessionId);
     if (!retryable || attempt === PAYMENT_CONFIRMATION_MAX_ATTEMPTS - 1 || signal.aborted) break;
     await waitForRetry(signal);
   }

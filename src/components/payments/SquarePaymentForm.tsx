@@ -32,7 +32,10 @@ import {
   getStripeConfirmationFailureMessage,
   isStripeSessionPaymentRecorded,
   isStripeSessionRefundedAsStale,
+  isStripeConfirmationPending,
+  readStripeConfirmation,
 } from '@/utils/stripeConfirmation';
+import { startPaymentStatusPolling } from '@/utils/paymentStatusPolling';
 import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 import { formatServiceItemStatus } from '@/utils/shootServiceItems';
 import { getPaymentErrorMessage } from './paymentErrorMessage';
@@ -40,6 +43,13 @@ import type { PaymentSessionConfirmationResponse } from './squarePaymentModel';
 type EmbeddedCheckoutInstance = {
   mount: (element: HTMLElement | string) => void;
   destroy: () => void;
+};
+
+type CheckoutOperation = {
+  scope: string; sessionId: string | null; clientSecret: string | null; amount: number;
+  controller: AbortController; request: AbortController | null; done: boolean; inFlight: boolean;
+  mounting: boolean; mountVersion: number; completed: boolean; checks: number; closed: boolean;
+  stop?: () => void; grace?: ReturnType<typeof setTimeout>; frame?: number;
 };
 
 export interface SquarePaymentSuccessPayload {
@@ -120,11 +130,39 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
   const [stripeError, setStripeError] = useState<string | null>(null);
   const [showCheckoutDialog, setShowCheckoutDialog] = useState(false);
   const [embeddedCheckoutLoading, setEmbeddedCheckoutLoading] = useState(false);
-  const pollingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const authTokenRef = useRef<string | null>(null);
   const embeddedCheckoutRef = useRef<EmbeddedCheckoutInstance | null>(null);
   const checkoutMountRef = useRef<HTMLDivElement>(null);
   const checkoutSessionIdRef = useRef<string | null>(null);
+  const operationRef = useRef<CheckoutOperation | null>(null);
+  const mountedRef = useRef(true);
+  const scope = JSON.stringify([shootId ?? null, [...(shootIds ?? [])].sort()]);
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const [pendingCheckout, setPendingCheckout] = useState(false);
+  const [completedCheckout, setCompletedCheckout] = useState(false);
+  const [confirmationNotice, setConfirmationNotice] = useState<string | null>(null);
+  const callbacksRef = useRef({ onPaymentSuccess, onPaymentError, onCheckoutActiveChange, onCheckoutMounted });
+  callbacksRef.current = { onPaymentSuccess, onPaymentError, onCheckoutActiveChange, onCheckoutMounted };
+
+  const isCurrent = (operation: CheckoutOperation) => mountedRef.current
+    && operationRef.current === operation && operation.scope === scopeRef.current && !operation.controller.signal.aborted;
+  const notifyCheckoutUi = (operation: CheckoutOperation, notify: () => void) => {
+    if (!isCurrent(operation)) return;
+    try { void Promise.resolve(notify()).catch(() => undefined); }
+    catch { /* A consumer UI callback cannot change the recorded payment outcome. */ }
+  };
+  const disposeCheckout = useCallback(() => {
+    const operation = operationRef.current;
+    operation?.stop?.();
+    operation?.controller.abort();
+    operation?.request?.abort();
+    if (operation?.grace) clearTimeout(operation.grace);
+    if (operation?.frame) cancelAnimationFrame(operation.frame);
+    embeddedCheckoutRef.current?.destroy();
+    embeddedCheckoutRef.current = null;
+    operationRef.current = null;
+    checkoutSessionIdRef.current = null;
+  }, []);
 
   // Partial payment state
   const [paymentAmount, setPaymentAmount] = useState(amount);
@@ -178,23 +216,24 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
     });
   }, [payableServiceItems, paymentScope]);
 
-  // Cleanup polling and embedded checkout on unmount
   useEffect(() => {
-    return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
-      if (embeddedCheckoutRef.current) {
-        embeddedCheckoutRef.current.destroy();
-        embeddedCheckoutRef.current = null;
-      }
-    };
-  }, []);
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; disposeCheckout(); };
+  }, [disposeCheckout]);
+  useEffect(() => {
+    if (operationRef.current?.scope !== scope) {
+      disposeCheckout();
+      setPendingCheckout(false); setShowCheckoutDialog(false); setStripeLoading(false); setStripeError(null); setConfirmationNotice(null);
+    }
+    setCompletedCheckout(false);
+  }, [disposeCheckout, scope]);
+  useEffect(() => { setCompletedCheckout(false); }, [amount]);
 
   const remainingBalanceAfterPayment = outstandingAmount - effectivePaymentAmount;
 
   useImperativeHandle(ref, () => ({
     chargeOutstandingViaStripe: (amountOverride?: number) => {
+      if (operationRef.current && !operationRef.current.done) return;
       const requestedAmount = amountOverride ?? effectivePaymentAmount;
       if (requestedAmount <= 0 || requestedAmount > outstandingAmount) {
         return;
@@ -210,16 +249,11 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
     },
   }), [effectivePaymentAmount, outstandingAmount]);
 
-  const triggerPostPaymentRefreshes = useCallback(() => {
-    triggerDashboardOverviewRefresh();
-    triggerInvoicesRefresh();
-    triggerShootHistoryRefresh();
-
-    if (shootId) {
-      triggerShootDetailRefresh(shootId);
-    }
-
-    shootIds?.forEach((id) => triggerShootDetailRefresh(id));
+  const triggerPostPaymentRefreshes = useCallback((valid: () => boolean) => {
+    const refreshes = [triggerDashboardOverviewRefresh, triggerInvoicesRefresh, triggerShootHistoryRefresh,
+      ...(shootId ? [() => triggerShootDetailRefresh(shootId)] : []),
+      ...(shootIds ?? []).map(id => () => triggerShootDetailRefresh(id))];
+    for (const refresh of refreshes) { if (!valid()) return; refresh(); }
   }, [shootId, shootIds]);
 
   // Handle form submission
@@ -259,7 +293,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
       return;
     }
 
-    if (isProcessing || disabled) {
+    if (isProcessing || disabled || completedCheckout || (operationRef.current && !operationRef.current.done)) {
       return;
     }
 
@@ -267,258 +301,192 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
     setShowConfirmationDialog(true);
   };
 
-  // Process payment via Stripe Checkout after confirmation
+  // One operation owns checkout creation, mounting, status checks and close timers.
   const handleConfirmPayment = async () => {
-    setShowConfirmationDialog(false);
-    setStripeLoading(true);
-    setStripeError(null);
-
+    if (disabled || completedCheckout || (operationRef.current && !operationRef.current.done)) return;
+    disposeCheckout();
+    const operation: CheckoutOperation = { scope, sessionId: null, clientSecret: null, amount: effectivePaymentAmount,
+      controller: new AbortController(), request: null, done: false, inFlight: false,
+      mounting: false, mountVersion: 0, completed: false, checks: 0, closed: false };
+    operationRef.current = operation;
+    setShowConfirmationDialog(false); setStripeLoading(true); setStripeError(null); setConfirmationNotice(null);
     try {
-      const authToken = localStorage.getItem('authToken') || localStorage.getItem('token');
-
-      const isBulk = shootIds && shootIds.length > 0;
-      if (!isBulk && !shootId) {
-        throw new Error('This payment is missing its shoot reference. Refresh the page and try again.');
-      }
-      if (!STRIPE_PUBLISHABLE_KEY) {
-        throw new Error('Stripe is not configured for this site.');
-      }
-      const url = isBulk
+      if (!shootIds?.length && !shootId) throw new Error('This payment is missing its shoot reference. Refresh the page and try again.');
+      if (!STRIPE_PUBLISHABLE_KEY) throw new Error('Stripe is not configured for this site.');
+      const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+      const response = await axios.post(shootIds?.length
         ? `${API_BASE_URL}/api/payments/stripe-multiple-shoots-embedded`
-        : `${API_BASE_URL}/api/shoots/${shootId}/create-stripe-embedded-checkout`;
-      const body = isBulk
-        ? { shoot_ids: shootIds }
-        : {
-            amount: effectivePaymentAmount,
-            return_to: getCurrentReturnTo() ?? undefined,
-            ...(isSelectedServicePayment
-              ? {
-                  shoot_service_ids: selectedServiceItemIds,
-                  allocation_strategy: 'selected_services',
-                }
-              : {}),
-          };
-
-      const response = await axios.post(url, body, {
-        headers: {
-          ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}),
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.data?.clientSecret || !response.data?.sessionId) {
-        setStripeLoading(false);
-        throw new Error('Stripe did not return a complete checkout session.');
-      }
-
-      checkoutSessionIdRef.current = response.data.sessionId || null;
-
-      // Show inline embedded checkout
-      authTokenRef.current = authToken;
-      setShowCheckoutDialog(true);
-      setEmbeddedCheckoutLoading(true);
-      onCheckoutActiveChange?.(true);
-
-      // Mount embedded checkout after the inline container renders
-      requestAnimationFrame(async () => {
-        try {
-          const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
-          if (!stripe) throw new Error('Failed to load Stripe');
-
-          const checkout = await stripe.initEmbeddedCheckout({
-            clientSecret: response.data.clientSecret,
-          });
-          embeddedCheckoutRef.current = checkout;
-
-          // Wait for mount element to be ready
-          const waitForMount = () => {
-            if (checkoutMountRef.current) {
-              checkout.mount(checkoutMountRef.current);
-              setEmbeddedCheckoutLoading(false);
-              // Notify parent after mount so it can scroll
-              setTimeout(() => onCheckoutMounted?.(), 100);
-            } else {
-              requestAnimationFrame(waitForMount);
-            }
-          };
-          waitForMount();
-        } catch (mountErr) {
-          console.error('Stripe embedded checkout mount error:', mountErr);
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-          if (embeddedCheckoutRef.current) {
-            embeddedCheckoutRef.current.destroy();
-            embeddedCheckoutRef.current = null;
-          }
-          checkoutSessionIdRef.current = null;
-          setEmbeddedCheckoutLoading(false);
-          setStripeLoading(false);
-          setShowCheckoutDialog(false);
-          onCheckoutActiveChange?.(false);
-          setStripeError('Stripe checkout could not be loaded. Please try again.');
-        }
-      });
-
-      startPaymentPolling();
+        : `${API_BASE_URL}/api/shoots/${shootId}/create-stripe-embedded-checkout`,
+      shootIds?.length ? { shoot_ids: shootIds } : { amount: effectivePaymentAmount, return_to: getCurrentReturnTo() ?? undefined,
+        ...(isSelectedServicePayment ? { shoot_service_ids: selectedServiceItemIds, allocation_strategy: 'selected_services' } : {}) },
+      { signal: operation.controller.signal, timeout: 10000,
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), 'Content-Type': 'application/json' } });
+      if (!isCurrent(operation)) return;
+      if (typeof response.data?.clientSecret !== 'string' || typeof response.data?.sessionId !== 'string'
+        || !response.data.clientSecret || !response.data.sessionId) throw new Error('Stripe did not return a complete checkout session.');
+      operation.sessionId = response.data.sessionId;
+      operation.clientSecret = response.data.clientSecret;
+      checkoutSessionIdRef.current = operation.sessionId;
+      setPendingCheckout(true);
+      mountCheckout(operation);
+      startPaymentPolling(operation);
     } catch (error) {
+      if (!isCurrent(operation)) return;
+      operation.done = true;
       setStripeLoading(false);
-      const errorMessage = getPaymentErrorMessage(error, 'Failed to create Stripe checkout session.');
-
-      setStripeError(errorMessage);
-      toast({
-        title: 'Payment Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-
-      if (onPaymentError) {
-        onPaymentError(error);
-      }
+      const message = getPaymentErrorMessage(error, 'Failed to open Stripe checkout.');
+      setStripeError(message);
+      toast({ title: 'Checkout unavailable', description: message, variant: 'destructive' });
+      callbacksRef.current.onPaymentError?.(error);
     }
   };
 
-  const startPaymentPolling = () => {
-    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-    const isBulk = shootIds && shootIds.length > 0;
+  const pauseConfirmation = (operation: CheckoutOperation, message: string) => {
+    if (!isCurrent(operation) || operation.done) return;
+    operation.stop?.();
+    setStripeLoading(false);
+    setConfirmationNotice(message);
+  };
 
-    const stopForStaleRefund = (
-      confirmation: PaymentSessionConfirmationResponse | null,
-      activeSessionId: string | null,
-    ): boolean => {
-      if (!isStripeSessionRefundedAsStale(confirmation, activeSessionId)) {
-        return false;
-      }
-
-      const message = getStripeConfirmationFailureMessage(
-        confirmation,
-        activeSessionId,
-        'The Stripe charge was refunded because the invoice balance changed.',
-      );
-      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-      pollingIntervalRef.current = null;
-      setStripeLoading(false);
-      setShowCheckoutDialog(false);
-      onCheckoutActiveChange?.(false);
-      checkoutSessionIdRef.current = null;
-      if (embeddedCheckoutRef.current) {
-        embeddedCheckoutRef.current.destroy();
-        embeddedCheckoutRef.current = null;
-      }
-      setStripeError(message);
-      toast({ title: 'Payment refunded', description: message, variant: 'destructive' });
-      onPaymentError?.(new Error(message));
-
-      return true;
-    };
-
-    pollingIntervalRef.current = setInterval(async () => {
+  const startPaymentPolling = (operation: CheckoutOperation) => {
+    if (!isCurrent(operation) || operation.done || operation.inFlight || !operation.sessionId) return;
+    operation.stop?.();
+    operation.stop = startPaymentStatusPolling(async isActive => {
+      if (!isCurrent(operation) || operation.done || operation.inFlight || !operation.sessionId) return;
+      operation.inFlight = true;
+      const request = new AbortController();
+      operation.request = request;
       try {
-        const token = authTokenRef.current;
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
-        if (isBulk) {
-          const activeSessionId = checkoutSessionIdRef.current;
-          const confirmationResponse = activeSessionId
-            ? await axios.post(
-                `${API_BASE_URL}/api/payments/stripe-session/confirm`,
-                { session_id: activeSessionId },
-                { headers },
-              ).catch(() => null)
-            : null;
-          const confirmationData = confirmationResponse
-            ? ((confirmationResponse.data?.data || confirmationResponse.data) as PaymentSessionConfirmationResponse)
-            : null;
-
-          if (isStripeSessionPaymentRecorded(confirmationData, activeSessionId)) {
-            const parsedProcessedAmount = Number(confirmationData?.last_payment_amount ?? effectivePaymentAmount);
-            const processedAmount = Number.isFinite(parsedProcessedAmount)
-              ? parsedProcessedAmount
-              : effectivePaymentAmount;
-            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-            setStripeLoading(false);
-            setShowCheckoutDialog(false);
-            onCheckoutActiveChange?.(false);
-            checkoutSessionIdRef.current = null;
-            if (embeddedCheckoutRef.current) { embeddedCheckoutRef.current.destroy(); embeddedCheckoutRef.current = null; }
-            triggerPostPaymentRefreshes();
-            toast({ title: 'Payment Successful', description: 'Bulk payment has been processed via Stripe.' });
-            if (onPaymentSuccess) {
-              onPaymentSuccess({
-                status: 'success',
-                amount: processedAmount,
-                returnTo: sanitizeRelativeReturnTo(confirmationData?.return_to ?? null),
+        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+        const response = await axios.post(shootIds?.length ? `${API_BASE_URL}/api/payments/stripe-session/confirm`
+          : `${API_BASE_URL}/api/shoots/${shootId}/confirm-stripe-session`, { session_id: operation.sessionId },
+        { signal: request.signal, timeout: 10000, headers: token ? { Authorization: `Bearer ${token}` } : {} });
+        if (!isActive() || !isCurrent(operation) || operation.done) return;
+        const confirmation = readStripeConfirmation(response.data?.data ?? response.data) as PaymentSessionConfirmationResponse | null;
+        if (isStripeSessionPaymentRecorded(confirmation, operation.sessionId)
+          || isStripeSessionRefundedAsStale(confirmation, operation.sessionId)) {
+          const paid = isStripeSessionPaymentRecorded(confirmation, operation.sessionId);
+          operation.done = true;
+          operation.stop?.();
+          if (operation.grace) clearTimeout(operation.grace);
+          embeddedCheckoutRef.current?.destroy(); embeddedCheckoutRef.current = null;
+          checkoutSessionIdRef.current = null;
+          setPendingCheckout(false); setCompletedCheckout(true); setShowCheckoutDialog(false); setEmbeddedCheckoutLoading(false);
+          setStripeLoading(false); setConfirmationNotice(null);
+          notifyCheckoutUi(operation, () => callbacksRef.current.onCheckoutActiveChange?.(false));
+          if (!isCurrent(operation)) return;
+          if (!paid) {
+            const message = getStripeConfirmationFailureMessage(confirmation, operation.sessionId,
+              'The Stripe charge was refunded because the invoice balance changed.');
+            setStripeError(message);
+            toast({ title: 'Payment refunded', description: message, variant: 'destructive' });
+            if (isCurrent(operation)) callbacksRef.current.onPaymentError?.(new Error(message));
+            return;
+          }
+          setStripeError(null);
+          triggerPostPaymentRefreshes(() => isCurrent(operation));
+          if (!isCurrent(operation)) return;
+          const parsedAmount = Number(confirmation?.last_payment_amount ?? operation.amount);
+          const amountPaid = Number.isFinite(parsedAmount) ? parsedAmount : operation.amount;
+          toast({ title: 'Payment Successful', description: `Payment of $${amountPaid.toFixed(2)} has been processed via Stripe.` });
+          if (isCurrent(operation)) {
+            try {
+              void Promise.resolve(callbacksRef.current.onPaymentSuccess?.({ status: 'success', amount: amountPaid,
+                returnTo: sanitizeRelativeReturnTo(confirmation?.return_to ?? null) })).catch(() => {
+                if (isCurrent(operation)) toast({ title: 'Payment received', description: 'Reload the dashboard to refresh your invoice.' });
               });
+            } catch {
+              if (isCurrent(operation)) toast({ title: 'Payment received', description: 'Reload the dashboard to refresh your invoice.' });
             }
           }
-          if (stopForStaleRefund(confirmationData, activeSessionId)) return;
-        } else {
-          let confirmationData: PaymentSessionConfirmationResponse | null = null;
-          const activeSessionId = checkoutSessionIdRef.current;
-
-          if (shootId && activeSessionId) {
-            const confirmationResponse = await axios.post(
-              `${API_BASE_URL}/api/shoots/${shootId}/confirm-stripe-session`,
-              { session_id: activeSessionId },
-              { headers }
-            ).catch(() => null);
-
-            confirmationData = confirmationResponse
-              ? ((confirmationResponse.data?.data || confirmationResponse.data) as PaymentSessionConfirmationResponse)
-              : null;
-          }
-
-          if (isStripeSessionPaymentRecorded(confirmationData, activeSessionId)) {
-            if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-            setStripeLoading(false);
-            setShowCheckoutDialog(false);
-            onCheckoutActiveChange?.(false);
-            checkoutSessionIdRef.current = null;
-            if (embeddedCheckoutRef.current) { embeddedCheckoutRef.current.destroy(); embeddedCheckoutRef.current = null; }
-            const parsedProcessedAmount = Number(confirmationData?.last_payment_amount ?? effectivePaymentAmount);
-            const processedAmount = Number.isFinite(parsedProcessedAmount)
-              ? parsedProcessedAmount
-              : effectivePaymentAmount;
-            const resolvedReturnTo = sanitizeRelativeReturnTo(confirmationData?.return_to ?? null);
-
-            triggerPostPaymentRefreshes();
-            toast({ title: 'Payment Successful', description: `Payment of $${processedAmount.toFixed(2)} has been processed via Stripe.` });
-            if (onPaymentSuccess) {
-              onPaymentSuccess({
-                status: 'success',
-                amount: processedAmount,
-                returnTo: resolvedReturnTo,
-              });
-            }
-          }
-          if (stopForStaleRefund(confirmationData, activeSessionId)) return;
+          return;
         }
-      } catch {
-        // Ignore polling errors, will retry
+        operation.checks += 1;
+        if (!confirmation || confirmation.session_id !== operation.sessionId) {
+          pauseConfirmation(operation, 'We could not verify this checkout. Check its status again or contact support before making another payment.');
+        } else if (!isStripeConfirmationPending(confirmation, operation.sessionId) || (operation.completed && operation.checks >= 6)) {
+          pauseConfirmation(operation, 'Payment confirmation is pending. Check its status again before making another payment.');
+        }
+      } catch (error) {
+        if (!isActive() || !isCurrent(operation) || operation.done || request.signal.aborted) return;
+        operation.checks += 1;
+        const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+        if ((status && status !== 408 && status !== 429 && status < 500) || (operation.completed && operation.checks >= 6)) {
+          pauseConfirmation(operation, 'Payment confirmation is unavailable. Check its status again or contact support before making another payment.');
+        }
+      } finally {
+        operation.inFlight = false;
+        if (operation.request === request) operation.request = null;
+        if (isCurrent(operation)) setStripeLoading(false);
       }
-    }, 3000);
+    });
+  };
+
+  const checkPaymentStatus = (operation: CheckoutOperation) => {
+    if (!isCurrent(operation) || operation.done || operation.inFlight) return;
+    if (operation.grace) clearTimeout(operation.grace);
+    operation.completed = true; operation.checks = 0;
+    setConfirmationNotice('Checking this checkout’s payment status...'); setStripeLoading(true);
+    startPaymentPolling(operation);
+  };
+
+  const mountCheckout = (operation: CheckoutOperation) => {
+    if (!isCurrent(operation) || operation.done || operation.mounting || !operation.clientSecret) return;
+    if (operation.grace) clearTimeout(operation.grace);
+    operation.closed = false; operation.mounting = true;
+    const mountVersion = ++operation.mountVersion;
+    setShowCheckoutDialog(true); setEmbeddedCheckoutLoading(true); setStripeError(null);
+    notifyCheckoutUi(operation, () => callbacksRef.current.onCheckoutActiveChange?.(true));
+    if (!isCurrent(operation)) return;
+    operation.frame = requestAnimationFrame(async () => {
+      try {
+        if (!isCurrent(operation) || operation.done || operation.closed || operation.mountVersion !== mountVersion) return;
+        const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
+        if (!isCurrent(operation) || operation.done || operation.closed || operation.mountVersion !== mountVersion) return;
+        if (!stripe) throw new Error('Failed to load Stripe');
+        const checkout = await stripe.initEmbeddedCheckout({ clientSecret: operation.clientSecret!, onComplete: () => {
+          if (!isCurrent(operation) || operation.done || operation.completed || operation.mountVersion !== mountVersion) return;
+          operation.completed = true; operation.checks = 0;
+          setConfirmationNotice('Checking this checkout’s payment status...');
+          if (!operation.inFlight) startPaymentPolling(operation);
+        } });
+        if (!isCurrent(operation) || operation.done || operation.closed || operation.mountVersion !== mountVersion) { checkout.destroy(); return; }
+        embeddedCheckoutRef.current = checkout;
+        const waitForMount = () => {
+          if (!isCurrent(operation) || operation.done || operation.closed || operation.mountVersion !== mountVersion) return;
+          if (!checkoutMountRef.current) { operation.frame = requestAnimationFrame(waitForMount); return; }
+          checkout.mount(checkoutMountRef.current);
+          setEmbeddedCheckoutLoading(false); setStripeLoading(false);
+          notifyCheckoutUi(operation, () => callbacksRef.current.onCheckoutMounted?.());
+        };
+        waitForMount();
+      } catch {
+        if (!isCurrent(operation) || operation.done || operation.closed || operation.mountVersion !== mountVersion) return;
+        setShowCheckoutDialog(false); setEmbeddedCheckoutLoading(false); setStripeLoading(false);
+        setConfirmationNotice('Checkout could not be displayed. Check its payment status or resume the same checkout.');
+        notifyCheckoutUi(operation, () => callbacksRef.current.onCheckoutActiveChange?.(false));
+      } finally { if (operation.mountVersion === mountVersion) operation.mounting = false; }
+    });
   };
 
   const handleCloseCheckoutDialog = () => {
-    setShowCheckoutDialog(false);
-    onCheckoutActiveChange?.(false);
-    if (embeddedCheckoutRef.current) {
-      embeddedCheckoutRef.current.destroy();
-      embeddedCheckoutRef.current = null;
-    }
-    // Keep polling for 10s after dialog closed in case webhook is processing
-    setTimeout(() => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-        pollingIntervalRef.current = null;
-      }
+    const operation = operationRef.current;
+    if (!operation || !isCurrent(operation) || operation.done) return;
+    operation.closed = true;
+    operation.mountVersion += 1; operation.mounting = false;
+    if (operation.frame) cancelAnimationFrame(operation.frame);
+    setShowCheckoutDialog(false); setStripeLoading(false); setEmbeddedCheckoutLoading(false);
+    embeddedCheckoutRef.current?.destroy(); embeddedCheckoutRef.current = null;
+    notifyCheckoutUi(operation, () => callbacksRef.current.onCheckoutActiveChange?.(false));
+    if (!isCurrent(operation)) return;
+    setConfirmationNotice('Payment confirmation is pending. Check the existing checkout before starting another payment.');
+    if (operation.grace) clearTimeout(operation.grace);
+    operation.grace = setTimeout(() => {
+      if (!isCurrent(operation) || operation.done || !operation.closed) return;
+      operation.stop?.(); operation.request?.abort();
       setStripeLoading(false);
     }, 10000);
   };
-
   const hasShootDetails = showShootDetails
     && (shootAddress
       || (shootServices && shootServices.length > 0)
@@ -830,6 +798,22 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
             </div>
           )}
 
+          {pendingCheckout && confirmationNotice && (
+            <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3">
+              <p role="status" className="text-sm">{confirmationNotice}</p>
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" disabled={stripeLoading} onClick={() => {
+                  if (operationRef.current) checkPaymentStatus(operationRef.current);
+                }}>Check payment status</Button>
+                {!showCheckoutDialog && <Button type="button" variant="outline" size="sm" onClick={() => {
+                  const operation = operationRef.current;
+                  if (!operation || !isCurrent(operation) || operation.done) return;
+                  mountCheckout(operation); startPaymentPolling(operation);
+                }}>Resume secure checkout</Button>}
+              </div>
+            </div>
+          )}
+
           {/* Stripe Waiting State */}
           {stripeLoading && (
             <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
@@ -861,7 +845,7 @@ export const SquarePaymentForm = forwardRef<SquarePaymentFormHandle, SquarePayme
             type="submit"
             className="w-full"
             size="lg"
-            disabled={disabled || isProcessing || stripeLoading || effectivePaymentAmount <= 0}
+            disabled={disabled || isProcessing || stripeLoading || pendingCheckout || completedCheckout || effectivePaymentAmount <= 0}
           >
             {stripeLoading ? (
               <>

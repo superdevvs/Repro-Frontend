@@ -4,13 +4,15 @@ import { getShootLocalDate } from '@/utils/shootLocalDate'
 import { ShootEmptyState } from '@/components/shoots/ShootEmptyState';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { DashboardLayout } from '@/components/layout/DashboardLayout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { StripePaymentDialog } from '@/components/payments/StripePaymentDialog'
+import { HostedPaymentReturnNotice } from '@/components/payments/HostedPaymentReturnNotice'
+import { useHostedPaymentReturn } from '@/hooks/useHostedPaymentReturn'
 import { useToast } from '@/components/ui/use-toast'
 import { withErrorBoundary } from '@/components/ui/ErrorBoundary'
 import { SharedShootCard } from '@/components/shoots/SharedShootCard'
@@ -38,11 +40,6 @@ import { Calendar as CalendarIcon, CheckCircle2, Trash2 } from 'lucide-react'
 import { DEFAULT_OPERATIONAL_FILTERS, HISTORY_ALLOWED_ROLES, MapMarker, formatCurrency, getShootStatusBadgeClass, resolveShootThumbnail } from '@/components/shoots/history/shootHistoryUtils'
 import { ShootData, ShootHistoryRecord } from '@/types/shoots'
 import { toValidMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates'
-import {
-  getStripeConfirmationFailureMessage,
-  isStripeSessionPaymentRecorded,
-  type StripeConfirmationResult,
-} from '@/utils/stripeConfirmation'
 import { buildShootPath } from '@/utils/shootPath'
 
 const normalizeShootServices = (services: unknown): string[] => {
@@ -74,7 +71,6 @@ const normalizeShootServices = (services: unknown): string[] => {
 const ShootHistory: React.FC = () => {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const handledStripeSessionRef = useRef<string | null>(null)
   const { toast } = useToast()
   const { role, user } = useAuth()
   const { formatTime, formatDate: formatDatePref } = useUserPreferences()
@@ -280,66 +276,7 @@ const ShootHistory: React.FC = () => {
   const calendarFocus = useShootHistoryCalendarFocus(isDetailOpen)
   usePageLoading(loading && !calendar.active);
 
-  useEffect(() => {
-    const sessionId = searchParams.get('session_id')
-    if (searchParams.get('payment') !== 'success' || !sessionId) return
-    if (handledStripeSessionRef.current === sessionId) return
-
-    handledStripeSessionRef.current = sessionId
-    let cancelled = false
-
-    const confirmHostedPayment = async () => {
-      try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token')
-        const response = await fetch(`${API_BASE_URL}/api/payments/stripe-session/confirm`, {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ session_id: sessionId }),
-        })
-        const payload = await response.json().catch(() => ({}))
-        if (!response.ok) {
-          throw new Error(payload?.message || payload?.error || 'Unable to confirm Stripe payment.')
-        }
-        if (cancelled) return
-
-        const confirmation = (payload?.data || payload) as StripeConfirmationResult
-        if (!isStripeSessionPaymentRecorded(confirmation, sessionId)) {
-          throw new Error(getStripeConfirmationFailureMessage(
-            confirmation,
-            sessionId,
-            'Stripe has not confirmed this payment as paid yet.',
-          ))
-        }
-
-        await refreshActiveTabData()
-        toast({
-          title: 'Payment successful',
-          description: 'Your Stripe payment has been confirmed.',
-        })
-
-        const nextParams = new URLSearchParams(searchParams)
-        nextParams.delete('payment')
-        nextParams.delete('session_id')
-        setSearchParams(nextParams, { replace: true })
-      } catch (error) {
-        if (cancelled) return
-        toast({
-          title: 'Unable to confirm payment',
-          description: error instanceof Error ? error.message : 'Please refresh and try again.',
-          variant: 'destructive',
-        })
-      }
-    }
-
-    void confirmHostedPayment()
-    return () => {
-      cancelled = true
-    }
-  }, [refreshActiveTabData, searchParams, setSearchParams, toast])
+  const hostedPayment = useHostedPaymentReturn({ searchParams, setSearchParams, onConfirmed: refreshActiveTabData, notify: toast })
 
   const [gridColumns, setGridColumns] = useState<3 | 4>(4)
   const masonryColumnCount = useShootHistoryGridColumns(gridContainerRef, gridColumns)
@@ -406,8 +343,9 @@ const ShootHistory: React.FC = () => {
   }, [activeTab, formatDisplayDatePref, historyFilters.viewAs, historyFilters.groupBy, historyRecords, geoCache, handleHistoryRecordSelect, shouldHideClientDetails])
 
   const handleOpenPaymentDialog = React.useCallback((shoot: ShootData) => {
+    if (hostedPayment.blockCheckout) return
     setPaymentShoot(shoot)
-  }, [])
+  }, [hostedPayment.blockCheckout])
 
   const handleClosePaymentDialog = React.useCallback(() => {
     setPaymentShoot(null)
@@ -956,6 +894,7 @@ const ShootHistory: React.FC = () => {
   return (
     <>
       <DashboardLayout>
+        <HostedPaymentReturnNotice state={hostedPayment.state} onCheck={hostedPayment.checkStatus} />
         <ShootHistoryView
           gridContainerRef={gridContainerRef}
           isSuperAdmin={isSuperAdmin}
@@ -966,7 +905,10 @@ const ShootHistory: React.FC = () => {
           tabsConfig={tabsConfig}
           pinnedTabs={pinnedTabs}
           togglePinTab={togglePinTab}
-          setIsBulkActionsOpen={setIsBulkActionsOpen}
+          setIsBulkActionsOpen={(next) => setIsBulkActionsOpen(current => {
+            const requested = typeof next === 'function' ? next(current) : next
+            return hostedPayment.blockCheckout && requested ? false : requested
+          })}
           viewMode={viewMode}
           setViewMode={setViewMode}
           shootSort={shootSort}
@@ -1046,7 +988,7 @@ const ShootHistory: React.FC = () => {
         isSuperAdmin={isSuperAdmin}
         isAdmin={isAdmin}
         isEditingManager={isEditingManager}
-        isBulkActionsOpen={isBulkActionsOpen}
+        isBulkActionsOpen={isBulkActionsOpen && !hostedPayment.blockCheckout}
         onBulkActionsClose={() => setIsBulkActionsOpen(false)}
         bulkShoots={bulkShoots}
         bulkShootsLoading={bulkShootsLoading}
@@ -1083,7 +1025,7 @@ const ShootHistory: React.FC = () => {
         brightMlsRedirectUrl={brightMlsRedirectUrl}
         onBrightMlsRedirectUrlChange={setBrightMlsRedirectUrl}
       />
-      {paymentShoot && (
+      {paymentShoot && !hostedPayment.blockCheckout && (
         <StripePaymentDialog
           isOpen={!!paymentShoot}
           onClose={handleClosePaymentDialog}

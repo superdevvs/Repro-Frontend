@@ -15,8 +15,10 @@ import { confirmPaymentReturnWithRetry } from '@/utils/paymentConfirmationRetry'
 import { startPaymentStatusPolling } from '@/utils/paymentStatusPolling';
 import {
   getStripeConfirmationFailureMessage,
+  isStripeConfirmationPending,
   isStripeSessionPaymentRecorded,
   isStripeSessionRefundedAsStale,
+  readStripeConfirmation,
 } from '@/utils/stripeConfirmation';
 import { PaymentAlreadyPaidState, PaymentErrorState, PaymentLoadingState } from './PaymentPageStates';
 import { PaymentSuccessReceipt } from './PaymentSuccessReceipt';
@@ -36,10 +38,10 @@ import {
 export default function PaymentPage() {
   const { token } = useParams<{ token: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const initialSessionId = searchParams.get('session_id');
   const initialReturnTo = searchParams.get('return_to');
-  const isSuccessRedirect = Boolean(initialSessionId);
+  const isSuccessRedirect = Boolean(initialSessionId) || ['true', '1'].includes(searchParams.get('success') ?? '');
   const [shoot, setShoot] = useState<ShootDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,6 +49,8 @@ export default function PaymentPage() {
   const [confirmingPayment, setConfirmingPayment] = useState(isSuccessRedirect);
   const [confirmationAttempt, setConfirmationAttempt] = useState(0);
   const [paymentReturnUnconfirmed, setPaymentReturnUnconfirmed] = useState(false);
+  const [confirmationPending, setConfirmationPending] = useState(false);
+  const [confirmationRefunded, setConfirmationRefunded] = useState(false);
   const [isPartialOpen, setIsPartialOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState(0);
   const [paymentAmountInput, setPaymentAmountInput] = useState('0.00');
@@ -64,6 +68,9 @@ export default function PaymentPage() {
   const checkoutMountRef = useRef<HTMLDivElement>(null);
   const stopPollingRef = useRef<(() => void) | null>(null);
   const checkoutSessionIdRef = useRef<string | null>(initialSessionId);
+  const confirmationRunningRef = useRef(false);
+  const pollingControllerRef = useRef<AbortController | null>(null);
+  const checkoutGenerationRef = useRef(0);
   const fetchShootDetails = useCallback(async () => {
     if (!token) return;
     try {
@@ -113,18 +120,19 @@ export default function PaymentPage() {
       embeddedCheckoutRef.current = null;
     }
   }, []);
-  const confirmStripeSession = useCallback(async (sessionId: string): Promise<PaymentConfirmationResult | null> => {
+  const confirmStripeSession = useCallback(async (sessionId: string, signal?: AbortSignal): Promise<PaymentConfirmationResult | null> => {
     if (!token || !sessionId) {
       return null;
     }
     try {
       const response = await axios.post(`${API_BASE_URL}/api/public/payments/${token}/confirm`, {
         session_id: sessionId,
-      }, { timeout: 10000 });
-      return (response.data?.data || response.data) as PaymentConfirmationResult;
+      }, { timeout: 10000, signal });
+      return (readStripeConfirmation(response.data?.data ?? response.data)
+        ?? { outcome: 'confirmation_rejected' }) as PaymentConfirmationResult;
     } catch (confirmationError: unknown) {
       const status = axios.isAxiosError(confirmationError) ? confirmationError.response?.status : undefined;
-      if (status && status !== 408 && status !== 429) {
+      if (status && status !== 408 && status !== 429 && status < 500) {
         return { outcome: 'confirmation_rejected' };
       }
       // Network interruptions can be retried without creating another payment.
@@ -137,6 +145,14 @@ export default function PaymentPage() {
     }
   }, [token, fetchShootDetails, isSuccessRedirect]);
   useEffect(() => {
+    if (isSuccessRedirect && !initialSessionId) {
+      setLoading(false);
+      setConfirmingPayment(false);
+      setPaymentReturnUnconfirmed(true);
+      setConfirmationPending(false);
+      setStripeError('Missing checkout session details. Sign in to check your invoice or contact support before making another payment.');
+      return;
+    }
     if (!isSuccessRedirect || !initialSessionId) {
       setConfirmingPayment(false);
       return;
@@ -144,12 +160,14 @@ export default function PaymentPage() {
     let cancelled = false;
     stopPollingRef.current?.();
     stopPollingRef.current = null;
+    pollingControllerRef.current?.abort();
     const confirmationController = new AbortController();
+    confirmationRunningRef.current = true;
     const confirmPayment = async () => {
       setConfirmingPayment(true);
       setStripeError(null);
       const confirmation = await confirmPaymentReturnWithRetry(
-        () => confirmStripeSession(initialSessionId), initialSessionId, confirmationController.signal,
+        () => confirmStripeSession(initialSessionId, confirmationController.signal), initialSessionId, confirmationController.signal,
       );
       const paymentRecorded = isStripeSessionPaymentRecorded(confirmation, initialSessionId);
       if (cancelled) {
@@ -176,6 +194,8 @@ export default function PaymentPage() {
       setAutoReturnCancelled(false);
       setPaymentSuccess(paymentRecorded);
       setPaymentReturnUnconfirmed(!paymentRecorded);
+      setConfirmationPending(!paymentRecorded && isStripeConfirmationPending(confirmation, initialSessionId));
+      setConfirmationRefunded(isStripeSessionRefundedAsStale(confirmation, initialSessionId));
       if (!paymentRecorded) {
         setStripeError(getStripeConfirmationFailureMessage(
           confirmation,
@@ -184,11 +204,13 @@ export default function PaymentPage() {
         ));
       }
       setConfirmingPayment(false);
+      confirmationRunningRef.current = false;
     };
     void confirmPayment();
     return () => {
       cancelled = true;
       confirmationController.abort();
+      confirmationRunningRef.current = false;
     };
   }, [confirmationAttempt, confirmStripeSession, initialReturnTo, initialSessionId, isSuccessRedirect]);
   const totalPaid = sumCompletedPayments(shoot?.payments);
@@ -253,12 +275,15 @@ export default function PaymentPage() {
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      checkoutGenerationRef.current += 1;
       stopPollingRef.current?.();
+      pollingControllerRef.current?.abort();
       destroyEmbeddedCheckout();
     };
   }, [destroyEmbeddedCheckout]);
   const handleStripeCheckout = async () => {
     if (!token) return;
+    const generation = ++checkoutGenerationRef.current;
     setStripeLoading(true);
     setStripeError(null);
     try {
@@ -269,6 +294,7 @@ export default function PaymentPage() {
         `${API_BASE_URL}/api/public/payments/${token}/checkout`,
         { amount: effectivePaymentAmount },
       );
+      if (generation !== checkoutGenerationRef.current) return;
       if (!response.data?.clientSecret || !response.data?.sessionId) {
         throw new Error('Stripe did not return a complete checkout session.');
       }
@@ -281,12 +307,29 @@ export default function PaymentPage() {
       requestAnimationFrame(async () => {
         try {
           const stripe = await loadStripe(STRIPE_PUBLISHABLE_KEY);
+          if (generation !== checkoutGenerationRef.current) return;
           if (!stripe) throw new Error('Failed to load Stripe');
           const checkout = await stripe.initEmbeddedCheckout({
             clientSecret: response.data.clientSecret,
+            onComplete: () => {
+              if (generation !== checkoutGenerationRef.current
+                || checkoutSessionIdRef.current !== response.data.sessionId) return;
+              checkoutGenerationRef.current += 1;
+              stopPollingRef.current?.();
+              pollingControllerRef.current?.abort();
+              destroyEmbeddedCheckout();
+              setShowEmbeddedCheckout(false);
+              setConfirmingPayment(true);
+              const nextParams = new URLSearchParams(searchParams);
+              nextParams.set('session_id', response.data.sessionId);
+              nextParams.set('success', 'true');
+              setSearchParams(nextParams, { replace: true });
+            },
           });
+          if (generation !== checkoutGenerationRef.current) { checkout.destroy(); return; }
           embeddedCheckoutRef.current = checkout;
           const waitForMount = () => {
+            if (generation !== checkoutGenerationRef.current) return;
             if (checkoutMountRef.current) {
               checkout.mount(checkoutMountRef.current);
               setEmbeddedCheckoutLoading(false);
@@ -297,9 +340,11 @@ export default function PaymentPage() {
           };
           waitForMount();
         } catch (mountError: unknown) {
+          if (generation !== checkoutGenerationRef.current) return;
           console.error('Stripe embedded checkout mount error:', mountError);
           stopPollingRef.current?.();
           stopPollingRef.current = null;
+          checkoutGenerationRef.current += 1;
           destroyEmbeddedCheckout();
           checkoutSessionIdRef.current = null;
           setShowEmbeddedCheckout(false);
@@ -309,20 +354,24 @@ export default function PaymentPage() {
         }
       });
     } catch (error: unknown) {
+      if (generation !== checkoutGenerationRef.current) return;
       setStripeError(getPaymentErrorMessage(error, 'Failed to create checkout session.'));
       setStripeLoading(false);
     }
   };
   const startPaymentPolling = (sessionId?: string | null) => {
     stopPollingRef.current?.();
+    pollingControllerRef.current?.abort();
+    const controller = new AbortController();
+    pollingControllerRef.current = controller;
 
     stopPollingRef.current = startPaymentStatusPolling(async (isActive) => {
       try {
         const activeSessionId = sessionId ?? checkoutSessionIdRef.current;
         const confirmation = activeSessionId
-          ? await confirmStripeSession(activeSessionId)
+          ? await confirmStripeSession(activeSessionId, controller.signal)
           : null;
-        if (!isActive()) return;
+        if (!isActive() || controller.signal.aborted || activeSessionId !== checkoutSessionIdRef.current) return;
         const paymentRecorded = isStripeSessionPaymentRecorded(confirmation, activeSessionId);
         if (paymentRecorded) {
           const confirmedAmount = Number(confirmation?.last_payment_amount ?? effectivePaymentAmount);
@@ -336,6 +385,7 @@ export default function PaymentPage() {
           }
           stopPollingRef.current?.();
           stopPollingRef.current = null;
+          checkoutGenerationRef.current += 1;
           destroyEmbeddedCheckout();
           setShowEmbeddedCheckout(false);
           setStripeLoading(false);
@@ -352,6 +402,7 @@ export default function PaymentPage() {
           }
           stopPollingRef.current?.();
           stopPollingRef.current = null;
+          checkoutGenerationRef.current += 1;
           destroyEmbeddedCheckout();
           setShowEmbeddedCheckout(false);
           setStripeLoading(false);
@@ -374,6 +425,7 @@ export default function PaymentPage() {
   };
 
   const handleCancelCheckout = () => {
+    checkoutGenerationRef.current += 1;
     setShowEmbeddedCheckout(false);
     setStripeLoading(false);
     destroyEmbeddedCheckout();
@@ -499,13 +551,16 @@ export default function PaymentPage() {
   if (paymentReturnUnconfirmed) {
     return (
       <PaymentErrorState
-        title="Unable to Confirm Payment"
+        title={confirmationPending ? 'Payment confirmation pending' : confirmationRefunded ? 'Payment refunded' : 'Unable to Confirm Payment'}
+        pending={confirmationPending}
         message={stripeError || 'Check your payment status before making another payment.'}
         retryLabel="Check payment status"
-        onRetry={() => {
+        onRetry={initialSessionId ? () => {
+          if (confirmationRunningRef.current) return;
+          confirmationRunningRef.current = true;
           setConfirmingPayment(true);
           setConfirmationAttempt((attempt) => attempt + 1);
-        }}
+        } : undefined}
       />
     );
   }

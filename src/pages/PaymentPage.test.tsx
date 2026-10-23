@@ -134,20 +134,23 @@ describe('public payment status recovery', () => {
   });
 
   it('rechecks only the existing session after a confirmation failure, then shows its receipt', async () => {
+    vi.useFakeTimers();
     vi.mocked(axios.post)
-      .mockRejectedValueOnce({ isAxiosError: true, response: { status: 500 } })
-      .mockResolvedValueOnce(confirmation());
-    renderPage('?success=true&session_id=cs_paid');
+      .mockRejectedValue({ isAxiosError: true, response: { status: 500 } });
+    await act(async () => { renderPage('?success=true&session_id=cs_paid'); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(PAYMENT_CONFIRMATION_RETRY_DELAY_MS * (PAYMENT_CONFIRMATION_MAX_ATTEMPTS - 1)); });
 
-    expect(await screen.findByRole('heading', { name: 'Unable to Confirm Payment' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Payment confirmation pending' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^Pay \$/ })).not.toBeInTheDocument();
     expect(axios.get).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole('button', { name: 'Check payment status' }));
+    vi.mocked(axios.post).mockResolvedValue(confirmation());
+    const check = screen.getByRole('button', { name: 'Check payment status' });
+    await act(async () => { fireEvent.click(check); fireEvent.click(check); });
 
-    expect(await screen.findByText('Payment received')).toBeInTheDocument();
-    expect(axios.post).toHaveBeenCalledTimes(2);
+    expect(screen.getByText('Payment received')).toBeInTheDocument();
+    expect(axios.post).toHaveBeenCalledTimes(PAYMENT_CONFIRMATION_MAX_ATTEMPTS + 1);
     for (const call of vi.mocked(axios.post).mock.calls) {
-      expect(call).toEqual(['https://example.test/api/public/payments/test-token/confirm', { session_id: 'cs_paid' }, { timeout: 10000 }]);
+      expect(call).toEqual(['https://example.test/api/public/payments/test-token/confirm', { session_id: 'cs_paid' }, { timeout: 10000, signal: expect.any(AbortSignal) }]);
     }
     expect(axios.get).not.toHaveBeenCalled();
   });
@@ -184,7 +187,7 @@ describe('public payment status recovery', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(PAYMENT_CONFIRMATION_RETRY_DELAY_MS); });
     expect(screen.getByText('Payment received')).toBeInTheDocument();
     expect(axios.post).toHaveBeenCalledTimes(2);
-    expect(axios.post).toHaveBeenLastCalledWith('https://example.test/api/public/payments/test-token/confirm', { session_id: 'cs_paid' }, { timeout: 10000 });
+    expect(axios.post).toHaveBeenLastCalledWith('https://example.test/api/public/payments/test-token/confirm', { session_id: 'cs_paid' }, { timeout: 10000, signal: expect.any(AbortSignal) });
     expect(axios.get).not.toHaveBeenCalled();
   });
 
@@ -197,7 +200,7 @@ describe('public payment status recovery', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(PAYMENT_CONFIRMATION_RETRY_DELAY_MS * (PAYMENT_CONFIRMATION_MAX_ATTEMPTS - 1));
     });
-    expect(screen.getByRole('heading', { name: 'Unable to Confirm Payment' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Payment confirmation pending' })).toBeInTheDocument();
     expect(axios.post).toHaveBeenCalledTimes(PAYMENT_CONFIRMATION_MAX_ATTEMPTS);
     await act(async () => { await vi.advanceTimersByTimeAsync(PAYMENT_CONFIRMATION_RETRY_DELAY_MS * 2); });
     expect(axios.post).toHaveBeenCalledTimes(PAYMENT_CONFIRMATION_MAX_ATTEMPTS);
@@ -206,7 +209,7 @@ describe('public payment status recovery', () => {
     vi.mocked(axios.post).mockResolvedValue(confirmation());
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Check payment status' })); });
     expect(screen.getByText('Payment received')).toBeInTheDocument();
-    expect(axios.post).toHaveBeenLastCalledWith('https://example.test/api/public/payments/test-token/confirm', { session_id: 'cs_paid' }, { timeout: 10000 });
+    expect(axios.post).toHaveBeenLastCalledWith('https://example.test/api/public/payments/test-token/confirm', { session_id: 'cs_paid' }, { timeout: 10000, signal: expect.any(AbortSignal) });
   });
 
   it('cancels retry timers when the payment page closes', async () => {
@@ -235,5 +238,88 @@ describe('public payment status recovery', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Pay remaining balance' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Pay $60.00' })).toBeInTheDocument());
     expect(screen.queryByRole('heading', { name: 'Unable to Confirm Payment' })).not.toBeInTheDocument();
+  });
+
+  it.each([408, 429, 500, 503])('automatically recovers a temporary HTTP %s without asking for a second payment', async status => {
+    vi.useFakeTimers();
+    vi.mocked(axios.post).mockRejectedValueOnce({ isAxiosError: true, response: { status } })
+      .mockResolvedValueOnce(confirmation());
+    await act(async () => { renderPage('?session_id=cs_paid'); });
+    expect(screen.getByText('Confirming payment...')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Pay \$/ })).not.toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(PAYMENT_CONFIRMATION_RETRY_DELAY_MS); });
+    expect(screen.getByText('Payment received')).toBeInTheDocument();
+    expect(axios.post).toHaveBeenCalledTimes(2);
+    expect(axios.get).not.toHaveBeenCalled();
+  });
+
+  it('recovers a paid session after a reconciliation failure', async () => {
+    vi.useFakeTimers();
+    vi.mocked(axios.post).mockResolvedValueOnce({ data: { session_id: 'cs_paid', outcome: 'failed', session_payment_status: 'paid', payment_recorded: false } })
+      .mockResolvedValueOnce(confirmation());
+    await act(async () => { renderPage('?session_id=cs_paid'); });
+    expect(screen.getByText('Confirming payment...')).toBeInTheDocument();
+    await act(async () => { await vi.advanceTimersByTimeAsync(PAYMENT_CONFIRMATION_RETRY_DELAY_MS); });
+    expect(screen.getByText('Payment received')).toBeInTheDocument();
+    expect(axios.post).toHaveBeenCalledTimes(2);
+  });
+
+  it('uses embedded completion to confirm the same session, without treating the SDK callback as payment proof', async () => {
+    vi.useFakeTimers();
+    let onComplete!: () => void;
+    vi.mocked(axios.get).mockResolvedValue({ data: shoot });
+    vi.mocked(axios.post).mockResolvedValueOnce({ data: { clientSecret: 'test-secret', sessionId: 'cs_paid' } })
+      .mockResolvedValueOnce({ data: { session_id: 'cs_paid', outcome: 'busy', payment_recorded: false } })
+      .mockResolvedValueOnce(confirmation());
+    const initEmbeddedCheckout = vi.fn().mockImplementation(async options => {
+      onComplete = options.onComplete;
+      return { mount: vi.fn(), destroy: vi.fn() };
+    });
+    vi.mocked(loadStripe).mockResolvedValue({ initEmbeddedCheckout } as never);
+    await act(async () => { renderPage(); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Pay $100.00' })); await vi.advanceTimersByTimeAsync(20); });
+    expect(onComplete).toEqual(expect.any(Function));
+    await act(async () => { onComplete(); onComplete(); });
+    expect(screen.getByText('Confirming payment...')).toBeInTheDocument();
+    expect(screen.queryByText('Payment received')).not.toBeInTheDocument();
+    expect(axios.post).toHaveBeenCalledTimes(2);
+    await act(async () => { await vi.advanceTimersByTimeAsync(PAYMENT_CONFIRMATION_RETRY_DELAY_MS); });
+    expect(screen.getByText('Payment received')).toBeInTheDocument();
+    expect(axios.post).toHaveBeenCalledTimes(3);
+    expect(vi.mocked(axios.post).mock.calls.filter(call => String(call[0]).endsWith('/checkout'))).toHaveLength(1);
+  });
+
+  it('aborts an in-flight returned confirmation and ignores its result after unmount', async () => {
+    let finish!: (value: ReturnType<typeof confirmation>) => void;
+    vi.mocked(axios.post).mockReturnValue(new Promise(resolve => { finish = resolve; }));
+    let view!: ReturnType<typeof renderPage>;
+    await act(async () => { view = renderPage('?session_id=cs_paid'); });
+    const signal = vi.mocked(axios.post).mock.calls[0][2]?.signal;
+    view.unmount();
+    expect(signal?.aborted).toBe(true);
+    await act(async () => { finish(confirmation()); });
+    expect(axios.post).toHaveBeenCalledTimes(1);
+    expect(axios.get).not.toHaveBeenCalled();
+  });
+
+  it('reports an exact-session refund truthfully without payment success or another checkout', async () => {
+    vi.mocked(axios.post).mockResolvedValue({ data: { session_id: 'cs_paid', outcome: 'refunded_stale', session_payment_status: 'paid',
+      payment_recorded: false, payment_refunded: true, message: 'This charge was refunded because the invoice changed.' } });
+    renderPage('?session_id=cs_paid');
+    expect(await screen.findByRole('heading', { name: 'Payment refunded' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('This charge was refunded');
+    expect(screen.queryByText('Payment received')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Pay \$/ })).not.toBeInTheDocument();
+    expect(axios.post).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['true', '1'])('blocks a success return without checkout details (%s) instead of offering another payment', async success => {
+    renderPage(`?success=${success}`);
+    expect(await screen.findByRole('heading', { name: 'Unable to Confirm Payment' })).toBeInTheDocument();
+    expect(screen.getByRole('alert')).toHaveTextContent('Missing checkout session details');
+    expect(screen.queryByRole('button', { name: /^Pay \$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Check payment status' })).not.toBeInTheDocument();
+    expect(axios.get).not.toHaveBeenCalled();
+    expect(axios.post).not.toHaveBeenCalled();
   });
 });

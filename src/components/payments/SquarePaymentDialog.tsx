@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -78,6 +78,25 @@ export function SquarePaymentDialog({
   const [pendingChargeRemainder, setPendingChargeRemainder] = useState<number | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const formRef = useRef<SquarePaymentFormHandle>(null);
+  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const checkoutGeneration = useRef(0);
+  const shootIdsKey = shootIds?.join(',') ?? '';
+
+  useEffect(() => {
+    checkoutGeneration.current += 1;
+    setSuccessfulPayment(null);
+    setCheckoutActive(false);
+    setPendingChargeRemainder(null);
+    setIsManualPaymentDialogOpen(false);
+    setIsClientOfflineDialogOpen(false);
+    return () => {
+      checkoutGeneration.current += 1;
+      if (closeTimer.current !== null) {
+        clearTimeout(closeTimer.current);
+        closeTimer.current = null;
+      }
+    };
+  }, [isOpen, shootId, shootIdsKey]);
 
   const handleCheckoutActiveChange = useCallback((active: boolean) => {
     setCheckoutActive(active);
@@ -91,16 +110,28 @@ export function SquarePaymentDialog({
   }, []);
 
   const handlePaymentSuccess = (payment: SquarePaymentSuccessPayload) => {
+    const generation = checkoutGeneration.current;
     setPendingChargeRemainder(null);
     setSuccessfulPayment(payment);
-    if (onPaymentSuccess) {
-      onPaymentSuccess(payment);
-    }
-    // Auto-close after 2 seconds on success
-    setTimeout(() => {
+    if (closeTimer.current !== null) clearTimeout(closeTimer.current);
+    closeTimer.current = setTimeout(() => {
+      if (checkoutGeneration.current !== generation) return;
+      closeTimer.current = null;
       onClose();
       setSuccessfulPayment(null);
     }, 2000);
+    const reportRefreshFailure = () => {
+      if (checkoutGeneration.current !== generation) return;
+      toast({
+        title: 'Payment confirmed; refresh unavailable',
+        description: 'Your payment is already recorded. Refresh the shoot before making another payment.',
+      });
+    };
+    try {
+      void Promise.resolve(onPaymentSuccess?.(payment)).catch(reportRefreshFailure);
+    } catch {
+      reportRefreshFailure();
+    }
   };
 
   const handleClose = () => {

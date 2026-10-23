@@ -58,6 +58,12 @@ export function PaymentDialog({
   const [paymentAmountInput, setPaymentAmountInput] = useState('0.00');
   const [isPartialPaymentMode, setIsPartialPaymentMode] = useState(false);
   const paymentAmountInputRef = useRef<HTMLInputElement>(null);
+  const paymentGeneration = useRef(0);
+
+  useEffect(() => {
+    paymentGeneration.current += 1;
+    return () => { paymentGeneration.current += 1; };
+  }, [isOpen, invoice?.id]);
 
   // Reset state when invoice changes
   useEffect(() => {
@@ -91,6 +97,13 @@ export function PaymentDialog({
   const remainingBalanceAfterPayment = outstandingAmount - paymentAmount;
 
   const handleStripePaymentSuccess = async (payment: StripePaymentSuccessPayload) => {
+    const generation = paymentGeneration.current;
+    // Stripe has already recorded the payment. A caller's refresh cannot undo it.
+    toast({
+      title: "Payment Successful",
+      description: `Payment of $${payment.amount.toFixed(2)} for invoice ${invoice.id} has been processed.`,
+      variant: "default",
+    });
     try {
       if (onPaymentComplete) {
         await onPaymentComplete({
@@ -99,19 +112,14 @@ export function PaymentDialog({
           amount: payment.amount,
         });
       }
+    } catch {
+      if (generation !== paymentGeneration.current) return;
       toast({
-        title: "Payment Successful",
-        description: `Payment of $${payment.amount.toFixed(2)} for invoice ${invoice.id} has been processed.`,
-        variant: "default",
-      });
-      onClose();
-    } catch (error) {
-      toast({
-        title: 'Payment Failed',
-        description: error instanceof Error ? error.message : 'Unable to record payment.',
-        variant: 'destructive',
+        title: 'Payment confirmed; invoice refresh unavailable',
+        description: 'Your payment is already recorded. Refresh the invoice before making another payment.',
       });
     }
+    if (generation === paymentGeneration.current) onClose();
   };
 
   const handleManualPaymentSubmit = (e: React.FormEvent) => {
