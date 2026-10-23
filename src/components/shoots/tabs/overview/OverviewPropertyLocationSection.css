@@ -1,0 +1,10 @@
+.shoot-property-metrics {
+  container: shoot-property-metrics / inline-size;
+}
+
+/* Keep numeric values readable when the desktop details pane is narrow. */
+@container shoot-property-metrics (max-width: 300px) {
+  .shoot-property-metric-icon {
+    display: none;
+  }
+}

@@ -4,6 +4,7 @@ import AddressLookupField from '@/components/AddressLookupField';
 import { Input } from '@/components/ui/input';
 import { ShootData } from '@/types/shoots';
 import type { AddressDetailsForLookup } from './shootOverviewEditorSupport';
+import './OverviewPropertyLocationSection.css';
 
 type PropertyMetricsEdit = {
   beds: string;
@@ -91,7 +92,7 @@ export function OverviewPropertyLocationSection({
     : 'grid grid-cols-3 gap-2';
 
   const propertyDetailsCard = (
-    <div aria-label="Property details" className={`min-w-0 p-2.5 h-full ${isEditMode || !rightSlot ? 'border rounded-lg bg-card' : ''}`}>
+    <div aria-label="Property details" className={`shoot-property-metrics min-w-0 p-2.5 h-full ${isEditMode || !rightSlot ? 'border rounded-lg bg-card' : ''}`}>
       <div className={!isEditMode && rightSlot ? 'sr-only' : 'text-[11px] font-semibold text-muted-foreground uppercase mb-1.5'}>
         Property details
       </div>
@@ -132,7 +133,7 @@ export function OverviewPropertyLocationSection({
           <div className={propertyMetricsGridClassName}>
             {propertyMetrics.map(({ label, icon: Icon, value }) => (
               <div key={label} className="flex min-w-0 items-center gap-2">
-                <div className="hidden h-7 w-7 shrink-0 rounded-full bg-muted items-center justify-center sm:flex">
+                <div className="shoot-property-metric-icon hidden h-7 w-7 shrink-0 rounded-full bg-muted items-center justify-center sm:flex">
                   <Icon className="h-3.5 w-3.5 text-muted-foreground" />
                 </div>
                 <div className="min-w-0">

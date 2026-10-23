@@ -148,6 +148,9 @@ test.describe('compact desktop shoot workspace', () => {
       }));
       expect(grid.columns).toBeGreaterThanOrEqual(3);
       expect(grid.cardWidth).toBeLessThanOrEqual(260);
+      const squareFeet = dialog.getByLabel('Property details', { exact: true }).getByText('2,800', { exact: true });
+      await expect(squareFeet).toBeVisible();
+      expect((await squareFeet.boundingBox())!.height).toBeLessThanOrEqual(18);
       expect(await dialog.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
       await expectFitsViewport(page, dialog.getByRole('button', { name: 'Close', exact: true }).filter({ visible: true }));
       const sync = dialog.getByRole('button', { name: 'Publish to Bright MLS', exact: true });

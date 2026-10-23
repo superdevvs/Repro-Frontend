@@ -65,6 +65,7 @@ export async function installShootDetailsWorkspaceFixture(
   ].map(service => ({ ...service, workflow_status: 'delivered', delivery_status: 'delivered', payment_status: 'paid', paid_amount: service.price, balance_due: 0, is_unlocked_for_delivery: true }));
   const shoot = {
     id: 156, status: 'delivered', workflow_status: 'delivered', address: workspaceAddress, hero_image: photo,
+    property_details: { bedrooms: 3, bathrooms: '3 and half', sqft: 2800 },
     city: 'Point of Rocks', state: 'MD', zip: '21777', scheduled_date: '2026-10-08', time: '10:00',
     scheduled_instant: '2026-10-08T14:00:00Z', timezone: 'America/New_York',
     client: { id: 10, name: 'Tracy Grubb', email: workspaceClientEmail, phone: workspaceClientPhone, company: 'Samson Properties', email_verified: true },
