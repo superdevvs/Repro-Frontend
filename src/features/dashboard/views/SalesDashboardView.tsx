@@ -10,6 +10,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
 import { ShootsTabsCard } from "@/components/dashboard/v2/ShootsTabsCard";
 import { CompletedShootsCardSkeleton } from "@/components/dashboard/v2/CompletedShootsCardSkeleton";
+import { UpcomingShootsCardSkeleton } from "@/components/dashboard/v2/UpcomingShootsCardSkeleton";
 import { AssignPhotographersCardSkeleton } from "@/components/dashboard/v2/AssignPhotographersCardSkeleton";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import type { DashboardMetricTile } from "@/components/dashboard/v2/RoleMetricTilesCard";
@@ -62,6 +63,7 @@ interface SalesDashboardViewProps {
   repDelivered: DashboardShootSummary[];
   repPendingReviews: DashboardShootSummary[];
   repUpcoming: DashboardShootSummary[];
+  shootsLoading?: boolean;
   requestedShoots: DashboardShootSummary[];
   requestedShootsLoading: boolean;
   requestedShootsError?: string;
@@ -101,6 +103,7 @@ export const SalesDashboardView = ({
   repDelivered,
   repPendingReviews,
   repUpcoming,
+  shootsLoading = false,
   requestedShoots,
   requestedShootsError,
   onReloadRequestedShoots,
@@ -214,15 +217,19 @@ export const SalesDashboardView = ({
           <button className="mt-2 underline" onClick={onReloadRequestedShoots}>Retry</button>
         </div>
       ) : null}
-      <ShootsTabsCard
-        upcomingShoots={repUpcoming.filter((shoot) => (shoot.workflowStatus || shoot.status) !== 'requested')}
-        requestedShoots={requestedShoots}
-        onSelect={onSelectShoot}
-        onApprove={onApproveShoot}
-        onDecline={onDeclineShoot}
-        onModify={onModifyShoot}
-        role="salesRep"
-      />
+      {shootsLoading && repUpcoming.length === 0 && requestedShoots.length === 0 ? (
+        <UpcomingShootsCardSkeleton />
+      ) : (
+        <ShootsTabsCard
+          upcomingShoots={repUpcoming.filter((shoot) => (shoot.workflowStatus || shoot.status) !== 'requested')}
+          requestedShoots={requestedShoots}
+          onSelect={onSelectShoot}
+          onApprove={onApproveShoot}
+          onDecline={onDeclineShoot}
+          onModify={onModifyShoot}
+          role="salesRep"
+        />
+      )}
     </>
   );
 

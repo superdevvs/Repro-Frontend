@@ -110,6 +110,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const fetchInFlightRef = useRef(false);
   const autoFetchKeyRef = useRef<string | null>(null);
   const autoFetchControllerRef = useRef<AbortController | null>(null);
+  const recordsScopeRef = useRef<string | null | undefined>(undefined);
   const clientRole = user?.role;
   const clientUserId = user?.id ? String(user.id) : null;
   const clientName = user?.name;
@@ -126,12 +127,24 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [location.pathname]);
 
   useEffect(() => {
+    if (recordsScopeRef.current === hydrationScope) return;
+    recordsScopeRef.current = hydrationScope;
     sessionExpiredRef.current = false;
-    // Clear cached shoots when user changes (e.g., during impersonation)
-    // This ensures fresh data is fetched for the new user context
+    autoFetchControllerRef.current?.abort();
+    autoFetchControllerRef.current = null;
+    autoFetchKeyRef.current = null;
+    fetchGeneration.current += 1;
+    fetchInFlightRef.current = false;
+    // Reset the mutation baseline before this effect flush starts the new read.
+    // Otherwise overlapping IDs from the previous account look like deletions
+    // when its cached records disappear, hiding the fresh account's shoots.
+    shootsRef.current = [];
     setShoots([]);
+    setHydratedScope(null);
+    setRefreshIssue(null);
+    setPaginationMeta(undefined);
     localStorage.removeItem('shoots');
-  }, [user?.id]);
+  }, [hydrationScope]);
 
   const handleSessionExpired = useCallback(
     (description?: string) => {

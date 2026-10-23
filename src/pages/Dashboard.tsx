@@ -796,6 +796,7 @@ const Dashboard = () => {
             repDelivered={repDelivered}
             repPendingReviews={repPendingReviews}
             repUpcoming={repUpcoming}
+            shootsLoading={shootsLoading}
             requestedShoots={salesRequestedShoots.data ?? requestedShoots}
             requestedShootsLoading={salesRequestedShoots.isLoading}
             requestedShootsError={salesRequestedShoots.error?.message}
