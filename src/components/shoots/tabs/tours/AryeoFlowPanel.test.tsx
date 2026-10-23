@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AryeoFlowPanel } from './AryeoFlowPanel';
@@ -22,8 +22,64 @@ function supervisedFixture() {
     inventory_checked_at: new Date().toISOString(),
   }] };
 }
+
+function providerFixture() {
+  const original = fixture();
+  return { ...original, orders: [{ ...original.orders[0], inventory: { provider_status: {
+    origin: 'aryeo_provider', request_id: 'order-42', requester_email: 'test@example.test', listing_id: 'listing-42',
+    checked_at: new Date().toISOString(), delivery_status: 'delivered',
+    counts: { photos: 40, floorplans: 5, videos: 0, tours: 1 }, delivered_counts: null,
+  } } }] };
+}
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe('Aryeo Flow panel', () => {
+  it('shows a verified provider delivery without inventing a connector receipt or starting another job', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => providerFixture() });
+    vi.stubGlobal('fetch', fetch);
+    render(<AryeoFlowPanel shootId={2505} />);
+    const button = await screen.findByRole('button', { name: 'Delivered in Aryeo' });
+    expect(button).toBeDisabled();
+    expect(screen.getByText(/Reconcile any Dashboard changes/)).toBeVisible();
+    expect(screen.getByText(/Provider status checked/)).toBeVisible();
+    expect(screen.queryByText(/Fresh inventory required/)).not.toBeInTheDocument();
+    const cells = within(screen.getByRole('row', { name: /^Photos/ })).getAllByRole('cell');
+    expect(cells.map(cell => cell.textContent)).toEqual(['1', '1', '40', 'Unknown']);
+    expect(within(screen.getByRole('row', { name: /^Floor plans/ })).getAllByRole('cell')[2]).toHaveTextContent('5');
+    fireEvent.click(button);
+    expect(fetch.mock.calls.every(call => call[1].method === 'GET')).toBe(true);
+  });
+  it.each(['request', 'listing', 'requester', 'future', 'origin'])('does not present provider delivery for invalid %s evidence', async issue => {
+    const data = providerFixture();
+    const status = data.orders[0].inventory.provider_status;
+    if (issue === 'request') status.request_id = 'another-order';
+    if (issue === 'listing') status.listing_id = 'another-listing';
+    if (issue === 'requester') status.requester_email = 'another@example.test';
+    if (issue === 'future') status.checked_at = new Date(Date.now() + 120000).toISOString();
+    if (issue === 'origin') status.origin = 'unverified';
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => data }));
+    render(<AryeoFlowPanel shootId={2505} />);
+    expect(await screen.findByRole('button', { name: 'Process & deliver' })).toBeEnabled();
+    expect(screen.queryByText('Delivered in Aryeo')).not.toBeInTheDocument();
+    expect(screen.getAllByText('Unknown')).toHaveLength(8);
+  });
+  it('retains the provider observation time and does not turn unknown delivered counts into zero', async () => {
+    const data = providerFixture();
+    data.orders[0].inventory.provider_status.checked_at = new Date(Date.now() - 600000).toISOString();
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => data }));
+    render(<AryeoFlowPanel shootId={2505} />);
+    expect(await screen.findByText(/Showing last verified provider status/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Delivered in Aryeo' })).toBeDisabled();
+    expect(screen.getAllByText('Unknown')).toHaveLength(4);
+  });
+  it('keeps managed delivery follow-up available when provider status also confirms delivery', async () => {
+    const original = providerFixture();
+    const data = { ...original, orders: [{ ...original.orders[0], jobs: [{ id: 'job-1', status: 'followup_pending', media_version: 'v1',
+      error: 'Archive unavailable', steps: { delivery: 'success', filing: 'failed' }, receipt: { verified_at: new Date().toISOString() } }] }] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => data }));
+    render(<AryeoFlowPanel shootId={2505} />);
+    expect(await screen.findByText('Delivered · follow-up pending')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Resume unfinished steps' })).toBeEnabled();
+  });
   it('shows unknown inventory and never starts a delivery when opened', async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => fixture() });
     vi.stubGlobal('fetch', fetch);
