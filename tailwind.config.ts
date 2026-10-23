@@ -1,5 +1,6 @@
 import type { Config } from "tailwindcss";
 import tailwindcssAnimate from "tailwindcss-animate";
+import plugin from "tailwindcss/plugin";
 
 export default {
   darkMode: ["class"],
@@ -212,5 +213,9 @@ export default {
       },
     },
   },
-  plugins: [tailwindcssAnimate],
+  plugins: [tailwindcssAnimate, plugin(({ addVariant }) => {
+    // Keep compact laptops side by side without changing touch tablet layouts
+    // or disabling Tailwind's existing arbitrary min/max width variants.
+    addVariant('shootDesktop', '@media (min-width: 1280px), (min-width: 1024px) and (hover: hover) and (pointer: fine)');
+  })],
 } satisfies Config;

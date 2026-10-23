@@ -121,3 +121,56 @@ for (const role of ['client', 'salesRep', 'editor', 'photographer'] as ShootWork
     expect(state.pageErrors).toEqual([]);
   });
 }
+
+test.describe('compact desktop shoot workspace', () => {
+  test.use({ hasTouch: false });
+
+  for (const width of [1024, 1180, 1280, 1440]) {
+    test(`keeps details beside compact photographs at ${width}px`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width, height: 800 });
+      const state = await installShootDetailsWorkspaceFixture(page, baseURL, 'admin', 'dark');
+      await page.goto('/shoots/156', { waitUntil: 'domcontentloaded' });
+      const dialog = page.getByRole('dialog', { name: `#156 · ${workspaceAddress}`, exact: true });
+      await expect(dialog).toBeVisible();
+      const sections = dialog.getByRole('tablist', { name: 'Shoot sections' }).filter({ visible: true });
+      await expect(sections.getByRole('tab', { name: 'Media', exact: true })).toHaveCount(0);
+      await dialog.getByRole('tab', { name: 'Edited (6)', exact: true }).filter({ visible: true }).click();
+      await dialog.getByRole('button', { name: 'Grid view', exact: true }).filter({ visible: true }).click();
+      const gallery = dialog.locator('.shoot-media-grid').filter({ visible: true }).first();
+      await expect(gallery).toBeVisible();
+      // The tab strip scrolls inside the details pane on compact desktops.
+      const detailsBox = await sections.evaluate(element => element.parentElement!.parentElement!.getBoundingClientRect().toJSON());
+      const gridBox = await gallery.boundingBox();
+      expect(detailsBox!.x + detailsBox!.width).toBeLessThanOrEqual(gridBox!.x);
+      const grid = await gallery.evaluate(element => ({
+        columns: getComputedStyle(element).gridTemplateColumns.split(' ').length,
+        cardWidth: element.firstElementChild!.getBoundingClientRect().width,
+      }));
+      expect(grid.columns).toBeGreaterThanOrEqual(3);
+      expect(grid.cardWidth).toBeLessThanOrEqual(260);
+      expect(await dialog.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1);
+      await expectFitsViewport(page, dialog.getByRole('button', { name: 'Close', exact: true }).filter({ visible: true }));
+      const sync = dialog.getByRole('button', { name: 'Publish to Bright MLS', exact: true });
+      await expectFitsViewport(page, sync);
+      const address = await dialog.getByTestId('shoot-address-reveal').boundingBox();
+      const syncBox = await sync.boundingBox();
+      expect(address!.y + address!.height <= syncBox!.y || address!.x + address!.width <= syncBox!.x).toBe(true);
+      await sections.getByRole('tab', { name: 'Notes', exact: true }).click();
+      await expect(gallery).toBeVisible();
+      await sections.getByRole('tab', { name: 'Overview', exact: true }).click();
+      if (process.env.E2E_SHOOT_SCREENSHOT_DIR) {
+        await page.screenshot({ path: path.join(process.env.E2E_SHOOT_SCREENSHOT_DIR, `shoot-compact-desktop-${width}.png`) });
+      }
+      await page.setViewportSize({ width: 900, height: 700 });
+      const narrowSections = dialog.getByRole('tablist', { name: 'Shoot sections' }).filter({ visible: true });
+      await narrowSections.getByRole('tab', { name: 'Media', exact: true }).click();
+      await dialog.getByRole('button', { name: 'Grid view', exact: true }).filter({ visible: true }).click();
+      await expect(gallery).toBeVisible();
+      await page.setViewportSize({ width, height: 800 });
+      await expect(sections.getByRole('tab', { name: 'Overview', exact: true })).toHaveAttribute('aria-selected', 'true');
+      await expect(gallery).toBeVisible();
+      expect(state.businessWrites).toEqual([]);
+      expect(state.pageErrors).toEqual([]);
+    });
+  }
+});

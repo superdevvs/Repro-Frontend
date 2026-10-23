@@ -57,13 +57,13 @@ export function MediaGridLayout(props: MediaGridLayoutProps) {
         {isManualSortEnabled ? (
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onManualSortEnd}>
             <SortableContext items={visibleRegularIds} strategy={rectSortingStrategy}>
-              <div className="shoot-media-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">
+              <div className="shoot-media-grid">
                 {regularFiles.map(renderSortableFileCard)}
               </div>
             </SortableContext>
           </DndContext>
         ) : (
-          <div className="shoot-media-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">{regularStacks.map(renderStackCard)}</div>
+          <div className="shoot-media-grid">{regularStacks.map(renderStackCard)}</div>
         )}
         {extraFiles.length > 0 && (
           <>
@@ -72,7 +72,7 @@ export function MediaGridLayout(props: MediaGridLayoutProps) {
               <span className="text-xs font-medium text-orange-600 dark:text-orange-400 px-2">Extras ({extraFiles.length})</span>
               <div className="flex-1 h-px bg-orange-500/30" />
             </div>
-            <div className="shoot-media-grid grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-3">{extraFiles.map((file, index) => renderFileCard(file, index, true))}</div>
+            <div className="shoot-media-grid">{extraFiles.map((file, index) => renderFileCard(file, index, true))}</div>
           </>
         )}
       </div>

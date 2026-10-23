@@ -277,20 +277,20 @@ export function ShootDetailsModalBody({
 
   return (
     <ShootUnitScopeProvider shoot={shoot}>
-      <ShootActionRequestBanner shoot={shoot} className="mx-2 my-1.5 shrink-0 xl:mx-4" />
-      <div className={`flex flex-1 min-h-0 flex-col xl:flex-row overflow-hidden ${showMobileFooter ? 'pb-14' : 'pb-0'} xl:pb-0`}>
+      <ShootActionRequestBanner shoot={shoot} className="mx-2 my-1.5 shrink-0 shootDesktop:mx-4" />
+      <div className={`flex flex-1 min-h-0 flex-col shootDesktop:flex-row overflow-hidden ${showMobileFooter ? 'pb-14' : 'pb-0'} shootDesktop:pb-0`}>
         <div
-          className={`relative min-w-0 w-full xl:w-[37.5%] border-r xl:border-r border-b xl:border-b-0 ${activeTab === 'media' ? 'hidden xl:flex' : 'flex'} flex-col xl:min-h-0 overflow-hidden bg-muted/30 flex-1 xl:flex-none`}
+          className={`relative min-w-0 w-full shootDesktop:w-[37.5%] border-r shootDesktop:border-r border-b shootDesktop:border-b-0 ${activeTab === 'media' ? 'hidden shootDesktop:flex' : 'flex'} flex-col shootDesktop:min-h-0 overflow-hidden bg-muted/30 flex-1 shootDesktop:flex-none`}
         >
-          <div className="hidden xl:block px-2 xl:px-4 py-1.5 xl:py-2 border-b bg-background flex-shrink-0 overflow-x-auto">
+          <div className="hidden shootDesktop:block px-2 shootDesktop:px-4 py-1.5 shootDesktop:py-2 border-b bg-background flex-shrink-0 overflow-x-auto">
             <Tabs value={activeDetailsTab} onValueChange={handleTabChange}>
-              <TabsList aria-label="Shoot sections" className="w-max min-w-full justify-start h-7 xl:h-8 bg-transparent p-0">
+              <TabsList aria-label="Shoot sections" className="w-max min-w-full justify-start h-7 shootDesktop:h-8 bg-transparent p-0">
                 {visibleTabs.filter((tab) => tab.id !== 'media').map((tab) => (
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
                     disabled={tab.disabled}
-                    className="text-[11px] xl:text-xs px-2 xl:px-3 py-1 xl:py-1.5 h-7 xl:h-8 data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none whitespace-nowrap"
+                    className="text-[11px] shootDesktop:text-xs px-2 shootDesktop:px-3 py-1 shootDesktop:py-1.5 h-7 shootDesktop:h-8 data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:rounded-none whitespace-nowrap"
                   >
                     {tab.label}
                   </TabsTrigger>
@@ -300,10 +300,10 @@ export function ShootDetailsModalBody({
           </div>
 
           <div
-            className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 pb-0 xl:px-4 ${
+            className={`flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-2 pb-0 shootDesktop:px-4 ${
               activeDetailsTab !== 'overview' && activeDetailsTab !== 'tours'
-                ? 'pt-1 xl:pt-1.5 xl:pb-2.5'
-                : 'pt-2 xl:py-2.5'
+                ? 'pt-1 shootDesktop:pt-1.5 shootDesktop:pb-2.5'
+                : 'pt-2 shootDesktop:py-2.5'
             }`}
           >
             {activeDetailsTab !== 'overview' && activeDetailsTab !== 'tours' && (
@@ -403,8 +403,8 @@ export function ShootDetailsModalBody({
             (canMarkPaid && !isPaid) ||
             ((isAdmin || isRep) && !isPaid)
           ) && (
-            <div className="hidden xl:block px-2 xl:px-4 py-2 border-t bg-background flex-shrink-0">
-              <div className="hidden xl:flex gap-2 w-full">
+            <div className="hidden shootDesktop:block px-2 shootDesktop:px-4 py-2 border-t bg-background flex-shrink-0">
+              <div className="hidden shootDesktop:flex gap-2 w-full">
                 {canMarkPaid && !isPaid && (
                   <Button
                     variant="default"
@@ -432,7 +432,7 @@ export function ShootDetailsModalBody({
           )}
         </div>
 
-        <div className={`${activeTab === 'media' ? 'flex' : 'hidden'} xl:hidden flex-1 min-h-0 flex-col bg-background`}>
+        <div className={`${activeTab === 'media' ? 'flex' : 'hidden'} shootDesktop:hidden flex-1 min-h-0 flex-col bg-background`}>
           <div className="flex-1 min-h-0 overflow-y-auto px-2 pt-1">
             <ShootDetailsPanelUnitChrome
               shoot={shoot}
@@ -456,8 +456,8 @@ export function ShootDetailsModalBody({
           </div>
         </div>
 
-        <div className="hidden xl:flex min-w-0 w-[62.5%] min-h-0 flex-1 flex-col bg-background border-t xl:border-t-0">
-          <div className="flex-1 min-h-0 overflow-y-auto px-2 xl:px-4">
+        <div className="hidden shootDesktop:flex min-w-0 w-[62.5%] min-h-0 flex-1 flex-col bg-background border-t shootDesktop:border-t-0">
+          <div className="flex-1 min-h-0 overflow-y-auto px-2 shootDesktop:px-4">
             {showTourAnalytics ? (
               <React.Suspense fallback={null}>
                 <LazyTourAnalyticsPanel shootId={shoot.id} onBack={() => setShowTourAnalytics(false)} />
@@ -482,7 +482,7 @@ export function ShootDetailsModalBody({
             )}
           </div>
           {!isEditMode && !isRequestedStatus && !isCancelledOrDeclined && (canResumeFromHold || canSendToEditing || canApproveEditingReview || canFinalise || showDesktopSubmitActions || showDesktopDeleteAction || showDesktopPrintAction || showDesktopNotifyAction || showDesktopAiEditAction || Boolean(onRenameMedia) || (canShowInvoiceButton && !isPhotographer && !isEditor)) && (
-            <div className="hidden xl:flex border-t bg-background/95 backdrop-blur px-3 py-2.5">
+            <div className="hidden shootDesktop:flex border-t bg-background/95 backdrop-blur px-3 py-2.5">
               <div className="flex flex-wrap items-center justify-end gap-2 w-full">
                 {/* Collapsed to icons: these stay reachable without competing
                     with the actions people use on every shoot, which now live in
@@ -643,7 +643,7 @@ export function ShootDetailsModalBody({
       </div>
 
       {showMobileFooter && (
-        <div className="fixed xl:hidden bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50 px-3 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
+        <div className="fixed shootDesktop:hidden bottom-0 left-0 right-0 bg-background border-t shadow-lg z-50 px-3 py-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)]">
           <div className="flex gap-2 w-full overflow-x-auto">
             {showMobileEditActions && (
               <>

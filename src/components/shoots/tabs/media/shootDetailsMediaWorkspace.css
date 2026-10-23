@@ -1,3 +1,12 @@
+/* Size thumbnails from the gallery's available width, including the narrower
+   desktop pop-out pane. Keep two columns on phones and add compact cards as
+   space permits without stretching a sparse gallery to oversized previews. */
+.shoot-media-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(180px, calc((100% - 8px) / 2)), 1fr));
+  gap: 8px;
+}
+
 /* The full shoot page shares its media components with the overview modal.
    Keep this presentation inside the page so modal sizing and scrolling stay intact. */
 .shoot-details-workspace .shoot-media-workspace {
@@ -130,20 +139,6 @@
 
 .shoot-details-workspace .shoot-upload-summaries {
   flex-shrink: 0;
-}
-
-/* Use the actual library width, which also accounts for the app and shoot
-   sidebars, to keep the approved three-column desktop photographs spacious. */
-.shoot-details-workspace .shoot-media-grid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-
-@container shoot-media (min-width: 700px) {
-  .shoot-details-workspace .shoot-media-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
-  }
 }
 
 @container shoot-media (max-width: 699px) {
