@@ -3,12 +3,13 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useDashboardDerivedData } from '@/hooks/useDashboardDerivedData';
+import type { UserData } from '@/types/auth';
 import { ShootsProvider } from './ShootsProvider';
 import { transformShootFromApi } from './shootNormalization';
 import { useShoots } from './shootsContextState';
 
 const auth = vi.hoisted(() => ({
-  user: { id: '42', name: 'Office', email: 'office@example.test', role: 'admin', metadata: {} },
+  user: { id: '42', name: 'Office', email: 'office@example.test', role: 'admin', metadata: {} } as UserData,
   logout: vi.fn(),
 }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ ...auth, isImpersonating: auth.user.role === 'salesRep' }) }));
