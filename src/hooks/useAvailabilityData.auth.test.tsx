@@ -20,6 +20,54 @@ describe('sales scheduling roster and authenticated calendars', () => {
   beforeEach(() => { localStorage.clear(); sessionStorage.clear(); localStorage.setItem('token', 'legacy-token'); });
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
+  it('refetches a changed schedule immediately after a mutation', async () => {
+    let rows = [slot];
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url).endsWith('/photographers')) return response(roster);
+      if (String(url).endsWith('/bulk-index')) return response({42: rows, 43: []});
+      return response([]);
+    }));
+    const { result } = renderHook(useCalendar);
+    await waitFor(() => expect(result.current.allBackendSlots[0]?.end_time).toBe('17:00'));
+    rows = [{...slot, end_time: '14:00'}];
+    await act(async () => { await result.current.refreshPhotographerSlots(); });
+    expect(result.current.allBackendSlots[0]?.end_time).toBe('14:00');
+  });
+
+  it('does not show free time when booked visits fail to load', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url).endsWith('/photographers')) return response(roster);
+      if (String(url).endsWith('/bulk-index')) return response({42:[slot],43:[]});
+      if (String(url).endsWith('/booked-slots')) return response([], false);
+      return response([slot]);
+    }));
+    const { result } = renderHook(useCalendar);
+    await waitFor(() => expect(result.current.allBackendSlots).toHaveLength(1));
+    act(() => result.current.setSelected('42'));
+    await waitFor(() => expect(result.current.error).toContain('complete schedule'));
+    expect(result.current.backendSlots).toEqual([]);
+  });
+
+  it('ignores late responses after switching photographers', async () => {
+    let resolveOld: (value: Response) => void = () => {};
+    const oldHours = new Promise<Response>(resolve => { resolveOld = resolve; });
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url).endsWith('/photographers')) return response(roster);
+      if (String(url).endsWith('/bulk-index')) return response({42:[slot],43:[]});
+      if (String(url).endsWith('/booked-slots')) return response([]);
+      if (String(url).endsWith('/42')) return oldHours;
+      return response([{...slot,id:12,photographer_id:43}]);
+    }));
+    const { result } = renderHook(useCalendar);
+    await waitFor(() => expect(result.current.allBackendSlots).toHaveLength(1));
+    act(() => result.current.setSelected('42'));
+    await waitFor(() => expect(result.current.loading).toBe(true));
+    act(() => result.current.setSelected('43'));
+    await waitFor(() => expect(result.current.backendSlots[0]?.photographer_id).toBe(43));
+    await act(async () => { resolveOld(response([slot])); await oldHours; });
+    expect(result.current.backendSlots[0]?.photographer_id).toBe(43);
+  });
+
   it('authenticates bulk fallback and individual calendar reads with the legacy token', async () => {
     const fetchMock = vi.fn(async (url: RequestInfo | URL, init?: RequestInit) => {
       expect(init?.headers).toMatchObject({ Authorization: 'Bearer legacy-token' });

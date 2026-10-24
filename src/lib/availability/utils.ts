@@ -69,6 +69,7 @@ export const mapBackendSlots = (
       start_time: String(row.start_time ?? ""),
       end_time: String(row.end_time ?? ""),
       status: row.status as string | undefined,
+      note: typeof row.note === 'string' ? row.note : null,
       isRandom: Boolean(row.isRandom),
       shoot_id: row.shoot_id != null && Number.isFinite(Number(row.shoot_id)) ? Number(row.shoot_id) : (row.shoot_details as BackendSlot['shoot_details'])?.id,
       shoot_details: row.shoot_details as BackendSlot['shoot_details'],

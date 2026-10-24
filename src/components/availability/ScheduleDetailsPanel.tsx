@@ -41,6 +41,7 @@ interface ScheduleDetailsPanelProps {
   handleEditAvailability: () => void;
   openDefaultSchedule: () => void;
   saveWeeklySchedule: () => Promise<void>;
+  savingWeeklySchedule?: boolean;
   handleDeleteAvailability: (slotId: string, specificDate?: string) => Promise<void>;
   handleMarkUnavailable: (slotId: string, specificDate?: string) => Promise<void>;
   notifyDemoAvailabilityRestriction: () => void;
@@ -77,7 +78,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
     setWeeklyScheduleNote,
     handleEditAvailability,
     openDefaultSchedule,
-    saveWeeklySchedule,
+    saveWeeklySchedule, savingWeeklySchedule,
     handleDeleteAvailability,
     handleMarkUnavailable,
     notifyDemoAvailabilityRestriction,
@@ -129,7 +130,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
             <>
               {!editingWeeklySchedule ? (
                 <>
-                  <div className="flex justify-between items-start mb-4 flex-shrink-0">
+                  <div className="flex flex-wrap gap-3 justify-between items-start mb-4 flex-shrink-0">
                     <div>
                       <h2 className="text-sm sm:text-base font-semibold mb-1">
                         {viewMode === "day" && date ? format(date, 'EEEE, MMMM d, yyyy') : viewMode === "week" && date ? `Week of ${format(startOfWeek(date), 'MMM d')} - ${format(endOfWeek(date), 'MMM d, yyyy')}` : viewMode === "month" && date ? format(date, 'MMMM yyyy') : "Schedule"}
@@ -269,13 +270,21 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                   </div>
                 </>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">Edit Weekly Schedule</h3>
-                    <Button variant="ghost" size="sm" onClick={() => setEditingWeeklySchedule(false)}>Cancel</Button>
-                  </div>
-                  {/* Weekly schedule editing UI */}
-                </div>
+                <WeeklyScheduleEditor
+                  editingWeeklySchedule={editingWeeklySchedule}
+                  setEditingWeeklySchedule={setEditingWeeklySchedule}
+                  getCurrentWeeklySchedule={getCurrentWeeklySchedule}
+                  updateCurrentWeeklySchedule={updateCurrentWeeklySchedule}
+                  weeklyScheduleNote={weeklyScheduleNote}
+                  setWeeklyScheduleNote={setWeeklyScheduleNote}
+                  handleEditAvailability={handleEditAvailability}
+                  saveWeeklySchedule={saveWeeklySchedule}
+                  savingWeeklySchedule={savingWeeklySchedule}
+                  selectedPhotographer={selectedPhotographer}
+                  getPhotographerName={getPhotographerName}
+                  canEditAvailability={canEditAvailability}
+                  backendSlots={backendSlots}
+                />
               )}
             </>
           ) : (
@@ -554,7 +563,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
               weeklyScheduleNote={weeklyScheduleNote}
               setWeeklyScheduleNote={setWeeklyScheduleNote}
               handleEditAvailability={handleEditAvailability}
-              saveWeeklySchedule={saveWeeklySchedule}
+              saveWeeklySchedule={saveWeeklySchedule} savingWeeklySchedule={savingWeeklySchedule}
               selectedPhotographer={selectedPhotographer}
               getPhotographerName={getPhotographerName}
               canEditAvailability={canEditAvailability}
@@ -588,6 +597,7 @@ interface WeeklyScheduleEditorProps {
   setWeeklyScheduleNote: (value: string) => void;
   handleEditAvailability: () => void;
   saveWeeklySchedule: () => Promise<void>;
+  savingWeeklySchedule?: boolean;
   selectedPhotographer: string;
   getPhotographerName: (id: string) => string;
   canEditAvailability: boolean;
@@ -603,6 +613,7 @@ function WeeklyScheduleEditor({
   setWeeklyScheduleNote,
   handleEditAvailability,
   saveWeeklySchedule,
+  savingWeeklySchedule,
   selectedPhotographer,
   getPhotographerName,
   canEditAvailability,
@@ -610,7 +621,7 @@ function WeeklyScheduleEditor({
 }: WeeklyScheduleEditorProps) {
   return (
     <>
-      <div className="flex justify-between items-start mb-4 flex-shrink-0">
+      <div className="flex flex-wrap gap-3 justify-between items-start mb-4 flex-shrink-0">
         <div>
           <h2 className="text-base font-semibold mb-1">
             {getPhotographerName(selectedPhotographer)}'s Weekly Schedule
@@ -678,7 +689,7 @@ function WeeklyScheduleEditor({
 
           <div className="mb-4 flex-shrink-0">
             <Label className="text-xs uppercase mb-2 block font-semibold text-muted-foreground">REPEAT</Label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-7 gap-1">
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
                 const scheduleDay = getCurrentWeeklySchedule()[idx];
                 return (
@@ -702,7 +713,7 @@ function WeeklyScheduleEditor({
           <div className="mb-4 flex-shrink-0">
             <Label className="text-xs uppercase mb-2 block font-semibold text-muted-foreground">NOTE</Label>
             <Textarea
-              value={weeklyScheduleNote}
+              value={weeklyScheduleNote} maxLength={1000} aria-label="Schedule note"
               onChange={(e) => setWeeklyScheduleNote(e.target.value)}
               placeholder="Add a note about this availability..."
               className="min-h-[80px] rounded-md resize-none"
@@ -719,10 +730,10 @@ function WeeklyScheduleEditor({
             const endTime = currentSchedule[0]?.endTime || '17:00';
 
             const conflicts: Array<{ day: string; count: number }> = [];
-            activeDays.forEach((daySchedule, idx) => {
+            activeDays.forEach((daySchedule) => {
               if (!daySchedule.active) return;
               const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-              const dayName = dayNames[idx];
+              const dayName = dayNames[currentSchedule.indexOf(daySchedule)];
 
               const dayBookings = backendSlots.filter(slot => {
                 if (slot.status !== 'booked') return false;
@@ -755,10 +766,10 @@ function WeeklyScheduleEditor({
                   <MoreVertical className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-xs font-semibold text-orange-800 dark:text-orange-200">
-                      Conflicts found
+                      Scheduled shoots
                     </p>
                     <p className="text-xs text-orange-700 dark:text-orange-300 mt-0.5">
-                      This schedule overlaps with {totalConflicts} existing booking{totalConflicts > 1 ? 's' : ''} on {conflictDays}.
+                      {totalConflicts} existing booking{totalConflicts > 1 ? 's' : ''} on {conflictDays}. Booked time stays reserved within these hours.
                     </p>
                   </div>
                 </div>
@@ -769,9 +780,9 @@ function WeeklyScheduleEditor({
           <div className="mt-auto space-y-2 flex-shrink-0 pt-4">
             <Button
               className="w-full h-10 font-semibold rounded-md"
-              onClick={saveWeeklySchedule}
+              onClick={saveWeeklySchedule} disabled={savingWeeklySchedule}
             >
-              Save default schedule
+              {savingWeeklySchedule ? 'Saving…' : 'Save default schedule'}
             </Button>
             <button
               className="w-full text-sm text-muted-foreground hover:underline text-center py-1.5"

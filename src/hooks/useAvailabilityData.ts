@@ -1,35 +1,26 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { addDays, format, startOfMonth, endOfMonth, startOfWeek } from "date-fns";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  addDays,
+  endOfMonth,
+  format,
+  startOfMonth,
+  startOfWeek,
+} from "date-fns";
 import API_ROUTES from "@/lib/api";
-import { getAuthToken } from "@/utils/authToken";
 import { API_BASE_URL } from "@/config/env";
+import { getAuthToken } from "@/utils/authToken";
 import type { BackendSlot, Photographer } from "@/types/availability";
-import { mapBackendSlots, mergeBookedSlots, normalizeAvailabilityDate } from "@/lib/availability/utils";
+import { mapBackendSlots, mergeBookedSlots } from "@/lib/availability/utils";
 import {
   resolveSelectedPhotographer,
   scopePhotographersForViewer,
 } from "@/lib/availability/photographerScope";
 
-type ApiRoutesWithPeople = typeof API_ROUTES & {
-  people?: {
-    photographers?: string;
-    adminPhotographers?: string;
-  };
-};
-
-const readString = (value: unknown): string | undefined =>
-  typeof value === "string" ? value : undefined;
-
-const isAbortError = (error: unknown): boolean =>
-  typeof error === "object" && error !== null && (error as { name?: unknown }).name === "AbortError";
-
-type ViewMode = "day" | "week" | "month";
-
 interface UseAvailabilityDataOptions {
   selectedPhotographer: string;
   setSelectedPhotographer: (value: string) => void;
   date: Date | undefined;
-  viewMode: ViewMode;
+  viewMode: "day" | "week" | "month";
   role: string | null | undefined;
   userId: number | string | undefined;
   viewerName?: string | null;
@@ -38,6 +29,19 @@ interface UseAvailabilityDataOptions {
   availabilitySessionScope: string;
   loadingPhotographers?: boolean;
 }
+type SlotState = {
+  key: string;
+  rows: BackendSlot[];
+  error?: string;
+  loading: boolean;
+};
+const EMPTY_ROWS: BackendSlot[] = [];
+const EMPTY_PEOPLE: Photographer[] = [];
+const extractUsers = (json: unknown): Record<string, unknown>[] => {
+  const object = json as { data?: unknown; users?: unknown } | null;
+  const list = Array.isArray(json) ? json : (object?.data ?? object?.users);
+  return Array.isArray(list) ? list : [];
+};
 
 export function useAvailabilityData({
   selectedPhotographer,
@@ -47,464 +51,285 @@ export function useAvailabilityData({
   userId,
   viewerName,
   isPhotographer,
-  canManagePhotographerSelection,
   availabilitySessionScope,
 }: UseAvailabilityDataOptions) {
-  const [photographers, setPhotographers] = useState<Photographer[]>([]);
-  const [backendSlots, setBackendSlots] = useState<BackendSlot[]>([]);
-  const [allBackendSlots, setAllBackendSlots] = useState<BackendSlot[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingPhotographers, setLoadingPhotographers] = useState(true);
-  const [photographerAvailabilityMap, setPhotographerAvailabilityMap] = useState<Record<string, BackendSlot[]>>({});
-
-  const bookedSlotsCacheRef = useRef<Map<string, BackendSlot[]>>(new Map());
-  const bulkAvailabilityCacheRef = useRef<{ key: string; data: BackendSlot[]; timestamp: number } | null>(null);
-  const listAvailabilityCacheRef = useRef<{ key: string; data: BackendSlot[]; timestamp: number } | null>(null);
-
-  const photographersCacheKey = `photographers_cache:${availabilitySessionScope}`;
-  const photographersCacheTimeKey = `photographers_cache_time:${availabilitySessionScope}`;
-
-  const authHeaders = useCallback(() => {
+  const [roster, setRoster] = useState<{
+    scope: string;
+    people: Photographer[];
+    error?: string;
+  }>({ scope: "", people: [] });
+  const [slotState, setSlotState] = useState<SlotState>({
+    key: "",
+    rows: [],
+    loading: false,
+  });
+  const [retry, setRetry] = useState(0);
+  const slotRequest = useRef<AbortController | null>(null);
+  const authHeaders = useCallback((): Record<string, string> => {
     const token = getAuthToken();
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    return headers;
+    return {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
   }, []);
+  const photographers =
+    roster.scope === availabilitySessionScope ? roster.people : EMPTY_PEOPLE;
+  const loadingPhotographers = roster.scope !== availabilitySessionScope;
+  const anchor = date ?? new Date();
+  const weekStart = startOfWeek(anchor, { weekStartsOn: 1 });
+  const from = format(
+    viewMode === "month"
+      ? startOfMonth(anchor)
+      : viewMode === "week"
+        ? weekStart
+        : anchor,
+    "yyyy-MM-dd",
+  );
+  const to = format(
+    viewMode === "month"
+      ? endOfMonth(anchor)
+      : viewMode === "week"
+        ? addDays(weekStart, 6)
+        : anchor,
+    "yyyy-MM-dd",
+  );
+  const key = JSON.stringify([
+    availabilitySessionScope,
+    selectedPhotographer,
+    from,
+    to,
+    photographers.map((p) => p.id),
+  ]);
+  const activeKey = useRef(key);
+  activeKey.current = key;
 
-  // Reset caches/state when session scope (role/user/impersonation) changes.
-  // setSelectedPhotographer is stable from the parent; listing it here would
-  // loop the effect. Intentional.
   useEffect(() => {
-    bookedSlotsCacheRef.current.clear();
-    bulkAvailabilityCacheRef.current = null;
-    listAvailabilityCacheRef.current = null;
-
-    setPhotographers([]);
-    setBackendSlots([]);
-    setAllBackendSlots([]);
-    setLoading(false);
-    setLoadingPhotographers(true);
-    setSelectedPhotographer(resolveSelectedPhotographer("all", { isPhotographer, userId }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [availabilitySessionScope, isPhotographer, userId]);
-
-  const invalidatePhotographerBookedCache = useCallback((photographerId: string | number) => {
-    const prefix = `${photographerId}|`;
-    bookedSlotsCacheRef.current.forEach((_, key) => {
-      if (key.startsWith(prefix)) {
-        bookedSlotsCacheRef.current.delete(key);
-      }
+    setSelectedPhotographer(
+      resolveSelectedPhotographer("all", { isPhotographer, userId }),
+    );
+  }, [
+    availabilitySessionScope,
+    isPhotographer,
+    userId,
+    setSelectedPhotographer,
+  ]);
+  useEffect(() => {
+    const selected = resolveSelectedPhotographer(selectedPhotographer, {
+      isPhotographer,
+      userId,
     });
-  }, []);
+    if (selected !== selectedPhotographer) setSelectedPhotographer(selected);
+  }, [selectedPhotographer, isPhotographer, userId, setSelectedPhotographer]);
 
-  const refreshPhotographerSlots = useCallback(async (signal?: AbortSignal) => {
-    setLoading(true);
-    try {
-      if (!selectedPhotographer) {
-        setBackendSlots([]);
-        setAllBackendSlots([]);
-        return;
-      }
-
-      const anchorDate = date || new Date();
-      const weekStart = startOfWeek(anchorDate);
-      const weekEnd = addDays(weekStart, 6);
-      const monthStart = startOfMonth(anchorDate);
-      const monthEnd = endOfMonth(anchorDate);
-
-      const fromDate = viewMode === 'day'
-        ? format(anchorDate, 'yyyy-MM-dd')
-        : viewMode === 'week'
-        ? format(weekStart, 'yyyy-MM-dd')
-        : format(monthStart, 'yyyy-MM-dd');
-
-      const toDate = viewMode === 'day'
-        ? format(anchorDate, 'yyyy-MM-dd')
-        : viewMode === 'week'
-        ? format(weekEnd, 'yyyy-MM-dd')
-        : format(monthEnd, 'yyyy-MM-dd');
-
-      const headers = authHeaders();
-
-      if (selectedPhotographer === 'all') {
-        if (isPhotographer || !photographers || photographers.length === 0) {
-          setAllBackendSlots([]);
-          setBackendSlots([]);
-          return;
-        }
-
-        let usedBulkEndpoint = false;
-        const CACHE_TTL = 60 * 1000;
-        const cacheKey = `all_${fromDate}_${toDate}`;
-
-        const cached = bulkAvailabilityCacheRef.current;
-        if (cached && cached.key === cacheKey && (Date.now() - cached.timestamp) < CACHE_TTL) {
-          setAllBackendSlots(cached.data);
-          setBackendSlots([]);
-          return;
-        }
-
-        try {
-          const photographerIds = photographers.map(p => Number(p.id));
-          const bulkResponse = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
-            method: 'POST',
-            headers,
-            signal,
-            body: JSON.stringify({
-              photographer_ids: photographerIds,
-              from_date: fromDate,
-              to_date: toDate,
+  useEffect(() => {
+    const abort = new AbortController();
+    const load = async () => {
+      try {
+        let response = await fetch(`${API_BASE_URL}/api/photographers`, {
+          headers: authHeaders(),
+          signal: abort.signal,
+        });
+        if (!response.ok && !isPhotographer)
+          response = await fetch(`${API_BASE_URL}/api/admin/photographers`, {
+            headers: authHeaders(),
+            signal: abort.signal,
+          });
+        if (!response.ok)
+          throw new Error("Unable to load photographers. Please retry.");
+        const people = extractUsers(await response.json()).map((row) => ({
+          id: String(row.id),
+          name: String(
+            row.name ?? row.full_name ?? row.email ?? "Photographer",
+          ),
+          avatar:
+            typeof row.avatar === "string"
+              ? row.avatar
+              : typeof row.profile_photo_url === "string"
+                ? row.profile_photo_url
+                : undefined,
+        }));
+        if (!abort.signal.aborted)
+          setRoster({
+            scope: availabilitySessionScope,
+            people: scopePhotographersForViewer(people, {
+              isPhotographer,
+              userId,
+              name: viewerName,
             }),
           });
+      } catch (error) {
+        if (!abort.signal.aborted)
+          setRoster({
+            scope: availabilitySessionScope,
+            people: [],
+            error:
+              error instanceof Error
+                ? error.message
+                : "Unable to load photographers.",
+          });
+      }
+    };
+    void load();
+    return () => abort.abort();
+  }, [
+    availabilitySessionScope,
+    isPhotographer,
+    userId,
+    viewerName,
+    authHeaders,
+    retry,
+  ]);
 
-          if (signal?.aborted) return;
-
-          if (bulkResponse.ok) {
-            const bulkJson = await bulkResponse.json();
-            const groupedData = bulkJson?.data || {};
-
-            const allSlots: BackendSlot[] = [];
-            for (const [photographerId, slots] of Object.entries(groupedData)) {
-              const mappedSlots = mapBackendSlots(slots as readonly unknown[], photographerId);
-              allSlots.push(...mappedSlots);
-            }
-
-            bulkAvailabilityCacheRef.current = { key: cacheKey, data: allSlots, timestamp: Date.now() };
-
-            if (!signal?.aborted) {
-              setAllBackendSlots(allSlots);
-              setBackendSlots([]);
-            }
-            usedBulkEndpoint = true;
-          }
-        } catch (bulkError: unknown) {
-          if (isAbortError(bulkError)) return;
-          console.warn('Bulk endpoint failed, falling back to individual calls:', bulkError);
-        }
-
-        if (!usedBulkEndpoint && !signal?.aborted) {
-          const batchSize = 10;
-          const results: Array<{ id: string; slots: BackendSlot[] }> = [];
-
-          for (let i = 0; i < photographers.length; i += batchSize) {
-            if (signal?.aborted) return;
-            const batch = photographers.slice(i, i + batchSize);
-            const batchResults = await Promise.all(
-              batch.map(async (p) => {
-                try {
-                  const response = await fetch(API_ROUTES.photographerAvailability.list(p.id), { signal, headers });
-                  if (!response.ok) throw new Error('Failed to load availability');
-                  const json = await response.json();
-                  return { id: p.id, slots: mapBackendSlots((json?.data || []) as readonly unknown[], p.id) };
-                } catch {
-                  return { id: p.id, slots: [] as BackendSlot[] };
-                }
-              })
+  const refreshPhotographerSlots = useCallback(
+    async (signal?: AbortSignal) => {
+      if (key !== activeKey.current) return;
+      slotRequest.current?.abort();
+      const abort = new AbortController();
+      slotRequest.current = abort;
+      const cancel = () => abort.abort();
+      signal?.addEventListener("abort", cancel, { once: true });
+      if (signal?.aborted) abort.abort();
+      setSlotState({ key, rows: [], loading: true });
+      try {
+        const headers = authHeaders();
+        const readPerson = async (id: string) => {
+          const [hours, bookings] = await Promise.all([
+            fetch(API_ROUTES.photographerAvailability.list(id), {
+              headers,
+              signal: abort.signal,
+            }),
+            fetch(API_ROUTES.photographerAvailability.bookedSlots, {
+              method: "POST",
+              headers,
+              signal: abort.signal,
+              body: JSON.stringify({
+                photographer_id: Number(id),
+                from_date: from,
+                to_date: to,
+              }),
+            }),
+          ]);
+          // Missing bookings must never be presented as free time.
+          if (!hours.ok || !bookings.ok)
+            throw new Error(
+              "Unable to load the complete schedule. Please retry.",
             );
-            results.push(...batchResults);
-          }
-
-          if (!signal?.aborted) {
-            setAllBackendSlots(results.flatMap(({ slots }) => slots));
-            setBackendSlots([]);
-          }
-        }
-
-        return;
-      }
-
-      const [availabilityResponse, bookedResponse] = await Promise.all([
-        fetch(API_ROUTES.photographerAvailability.list(selectedPhotographer), { signal, headers }),
-        fetch(API_ROUTES.photographerAvailability.bookedSlots, {
-          method: 'POST',
-          headers,
-          signal,
-          body: JSON.stringify({
-            photographer_id: Number(selectedPhotographer),
-            from_date: fromDate,
-            to_date: toDate,
-          }),
-        }).catch(() => null),
-      ]);
-
-      if (signal?.aborted) return;
-
-      if (!availabilityResponse.ok) {
-        throw new Error('Failed to load availability');
-      }
-
-      const availabilityJson = await availabilityResponse.json();
-      const availabilitySlots = mapBackendSlots((availabilityJson?.data || []) as readonly unknown[], selectedPhotographer);
-
-      let bookedSlots: BackendSlot[] = [];
-      if (bookedResponse && bookedResponse.ok) {
-        const bookedJson = await bookedResponse.json();
-        const rawBooked = Array.isArray(bookedJson?.data) ? (bookedJson.data as unknown[]) : [];
-        bookedSlots = mapBackendSlots(rawBooked, selectedPhotographer);
-      }
-
-      if (signal?.aborted) return;
-
-      setBackendSlots(mergeBookedSlots([...availabilitySlots, ...bookedSlots]));
-      setAllBackendSlots([]);
-    } catch (error: unknown) {
-      if (isAbortError(error)) return;
-      console.error('Error refreshing photographer slots:', error);
-      if (signal?.aborted) return;
-      if (selectedPhotographer === 'all') {
-        setAllBackendSlots([]);
-        setBackendSlots([]);
-      } else {
-        setBackendSlots([]);
-        setAllBackendSlots([]);
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [selectedPhotographer, photographers, date, viewMode, isPhotographer, authHeaders]);
-
-  // Listen for availability updates from other components.
-  // refreshPhotographerSlots is intentionally excluded: its identity changes on
-  // every `photographers`/`date`/`viewMode` update, which would remount the
-  // listener each time. Using the latest closure via selectedPhotographer dep
-  // is sufficient for correctness because the event only needs to fire a
-  // refresh, not capture fresh deps.
-  useEffect(() => {
-    const handleAvailabilityUpdate = (event: CustomEvent) => {
-      const { photographerId } = event.detail || {};
-      if (photographerId) {
-        invalidatePhotographerBookedCache(photographerId);
-      }
-      if (selectedPhotographer === photographerId || selectedPhotographer === 'all') {
-        refreshPhotographerSlots();
-      }
-    };
-
-    window.addEventListener('availability-updated', handleAvailabilityUpdate as EventListener);
-    return () => {
-      window.removeEventListener('availability-updated', handleAvailabilityUpdate as EventListener);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPhotographer, invalidatePhotographerBookedCache]);
-
-  // Load photographers with client-side caching
-  useEffect(() => {
-    const cachedPhotographers = sessionStorage.getItem(photographersCacheKey);
-    const cacheTimestamp = sessionStorage.getItem(photographersCacheTimeKey);
-    const CACHE_TTL = 5 * 60 * 1000;
-
-    if (cachedPhotographers && cacheTimestamp) {
-      const cacheAge = Date.now() - parseInt(cacheTimestamp, 10);
-      if (cacheAge < CACHE_TTL) {
-        try {
-          const list = JSON.parse(cachedPhotographers);
-          if (Array.isArray(list) && list.length > 0) {
-            setPhotographers(scopePhotographersForViewer(list, { isPhotographer, userId, name: viewerName }));
-            setLoadingPhotographers(false);
-            return;
-          }
-        } catch (e) {
-          // Invalid cache, continue to fetch
-        }
-      }
-    }
-
-    const loadPhotographers = async () => {
-      setLoadingPhotographers(true);
-      try {
-        const apiRoutesExt = API_ROUTES as ApiRoutesWithPeople;
-        const publicUrl = apiRoutesExt.people?.photographers || `${API_BASE_URL}/api/photographers`;
-        const token = getAuthToken();
-
-        const mapUser = (raw: unknown): Photographer => {
-          const u = (raw ?? {}) as Record<string, unknown>;
-          const id = u.id;
-          const idStr = id === undefined || id === null ? "" : String(id);
-          const name =
-            readString(u.name) ||
-            readString(u.full_name) ||
-            readString(u.email) ||
-            `User ${idStr}`;
-          const avatar = readString(u.avatar) || readString(u.profile_photo_url);
-          return { id: idStr, name, avatar };
+          const [hoursJson, bookingsJson] = await Promise.all([
+            hours.json(),
+            bookings.json(),
+          ]);
+          return mergeBookedSlots([
+            ...mapBackendSlots(hoursJson.data, id),
+            ...mapBackendSlots(bookingsJson.data, id),
+          ]);
         };
-
-        const extractUsers = (json: unknown): unknown[] => {
-          if (Array.isArray(json)) return json;
-          const obj = (json ?? {}) as Record<string, unknown>;
-          if (Array.isArray(obj.data)) return obj.data as unknown[];
-          if (Array.isArray(obj.users)) return obj.users as unknown[];
-          return [];
-        };
-
-        let list: Photographer[] = [];
-        try {
-          const r = await fetch(publicUrl, { headers: authHeaders() });
-          if (r.ok) {
-            const json = await r.json();
-            list = extractUsers(json).map(mapUser);
-          }
-        } catch {
-          // Public endpoint failed
-        }
-
-        if (list.length === 0 && token) {
-          try {
-            const adminUrl = apiRoutesExt.people?.adminPhotographers || `${API_BASE_URL}/api/admin/photographers`;
-            const r = await fetch(adminUrl, { headers: { Authorization: `Bearer ${token}` } });
-            if (r.ok) {
-              const json = await r.json();
-              list = extractUsers(json).map(mapUser);
+        let rows: BackendSlot[] = [];
+        if (
+          selectedPhotographer === "all" &&
+          !isPhotographer &&
+          photographers.length
+        ) {
+          const response = await fetch(
+            API_ROUTES.photographerAvailability.bulkIndex,
+            {
+              method: "POST",
+              headers,
+              signal: abort.signal,
+              body: JSON.stringify({
+                photographer_ids: photographers.map((p) => Number(p.id)),
+                from_date: from,
+                to_date: to,
+              }),
+            },
+          );
+          if (response.ok) {
+            const json = await response.json();
+            rows = photographers.flatMap((p) =>
+              mapBackendSlots(json.data?.[p.id] ?? [], p.id),
+            );
+          } else {
+            if ([401, 403].includes(response.status))
+              throw new Error("You do not have access to these schedules.");
+            // Older servers can fall back to individual reads, including booked visits.
+            for (let index = 0; index < photographers.length; index += 6) {
+              rows.push(
+                ...(
+                  await Promise.all(
+                    photographers
+                      .slice(index, index + 6)
+                      .map((p) => readPerson(p.id)),
+                  )
+                ).flat(),
+              );
             }
-          } catch {
-            // Admin endpoint also failed
           }
+        } else if (selectedPhotographer !== "all" && selectedPhotographer) {
+          rows = await readPerson(selectedPhotographer);
         }
-
-        const scoped = scopePhotographersForViewer(list, { isPhotographer, userId, name: viewerName });
-        setPhotographers(scoped);
-        if (list.length > 0) {
-          sessionStorage.setItem(photographersCacheKey, JSON.stringify(list));
-          sessionStorage.setItem(photographersCacheTimeKey, String(Date.now()));
-        }
-      } catch {
-        setPhotographers([]);
+        if (!abort.signal.aborted)
+          setSlotState({ key, rows: mergeBookedSlots(rows), loading: false });
+      } catch (error) {
+        if (!abort.signal.aborted)
+          setSlotState({
+            key,
+            rows: [],
+            loading: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Unable to load availability.",
+          });
       } finally {
-        setLoadingPhotographers(false);
+        signal?.removeEventListener("abort", cancel);
       }
-    };
+    },
+    [
+      key,
+      from,
+      to,
+      selectedPhotographer,
+      photographers,
+      isPhotographer,
+      authHeaders,
+    ],
+  );
 
-    loadPhotographers();
-  }, [isPhotographer, photographersCacheKey, photographersCacheTimeKey, userId, viewerName, authHeaders]);
-
-  // Photographers can only manage their own calendar. Re-pin if the UI tries
-  // to switch to "all" or another teammate (the compact picker used to allow that).
   useEffect(() => {
-    const scoped = resolveSelectedPhotographer(selectedPhotographer, { isPhotographer, userId });
-    if (scoped !== selectedPhotographer) {
-      setSelectedPhotographer(scoped);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPhotographer, userId, selectedPhotographer]);
-
-  // Load slots when photographer/date/view change; abort stale requests.
-  // refreshPhotographerSlots is intentionally omitted: its identity changes
-  // whenever `photographers` loads, but `loadingPhotographers` IS in deps and
-  // flips to false right after, which re-runs this effect with the fresh
-  // closure. Adding it directly would cause duplicate fetches per render.
+    if (loadingPhotographers || roster.error) return;
+    const abort = new AbortController();
+    void refreshPhotographerSlots(abort.signal);
+    return () => abort.abort();
+  }, [loadingPhotographers, roster.error, refreshPhotographerSlots, retry]);
   useEffect(() => {
-    if (!selectedPhotographer || loadingPhotographers) return;
-
-    const abortController = new AbortController();
-    refreshPhotographerSlots(abortController.signal);
-
-    return () => {
-      abortController.abort();
+    const update = () => {
+      void refreshPhotographerSlots();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPhotographer, date, viewMode, loadingPhotographers]);
+    window.addEventListener("availability-updated", update);
+    return () => window.removeEventListener("availability-updated", update);
+  }, [refreshPhotographerSlots]);
 
-  // Keep list availability updated for team management view when a single photographer is selected
-  useEffect(() => {
-    if (!canManagePhotographerSelection || loadingPhotographers || selectedPhotographer === "all") return;
-    if (!date || photographers.length === 0) return;
-
-    const anchorDate = date || new Date();
-    const weekStart = startOfWeek(anchorDate);
-    const weekEnd = addDays(weekStart, 6);
-    const monthStart = startOfMonth(anchorDate);
-    const monthEnd = endOfMonth(anchorDate);
-
-    const fromDate = viewMode === "day"
-      ? format(anchorDate, "yyyy-MM-dd")
-      : viewMode === "week"
-        ? format(weekStart, "yyyy-MM-dd")
-        : format(monthStart, "yyyy-MM-dd");
-
-    const toDate = viewMode === "day"
-      ? format(anchorDate, "yyyy-MM-dd")
-      : viewMode === "week"
-        ? format(weekEnd, "yyyy-MM-dd")
-        : format(monthEnd, "yyyy-MM-dd");
-
-    const cacheKey = `list_${fromDate}_${toDate}`;
-    const CACHE_TTL = 60 * 1000;
-    const cached = listAvailabilityCacheRef.current;
-    if (cached && cached.key === cacheKey && (Date.now() - cached.timestamp) < CACHE_TTL) {
-      const map: Record<string, BackendSlot[]> = {};
-      cached.data.forEach((slot) => {
-        const pid = String(slot.photographer_id);
-        if (!map[pid]) map[pid] = [];
-        map[pid].push(slot);
-      });
-      setPhotographerAvailabilityMap(map);
-      return;
-    }
-
-    let cancelled = false;
-    const loadListAvailability = async () => {
-      try {
-        const photographerIds = photographers.map((p) => Number(p.id));
-        const response = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
-          method: "POST",
-          headers: authHeaders(),
-          body: JSON.stringify({
-            photographer_ids: photographerIds,
-            from_date: fromDate,
-            to_date: toDate,
-          }),
-        });
-
-        if (!response.ok) return;
-
-        const bulkJson = await response.json();
-        const groupedData = bulkJson?.data || {};
-        const map: Record<string, BackendSlot[]> = {};
-        const allSlots: BackendSlot[] = [];
-
-        for (const [photographerId, slots] of Object.entries(groupedData)) {
-          const mappedSlots = mapBackendSlots(slots as readonly unknown[], photographerId);
-          map[String(photographerId)] = mappedSlots;
-          allSlots.push(...mappedSlots);
-        }
-
-        if (!cancelled) {
-          listAvailabilityCacheRef.current = { key: cacheKey, data: allSlots, timestamp: Date.now() };
-          setPhotographerAvailabilityMap(map);
-        }
-      } catch {
-        // ignore
-      }
-    };
-
-    loadListAvailability();
-    return () => {
-      cancelled = true;
-    };
-  }, [canManagePhotographerSelection, selectedPhotographer, date, viewMode, photographers, loadingPhotographers, authHeaders]);
-
-  // Populate photographerAvailabilityMap from allBackendSlots when it changes
-  useEffect(() => {
-    if (allBackendSlots.length > 0) {
-      const map: Record<string, BackendSlot[]> = {};
-      allBackendSlots.forEach(slot => {
-        const pid = String(slot.photographer_id);
-        if (!map[pid]) map[pid] = [];
-        map[pid].push(slot);
-      });
-      setPhotographerAvailabilityMap(map);
-    }
-  }, [allBackendSlots]);
-
+  const rows =
+    slotState.key === key && !slotState.loading ? slotState.rows : EMPTY_ROWS;
+  const photographerAvailabilityMap = useMemo(() => {
+    const grouped: Record<string, BackendSlot[]> = {};
+    for (const row of rows)
+      (grouped[String(row.photographer_id)] ??= []).push(row);
+    return grouped;
+  }, [rows]);
   return {
     photographers,
     loadingPhotographers,
-    backendSlots,
-    allBackendSlots,
-    loading,
+    loading:
+      !roster.error &&
+      (loadingPhotographers || slotState.key !== key || slotState.loading),
+    error:
+      roster.error ?? (slotState.key === key ? slotState.error : undefined),
+    backendSlots: selectedPhotographer === "all" ? EMPTY_ROWS : rows,
+    allBackendSlots: selectedPhotographer === "all" ? rows : EMPTY_ROWS,
     photographerAvailabilityMap,
     authHeaders,
     refreshPhotographerSlots,
-    invalidatePhotographerBookedCache,
+    retry: () => setRetry((value) => value + 1),
   };
 }

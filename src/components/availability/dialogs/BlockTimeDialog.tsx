@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { Ban, CalendarIcon, ChevronDown, Search } from "lucide-react";
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { TimeSelect } from "@/components/ui/time-select";
+import { Textarea } from "@/components/ui/textarea";
+import { AvailabilityTimeField as TimeSelect } from "../AvailabilityTimeField";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -54,6 +55,7 @@ interface BlockTimeDialogProps {
   isBlocking: boolean;
   setIsBlocking: (value: boolean) => void;
   toast: AvailabilityToastFn;
+  onSaved?: (date: Date) => void;
 }
 
 export function BlockTimeDialog({
@@ -78,7 +80,10 @@ export function BlockTimeDialog({
   isBlocking,
   setIsBlocking,
   toast,
+  onSaved,
 }: BlockTimeDialogProps) {
+  const [note, setNote] = useState('');
+  useEffect(() => { if (open) setNote(''); }, [open]);
   useEffect(() => {
     if (!open) return;
 
@@ -154,6 +159,7 @@ export function BlockTimeDialog({
         start_time: startTime,
         end_time: endTime,
         status: "unavailable",
+        note: note.trim() || null,
       };
 
       const res = await fetch(API_ROUTES.photographerAvailability.create, {
@@ -164,6 +170,7 @@ export function BlockTimeDialog({
 
       if (res.ok) {
         await refreshPhotographerSlots();
+        onSaved?.(blockSchedule.date);
         onOpenChange(false);
         setBlockSchedule({ date: null, startTime: "09:00", endTime: "17:00" });
         setBlockPhotographer(photographerScopedBlockId);
@@ -194,7 +201,7 @@ export function BlockTimeDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="availability-dialog max-w-md">
         <DialogHeader>
           <DialogTitle>Block Time</DialogTitle>
           <DialogDescription>
@@ -330,14 +337,18 @@ export function BlockTimeDialog({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-red-950/40 border border-red-800 text-red-300 text-sm">
+          <div className="space-y-2">
+            <Label htmlFor="block-reason">Reason (optional)</Label>
+            <Textarea id="block-reason" value={note} maxLength={1000} onChange={event => setNote(event.target.value)} placeholder="Time off, appointment, equipment maintenance…" />
+          </div>
+          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm">
             <Ban className="h-4 w-4 shrink-0" />
             This time will be marked as unavailable
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>Cancel</Button>
+          <Button variant="outline" disabled={isBlocking} onClick={handleCancel}>Cancel</Button>
           <Button variant="destructive" disabled={isBlocking} onClick={handleBlock}>
             {isBlocking ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : <Ban className="h-4 w-4 mr-2" />}
             {isBlocking ? "Blocking..." : "Block Time"}

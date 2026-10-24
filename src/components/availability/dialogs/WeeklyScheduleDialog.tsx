@@ -1,4 +1,6 @@
 import { CalendarIcon } from "lucide-react";
+import { useState } from 'react';
+import { AvailabilityPhotographerSelect } from '../AvailabilityPhotographerSelect';
 import { format } from "date-fns";
 import {
   Dialog,
@@ -11,7 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { TimeSelect } from "@/components/ui/time-select";
+import { AvailabilityTimeField as TimeSelect } from "../AvailabilityTimeField";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
@@ -22,7 +24,7 @@ import {
   availabilityDatePopoverClass,
   uiTimeToHhmm,
 } from "@/lib/availability/utils";
-import type { AvailabilityStatus, AvailabilityToastFn } from "@/types/availability";
+import type { AvailabilityStatus, AvailabilityToastFn, Photographer } from "@/types/availability";
 
 export interface NewWeeklyScheduleState {
   startTime: string;
@@ -34,6 +36,9 @@ export interface NewWeeklyScheduleState {
 }
 
 interface WeeklyScheduleDialogProps {
+  photographers?: Photographer[];
+  canSelectPhotographer?: boolean;
+  onSelectPhotographer?: (id: string) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   newWeeklySchedule: NewWeeklyScheduleState;
@@ -68,6 +73,7 @@ const DEFAULT_SCHEDULE: NewWeeklyScheduleState = {
 };
 
 export function WeeklyScheduleDialog({
+  photographers = [], canSelectPhotographer = false, onSelectPhotographer,
   open,
   onOpenChange,
   newWeeklySchedule,
@@ -85,6 +91,7 @@ export function WeeklyScheduleDialog({
   refreshPhotographerSlots,
   toast,
 }: WeeklyScheduleDialogProps) {
+  const [saving, setSaving] = useState(false);
   const resetState = () => {
     setNewWeeklySchedule(DEFAULT_SCHEDULE);
     const seedDate = date ?? new Date();
@@ -98,6 +105,7 @@ export function WeeklyScheduleDialog({
   };
 
   const handleSave = async () => {
+    if (saving) return;
     if (selectedPhotographer === "all") {
       toast({
         title: "Select a photographer",
@@ -110,7 +118,7 @@ export function WeeklyScheduleDialog({
     const startTime = uiTimeToHhmm(newWeeklySchedule.startTime);
     const endTime = uiTimeToHhmm(newWeeklySchedule.endTime);
 
-    if (startTime >= endTime) {
+    if (!startTime || !endTime || startTime >= endTime) {
       toast({
         title: "Invalid time range",
         description: "End time must be after start time.",
@@ -119,6 +127,7 @@ export function WeeklyScheduleDialog({
       return;
     }
 
+    setSaving(true);
     try {
       if (newWeeklySchedule.recurring) {
         const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -142,6 +151,7 @@ export function WeeklyScheduleDialog({
             start_time: startTime,
             end_time: endTime,
             status: newWeeklySchedule.status === 'unavailable' ? 'unavailable' : 'available',
+            note: newWeeklySchedule.note.trim(),
           }))
         };
 
@@ -209,6 +219,7 @@ export function WeeklyScheduleDialog({
             start_time: startTime,
             end_time: endTime,
             status: newWeeklySchedule.status === 'unavailable' ? 'unavailable' : 'available',
+            note: newWeeklySchedule.note.trim(),
           })),
         };
 
@@ -243,20 +254,21 @@ export function WeeklyScheduleDialog({
         description: "Failed to add schedule. Please try again.",
         variant: "destructive"
       });
-    }
+    } finally { setSaving(false); }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+    <Dialog open={open} onOpenChange={nextOpen => { if (saving) return; onOpenChange(nextOpen); if (!nextOpen) resetState(); }}>
+      <DialogContent className="availability-dialog max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add Schedule</DialogTitle>
           <DialogDescription>
-            Create availability schedule for {getPhotographerName(selectedPhotographer)}. Pick a date range, or check the box to repeat it weekly.
+            Create availability for {selectedPhotographer === 'all' ? 'a photographer' : getPhotographerName(selectedPhotographer)}. Choose a date or repeat it weekly.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
+          {canSelectPhotographer && onSelectPhotographer && <AvailabilityPhotographerSelect canManagePhotographerSelection photographers={photographers} selectedPhotographer={selectedPhotographer} onSelect={onSelectPhotographer} />}
           <div className="space-y-2">
             <Label>Status</Label>
             <div className="flex gap-2">
@@ -371,17 +383,19 @@ export function WeeklyScheduleDialog({
           {newWeeklySchedule.recurring && (
             <div className="space-y-2">
               <Label>Repeat Days</Label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-7 gap-1">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
                   <button
                     key={idx}
+                    aria-label={['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][idx]}
+                    aria-pressed={newWeeklySchedule.days[idx]}
                     onClick={() => {
                       const newDays = [...newWeeklySchedule.days];
                       newDays[idx] = !newDays[idx];
                       setNewWeeklySchedule({ ...newWeeklySchedule, days: newDays });
                     }}
                     className={cn(
-                      "h-9 w-9 rounded-full font-medium transition-all text-sm",
+                      "h-10 w-full rounded-full font-medium transition-all text-sm",
                       newWeeklySchedule.days[idx]
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -400,14 +414,15 @@ export function WeeklyScheduleDialog({
               value={newWeeklySchedule.note}
               onChange={(e) => setNewWeeklySchedule({ ...newWeeklySchedule, note: e.target.value })}
               placeholder="Add a note about this schedule..."
+              maxLength={1000}
               className="min-h-[80px] rounded-md resize-none"
             />
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>Cancel</Button>
-          <Button onClick={handleSave}>Add Schedule</Button>
+          <Button variant="outline" disabled={saving} onClick={handleCancel}>Cancel</Button>
+          <Button disabled={saving || selectedPhotographer === 'all'} onClick={handleSave}>{saving ? 'Saving…' : 'Add Schedule'}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
