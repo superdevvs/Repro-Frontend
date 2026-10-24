@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
@@ -109,7 +109,7 @@ export function PhotographerNotificationPreferencesForm() {
   const { toast } = useToast();
   const preferences = readPreferences(readMetadata(user?.metadata));
   const form = useForm<NotificationsFormValues>({
-    resolver: zodResolver(notificationsSchema),
+    resolver: zodResolver(notificationsSchema) as Resolver<NotificationsFormValues>,
     defaultValues: {
       email_notifications: readStoredBoolean(preferences.notificationEmail, true),
     },

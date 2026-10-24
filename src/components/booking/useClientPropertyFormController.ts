@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import type { Client } from '@/types/clients';
 import { initialClientsData } from '@/data/clientsData';
-import { useForm, type FieldErrors } from 'react-hook-form';
+import { useForm, type FieldErrors, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { buildNormalizedPropertyDetails, type AddressDetails } from '@/utils/addressLookup';
@@ -150,7 +150,7 @@ const clientAccountPropertyFormSchema = z.object({
   propertyZip: z.string().min(1, "ZIP code is required"),
   bedRooms: z.number().min(0, "Bedrooms must be 0 or more").optional(),
   bathRooms: z.number().min(0, "Bathrooms must be 0 or more").optional(),
-  sqft: z.number({ required_error: "Square footage is required" }).min(1, "Square footage is required"),
+  sqft: z.number({ error: issue => issue.input === undefined ? "Square footage is required" : undefined }).min(1, "Square footage is required"),
   propertyType: z.enum(["residential", "commercial"]),
   listingType: z.enum(["for_sale", "for_rent"]).optional(),
   propertyInfo: z.string().optional(),
@@ -178,7 +178,7 @@ const adminPropertyFormSchema = z.object({
   propertyZip: z.string().min(1, "ZIP code is required"),
   bedRooms: z.number().min(0, "Bedrooms must be 0 or more").optional(),
   bathRooms: z.number().min(0, "Bathrooms must be 0 or more").optional(),
-  sqft: z.number({ required_error: "Square footage is required" }).min(1, "Square footage is required"),
+  sqft: z.number({ error: issue => issue.input === undefined ? "Square footage is required" : undefined }).min(1, "Square footage is required"),
   propertyType: z.enum(["residential", "commercial"]),
   listingType: z.enum(["for_sale", "for_rent"]).optional(),
   propertyInfo: z.string().optional(),
@@ -361,7 +361,7 @@ export const useClientPropertyFormController = ({
     ?? initialPropertyDetails?.livingArea ?? initialPropertyDetails?.living_area ?? 0);
 
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as Resolver<FormValues>,
     defaultValues: React.useMemo(() => (
       isClientAccount ? {
         propertyAddress: initialData.propertyAddress || '',

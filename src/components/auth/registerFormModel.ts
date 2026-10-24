@@ -249,7 +249,10 @@ export const registerSchema = z
     state: z.string().optional(),
     zip: z.string().optional(),
     country: z.string().optional(),
-    password: z.string().refine(value => !accountPasswordError(value), value => ({ message: accountPasswordError(value) ?? 'Invalid password' })),
+    password: z.string().superRefine((value, context) => {
+      const message = accountPasswordError(value);
+      if (message) context.addIssue({ code: 'custom', message });
+    }),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     terms: z.boolean().refine((value) => value === true, {
       message: 'You must agree to the Terms & Conditions',

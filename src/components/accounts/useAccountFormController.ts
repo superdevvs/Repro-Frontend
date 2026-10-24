@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/components/auth';
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@/hooks/use-toast';
 import { API_BASE_URL } from '@/config/env';
@@ -56,7 +56,7 @@ export function useAccountFormController({
   const canEditSensitiveRepFields = viewerRole === 'superadmin';
   const queryClient = useQueryClient();
   const form = useForm<AccountFormValues>({
-    resolver: zodResolver(createAccountFormSchema(viewerRole, Boolean(initialData))),
+    resolver: zodResolver(createAccountFormSchema(viewerRole, Boolean(initialData))) as Resolver<AccountFormValues>,
     defaultValues: {
       firstName: "",
       lastName: "",

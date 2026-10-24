@@ -11,7 +11,7 @@
     "package:qa": "node release.cjs --qa"
   },
   "devDependencies": {
-    "electron": "44.5.0",
+    "electron": "44.9.3",
     "electron-builder": "26.15.3"
   }
 }
