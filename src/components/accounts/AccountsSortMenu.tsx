@@ -27,7 +27,7 @@ export function AccountsSortMenu({ sort, onSortChange }: AccountsSortMenuProps) 
         <Button
           variant="outline"
           size="sm"
-          className={cn('h-9 shrink-0 gap-1.5 px-2.5', sort && 'border-primary/50 bg-primary/5 text-primary')}
+          className={cn('h-11 w-11 shrink-0 gap-1.5 rounded-xl border-border/70 px-0 sm:h-9 sm:w-auto sm:rounded-md sm:border-border sm:px-2.5', sort && 'border-primary/50 bg-primary/5 text-primary')}
           aria-label="Sort accounts"
           title={`Sort accounts: ${selectedLabel}`}
         >

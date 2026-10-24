@@ -58,7 +58,7 @@ export function AccountsHeader({
         : repOptions.find((rep) => rep.value === repFilter)?.label || "Rep filter";
 
   return (
-    <div className="flex items-center gap-2 whitespace-nowrap">
+    <div className="flex items-center gap-1.5 whitespace-nowrap sm:gap-2">
       <AccountsSortMenu sort={sort} onSortChange={onSortChange} />
       <div className="hidden sm:flex shrink-0 items-center gap-2 whitespace-nowrap">
         {/* View Toggle */}
@@ -188,7 +188,7 @@ export function AccountsHeader({
       {/* Mobile overflow */}
       <DropdownMenu onOpenChange={(open) => !open && setMobileRepMenuOpen(false)}>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="h-9 w-9 sm:hidden" title="Account controls">
+          <Button variant="outline" size="icon" className="h-11 w-11 rounded-xl border-border/70 bg-background sm:hidden" aria-label="Account controls">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>

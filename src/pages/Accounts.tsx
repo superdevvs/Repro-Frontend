@@ -14,6 +14,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { AccountCard } from "@/components/accounts/AccountCard";
 import { AccountList } from "@/components/accounts/AccountList";
 import { AccountsHeader } from "@/components/accounts/AccountsHeader";
+import { AccountsSectionSelect, AccountsSectionTabs } from '@/components/accounts/AccountsSectionNavigation';
 import { getNextAccountSort, sortAccounts, type AccountSort, type AccountSortKey } from '@/components/accounts/accountSorting';
 import { AccountForm } from "@/components/accounts/AccountForm";
 import { UserProfileDialog } from '@/components/accounts/UserProfileDialog';
@@ -28,7 +29,7 @@ import { AccountLinkingManager } from '@/components/accounts/AccountLinkingManag
 import { ImportAccountsDialog } from '@/components/accounts/ImportAccountsDialog';
 import { AccountsStatsCards } from '@/components/accounts/AccountsStatsCards';
 import { AccountsPagination } from '@/components/accounts/AccountsPagination';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { Role } from '@/components/auth/AuthProvider';
 import { useToast } from "@/hooks/use-toast";
 import { useListedUserAddressReview } from "@/hooks/usePhotographerAddressReview";
@@ -1233,21 +1234,6 @@ export default function Accounts() {
   const showInactiveTab = isAdminOrSuperAdmin || isSalesRep;
   const showDeletedAccounts = isAdminOrSuperAdmin;
 
-  // Calculate number of tabs to show
-  const tabCount =
-    1 +
-    (showPermissionsTab ? 1 : 0) +
-    (showLinkingTab ? 1 : 0) +
-    (showInactiveTab ? 1 : 0);
-  const gridCols =
-    tabCount >= 4
-      ? 'grid-cols-4'
-      : tabCount === 3
-        ? 'grid-cols-3'
-        : tabCount === 2
-          ? 'grid-cols-2'
-          : 'grid-cols-1';
-
   const getClientMenuHandlers = (user: UserType) => {
     const client = clientsData.find(
       (c) => c.id === String(user.id) || c.email === user.email
@@ -1300,7 +1286,7 @@ export default function Accounts() {
   const paginationListRef = usePaginationScrollReset(currentPage, { pageSize: itemsPerPage, isLoading: loading || (useServerSearch && accountSearch.isFetching) });
   return (
     <DashboardLayout>
-      <div className="space-y-3 px-0 pt-1.5 pb-3 sm:space-y-4 sm:px-6 sm:pb-6 sm:pt-0">
+      <div className="space-y-2 px-0 pt-0.5 pb-3 sm:space-y-4 sm:px-6 sm:pb-6 sm:pt-0">
         <PageHeader
           badge="Team"
           title="Accounts"
@@ -1308,7 +1294,18 @@ export default function Accounts() {
           icon={UsersIcon}
           hideIntroOnMobile
           action={
-            <div className="flex w-full items-center gap-2 sm:w-auto">
+            <div data-accounts-toolbar className="flex w-full min-w-0 items-center gap-1.5 sm:w-auto sm:gap-2">
+              {canUseTopLevelTabs ? (
+                <AccountsSectionSelect
+                  value={activeTab}
+                  onValueChange={setActiveTab}
+                  showPermissions={showPermissionsTab}
+                  showLinking={showLinkingTab}
+                  showInactive={showInactiveTab}
+                />
+              ) : (
+                <span className="min-w-0 flex-1 truncate text-base font-semibold sm:hidden">Accounts</span>
+              )}
               {/* Search input in header */}
               <div data-page-search-container className="relative min-w-0 flex-1 sm:flex-none">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -1321,10 +1318,10 @@ export default function Accounts() {
               </div>
               <Button
                 onClick={handleAddAccount}
-                className="h-10 shrink-0 gap-1.5 px-2.5 sm:px-4 bg-gradient-to-r from-[#4FA8FF] via-[#3E8BFF] to-[#2F6DFF] text-white shadow-lg shadow-blue-500/30 transition-all duration-200 hover:from-[#63B4FF] hover:via-[#4C94FF] hover:to-[#3775FF]"
+                className="h-11 shrink-0 gap-1.5 rounded-xl px-3 sm:h-10 sm:rounded-md sm:px-4 bg-gradient-to-r from-[#4FA8FF] via-[#3E8BFF] to-[#2F6DFF] text-white shadow-md shadow-blue-500/20 sm:shadow-lg sm:shadow-blue-500/30 transition-all duration-200 hover:from-[#63B4FF] hover:via-[#4C94FF] hover:to-[#3775FF]"
               >
                 <PlusCircle className="h-4 w-4" />
-                <span className="text-[11px] font-semibold uppercase tracking-wide sm:hidden">New</span>
+                <span className="text-xs font-semibold sm:hidden">New</span>
                 <span className="hidden sm:inline">Add Account</span>
               </Button>
               {activeTab === 'accounts' && (
@@ -1353,22 +1350,15 @@ export default function Accounts() {
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           {/* Tabs row with inline controls */}
-          <div className={`mb-3 flex flex-col gap-4 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-3${!canUseTopLevelTabs && activeTab === 'accounts' ? ' mobile-sticky-tabs' : ''}`}>
+          <div className={`mb-3 flex-col gap-4 sm:flex xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-3${canUseTopLevelTabs && activeTab !== 'permissions' ? ' hidden' : ' flex'}${!canUseTopLevelTabs && activeTab === 'accounts' ? ' mobile-sticky-tabs' : ''}`}>
             {/* Show top-level tabs for admin/superadmin, role pills for editing_manager */}
-            <div className="min-w-0 overflow-hidden">
+            <div className={`min-w-0 overflow-hidden${canUseTopLevelTabs ? ' hidden sm:block' : ''}`}>
             {canUseTopLevelTabs ? (
-              <TabsList className={`grid w-fit ${gridCols}`}>
-                <TabsTrigger value="accounts">Accounts</TabsTrigger>
-                {showPermissionsTab && (
-                  <TabsTrigger value="permissions">Permissions</TabsTrigger>
-                )}
-                {showLinkingTab && (
-                  <TabsTrigger value="linking">Linking</TabsTrigger>
-                )}
-                {showInactiveTab && (
-                  <TabsTrigger value="inactive">Inactive</TabsTrigger>
-                )}
-              </TabsList>
+              <AccountsSectionTabs
+                showPermissions={showPermissionsTab}
+                showLinking={showLinkingTab}
+                showInactive={showInactiveTab}
+              />
             ) : (
               <AccountsStatsCards
                 stats={roleStats}
