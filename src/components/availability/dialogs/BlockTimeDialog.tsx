@@ -1,12 +1,11 @@
+import { AvailabilityPanelContent as DialogContent, AvailabilityPanelFooter as DialogFooter } from "../AvailabilityPanelContent";
 import { useEffect } from "react";
 import { format } from "date-fns";
 import { Ban, CalendarIcon, ChevronDown, Search } from "lucide-react";
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";

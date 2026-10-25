@@ -1,3 +1,4 @@
+import { AvailabilityPanelContent as SheetContent } from "./AvailabilityPanelContent";
 import { PageSearch } from '@/components/search/PageSearch';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -7,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAvatarUrl } from "@/utils/defaultAvatars";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { getInitials } from "@/lib/availability/utils";
 import type { Photographer } from "@/types/availability";
@@ -145,7 +146,7 @@ export function PhotographerListPanel({
             Team
           </Button>
         </SheetTrigger>}
-        <SheetContent side="left" className="w-[85vw] sm:w-[400px]">
+        <SheetContent className="w-[85vw] sm:w-[400px]">
           <SheetHeader>
             <SheetTitle>Select Photographer</SheetTitle>
           </SheetHeader>

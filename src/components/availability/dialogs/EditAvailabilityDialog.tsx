@@ -1,9 +1,8 @@
+import { AvailabilityPanelContent as DialogContent, AvailabilityPanelFooter as DialogFooter } from "../AvailabilityPanelContent";
 import { formatAvailabilityDate, uiTimeToHhmm } from "@/lib/availability/utils";
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
