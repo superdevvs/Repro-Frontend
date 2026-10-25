@@ -8,6 +8,7 @@ interface AvailabilityPhotographerSelectProps {
   selectedPhotographer: string;
   onSelect: (photographerId: string) => void;
   className?: string;
+  allowAll?: boolean;
 }
 
 export function AvailabilityPhotographerSelect({
@@ -16,16 +17,17 @@ export function AvailabilityPhotographerSelect({
   selectedPhotographer,
   onSelect,
   className,
+  allowAll = true,
 }: AvailabilityPhotographerSelectProps) {
   if (!canManagePhotographerSelection) return null;
 
   return (
-    <Select value={selectedPhotographer} onValueChange={onSelect}>
+    <Select value={!allowAll && selectedPhotographer === "all" ? "" : selectedPhotographer} onValueChange={onSelect}>
       <SelectTrigger aria-label="Photographer" className={cn("w-full min-w-0 flex-1", className)}>
         <SelectValue placeholder="Select photographer" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="all">All Photographers</SelectItem>
+        {allowAll && <SelectItem value="all">All Photographers</SelectItem>}
         {photographers.map((photographer) => (
           <SelectItem key={photographer.id} value={photographer.id}>
             {photographer.name}

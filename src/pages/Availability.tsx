@@ -31,6 +31,8 @@ import { useDesktopCalendarRowHeight } from "@/hooks/useDesktopCalendarRowHeight
 import { CalendarSyncModal } from "@/components/availability/CalendarSyncModal";
 import { ShootDetailsModal } from "@/components/shoots/ShootDetailsModal";
 import { AvailabilityCompactToolbar } from "@/components/availability/AvailabilityCompactToolbar";
+import { AvailabilityPhotographerSelect } from "@/components/availability/AvailabilityPhotographerSelect";
+import { AvailabilityLoadStatus } from "@/components/availability/AvailabilityLoadStatus";
 import { PhotographerListPanel } from "@/components/availability/PhotographerListPanel";
 import { ScheduleDetailsPanel } from "@/components/availability/ScheduleDetailsPanel";
 import { AvailabilityCalendarBody } from "@/components/availability/AvailabilityCalendarBody";
@@ -86,6 +88,7 @@ export default function Availability() {
   const [showingMap, setShowingMap] = useState(false);
   const [isPhotographerSheetOpen, setIsPhotographerSheetOpen] = useState(false);
   const [editingWeeklySchedule, setEditingWeeklySchedule] = useState(false);
+  const [defaultScheduleRequested, setDefaultScheduleRequested] = useState(false);
   const [weeklyScheduleNote, setWeeklyScheduleNote] = useState("");
   const [editedAvailability, setEditedAvailability] = useState<Partial<Availability>>({});
   const [isWeeklyScheduleDialogOpen, setIsWeeklyScheduleDialogOpen] = useState(false);
@@ -127,6 +130,7 @@ export default function Availability() {
   const {
     photographers,
     loadingPhotographers, loading: availabilityLoading,
+    loadedPhotographerId,
     backendSlots,
     allBackendSlots,
     photographerAvailabilityMap,
@@ -353,23 +357,19 @@ export default function Availability() {
 
   const handleEditAvailability = () => setEditingWeeklySchedule(true);
 
-  /** Open the reusable weekly/recurring editor, hydrated from existing dateless available slots. */
-  const openDefaultSchedule = () => {
-    if (selectedPhotographer === "all") {
-      toast({
-        title: "Select a photographer",
-        description: "Choose a team member before editing their default schedule.",
-        variant: "destructive",
-      });
-      return;
-    }
+  // Wait for the selected person's response before hydrating an editor opened
+  // from the team overview or switched to another photographer inside a drawer.
+  useEffect(() => {
+    if (!defaultScheduleRequested || selectedPhotographer === "all" || availabilityLoading || loadedPhotographerId !== selectedPhotographer) return;
     const hydrated = buildWeeklyScheduleFromSlots(backendSlots, DEFAULT_SCHEDULE_STARTER);
-    const hasRecurring = hydrated.some((day) => day.active);
-    setPhotographerWeeklySchedules((prev) => ({
-      ...prev,
-      [selectedPhotographer]: hasRecurring ? hydrated : DEFAULT_SCHEDULE_STARTER,
-    }));
+    setPhotographerWeeklySchedules(prev => ({ ...prev, [selectedPhotographer]: hydrated.some(day => day.active) ? hydrated : DEFAULT_SCHEDULE_STARTER }));
     setEditingWeeklySchedule(true);
+    setDefaultScheduleRequested(false);
+  }, [defaultScheduleRequested, selectedPhotographer, availabilityLoading, loadedPhotographerId, backendSlots]);
+
+  const openDefaultSchedule = () => {
+    setDefaultScheduleRequested(true);
+    setEditingWeeklySchedule(false);
   };
 
   const saveWeeklySchedule = async () => {
@@ -558,6 +558,16 @@ export default function Availability() {
     setEditedAvailability, setIsEditDialogOpen, setIsWeeklyScheduleDialogOpen,
     setSelectedShootId, setShootDetailsModalOpen, to12HourDisplay,
   };
+
+  const isSelectedAvailabilityReady = !availabilityLoading && loadedPhotographerId === selectedPhotographer;
+  const availabilityStatus = selectedPhotographer !== "all" && !isSelectedAvailabilityReady && <AvailabilityLoadStatus loading={availabilityLoading} onRetry={() => void refreshPhotographerSlots()} />;
+  const selectDrawerPhotographer = (id: string) => {
+    setSelectedPhotographer(id);
+    setSelectedSlotId(null);
+    setEditingWeeklySchedule(false);
+    setDefaultScheduleRequested(defaultScheduleRequested || editingWeeklySchedule);
+  };
+  const photographerPicker = canManagePhotographerSelection && <AvailabilityPhotographerSelect canManagePhotographerSelection={canManagePhotographerSelection} photographers={photographers} selectedPhotographer={selectedPhotographer} onSelect={selectDrawerPhotographer} allowAll={false} className="h-11 flex-none" />;
 
   return (
     <>
@@ -764,7 +774,7 @@ export default function Availability() {
                 onToday={goToToday}
                 onBlock={openBlockDialog}
                 onTeam={() => setIsPhotographerSheetOpen(true)}
-                onDetails={() => setMobileTab("details")}
+                onDetails={() => { setDefaultScheduleRequested(false); setEditingWeeklySchedule(false); setMobileTab("details"); }}
                 onAddSchedule={() => setIsWeeklyScheduleDialogOpen(true)}
                 onDefaultSchedule={() => { openDefaultSchedule(); setMobileTab("details"); }}
                 onSync={() => setIsSyncModalOpen(true)}
@@ -797,10 +807,11 @@ export default function Availability() {
                   </React.Suspense>
                 ) : <AvailabilityCalendarBody {...calendarBodyProps} />}
               </Card>
-              <Sheet open={mobileTab === "details"} onOpenChange={open => setMobileTab(open ? "details" : "calendar")}>
+              <Sheet open={mobileTab === "details"} onOpenChange={open => { setMobileTab(open ? "details" : "calendar"); if (!open) { setDefaultScheduleRequested(false); setEditingWeeklySchedule(false); } }}>
                 <SheetContent side="right" className="flex w-full flex-col gap-4 overflow-y-auto px-3 sm:max-w-lg sm:px-5">
-                  <SheetHeader><SheetTitle>Schedule details</SheetTitle></SheetHeader>
-                  <ScheduleDetailsPanel variant="mobile" {...scheduleDetailsProps} />
+                  <SheetHeader><SheetTitle>{defaultScheduleRequested || editingWeeklySchedule ? "Default schedule" : "Schedule details"}</SheetTitle></SheetHeader>
+                  {photographerPicker}
+                  {availabilityStatus || <ScheduleDetailsPanel variant="mobile" {...scheduleDetailsProps} />}
                 </SheetContent>
               </Sheet>
             </>
@@ -910,6 +921,9 @@ export default function Availability() {
         setSpecificDateTo={setSpecificDateTo}
         specificScheduleDates={specificScheduleDates}
         selectedPhotographer={selectedPhotographer}
+        photographerPicker={photographerPicker}
+        isAvailabilityReady={isSelectedAvailabilityReady}
+        availabilityStatus={availabilityStatus}
         getPhotographerName={getPhotographerName}
         checkTimeOverlap={checkTimeOverlap}
         date={date}
@@ -945,6 +959,9 @@ export default function Availability() {
       <CalendarSyncModal
         isOpen={isSyncModalOpen}
         onClose={() => setIsSyncModalOpen(false)}
+        isAvailabilityReady={selectedPhotographer === "all" ? !availabilityLoading : isSelectedAvailabilityReady}
+        availabilityStatus={availabilityStatus}
+        photographerPicker={canManagePhotographerSelection && <AvailabilityPhotographerSelect canManagePhotographerSelection={canManagePhotographerSelection} photographers={photographers} selectedPhotographer={selectedPhotographer} onSelect={selectDrawerPhotographer} className="h-11 flex-none" />}
         onGoogleCalendarConnect={fetchGoogleCalendarAuthorizationUrl}
         allowGoogleCalendarReconnect={new URLSearchParams(window.location.search).get("calendar_scope_preview") === "owned"}
         isGoogleCalendarConnecting={isGoogleCalendarConnecting}

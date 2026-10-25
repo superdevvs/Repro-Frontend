@@ -50,12 +50,14 @@ export function PhotographerListPanel({
               "absolute left-3 top-1/2 h-4 w-4 text-muted-foreground",
               variant === "desktop" ? "transform -translate-y-1/2" : "-translate-y-1/2"
             )} />
-            <PageSearch scope="availability" onResultOpen={result => { setSelectedPhotographer(result.id); setEditingWeeklySchedule(false); }} scopeLabel="Availability team" searchId="availability" priority={20} searchResults={pageSearchResults(filteredPhotographers, 'availability', '/availability?photographer={id}')}
+            {variant === "mobile-sheet" ? (
+              <Input aria-label="Search photographers" placeholder="Search team..." value={searchQuery} onChange={event => setSearchQuery(event.target.value)} className="pl-9" />
+            ) : <PageSearch scope="availability" onResultOpen={result => { setSelectedPhotographer(result.id); setEditingWeeklySchedule(false); }} scopeLabel="Availability team" searchId="availability" priority={20} searchResults={pageSearchResults(filteredPhotographers, 'availability', '/availability?photographer={id}')}
               placeholder="Search team..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={cn("pl-9", variant === "desktop" && "border-muted")}
-            />
+            />}
           </div>
           <Button
             variant="outline"
@@ -65,6 +67,7 @@ export function PhotographerListPanel({
               setSelectedPhotographer("all");
               setEditingWeeklySchedule(false);
               setSearchQuery("");
+              onSelect?.();
             }}
           >
             All
@@ -84,7 +87,8 @@ export function PhotographerListPanel({
         {filteredPhotographers.map((photographer) => {
           const isSelected = selectedPhotographer === photographer.id;
           return (
-            <div
+            <button
+              type="button"
               key={photographer.id}
               onClick={() => {
                 setSelectedPhotographer(photographer.id);
@@ -92,7 +96,7 @@ export function PhotographerListPanel({
                 onSelect?.();
               }}
               className={cn(
-                "p-4 rounded-md cursor-pointer transition-all border-2",
+                "w-full p-4 rounded-md text-left cursor-pointer transition-all border-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 isSelected
                   ? "bg-primary text-primary-foreground border-primary shadow-md"
                   : "bg-card border-border hover:border-primary/50"
@@ -125,7 +129,7 @@ export function PhotographerListPanel({
                   <div className="h-2 w-2 rounded-full bg-green-500 ring-2 ring-primary-foreground/20" />
                 )}
               </div>
-            </div>
+            </button>
           );
         })}
       </div>

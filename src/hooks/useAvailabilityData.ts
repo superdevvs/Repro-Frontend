@@ -54,6 +54,7 @@ export function useAvailabilityData({
   const [backendSlots, setBackendSlots] = useState<BackendSlot[]>([]);
   const [allBackendSlots, setAllBackendSlots] = useState<BackendSlot[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadedPhotographerId, setLoadedPhotographerId] = useState<string | null>(null);
   const [loadingPhotographers, setLoadingPhotographers] = useState(true);
   const [photographerAvailabilityMap, setPhotographerAvailabilityMap] = useState<Record<string, BackendSlot[]>>({});
 
@@ -83,6 +84,7 @@ export function useAvailabilityData({
     setBackendSlots([]);
     setAllBackendSlots([]);
     setLoading(false);
+    setLoadedPhotographerId(null);
     setLoadingPhotographers(true);
     setSelectedPhotographer(resolveSelectedPhotographer("all", { isPhotographer, userId }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -99,6 +101,7 @@ export function useAvailabilityData({
 
   const refreshPhotographerSlots = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
+    setLoadedPhotographerId(null);
     try {
       if (!selectedPhotographer) {
         setBackendSlots([]);
@@ -247,6 +250,7 @@ export function useAvailabilityData({
 
       setBackendSlots(mergeBookedSlots([...availabilitySlots, ...bookedSlots]));
       setAllBackendSlots([]);
+      setLoadedPhotographerId(selectedPhotographer);
     } catch (error: unknown) {
       if (isAbortError(error)) return;
       console.error('Error refreshing photographer slots:', error);
@@ -502,6 +506,7 @@ export function useAvailabilityData({
     backendSlots,
     allBackendSlots,
     loading,
+    loadedPhotographerId,
     photographerAvailabilityMap,
     authHeaders,
     refreshPhotographerSlots,

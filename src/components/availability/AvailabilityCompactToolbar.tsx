@@ -43,7 +43,6 @@ export function AvailabilityCompactToolbar(props: AvailabilityCompactToolbarProp
     : viewMode === "week"
       ? `${format(weekStart, "MMM d")} – ${format(weekEnd, weekStart.getMonth() === weekEnd.getMonth() ? "d" : "MMM d")}`
       : format(date, "EEE, MMM d");
-  const needsPhotographer = selectedPhotographer === "all";
 
   return (
     <header className="flex shrink-0 flex-col gap-2 pb-2" aria-label="Availability controls">
@@ -85,9 +84,8 @@ export function AvailabilityCompactToolbar(props: AvailabilityCompactToolbarProp
             {canEditAvailability && (
               <>
                 <DropdownMenuSeparator />
-                {needsPhotographer && <p className="px-2 py-1.5 text-xs text-muted-foreground">Select a photographer to add or edit their schedule.</p>}
-                <DropdownMenuItem disabled={needsPhotographer} className="min-h-11 gap-2" onSelect={props.onAddSchedule}><Plus className="h-4 w-4" />Add schedule</DropdownMenuItem>
-                <DropdownMenuItem disabled={needsPhotographer} className="min-h-11 gap-2" onSelect={props.onDefaultSchedule}><CalendarDays className="h-4 w-4" />Default schedule</DropdownMenuItem>
+                <DropdownMenuItem className="min-h-11 gap-2" onSelect={props.onAddSchedule}><Plus className="h-4 w-4" />Add schedule</DropdownMenuItem>
+                <DropdownMenuItem className="min-h-11 gap-2" onSelect={props.onDefaultSchedule}><CalendarDays className="h-4 w-4" />Default schedule</DropdownMenuItem>
               </>
             )}
             <DropdownMenuSeparator />
