@@ -169,7 +169,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                         <div className="space-y-2">
                           {daySlots.map((slot) => (
                             <div
-                              key={slot.id}
+                              key={`${slot.id}:${slot.date}`}
                               data-slot-id={slot.id}
                               data-date-key={slot.date || undefined}
                               ref={selectedSlotId === slot.id ? (el) => el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) : undefined}
