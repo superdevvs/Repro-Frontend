@@ -1,7 +1,4 @@
 import { formatAvailabilityDate, uiTimeToHhmm } from "@/lib/availability/utils";
-import { useState } from 'react';
-import { checkTimeOverlap as overlaps } from '@/lib/availability/selectors';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -9,11 +6,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/availability/AvailabilityDialog";
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AvailabilityTimeField as TimeSelect } from "../AvailabilityTimeField";
+import { TimeSelect } from "@/components/ui/time-select";
+import { cn } from "@/lib/utils";
 import API_ROUTES from "@/lib/api";
 import type { Availability, AvailabilityToastFn, BackendSlot } from "@/types/availability";
 
@@ -39,7 +37,6 @@ interface EditAvailabilityDialogProps {
   notifyDemoAvailabilityRestriction: () => void;
   setSelectedSlotId: (id: string | null) => void;
   toast: AvailabilityToastFn;
-  onDelete?: (id: string) => void;
 }
 
 export function EditAvailabilityDialog({
@@ -49,6 +46,7 @@ export function EditAvailabilityDialog({
   setEditedAvailability,
   selectedPhotographer,
   getPhotographerName,
+  checkTimeOverlap,
   backendSlots,
   allBackendSlots,
   date,
@@ -57,14 +55,9 @@ export function EditAvailabilityDialog({
   notifyDemoAvailabilityRestriction,
   setSelectedSlotId,
   toast,
-  onDelete,
 }: EditAvailabilityDialogProps) {
-  const [saving, setSaving] = useState(false);
-  const isBlock = [...backendSlots, ...allBackendSlots].find(slot => String(slot.id) === editedAvailability.id)?.status === 'unavailable';
   const handleSave = async () => {
-    if (saving) return;
-    const personId = editedAvailability.photographerId || selectedPhotographer;
-    if (!editedAvailability.id || personId === "all") {
+    if (!editedAvailability.id || selectedPhotographer === "all") {
       toast({
         title: "Missing information",
         description: "Please select a specific photographer and availability to edit.",
@@ -76,7 +69,7 @@ export function EditAvailabilityDialog({
     const startTime = uiTimeToHhmm(editedAvailability.startTime || "09:00");
     const endTime = uiTimeToHhmm(editedAvailability.endTime || "17:00");
 
-    if (!startTime || !endTime || startTime >= endTime) {
+    if (startTime >= endTime) {
       toast({
         title: "Invalid time range",
         description: "End time must be after start time.",
@@ -98,7 +91,7 @@ export function EditAvailabilityDialog({
             : undefined;
 
       const isUnavailable = editedAvailability.status === 'unavailable';
-      if (!isUnavailable && overlaps({ selectedPhotographer: personId, backendSlots: [...backendSlots, ...allBackendSlots], allBackendSlots: [] },
+      if (!isUnavailable && checkTimeOverlap(
         editedAvailability.startTime || "09:00",
         editedAvailability.endTime || "17:00",
         originalSlot.date || undefined,
@@ -121,13 +114,10 @@ export function EditAvailabilityDialog({
       return;
     }
 
-    setSaving(true);
     try {
       const payload = {
-        photographer_id: Number(personId),
-        date: slotMeta?.date ?? (editedAvailability.origin === 'weekly' ? null : editedAvailability.date),
-        ...(slotMeta?.day_of_week ? { day_of_week: slotMeta.day_of_week } : {}),
-        note: editedAvailability.note?.trim() || null,
+        photographer_id: Number(selectedPhotographer),
+        date: editedAvailability.date,
         start_time: startTime,
         end_time: endTime,
         status: editedAvailability.status === 'unavailable' ? 'unavailable' : editedAvailability.status === 'booked' ? 'booked' : 'available',
@@ -160,34 +150,55 @@ export function EditAvailabilityDialog({
         description: "Failed to update availability. Please try again.",
         variant: "destructive"
       });
-    } finally { setSaving(false); }
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={nextOpen => { if (!saving) onOpenChange(nextOpen); }}>
-      <DialogContent className="availability-dialog">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
         <DialogHeader>
-          <DialogTitle>{isBlock ? "Edit blocked time" : "Edit Availability"}</DialogTitle>
+          <DialogTitle>Edit Availability</DialogTitle>
           <DialogDescription>
-            Update availability for {getPhotographerName(editedAvailability.photographerId || selectedPhotographer)}{editedAvailability.origin === 'weekly' ? ' in their recurring schedule' : ` on ${editedAvailability.date ? formatAvailabilityDate(editedAvailability.date, 'MMMM d, yyyy') : 'the selected date'}`}.
+            Update availability for {getPhotographerName(selectedPhotographer)} on {editedAvailability.date ? formatAvailabilityDate(editedAvailability.date, "MMMM d, yyyy") : "the selected date"}.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2">
             <Label>Status</Label>
-            {isBlock ? <p className="text-sm text-muted-foreground">Blocked time. Edit the hours or reason, or remove this block.</p> : editedAvailability.status === "booked" ? (
+            {editedAvailability.status === "booked" ? (
               <div className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium bg-blue-50 border border-blue-300 text-blue-700 w-fit">
                 <span className="h-2.5 w-2.5 rounded-full bg-blue-500" />
                 Booked
               </div>
             ) : (
-              <div className="availability-choice status">
-                {(['available', 'unavailable'] as const).map(status => <button key={status} type="button"
-                  data-status={status} aria-pressed={editedAvailability.status === status}
-                  onClick={() => setEditedAvailability({ ...editedAvailability, status })}>
-                  {status === 'available' ? 'Available' : 'Unavailable'}
-                </button>)}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditedAvailability({ ...editedAvailability, status: "available" })}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
+                    editedAvailability.status === "available"
+                      ? "bg-green-50 border-green-300 text-green-700 ring-2 ring-green-200"
+                      : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                  Available
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditedAvailability({ ...editedAvailability, status: "unavailable" })}
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
+                    editedAvailability.status === "unavailable"
+                      ? "bg-red-50 border-red-300 text-red-700 ring-2 ring-red-200"
+                      : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
+                  )}
+                >
+                  <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                  Unavailable
+                </button>
               </div>
             )}
           </div>
@@ -215,7 +226,6 @@ export function EditAvailabilityDialog({
             </div>
           </div>
 
-          <div className="space-y-2"><Label htmlFor="availability-edit-note">Note</Label><Textarea id="availability-edit-note" value={editedAvailability.note || ''} maxLength={1000} onChange={event => setEditedAvailability({ ...editedAvailability, note: event.target.value })} /></div>
           {editedAvailability.status === "booked" && (
             <div className="space-y-2">
               <Label>Shoot Title</Label>
@@ -229,9 +239,8 @@ export function EditAvailabilityDialog({
         </div>
 
         <DialogFooter>
-          {isBlock && onDelete && editedAvailability.id && <Button variant="destructive" disabled={saving} onClick={() => { onOpenChange(false); onDelete(editedAvailability.id!); }}>Remove block</Button>}
-          <Button variant="outline" disabled={saving} onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button disabled={saving} onClick={handleSave}>{saving ? 'Saving…' : 'Save Changes'}</Button>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          <Button onClick={handleSave}>Save Changes</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

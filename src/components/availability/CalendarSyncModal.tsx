@@ -1,4 +1,3 @@
-import { AlertDialogContent } from "./AvailabilityDialog";
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
@@ -7,15 +6,14 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/availability/AvailabilityDialog";
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, addDays, startOfDay, endOfDay } from "date-fns";
-import { buildAvailabilityExportEvents } from "@/lib/availability/calendarExport";
-import type { BackendSlot } from "@/types/availability";
+import { format, addDays, startOfDay, endOfDay, isAfter, isBefore } from "date-fns";
+import { calendarDay } from "@/lib/date";
 import { CalendarIcon, Check, AlertCircle, Link as LinkIcon } from "lucide-react";
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { cn } from "@/lib/utils";
@@ -26,10 +24,12 @@ import {
   generateOutlookCalendarURL,
 } from "@/utils/icsGenerator";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
+  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
@@ -39,10 +39,17 @@ import {
 type CalendarType = "google" | "apple" | "outlook" | null;
 type DateRangeOption = "30days" | "90days" | "custom";
 
-type AvailabilitySlot = BackendSlot;
+interface AvailabilitySlot {
+  id: number;
+  photographer_id: number;
+  date?: string | null;
+  day_of_week?: string | null;
+  start_time: string;
+  end_time: string;
+  status?: string;
+}
 
 interface CalendarSyncModalProps {
-  loadSlots?: (from: Date, to: Date, signal: AbortSignal) => Promise<{rows:AvailabilitySlot[]; timezone:string}>;
   isOpen: boolean;
   onClose: () => void;
   availabilitySlots: AvailabilitySlot[];
@@ -86,7 +93,7 @@ const OutlookCalendarIcon = () => (
 export function CalendarSyncModal({
   isOpen,
   onClose,
-  availabilitySlots, loadSlots,
+  availabilitySlots,
   photographerName = "Your",
   onGoogleCalendarConnect,
   allowGoogleCalendarReconnect = false,
@@ -131,30 +138,73 @@ export function CalendarSyncModal({
     return { start, end };
   }, [dateRangeOption, customStartDate, customEndDate]);
 
-  const [exportState, setExportState] = useState<{key:string; rows:AvailabilitySlot[]; timezone?:string; error?:string}>({key:'',rows:[]});
-  const [exportRetry, setExportRetry] = useState(0);
-  const exportKey = photographerName + ':' + dateRange.start.toISOString() + ':' + dateRange.end.toISOString();
-  const exportLoading = Boolean(loadSlots && isOpen && !requiresPhotographerSelection && exportState.key !== exportKey);
-  useEffect(() => {
-    if (!isOpen || !loadSlots || requiresPhotographerSelection) return;
-    const abort = new AbortController();
-    setExportState({key:'',rows:[]});
-    if (dateRange.start > dateRange.end) { setExportState({key:exportKey,rows:[],error:'End date must be on or after the start date.'}); return; }
-    void loadSlots(dateRange.start,dateRange.end,abort.signal).then(result => {
-      if (!abort.signal.aborted) setExportState({key:exportKey,...result});
-    }).catch(() => {
-      if (!abort.signal.aborted) setExportState({key:exportKey,rows:[],error:'Could not load the full export range. Please retry.'});
+  // Filter availability slots by date range
+  const filteredSlots = useMemo(() => {
+    if (!availabilitySlots || availabilitySlots.length === 0) return [];
+
+    return availabilitySlots.filter((slot) => {
+      // Handle specific date slots
+      if (slot.date) {
+        const slotDate = calendarDay(slot.date);
+        return (
+          (isAfter(slotDate, dateRange.start) || slotDate.getTime() === dateRange.start.getTime()) &&
+          (isBefore(slotDate, dateRange.end) || slotDate.getTime() === dateRange.end.getTime())
+        );
+      }
+
+      // Handle weekly recurring slots - we'll include them if they fall within the range
+      // For simplicity, we'll include all weekly slots
+      if (slot.day_of_week) {
+        return true; // Weekly slots apply to all dates in range
+      }
+
+      return false;
     });
-    return () => abort.abort();
-  }, [isOpen, loadSlots, requiresPhotographerSelection, exportKey, dateRange, exportRetry]);
-  const exportResult = useMemo(() => {
-    try { return {events: requiresPhotographerSelection ? [] : buildAvailabilityExportEvents(
-      loadSlots ? exportState.key === exportKey ? exportState.rows : [] : availabilitySlots,
-      dateRange.start, dateRange.end, photographerName, exportState.timezone
-    ),error:''}; }
-    catch (error) { return {events:[],error:error instanceof Error ? error.message : 'Could not convert calendar times.'}; }
-  }, [availabilitySlots, loadSlots, exportState, exportKey, dateRange, photographerName, requiresPhotographerSelection]);
-  const calendarEvents = exportResult.events;
+  }, [availabilitySlots, dateRange]);
+
+  // Generate calendar events from slots
+  const calendarEvents = useMemo(() => {
+    const events: Array<{
+      title: string;
+      description?: string;
+      start: Date;
+      end: Date;
+      location?: string;
+    }> = [];
+
+    filteredSlots.forEach((slot) => {
+      if (slot.status === "unavailable" || slot.status === "booked") {
+        return; // Only sync available slots
+      }
+
+      let eventDate: Date;
+      if (slot.date) {
+        eventDate = calendarDay(slot.date);
+      } else {
+        // For weekly slots, use the start of the range as a placeholder
+        // In a real implementation, you'd generate events for each occurrence
+        eventDate = dateRange.start;
+      }
+
+      const [startHour, startMinute] = slot.start_time.split(":").map(Number);
+      const [endHour, endMinute] = slot.end_time.split(":").map(Number);
+
+      const start = new Date(eventDate);
+      start.setHours(startHour, startMinute, 0, 0);
+
+      const end = new Date(eventDate);
+      end.setHours(endHour, endMinute, 0, 0);
+
+      events.push({
+        title: `${photographerName} Availability`,
+        description: `Available for booking from ${slot.start_time} to ${slot.end_time}`,
+        start,
+        end,
+      });
+    });
+
+    return events;
+  }, [filteredSlots, photographerName, dateRange.start]);
 
   const eventCount = calendarEvents.length;
 
@@ -342,19 +392,19 @@ export function CalendarSyncModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="availability-dialog sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Availability Sync</DialogTitle>
+          <div className="flex items-center gap-2">
+            <DialogTitle>Availability Sync</DialogTitle>
+            <Badge variant="secondary" className="border border-slate-200 bg-slate-50 text-slate-700">
+              One-time export
+            </Badge>
+          </div>
           <DialogDescription>
             Export availability or connect Google Calendar.
           </DialogDescription>
         </DialogHeader>
 
-        {exportResult.error && <p role="alert">{exportResult.error}</p>}
-        {exportState.timezone && <p className="text-xs text-muted-foreground">Calendar timezone: {exportState.timezone}</p>}
-        {requiresPhotographerSelection && <p role="status" className="text-sm text-muted-foreground">Choose one photographer in the calendar before exporting or connecting their schedule.</p>}
-        {exportLoading && <p role="status" className="text-sm text-muted-foreground">Loading the complete date range…</p>}
-        {exportState.key === exportKey && exportState.error && <div role="alert"><p>{exportState.error}</p><Button variant="outline" onClick={() => setExportRetry(value => value + 1)}>Retry export</Button></div>}
         {syncSuccess && lastSyncedInfo && (
           <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
             <Check className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
@@ -588,11 +638,12 @@ export function CalendarSyncModal({
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="flex items-center justify-between sm:justify-between">
+          <div className="flex gap-2">
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleSync} disabled={exportLoading || Boolean(exportState.error) || requiresPhotographerSelection || isSyncing || isGoogleCalendarConnecting || isGoogleCalendarDisconnecting || !selectedCalendar || eventCount === 0}>
+            <Button onClick={handleSync} disabled={isSyncing || isGoogleCalendarConnecting || isGoogleCalendarDisconnecting || !selectedCalendar || eventCount === 0}>
               {isSyncing ? (
                 <>
                   <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
@@ -604,6 +655,7 @@ export function CalendarSyncModal({
                 "Sync now"
               )}
             </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
 
@@ -616,16 +668,16 @@ export function CalendarSyncModal({
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader className="availability-panel-header">
-            <AlertDialogTitle className="availability-panel-title">Disconnect Google Calendar?</AlertDialogTitle>
-            <AlertDialogDescription className="availability-panel-description">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Disconnect Google Calendar?</AlertDialogTitle>
+            <AlertDialogDescription>
               Shoots will stop syncing to Google Calendar and this connection will be removed. You can reconnect later.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter className="availability-panel-footer">
+          <AlertDialogFooter>
             <AlertDialogCancel disabled={isGoogleCalendarDisconnecting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              data-variant="destructive" className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
+              className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
               disabled={isGoogleCalendarDisconnecting}
               onClick={(event) => {
                 event.preventDefault();

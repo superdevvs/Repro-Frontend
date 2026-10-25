@@ -43,7 +43,6 @@ const toAvailability = (s: BackendSlot, dateStr: string, idx: number, specific: 
   shoot_id: s.shoot_id,
   shootDetails: s.shoot_details,
   shootTitle: s.shoot_details?.title ?? s.shoot_details?.address,
-  note: s.note,
 });
 
 export interface SlotSelectorDeps {
@@ -64,8 +63,7 @@ export const buildSelectedDateAvailabilities = (
   const weekly = rows.filter((s) => !slotCalendarDate(s) && s.day_of_week && s.day_of_week.toLowerCase() === dayOfWeek);
   const bookedSlots = specific.filter((s) => s.status === "booked");
   const nonBookedSpecific = specific.filter((s) => s.status !== "booked");
-  const overriddenPeople = new Set(nonBookedSpecific.map((s) => String(s.photographer_id)));
-  const availabilitySlots = [...nonBookedSpecific, ...weekly.filter((s) => (s.status === 'unavailable' || !overriddenPeople.has(String(s.photographer_id))))];
+  const availabilitySlots = nonBookedSpecific.length > 0 ? nonBookedSpecific : weekly;
   const allSlots = [...bookedSlots, ...availabilitySlots];
   return allSlots.map((s, idx) => toAvailability(s, dateStr, idx, specific));
 };
@@ -75,7 +73,7 @@ export const buildWeekAvailabilities = (
   date: Date | undefined
 ): Availability[] => {
   if (!date || !deps.selectedPhotographer) return [];
-  const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+  const weekStart = startOfWeek(date);
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
   const rows = slotsForPhotographer(deps.selectedPhotographer, deps.backendSlots, deps.allBackendSlots);
   const result: Availability[] = [];
@@ -86,8 +84,7 @@ export const buildWeekAvailabilities = (
     const weekly = rows.filter((s) => !slotCalendarDate(s) && s.day_of_week?.toLowerCase() === dow);
     const bookedSlots = specific.filter((s) => s.status === "booked");
     const nonBookedSpecific = specific.filter((s) => s.status !== "booked");
-    const overriddenPeople = new Set(nonBookedSpecific.map((s) => String(s.photographer_id)));
-    const availabilitySlots = [...nonBookedSpecific, ...weekly.filter((s) => (s.status === 'unavailable' || !overriddenPeople.has(String(s.photographer_id))))];
+    const availabilitySlots = nonBookedSpecific.length > 0 ? nonBookedSpecific : weekly;
     const allSlots = [...bookedSlots, ...availabilitySlots];
     allSlots.forEach((s, idx) => result.push(toAvailability(s, dayStr, idx, specific)));
   });
@@ -109,8 +106,7 @@ export const buildMonthAvailabilities = (
     const dow = day.toLocaleDateString("en-US", { weekday: "long" }).toLowerCase();
     const specific = rows.filter((s) => slotCalendarDate(s) === dayStr);
     const weekly = rows.filter((s) => !slotCalendarDate(s) && s.day_of_week?.toLowerCase() === dow);
-    const overriddenPeople = new Set(specific.filter((s) => s.status !== 'booked').map((s) => String(s.photographer_id)));
-    const allSlots = [...specific, ...weekly.filter((s) => (s.status === 'unavailable' || !overriddenPeople.has(String(s.photographer_id))))];
+    const allSlots = specific.length > 0 ? specific : weekly;
     allSlots.forEach((s, idx) => result.push(toAvailability(s, dayStr, idx, specific)));
   });
   return result;
@@ -136,10 +132,13 @@ export const checkTimeOverlap = (
   const rows = slotsForPhotographer(deps.selectedPhotographer, deps.backendSlots, deps.allBackendSlots);
 
   const relevantSlots = rows.filter((slot) => {
-    if (slot.status === 'booked' || slot.status === 'unavailable') return false;
     if (excludeSlotId && String(slot.id) === excludeSlotId) return false;
     if (dateStr) {
-      return slotCalendarDate(slot) === dateStr;
+      if (slotCalendarDate(slot) === dateStr) return true;
+      if (!slotCalendarDate(slot) && slot.day_of_week && dayOfWeek) {
+        return slot.day_of_week.toLowerCase() === dayOfWeek.toLowerCase();
+      }
+      return false;
     } else if (dayOfWeek) {
       return !slotCalendarDate(slot) && slot.day_of_week?.toLowerCase() === dayOfWeek.toLowerCase();
     }

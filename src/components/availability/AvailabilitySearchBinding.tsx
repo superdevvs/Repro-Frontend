@@ -11,7 +11,7 @@ interface Props {
 
 /** Remains mounted when the mobile team picker is closed. */
 export function AvailabilitySearchBinding({ photographers, query, onQueryChange, onSelect }: Props) {
-  return <PageSearch hidden className="hidden" searchId="availability-team" scope="availability" scopeLabel="Availability team" priority={40}
+  return <PageSearch hidden searchId="availability-team" scope="availability" scopeLabel="Availability team" priority={40}
     value={query} onChange={event => onQueryChange(event.target.value)}
     searchResults={pageSearchResults(photographers, 'availability', '/availability?photographer={id}')}
     onResultOpen={result => onSelect(result.id)} />;

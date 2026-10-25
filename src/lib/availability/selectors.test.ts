@@ -198,7 +198,7 @@ describe("buildWeekAvailabilities", () => {
     expect(buildWeekAvailabilities(deps([]), undefined)).toEqual([]);
   });
 
-  it("covers all 7 days from Monday through Sunday, including the selected Sunday", () => {
+  it("covers all 7 days from the week's start (Sun-Sat)", () => {
     const dows = [
       "sunday",
       "monday",
@@ -215,13 +215,13 @@ describe("buildWeekAvailabilities", () => {
     expect(result).toHaveLength(7);
     const dates = result.map((r) => r.date);
     expect(dates).toEqual([
-      "2026-04-13",
-      "2026-04-14",
-      "2026-04-15",
-      "2026-04-16",
-      "2026-04-17",
-      "2026-04-18",
       "2026-04-19",
+      "2026-04-20",
+      "2026-04-21",
+      "2026-04-22",
+      "2026-04-23",
+      "2026-04-24",
+      "2026-04-25",
     ]);
   });
 
@@ -359,7 +359,7 @@ describe("checkTimeOverlap", () => {
     ).toBe(false);
   });
 
-  it("allows a dated override without treating its weekly base as a duplicate", () => {
+  it("falls back to weekly slots for the given dayOfWeek when no specific-date slot matches", () => {
     const slots = [
       makeSlot({
         id: 1,
@@ -371,7 +371,7 @@ describe("checkTimeOverlap", () => {
     ];
     expect(
       checkTimeOverlap(deps(slots), "10:00", "11:00", "2026-04-19", "sunday")
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("matches on day_of_week only when no dateStr provided", () => {

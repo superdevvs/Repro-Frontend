@@ -1,6 +1,4 @@
 import { CalendarIcon } from "lucide-react";
-import { useState } from 'react';
-import { AvailabilityPhotographerSelect } from '../AvailabilityPhotographerSelect';
 import { format } from "date-fns";
 import {
   Dialog,
@@ -9,11 +7,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/availability/AvailabilityDialog";
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { AvailabilityTimeField as TimeSelect } from "../AvailabilityTimeField";
+import { TimeSelect } from "@/components/ui/time-select";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -23,7 +22,7 @@ import {
   availabilityDatePopoverClass,
   uiTimeToHhmm,
 } from "@/lib/availability/utils";
-import type { AvailabilityStatus, AvailabilityToastFn, Photographer } from "@/types/availability";
+import type { AvailabilityStatus, AvailabilityToastFn } from "@/types/availability";
 
 export interface NewWeeklyScheduleState {
   startTime: string;
@@ -35,9 +34,6 @@ export interface NewWeeklyScheduleState {
 }
 
 interface WeeklyScheduleDialogProps {
-  photographers?: Photographer[];
-  canSelectPhotographer?: boolean;
-  onSelectPhotographer?: (id: string) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   newWeeklySchedule: NewWeeklyScheduleState;
@@ -72,7 +68,6 @@ const DEFAULT_SCHEDULE: NewWeeklyScheduleState = {
 };
 
 export function WeeklyScheduleDialog({
-  photographers = [], canSelectPhotographer = false, onSelectPhotographer,
   open,
   onOpenChange,
   newWeeklySchedule,
@@ -90,7 +85,6 @@ export function WeeklyScheduleDialog({
   refreshPhotographerSlots,
   toast,
 }: WeeklyScheduleDialogProps) {
-  const [saving, setSaving] = useState(false);
   const resetState = () => {
     setNewWeeklySchedule(DEFAULT_SCHEDULE);
     const seedDate = date ?? new Date();
@@ -104,7 +98,6 @@ export function WeeklyScheduleDialog({
   };
 
   const handleSave = async () => {
-    if (saving) return;
     if (selectedPhotographer === "all") {
       toast({
         title: "Select a photographer",
@@ -117,7 +110,7 @@ export function WeeklyScheduleDialog({
     const startTime = uiTimeToHhmm(newWeeklySchedule.startTime);
     const endTime = uiTimeToHhmm(newWeeklySchedule.endTime);
 
-    if (!startTime || !endTime || startTime >= endTime) {
+    if (startTime >= endTime) {
       toast({
         title: "Invalid time range",
         description: "End time must be after start time.",
@@ -126,7 +119,6 @@ export function WeeklyScheduleDialog({
       return;
     }
 
-    setSaving(true);
     try {
       if (newWeeklySchedule.recurring) {
         const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -150,7 +142,6 @@ export function WeeklyScheduleDialog({
             start_time: startTime,
             end_time: endTime,
             status: newWeeklySchedule.status === 'unavailable' ? 'unavailable' : 'available',
-            note: newWeeklySchedule.note.trim(),
           }))
         };
 
@@ -218,7 +209,6 @@ export function WeeklyScheduleDialog({
             start_time: startTime,
             end_time: endTime,
             status: newWeeklySchedule.status === 'unavailable' ? 'unavailable' : 'available',
-            note: newWeeklySchedule.note.trim(),
           })),
         };
 
@@ -253,36 +243,49 @@ export function WeeklyScheduleDialog({
         description: "Failed to add schedule. Please try again.",
         variant: "destructive"
       });
-    } finally { setSaving(false); }
+    }
   };
 
   return (
-    <Dialog open={open} onOpenChange={nextOpen => { if (saving) return; onOpenChange(nextOpen); if (!nextOpen) resetState(); }}>
-      <DialogContent className="availability-dialog max-w-2xl">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle>Add Schedule</DialogTitle>
           <DialogDescription>
-            Create availability for {selectedPhotographer === 'all' ? 'a photographer' : getPhotographerName(selectedPhotographer)}. Choose a date or repeat it weekly.
+            Create availability schedule for {getPhotographerName(selectedPhotographer)}. Pick a date range, or check the box to repeat it weekly.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          {canSelectPhotographer && onSelectPhotographer && <AvailabilityPhotographerSelect canManagePhotographerSelection photographers={photographers} selectedPhotographer={selectedPhotographer} onSelect={onSelectPhotographer} />}
-          <div className="space-y-2">
-            <Label>Applies to</Label>
-            <div className="availability-choice">
-              <button type="button" aria-pressed={!newWeeklySchedule.recurring} onClick={() => setNewWeeklySchedule({ ...newWeeklySchedule, recurring: false })}>This date</button>
-              <button type="button" aria-pressed={newWeeklySchedule.recurring} onClick={() => setNewWeeklySchedule({ ...newWeeklySchedule, recurring: true })}>Repeat weekly</button>
-            </div>
-          </div>
           <div className="space-y-2">
             <Label>Status</Label>
-            <div className="availability-choice status">
-              {(['available', 'unavailable'] as const).map(status => <button key={status} type="button"
-                data-status={status} aria-pressed={newWeeklySchedule.status === status}
-                onClick={() => setNewWeeklySchedule({ ...newWeeklySchedule, status })}>
-                {status === 'available' ? 'Available' : 'Unavailable'}
-              </button>)}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setNewWeeklySchedule({ ...newWeeklySchedule, status: "available" })}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
+                  newWeeklySchedule.status === "available"
+                    ? "bg-green-950/40 border-green-700 text-green-300 ring-2 ring-green-800"
+                    : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
+                Available
+              </button>
+              <button
+                type="button"
+                onClick={() => setNewWeeklySchedule({ ...newWeeklySchedule, status: "unavailable" })}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
+                  newWeeklySchedule.status === "unavailable"
+                    ? "bg-red-950/40 border-red-700 text-red-300 ring-2 ring-red-800"
+                    : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+                Unavailable
+              </button>
             </div>
           </div>
 
@@ -341,28 +344,44 @@ export function WeeklyScheduleDialog({
                 </PopoverContent>
               </Popover>
               <p className="text-xs text-muted-foreground">
-                Use Repeat weekly for a recurring pattern.
+                For multi-day patterns, check <span className="font-medium">Repeat weekly</span> below.
               </p>
             </div>
           )}
 
+          <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/30 p-3">
+            <Checkbox
+              id="weekly-recurring"
+              checked={newWeeklySchedule.recurring}
+              onCheckedChange={(checked) =>
+                setNewWeeklySchedule({ ...newWeeklySchedule, recurring: checked === true })
+              }
+              className="mt-0.5"
+            />
+            <div className="space-y-0.5">
+              <Label htmlFor="weekly-recurring" className="text-sm font-medium cursor-pointer">
+                Repeat weekly
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Apply this schedule every week on the days you select below.
+              </p>
+            </div>
+          </div>
 
           {newWeeklySchedule.recurring && (
             <div className="space-y-2">
               <Label>Repeat Days</Label>
-              <div className="grid grid-cols-7 gap-1">
+              <div className="flex gap-2">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
                   <button
                     key={idx}
-                    aria-label={['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][idx]}
-                    aria-pressed={newWeeklySchedule.days[idx]}
                     onClick={() => {
                       const newDays = [...newWeeklySchedule.days];
                       newDays[idx] = !newDays[idx];
                       setNewWeeklySchedule({ ...newWeeklySchedule, days: newDays });
                     }}
                     className={cn(
-                      "h-10 w-full rounded-full font-medium transition-all text-sm",
+                      "h-9 w-9 rounded-full font-medium transition-all text-sm",
                       newWeeklySchedule.days[idx]
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -376,23 +395,19 @@ export function WeeklyScheduleDialog({
           )}
 
           <div className="space-y-2">
-            <Label htmlFor="availability-add-note">Note (optional)</Label>
-            <Textarea id="availability-add-note"
+            <Label>Note (Optional)</Label>
+            <Textarea
               value={newWeeklySchedule.note}
               onChange={(e) => setNewWeeklySchedule({ ...newWeeklySchedule, note: e.target.value })}
               placeholder="Add a note about this schedule..."
-              maxLength={1000}
               className="min-h-[80px] rounded-md resize-none"
             />
           </div>
-          <div className="availability-panel-notice">{newWeeklySchedule.recurring
-            ? 'Repeats every week on the selected days. Existing shoots remain reserved.'
-            : 'Applies only to the selected date. Your default weekly hours stay unchanged.'}</div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" disabled={saving} onClick={handleCancel}>Cancel</Button>
-          <Button disabled={saving || selectedPhotographer === 'all'} onClick={handleSave}>{saving ? 'Saving…' : 'Add Schedule'}</Button>
+          <Button variant="outline" onClick={handleCancel}>Cancel</Button>
+          <Button onClick={handleSave}>Add Schedule</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

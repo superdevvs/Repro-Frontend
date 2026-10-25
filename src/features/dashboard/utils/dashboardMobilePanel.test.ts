@@ -161,13 +161,13 @@ describe('dashboard mobile tab CSS', () => {
 });
 
 describe('compact page gutters', () => {
-  it('keeps the compact shell gutter and the approved 16px Availability inset', () => {
+  it('matches Availability: layout keeps 12px sides and pages add none', () => {
     expect(DASHBOARD_COMPACT_PAGE_X_CLASS).toBe('px-0');
     expect(src('../../../components/layout/DashboardLayout.tsx')).toMatch(
       /isStudioWorkspace \|\| fillSms \? 'p-0' : 'px-3 pt-1\.5'/,
     );
-    expect(src('../../../components/availability/responsiveAvailability.css')).toMatch(
-      /@media\s*\(max-width:\s*639px\)[\s\S]*?\.availability-workspace\s*\{[^}]*padding:\s*6px 4px 24px/,
+    expect(src('../../../pages/Availability.tsx')).toMatch(
+      /isCompactLayout \? "px-0 pt-1\.5 pb-6"/,
     );
   });
 
