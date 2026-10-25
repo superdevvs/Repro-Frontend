@@ -129,7 +129,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
             <>
               {!editingWeeklySchedule ? (
                 <>
-                  <div className="flex justify-between items-start mb-4 flex-shrink-0">
+                  <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-2">
                     <div>
                       <h2 className="text-sm sm:text-base font-semibold mb-1">
                         {viewMode === "day" && date ? format(date, 'EEEE, MMMM d, yyyy') : viewMode === "week" && date ? `Week of ${format(startOfWeek(date), 'MMM d')} - ${format(endOfWeek(date), 'MMM d, yyyy')}` : viewMode === "month" && date ? format(date, 'MMMM yyyy') : "Schedule"}
@@ -269,13 +269,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                   </div>
                 </>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold">Edit Weekly Schedule</h3>
-                    <Button variant="ghost" size="sm" onClick={() => setEditingWeeklySchedule(false)}>Cancel</Button>
-                  </div>
-                  {/* Weekly schedule editing UI */}
-                </div>
+                <WeeklyScheduleEditor {...props} />
               )}
             </>
           ) : (
@@ -644,10 +638,11 @@ function WeeklyScheduleEditor({
           <div className="mb-4 flex-shrink-0">
             <Label className="text-xs uppercase mb-2 block font-semibold text-muted-foreground">TIME RANGE</Label>
             <div className="flex items-center gap-2">
-              <div className="flex-1 relative">
+              <div className="relative min-w-0 flex-1">
                 <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
                 <Input
                   type="text"
+                  aria-label="Default start time"
                   value={getCurrentWeeklySchedule()[0]?.startTime || "09:00 AM"}
                   onChange={(e) => {
                     getCurrentWeeklySchedule().forEach((_, idx) => {
@@ -659,10 +654,11 @@ function WeeklyScheduleEditor({
                 />
               </div>
               <span className="text-muted-foreground font-medium">-</span>
-              <div className="flex-1 relative">
+              <div className="relative min-w-0 flex-1">
                 <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
                 <Input
                   type="text"
+                  aria-label="Default end time"
                   value={getCurrentWeeklySchedule()[0]?.endTime || "05:00 PM"}
                   onChange={(e) => {
                     getCurrentWeeklySchedule().forEach((_, idx) => {
@@ -678,7 +674,7 @@ function WeeklyScheduleEditor({
 
           <div className="mb-4 flex-shrink-0">
             <Label className="text-xs uppercase mb-2 block font-semibold text-muted-foreground">REPEAT</Label>
-            <div className="flex gap-2">
+            <div className="grid grid-cols-7 gap-1">
               {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
                 const scheduleDay = getCurrentWeeklySchedule()[idx];
                 return (
@@ -686,7 +682,7 @@ function WeeklyScheduleEditor({
                     key={idx}
                     onClick={() => updateCurrentWeeklySchedule(idx, 'active', !scheduleDay.active)}
                     className={cn(
-                      "h-9 w-9 rounded-full font-medium transition-all text-sm",
+                      "h-9 min-w-0 rounded-full font-medium transition-all text-sm",
                       scheduleDay.active
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-muted text-muted-foreground hover:bg-muted/80"

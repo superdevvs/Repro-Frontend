@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { addDays, addMonths, endOfMonth, format, startOfMonth, subMonths } from "date-fns";
 
-export function useAvailabilityNavStrips(date: Date | undefined, currentMonth: Date) {
+export function useAvailabilityNavStrips(date: Date | undefined, currentMonth: Date, enabled = true) {
   const monthNavScrollRef = useRef<HTMLDivElement>(null);
   const dateNavScrollRef = useRef<HTMLDivElement>(null);
   const monthNavHasAutoScrolled = useRef(false);
@@ -35,6 +35,7 @@ export function useAvailabilityNavStrips(date: Date | undefined, currentMonth: D
   }, [currentMonth]);
 
   useEffect(() => {
+    if (!enabled) { lastMonthNavScrollKey.current = null; return; }
     if (!date || !monthNavScrollRef.current) return;
     const selectedMonth = format(date, "yyyy-MM");
     const scrollKey = `${format(currentMonth, "yyyy-MM")}:${selectedMonth}`;
@@ -55,9 +56,10 @@ export function useAvailabilityNavStrips(date: Date | undefined, currentMonth: D
       container.scrollTo({ left: clampedLeft, behavior: "smooth" });
       monthNavHasAutoScrolled.current = true;
     });
-  }, [date, currentMonth]);
+  }, [date, currentMonth, enabled]);
 
   useEffect(() => {
+    if (!enabled) { lastDateNavScrollKey.current = null; return; }
     if (!date || !dateNavScrollRef.current) return;
     const selectedDate = format(date, "yyyy-MM-dd");
     const scrollKey = `${format(currentMonth, "yyyy-MM")}:${selectedDate}`;
@@ -78,7 +80,7 @@ export function useAvailabilityNavStrips(date: Date | undefined, currentMonth: D
       container.scrollTo({ left: clampedLeft, behavior: "smooth" });
       dateNavHasAutoScrolled.current = true;
     });
-  }, [date, currentMonth]);
+  }, [date, currentMonth, enabled]);
 
   return { months, monthDates, monthNavScrollRef, dateNavScrollRef };
 }
