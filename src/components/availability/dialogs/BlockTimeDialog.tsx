@@ -9,7 +9,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/components/availability/AvailabilityDialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -341,7 +341,7 @@ export function BlockTimeDialog({
             <Label htmlFor="block-reason">Reason (optional)</Label>
             <Textarea id="block-reason" value={note} maxLength={1000} onChange={event => setNote(event.target.value)} placeholder="Time off, appointment, equipment maintenance…" />
           </div>
-          <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-300 text-sm">
+          <div className="availability-panel-notice" data-tone="amber">
             <Ban className="h-4 w-4 shrink-0" />
             This time will be marked as unavailable
           </div>
@@ -349,7 +349,7 @@ export function BlockTimeDialog({
 
         <DialogFooter>
           <Button variant="outline" disabled={isBlocking} onClick={handleCancel}>Cancel</Button>
-          <Button variant="destructive" disabled={isBlocking} onClick={handleBlock}>
+          <Button disabled={isBlocking} onClick={handleBlock}>
             {isBlocking ? <Loader2 aria-hidden="true" className="h-4 w-4 mr-2" /> : <Ban className="h-4 w-4 mr-2" />}
             {isBlocking ? "Blocking..." : "Block Time"}
           </Button>

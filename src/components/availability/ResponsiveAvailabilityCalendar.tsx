@@ -12,18 +12,13 @@ import {
 } from "date-fns";
 import {
   Ban,
-  CalendarDays,
   Camera,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  MapPin,
   MoreHorizontal,
   Plus,
-  RefreshCw,
   Search,
-  Settings2,
-  SlidersHorizontal,
   Users,
 } from "lucide-react";
 import {
@@ -32,16 +27,8 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
-} from "@/components/ui/dropdown-menu";
+} from "@/components/availability/AvailabilityDialog";
+import { AvailabilityToolsPanel } from "./AvailabilityToolsPanel";
 import { InlineSpinner } from "@/components/ui/inline-spinner";
 import {
   buildSelectedDateAvailabilities,
@@ -116,6 +103,7 @@ export function ResponsiveAvailabilityCalendar(props: Props) {
     [pickerSearch, setPickerSearch] = useState("");
   const [mapOpen, setMapOpen] = useState(false),
     [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
   const [filters, setFilters] = useState<CalendarFilters>({
     open: true,
     booked: true,
@@ -229,64 +217,7 @@ export function ResponsiveAvailabilityCalendar(props: Props) {
             <span>Block</span>
           </button>
         )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              className="availability-icon-button"
-              aria-label="Calendar tools"
-            >
-              <MoreHorizontal />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-60">
-            {canEdit && (
-              <>
-                <DropdownMenuItem onSelect={onAdd}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add schedule
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => onManage()}>
-                  <Settings2 className="mr-2 h-4 w-4" />
-                  Manage schedules
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={onDefault}>
-                  <CalendarDays className="mr-2 h-4 w-4" />
-                  Default schedule
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-              </>
-            )}
-            <DropdownMenuItem onSelect={() => setMapOpen((value) => !value)}>
-              <MapPin className="mr-2 h-4 w-4" />
-              {mapOpen ? "Calendar view" : "Map for selected day"}
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={onSync}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Calendar sync
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="flex items-center gap-2">
-              <SlidersHorizontal className="h-4 w-4" />
-              Show in day details
-            </DropdownMenuLabel>
-            {(["open", "booked", "blocked"] as const).map((key) => (
-              <DropdownMenuCheckboxItem
-                key={key}
-                checked={filters[key]}
-                onSelect={(e) => e.preventDefault()}
-                onCheckedChange={(value) =>
-                  setFilters((previous) => ({ ...previous, [key]: value }))
-                }
-              >
-                {key === "open"
-                  ? "Available time"
-                  : key === "booked"
-                    ? "Shoots"
-                    : "Blocked time"}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <button className="availability-icon-button" aria-label="Calendar tools" aria-haspopup="dialog" onClick={() => setToolsOpen(true)}><MoreHorizontal /></button>
         {canEdit && (
           <button
             className="availability-add-button"
@@ -556,6 +487,11 @@ export function ResponsiveAvailabilityCalendar(props: Props) {
           </div>
         )}
       </div>
+      <AvailabilityToolsPanel open={toolsOpen} onOpenChange={setToolsOpen}
+        context={`${team ? "All photographers" : selected?.name || "My schedule"} · ${format(date, "EEE, MMM d")}`}
+        canEdit={canEdit} mapOpen={mapOpen} filters={filters} onFilters={setFilters}
+        onAdd={onAdd} onBlock={() => onBlock()} onManage={() => onManage()} onDefault={onDefault}
+        onMap={() => setMapOpen(value => !value)} onSync={onSync} />
       <Dialog open={pickerOpen} onOpenChange={setPickerOpen}>
         <DialogContent className="availability-dialog">
           <DialogHeader>

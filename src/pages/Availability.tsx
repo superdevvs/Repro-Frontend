@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { addDays, addMonths, eachDayOfInterval, format, startOfDay } from 'date-fns';
 import { AvailabilitySearchBinding } from '@/components/availability/AvailabilitySearchBinding';
 import { ResponsiveAvailabilityCalendar } from '@/components/availability/ResponsiveAvailabilityCalendar';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/availability/AvailabilityDialog';
 import { Button } from '@/components/ui/button';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useToast } from '@/hooks/use-toast';
@@ -309,26 +309,22 @@ export default function Availability() {
 
   const handleEditAvailability = () => setEditingWeeklySchedule(true);
 
-  /** Open the reusable weekly/recurring editor, hydrated from existing dateless available slots. */
   const openDefaultSchedule = () => {
+    setEditingWeeklySchedule(true);
     setManageOpen(true);
-    if (selectedPhotographer === "all") {
-      toast({
-        title: "Select a photographer",
-        description: "Choose a team member before editing their default schedule.",
-        variant: "destructive",
-      });
-      return;
-    }
+  };
+
+  // Hydrate after the selected photographer's request completes, including
+  // when the Default schedule drawer is opened from the team view.
+  useEffect(() => {
+    if (!manageOpen || !editingWeeklySchedule || availabilityLoading || selectedPhotographer === 'all') return;
     const hydrated = buildWeeklyScheduleFromSlots(backendSlots, DEFAULT_SCHEDULE_STARTER);
     setWeeklyScheduleNote(backendSlots.find(slot => !slot.date && slot.status === 'available')?.note || '');
-    const hasRecurring = hydrated.some((day) => day.active);
-    setPhotographerWeeklySchedules((prev) => ({
-      ...prev,
-      [selectedPhotographer]: hasRecurring ? hydrated : DEFAULT_SCHEDULE_STARTER,
+    setPhotographerWeeklySchedules(previous => ({
+      ...previous,
+      [selectedPhotographer]: hydrated.some(day => day.active) ? hydrated : DEFAULT_SCHEDULE_STARTER,
     }));
-    setEditingWeeklySchedule(true);
-  };
+  }, [manageOpen, editingWeeklySchedule, availabilityLoading, backendSlots, selectedPhotographer]);
 
   const saveWeeklySchedule = async () => {
     if (savingWeeklySchedule) return;
@@ -453,7 +449,7 @@ export default function Availability() {
     notifyDemoAvailabilityRestriction, backendSlots, allBackendSlots,
     selectedSlotId, setSelectedSlotId, expandedBookingDetails, setExpandedBookingDetails,
     setEditedAvailability, setIsEditDialogOpen, setIsWeeklyScheduleDialogOpen,
-    setSelectedShootId, setShootDetailsModalOpen, to12HourDisplay,
+    setSelectedShootId, setShootDetailsModalOpen: (open: boolean) => { if (open) setManageOpen(false); setShootDetailsModalOpen(open); }, to12HourDisplay,
   };
 
   return (
@@ -473,13 +469,13 @@ export default function Availability() {
         onShoot={id => { setSelectedShootId(id); setShootDetailsModalOpen(true); }}
         onEdit={slot => { setEditedAvailability(slot); setIsEditDialogOpen(true); }}
       />
-      <Dialog open={manageOpen} onOpenChange={setManageOpen}>
-        <DialogContent className="availability-dialog max-w-3xl"><DialogHeader><DialogTitle>Manage schedules</DialogTitle><DialogDescription>Edit availability and recurring hours. Booked shoots keep their own schedule.</DialogDescription></DialogHeader>
-          <AvailabilityPhotographerSelect canManagePhotographerSelection={canManagePhotographerSelection} photographers={photographers} selectedPhotographer={selectedPhotographer} onSelect={id => { setSelectedPhotographer(id); setEditingWeeklySchedule(false); }} />
-          {availabilityLoading ? <p role="status">Loading schedules…</p> : availabilityError ? <p role="alert">{availabilityError}</p> : <ScheduleDetailsPanel variant="mobile" {...scheduleDetailsProps} />}
+      <Dialog open={manageOpen} onOpenChange={open => { if (!savingWeeklySchedule) setManageOpen(open); }}>
+        <DialogContent className="availability-dialog max-w-3xl"><DialogHeader><DialogTitle>{editingWeeklySchedule ? "Default schedule" : "Manage schedules"}</DialogTitle><DialogDescription>{editingWeeklySchedule ? "Set regular working hours for each day of the week." : "Edit availability and recurring hours. Booked shoots keep their own schedule."}</DialogDescription></DialogHeader>
+          <AvailabilityPhotographerSelect canManagePhotographerSelection={canManagePhotographerSelection} photographers={photographers} selectedPhotographer={selectedPhotographer} onSelect={id => { if (!savingWeeklySchedule) setSelectedPhotographer(id); }} />
+          {editingWeeklySchedule && selectedPhotographer === "all" ? <p className="availability-panel-notice">Choose a photographer to set their default working week.</p> : availabilityLoading ? <p role="status">Loading schedules…</p> : availabilityError ? <p role="alert">{availabilityError}</p> : <ScheduleDetailsPanel variant="mobile" {...scheduleDetailsProps} />}
         </DialogContent>
       </Dialog>
-      <Dialog open={Boolean(deleteId)} onOpenChange={open => { if (!open && !deleting) setDeleteId(null); }}><DialogContent className="availability-dialog"><DialogHeader><DialogTitle>Delete this schedule?</DialogTitle><DialogDescription>Recurring schedules are removed from every matching weekday. Date-specific schedules are removed only for that date. Existing shoots remain unchanged.</DialogDescription></DialogHeader><div className="flex flex-wrap justify-end gap-3"><Button variant="outline" disabled={deleting} onClick={() => setDeleteId(null)}>Keep schedule</Button><Button variant="destructive" disabled={deleting} onClick={async () => { if (!deleteId || deleting) return; setDeleting(true); try { await performDeleteAvailability(deleteId); setDeleteId(null); } finally { setDeleting(false); } }}>{deleting ? 'Deleting…' : 'Delete schedule'}</Button></div></DialogContent></Dialog>
+      <Dialog open={Boolean(deleteId)} onOpenChange={open => { if (!open && !deleting) setDeleteId(null); }}><DialogContent className="availability-dialog"><DialogHeader><DialogTitle>Delete this schedule?</DialogTitle><DialogDescription>Recurring schedules are removed from every matching weekday. Date-specific schedules are removed only for that date. Existing shoots remain unchanged.</DialogDescription></DialogHeader><div className="flex flex-wrap justify-end gap-3"><Button variant="outline" disabled={deleting} onClick={() => setDeleteId(null)}>Keep schedule</Button><Button variant="destructive" data-variant="destructive" disabled={deleting} onClick={async () => { if (!deleteId || deleting) return; setDeleting(true); try { await performDeleteAvailability(deleteId); setDeleteId(null); } finally { setDeleting(false); } }}>{deleting ? 'Deleting…' : 'Delete schedule'}</Button></div></DialogContent></Dialog>
 
       <EditAvailabilityDialog
         onDelete={setDeleteId}

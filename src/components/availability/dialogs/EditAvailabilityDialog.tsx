@@ -9,12 +9,11 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from "@/components/availability/AvailabilityDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { AvailabilityTimeField as TimeSelect } from "../AvailabilityTimeField";
-import { cn } from "@/lib/utils";
 import API_ROUTES from "@/lib/api";
 import type { Availability, AvailabilityToastFn, BackendSlot } from "@/types/availability";
 
@@ -165,10 +164,10 @@ export function EditAvailabilityDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={nextOpen => { if (!saving) onOpenChange(nextOpen); }}>
       <DialogContent className="availability-dialog">
         <DialogHeader>
-          <DialogTitle>Edit Availability</DialogTitle>
+          <DialogTitle>{isBlock ? "Edit blocked time" : "Edit Availability"}</DialogTitle>
           <DialogDescription>
             Update availability for {getPhotographerName(editedAvailability.photographerId || selectedPhotographer)}{editedAvailability.origin === 'weekly' ? ' in their recurring schedule' : ` on ${editedAvailability.date ? formatAvailabilityDate(editedAvailability.date, 'MMMM d, yyyy') : 'the selected date'}`}.
           </DialogDescription>
@@ -183,33 +182,12 @@ export function EditAvailabilityDialog({
                 Booked
               </div>
             ) : (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setEditedAvailability({ ...editedAvailability, status: "available" })}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
-                    editedAvailability.status === "available"
-                      ? "bg-green-50 border-green-300 text-green-700 ring-2 ring-green-200"
-                      : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                  Available
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditedAvailability({ ...editedAvailability, status: "unavailable" })}
-                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
-                    editedAvailability.status === "unavailable"
-                      ? "bg-red-50 border-red-300 text-red-700 ring-2 ring-red-200"
-                      : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                  Unavailable
-                </button>
+              <div className="availability-choice status">
+                {(['available', 'unavailable'] as const).map(status => <button key={status} type="button"
+                  data-status={status} aria-pressed={editedAvailability.status === status}
+                  onClick={() => setEditedAvailability({ ...editedAvailability, status })}>
+                  {status === 'available' ? 'Available' : 'Unavailable'}
+                </button>)}
               </div>
             )}
           </div>

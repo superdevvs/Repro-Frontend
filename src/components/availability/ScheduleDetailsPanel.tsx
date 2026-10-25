@@ -1,14 +1,12 @@
+import { WeeklyScheduleEditor } from "./WeeklyScheduleEditor";
 import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useRef } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
-import { availabilityWeekday, formatAvailabilityDate, normalizeAvailabilityDate } from "@/lib/availability/utils";
-import { Ban, CalendarDays, CalendarIcon, Clock, Edit, MoreVertical, Pencil, Plus, Trash2, User } from "lucide-react";
+import { formatAvailabilityDate } from "@/lib/availability/utils";
+import { Ban, CalendarDays, CalendarIcon, Clock, Pencil, Plus, Trash2, User } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type {
   Availability,
@@ -124,7 +122,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
   // Mobile variant with simplified editing
   if (isMobile) {
     return (
-      <Card className="p-3 sm:p-4 flex flex-col border shadow-sm rounded-md">
+      <Card className="availability-schedule-manager p-3 sm:p-4 flex flex-col border shadow-sm rounded-md">
         <div className="flex-1 min-h-0 overflow-y-auto">
           {selectedPhotographer !== "all" ? (
             <>
@@ -180,7 +178,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                                   setExpandedBookingDetails(prev => new Set(prev).add(slot.id));
                                 }
                               }}
-                              className={cn("p-3 rounded-lg border-2 transition-all", selectedSlotId === slot.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/50")}
+                              className={cn("availability-managed-card p-3 rounded-lg border-2 transition-all", selectedSlotId === slot.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/50")}
                             >
                               <div className="flex items-start justify-between mb-2">
                                 <div className="flex-1">
@@ -581,292 +579,5 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
         </div>
       )}
     </Card>
-  );
-}
-
-interface WeeklyScheduleEditorProps {
-  editingWeeklySchedule: boolean;
-  setEditingWeeklySchedule: (value: boolean) => void;
-  getCurrentWeeklySchedule: () => WeeklyScheduleItem[];
-  updateCurrentWeeklySchedule: (
-    index: number,
-    field: keyof WeeklyScheduleItem,
-    value: WeeklyScheduleItem[keyof WeeklyScheduleItem]
-  ) => void;
-  weeklyScheduleNote: string;
-  setWeeklyScheduleNote: (value: string) => void;
-  handleEditAvailability: () => void;
-  saveWeeklySchedule: () => Promise<void>;
-  savingWeeklySchedule?: boolean;
-  selectedPhotographer: string;
-  getPhotographerName: (id: string) => string;
-  canEditAvailability: boolean;
-  backendSlots: BackendSlot[];
-}
-
-function WeeklyScheduleEditor({
-  editingWeeklySchedule,
-  setEditingWeeklySchedule,
-  getCurrentWeeklySchedule,
-  updateCurrentWeeklySchedule,
-  weeklyScheduleNote,
-  setWeeklyScheduleNote,
-  handleEditAvailability,
-  saveWeeklySchedule,
-  savingWeeklySchedule,
-  selectedPhotographer,
-  getPhotographerName,
-  canEditAvailability,
-  backendSlots,
-}: WeeklyScheduleEditorProps) {
-  return (
-    <>
-      <div className="flex flex-wrap gap-3 justify-between items-start mb-4 flex-shrink-0">
-        <div>
-          <h2 className="text-base font-semibold mb-1">
-            {getPhotographerName(selectedPhotographer)}'s Weekly Schedule
-          </h2>
-          {!editingWeeklySchedule && (
-            <p className="text-xs text-muted-foreground">Regular working hours</p>
-          )}
-        </div>
-        {!editingWeeklySchedule && canEditAvailability && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleEditAvailability}
-            className="h-8 rounded-md"
-          >
-            <Edit className="h-3.5 w-3.5 mr-1.5" />
-            Edit
-          </Button>
-        )}
-      </div>
-
-      {editingWeeklySchedule ? (
-        <div className="flex-1 flex flex-col min-h-0 overflow-y-auto">
-          <div className="mb-4 flex-shrink-0">
-            <h3 className="text-lg font-semibold mb-1">Default schedule</h3>
-            <p className="text-xs text-muted-foreground">
-              Set a recurring daily window for {getPhotographerName(selectedPhotographer)} (e.g. 9:00–17:00). Active days reuse the same weekly availability rules.
-            </p>
-          </div>
-
-          <div className="mb-4 flex-shrink-0">
-            <Label className="text-xs uppercase mb-2 block font-semibold text-muted-foreground">TIME RANGE</Label>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 relative">
-                <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-                <Input
-                  type="text"
-                  value={getCurrentWeeklySchedule()[0]?.startTime || "09:00 AM"}
-                  onChange={(e) => {
-                    getCurrentWeeklySchedule().forEach((_, idx) => {
-                      updateCurrentWeeklySchedule(idx, 'startTime', e.target.value);
-                    });
-                  }}
-                  className="pl-10 h-10 rounded-md"
-                  placeholder="09:00 AM"
-                />
-              </div>
-              <span className="text-muted-foreground font-medium">-</span>
-              <div className="flex-1 relative">
-                <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" />
-                <Input
-                  type="text"
-                  value={getCurrentWeeklySchedule()[0]?.endTime || "05:00 PM"}
-                  onChange={(e) => {
-                    getCurrentWeeklySchedule().forEach((_, idx) => {
-                      updateCurrentWeeklySchedule(idx, 'endTime', e.target.value);
-                    });
-                  }}
-                  className="pl-10 h-10 rounded-md"
-                  placeholder="05:00 PM"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="mb-4 flex-shrink-0">
-            <Label className="text-xs uppercase mb-2 block font-semibold text-muted-foreground">REPEAT</Label>
-            <div className="grid grid-cols-7 gap-1">
-              {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => {
-                const scheduleDay = getCurrentWeeklySchedule()[idx];
-                return (
-                  <button
-                    key={idx}
-                    onClick={() => updateCurrentWeeklySchedule(idx, 'active', !scheduleDay.active)}
-                    className={cn(
-                      "h-9 w-9 rounded-full font-medium transition-all text-sm",
-                      scheduleDay.active
-                        ? "bg-primary text-primary-foreground shadow-sm"
-                        : "bg-muted text-muted-foreground hover:bg-muted/80"
-                    )}
-                  >
-                    {day}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="mb-4 flex-shrink-0">
-            <Label className="text-xs uppercase mb-2 block font-semibold text-muted-foreground">NOTE</Label>
-            <Textarea
-              value={weeklyScheduleNote} maxLength={1000} aria-label="Schedule note"
-              onChange={(e) => setWeeklyScheduleNote(e.target.value)}
-              placeholder="Add a note about this availability..."
-              className="min-h-[80px] rounded-md resize-none"
-            />
-          </div>
-
-          {(() => {
-            if (!editingWeeklySchedule) return null;
-            const currentSchedule = getCurrentWeeklySchedule();
-            const activeDays = currentSchedule.filter(d => d.active);
-            if (activeDays.length === 0) return null;
-
-            const startTime = currentSchedule[0]?.startTime || '09:00';
-            const endTime = currentSchedule[0]?.endTime || '17:00';
-
-            const conflicts: Array<{ day: string; count: number }> = [];
-            activeDays.forEach((daySchedule) => {
-              if (!daySchedule.active) return;
-              const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-              const dayName = dayNames[currentSchedule.indexOf(daySchedule)];
-
-              const dayBookings = backendSlots.filter(slot => {
-                if (slot.status !== 'booked') return false;
-                if (slot.date) {
-                  const slotDayName = availabilityWeekday(slot.date);
-                  return slotDayName === dayName;
-                }
-                return slot.day_of_week?.toLowerCase() === dayName;
-              });
-
-              const overlappingBookings = dayBookings.filter(booking => {
-                const bookingStart = booking.start_time;
-                const bookingEnd = booking.end_time;
-                return (bookingStart < endTime && bookingEnd > startTime);
-              });
-
-              if (overlappingBookings.length > 0) {
-                conflicts.push({ day: dayName, count: overlappingBookings.length });
-              }
-            });
-
-            if (conflicts.length === 0) return null;
-
-            const totalConflicts = conflicts.reduce((sum, c) => sum + c.count, 0);
-            const conflictDays = conflicts.map(c => c.day.charAt(0).toUpperCase() + c.day.slice(1)).join(', ');
-
-            return (
-              <div className="mb-4 p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md flex-shrink-0">
-                <div className="flex items-start gap-2">
-                  <MoreVertical className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs font-semibold text-orange-800 dark:text-orange-200">
-                      Scheduled shoots
-                    </p>
-                    <p className="text-xs text-orange-700 dark:text-orange-300 mt-0.5">
-                      {totalConflicts} existing booking{totalConflicts > 1 ? 's' : ''} on {conflictDays}. Booked time stays reserved within these hours.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
-          <div className="mt-auto space-y-2 flex-shrink-0 pt-4">
-            <Button
-              className="w-full h-10 font-semibold rounded-md"
-              onClick={saveWeeklySchedule} disabled={savingWeeklySchedule}
-            >
-              {savingWeeklySchedule ? 'Saving…' : 'Save default schedule'}
-            </Button>
-            <button
-              className="w-full text-sm text-muted-foreground hover:underline text-center py-1.5"
-              onClick={() => setEditingWeeklySchedule(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="mb-4 flex-shrink-0">
-            <p className="text-xs text-muted-foreground mb-3">Regular working hours</p>
-            <div className="space-y-2">
-              {getCurrentWeeklySchedule().map((day, index) => {
-                const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
-                const dayName = dayNames[index];
-                const daySlots = backendSlots.filter(s =>
-                  !normalizeAvailabilityDate(s.date) && s.day_of_week?.toLowerCase() === dayName
-                );
-
-                return (
-                  <div
-                    key={day.day}
-                    className={cn(
-                      "p-3 rounded-lg border transition-colors",
-                      day.active
-                        ? "bg-primary/5 border-primary/20 hover:bg-primary/10"
-                        : "bg-muted/30 border-border hover:bg-muted/50"
-                    )}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={cn(
-                          "h-10 w-10 rounded-lg flex items-center justify-center font-semibold text-sm",
-                          day.active
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-muted text-muted-foreground"
-                        )}>
-                          {day.day.substring(0, 1)}
-                        </div>
-                        <div>
-                          <div className="font-medium text-sm">{day.day}</div>
-                          <div className={cn(
-                            "text-xs",
-                            day.active ? "text-foreground" : "text-muted-foreground"
-                          )}>
-                            {day.active
-                              ? `${day.startTime} - ${day.endTime}`
-                              : 'Not available'}
-                          </div>
-                        </div>
-                      </div>
-                      {day.active && daySlots.length > 0 && (
-                        <Badge variant="secondary" className="text-xs">
-                          {daySlots.length} slot{daySlots.length !== 1 ? 's' : ''}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="mt-4 pt-4 border-t flex-shrink-0">
-            <p className="text-xs font-semibold text-muted-foreground mb-2 uppercase">Summary</p>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="p-2 rounded-md bg-muted/50">
-                <div className="text-xs text-muted-foreground">Active Days</div>
-                <div className="text-sm font-semibold">
-                  {getCurrentWeeklySchedule().filter(d => d.active).length}/7
-                </div>
-              </div>
-              <div className="p-2 rounded-md bg-muted/50">
-                <div className="text-xs text-muted-foreground">Total Slots</div>
-                <div className="text-sm font-semibold">
-                  {backendSlots.filter(s => !s.date).length}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
   );
 }

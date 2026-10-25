@@ -1,3 +1,4 @@
+import { AlertDialogContent } from "./AvailabilityDialog";
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
@@ -6,7 +7,7 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
-} from "@/components/ui/dialog";
+} from "@/components/availability/AvailabilityDialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -25,12 +26,10 @@ import {
   generateOutlookCalendarURL,
 } from "@/utils/icsGenerator";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
-  AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
@@ -345,12 +344,7 @@ export function CalendarSyncModal({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="availability-dialog sm:max-w-2xl">
         <DialogHeader>
-          <div className="flex items-center gap-2">
-            <DialogTitle>Availability Sync</DialogTitle>
-            <Badge variant="secondary" className="border border-slate-200 bg-slate-50 text-slate-700">
-              One-time export
-            </Badge>
-          </div>
+          <DialogTitle>Availability Sync</DialogTitle>
           <DialogDescription>
             Export availability or connect Google Calendar.
           </DialogDescription>
@@ -594,8 +588,7 @@ export function CalendarSyncModal({
           </div>
         </div>
 
-        <DialogFooter className="flex items-center justify-between sm:justify-between">
-          <div className="flex gap-2">
+        <DialogFooter>
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
@@ -611,7 +604,6 @@ export function CalendarSyncModal({
                 "Sync now"
               )}
             </Button>
-          </div>
         </DialogFooter>
       </DialogContent>
 
@@ -624,16 +616,16 @@ export function CalendarSyncModal({
         }}
       >
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Disconnect Google Calendar?</AlertDialogTitle>
-            <AlertDialogDescription>
+          <AlertDialogHeader className="availability-panel-header">
+            <AlertDialogTitle className="availability-panel-title">Disconnect Google Calendar?</AlertDialogTitle>
+            <AlertDialogDescription className="availability-panel-description">
               Shoots will stop syncing to Google Calendar and this connection will be removed. You can reconnect later.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
+          <AlertDialogFooter className="availability-panel-footer">
             <AlertDialogCancel disabled={isGoogleCalendarDisconnecting}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
+              data-variant="destructive" className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
               disabled={isGoogleCalendarDisconnecting}
               onClick={(event) => {
                 event.preventDefault();

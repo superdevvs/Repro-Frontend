@@ -32,7 +32,7 @@ export function AvailabilityTimeField(props: TimeSelectProps) {
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className="w-[300px] max-w-[calc(100vw-32px)] rounded-2xl p-1"
+        className="z-[90] w-[300px] max-w-[calc(100vw-32px)] rounded-2xl p-1"
       >
         <TimeSelect
           {...props}
