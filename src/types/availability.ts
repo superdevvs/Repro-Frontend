@@ -87,6 +87,7 @@ export type BackendSlot = {
   start_time: string;
   end_time: string;
   status?: string;
+  note?: string | null;
   isRandom?: boolean;
   shoot_id?: number;
   shoot_details?: ShootDetails;

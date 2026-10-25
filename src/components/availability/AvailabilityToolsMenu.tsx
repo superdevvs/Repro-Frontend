@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { CalendarDays, ChevronRight, List, MoreHorizontal, Plus, RefreshCw, Users } from "lucide-react";
+import { Ban, CalendarDays, ChevronRight, List, Map, MoreHorizontal, Plus, RefreshCw, Users, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { AvailabilityPanelContent } from "./AvailabilityPanelContent";
@@ -7,28 +7,35 @@ import { AvailabilityPanelContent } from "./AvailabilityPanelContent";
 interface AvailabilityToolsMenuProps {
   canManagePhotographerSelection: boolean;
   canEditAvailability: boolean;
+  context?: string;
+  showingMap?: boolean;
+  onBlock?: () => void;
+  onToggleMap?: () => void;
   onTeam: () => void;
   onDetails: () => void;
   onAddSchedule: () => void;
   onDefaultSchedule: () => void;
   onSync: () => void;
 }
+type ToolAction = { label: string; detail: string; icon: LucideIcon; onSelect: () => void };
 
+/** Availability Flow's grouped tools, wired to the current production workflows. */
 export function AvailabilityToolsMenu(props: AvailabilityToolsMenuProps) {
   const [open, setOpen] = useState(false);
   const nextAction = useRef<(() => void) | null>(null);
-  const actions = [
+  const schedules: ToolAction[] = [
     ...(props.canEditAvailability ? [
-      { label: "Add schedule", detail: "Set availability for specific dates", icon: Plus, tone: "bg-primary/15 text-primary", onSelect: props.onAddSchedule },
-      { label: "Default schedule", detail: "Set your recurring weekly hours", icon: CalendarDays, tone: "bg-violet-500/15 text-violet-500 dark:text-violet-300", onSelect: props.onDefaultSchedule },
+      { label: "Add schedule", detail: "One date or a weekly repeat", icon: Plus, onSelect: props.onAddSchedule },
+      ...(props.onBlock ? [{ label: "Block time", detail: "Protect time in a photographer's schedule", icon: Ban, onSelect: props.onBlock }] : []),
+      { label: "Default schedule", detail: "Set the regular working week", icon: CalendarDays, onSelect: props.onDefaultSchedule },
     ] : []),
-    { label: "Schedule details", detail: "Review and edit existing availability", icon: List, tone: "bg-sky-500/15 text-sky-600 dark:text-sky-300", onSelect: props.onDetails },
-    ...(props.canManagePhotographerSelection ? [
-      { label: "Team availability", detail: "Find and switch photographers", icon: Users, tone: "bg-emerald-500/15 text-emerald-600 dark:text-emerald-300", onSelect: props.onTeam },
-    ] : []),
-    { label: "Calendar sync", detail: "Connect or export your calendar", icon: RefreshCw, tone: "bg-amber-500/15 text-amber-700 dark:text-amber-300", onSelect: props.onSync },
+    { label: "Manage schedules", detail: props.canEditAvailability ? "Edit, mark unavailable or delete" : "Review existing availability", icon: List, onSelect: props.onDetails },
   ];
-
+  const connections: ToolAction[] = [
+    ...(props.canManagePhotographerSelection ? [{ label: "Team availability", detail: "Find and switch photographers", icon: Users, onSelect: props.onTeam }] : []),
+    ...(props.onToggleMap ? [{ label: props.showingMap ? "Calendar view" : "Map view", detail: "See the team's scheduled locations", icon: Map, onSelect: props.onToggleMap }] : []),
+    { label: "Calendar sync", detail: "Google connection · Apple / Outlook export", icon: RefreshCw, onSelect: props.onSync },
+  ];
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -40,17 +47,20 @@ export function AvailabilityToolsMenu(props: AvailabilityToolsMenuProps) {
       }}>
         <DialogHeader className="space-y-1.5 text-left">
           <DialogTitle>Calendar tools</DialogTitle>
-          <DialogDescription>Schedules, your team, and connected calendars.</DialogDescription>
+          <DialogDescription>{props.context || "Schedules, your team, and connected calendars."}</DialogDescription>
         </DialogHeader>
-        <div className="space-y-2 pb-1">
-          {actions.map(({ label, detail, icon: Icon, tone, onSelect }) => (
-            <button key={label} type="button" aria-label={label} className="flex min-h-[68px] w-full items-center gap-3 rounded-2xl border border-border/50 bg-muted/45 px-3 py-3 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" onClick={() => { nextAction.current = onSelect; setOpen(false); }}>
-              <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}><Icon className="h-5 w-5" /></span>
-              <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{label}</span><span className="mt-0.5 block text-xs leading-4 text-muted-foreground">{detail}</span></span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-            </button>
-          ))}
-        </div>
+        {[schedules, connections].map((group, index) => (
+          <section key={index} className="availability-tool-section">
+            {index === 1 && <h3>View &amp; connect</h3>}
+            <div className="availability-tool-list">
+              {group.map(({ label, detail, icon: Icon, onSelect }) => (
+                <button key={label} type="button" aria-label={label} className="availability-tool-row" data-tone={label === "Block time" ? "amber" : undefined} onClick={() => { nextAction.current = onSelect; setOpen(false); }}>
+                  <Icon aria-hidden="true" /><span><strong>{label}</strong><small>{detail}</small></span><ChevronRight aria-hidden="true" />
+                </button>
+              ))}
+            </div>
+          </section>
+        ))}
       </AvailabilityPanelContent>
     </Dialog>
   );

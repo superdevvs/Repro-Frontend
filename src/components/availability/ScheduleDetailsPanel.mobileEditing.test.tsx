@@ -31,10 +31,10 @@ function createProps(): React.ComponentProps<typeof ScheduleDetailsPanel> {
 it("renders the working weekly editor in the mobile details drawer", () => {
   const props = createProps();
   render(<ScheduleDetailsPanel {...props} />);
-  expect(screen.getByRole("textbox", { name: "Default start time" })).toHaveValue("09:00");
-  fireEvent.change(screen.getByRole("textbox", { name: "Default start time" }), { target: { value: "10:00" } });
-  expect(props.updateCurrentWeeklySchedule).toHaveBeenCalledTimes(7);
-  for (let index = 0; index < 7; index += 1) expect(props.updateCurrentWeeklySchedule).toHaveBeenCalledWith(index, "startTime", "10:00");
+  expect(screen.getByLabelText("Monday start")).toHaveValue("09:00");
+  fireEvent.change(screen.getByLabelText("Monday start"), { target: { value: "10:00" } });
+  expect(props.updateCurrentWeeklySchedule).toHaveBeenCalledOnce();
+  expect(props.updateCurrentWeeklySchedule).toHaveBeenCalledWith(0, "startTime", "10:00");
   fireEvent.click(screen.getByRole("button", { name: "Save default schedule" }));
   expect(props.saveWeeklySchedule).toHaveBeenCalledOnce();
 });
