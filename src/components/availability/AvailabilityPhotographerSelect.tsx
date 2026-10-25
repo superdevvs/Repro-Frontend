@@ -18,7 +18,7 @@ export function AvailabilityPhotographerSelect({
 
   return (
     <Select value={selectedPhotographer} onValueChange={onSelect}>
-      <SelectTrigger className="w-full min-w-0 flex-1">
+      <SelectTrigger className="w-full min-w-0 shrink-0">
         <SelectValue placeholder="Select photographer" />
       </SelectTrigger>
       <SelectContent>
