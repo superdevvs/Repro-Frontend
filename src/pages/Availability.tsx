@@ -19,6 +19,7 @@ import API_ROUTES from "@/lib/api";
 
 import type { Availability, WeeklyScheduleItem } from "@/types/availability";
 import { normalizeAvailabilityDate, toHhMm, uiTimeToHhmm } from "@/lib/availability/utils";
+import { buildWeeklySchedulePayload } from "@/lib/availability/weeklySchedulePayload";
 import {
   buildMonthAvailabilities, buildPhotographerAvailabilityLabel, buildSelectedDateAvailabilities,
   buildWeekAvailabilities, buildWeeklyScheduleFromSlots, checkTimeOverlap as checkTimeOverlapFn,
@@ -383,11 +384,6 @@ export default function Availability() {
       return;
     }
     const currentSchedule = getCurrentWeeklySchedule();
-    const dayMap: Record<string, string> = {
-      Mon: 'monday', Tue: 'tuesday', Wed: 'wednesday', Thu: 'thursday',
-      Fri: 'friday', Sat: 'saturday', Sun: 'sunday',
-    };
-    const mapDay = (d: string) => dayMap[d] || d.toLowerCase();
     const activeDays = currentSchedule.filter((day) => day.active);
     for (const day of activeDays) {
       const start = uiTimeToHhmm(day.startTime);
@@ -402,16 +398,7 @@ export default function Availability() {
       }
     }
 
-    const payload = {
-      photographer_id: Number(selectedPhotographer),
-      availabilities: activeDays.map((day) => ({
-        day_of_week: mapDay(day.day),
-        start_time: uiTimeToHhmm(day.startTime),
-        end_time: uiTimeToHhmm(day.endTime),
-        status: 'available' as const,
-        note: weeklyScheduleNote.trim() || null,
-      })),
-    };
+    const payload = buildWeeklySchedulePayload(selectedPhotographer, currentSchedule, weeklyScheduleNote);
 
     try {
       const res = await fetch(API_ROUTES.photographerAvailability.replaceWeekly, {
