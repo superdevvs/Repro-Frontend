@@ -47,4 +47,25 @@ describe('sales scheduling roster and authenticated calendars', () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/api\/photographers$/), expect.objectContaining({ headers: expect.objectContaining({ Authorization: 'Bearer legacy-token' }) }));
     client.clear();
   });
+
+  it('marks an individual ready only after that photographer response arrives', async () => {
+    let releaseSecond: (value: Response) => void = () => undefined;
+    const secondResponse = new Promise<Response>(resolve => { releaseSecond = resolve; });
+    vi.stubGlobal('fetch', vi.fn(async (url: RequestInfo | URL) => {
+      if (String(url).endsWith('/photographers')) return response(roster);
+      if (String(url).endsWith('/bulk-index')) return response({ 42: [slot] });
+      if (String(url).endsWith('/booked-slots')) return response([]);
+      if (String(url).endsWith('/availability/43')) return secondResponse;
+      return response([slot]);
+    }));
+    const { result } = renderHook(useCalendar);
+    await waitFor(() => expect(result.current.photographers).toHaveLength(2));
+    act(() => result.current.setSelected('42'));
+    await waitFor(() => expect(result.current.loadedPhotographerId).toBe('42'));
+    act(() => result.current.setSelected('43'));
+    expect(result.current.loadedPhotographerId).not.toBe('43');
+    await act(async () => { releaseSecond(response([])); });
+    await waitFor(() => expect(result.current.loadedPhotographerId).toBe('43'));
+    expect(result.current.backendSlots).toEqual([]);
+  });
 });

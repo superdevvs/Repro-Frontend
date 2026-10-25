@@ -9,6 +9,11 @@ const photographers = [
 ];
 
 describe("AvailabilityPhotographerSelect", () => {
+  it("asks for an individual inside an editing drawer opened from the team overview", () => {
+    render(<AvailabilityPhotographerSelect canManagePhotographerSelection photographers={photographers} selectedPhotographer="all" onSelect={vi.fn()} allowAll={false} />);
+    expect(screen.getByRole("combobox", { name: "Photographer" })).toHaveTextContent("Select photographer");
+    expect(screen.queryByText("All Photographers")).not.toBeInTheDocument();
+  });
   it("hides the team picker from photographers", () => {
     const { container } = render(
       <AvailabilityPhotographerSelect

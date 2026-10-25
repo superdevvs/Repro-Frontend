@@ -22,14 +22,15 @@ function setup(overrides: Partial<React.ComponentProps<typeof AvailabilityCompac
 }
 
 describe("compact Availability controls", () => {
-  it("keeps team mutations unavailable until a photographer is selected", async () => {
+  it("opens scheduling flows from the whole-team menu so the drawer can choose a photographer", async () => {
     const user = userEvent.setup();
-    setup({ selectedPhotographer: "all" });
+    const { props } = setup({ selectedPhotographer: "all" });
     await user.click(screen.getByRole("button", { name: "Availability menu" }));
-    expect(screen.getByRole("menuitem", { name: "Add schedule" })).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByRole("menuitem", { name: "Default schedule" })).toHaveAttribute("aria-disabled", "true");
-    expect(screen.getByText("Select a photographer to add or edit their schedule.")).toBeVisible();
-    expect(screen.getByRole("menuitem", { name: "Team availability" })).not.toHaveAttribute("aria-disabled", "true");
+    await user.click(screen.getByRole("menuitem", { name: "Add schedule" }));
+    expect(props.onAddSchedule).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole("button", { name: "Availability menu" }));
+    await user.click(screen.getByRole("menuitem", { name: "Default schedule" }));
+    expect(props.onDefaultSchedule).toHaveBeenCalledOnce();
   });
 
   it("retains access to existing schedule, team and sync actions through the menu", async () => {

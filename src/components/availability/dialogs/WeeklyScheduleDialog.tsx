@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import {
@@ -44,6 +45,9 @@ interface WeeklyScheduleDialogProps {
   setSpecificDateTo: (date: Date | undefined) => void;
   specificScheduleDates: Date[];
   selectedPhotographer: string;
+  photographerPicker?: React.ReactNode;
+  isAvailabilityReady?: boolean;
+  availabilityStatus?: React.ReactNode;
   getPhotographerName: (id: string) => string;
   checkTimeOverlap: (
     startTime: string,
@@ -78,6 +82,9 @@ export function WeeklyScheduleDialog({
   setSpecificDateTo,
   specificScheduleDates,
   selectedPhotographer,
+  photographerPicker,
+  isAvailabilityReady = true,
+  availabilityStatus,
   getPhotographerName,
   checkTimeOverlap,
   date,
@@ -85,6 +92,7 @@ export function WeeklyScheduleDialog({
   refreshPhotographerSlots,
   toast,
 }: WeeklyScheduleDialogProps) {
+  const [isSaving, setIsSaving] = useState(false);
   const resetState = () => {
     setNewWeeklySchedule(DEFAULT_SCHEDULE);
     const seedDate = date ?? new Date();
@@ -98,6 +106,7 @@ export function WeeklyScheduleDialog({
   };
 
   const handleSave = async () => {
+    if (isSaving || !isAvailabilityReady) return;
     if (selectedPhotographer === "all") {
       toast({
         title: "Select a photographer",
@@ -119,6 +128,7 @@ export function WeeklyScheduleDialog({
       return;
     }
 
+    setIsSaving(true);
     try {
       if (newWeeklySchedule.recurring) {
         const dayNames = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
@@ -243,6 +253,8 @@ export function WeeklyScheduleDialog({
         description: "Failed to add schedule. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -252,11 +264,13 @@ export function WeeklyScheduleDialog({
         <DialogHeader>
           <DialogTitle>Add Schedule</DialogTitle>
           <DialogDescription>
-            Create availability schedule for {getPhotographerName(selectedPhotographer)}. Pick a date range, or check the box to repeat it weekly.
+            {selectedPhotographer === "all" ? "Choose a photographer below to add their availability." : `Create availability for ${getPhotographerName(selectedPhotographer)}.`} Pick a date, or repeat it weekly.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
+        <fieldset disabled={isSaving} className="min-w-0 space-y-4 py-4">
+          {photographerPicker && <div className="space-y-2"><Label>Photographer</Label>{photographerPicker}</div>}
+          {availabilityStatus}
           <div className="space-y-2">
             <Label>Status</Label>
             <div className="flex gap-2">
@@ -371,7 +385,7 @@ export function WeeklyScheduleDialog({
           {newWeeklySchedule.recurring && (
             <div className="space-y-2">
               <Label>Repeat Days</Label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-7 gap-1">
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
                   <button
                     key={idx}
@@ -403,11 +417,11 @@ export function WeeklyScheduleDialog({
               className="min-h-[80px] rounded-md resize-none"
             />
           </div>
-        </div>
+        </fieldset>
 
         <DialogFooter>
-          <Button variant="outline" onClick={handleCancel}>Cancel</Button>
-          <Button onClick={handleSave}>Add Schedule</Button>
+          <Button variant="outline" disabled={isSaving} onClick={handleCancel}>Cancel</Button>
+          <Button disabled={selectedPhotographer === "all" || !isAvailabilityReady || isSaving} onClick={handleSave}>{isSaving ? "Saving…" : "Add Schedule"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

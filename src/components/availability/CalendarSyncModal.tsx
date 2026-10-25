@@ -68,6 +68,9 @@ interface CalendarSyncModalProps {
   };
   isGoogleCalendarStatusLoading?: boolean;
   requiresPhotographerSelection?: boolean;
+  photographerPicker?: React.ReactNode;
+  isAvailabilityReady?: boolean;
+  availabilityStatus?: React.ReactNode;
 }
 
 // Calendar Icons
@@ -103,6 +106,9 @@ export function CalendarSyncModal({
   googleCalendarStatus,
   isGoogleCalendarStatusLoading = false,
   requiresPhotographerSelection = false,
+  photographerPicker,
+  isAvailabilityReady = true,
+  availabilityStatus,
 }: CalendarSyncModalProps) {
   const { toast } = useToast();
   const [dateRangeOption, setDateRangeOption] = useState<DateRangeOption>("30days");
@@ -217,6 +223,7 @@ export function CalendarSyncModal({
   }, [isOpen]);
 
   const handleSync = async () => {
+    if (!isAvailabilityReady) return;
     if (!selectedCalendar) {
       toast({
         title: "Please select a calendar",
@@ -334,7 +341,7 @@ export function CalendarSyncModal({
   };
 
   const handleGoogleCalendarClick = async () => {
-    if (requiresPhotographerSelection || isGoogleCalendarStatusLoading || isGoogleCalendarDisconnecting) {
+    if (!isAvailabilityReady || requiresPhotographerSelection || isGoogleCalendarStatusLoading || isGoogleCalendarDisconnecting) {
       return;
     }
 
@@ -381,7 +388,7 @@ export function CalendarSyncModal({
         : undefined;
   const googleIsConnected = Boolean(googleCalendarStatus?.connected);
   const googleCardDisabled = (
-    isGoogleCalendarConnecting
+    !isAvailabilityReady || isGoogleCalendarConnecting
     || isGoogleCalendarDisconnecting
     || isGoogleCalendarStatusLoading
     || requiresPhotographerSelection
@@ -404,6 +411,9 @@ export function CalendarSyncModal({
             Export availability or connect Google Calendar.
           </DialogDescription>
         </DialogHeader>
+
+        {photographerPicker && <div className="space-y-2"><Label>Photographer</Label>{photographerPicker}</div>}
+        {availabilityStatus}
 
         {syncSuccess && lastSyncedInfo && (
           <div className="flex items-start gap-3 p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
@@ -643,7 +653,7 @@ export function CalendarSyncModal({
             <Button variant="ghost" onClick={onClose}>
               Cancel
             </Button>
-            <Button onClick={handleSync} disabled={isSyncing || isGoogleCalendarConnecting || isGoogleCalendarDisconnecting || !selectedCalendar || eventCount === 0}>
+            <Button onClick={handleSync} disabled={!isAvailabilityReady || isSyncing || isGoogleCalendarConnecting || isGoogleCalendarDisconnecting || !selectedCalendar || eventCount === 0}>
               {isSyncing ? (
                 <>
                   <Loader2 aria-hidden="true" className="mr-2 h-4 w-4" />
