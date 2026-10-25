@@ -42,7 +42,7 @@ it("opens overflow photographers and hands the chosen entry to its schedule draw
   const user = userEvent.setup();
   render(<Harness />);
   expect(screen.getByText('+2')).toBeVisible();
-  await user.click(screen.getByRole('button', {name: /5 photographers/}));
+  await user.click(screen.getByRole('button', {name: /starts before 10:00, 5 photographers/}));
   await user.click(screen.getByRole('button', {name: /Eve/}));
   await waitFor(() => expect(screen.getByRole('dialog', {name: 'Schedule details'})).toBeVisible());
   expect(onSelect).toHaveBeenCalledWith(expect.objectContaining({id: '5', startTime: '09:00', endTime: '17:00'}));

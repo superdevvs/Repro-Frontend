@@ -74,7 +74,7 @@ export function WeekView(props: AvailabilityCalendarBodyProps) {
         {isMobile ? <div className="availability-week-header">
           <div className="availability-week-date availability-week-corner">Day</div>
           {selectedPhotographer === 'all' ? <div className="availability-week-start-header">
-            {weekStartWindows.map(({start, end}) => <div key={start}>{formatTimeDisplay(`${start}:00`).replace(':00', '')}&ndash;{formatTimeDisplay(`${end}:00`).replace(':00', '')}</div>)}
+            {weekStartWindows.map(({start, end}, index) => <div key={start}>{index === 0 ? 'Before ' : <>{formatTimeDisplay(`${start}:00`).replace(':00', '')}&ndash;</>}{formatTimeDisplay(`${end}:00`).replace(':00', '')}</div>)}
           </div> : <div className="relative flex-1">
             {weekViewLabelHours.map(hour => <span key={hour} className="absolute top-1/2 -translate-y-1/2 pl-2 text-[11px] text-muted-foreground"
               style={{left: `${((hour - 8) / (weekViewEndHour - 8)) * 100}%`}}>{formatTimeDisplay(`${hour}:00`).replace(':00', '')}</span>)}
