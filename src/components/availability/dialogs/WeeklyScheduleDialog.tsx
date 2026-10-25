@@ -11,8 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { TimeSelect } from "@/components/ui/time-select";
-import { Checkbox } from "@/components/ui/checkbox";
+import { AvailabilityTimeField as TimeSelect } from "../AvailabilityTimeField";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
@@ -151,6 +150,7 @@ export function WeeklyScheduleDialog({
             start_time: startTime,
             end_time: endTime,
             status: newWeeklySchedule.status === 'unavailable' ? 'unavailable' : 'available',
+            note: newWeeklySchedule.note.trim() || null,
           }))
         };
 
@@ -218,6 +218,7 @@ export function WeeklyScheduleDialog({
             start_time: startTime,
             end_time: endTime,
             status: newWeeklySchedule.status === 'unavailable' ? 'unavailable' : 'available',
+            note: newWeeklySchedule.note.trim() || null,
           })),
         };
 
@@ -267,61 +268,29 @@ export function WeeklyScheduleDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <fieldset disabled={isSaving} className="min-w-0 space-y-4 py-4">
+        <fieldset disabled={isSaving} className="min-w-0 space-y-4">
           {photographerPicker && <div className="space-y-2"><Label>Photographer</Label>{photographerPicker}</div>}
           {availabilityStatus}
           <div className="space-y-2">
             <Label>Status</Label>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setNewWeeklySchedule({ ...newWeeklySchedule, status: "available" })}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
-                  newWeeklySchedule.status === "available"
-                    ? "bg-green-950/40 border-green-700 text-green-300 ring-2 ring-green-800"
-                    : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
-                )}
-              >
-                <span className="h-2.5 w-2.5 rounded-full bg-green-500" />
-                Available
-              </button>
-              <button
-                type="button"
-                onClick={() => setNewWeeklySchedule({ ...newWeeklySchedule, status: "unavailable" })}
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all border",
-                  newWeeklySchedule.status === "unavailable"
-                    ? "bg-red-950/40 border-red-700 text-red-300 ring-2 ring-red-800"
-                    : "bg-muted/50 border-muted text-muted-foreground hover:bg-muted"
-                )}
-              >
-                <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-                Unavailable
-              </button>
+            <div className="availability-choice status" role="group" aria-label="Availability status">
+              {(['available', 'unavailable'] as const).map(status => (
+                <button key={status} type="button" data-status={status}
+                  aria-pressed={newWeeklySchedule.status === status}
+                  onClick={() => setNewWeeklySchedule({ ...newWeeklySchedule, status })}>
+                  {status === 'available' ? 'Available' : 'Unavailable'}
+                </button>
+              ))}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Start Time</Label>
-              <TimeSelect
-                value={newWeeklySchedule.startTime}
-                onChange={(time) => setNewWeeklySchedule({ ...newWeeklySchedule, startTime: time })}
-                placeholder="Select start time"
-                startHour={6}
-                endHour={21}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>End Time</Label>
-              <TimeSelect
-                value={newWeeklySchedule.endTime}
-                onChange={(time) => setNewWeeklySchedule({ ...newWeeklySchedule, endTime: time })}
-                placeholder="Select end time"
-                startHour={6}
-                endHour={21}
-              />
+          <div className="space-y-2">
+            <Label>Applies to</Label>
+            <div className="availability-choice" role="group" aria-label="Schedule repeat">
+              <button type="button" aria-pressed={!newWeeklySchedule.recurring}
+                onClick={() => setNewWeeklySchedule({ ...newWeeklySchedule, recurring: false })}>This date</button>
+              <button type="button" aria-pressed={newWeeklySchedule.recurring}
+                onClick={() => setNewWeeklySchedule({ ...newWeeklySchedule, recurring: true })}>Repeat weekly</button>
             </div>
           </div>
 
@@ -356,30 +325,8 @@ export function WeeklyScheduleDialog({
                   />
                 </PopoverContent>
               </Popover>
-              <p className="text-xs text-muted-foreground">
-                For multi-day patterns, check <span className="font-medium">Repeat weekly</span> below.
-              </p>
             </div>
           )}
-
-          <div className="flex items-start gap-2 rounded-md border border-border/60 bg-muted/30 p-3">
-            <Checkbox
-              id="weekly-recurring"
-              checked={newWeeklySchedule.recurring}
-              onCheckedChange={(checked) =>
-                setNewWeeklySchedule({ ...newWeeklySchedule, recurring: checked === true })
-              }
-              className="mt-0.5"
-            />
-            <div className="space-y-0.5">
-              <Label htmlFor="weekly-recurring" className="text-sm font-medium cursor-pointer">
-                Repeat weekly
-              </Label>
-              <p className="text-xs text-muted-foreground">
-                Apply this schedule every week on the days you select below.
-              </p>
-            </div>
-          </div>
 
           {newWeeklySchedule.recurring && (
             <div className="space-y-2">
@@ -388,13 +335,16 @@ export function WeeklyScheduleDialog({
                 {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day, idx) => (
                   <button
                     key={idx}
+                    type="button"
+                    aria-label={['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'][idx]}
+                    aria-pressed={newWeeklySchedule.days[idx]}
                     onClick={() => {
                       const newDays = [...newWeeklySchedule.days];
                       newDays[idx] = !newDays[idx];
                       setNewWeeklySchedule({ ...newWeeklySchedule, days: newDays });
                     }}
                     className={cn(
-                      "h-9 w-9 rounded-full font-medium transition-all text-sm",
+                      "h-11 w-full rounded-full font-medium transition-all text-sm",
                       newWeeklySchedule.days[idx]
                         ? "bg-primary text-primary-foreground shadow-sm"
                         : "bg-muted text-muted-foreground hover:bg-muted/80"
@@ -407,10 +357,33 @@ export function WeeklyScheduleDialog({
             </div>
           )}
 
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Start Time</Label>
+              <TimeSelect
+                value={newWeeklySchedule.startTime}
+                onChange={(time) => setNewWeeklySchedule({ ...newWeeklySchedule, startTime: time })}
+                placeholder="Select start time"
+                startHour={6}
+                endHour={21}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>End Time</Label>
+              <TimeSelect
+                value={newWeeklySchedule.endTime}
+                onChange={(time) => setNewWeeklySchedule({ ...newWeeklySchedule, endTime: time })}
+                placeholder="Select end time"
+                startHour={6}
+                endHour={21}
+              />
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label>Note (Optional)</Label>
             <Textarea
-              value={newWeeklySchedule.note}
+              value={newWeeklySchedule.note} maxLength={1000} aria-label="Schedule note"
               onChange={(e) => setNewWeeklySchedule({ ...newWeeklySchedule, note: e.target.value })}
               placeholder="Add a note about this schedule..."
               className="min-h-[80px] rounded-md resize-none"

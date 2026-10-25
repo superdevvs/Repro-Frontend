@@ -69,7 +69,7 @@ export function AvailabilityCompactToolbar(props: AvailabilityCompactToolbarProp
             <Ban className="h-[18px] w-[18px]" />
           </Button>
         )}
-        <AvailabilityToolsMenu {...props} />
+        <AvailabilityToolsMenu {...props} context={`${selectedPhotographer === "all" ? "All photographers" : props.photographers.find(person => person.id === selectedPhotographer)?.name || "My availability"} · ${format(date, "EEE, MMM d")}`} />
       </div>
 
       <div className="flex items-center gap-2" role="group" aria-label="Calendar view">

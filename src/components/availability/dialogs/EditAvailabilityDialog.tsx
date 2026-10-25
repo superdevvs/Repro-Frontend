@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TimeSelect } from "@/components/ui/time-select";
+import { AvailabilityTimeField as TimeSelect } from "../AvailabilityTimeField";
 import { cn } from "@/lib/utils";
 import API_ROUTES from "@/lib/api";
 import type { Availability, AvailabilityToastFn, BackendSlot } from "@/types/availability";

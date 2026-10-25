@@ -1,3 +1,4 @@
+import { WeeklyScheduleEditor as FlowWeeklyScheduleEditor } from "./WeeklyScheduleEditor";
 import { EmptyState } from '@/components/ui/empty-state';
 import { useEffect, useRef } from "react";
 import { format, startOfWeek, endOfWeek } from "date-fns";
@@ -123,7 +124,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
   // Mobile variant with simplified editing
   if (isMobile) {
     return (
-      <Card className="p-3 sm:p-4 flex flex-col border shadow-sm rounded-md">
+      <Card className="availability-schedule-manager p-3 sm:p-4 flex flex-col border shadow-sm rounded-md">
         <div className="flex-1 min-h-0 overflow-y-auto">
           {selectedPhotographer !== "all" ? (
             <>
@@ -269,7 +270,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                   </div>
                 </>
               ) : (
-                <WeeklyScheduleEditor {...props} />
+                <FlowWeeklyScheduleEditor {...props} />
               )}
             </>
           ) : (

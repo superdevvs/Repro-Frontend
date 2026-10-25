@@ -37,7 +37,7 @@ describe("compact Availability controls", () => {
     const user = userEvent.setup();
     const { props } = setup();
     for (const [label, callback] of [
-      ["Team availability", props.onTeam], ["Schedule details", props.onDetails],
+      ["Team availability", props.onTeam], ["Manage schedules", props.onDetails],
       ["Add schedule", props.onAddSchedule], ["Default schedule", props.onDefaultSchedule],
       ["Calendar sync", props.onSync],
     ] as const) {
@@ -59,7 +59,7 @@ describe("compact Availability controls", () => {
     await user.click(screen.getByRole("button", { name: "Availability menu" }));
     expect(screen.queryByRole("button", { name: "Team availability" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Add schedule" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Schedule details" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Manage schedules" })).toBeVisible();
   });
 
   it("identifies the map selection and keeps date navigation available for its current period", () => {

@@ -4,7 +4,7 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach, expect, it, vi } from "vitest";
 import { WeeklyScheduleDialog, type NewWeeklyScheduleState } from "./WeeklyScheduleDialog";
 
-vi.mock("@/components/ui/time-select", () => ({ TimeSelect: () => <span>Time control</span> }));
+vi.mock("../AvailabilityTimeField", () => ({ AvailabilityTimeField: () => <span>Time control</span> }));
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 function Harness({ ready = true, onClose = vi.fn() }: { ready?: boolean; onClose?: () => void }) {
@@ -28,10 +28,26 @@ it("requires a photographer inside Add Schedule and saves for that person", asyn
   expect(request).not.toHaveBeenCalled();
   fireEvent.change(screen.getByRole("combobox", { name: "Photographer" }), { target: { value: "41" } });
   expect(save).toBeEnabled();
+  fireEvent.change(screen.getByRole("textbox", { name: "Schedule note" }), { target: { value: "Morning coverage" } });
   fireEvent.click(save);
   await waitFor(() => expect(onClose).toHaveBeenCalledWith(false));
   expect(request).toHaveBeenCalledOnce();
-  expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toMatchObject({ photographer_id: 41, availabilities: [{ date: "2026-10-26", start_time: "09:00", end_time: "17:00" }] });
+  expect(JSON.parse(String(request.mock.calls[0][1]?.body))).toMatchObject({ photographer_id: 41, availabilities: [{ date: "2026-10-26", start_time: "09:00", end_time: "17:00", note: "Morning coverage" }] });
+});
+
+it("saves a weekly repeat for only the selected weekdays with its note", async () => {
+  const request = vi.fn(async (_url: RequestInfo | URL, _init?: RequestInit) => new Response(null, { status: 200 }));
+  vi.stubGlobal("fetch", request);
+  render(<Harness />);
+  fireEvent.change(screen.getByRole("combobox", { name: "Photographer" }), { target: { value: "41" } });
+  fireEvent.click(screen.getByRole("button", { name: "Repeat weekly" }));
+  fireEvent.click(screen.getByRole("button", { name: "Monday" }));
+  fireEvent.change(screen.getByRole("textbox", { name: "Schedule note" }), { target: { value: "Weekly cover" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add Schedule" }));
+  await waitFor(() => expect(request).toHaveBeenCalledOnce());
+  const payload = JSON.parse(String(request.mock.calls[0][1]?.body));
+  expect(payload.availabilities.map((slot: {day_of_week: string}) => slot.day_of_week)).toEqual(["tuesday", "wednesday", "thursday", "friday"]);
+  expect(payload.availabilities.every((slot: {note: string}) => slot.note === "Weekly cover")).toBe(true);
 });
 
 it("waits for the chosen photographer's availability before permitting a save", () => {

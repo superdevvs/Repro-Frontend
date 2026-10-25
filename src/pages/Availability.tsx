@@ -356,13 +356,17 @@ export default function Availability() {
     }
   };
 
-  const handleEditAvailability = () => setEditingWeeklySchedule(true);
+  const handleEditAvailability = () => {
+    setWeeklyScheduleNote(backendSlots.find(slot => !slot.date && slot.status === 'available')?.note || "");
+    setEditingWeeklySchedule(true);
+  };
 
   // Wait for the selected person's response before hydrating an editor opened
   // from the team overview or switched to another photographer inside a drawer.
   useEffect(() => {
     if (!defaultScheduleRequested || selectedPhotographer === "all" || availabilityLoading || loadedPhotographerId !== selectedPhotographer) return;
     const hydrated = buildWeeklyScheduleFromSlots(backendSlots, DEFAULT_SCHEDULE_STARTER);
+    setWeeklyScheduleNote(backendSlots.find(slot => !slot.date && slot.status === 'available')?.note || "");
     setPhotographerWeeklySchedules(prev => ({ ...prev, [selectedPhotographer]: hydrated.some(day => day.active) ? hydrated : DEFAULT_SCHEDULE_STARTER }));
     setEditingWeeklySchedule(true);
     setDefaultScheduleRequested(false);
@@ -405,6 +409,7 @@ export default function Availability() {
         start_time: uiTimeToHhmm(day.startTime),
         end_time: uiTimeToHhmm(day.endTime),
         status: 'available' as const,
+        note: weeklyScheduleNote.trim() || null,
       })),
     };
 
@@ -430,7 +435,7 @@ export default function Availability() {
         title: "Default schedule saved",
         description: activeDays.length === 0
           ? `Cleared recurring availability for ${getPhotographerName(selectedPhotographer)}.`
-          : `Recurring ${uiTimeToHhmm(activeDays[0].startTime)}–${uiTimeToHhmm(activeDays[0].endTime)} on ${activeDays.length} day(s) for ${getPhotographerName(selectedPhotographer)}.`,
+          : `Saved working hours on ${activeDays.length} day(s) for ${getPhotographerName(selectedPhotographer)}.`,
       });
     } catch (error) {
       toast({
