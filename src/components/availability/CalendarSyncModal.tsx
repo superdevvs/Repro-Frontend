@@ -1,11 +1,10 @@
+import { AvailabilityPanelContent as DialogContent, AvailabilityPanelFooter as DialogFooter } from "./AvailabilityPanelContent";
 import React, { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
-  DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";

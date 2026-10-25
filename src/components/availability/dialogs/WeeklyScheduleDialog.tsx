@@ -1,11 +1,10 @@
+import { AvailabilityPanelContent as DialogContent, AvailabilityPanelFooter as DialogFooter } from "../AvailabilityPanelContent";
 import { useState } from "react";
 import { CalendarIcon } from "lucide-react";
 import { format } from "date-fns";
 import {
   Dialog,
-  DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";

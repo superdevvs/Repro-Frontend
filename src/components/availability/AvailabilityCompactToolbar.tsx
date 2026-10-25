@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { endOfWeek, format, startOfWeek } from "date-fns";
-import { Ban, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, List, Map, MoreHorizontal, Plus, RefreshCw, Users } from "lucide-react";
+import { Ban, ChevronDown, ChevronLeft, ChevronRight, Map, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 import type { Photographer } from "@/types/availability";
 import { AvailabilityPhotographerSelect } from "./AvailabilityPhotographerSelect";
+import { AvailabilityToolsMenu } from "./AvailabilityToolsMenu";
 
 type ViewMode = "day" | "week" | "month";
 
@@ -69,29 +69,7 @@ export function AvailabilityCompactToolbar(props: AvailabilityCompactToolbarProp
             <Ban className="h-[18px] w-[18px]" />
           </Button>
         )}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0 rounded-xl bg-muted" aria-label="Availability menu" title="Availability menu">
-              <MoreHorizontal className="h-5 w-5" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 rounded-xl p-1.5">
-            <DropdownMenuLabel>Calendar tools</DropdownMenuLabel>
-            {props.canManagePhotographerSelection && (
-              <DropdownMenuItem className="min-h-11 gap-2" onSelect={props.onTeam}><Users className="h-4 w-4" />Team availability</DropdownMenuItem>
-            )}
-            <DropdownMenuItem className="min-h-11 gap-2" onSelect={props.onDetails}><List className="h-4 w-4" />Schedule details</DropdownMenuItem>
-            {canEditAvailability && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem className="min-h-11 gap-2" onSelect={props.onAddSchedule}><Plus className="h-4 w-4" />Add schedule</DropdownMenuItem>
-                <DropdownMenuItem className="min-h-11 gap-2" onSelect={props.onDefaultSchedule}><CalendarDays className="h-4 w-4" />Default schedule</DropdownMenuItem>
-              </>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem className="min-h-11 gap-2" onSelect={props.onSync}><RefreshCw className="h-4 w-4" />Calendar sync</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <AvailabilityToolsMenu {...props} />
       </div>
 
       <div className="flex items-center gap-2" role="group" aria-label="Calendar view">

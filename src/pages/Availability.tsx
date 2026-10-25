@@ -1,3 +1,4 @@
+import { AvailabilityPanelContent as SheetContent } from "@/components/availability/AvailabilityPanelContent";
 import { AvailabilitySearchBinding } from '@/components/availability/AvailabilitySearchBinding';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -6,7 +7,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { InlineSpinner } from "@/components/ui/inline-spinner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -808,7 +809,7 @@ export default function Availability() {
                 ) : <AvailabilityCalendarBody {...calendarBodyProps} />}
               </Card>
               <Sheet open={mobileTab === "details"} onOpenChange={open => { setMobileTab(open ? "details" : "calendar"); if (!open) { setDefaultScheduleRequested(false); setEditingWeeklySchedule(false); } }}>
-                <SheetContent side="right" className="flex w-full flex-col gap-4 overflow-y-auto px-3 sm:max-w-lg sm:px-5">
+                <SheetContent className="flex w-full flex-col gap-4 overflow-y-auto px-3 sm:max-w-lg sm:px-5">
                   <SheetHeader><SheetTitle>{defaultScheduleRequested || editingWeeklySchedule ? "Default schedule" : "Schedule details"}</SheetTitle></SheetHeader>
                   {photographerPicker}
                   {availabilityStatus || <ScheduleDetailsPanel variant="mobile" {...scheduleDetailsProps} />}

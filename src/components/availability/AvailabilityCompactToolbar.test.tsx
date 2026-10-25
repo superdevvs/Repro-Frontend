@@ -26,10 +26,10 @@ describe("compact Availability controls", () => {
     const user = userEvent.setup();
     const { props } = setup({ selectedPhotographer: "all" });
     await user.click(screen.getByRole("button", { name: "Availability menu" }));
-    await user.click(screen.getByRole("menuitem", { name: "Add schedule" }));
+    await user.click(screen.getByRole("button", { name: "Add schedule" }));
     expect(props.onAddSchedule).toHaveBeenCalledOnce();
     await user.click(screen.getByRole("button", { name: "Availability menu" }));
-    await user.click(screen.getByRole("menuitem", { name: "Default schedule" }));
+    await user.click(screen.getByRole("button", { name: "Default schedule" }));
     expect(props.onDefaultSchedule).toHaveBeenCalledOnce();
   });
 
@@ -42,9 +42,9 @@ describe("compact Availability controls", () => {
       ["Calendar sync", props.onSync],
     ] as const) {
       await user.click(screen.getByRole("button", { name: "Availability menu" }));
-      await user.click(screen.getByRole("menuitem", { name: label }));
+      await user.click(screen.getByRole("button", { name: label }));
       expect(callback).toHaveBeenCalledOnce();
-      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      expect(screen.queryByRole("dialog", { name: "Calendar tools" })).not.toBeInTheDocument();
     }
     await user.click(screen.getByRole("button", { name: "Block time" }));
     expect(props.onBlock).toHaveBeenCalledOnce();
@@ -57,9 +57,9 @@ describe("compact Availability controls", () => {
     expect(screen.getByText("Jay Snap")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Block time" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Availability menu" }));
-    expect(screen.queryByRole("menuitem", { name: "Team availability" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("menuitem", { name: "Add schedule" })).not.toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Schedule details" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "Team availability" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add schedule" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Schedule details" })).toBeVisible();
   });
 
   it("identifies the map selection and keeps date navigation available for its current period", () => {
