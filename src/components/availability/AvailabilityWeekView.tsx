@@ -11,6 +11,7 @@ import { splitAvailableAroundUnavailable } from "./availabilitySlotSegments";
 import type { Availability, AvailabilityStatus } from "@/types/availability";
 import type { AvailabilityCalendarBodyProps } from "./AvailabilityCalendarBody";
 import { AvailabilityWeekGroups } from "./AvailabilityWeekGroups";
+import { selectCalendarPhotographer } from "./calendarSelection";
 import { weekStartWindows } from "./availabilityWeekGrouping";
 import "./availabilityWeek.css";
 
@@ -20,13 +21,10 @@ export function WeekView(props: AvailabilityCalendarBodyProps) {
     date,
     setDate,
     selectedPhotographer,
-    setSelectedPhotographer,
     photographers,
     backendSlots,
     allBackendSlots,
     selectedSlotId,
-    setSelectedSlotId,
-    setExpandedBookingDetails,
     setMobileTab,
     to12HourDisplay,
     setRightClickedDate,
@@ -185,7 +183,7 @@ export function WeekView(props: AvailabilityCalendarBodyProps) {
                         onClick={(e) => {
                           e.stopPropagation();
                           setDate(day);
-                          if (isMobile && setMobileTab) setMobileTab("details");
+                          if (selectedPhotographer !== "all" && isMobile && setMobileTab) setMobileTab("details");
                         }}
                         className={cn(
                           "inline-flex w-full justify-start items-baseline gap-1 mt-0.5",
@@ -210,13 +208,7 @@ export function WeekView(props: AvailabilityCalendarBodyProps) {
                     </div>
 
                     {isMobile && selectedPhotographer === 'all' ? <AvailabilityWeekGroups day={day} slots={daySlots} photographers={photographers} formatTime={formatTimeDisplay}
-                      onSelect={slot => {
-                        setSelectedSlotId(slot.id);
-                        setDate(day);
-                        setSelectedPhotographer?.(slot.photographerId);
-                        if (slot.status === 'booked' && slot.shootDetails) setExpandedBookingDetails(previous => new Set(previous).add(slot.id));
-                        setMobileTab?.("details");
-                      }} /> : <div className="flex-1 relative overflow-hidden">
+                      onSelect={slot => selectCalendarPhotographer(props, slot.photographerId, day, slot)} /> : <div className="flex-1 relative overflow-hidden">
                       {weekViewLabelHours.map((hour) => (
                         <div
                           key={hour}
@@ -252,15 +244,13 @@ export function WeekView(props: AvailabilityCalendarBodyProps) {
                             <TooltipProvider key={slot.id}>
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <div
+                                  <button type="button" aria-label={`View ${photographer?.name || 'photographer'} schedule on ${format(day, 'MMMM d')}`}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setSelectedSlotId(slot.id);
-                                      setDate(day);
-                                      if (isMobile && setMobileTab) setMobileTab("details");
+                                      selectCalendarPhotographer(props, slot.photographerId, day, slot);
                                     }}
                                     className={cn(
-                                      "absolute rounded-full border-2 cursor-pointer transition-transform flex items-center justify-center bg-background",
+                                      "absolute rounded-full border-2 p-0 cursor-pointer transition-transform flex items-center justify-center bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                                       isMobile ? "hover:scale-105" : "hover:scale-110 hover:z-50",
                                       selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-2",
                                       slot.status === 'available' && "border-green-500",
@@ -280,7 +270,7 @@ export function WeekView(props: AvailabilityCalendarBodyProps) {
                                       <AvatarImage src={getAvatarUrl(photographer?.avatar, 'photographer', undefined, photographer?.id)} alt={photographer?.name} className="object-cover" />
                                       <AvatarFallback className={cn(isMobile ? "text-[9px]" : "text-[10px]", "bg-muted")}>{initials}</AvatarFallback>
                                     </Avatar>
-                                  </div>
+                                  </button>
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <div className="text-xs font-medium">{photographer?.name}</div>
@@ -301,12 +291,7 @@ export function WeekView(props: AvailabilityCalendarBodyProps) {
                                   <div
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setSelectedSlotId(slot.id);
-                                      setDate(day);
-                                      if (slot.shootDetails) {
-                                        setExpandedBookingDetails(prev => new Set(prev).add(slot.id));
-                                      }
-                                      if (setMobileTab) setMobileTab("details");
+                                      selectCalendarPhotographer(props, slot.photographerId, day, slot);
                                     }}
                                     className={cn(
                                       "absolute rounded-md px-1 py-0.5 text-[10px] flex flex-col justify-center border z-20 cursor-pointer hover:opacity-80 transition-opacity shadow-sm",
@@ -353,8 +338,7 @@ export function WeekView(props: AvailabilityCalendarBodyProps) {
                                   <div
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setSelectedSlotId(slot.id);
-                                      setDate(day);
+                                      selectCalendarPhotographer(props, slot.photographerId, day, slot);
                                     }}
                                     className={cn(
                                       "absolute h-px rounded-full cursor-pointer hover:opacity-80 transition-opacity",
@@ -390,12 +374,7 @@ export function WeekView(props: AvailabilityCalendarBodyProps) {
                                 <div
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    setSelectedSlotId(slot.id);
-                                    setDate(day);
-                                    if (slot.status === 'booked' && slot.shootDetails) {
-                                      setExpandedBookingDetails(prev => new Set(prev).add(slot.id));
-                                    }
-                                    if (isMobile && setMobileTab) setMobileTab("details");
+                                    selectCalendarPhotographer(props, slot.photographerId, day, slot);
                                   }}
                                   className={cn(
                                     "absolute rounded-md flex flex-col justify-center border z-10 cursor-pointer hover:opacity-80 transition-opacity overflow-hidden",
