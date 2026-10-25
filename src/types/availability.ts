@@ -23,6 +23,8 @@ export interface ShootDetails {
   title: string;
   address?: string;
   shoot_status: string;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
   client?: {
     id: number;
     name: string;

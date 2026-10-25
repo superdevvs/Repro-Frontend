@@ -25,6 +25,7 @@ interface PhotographerListPanelProps {
   // For mobile-sheet
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
 }
 
 export function PhotographerListPanel({
@@ -38,6 +39,7 @@ export function PhotographerListPanel({
   getPhotographerAvailabilityLabel,
   open,
   onOpenChange,
+  hideTrigger = false,
 }: PhotographerListPanelProps) {
   const listContent = (onSelect?: () => void) => (
     <>
@@ -133,12 +135,12 @@ export function PhotographerListPanel({
   if (variant === "mobile-sheet") {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetTrigger asChild>
+        {!hideTrigger && <SheetTrigger asChild>
           <Button variant="outline" size="sm" className="shrink-0 gap-2 px-3">
             <Users className="h-4 w-4" />
             Team
           </Button>
-        </SheetTrigger>
+        </SheetTrigger>}
         <SheetContent side="left" className="w-[85vw] sm:w-[400px]">
           <SheetHeader>
             <SheetTitle>Select Photographer</SheetTitle>

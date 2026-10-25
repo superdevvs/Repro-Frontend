@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { InlineSpinner } from "@/components/ui/inline-spinner";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -30,11 +30,11 @@ import { useDesktopCalendarRowHeight } from "@/hooks/useDesktopCalendarRowHeight
 
 import { CalendarSyncModal } from "@/components/availability/CalendarSyncModal";
 import { ShootDetailsModal } from "@/components/shoots/ShootDetailsModal";
-import { AvailabilityPhotographerSelect } from "@/components/availability/AvailabilityPhotographerSelect";
+import { AvailabilityCompactToolbar } from "@/components/availability/AvailabilityCompactToolbar";
 import { PhotographerListPanel } from "@/components/availability/PhotographerListPanel";
 import { ScheduleDetailsPanel } from "@/components/availability/ScheduleDetailsPanel";
 import { AvailabilityCalendarBody } from "@/components/availability/AvailabilityCalendarBody";
-import { AvailabilityPageHeader, AvailabilityViewModeButtons } from "@/components/availability/AvailabilityPageHeader";
+import { AvailabilityPageHeader } from "@/components/availability/AvailabilityPageHeader";
 import { DEFAULT_WEEKLY_SCHEDULE, DEFAULT_SCHEDULE_STARTER } from "@/components/availability/availabilityDefaults";
 import { EditAvailabilityDialog } from "@/components/availability/dialogs/EditAvailabilityDialog";
 import {
@@ -45,6 +45,8 @@ import {
   BlockTimeDialog,
   type BlockScheduleState,
 } from "@/components/availability/dialogs/BlockTimeDialog";
+
+const AvailabilityScheduleMap = React.lazy(() => import("@/components/availability/AvailabilityScheduleMap"));
 
 export default function Availability() {
   const isMobile = useIsMobile();
@@ -81,6 +83,7 @@ export default function Availability() {
   const [viewMode, setViewMode] = useState<"day" | "week" | "month">("month");
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [mobileTab, setMobileTab] = useState<"calendar" | "details">("calendar");
+  const [showingMap, setShowingMap] = useState(false);
   const [isPhotographerSheetOpen, setIsPhotographerSheetOpen] = useState(false);
   const [editingWeeklySchedule, setEditingWeeklySchedule] = useState(false);
   const [weeklyScheduleNote, setWeeklyScheduleNote] = useState("");
@@ -161,7 +164,7 @@ export default function Availability() {
   });
 
   // Nav strips
-  const { months, monthDates, monthNavScrollRef, dateNavScrollRef } = useAvailabilityNavStrips(date, currentMonth);
+  const { months, monthDates, monthNavScrollRef, dateNavScrollRef } = useAvailabilityNavStrips(date, currentMonth, !isCompactLayout);
 
   // Desktop calendar row height
   const { ref: desktopCalendarRowRef, height: desktopCalendarRowHeight } = useDesktopCalendarRowHeight(isCompactLayout, [
@@ -443,16 +446,12 @@ export default function Availability() {
     value: WeeklyScheduleItem[keyof WeeklyScheduleItem]
   ) => {
     if (selectedPhotographer === "all") return;
-    const updatedSchedules = { ...photographerWeeklySchedules };
-    if (!updatedSchedules[selectedPhotographer]) {
-      updatedSchedules[selectedPhotographer] = DEFAULT_WEEKLY_SCHEDULE;
-    }
-    updatedSchedules[selectedPhotographer] = [
-      ...updatedSchedules[selectedPhotographer].slice(0, index),
-      { ...updatedSchedules[selectedPhotographer][index], [field]: value },
-      ...updatedSchedules[selectedPhotographer].slice(index + 1)
-    ];
-    setPhotographerWeeklySchedules(updatedSchedules);
+    setPhotographerWeeklySchedules(previous => ({
+      ...previous,
+      [selectedPhotographer]: (previous[selectedPhotographer] ?? DEFAULT_WEEKLY_SCHEDULE).map((day, dayIndex) =>
+        dayIndex === index ? { ...day, [field]: value } : day,
+      ),
+    }));
   };
 
   const filteredPhotographers = useMemo(() => {
@@ -504,7 +503,7 @@ export default function Availability() {
 
   const changeViewMode = (mode: "day" | "week" | "month") => {
     setViewMode(mode);
-    setDate(new Date());
+    setShowingMap(false);
     setSelectedSlotId(null);
   };
 
@@ -565,7 +564,7 @@ export default function Availability() {
       <AvailabilitySearchBinding photographers={filteredPhotographers} query={searchQuery} onQueryChange={setSearchQuery} onSelect={id => { setSelectedPhotographer(id); setEditingWeeklySchedule(false); }} />
       <div className={cn("flex-1 flex flex-col min-h-0 h-full", isCompactLayout ? "overflow-y-auto overscroll-y-contain pb-6" : "overflow-hidden")}>
         <div className={cn("flex-1 flex flex-col min-h-0", isCompactLayout ? "px-0 pt-1.5 pb-6" : "h-full min-h-0 px-6 pb-4 pt-0 overflow-hidden")}>
-          <AvailabilityPageHeader
+          {!isCompactLayout && <AvailabilityPageHeader
             isCompactLayout={isCompactLayout}
             isDesktop={isDesktop}
             canEditAvailability={canEditAvailability}
@@ -574,7 +573,7 @@ export default function Availability() {
             goToToday={goToToday}
             openBlockDialog={openBlockDialog}
             onSync={() => setIsSyncModalOpen(true)}
-          />
+          />}
 
           {loadingPhotographers && (
             <div className="py-3">
@@ -586,7 +585,7 @@ export default function Availability() {
           )}
 
           {/* Month + Date navigation strips (compact so calendar/list get more viewport) */}
-          <div className="mt-1.5 sm:mt-2 mb-1 sm:mb-1.5 space-y-1 sm:space-y-1.5 flex-shrink-0">
+          {!isCompactLayout && <div className="mt-1.5 sm:mt-2 mb-1 sm:mb-1.5 space-y-1 sm:space-y-1.5 flex-shrink-0">
             <div className="relative">
               <div className="absolute left-0 top-0 bottom-0 w-6 sm:w-24 bg-gradient-to-r from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
               <div className="absolute right-0 top-0 bottom-0 w-6 sm:w-24 bg-gradient-to-l from-background via-background/85 via-background/60 to-transparent z-10 pointer-events-none" />
@@ -745,84 +744,66 @@ export default function Availability() {
                 })}
               </div>
             </div>
-          </div>
+          </div>}
 
           {isCompactLayout ? (
-            <Tabs value={mobileTab} onValueChange={(v) => setMobileTab(v as "calendar" | "details")} className="flex min-h-0 flex-col gap-2">
-              <TabsList className="grid w-full grid-cols-2 rounded-xl bg-muted p-1 mb-1 flex-shrink-0">
-                <TabsTrigger value="calendar" className="rounded-lg text-xs data-[state=active]:bg-background data-[state=active]:shadow">Calendar</TabsTrigger>
-                <TabsTrigger value="details" className="rounded-lg text-xs data-[state=active]:bg-background data-[state=active]:shadow">Details</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="calendar" className="mt-0 flex min-h-0 flex-col gap-2 pb-4">
-                {canManagePhotographerSelection && (
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <PhotographerListPanel
-                        variant="mobile-sheet"
-                        photographers={photographers}
-                        filteredPhotographers={filteredPhotographers}
-                        selectedPhotographer={selectedPhotographer}
-                        setSelectedPhotographer={setSelectedPhotographer}
-                        searchQuery={searchQuery}
-                        setSearchQuery={setSearchQuery}
-                        setEditingWeeklySchedule={setEditingWeeklySchedule}
-                        getPhotographerAvailabilityLabel={getPhotographerAvailabilityLabel}
-                        open={isPhotographerSheetOpen}
-                        onOpenChange={setIsPhotographerSheetOpen}
-                      />
-                      <AvailabilityPhotographerSelect
-                        canManagePhotographerSelection={canManagePhotographerSelection}
-                        photographers={photographers}
-                        selectedPhotographer={selectedPhotographer}
-                        onSelect={(value) => {
-                          setSelectedPhotographer(value);
-                          setEditingWeeklySchedule(false);
-                        }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                <Card className="p-2 sm:p-3 flex min-h-[360px] sm:min-h-[520px] flex-col border shadow-sm rounded-md">
-                  <div className="flex items-start justify-between mb-2 flex-shrink-0 gap-2">
-                    <div className="min-w-0 flex-1">
-                      <h2 className="text-xs sm:text-sm font-semibold mb-0.5 truncate">
-                        {selectedPhotographer === "all" ? "Calendar" : `${getPhotographerName(selectedPhotographer)}'s Calendar`}
-                      </h2>
-                      {date && viewMode !== "month" && (
-                        <p className="text-[10px] sm:text-xs text-muted-foreground truncate">
-                          {viewMode === "day"
-                            ? format(date, 'EEEE, MMMM d, yyyy')
-                            : viewMode === "week"
-                              ? `Week of ${format(startOfWeek(date), 'MMM d')} - ${format(endOfWeek(date), 'MMM d, yyyy')}`
-                              : format(date, 'MMMM yyyy')}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex-shrink-0"><AvailabilityViewModeButtons variant="compact" viewMode={viewMode} onChange={changeViewMode} /></div>
-                  </div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg" onClick={() => navigateDate(-1)}>
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button variant="outline" size="sm" className="rounded-lg px-3 sm:px-4 text-xs sm:text-sm" onClick={goToToday}>
-                      {viewMode === "month" ? "Current Month" : "Today"}
-                    </Button>
-                    <Button variant="outline" size="icon" className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg" onClick={() => navigateDate(1)}>
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                  <div className="flex flex-1 min-h-0 flex-col">
-                    <AvailabilityCalendarBody {...calendarBodyProps} />
-                  </div>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="details" className="flex flex-col mt-0">
-                <ScheduleDetailsPanel variant="mobile" {...scheduleDetailsProps} />
-              </TabsContent>
-            </Tabs>
+            <>
+              <AvailabilityCompactToolbar
+                photographers={photographers}
+                selectedPhotographer={selectedPhotographer}
+                canManagePhotographerSelection={canManagePhotographerSelection}
+                canEditAvailability={!!canEditAvailability}
+                date={date ?? new Date()}
+                viewMode={viewMode}
+                showingMap={showingMap}
+                onSelectPhotographer={id => { setSelectedPhotographer(id); setEditingWeeklySchedule(false); setSelectedSlotId(null); }}
+                onViewModeChange={changeViewMode}
+                onToggleMap={() => setShowingMap(value => !value)}
+                onDateChange={next => { setDate(next); setSelectedSlotId(null); }}
+                onNavigate={navigateDate}
+                onToday={goToToday}
+                onBlock={openBlockDialog}
+                onTeam={() => setIsPhotographerSheetOpen(true)}
+                onDetails={() => setMobileTab("details")}
+                onAddSchedule={() => setIsWeeklyScheduleDialogOpen(true)}
+                onDefaultSchedule={() => { openDefaultSchedule(); setMobileTab("details"); }}
+                onSync={() => setIsSyncModalOpen(true)}
+              />
+              {canManagePhotographerSelection && (
+                <PhotographerListPanel
+                  variant="mobile-sheet"
+                  hideTrigger
+                  photographers={photographers}
+                  filteredPhotographers={filteredPhotographers}
+                  selectedPhotographer={selectedPhotographer}
+                  setSelectedPhotographer={setSelectedPhotographer}
+                  searchQuery={searchQuery}
+                  setSearchQuery={setSearchQuery}
+                  setEditingWeeklySchedule={setEditingWeeklySchedule}
+                  getPhotographerAvailabilityLabel={getPhotographerAvailabilityLabel}
+                  open={isPhotographerSheetOpen}
+                  onOpenChange={setIsPhotographerSheetOpen}
+                />
+              )}
+              <Card className="flex min-h-[360px] flex-col rounded-xl border p-2 shadow-sm sm:min-h-[520px] sm:p-3">
+                {showingMap ? (
+                  <React.Suspense fallback={<div className="flex min-h-[360px] items-center justify-center gap-2 text-sm text-muted-foreground"><InlineSpinner className="h-4 w-4" />Loading map…</div>}>
+                    <AvailabilityScheduleMap
+                      slots={viewMode === "day" ? selectedDateAvailabilities : viewMode === "week" ? weekAvailabilities : monthAvailabilities}
+                      photographers={photographers}
+                      formatTime={to12HourDisplay}
+                      onShoot={id => { setSelectedShootId(id); setShootDetailsModalOpen(true); }}
+                    />
+                  </React.Suspense>
+                ) : <AvailabilityCalendarBody {...calendarBodyProps} />}
+              </Card>
+              <Sheet open={mobileTab === "details"} onOpenChange={open => setMobileTab(open ? "details" : "calendar")}>
+                <SheetContent side="right" className="flex w-full flex-col gap-4 overflow-y-auto px-3 sm:max-w-lg sm:px-5">
+                  <SheetHeader><SheetTitle>Schedule details</SheetTitle></SheetHeader>
+                  <ScheduleDetailsPanel variant="mobile" {...scheduleDetailsProps} />
+                </SheetContent>
+              </Sheet>
+            </>
           ) : (
             <div
               ref={desktopCalendarRowRef}
