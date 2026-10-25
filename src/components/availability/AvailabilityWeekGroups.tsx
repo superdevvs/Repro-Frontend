@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { getAvatarUrl } from "@/utils/defaultAvatars";
 import { getInitials } from "@/lib/availability/utils";
 import type { Availability, Photographer } from "@/types/availability";
-import { groupWeekStarts } from "./availabilityWeekGrouping";
+import { groupWeekStarts, weekStartWindows } from "./availabilityWeekGrouping";
 
 interface Props {
   day: Date;
@@ -30,7 +30,9 @@ function StartGroup({ group, ...props }: Props & {group: ReturnType<typeof group
   const [open, setOpen] = useState(false);
   const selected = useRef<Availability | null>(null);
   const count = group.people.length;
-  const windowLabel = `${props.formatTime(`${group.start}:00`)}–${props.formatTime(`${group.end}:00`)}`;
+  const windowLabel = group.start === weekStartWindows[0].start
+    ? `before ${props.formatTime(`${group.end}:00`)}`
+    : `${props.formatTime(`${group.start}:00`)}–${props.formatTime(`${group.end}:00`)}`;
   return <Popover open={open} onOpenChange={setOpen}>
     <PopoverTrigger asChild>
       <button type="button" className="availability-week-stack"
