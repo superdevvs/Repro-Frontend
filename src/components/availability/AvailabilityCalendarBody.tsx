@@ -1,4 +1,6 @@
 import { WeekView } from "./AvailabilityWeekView";
+import { selectCalendarPhotographer } from "./calendarSelection";
+import { AvailabilityPhotographerOverflow } from "./AvailabilityPhotographerOverflow";
 import { splitAvailableAroundUnavailable, toMinutesOfDay } from './availabilitySlotSegments';
 import React from "react";
 import {
@@ -60,7 +62,7 @@ export interface AvailabilityCalendarBodyProps {
   currentMonth: Date;
   setCurrentMonth: (value: Date) => void;
   selectedPhotographer: string;
-  setSelectedPhotographer?: (id: string) => void;
+  setSelectedPhotographer: (id: string) => void;
   photographers: Photographer[];
   backendSlots: BackendSlot[];
   allBackendSlots: BackendSlot[];
@@ -106,7 +108,6 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
     currentMonth,
     setCurrentMonth,
     selectedPhotographer,
-    setSelectedPhotographer,
     photographers,
     backendSlots,
     allBackendSlots,
@@ -253,7 +254,7 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
               const hiddenAvatarCount = Math.max(0, photographerEntries.length - visibleAvatars.length);
 
               const buttonEl = (
-                <button
+                <div role="group" aria-label={format(day, 'EEEE, MMMM d')}
                   onClick={() => {
                     setDate(day);
                     setSelectedSlotId(null);
@@ -261,7 +262,7 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
                     if (format(dayMonth, 'yyyy-MM') !== format(currentMonth, 'yyyy-MM')) {
                       setCurrentMonth(dayMonth);
                     }
-                    if (isMobile && setMobileTab) setMobileTab("details");
+                    if (selectedPhotographer !== "all" && isMobile && setMobileTab) setMobileTab("details");
                   }}
                   className={cn(
                     "relative border-r last:border-r-0 flex flex-col items-stretch justify-start h-full transition-colors hover:bg-muted/50 w-full text-left",
@@ -271,35 +272,33 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
                     isTodayDate && !isSelected && "border-2 border-primary bg-primary/5"
                   )}
                 >
-                  <span className={cn(
-                    "font-medium",
+                  <button type="button" aria-label={format(day, 'EEEE, MMMM d')} className={cn(
+                    "self-start text-left font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     isMobile ? "text-[10px] sm:text-xs" : "text-xs",
                     isSelected && "text-primary",
                     isTodayDate && !isSelected && "text-primary font-semibold",
                     !isCurrentMonth && "text-muted-foreground"
                   )}>
                     {format(day, 'd')}
-                  </span>
+                  </button>
 
                   {allMode && hasSlots && (
                     <div className="flex items-center flex-wrap gap-0.5 w-full overflow-hidden">
                       {visibleAvatars.map(({ photographerId, photographer, status }) => {
                         const initials = photographer ? getInitials(photographer.name) : "??";
                         const selectPhotographer = () => {
-                          setDate(day);
+                          selectCalendarPhotographer(props, photographerId, day);
                           const dayMonth = startOfMonth(day);
                           if (format(dayMonth, 'yyyy-MM') !== format(currentMonth, 'yyyy-MM')) {
                             setCurrentMonth(dayMonth);
                           }
-                          if (setSelectedPhotographer) setSelectedPhotographer(photographerId);
-                          setSelectedSlotId(null);
-                          if (isMobile && setMobileTab) setMobileTab("details");
                         };
                         return (
                           <div
                             key={photographerId}
                             role="button"
                             tabIndex={0}
+                            aria-label={`View ${photographer?.name || 'photographer'} schedule on ${format(day, 'MMMM d')}`}
                             title={photographer?.name}
                             onClick={(e) => {
                               e.stopPropagation();
@@ -334,14 +333,8 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
                         );
                       })}
                       {hiddenAvatarCount > 0 && (
-                        <div
-                          className={cn(
-                            "rounded-full bg-muted text-muted-foreground font-semibold flex items-center justify-center flex-shrink-0",
-                            isMobile ? "h-5 w-5 text-[8px]" : "h-6 w-6 text-[9px]",
-                          )}
-                        >
-                          +{hiddenAvatarCount}
-                        </div>
+                        <AvailabilityPhotographerOverflow day={day} hiddenCount={hiddenAvatarCount} isMobile={isMobile} entries={photographerEntries}
+                          onSelect={id => { selectCalendarPhotographer(props, id, day); setCurrentMonth(startOfMonth(day)); }} />
                       )}
                     </div>
                   )}
@@ -368,7 +361,7 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
                       )}
                     </div>
                   )}
-                </button>
+                </div>
               );
 
               return (
@@ -404,14 +397,11 @@ function MonthView(props: AvailabilityCalendarBodyProps) {
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      setDate(day);
+                                      selectCalendarPhotographer(props, photographerId, day);
                                       const dayMonth = startOfMonth(day);
                                       if (format(dayMonth, 'yyyy-MM') !== format(currentMonth, 'yyyy-MM')) {
                                         setCurrentMonth(dayMonth);
                                       }
-                                      if (setSelectedPhotographer) setSelectedPhotographer(photographerId);
-                                      setSelectedSlotId(null);
-                                      if (isMobile && setMobileTab) setMobileTab("details");
                                     }}
                                     className="flex items-center gap-1.5 w-full text-left rounded-sm px-1.5 py-1 transition-colors hover:bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                                   >
@@ -504,9 +494,6 @@ function DayView(props: AvailabilityCalendarBodyProps) {
     selectedPhotographer,
     photographers,
     selectedSlotId,
-    setSelectedSlotId,
-    setExpandedBookingDetails,
-    setMobileTab,
     getSelectedDateAvailabilities,
     to12HourDisplay,
     dayViewScrollRef,
@@ -829,14 +816,13 @@ function DayView(props: AvailabilityCalendarBodyProps) {
                     <TooltipProvider key={slot.id}>
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <div
+                          <button type="button" aria-label={`View ${photographer?.name || 'photographer'} schedule on ${format(date || new Date(), 'MMMM d')}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setSelectedSlotId(slot.id);
-                              if (isMobile && setMobileTab) setMobileTab("details");
+                              selectCalendarPhotographer(props, slot.photographerId, date || new Date(), slot);
                             }}
                             className={cn(
-                              "absolute rounded-full border-2 cursor-pointer transition-transform flex items-center justify-center bg-background",
+                              "absolute rounded-full border-2 p-0 cursor-pointer transition-transform flex items-center justify-center bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                               isMobile ? "hover:scale-105" : "hover:scale-110 hover:z-50",
                               selectedSlotId === slot.id && "ring-2 ring-primary ring-offset-2",
                               slot.status === 'available' && "border-green-500",
@@ -855,7 +841,7 @@ function DayView(props: AvailabilityCalendarBodyProps) {
                               <AvatarImage src={getAvatarUrl(photographer?.avatar, 'photographer', undefined, photographer?.id)} alt={photographer?.name} className="object-cover" />
                               <AvatarFallback className={cn(isMobile ? "text-[9px]" : "text-[10px]", "bg-muted")}>{initials}</AvatarFallback>
                             </Avatar>
-                          </div>
+                          </button>
                         </TooltipTrigger>
                         <TooltipContent>
                           <div className="text-xs font-medium">{photographer?.name}</div>
@@ -873,11 +859,7 @@ function DayView(props: AvailabilityCalendarBodyProps) {
                     key={slot.id}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setSelectedSlotId(slot.id);
-                      if (slot.status === 'booked' && slot.shootDetails) {
-                        setExpandedBookingDetails(prev => new Set(prev).add(slot.id));
-                      }
-                      if (isMobile && setMobileTab) setMobileTab("details");
+                      selectCalendarPhotographer(props, slot.photographerId, date || new Date(), slot);
                     }}
                     className={cn(
                       "absolute z-10 cursor-pointer hover:opacity-80 transition-opacity",
