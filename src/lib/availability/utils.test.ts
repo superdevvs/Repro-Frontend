@@ -186,7 +186,6 @@ describe("mapBackendSlots", () => {
         isRandom: false,
         shoot_id: undefined,
         shoot_details: undefined,
-        note: null,
       },
     ]);
   });

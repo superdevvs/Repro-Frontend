@@ -22,8 +22,6 @@ export interface ShootDetails {
   id: number;
   title: string;
   address?: string;
-  latitude?: number | null;
-  longitude?: number | null;
   shoot_status: string;
   client?: {
     id: number;
@@ -47,7 +45,6 @@ export interface Availability {
   startTime: string;
   endTime: string;
   status: AvailabilityStatus;
-  note?: string | null;
   shootTitle?: string;
   origin?: 'specific' | 'weekly';
   isRandom?: boolean;
@@ -88,7 +85,6 @@ export type BackendSlot = {
   start_time: string;
   end_time: string;
   status?: string;
-  note?: string | null;
   isRandom?: boolean;
   shoot_id?: number;
   shoot_details?: ShootDetails;
