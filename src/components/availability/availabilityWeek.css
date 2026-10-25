@@ -1,0 +1,35 @@
+/* Availability Flow week: current theme colors, one shared horizontal scroller. */
+.availability-week--compact { min-width: 0; width: 100%; }
+.availability-week-scroll { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: hsl(var(--border)) transparent; border: 1px solid hsl(var(--border)); border-radius: 16px; }
+.availability-week-canvas { min-width: 792px; background: hsl(var(--background)); }
+.availability-week-header { display: flex; height: 44px; border-bottom: 1px solid hsl(var(--border)); background: hsl(var(--muted) / .35); }
+.availability-week--compact .availability-week-date { position: sticky; left: 0; z-index: 30; flex: 0 0 64px; width: 64px; border-right: 1px solid hsl(var(--border)); background: hsl(var(--card)); box-shadow: 5px 0 12px -9px hsl(var(--foreground) / .5); }
+.availability-week--compact .availability-week-date[data-highlight="true"] { background: linear-gradient(hsl(var(--primary) / .12), hsl(var(--primary) / .12)), hsl(var(--card)); }
+.availability-week--compact .availability-week-date button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; min-height: 68px; margin: 0; padding: 8px 4px; }
+.availability-week--compact .availability-week-date button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: -3px; border-radius: 12px; }
+.availability-week--compact .availability-week-date-number { font-size: 22px; line-height: 1; font-weight: 650; }
+.availability-week--compact .availability-week-date-name { font-size: 10px; line-height: 1.2; letter-spacing: .06em; opacity: .7; }
+.availability-week-corner { z-index: 40 !important; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 500; color: hsl(var(--muted-foreground)); }
+.availability-week-start-header, .availability-week-start-groups { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); flex: 1; min-width: 0; }
+.availability-week-start-header > div { display: flex; align-items: center; justify-content: center; font-size: 11px; font-variant-numeric: tabular-nums; color: hsl(var(--muted-foreground)); border-right: 1px solid hsl(var(--border) / .55); }
+.availability-week-row { min-height: 68px; }
+.availability-week-start-cell { display: flex; align-items: center; justify-content: center; padding: 6px; border-right: 1px solid hsl(var(--border) / .45); }
+.availability-week-start-cell:last-child, .availability-week-start-header > div:last-child { border-right: 0; }
+.availability-week-stack { display: flex; align-items: center; justify-content: center; min-height: 44px; width: 100%; border-radius: 12px; }
+.availability-week-stack:hover { background: hsl(var(--muted)); }
+.availability-week-stack:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.availability-week-avatar { display: block; position: relative; width: 28px; height: 28px; flex-shrink: 0; border: 2px solid; border-radius: 50%; background: hsl(var(--background)); box-shadow: 0 0 0 2px hsl(var(--background)); }
+.availability-week-avatar[data-status="available"] { border-color: #22c55e; }
+.availability-week-avatar[data-status="booked"] { border-color: #3b82f6; }
+.availability-week-avatar[data-status="unavailable"] { border-color: #ef4444; }
+.availability-week-stack > * + * { margin-left: -8px; }
+.availability-week-more { display: grid; place-items: center; position: relative; flex-shrink: 0; height: 28px; min-width: 28px; padding: 0 3px; border-radius: 50%; background: hsl(var(--muted)); color: hsl(var(--foreground)); box-shadow: 0 0 0 2px hsl(var(--background)); font-size: 10px; font-weight: 600; }
+.availability-week-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; padding: 12px 2px 2px; color: hsl(var(--muted-foreground)); font-size: 10px; }
+.availability-week-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.availability-week-legend i { width: 6px; height: 6px; border-radius: 50%; }
+.availability-week-hint { width: 100%; margin-top: 2px; text-align: center; font-size: 10px; color: hsl(var(--muted-foreground)); }
+[data-week-status="available"] { color: #15803d; }
+[data-week-status="booked"] { color: hsl(var(--primary)); }
+[data-week-status="unavailable"] { color: #dc2626; }
+.dark [data-week-status="available"] { color: #86efac; }
+.dark [data-week-status="unavailable"] { color: #fca5a5; }
