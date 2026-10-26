@@ -2,7 +2,7 @@ import { apiClient } from './api';
 import type { EmailTemplateArtwork, EmailWorkspaceDraft, EmailTemplateProposal, EmailArtworkKind } from '@/types/emailTemplateWorkspace';
 
 export async function suggestEmailTemplate(data: {
-  template_id?: number; instruction: string; scope: 'email' | 'subject' | 'section'; section_id?: string; draft: EmailWorkspaceDraft;
+  videos?: { url: string; asset_id?: string }[]; asset_ids?: string[]; video_urls?: string[]; template_id?: number; instruction: string; scope: 'email' | 'subject' | 'section'; section_id?: string; draft: EmailWorkspaceDraft;
 }): Promise<EmailTemplateProposal> {
   const response = await apiClient.post('/messaging/templates/assist', data, { timeout: 200000 });
   return { ...response.data.draft, assistant_context: response.data.context };

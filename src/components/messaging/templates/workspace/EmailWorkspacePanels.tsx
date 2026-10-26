@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,9 +9,14 @@ import { getTemplates } from '@/services/messaging';
 import type { MessageTemplate } from '@/types/messaging';
 import type { EmailWorkspaceDraft, EmailTemplateSection, EmailArtworkKind } from '@/types/emailTemplateWorkspace';
 import { PROTECTED_EMAIL_TYPES } from '../templateOverrideDefaults';
+import { EmailWorkspacePreflight } from './EmailWorkspacePreflight';
+import { EmailWorkspaceMedia } from './EmailWorkspaceMedia';
+import { emailPresets, emailSectionTypes, emailSectionPatterns, emailSectionPattern } from './emailWorkspacePresets';
+import { getEmailRevisions, listEmailSavedSections } from '@/services/emailWorkspaceV2';
+import type { EmailMediaAsset } from '@/types/emailTemplateWorkspace';
 import { EmailWorkspaceArtwork } from './EmailWorkspaceArtwork';
 
-export type WorkspacePanel = 'start' | 'library' | 'settings' | 'sections' | 'fields' | 'history' | 'review' | 'artwork' | 'import' | null;
+export type WorkspacePanel = 'start' | 'library' | 'settings' | 'sections' | 'fields' | 'history' | 'review' | 'artwork' | 'import' | 'media' | 'presets' | 'saved-sections' | null;
 interface Props {
   panel: WorkspacePanel; draft: EmailWorkspaceDraft; template: MessageTemplate | null; busy: boolean;
   onClose: () => void; onStart: (purpose: 'tips' | 'update' | 'blank') => void; onOpen: (template: MessageTemplate) => void;
@@ -19,20 +25,27 @@ interface Props {
   onImport: (html: string) => void; onImportPanel: () => void;
   onNavigatePanel: (panel: WorkspacePanel) => void;
   onSave: (copy?: boolean) => void; onContinue: () => void; onTest: (email: string) => void;
+  v2?: boolean; onPreset?: (id: string) => void; onUseMedia?: (asset: EmailMediaAsset) => void; onVideo?: (url: string, title: string, asset?: EmailMediaAsset) => void; onAddSavedSection?: (section: EmailTemplateSection) => void;
   history: { label: string; draft: EmailWorkspaceDraft }[]; onRestore: (draft: EmailWorkspaceDraft) => void;
 }
 
-const titles: Record<NonNullable<WorkspacePanel>, string> = { start: 'What are we creating?', library: 'Open an existing template', settings: 'Template settings', sections: 'Add a section', fields: 'Personalize your email', history: 'Recent changes', review: 'Review your email', artwork: 'Create matching artwork', import: 'Paste or import HTML' };
+const titles: Record<NonNullable<WorkspacePanel>, string> = { media: 'Images & video', presets: 'Choose an email layout', 'saved-sections': 'Your reusable sections', start: 'What are we creating?', library: 'Open an existing template', settings: 'Template settings', sections: 'Add a section', fields: 'Personalize your email', history: 'Recent changes', review: 'Review your email', artwork: 'Create matching artwork', import: 'Paste or import HTML' };
 
 export function EmailWorkspacePanels(props: Props) {
+  const { user } = useAuth();
   const { panel, draft, template, busy, onClose, onChange } = props;
   const [search, setSearch] = useState('');
   const [testEmail, setTestEmail] = useState('');
   const [importSource, setImportSource] = useState('');
-  const library = useQuery({ queryKey: ['templates', 'workspace-library'], queryFn: () => getTemplates({ channel: 'EMAIL' }), enabled: panel === 'library' });
+  const library = useQuery({ queryKey: ['templates', 'workspace-library', user?.id], queryFn: () => getTemplates({ channel: 'EMAIL' }), enabled: panel === 'library' });
+  const revisions = useQuery({ queryKey: ['email-template-revisions', user?.id, template?.id], queryFn: () => getEmailRevisions(template!.id), enabled: Boolean(props.v2 && panel === 'history' && template) });
+  const savedSections = useQuery({ queryKey: ['email-saved-sections', user?.id], queryFn: listEmailSavedSections, enabled: Boolean(props.v2 && panel === 'saved-sections') });
   const connected = Boolean(template?.editable_content_blocks?.length);
   const fields = ['client_first_name', 'client_name', 'company_name', 'company_email', 'portal_url', 'shoot_address', 'shoot_date', 'shoot_time'];
   return <Dialog open={Boolean(panel)} onOpenChange={open => { if (!open) onClose(); }}><DialogContent className="ews-dialog max-h-[90dvh] overflow-auto sm:max-w-xl"><DialogTitle>{panel ? titles[panel] : ''}</DialogTitle><DialogDescription className="sr-only">Email workspace controls</DialogDescription>
+    {panel === 'media' && props.onUseMedia && props.onVideo && <EmailWorkspaceMedia templateId={template?.id} target={props.artworkTarget} onUse={props.onUseMedia} onVideo={props.onVideo} onGenerate={() => props.onNavigatePanel('artwork')}/>}
+    {(panel === 'presets' || (panel === 'start' && props.v2)) && <div className="ews-preset-grid">{emailPresets.map(preset => <button key={preset.id} onClick={() => props.onPreset?.(preset.id)}><strong>{preset.name}</strong><small>{preset.description}</small></button>)}</div>}
+    {panel === 'saved-sections' && <div className="ews-history">{savedSections.isPending ? <p>Loading saved sections…</p> : savedSections.isError ? <p role="alert">Could not load sections.</p> : savedSections.data?.length ? savedSections.data.map(item => <button key={item.id} onClick={() => props.onAddSavedSection?.(item.section)}>{item.name}</button>) : <p>Select a section and choose Save reusable section to build your library.</p>}</div>}
     {panel === 'start' && <div className="ews-start-options">
       <p>Start with a useful structure. Write it yourself or ask Robbie to draft it.</p>
       <button onClick={() => props.onStart('tips')}><span>01</span><strong>Photographer tips</strong><small>Practical advice, field notes, and team guidance.</small></button>
@@ -51,10 +64,12 @@ export function EmailWorkspacePanels(props: Props) {
       <Button onClick={() => props.onSave()}>Save template</Button>
       {template && !connected && !template.is_system && <Button variant="outline" onClick={() => props.onSave(true)}>Save as a new copy</Button>}
     </fieldset>}
-    {panel === 'sections' && <div className="ews-section-choices">{(['hero', 'feature', 'text', 'steps', 'details', 'tips', 'notice', 'image', 'button', 'divider'] as const).map(type => <button key={type} onClick={() => props.onAdd(type)}><strong>{type === 'hero' ? 'Headline + hero' : type === 'feature' ? 'Image + text' : type === 'steps' ? 'Numbered steps' : type === 'details' ? 'Details card' : type === 'text' ? 'Text & heading' : type === 'tips' ? 'Tips / list' : type === 'notice' ? 'Callout' : type === 'image' ? 'Image' : type === 'button' ? 'Button' : 'Divider'}</strong><small>{type === 'feature' ? 'Image on the left, right or above the text' : type === 'hero' ? 'An eyebrow, clear headline and hero illustration' : type === 'steps' ? 'A clear numbered guide' : type === 'details' ? 'A polished label and value summary' : type === 'image' ? 'Use an image URL or generate artwork' : 'Match the current email style'}</small></button>)}</div>}
+    {panel === 'sections' && props.v2 && <div className="ews-media-primary"><Button variant="outline" onClick={() => props.onNavigatePanel('presets')}>Email layouts</Button><Button variant="outline" onClick={() => props.onNavigatePanel('saved-sections')}>Saved sections</Button></div>}
+    {panel === 'sections' && props.v2 && <div className="ews-section-choices">{emailSectionPatterns.map(([id,name]) => <button key={id} onClick={() => props.onAddSavedSection?.(emailSectionPattern(id))}><strong>{name}</strong><small>Ready-to-edit arrangement</small></button>)}</div>}
+    {panel === 'sections' && <div className="ews-section-choices">{(props.v2 ? Object.keys(emailSectionTypes) as EmailTemplateSection['type'][] : ['hero', 'feature', 'text', 'steps', 'details', 'tips', 'notice', 'image', 'button', 'divider'] as const).map(type => <button key={type} onClick={() => props.onAdd(type)}><strong>{props.v2 ? emailSectionTypes[type] : type === 'hero' ? 'Headline + hero' : type === 'feature' ? 'Image + text' : type === 'steps' ? 'Numbered steps' : type === 'details' ? 'Details card' : type === 'text' ? 'Text & heading' : type === 'tips' ? 'Tips / list' : type === 'notice' ? 'Callout' : type === 'image' ? 'Image' : type === 'button' ? 'Button' : 'Divider'}</strong><small>{type === 'feature' ? 'Image on the left, right or above the text' : type === 'hero' ? 'An eyebrow, clear headline and hero illustration' : type === 'steps' ? 'A clear numbered guide' : type === 'details' ? 'A polished label and value summary' : type === 'image' ? 'Use an image URL or generate artwork' : 'Match the current email style'}</small></button>)}</div>}
     {panel === 'fields' && <div className="ews-personalize"><p>Insert at the current subject or section cursor. Use matching booking or account context when sending.</p>{fields.map(field => <Button key={field} variant="outline" onClick={() => props.onInsert(`{{${field}}}`)}>{`{{${field}}}`}</Button>)}</div>}
-    {panel === 'history' && <div className="ews-history"><p>Changes from this editing session. Restoring a version can be undone.</p>{props.history.slice().reverse().map((entry, index) => <button key={index} onClick={() => props.onRestore(entry.draft)}><strong>{entry.label}</strong><span>{entry.draft.subject || 'Untitled subject'}</span></button>)}{!props.history.length && <p>No earlier changes yet.</p>}</div>}
-    {panel === 'review' && <div className="ews-review"><span className="ews-eyebrow">READY FOR THE NEXT STEP</span><h3>{draft.subject || 'Add a subject before continuing'}</h3><p>{draft.editor_document_json.preheader}</p><p>Save your template, then choose recipients and review the final message in the email composer.</p>{connected && <p className="ews-help">Automated emails require the correct booking, invoice, or account context. Review the connected data before sending.</p>}<Button disabled={busy} onClick={props.onContinue}>{busy ? 'Saving…' : 'Save & choose recipients'}</Button><hr/><label>Send a test to<Input type="email" value={testEmail} placeholder="you@company.com" onChange={event => setTestEmail(event.target.value)}/></label><Button variant="outline" disabled={busy || !testEmail.trim()} onClick={() => props.onTest(testEmail.trim())}>{template ? 'Send test email' : 'Save & send test email'}</Button><p className="ews-help">The test uses sample recipient and event data. It sends only when you press this button.</p></div>}
+    {panel === 'history' && <div className="ews-history"><p>Changes from this editing session. Restoring a version can be undone.</p>{props.history.slice().reverse().map((entry, index) => <button key={index} onClick={() => props.onRestore(entry.draft)}><strong>{entry.label}</strong><span>{entry.draft.subject || 'Untitled subject'}</span></button>)}{!props.history.length && <p>No earlier changes yet.</p>}{props.v2 && <><h4>Saved revisions</h4>{revisions.isPending && template ? <p>Loading revisions…</p> : revisions.isError ? <p>Could not load saved revisions.</p> : revisions.data?.map(item => <button key={item.id} onClick={() => props.onRestore(item.draft)}><strong>{new Date(item.created_at).toLocaleString()}</strong><span>{item.draft.subject}</span></button>)}</>}</div>}
+    {panel === 'review' && <div className="ews-review">{props.v2 && <EmailWorkspacePreflight draft={draft}/>}<span className="ews-eyebrow">READY FOR THE NEXT STEP</span><h3>{draft.subject || 'Add a subject before continuing'}</h3><p>{draft.editor_document_json.preheader}</p><p>Save your template, then choose recipients and review the final message in the email composer.</p>{connected && <p className="ews-help">Automated emails require the correct booking, invoice, or account context. Review the connected data before sending.</p>}<Button disabled={busy} onClick={props.onContinue}>{busy ? 'Saving…' : 'Save & choose recipients'}</Button><hr/><label>Send a test to<Input type="email" value={testEmail} placeholder="you@company.com" onChange={event => setTestEmail(event.target.value)}/></label><Button variant="outline" disabled={busy || !testEmail.trim()} onClick={() => props.onTest(testEmail.trim())}>{template ? 'Send test email' : 'Save & send test email'}</Button><p className="ews-help">The test uses sample recipient and event data. It sends only when you press this button.</p></div>}
     {panel === 'artwork' && <EmailWorkspaceArtwork onUse={props.onUseArtwork} target={props.artworkTarget}/>}
     {panel === 'import' && <div className="ews-settings"><p className="ews-help">Paste a complete HTML email or fragment. Its layout, styles, and tables will be kept.</p><label>Email HTML<Textarea className="min-h-[240px] font-mono text-xs" value={importSource} placeholder="<!doctype html>…" onChange={event => setImportSource(event.target.value)}/></label><Button disabled={!importSource.trim()} onClick={() => props.onImport(importSource)}>Use this HTML</Button><Button variant="outline" onClick={() => document.getElementById('ews-import')?.click()}>Choose an HTML file</Button></div>}
   </DialogContent></Dialog>;

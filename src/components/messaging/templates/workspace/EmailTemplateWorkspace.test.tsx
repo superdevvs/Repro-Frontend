@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({ mobile: false, tablet: false, generate: vi.fn(
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => mocks.mobile }));
 vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: () => mocks.tablet }));
 vi.mock('@/services/messaging', () => ({ createTemplate: mocks.create, updateTemplate: mocks.update, previewTemplate: mocks.preview, testSendTemplate: mocks.send, getTemplates: mocks.templates }));
+vi.mock('@/services/emailWorkspaceV2', async importOriginal => ({ ...await importOriginal<typeof import('@/services/emailWorkspaceV2')>(), emailWorkspaceCapabilities: async () => ({ enabled: false, version: 2 }) }));
 vi.mock('@/services/emailTemplateWorkspace', () => ({ suggestEmailTemplate: mocks.suggest, generateEmailArtwork: mocks.generate, getEmailArtwork: mocks.artwork }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 7 } }) }));
 vi.mock('react-router-dom', () => ({ useNavigate: () => mocks.navigate }));

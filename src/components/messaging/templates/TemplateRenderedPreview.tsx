@@ -71,6 +71,7 @@ export function TemplateRenderedPreview({ compact, templateId, draft, enabled, t
         <p className="mx-3 mb-3 text-xs text-muted-foreground sm:mx-0">
           Your current message, rendered as an email. Sample recipient and event data fill the dynamic fields.
         </p>
+        {html && new Blob([html]).size > 90000 && <p role="status" className="mb-3 text-xs text-muted-foreground">This email contains a large amount of HTML. Shorten or simplify it to reduce clipping risk.</p>}
         {preview.data?.subject && !isUpdating && (
           <p className="mx-3 mb-3 break-words text-sm sm:mx-0"><strong>Subject:</strong> {preview.data.subject}</p>
         )}

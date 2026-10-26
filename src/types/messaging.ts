@@ -229,6 +229,7 @@ export interface TemplateEditableContentBlock extends TemplateContentBlockValue 
 export type TemplateContentBlockOverrides = Record<string, TemplateContentBlockValue>;
 
 export interface MessageTemplate {
+  workspace_revision?: number;
   id: number;
   channel: MessageChannel;
   name: string;

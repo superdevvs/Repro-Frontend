@@ -9,6 +9,7 @@ export type EmailWorkspaceMode = 'edit' | 'html' | 'preview';
 interface Props {
   name: string; status: string; saving: boolean; disabled: boolean;
   mode: EmailWorkspaceMode; assistantActive: boolean; assistantOnly: boolean;
+  v2?: boolean;
   reviewDisabled?: boolean; canUndo: boolean; canRedo: boolean; canAdd: boolean;
   onClose: () => void; onSave: () => void; onMode: (mode: EmailWorkspaceMode) => void;
   onAssistant: () => void; onUndo: () => void; onRedo: () => void;
@@ -56,7 +57,7 @@ export function EmailWorkspaceChrome(props: Props) {
         <Button size="icon" variant="ghost" aria-label="Redo" title="Redo" disabled={disabled || !props.canRedo} onClick={props.onRedo}><Redo2 size={17}/></Button>
         <span className="ews-tool-divider"/>
         <Button size="sm" variant="outline" disabled={disabled || !props.canAdd} onClick={() => onPanel('sections')}><Plus size={16}/>Add section</Button>
-        <Button size="sm" variant="ghost" disabled={disabled} onClick={() => onPanel('artwork')}><ImagePlus size={16}/><span>Artwork</span></Button>
+        <Button size="sm" variant="ghost" disabled={disabled} onClick={() => onPanel(props.v2 ? 'media' : 'artwork')}><ImagePlus size={16}/><span>{props.v2 ? 'Media' : 'Artwork'}</span></Button>
       </div>}
     </div>
   </>;

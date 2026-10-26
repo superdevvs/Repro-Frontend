@@ -5,6 +5,8 @@ import { generateEmailArtwork, getEmailArtwork } from '@/services/emailTemplateW
 import type { EmailWorkspaceDraft, EmailArtworkKind } from '@/types/emailTemplateWorkspace';
 import type { EmailArtworkStates } from './emailArtworkPreview';
 
+import { flattenEmailSections } from './emailWorkspaceTree';
+
 type Request = { id: string; prompt: string; kind: EmailArtworkKind };
 function restore(key: string): Request[] {
   try { const value = JSON.parse(localStorage.getItem(key) ?? '[]'); return Array.isArray(value) ? value.filter(item => typeof item?.id === 'string' && typeof item.prompt === 'string' && ['icon', 'illustration', 'header'].includes(item.kind)).slice(-24) : []; }
@@ -20,7 +22,7 @@ export function useSuggestedEmailArtwork(target: EmailWorkspaceDraft, canStart: 
   if (registry.current.key !== key) registry.current = { key, requests: restore(key) };
   const started = useRef(new Set<string>());
   const onReadyRef = useRef(onReady); onReadyRef.current = onReady;
-  const imageSections = target.editor_document_json.sections.filter(section => ['hero', 'feature', 'image'].includes(section.type));
+  const imageSections = flattenEmailSections(target.editor_document_json.sections).filter(section => ['hero', 'feature', 'image'].includes(section.type));
   if (canStart && user?.id) {
     for (const section of imageSections.filter(item => item.artwork_id && item.image_prompt).sort((left, right) => Number(right.type === 'hero') - Number(left.type === 'hero')).slice(0, 3)) {
       if (!registry.current.requests.some(item => item.id === section.artwork_id)) registry.current.requests.push({ id: section.artwork_id!, prompt: section.image_prompt!, kind: section.type === 'feature' ? 'icon' : 'header' });

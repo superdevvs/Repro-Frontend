@@ -1,5 +1,6 @@
 import type { EmailEditorDocument, EmailWorkspaceDraft, EmailTemplateSection } from '@/types/emailTemplateWorkspace';
 import type { MessageTemplate } from '@/types/messaging';
+import { flattenEmailSections } from './emailWorkspaceTree';
 import { getTemplateOverrideDefaults } from '../templateOverrideDefaults';
 
 export const newSection = (type: EmailTemplateSection['type'] = 'text'): EmailTemplateSection => ({
@@ -10,7 +11,7 @@ export const newSection = (type: EmailTemplateSection['type'] = 'text'): EmailTe
 
 export function normalizeEmailDocument(document: EmailEditorDocument): EmailEditorDocument {
   return { ...document, preheader: document.preheader ?? '', sections: (document.sections ?? []).map(section => ({
-    ...section, heading: section.heading ?? '', body: section.body ?? '', image_url: section.image_url ?? '',
+    ...section, ...(section.columns ? { columns: section.columns.map(column => normalizeEmailDocument({ ...document, sections: column }).sections) } : {}), heading: section.heading ?? '', body: section.body ?? '', image_url: section.image_url ?? '',
     alt: section.alt ?? '', url: section.url ?? '', alignment: section.alignment ?? 'left', spacing: section.spacing ?? 24,
     eyebrow: section.eyebrow ?? '', layout: section.layout ?? (section.type === 'feature' ? 'image-left' : 'stacked'),
     tone: section.tone ?? (['notice', 'steps', 'details'].includes(section.type) ? 'soft' : 'plain'), image_width: section.image_width ?? 160, image_prompt: section.image_prompt ?? '', artwork_key: section.artwork_key ?? '',
@@ -20,6 +21,7 @@ export function normalizeEmailDocument(document: EmailEditorDocument): EmailEdit
 export function initialEmailDraft(template: MessageTemplate | null): EmailWorkspaceDraft {
   const defaults = template ? getTemplateOverrideDefaults(template) : { emailType: '', overrideEnabled: false };
   return {
+    ...(template?.workspace_revision !== undefined ? { workspace_revision: template.workspace_revision } : {}),
     channel: 'EMAIL', name: template?.name ?? 'Untitled email', description: template?.description ?? '',
     category: template?.category ?? 'GENERAL', scope: template?.scope ?? 'USER',
     subject: template?.editable_subject ?? template?.subject ?? '',
@@ -86,9 +88,10 @@ export function validateWorkspaceDraft(draft: EmailWorkspaceDraft): string | nul
   if (!draft.name.trim()) return 'Enter a template name.';
   if (!draft.subject?.trim()) return 'Enter a subject line.';
   if (draft.editor_document_json.format === 'sections') {
-    const sections = draft.editor_document_json.sections;
+    const sections = flattenEmailSections(draft.editor_document_json.sections);
     if (!sections.length || !sections.some(section => section.heading.trim() || section.body.trim() || section.image_url.trim())) return 'Add some email content.';
-    if (sections.some(section => (section.type === 'image' || Boolean(section.image_url)) && !/^https?:\/\//i.test(section.image_url))) return 'Add a complete image URL or remove the empty image section.';
+    if (sections.some(section => !section.media_id && (section.type === 'image' || Boolean(section.image_url)) && !/^https?:\/\//i.test(section.image_url))) return 'Add a complete image URL or remove the empty image section.';
+    if (sections.some(section => section.type === 'video' && !/^https:\/\//i.test(section.video_url ?? ''))) return 'Add a complete HTTPS video link.';
     if (sections.some(section => section.type === 'button' && !/^(https?:\/\/|mailto:|tel:|\{\{[\w.]+\}\})/i.test(section.url))) return 'Add a valid link to each button.';
   } else if (!draft.body_html?.trim() && !draft.body_text?.trim()) return 'Add some email content.';
   return null;
