@@ -13,9 +13,10 @@ interface Props {
   onUse: (asset: EmailMediaAsset) => void;
   onVideo: (url: string, title: string, asset?: EmailMediaAsset) => void;
   onGenerate: () => void;
+  onBusyChange?: (busy: boolean) => void;
 }
 
-export function EmailWorkspaceMedia({ target, templateId, onUse, onVideo, onGenerate }: Props) {
+export function EmailWorkspaceMedia({ target, templateId, onUse, onVideo, onGenerate, onBusyChange }: Props) {
   const client = useQueryClient();
   const { user } = useAuth();
   const [tab, setTab] = useState(target?.type === 'video' && !target.video_url ? 'video' : 'uploaded'), [search, setSearch] = useState(''), [page, setPage] = useState(1);
@@ -26,35 +27,38 @@ export function EmailWorkspaceMedia({ target, templateId, onUse, onVideo, onGene
   const renditionOptions: EmailAssetOptions = { ...options, play: target?.type === 'video' || (options.play ?? tab === 'video-thumbnail') };
   const [local, setLocal] = useState<string>();
   const input = useRef<HTMLInputElement>(null);
+  // Notify at the actual request boundaries, including after this picker has
+  // unmounted. Dismissing it must not enable sending a still incomplete email.
+  function operationBusy(value: boolean) { setBusy(value); onBusyChange?.(value); }
   useEffect(() => () => { if (local) URL.revokeObjectURL(local); }, [local]);
   const assets = useQuery({ queryKey: ['email-media-library', user?.id, tab, search, page], queryFn: () => listEmailAssets({ source: tab, search, page }), enabled: ['uploaded','generated','video-thumbnail'].includes(tab), refetchInterval: query => query.state.data?.data.some(item => item.status === 'processing') ? 2000 : false });
   const dashboard = useQuery({ queryKey: ['email-dashboard-media', user?.id, search], queryFn: () => listDashboardEmailMedia(search), enabled: tab === 'dashboard' });
   async function upload(file: File) {
     if (!['image/jpeg','image/png','image/webp'].includes(file.type) || file.size > 10 * 1024 * 1024) { toast.error('Choose a JPEG, PNG or WebP image below 10 MB.'); return; }
-    setBusy(true); setLocal(URL.createObjectURL(file)); setProgress(0);
+    operationBusy(true); setLocal(URL.createObjectURL(file)); setProgress(0);
     try { const asset = await uploadEmailAsset(file, renditionOptions, setProgress); void client.invalidateQueries({ queryKey: ['email-media-library'] }); onUse(asset); }
     catch (error) { toast.error(getTemplateErrorMessage(error, 'Could not upload this image.')); }
-    finally { setBusy(false); }
+    finally { operationBusy(false); }
   }
   async function resolveVideo() {
-    setBusy(true);
+    operationBusy(true);
     try { const result = await resolveEmailVideo(video); onVideo(result.url, result.title, result.asset ?? undefined); if (result.needs_thumbnail) toast.info('Video added. Choose Media on its section to upload a thumbnail.'); }
     catch (error) { toast.error(getTemplateErrorMessage(error, 'Could not add this video.')); }
-    finally { setBusy(false); }
+    finally { operationBusy(false); }
   }
   async function choose(asset: EmailMediaAsset) {
     if (!renditionOptions.crop && !renditionOptions.play && !asset.legacy) { onUse(asset); return; }
-    setBusy(true);
+    operationBusy(true);
     try { onUse(await variantEmailAsset(asset.id, renditionOptions, templateId)); }
     catch (error) { toast.error(getTemplateErrorMessage(error, 'Could not prepare this image.')); }
-    finally { setBusy(false); }
+    finally { operationBusy(false); }
   }
   async function cropCurrent() {
     if (!target?.media_id) return;
-    setBusy(true);
+    operationBusy(true);
     try { onUse(await variantEmailAsset(target.media_id, renditionOptions, templateId)); }
     catch (error) { toast.error(getTemplateErrorMessage(error, 'Could not create this crop.')); }
-    finally { setBusy(false); }
+    finally { operationBusy(false); }
   }
   async function chooseBrand(key: string) {
     const url = '/images/email-atelier/v6/'+key+'.png';
@@ -62,7 +66,7 @@ export function EmailWorkspaceMedia({ target, templateId, onUse, onVideo, onGene
       onUse({ id: '', name: key, source: 'uploaded', status: 'ready', url: window.location.origin+url, mime: 'image/png', original_bytes: 0, bytes: 0, width: 0, height: 0, error: null });
       return;
     }
-    setBusy(true);
+    operationBusy(true);
     try {
       const response = await fetch(url);
       if (!response.ok) throw new Error('Brand image unavailable');
@@ -70,7 +74,7 @@ export function EmailWorkspaceMedia({ target, templateId, onUse, onVideo, onGene
       onUse(await uploadEmailAsset(file, renditionOptions));
       void client.invalidateQueries({ queryKey: ['email-media-library'] });
     } catch (error) { toast.error(getTemplateErrorMessage(error, 'Could not prepare this brand image.')); }
-    finally { setBusy(false); }
+    finally { operationBusy(false); }
   }
   return <div className="ews-media-panel" onDragOver={event => event.preventDefault()} onDrop={event => { event.preventDefault(); const file = event.dataTransfer.files[0]; if (file && !busy) void upload(file); }} onPaste={event => { const file = [...event.clipboardData.items].find(item => item.kind === 'file')?.getAsFile(); if (file && !busy) { event.preventDefault(); void upload(file); } }}>
     <div className="ews-media-primary"><Button disabled={busy} onClick={() => input.current?.click()}>Upload image</Button><Button variant="outline" disabled={busy} onClick={onGenerate}>Generate with Robbie</Button></div>
@@ -86,7 +90,7 @@ export function EmailWorkspaceMedia({ target, templateId, onUse, onVideo, onGene
       <Input aria-label="Search email media" value={search} onChange={event => { setSearch(event.target.value); setPage(1); }} placeholder="Search images or properties…"/>
       <div className="ews-media-grid">
         {tab === 'brand' ? ['welcome','editing','invoice','schedule','delivery_access'].map(key => <button key={key} disabled={busy} onClick={() => void chooseBrand(key)}><img src={'/images/email-atelier/v6/'+key+'.png'} alt={key}/><span>{key.replace(/_/g, ' ')}</span></button>)
-          : tab === 'dashboard' ? dashboard.data?.map(item => <div key={item.id}><button disabled={busy} onClick={async () => { setBusy(true); try { onUse(await importDashboardEmailMedia(item, renditionOptions)); } catch (error) { toast.error(getTemplateErrorMessage(error, 'Could not import this image.')); } finally { setBusy(false); } }}><img src={item.url} alt={item.name}/><span>{item.name}</span></button>{item.watch_url && <Button variant="ghost" size="sm" disabled={busy} onClick={async () => { setBusy(true); try { const poster = await importDashboardEmailMedia(item, { ...renditionOptions, play: true }); onVideo(item.watch_url!, item.name, poster); } catch (error) { toast.error(getTemplateErrorMessage(error, 'Could not prepare this video thumbnail.')); } finally { setBusy(false); } }}>Use video</Button>}</div>)
+          : tab === 'dashboard' ? dashboard.data?.map(item => <div key={item.id}><button disabled={busy} onClick={async () => { operationBusy(true); try { onUse(await importDashboardEmailMedia(item, renditionOptions)); } catch (error) { toast.error(getTemplateErrorMessage(error, 'Could not import this image.')); } finally { operationBusy(false); } }}><img src={item.url} alt={item.name}/><span>{item.name}</span></button>{item.watch_url && <Button variant="ghost" size="sm" disabled={busy} onClick={async () => { operationBusy(true); try { const poster = await importDashboardEmailMedia(item, { ...renditionOptions, play: true }); onVideo(item.watch_url!, item.name, poster); } catch (error) { toast.error(getTemplateErrorMessage(error, 'Could not prepare this video thumbnail.')); } finally { operationBusy(false); } }}>Use video</Button>}</div>)
             : assets.data?.data.map(asset => <div key={asset.id}><button disabled={asset.status !== 'ready' || busy} onClick={() => void choose(asset)}>{asset.url ? <img src={asset.url} alt={asset.name}/> : <span>{asset.status === 'processing' ? 'Optimizing…' : 'Could not process'}</span>}<span>{asset.name}</span><small>{Math.round(asset.bytes / 1024)} KB{asset.bytes > 600000 ? ' · Large image' : ''}{asset.original_bytes > asset.bytes ? ` · ${Math.round(100 * (1 - asset.bytes / asset.original_bytes))}% smaller` : ''}</small></button><button className="ews-media-archive" onClick={async () => { await archiveEmailAsset(asset.id); void client.invalidateQueries({ queryKey: ['email-media-library'] }); }}>Archive</button></div>)}
       </div>
       {(tab === 'dashboard' ? dashboard.isPending : tab !== 'brand' && assets.isPending) && <p role="status">Loading media…</p>}
