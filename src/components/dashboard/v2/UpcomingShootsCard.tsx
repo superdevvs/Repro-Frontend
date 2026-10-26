@@ -2,14 +2,14 @@ import type { UpcomingShootsCardProps } from './UpcomingShootsCard.types';
 import { EditorShootContextNotes } from './EditorShootContextNotes';
 import { ShootEmptyState } from '@/components/shoots/ShootEmptyState';
 import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { addDays, endOfDay, endOfWeek, format, isAfter, isSameDay, isWithinInterval, startOfWeek, startOfDay } from 'date-fns';
 import { DashboardShootSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
 import { cn } from '@/lib/utils';
 import { hasActiveTextSelection } from '@/lib/textSelection'
-import { MapPin, Sun, CloudRain, Cloud, Snowflake, Filter, History, Check, X, Edit, Copy, Download, List, LayoutGrid } from 'lucide-react';
+import { MapPin, Sun, CloudRain, Cloud, Snowflake, History, Check, X, Edit, Copy, Download } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { useToast } from '@/hooks/use-toast';
 import { ServicePills } from './ServicePills';
@@ -36,6 +36,9 @@ import { ClientPaymentPill } from '@/features/dashboard/components/ClientPayment
 import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { EarlierShootsStack } from './EarlierShootsStack';
+import { PhotographerCompactShootCardContent } from './PhotographerCompactShootCardContent';
+import { UpcomingShootsViewControls } from './UpcomingShootsViewControls';
+import { DashboardMobileToolbarContext } from '@/features/dashboard/components/dashboardMobileToolbarContext';
 import { isStaffShootStackRole, showsYesterdayAgenda, useEarlierShoots } from './earlierUnfinishedShoots';
 import {
   DASHBOARD_MOBILE_PANEL_CLASS, measureShootListPeekHeightPx,
@@ -227,6 +230,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   const hideWeather = role === 'editor';
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
   const isCompactDashboardViewport = useMediaQuery('(max-width: 1024px)');
+  const mobileToolbarHost = useContext(DashboardMobileToolbarContext);
   const hasStaffStack = isStaffShootStackRole(role);
   const [compactPreference, setCompactPreference] = useState(() => {
     try {
@@ -817,6 +821,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   };
 
   const compactHeader = hasStaffStack && isCompactDashboardViewport;
+  const useMobileToolbar = compactHeader && (isPhotographerRole || isEditorRole) && mobileToolbarHost !== null;
   const requestToggle = requestedShootsCount > 0 ? (
     <Button
       variant={showRequestsFirst ? "default" : "outline"}
@@ -827,339 +832,326 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
       <span className={compactHeader ? 'truncate' : undefined}>Shoot requests +{requestedShootsCount}</span>
     </Button>
   ) : null;
+  const pastDaysToggle = hasPastDays ? (
+    <Button
+      variant="outline"
+      size="sm"
+      className={cn('text-xs rounded-full border-dashed', compactHeader && 'h-9 w-9 shrink-0 p-0', hasStaffStack && showPastDays && 'bg-primary/10 text-primary')}
+      onClick={() => setShowPastDays((prev) => !prev)}
+      aria-label={hasStaffStack ? (showPastDays ? 'Hide previous shoots' : 'Previous shoots') : undefined}
+      aria-pressed={showPastDays}
+      title={showPastDays ? 'Hide previous shoots' : 'Previous shoots'}
+    >
+      {compactHeader && <History size={16} aria-hidden="true" />}
+      <span className={compactHeader ? 'hidden' : undefined}>{pastButtonLabel}</span>
+    </Button>
+  ) : null;
+  const viewControls = (
+    <UpcomingShootsViewControls
+      showCompact={hasStaffStack} compactCards={compactCards}
+      compactHeader={compactHeader} inline={useMobileToolbar}
+      activeFilterCount={activeFilterCount} isFilterOpen={isFilterOpen}
+      onToggleCompact={toggleCompactCards}
+      onToggleFilters={() => { setDraftFilters(filters); setIsFilterOpen((open) => !open); }}
+    >
+      {!useMobileToolbar && pastDaysToggle}
+    </UpcomingShootsViewControls>
+  );
   return (
     <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, 'flex flex-col h-full min-h-0')}>
-      <div className={cn('flex flex-wrap items-start justify-between mb-4 gap-3', hasStaffStack && 'max-[1024px]:grid max-[1024px]:grid-cols-[minmax(0,1fr)_auto] max-[1024px]:items-start max-[1024px]:gap-2')}>
-        <div className={hasStaffStack ? 'max-[1024px]:min-w-0' : undefined}>
-          <h2 className="hidden text-lg font-bold text-foreground sm:block">{displayTitle}</h2>
-          {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
-          {compactHeader && requestToggle}
+      {useMobileToolbar && mobileToolbarHost && createPortal(
+        viewControls, mobileToolbarHost,
+      )}
+      {(!useMobileToolbar || requestToggle || hasPastDays) && (
+        <div className={cn('flex flex-wrap items-start justify-between mb-4 gap-3', hasStaffStack && 'max-[1024px]:grid max-[1024px]:grid-cols-[minmax(0,1fr)_auto] max-[1024px]:items-start max-[1024px]:gap-2')}>
+          {!useMobileToolbar && (
+            <div className={hasStaffStack ? 'max-[1024px]:min-w-0' : undefined}>
+              <h2 className="hidden text-lg font-bold text-foreground sm:block">{displayTitle}</h2>
+              {subtitle && <p className="text-xs text-muted-foreground mt-1">{subtitle}</p>}
+              {compactHeader && requestToggle}
+            </div>
+          )}
+          {useMobileToolbar && requestToggle}
+          <div className={cn('flex items-center gap-2', hasStaffStack && 'max-[1024px]:flex-nowrap max-[1024px]:shrink-0 max-[1024px]:justify-self-end max-[1024px]:self-start')}>
+            {!compactHeader && requestToggle}
+            {useMobileToolbar ? pastDaysToggle : viewControls}
+          </div>
         </div>
-        <div className={cn('flex items-center gap-2', hasStaffStack && 'max-[1024px]:flex-nowrap max-[1024px]:shrink-0 max-[1024px]:justify-self-end max-[1024px]:self-start')}>
-          {!compactHeader && requestToggle}
-          {hasStaffStack && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              aria-label={compactCards ? 'Show full shoot cards' : 'Show compact shoot cards'}
-              aria-pressed={compactCards}
-              title={compactCards ? 'Show full shoot cards' : 'Show compact shoot cards'}
-              className={cn('text-xs rounded-full text-muted-foreground', isCompactDashboardViewport && 'h-9 w-9 shrink-0 p-0')}
-              onClick={toggleCompactCards}
-            >
-              {compactCards ? <LayoutGrid size={15} /> : <List size={15} />}
-              {!isCompactDashboardViewport && <span className="ml-1.5">{compactCards ? 'Full cards' : 'Compact'}</span>}
-            </Button>
-          )}
-          {hasPastDays && (
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn('text-xs rounded-full border-dashed', compactHeader && 'h-9 w-9 shrink-0 p-0', hasStaffStack && showPastDays && 'bg-primary/10 text-primary')}
-              onClick={() => setShowPastDays((prev) => !prev)}
-              aria-label={hasStaffStack ? (showPastDays ? 'Hide previous shoots' : 'Previous shoots') : undefined}
-              aria-pressed={showPastDays}
-              title={showPastDays ? 'Hide previous shoots' : 'Previous shoots'}
-            >
-              {compactHeader && <History size={16} aria-hidden="true" />}
-              <span className={compactHeader ? 'hidden' : undefined}>{pastButtonLabel}</span>
-            </Button>
-          )}
-          <>
-              <Button
-                variant="secondary"
-                size="sm"
-                className={cn('rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900', compactHeader && 'relative h-9 w-9 shrink-0 p-0')}
-                aria-label={compactHeader ? `Filters${activeFilterCount > 0 ? ` (${activeFilterCount} active)` : ''}` : undefined}
-                title={compactHeader ? 'Filters' : undefined}
-                aria-expanded={isFilterOpen}
-                onClick={() => {
-                  setDraftFilters(filters);
-                  setIsFilterOpen((open) => !open);
-                }}
-              >
-                <Filter size={14} className={compactHeader ? undefined : 'mr-1.5'} />
-                {!compactHeader && <>Filters {activeFilterCount > 0 && `(${activeFilterCount})`}</>}
-                {compactHeader && activeFilterCount > 0 && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-primary px-1 text-[9px] leading-4 text-primary-foreground" aria-hidden="true">{activeFilterCount}</span>}
-              </Button>
-            {filterPanelHostRef.current && createPortal(
-              <div className={cn(
-                'grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out',
-                isFilterOpen ? 'grid-rows-[1fr] opacity-100 mb-4' : 'grid-rows-[0fr] opacity-0 mb-0 pointer-events-none',
-              )}>
-                <div className="min-h-0 overflow-hidden">
-                  <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5 max-h-[65vh] overflow-y-auto">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                <h3 className="text-base sm:text-lg font-semibold">{filterTitle}</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Narrow the list by status, assignments, services, and priority.
-                </p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={cancelFilters}>Close</Button>
-              </div>
+      )}
+      {filterPanelHostRef.current && createPortal(
+        <div className={cn(
+          'grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out',
+          isFilterOpen ? 'grid-rows-[1fr] opacity-100 mb-4' : 'grid-rows-[0fr] opacity-0 mb-0 pointer-events-none',
+        )}>
+          <div className="min-h-0 overflow-hidden">
+            <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5 max-h-[65vh] overflow-y-auto">
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+          <h3 className="text-base sm:text-lg font-semibold">{filterTitle}</h3>
+          <p className="text-xs sm:text-sm text-muted-foreground">
+            Narrow the list by status, assignments, services, and priority.
+          </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={cancelFilters}>Close</Button>
+        </div>
 
-              <div className="space-y-4 sm:space-y-6">
-                <section>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Status</p>
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    {STATUS_FILTERS.map((status) => {
-                      const active = draftFilters.statuses.includes(status.value);
-                      return (
-                        <button
-                          key={status.value}
-                          onClick={() =>
-                            setDraftFilters((prev) => ({
-                              ...prev,
-                              statuses: active
-                                ? prev.statuses.filter((s) => s !== status.value)
-                                : [...prev.statuses, status.value],
-                            }))
-                          }
-                          className={cn(
-                            'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
-                            active
-                              ? 'bg-primary/10 border-primary/40 text-primary'
-                              : 'border-border text-muted-foreground',
-                          )}
-                        >
-                          {status.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-
-                <section className="grid grid-cols-1 gap-3 sm:gap-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground mb-1">Client</p>
-                      <Select
-                        value={draftFilters.client}
-                        onValueChange={(value) =>
-                          setDraftFilters((prev) => ({ ...prev, client: value }))
-                        }
-                      >
-                        <SelectTrigger className="rounded-xl border-border bg-muted/40">
-                          <SelectValue placeholder="All clients" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {clientOptions.map((client) => (
-                            <SelectItem key={client} value={client}>
-                              {client === 'all' ? 'All clients' : client}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground mb-1">Search address, zip</p>
-                      <Input
-                        value={draftFilters.address}
-                        onChange={(event) =>
-                          setDraftFilters((prev) => ({ ...prev, address: event.target.value }))
-                        }
-                        placeholder="City, street, zip"
-                        className="rounded-xl border-border bg-muted/40"
-                      />
-                    </div>
-                  </div>
-                </section>
-
-                {showAssignmentFilters && (
-                  <section>
-                    <p className="text-xs font-semibold text-muted-foreground mb-2">Photographer</p>
-                    <div className="rounded-2xl border border-border/60 bg-muted/30">
-                      <ScrollArea className="max-h-64">
-                        <div className="min-w-0 flex-1 space-y-3">
-                          {photographerOptions.map((photographer) => {
-                            const checked = draftFilters.photographerIds.includes(photographer.id);
-                            return (
-                              <label
-                                key={photographer.id}
-                                className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-background/60"
-                              >
-                                <Checkbox
-                                  checked={checked}
-                                  onCheckedChange={(value) =>
-                                    setDraftFilters((prev) => ({
-                                      ...prev,
-                                      photographerIds: value
-                                        ? [...prev.photographerIds, photographer.id]
-                                        : prev.photographerIds.filter((id) => id !== photographer.id),
-                                    }))
-                                  }
-                                />
-                                <Avatar
-                                  src={photographer.avatar}
-                                  initials={photographer.name[0]}
-                                  className="w-8 h-8 rounded-full"
-                                />
-                                <span className="text-sm font-medium">{photographer.name}</span>
-                              </label>
-                            );
-                          })}
-                        </div>
-                      </ScrollArea>
-                      <label className="flex items-center gap-2 px-4 py-3 border-t border-border/60 text-sm text-muted-foreground">
-                        <Checkbox
-                          checked={draftFilters.unassignedOnly}
-                          onCheckedChange={(value) =>
-                            setDraftFilters((prev) => ({ ...prev, unassignedOnly: Boolean(value) }))
-                          }
-                        />
-                        Unassigned only
-                      </label>
-                    </div>
-                  </section>
-                )}
-
-                <section>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Services</p>
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    {serviceOptions.map(({ key: serviceKey, label: serviceLabel }) => {
-                      const active = draftFilters.services.includes(serviceKey);
-                      const label = serviceLabel || SERVICE_LABELS[serviceKey] || serviceKey.replace(/_/g, ' ');
-                      return (
-                        <button
-                          key={serviceKey}
-                          className={cn(
-                            'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
-                            active
-                              ? 'bg-primary/10 border-primary/40 text-primary'
-                              : 'border-border text-muted-foreground',
-                          )}
-                          onClick={() =>
-                            setDraftFilters((prev) => ({
-                              ...prev,
-                              services: active
-                                ? prev.services.filter((s) => s !== serviceKey)
-                                : [...prev.services, serviceKey],
-                            }))
-                          }
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                    {serviceOptions.length === 0 && (
-                      <span className="text-sm text-muted-foreground">No services detected</span>
+        <div className="space-y-4 sm:space-y-6">
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground mb-2">Status</p>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              {STATUS_FILTERS.map((status) => {
+                const active = draftFilters.statuses.includes(status.value);
+                return (
+                  <button
+                    key={status.value}
+                    onClick={() =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        statuses: active
+                          ? prev.statuses.filter((s) => s !== status.value)
+                          : [...prev.statuses, status.value],
+                      }))
+                    }
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
+                      active
+                        ? 'bg-primary/10 border-primary/40 text-primary'
+                        : 'border-border text-muted-foreground',
                     )}
-                  </div>
-                </section>
+                  >
+                    {status.label}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-                <section>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Date range</p>
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    {DATE_RANGE_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        className={cn(
-                          'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
-                          draftFilters.dateRange === option.value
-                            ? 'bg-primary/10 border-primary/40 text-primary'
-                            : 'border-border text-muted-foreground',
-                        )}
-                        onClick={() =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            dateRange: prev.dateRange === option.value ? null : option.value,
-                          }))
-                        }
-                      >
-                        {option.label}
-                      </button>
+          <section className="grid grid-cols-1 gap-3 sm:gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-1">Client</p>
+                <Select
+                  value={draftFilters.client}
+                  onValueChange={(value) =>
+                    setDraftFilters((prev) => ({ ...prev, client: value }))
+                  }
+                >
+                  <SelectTrigger className="rounded-xl border-border bg-muted/40">
+                    <SelectValue placeholder="All clients" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientOptions.map((client) => (
+                      <SelectItem key={client} value={client}>
+                        {client === 'all' ? 'All clients' : client}
+                      </SelectItem>
                     ))}
-                  </div>
-                  {draftFilters.dateRange === 'custom' && (
-                    <div className="mt-4">
-                      <DateRangePicker
-                        value={{
-                          startDate: draftFilters.customRange.from,
-                          endDate: draftFilters.customRange.to,
-                        }}
-                        onChange={({ startDate, endDate }) =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            customRange: { from: startDate, to: endDate },
-                          }))
-                        }
-                      />
-                    </div>
-                  )}
-                </section>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <p className="text-xs font-semibold text-muted-foreground mb-1">Search address, zip</p>
+                <Input
+                  value={draftFilters.address}
+                  onChange={(event) =>
+                    setDraftFilters((prev) => ({ ...prev, address: event.target.value }))
+                  }
+                  placeholder="City, street, zip"
+                  className="rounded-xl border-border bg-muted/40"
+                />
+              </div>
+            </div>
+          </section>
 
-                <section>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Priority & flags</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                    <label className="flex items-center gap-2 text-sm text-foreground">
-                      <Checkbox
-                        checked={draftFilters.flaggedOnly}
-                        onCheckedChange={(value) =>
-                          setDraftFilters((prev) => ({ ...prev, flaggedOnly: Boolean(value) }))
-                        }
-                      />
-                      Only flagged
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-foreground">
-                      <Checkbox
-                        checked={draftFilters.priority.highPriority}
-                        onCheckedChange={(value) =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            priority: { ...prev.priority, highPriority: Boolean(value) },
-                          }))
-                        }
-                      />
-                      High priority
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-foreground">
-                      <Checkbox
-                        checked={draftFilters.priority.missingRaw}
-                        onCheckedChange={(value) =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            priority: { ...prev.priority, missingRaw: Boolean(value) },
-                          }))
-                        }
-                      />
-                      Missing RAW
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-foreground">
-                      <Checkbox
-                        checked={draftFilters.priority.missingEditor}
-                        onCheckedChange={(value) =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            priority: { ...prev.priority, missingEditor: Boolean(value) },
-                          }))
-                        }
-                      />
-                      Missing editor
-                    </label>
+          {showAssignmentFilters && (
+            <section>
+              <p className="text-xs font-semibold text-muted-foreground mb-2">Photographer</p>
+              <div className="rounded-2xl border border-border/60 bg-muted/30">
+                <ScrollArea className="max-h-64">
+                  <div className="min-w-0 flex-1 space-y-3">
+                    {photographerOptions.map((photographer) => {
+                      const checked = draftFilters.photographerIds.includes(photographer.id);
+                      return (
+                        <label
+                          key={photographer.id}
+                          className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-background/60"
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(value) =>
+                              setDraftFilters((prev) => ({
+                                ...prev,
+                                photographerIds: value
+                                  ? [...prev.photographerIds, photographer.id]
+                                  : prev.photographerIds.filter((id) => id !== photographer.id),
+                              }))
+                            }
+                          />
+                          <Avatar
+                            src={photographer.avatar}
+                            initials={photographer.name[0]}
+                            className="w-8 h-8 rounded-full"
+                          />
+                          <span className="text-sm font-medium">{photographer.name}</span>
+                        </label>
+                      );
+                    })}
                   </div>
-                </section>
+                </ScrollArea>
+                <label className="flex items-center gap-2 px-4 py-3 border-t border-border/60 text-sm text-muted-foreground">
+                  <Checkbox
+                    checked={draftFilters.unassignedOnly}
+                    onCheckedChange={(value) =>
+                      setDraftFilters((prev) => ({ ...prev, unassignedOnly: Boolean(value) }))
+                    }
+                  />
+                  Unassigned only
+                </label>
               </div>
-              <div className="flex flex-col sm:flex-row gap-2 mt-5">
-                <Button variant="ghost" className="flex-1" onClick={cancelFilters}>
-                  Cancel
-                </Button>
-                <Button variant="outline" className="flex-1" onClick={resetFilters}>
-                  Reset all filters
-                </Button>
-                <Button className="flex-1" onClick={applyFilters}>
-                  Apply filters
-                </Button>
+            </section>
+          )}
+
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground mb-2">Services</p>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              {serviceOptions.map(({ key: serviceKey, label: serviceLabel }) => {
+                const active = draftFilters.services.includes(serviceKey);
+                const label = serviceLabel || SERVICE_LABELS[serviceKey] || serviceKey.replace(/_/g, ' ');
+                return (
+                  <button
+                    key={serviceKey}
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
+                      active
+                        ? 'bg-primary/10 border-primary/40 text-primary'
+                        : 'border-border text-muted-foreground',
+                    )}
+                    onClick={() =>
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        services: active
+                          ? prev.services.filter((s) => s !== serviceKey)
+                          : [...prev.services, serviceKey],
+                      }))
+                    }
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+              {serviceOptions.length === 0 && (
+                <span className="text-sm text-muted-foreground">No services detected</span>
+              )}
+            </div>
+          </section>
+
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground mb-2">Date range</p>
+            <div className="flex flex-wrap gap-1.5 sm:gap-2">
+              {DATE_RANGE_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  className={cn(
+                    'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
+                    draftFilters.dateRange === option.value
+                      ? 'bg-primary/10 border-primary/40 text-primary'
+                      : 'border-border text-muted-foreground',
+                  )}
+                  onClick={() =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      dateRange: prev.dateRange === option.value ? null : option.value,
+                    }))
+                  }
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+            {draftFilters.dateRange === 'custom' && (
+              <div className="mt-4">
+                <DateRangePicker
+                  value={{
+                    startDate: draftFilters.customRange.from,
+                    endDate: draftFilters.customRange.to,
+                  }}
+                  onChange={({ startDate, endDate }) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      customRange: { from: startDate, to: endDate },
+                    }))
+                  }
+                />
               </div>
-                  </div>
-                </div>
-              </div>,
-              filterPanelHostRef.current,
             )}
-          </>
+          </section>
+
+          <section>
+            <p className="text-xs font-semibold text-muted-foreground mb-2">Priority & flags</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <Checkbox
+                  checked={draftFilters.flaggedOnly}
+                  onCheckedChange={(value) =>
+                    setDraftFilters((prev) => ({ ...prev, flaggedOnly: Boolean(value) }))
+                  }
+                />
+                Only flagged
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <Checkbox
+                  checked={draftFilters.priority.highPriority}
+                  onCheckedChange={(value) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      priority: { ...prev.priority, highPriority: Boolean(value) },
+                    }))
+                  }
+                />
+                High priority
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <Checkbox
+                  checked={draftFilters.priority.missingRaw}
+                  onCheckedChange={(value) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      priority: { ...prev.priority, missingRaw: Boolean(value) },
+                    }))
+                  }
+                />
+                Missing RAW
+              </label>
+              <label className="flex items-center gap-2 text-sm text-foreground">
+                <Checkbox
+                  checked={draftFilters.priority.missingEditor}
+                  onCheckedChange={(value) =>
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      priority: { ...prev.priority, missingEditor: Boolean(value) },
+                    }))
+                  }
+                />
+                Missing editor
+              </label>
+            </div>
+          </section>
         </div>
-      </div>
+        <div className="flex flex-col sm:flex-row gap-2 mt-5">
+          <Button variant="ghost" className="flex-1" onClick={cancelFilters}>
+            Cancel
+          </Button>
+          <Button variant="outline" className="flex-1" onClick={resetFilters}>
+            Reset all filters
+          </Button>
+          <Button className="flex-1" onClick={applyFilters}>
+            Apply filters
+          </Button>
+        </div>
+            </div>
+          </div>
+        </div>,
+        filterPanelHostRef.current,
+      )}
 
       <div ref={filterPanelHostRef} />
 
@@ -1227,7 +1219,14 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                         : "border-border hover:border-primary/40"
                     )}
                   >
-                    {compactCards && (
+                    {compactCards && isPhotographerRole && (
+                      <PhotographerCompactShootCardContent
+                        shoot={shoot}
+                        formattedTime={formatTime(getDashboardShootDisplayTime(shoot) || '') || 'Time TBD'}
+                        statusClass={statusClass}
+                      />
+                    )}
+                    {compactCards && !isPhotographerRole && (
                       <div className="flex min-w-0 items-start gap-3" data-compact-shoot="true">
                         <div className="shrink-0 text-center text-[10px] text-muted-foreground">
                           <p className="font-semibold text-foreground">{formatDate(getSummaryLocalDate(shoot))}</p>

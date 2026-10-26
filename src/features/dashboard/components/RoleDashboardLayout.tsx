@@ -23,6 +23,7 @@ import {
   DASHBOARD_MOBILE_TAB_ROW_CLASS,
 } from "../utils/dashboardMobilePanel";
 import { DashboardMobileTabTrigger } from "./DashboardMobileTabTrigger";
+import { DashboardMobileToolbarContext } from "./dashboardMobileToolbarContext";
 import { DevProfiler } from "./DevProfiler";
 import { CollapsibleColumnHandle } from "./CollapsibleColumnHandle";
 import { useCollapsibleDashboardColumns } from "../hooks/useCollapsibleDashboardColumns";
@@ -57,6 +58,8 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
   leftColumnOnboardingTarget,
 }) => {
   const isCompactDashboardLayout = useMediaQuery("(max-width: 1024px)");
+  const hasMobileToolbar = role === "photographer" || role === "editor";
+  const [mobileToolbarHost, setMobileToolbarHost] = React.useState<HTMLDivElement | null>(null);
 
   const hasMetricTiles = Boolean(metricTiles && metricTiles.length > 0);
   const hasLeftColumnCard = Boolean(leftColumnCard);
@@ -128,9 +131,10 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                   <RoleMetricTilesCard tiles={metricTiles} />
                 </div>
               ) : null}
+              <DashboardMobileToolbarContext.Provider value={hasMobileToolbar ? mobileToolbarHost : null}>
               <Tabs {...mobileTabsProps} className={DASHBOARD_MOBILE_SECTION_TABS_CLASS}>
                 <div
-                  className={DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS}
+                  className={cn(DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS, hasMobileToolbar && "flex items-center justify-between gap-2")}
                 >
                   <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
                     <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-muted/30")}>
@@ -145,6 +149,9 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                       ))}
                     </TabsList>
                   </div>
+                  {hasMobileToolbar && (
+                    <div ref={setMobileToolbarHost} data-dashboard-mobile-toolbar className="ml-auto flex shrink-0 items-center gap-1" />
+                  )}
                 </div>
               {mobileTabs.map((tab) => (
                 <TabsContent
@@ -158,6 +165,7 @@ export const RoleDashboardLayout: React.FC<RoleDashboardLayoutProps> = ({
                 </TabsContent>
               ))}
               </Tabs>
+              </DashboardMobileToolbarContext.Provider>
             </div>
           ) : useCollapsibleLayout ? (
             <div
