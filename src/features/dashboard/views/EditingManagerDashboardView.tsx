@@ -19,6 +19,7 @@ import {
   DASHBOARD_MOBILE_TAB_ROW_CLASS,
 } from "../utils/dashboardMobilePanel";
 import { DashboardMobileTabTrigger } from "../components/DashboardMobileTabTrigger";
+import { DashboardMobileToolbarContext } from "../components/dashboardMobileToolbarContext";
 
 interface EditingManagerDashboardViewProps {
   isMobile: boolean;
@@ -52,6 +53,7 @@ export const EditingManagerDashboardView = ({
   shootsCount,
 }: EditingManagerDashboardViewProps) => {
   const { user } = useAuth();
+  const [mobileFilterHost, setMobileFilterHost] = React.useState<HTMLDivElement | null>(null);
   const onboarding = useDashboardOnboarding(user, "editing_manager");
   const {
     isDesktopGrid,
@@ -159,12 +161,13 @@ export const EditingManagerDashboardView = ({
   ] as const;
 
   const editingManagerMobileContent = (
+    <DashboardMobileToolbarContext.Provider value={mobileFilterHost}>
     <Tabs
       value={mobileEditingManagerTab}
       onValueChange={(val) => setMobileEditingManagerTab(val as MobileEditingManagerTab)}
       className={DASHBOARD_MOBILE_SECTION_TABS_CLASS}
     >
-      <div className={DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS}>
+      <div className={cn(DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS, "flex items-center justify-between gap-2")}>
         <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
           <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70")}>
             {editingManagerMobileTabs.map((tab) => (
@@ -178,6 +181,7 @@ export const EditingManagerDashboardView = ({
             ))}
           </TabsList>
         </div>
+        <div ref={setMobileFilterHost} data-dashboard-mobile-toolbar className="ml-auto flex shrink-0 items-center" />
       </div>
       {editingManagerMobileTabs.map((tab) => (
         <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -187,6 +191,7 @@ export const EditingManagerDashboardView = ({
         </TabsContent>
       ))}
     </Tabs>
+    </DashboardMobileToolbarContext.Provider>
   );
 
   return (

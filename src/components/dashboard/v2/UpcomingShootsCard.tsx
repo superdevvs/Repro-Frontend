@@ -36,7 +36,7 @@ import { ClientPaymentPill } from '@/features/dashboard/components/ClientPayment
 import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { EarlierShootsStack } from './EarlierShootsStack';
-import { PhotographerCompactShootCardContent } from './PhotographerCompactShootCardContent';
+import { StaffCompactShootCardContent } from './StaffCompactShootCardContent';
 import { UpcomingShootsViewControls } from './UpcomingShootsViewControls';
 import { DashboardMobileToolbarContext } from '@/features/dashboard/components/dashboardMobileToolbarContext';
 import { isStaffShootStackRole, showsYesterdayAgenda, useEarlierShoots } from './earlierUnfinishedShoots';
@@ -1219,14 +1219,27 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                         : "border-border hover:border-primary/40"
                     )}
                   >
-                    {compactCards && isPhotographerRole && (
-                      <PhotographerCompactShootCardContent
+                    {compactCards && (isPhotographerRole || isEditorRole) && (
+                      <StaffCompactShootCardContent
                         shoot={shoot}
                         formattedTime={formatTime(getDashboardShootDisplayTime(shoot) || '') || 'Time TBD'}
                         statusClass={statusClass}
+                        hideClientInfo={hideClientInfo}
+                        submittedForReview={isEditorSubmittedUpload}
+                        actions={isEditorRole ? (
+                          shoot.hasScopedEditingTasks ? (
+                            <Button size="sm" variant="outline" className="rounded-full" aria-label={`Open ${shoot.addressLine}`} onClick={event => { event.stopPropagation(); onSelect(shoot, weather); }}>Open</Button>
+                          ) : (
+                            <button type="button" onClick={(event) => void handleEditorDownloadRaw(event, shoot.id)} disabled={downloadBusyId !== null}
+                              aria-label={`Download raw files for ${shoot.addressLine}`} aria-busy={downloadBusyId === shoot.id}
+                              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground disabled:opacity-60">
+                              {downloadBusyId === shoot.id ? <Loader2 aria-hidden="true" size={13} /> : <Download size={13} />}
+                            </button>
+                          )
+                        ) : undefined}
                       />
                     )}
-                    {compactCards && !isPhotographerRole && (
+                    {compactCards && !isPhotographerRole && !isEditorRole && (
                       <div className="flex min-w-0 items-start gap-3" data-compact-shoot="true">
                         <div className="shrink-0 text-center text-[10px] text-muted-foreground">
                           <p className="font-semibold text-foreground">{formatDate(getSummaryLocalDate(shoot))}</p>
@@ -1246,14 +1259,6 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                             {isEditorSubmittedUpload && <span className="text-[10px] text-emerald-500">Submitted for review</span>}
                           </div>
                         </div>
-                        {isEditorRole && shoot.hasScopedEditingTasks && <Button size="sm" variant="outline" className="ml-auto rounded-full" aria-label={`Open ${shoot.addressLine}`} onClick={event => { event.stopPropagation(); onSelect(shoot, weather); }}>Open</Button>}
-                        {isEditorRole && !shoot.hasScopedEditingTasks && (
-                          <button type="button" onClick={(event) => void handleEditorDownloadRaw(event, shoot.id)} disabled={downloadBusyId !== null}
-                            aria-label={`Download raw files for ${shoot.addressLine}`} aria-busy={downloadBusyId === shoot.id}
-                            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border text-muted-foreground hover:text-foreground disabled:opacity-60">
-                            {downloadBusyId === shoot.id ? <Loader2 aria-hidden="true" size={13} /> : <Download size={13} />}
-                          </button>
-                        )}
                       </div>
                     )}
                     {/* ── Mobile layout ── */}

@@ -1,4 +1,6 @@
+import { useContext } from 'react';
 import { createPortal } from 'react-dom';
+import { DashboardMobileToolbarContext } from '@/features/dashboard/components/dashboardMobileToolbarContext';
 import { Avatar, Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -54,6 +56,8 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
     editingManagerEarlierShoots,
     isCompactDashboardViewport,
   } = model;
+  const mobileFilterHost = useContext(DashboardMobileToolbarContext);
+  const hoistFilter = isCompactDashboardViewport && mobileFilterHost !== null;
   const staffStack = isStaffShootStackRole(role);
   const inlineCompactControl = staffStack && isCompactDashboardViewport;
 
@@ -82,8 +86,33 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
     );
   };
 
+  const filterButton = (
+    <Button
+      variant="secondary"
+      size="sm"
+      className={cn('relative rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900 max-[1550px]:px-2', staffStack && 'max-[1024px]:h-9 max-[1024px]:w-9 max-[1024px]:!p-0', hoistFilter && 'h-10 w-10 !p-0')}
+      onClick={() => {
+        setDraftFilters(filters);
+        setIsFilterOpen((open) => !open);
+      }}
+      aria-label="Filters"
+      aria-expanded={isFilterOpen}
+    >
+      <Filter size={14} className="mr-1.5 max-[1550px]:mr-0" />
+      <span className="max-[1550px]:hidden">
+        Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
+      </span>
+      {activeFilterCount > 0 && (
+        <span className={cn('hidden max-[1550px]:inline ml-1 text-[10px] font-semibold', inlineCompactControl && 'absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-primary px-1 text-center text-primary-foreground')}>
+          {inlineCompactControl ? activeFilterCount : `(${activeFilterCount})`}
+        </span>
+      )}
+    </Button>
+  );
+
     return (
       <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex flex-col h-full flex-1 relative min-h-0")}>
+        {hoistFilter && mobileFilterHost && createPortal(filterButton, mobileFilterHost)}
         {!staffStack && <div className="absolute right-2 top-2 z-10 flex items-center gap-1 sm:hidden">
           {renderCompactToggle({ iconOnly: true })}
           <button
@@ -132,27 +161,7 @@ export function EditingManagerShootsTabsView({ model }: { model: ReturnType<type
           </div>
           <div className={cn('items-center gap-2', staffStack ? 'flex flex-nowrap shrink-0 max-[1024px]:justify-self-end max-[1024px]:self-start' : 'hidden sm:flex')}>
             {inlineCompactControl && renderCompactToggle({ iconOnly: true })}
-            <Button
-              variant="secondary"
-              size="sm"
-              className={cn('relative rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900 max-[1550px]:px-2', staffStack && 'max-[1024px]:h-9 max-[1024px]:w-9 max-[1024px]:!p-0')}
-              onClick={() => {
-                setDraftFilters(filters);
-                setIsFilterOpen((open) => !open);
-              }}
-              aria-label="Filters"
-              aria-expanded={isFilterOpen}
-            >
-              <Filter size={14} className="mr-1.5 max-[1550px]:mr-0" />
-              <span className="max-[1550px]:hidden">
-                Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
-              </span>
-              {activeFilterCount > 0 && (
-                <span className={cn('hidden max-[1550px]:inline ml-1 text-[10px] font-semibold', inlineCompactControl && 'absolute -right-1 -top-1 h-4 min-w-4 rounded-full bg-primary px-1 text-center text-primary-foreground')}>
-                  {inlineCompactControl ? activeFilterCount : `(${activeFilterCount})`}
-                </span>
-              )}
-            </Button>
+            {!hoistFilter && filterButton}
           </div>
         </div>
 

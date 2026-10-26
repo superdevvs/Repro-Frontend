@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { MapPin } from 'lucide-react';
 
 import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
@@ -6,18 +7,24 @@ import type { DashboardShootSummary } from '@/types/dashboard';
 import { getDashboardShootDisplayDate } from '@/utils/dashboardShootSchedule';
 import { formatWorkflowStatus } from '@/utils/status';
 
-interface PhotographerCompactShootCardContentProps {
+interface StaffCompactShootCardContentProps {
   shoot: DashboardShootSummary;
   formattedTime: string;
   statusClass: string;
+  hideClientInfo: boolean;
+  submittedForReview?: boolean;
+  actions?: ReactNode;
 }
 
-/** The admin compact-card layout, with photographer-visible information only. */
-export function PhotographerCompactShootCardContent({
+/** Admin-style compact cards retain the current staff member's visibility/actions. */
+export function StaffCompactShootCardContent({
   shoot,
   formattedTime,
   statusClass,
-}: PhotographerCompactShootCardContentProps) {
+  hideClientInfo,
+  submittedForReview,
+  actions,
+}: StaffCompactShootCardContentProps) {
   const shootDate = getDashboardShootDisplayDate(shoot);
   const validDate = shootDate && !Number.isNaN(shootDate.getTime()) ? shootDate : null;
   const month = validDate?.toLocaleDateString('en-US', { month: 'short' }).toUpperCase() ?? '--';
@@ -42,12 +49,14 @@ export function PhotographerCompactShootCardContent({
             <span className="truncate">{shoot.cityStateZip}</span>
           </p>
           <p className="mt-1 flex min-w-0 items-center gap-1 truncate text-[10px] text-muted-foreground sm:text-xs">
+            {!hideClientInfo && <>
             <span className="shrink-0">Client</span>
             <span className="truncate font-semibold text-foreground">• {shoot.clientName || 'Client TBD'}</span>
-            <span className="shrink-0">• #{shoot.id}</span>
+            </>}
+            <span className="shrink-0">{hideClientInfo ? 'Shoot' : '•'} #{shoot.id}</span>
           </p>
         </div>
-        <div className="col-start-2 flex min-w-0 items-center justify-between gap-2 border-l border-border/60 pl-3 min-[360px]:col-start-auto min-[360px]:h-full min-[360px]:min-w-[76px] min-[360px]:flex-col min-[360px]:items-end min-[360px]:justify-center min-[360px]:border-l-0 min-[360px]:pl-0 sm:min-w-[96px]">
+        <div className="col-start-2 flex min-w-0 flex-wrap items-center justify-between gap-2 border-l border-border/60 pl-3 min-[360px]:col-start-auto min-[360px]:h-full min-[360px]:min-w-[76px] min-[360px]:flex-col min-[360px]:flex-nowrap min-[360px]:items-end min-[360px]:justify-center min-[360px]:border-l-0 min-[360px]:pl-0 sm:min-w-[96px]">
           <span className="whitespace-nowrap text-xs font-semibold text-primary sm:text-sm">{formattedTime || '--'}</span>
           <span className={cn(
             'inline-flex max-w-[76px] items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold sm:max-w-[96px] sm:text-[11px]',
@@ -55,8 +64,10 @@ export function PhotographerCompactShootCardContent({
           )}>
             <span className="truncate">{formatWorkflowStatus(shoot.workflowStatus || shoot.status)}</span>
           </span>
+          {actions}
         </div>
       </div>
+      {submittedForReview && <p className="mt-2 text-right text-[10px] text-emerald-500">Submitted for review</p>}
     </div>
   );
 }

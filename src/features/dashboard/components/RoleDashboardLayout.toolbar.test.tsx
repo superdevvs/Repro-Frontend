@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -7,6 +7,13 @@ import { Camera, CheckCircle2, ListChecks, MessageCircle } from 'lucide-react';
 import { UpcomingShootsCard } from '@/components/dashboard/v2/UpcomingShootsCard';
 import type { DashboardShootSummary } from '@/types/dashboard';
 import { RoleDashboardLayout } from './RoleDashboardLayout';
+import { EditingManagerDashboardView } from '../views/EditingManagerDashboardView';
+import { ShootsTabsCard } from '@/components/dashboard/v2/ShootsTabsCard';
+import type { MobileEditingManagerTab } from '../types';
+
+vi.mock('@/components/auth', () => ({ useAuth: () => ({ user: { id: '1', role: 'editing_manager' } }) }));
+vi.mock('../hooks/useDashboardOnboarding', () => ({ useDashboardOnboarding: () => ({ onboardingState: {} }) }));
+vi.mock('./DashboardOnboarding', () => ({ DashboardOnboarding: () => null }));
 
 vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: () => true }));
 vi.mock('@/components/layout/DashboardLayout', () => ({
@@ -120,6 +127,9 @@ describe('RoleDashboardLayout compact tab toolbar', () => {
     const compactCards = container.querySelectorAll<HTMLElement>('[data-compact-shoot="true"]');
     expect(compactCards).toHaveLength(2);
     expect(compactCards[0]).not.toHaveTextContent('Unpaid');
+    expect(within(compactCards[0]).getByText('OCT')).toBeInTheDocument();
+    expect(within(compactCards[0]).getByText('MON')).toBeInTheDocument();
+    expect(compactCards[0]).toHaveTextContent('Closter, New Jersey, 07624');
 
     if (role === 'photographer') {
       expect(within(compactCards[0]).getByText('OCT')).toBeInTheDocument();
@@ -153,4 +163,40 @@ describe('RoleDashboardLayout compact tab toolbar', () => {
     expect(within(toolbar).getAllByRole('button')).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: /^Filters/ })).toHaveLength(1);
   });
+});
+
+function ManagerDashboard() {
+  const [tab, setTab] = useState<MobileEditingManagerTab>('shoots');
+  return <EditingManagerDashboardView
+    isMobile mobileEditingManagerTab={tab} setMobileEditingManagerTab={setTab}
+    shootsCount={2} requestCount={0} readyCount={0} pipelineCount={0}
+    renderEditingManagerShootsTabsCard={() => <ShootsTabsCard
+      role="editing_manager" mode="editing_manager" upcomingShoots={records} requestedShoots={[]}
+      customTabs={[{ id: 'upcoming', label: 'Upcoming', shoots: records }]}
+      onSelect={vi.fn()}
+    />}
+    renderPendingReviewsCard={() => <p>Manager requests</p>}
+    renderEditingManagerReadyToDeliverCard={() => <p>Ready</p>}
+    renderPipelineSection={() => <p>Pipeline</p>}
+  />;
+}
+
+it('moves only the editing-manager filter into the section tabs row', () => {
+  const { container } = render(<ManagerDashboard />);
+  const toolbar = container.querySelector<HTMLElement>('[data-dashboard-mobile-toolbar]')!;
+  const filter = within(toolbar).getByRole('button', { name: 'Filters' });
+  expect(within(toolbar).getAllByRole('button')).toHaveLength(1);
+  expect(toolbar).not.toContainElement(screen.getByRole('button', { name: 'Show compact shoot cards' }));
+  expect(within(screen.getByRole('tabpanel')).getByRole('button', { name: 'Show compact shoot cards' })).toBeInTheDocument();
+  fireEvent.click(filter);
+  fireEvent.change(screen.getByPlaceholderText('City, street, zip'), { target: { value: 'Knickerbocker' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Apply filters' }));
+  expect(container.querySelectorAll('[data-shoot-card="true"]')).toHaveLength(1);
+  expect(filter).toHaveAttribute('aria-expanded', 'false');
+  fireEvent.keyDown(screen.getByRole('tab', { name: 'Requests' }), { key: 'Enter' });
+  expect(screen.getByText('Manager requests')).toBeInTheDocument();
+  expect(toolbar).toBeEmptyDOMElement();
+  fireEvent.keyDown(screen.getByRole('tab', { name: 'Shoots, 2' }), { key: 'Enter' });
+  expect(within(toolbar).getAllByRole('button')).toHaveLength(1);
+  expect(within(toolbar).getByRole('button', { name: 'Filters' })).toBeInTheDocument();
 });
