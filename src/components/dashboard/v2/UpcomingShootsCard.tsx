@@ -1,10 +1,13 @@
+import { defaultFilters, countActiveFilters, getServiceKey, type FiltersState } from './shootsTabsCardUtils';
+import { matchesDashboardFilters } from './dashboardFilterModel';
+import { DashboardShootFilters, DashboardFilterChips } from './DashboardShootFilters';
 import type { UpcomingShootsCardProps } from './UpcomingShootsCard.types';
 import { EditorShootContextNotes } from './EditorShootContextNotes';
 import { ShootEmptyState } from '@/components/shoots/ShootEmptyState';
 import { getShootDownloadAddress } from '@/utils/shootDownloadFilename';
 import React, { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { addDays, endOfDay, endOfWeek, format, isAfter, isSameDay, isWithinInterval, startOfWeek, startOfDay } from 'date-fns';
+import { addDays, format, isSameDay, startOfDay } from 'date-fns';
 import { DashboardShootSummary } from '@/types/dashboard';
 import { Card, Avatar } from './SharedComponents';
 import { cn } from '@/lib/utils';
@@ -18,11 +21,6 @@ import { getApiHeaders } from '@/services/api';
 import { downloadShootRawFiles } from '@/utils/shootMediaDownload';
 
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
@@ -76,79 +74,6 @@ const STATUS_COLORS: Record<string, string> = {
   on_hold: 'bg-amber-100 text-amber-700 border-amber-200',
 };
 
-const STATUS_FILTERS = [
-  { label: 'Scheduled', value: 'scheduled' },
-  { label: 'Confirmed', value: 'confirmed' },
-  { label: 'In Field', value: 'in_field' },
-  { label: 'Uploading', value: 'uploading' },
-  { label: 'Editing', value: 'editing' },
-  { label: 'QC', value: 'qc' },
-  { label: 'Ready', value: 'ready' },
-  { label: 'Delivered', value: 'delivered' },
-  { label: 'Canceled', value: 'canceled' },
-] as const;
-
-const DATE_RANGE_OPTIONS = [
-  { label: 'Today', value: 'today' },
-  { label: 'Tomorrow', value: 'tomorrow' },
-  { label: 'Next 7 Days', value: 'next7' },
-  { label: 'This Week', value: 'week' },
-  { label: 'Custom Range', value: 'custom' },
-] as const;
-
-type DateRangeValue = (typeof DATE_RANGE_OPTIONS)[number]['value'];
-
-const SERVICE_LABELS: Record<string, string> = {
-  hdr: 'HDR Photos',
-  hdr_photos: 'HDR Photos',
-  hdr_photo: 'HDR Photos',
-  drone: 'Drone Shots',
-  drone_shots: 'Drone Shots',
-  floorplan: 'Floorplan',
-  hd_video: 'HD Video',
-  matterport: 'Matterport 3D',
-  matterport_3d: 'Matterport 3D',
-  virtual_tour: 'Virtual Tour',
-  twilight: 'Twilight',
-  social_media: 'Social Media Reels',
-  iguide: 'iGuide',
-  iguide_zip_file: 'iGuide',
-};
-
-type FiltersState = {
-  statuses: string[];
-  client: string;
-  address: string;
-  photographerIds: number[];
-  unassignedOnly: boolean;
-  services: string[];
-  dateRange: DateRangeValue | null;
-  customRange: { from: string; to: string };
-  flaggedOnly: boolean;
-  priority: {
-    highPriority: boolean;
-    missingRaw: boolean;
-    missingEditor: boolean;
-  };
-};
-
-const defaultFilters: FiltersState = {
-  statuses: [],
-  client: 'all',
-  address: '',
-  photographerIds: [],
-  unassignedOnly: false,
-  services: [],
-  dateRange: null,
-  customRange: { from: '', to: '' },
-  flaggedOnly: false,
-  priority: {
-    highPriority: false,
-    missingRaw: false,
-    missingEditor: false,
-  },
-};
-
 const parseShootDate = getDashboardShootDisplayDate;
 
 // Local-day Date for DISPLAY (month/day/weekday tiles + day grouping). Sourced
@@ -156,56 +81,7 @@ const parseShootDate = getDashboardShootDisplayDate;
 // timezones; legacy timestamp fallbacks retain their booked calendar day.
 const getSummaryLocalDate = getDashboardShootDisplayDate;
 
-const matchesDateRange = (shoot: DashboardShootSummary, filters: FiltersState) => {
-  if (!filters.dateRange) return true;
-  const shootDate = parseShootDate(shoot);
-  if (!shootDate) return false;
-  const today = new Date();
 
-  switch (filters.dateRange) {
-    case 'today':
-      return isSameDay(shootDate, today);
-    case 'tomorrow':
-      return isSameDay(shootDate, addDays(today, 1));
-    case 'next7':
-      return isWithinInterval(shootDate, { start: startOfDay(today), end: endOfDay(addDays(today, 7)) });
-    case 'week':
-      return isWithinInterval(shootDate, {
-        start: startOfWeek(today, { weekStartsOn: 0 }),
-        end: endOfWeek(today, { weekStartsOn: 0 }),
-      });
-    case 'custom': {
-      const { from, to } = filters.customRange;
-      if (!from && !to) return true;
-      const start = from ? startOfDay(parseLocalYmd(from)) : undefined;
-      const end = to ? endOfDay(parseLocalYmd(to)) : undefined;
-      if (start && end) return isWithinInterval(shootDate, { start, end });
-      if (start) return isAfter(shootDate, start) || isSameDay(shootDate, start);
-      if (end) return isAfter(end, shootDate) || isSameDay(shootDate, end);
-      return true;
-    }
-    default:
-      return true;
-  }
-};
-
-const getServiceKey = (label: string, type?: string) => type || label.toLowerCase().replace(/\s+/g, '_');
-
-const countActiveFilters = (filters: FiltersState) => {
-  let count = 0;
-  if (filters.statuses.length) count += 1;
-  if (filters.client !== 'all') count += 1;
-  if (filters.address) count += 1;
-  if (filters.photographerIds.length) count += 1;
-  if (filters.unassignedOnly) count += 1;
-  if (filters.services.length) count += 1;
-  if (filters.dateRange || filters.customRange.from || filters.customRange.to) count += 1;
-  if (filters.flaggedOnly) count += 1;
-  if (filters.priority.highPriority) count += 1;
-  if (filters.priority.missingRaw) count += 1;
-  if (filters.priority.missingEditor) count += 1;
-  return count;
-};
 
 export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(({
   shoots,
@@ -263,7 +139,6 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   const [visibleCount, setVisibleCount] = useState(SHOOTS_PER_PAGE);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
-  const filterPanelHostRef = useRef<HTMLDivElement>(null);
   // Dynamic height so the list reveals ~5.5 cards at a time, peeking the 6th
   const [shootCardHeight, setShootCardHeight] = useState<number>(0);
 
@@ -423,54 +298,8 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
   };
 
   const filteredShoots = useMemo(() => {
-    return shoots.filter((shoot) => {
-      const statusKey = (shoot.workflowStatus || shoot.status || '').toLowerCase();
-      if (filters.statuses.length && !filters.statuses.includes(statusKey)) return false;
-
-      if (filters.client !== 'all' && (shoot.clientName || '').toLowerCase() !== filters.client.toLowerCase()) {
-        return false;
-      }
-
-      if (filters.address) {
-        const addressTarget = `${shoot.addressLine} ${shoot.cityStateZip}`.toLowerCase();
-        if (!addressTarget.includes(filters.address.toLowerCase())) return false;
-      }
-
-      if (showAssignmentFilters && filters.photographerIds.length) {
-        const shootPhotographerId = shoot.photographer?.id ?? null;
-        if (!shootPhotographerId || !filters.photographerIds.includes(shootPhotographerId)) {
-          return false;
-        }
-      }
-
-      if (showAssignmentFilters && filters.unassignedOnly && shoot.photographer) return false;
-
-      if (filters.services.length) {
-        const serviceMatch = shoot.services.some((service) =>
-          filters.services.includes(getServiceKey(service.label, service.type)),
-        );
-        if (!serviceMatch) return false;
-      }
-
-      if (filters.flaggedOnly && !shoot.isFlagged) return false;
-
-      if (filters.priority.highPriority && !shoot.isFlagged) return false;
-
-      if (filters.priority.missingRaw) {
-        const note = shoot.adminIssueNotes?.toLowerCase() || '';
-        if (!note.includes('raw')) return false;
-      }
-
-      if (filters.priority.missingEditor) {
-        const note = shoot.adminIssueNotes?.toLowerCase() || '';
-        if (!note.includes('editor')) return false;
-      }
-
-      if (!matchesDateRange(shoot, filters)) return false;
-
-      return true;
-    });
-  }, [shoots, filters, showAssignmentFilters]);
+    return shoots.filter(shoot => matchesDashboardFilters(shoot, filters, role));
+  }, [shoots, filters, role]);
 
   const activeFilterCount = countActiveFilters(filters);
   const { earlier: earlierCandidates, remaining: remainingShoots } = useEarlierShoots(filteredShoots, role);
@@ -878,282 +707,12 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
           </div>
         </div>
       )}
-      {filterPanelHostRef.current && createPortal(
-        <div className={cn(
-          'grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out',
-          isFilterOpen ? 'grid-rows-[1fr] opacity-100 mb-4' : 'grid-rows-[0fr] opacity-0 mb-0 pointer-events-none',
-        )}>
-          <div className="min-h-0 overflow-hidden">
-            <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5 max-h-[65vh] overflow-y-auto">
-        <div className="mb-4 flex items-start justify-between gap-3">
-          <div>
-          <h3 className="text-base sm:text-lg font-semibold">{filterTitle}</h3>
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Narrow the list by status, assignments, services, and priority.
-          </p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={cancelFilters}>Close</Button>
-        </div>
-
-        <div className="space-y-4 sm:space-y-6">
-          <section>
-            <p className="text-xs font-semibold text-muted-foreground mb-2">Status</p>
-            <div className="flex flex-wrap gap-1.5 sm:gap-2">
-              {STATUS_FILTERS.map((status) => {
-                const active = draftFilters.statuses.includes(status.value);
-                return (
-                  <button
-                    key={status.value}
-                    onClick={() =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        statuses: active
-                          ? prev.statuses.filter((s) => s !== status.value)
-                          : [...prev.statuses, status.value],
-                      }))
-                    }
-                    className={cn(
-                      'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
-                      active
-                        ? 'bg-primary/10 border-primary/40 text-primary'
-                        : 'border-border text-muted-foreground',
-                    )}
-                  >
-                    {status.label}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="grid grid-cols-1 gap-3 sm:gap-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground mb-1">Client</p>
-                <Select
-                  value={draftFilters.client}
-                  onValueChange={(value) =>
-                    setDraftFilters((prev) => ({ ...prev, client: value }))
-                  }
-                >
-                  <SelectTrigger className="rounded-xl border-border bg-muted/40">
-                    <SelectValue placeholder="All clients" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clientOptions.map((client) => (
-                      <SelectItem key={client} value={client}>
-                        {client === 'all' ? 'All clients' : client}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-muted-foreground mb-1">Search address, zip</p>
-                <Input
-                  value={draftFilters.address}
-                  onChange={(event) =>
-                    setDraftFilters((prev) => ({ ...prev, address: event.target.value }))
-                  }
-                  placeholder="City, street, zip"
-                  className="rounded-xl border-border bg-muted/40"
-                />
-              </div>
-            </div>
-          </section>
-
-          {showAssignmentFilters && (
-            <section>
-              <p className="text-xs font-semibold text-muted-foreground mb-2">Photographer</p>
-              <div className="rounded-2xl border border-border/60 bg-muted/30">
-                <ScrollArea className="max-h-64">
-                  <div className="min-w-0 flex-1 space-y-3">
-                    {photographerOptions.map((photographer) => {
-                      const checked = draftFilters.photographerIds.includes(photographer.id);
-                      return (
-                        <label
-                          key={photographer.id}
-                          className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-background/60"
-                        >
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(value) =>
-                              setDraftFilters((prev) => ({
-                                ...prev,
-                                photographerIds: value
-                                  ? [...prev.photographerIds, photographer.id]
-                                  : prev.photographerIds.filter((id) => id !== photographer.id),
-                              }))
-                            }
-                          />
-                          <Avatar
-                            src={photographer.avatar}
-                            initials={photographer.name[0]}
-                            className="w-8 h-8 rounded-full"
-                          />
-                          <span className="text-sm font-medium">{photographer.name}</span>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-                <label className="flex items-center gap-2 px-4 py-3 border-t border-border/60 text-sm text-muted-foreground">
-                  <Checkbox
-                    checked={draftFilters.unassignedOnly}
-                    onCheckedChange={(value) =>
-                      setDraftFilters((prev) => ({ ...prev, unassignedOnly: Boolean(value) }))
-                    }
-                  />
-                  Unassigned only
-                </label>
-              </div>
-            </section>
-          )}
-
-          <section>
-            <p className="text-xs font-semibold text-muted-foreground mb-2">Services</p>
-            <div className="flex flex-wrap gap-1.5 sm:gap-2">
-              {serviceOptions.map(({ key: serviceKey, label: serviceLabel }) => {
-                const active = draftFilters.services.includes(serviceKey);
-                const label = serviceLabel || SERVICE_LABELS[serviceKey] || serviceKey.replace(/_/g, ' ');
-                return (
-                  <button
-                    key={serviceKey}
-                    className={cn(
-                      'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
-                      active
-                        ? 'bg-primary/10 border-primary/40 text-primary'
-                        : 'border-border text-muted-foreground',
-                    )}
-                    onClick={() =>
-                      setDraftFilters((prev) => ({
-                        ...prev,
-                        services: active
-                          ? prev.services.filter((s) => s !== serviceKey)
-                          : [...prev.services, serviceKey],
-                      }))
-                    }
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-              {serviceOptions.length === 0 && (
-                <span className="text-sm text-muted-foreground">No services detected</span>
-              )}
-            </div>
-          </section>
-
-          <section>
-            <p className="text-xs font-semibold text-muted-foreground mb-2">Date range</p>
-            <div className="flex flex-wrap gap-1.5 sm:gap-2">
-              {DATE_RANGE_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  className={cn(
-                    'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
-                    draftFilters.dateRange === option.value
-                      ? 'bg-primary/10 border-primary/40 text-primary'
-                      : 'border-border text-muted-foreground',
-                  )}
-                  onClick={() =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      dateRange: prev.dateRange === option.value ? null : option.value,
-                    }))
-                  }
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-            {draftFilters.dateRange === 'custom' && (
-              <div className="mt-4">
-                <DateRangePicker
-                  value={{
-                    startDate: draftFilters.customRange.from,
-                    endDate: draftFilters.customRange.to,
-                  }}
-                  onChange={({ startDate, endDate }) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      customRange: { from: startDate, to: endDate },
-                    }))
-                  }
-                />
-              </div>
-            )}
-          </section>
-
-          <section>
-            <p className="text-xs font-semibold text-muted-foreground mb-2">Priority & flags</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <Checkbox
-                  checked={draftFilters.flaggedOnly}
-                  onCheckedChange={(value) =>
-                    setDraftFilters((prev) => ({ ...prev, flaggedOnly: Boolean(value) }))
-                  }
-                />
-                Only flagged
-              </label>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <Checkbox
-                  checked={draftFilters.priority.highPriority}
-                  onCheckedChange={(value) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      priority: { ...prev.priority, highPriority: Boolean(value) },
-                    }))
-                  }
-                />
-                High priority
-              </label>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <Checkbox
-                  checked={draftFilters.priority.missingRaw}
-                  onCheckedChange={(value) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      priority: { ...prev.priority, missingRaw: Boolean(value) },
-                    }))
-                  }
-                />
-                Missing RAW
-              </label>
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <Checkbox
-                  checked={draftFilters.priority.missingEditor}
-                  onCheckedChange={(value) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      priority: { ...prev.priority, missingEditor: Boolean(value) },
-                    }))
-                  }
-                />
-                Missing editor
-              </label>
-            </div>
-          </section>
-        </div>
-        <div className="flex flex-col sm:flex-row gap-2 mt-5">
-          <Button variant="ghost" className="flex-1" onClick={cancelFilters}>
-            Cancel
-          </Button>
-          <Button variant="outline" className="flex-1" onClick={resetFilters}>
-            Reset all filters
-          </Button>
-          <Button className="flex-1" onClick={applyFilters}>
-            Apply filters
-          </Button>
-        </div>
-            </div>
-          </div>
-        </div>,
-        filterPanelHostRef.current,
-      )}
-
-      <div ref={filterPanelHostRef} />
+      <DashboardShootFilters open={isFilterOpen} title={filterTitle} role={role}
+        filters={filters} draft={draftFilters} onDraftChange={setDraftFilters}
+        onApply={applyFilters} onCancel={cancelFilters} onReset={resetFilters}
+        clientOptions={clientOptions} photographerOptions={photographerOptions} serviceOptions={serviceOptions} />
+      <DashboardFilterChips filters={filters} onChange={setFilters} onReset={resetFilters} role={role}
+        clientOptions={clientOptions} photographerOptions={photographerOptions} serviceOptions={serviceOptions} />
 
       {paginatedGroups.length === 0 && earlierShoots.length === 0 && !beforeShoots ? (
         <ShootEmptyState title={emptyText} filtered={activeFilterCount > 0} onReset={resetFilters} allowBooking={displayTitle === 'Upcoming shoots' || displayTitle === 'Scheduled shoots'} className="flex-1" />

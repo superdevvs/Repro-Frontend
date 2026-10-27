@@ -1,16 +1,10 @@
+import { DashboardShootFilters, DashboardFilterChips } from './DashboardShootFilters';
 import { ShootEmptyState } from '@/components/shoots/ShootEmptyState';
-import { createPortal } from 'react-dom';
-import { Avatar, Card } from './SharedComponents';
+import { Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 import { ChevronsDown, Filter, History, List, MoreVertical } from 'lucide-react';
-import { DATE_RANGE_OPTIONS, SERVICE_LABELS, STATUS_FILTERS } from './shootsTabsCardUtils';
 import type { useShootsTabsCardController } from './useShootsTabsCardController';
 import { DASHBOARD_MOBILE_LIST_SHELL_CLASS, DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 import { EarlierShootsStack } from './EarlierShootsStack';
@@ -19,11 +13,11 @@ import { isStaffShootStackRole } from './earlierUnfinishedShoots';
 export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useShootsTabsCardController> }) {
   const {
     title,
-    showAssignmentFilters,
     activeTab,
     setActiveTab,
     hasUnreadRequests,
     filters,
+    setFilters,
     draftFilters,
     setDraftFilters,
     isFilterOpen,
@@ -38,7 +32,6 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
     setIsCompactMobile,
     scrollContainerRef,
     loadMoreSentinelRef,
-    filterPanelHostRef,
     pastRequests,
     hasPastRequests,
     clientOptions,
@@ -216,8 +209,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
               </span>
             </Button>
           )}
-          {activeTab !== 'requested' && (
-            <Button
+          <Button
               variant="secondary"
               size="sm"
               className={cn('relative rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900 max-[1550px]:px-2', staffStack && 'max-[1024px]:h-9 max-[1024px]:w-9 max-[1024px]:!p-0')}
@@ -234,8 +226,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
                   {inlineCompactControl ? activeFilterCount : `(${activeFilterCount})`}
                 </span>
               )}
-            </Button>
-          )}
+          </Button>
         </div>
       </div>
 
@@ -266,8 +257,7 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
                 : 'Previous requests'}
             </Button>
           )}
-          {activeTab !== 'requested' && (
-            <Button
+          <Button
               variant="secondary"
               size="sm"
               className="rounded-full bg-slate-900 text-white hover:bg-slate-800 border border-slate-900"
@@ -276,286 +266,17 @@ export function DefaultShootsTabsView({ model }: { model: ReturnType<typeof useS
             >
               <Filter size={14} className="mr-1.5" />
               Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
-            </Button>
-          )}
+          </Button>
         </div>
       )}
 
       {/* Shared filter dialog (used by both mobile and desktop) */}
-      {filterPanelHostRef.current && createPortal(
-        <div className={cn(
-          'grid transition-[grid-template-rows,opacity,margin] duration-300 ease-out',
-          isFilterOpen ? 'grid-rows-[1fr] opacity-100 mb-4' : 'grid-rows-[0fr] opacity-0 mb-0 pointer-events-none',
-        )}>
-          <div className="min-h-0 overflow-hidden">
-            <div className="rounded-2xl border border-border/60 bg-muted/20 p-4 sm:p-5 max-h-[65vh] overflow-y-auto">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                <h3 className="text-base sm:text-lg font-semibold">Filter shoots</h3>
-                <p className="text-xs sm:text-sm text-muted-foreground">
-                  Narrow the list by status, assignments, services, and priority.
-                </p>
-                </div>
-                <Button variant="ghost" size="sm" onClick={cancelFilters}>Close</Button>
-              </div>
-
-              <div className="space-y-4 sm:space-y-6">
-                <section>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Status</p>
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    {STATUS_FILTERS.map((status) => {
-                      const active = draftFilters.statuses.includes(status.value);
-                      return (
-                        <button
-                          key={status.value}
-                          onClick={() =>
-                            setDraftFilters((prev) => ({
-                              ...prev,
-                              statuses: active
-                                ? prev.statuses.filter((s) => s !== status.value)
-                                : [...prev.statuses, status.value],
-                            }))
-                          }
-                          className={cn(
-                            'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
-                            active
-                              ? 'bg-primary/10 border-primary/40 text-primary'
-                              : 'border-border text-muted-foreground',
-                          )}
-                        >
-                          {status.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </section>
-
-                <section className="grid grid-cols-1 gap-3 sm:gap-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground mb-1">Client</p>
-                      <Select
-                        value={draftFilters.client}
-                        onValueChange={(value) =>
-                          setDraftFilters((prev) => ({ ...prev, client: value }))
-                        }
-                      >
-                        <SelectTrigger className="rounded-xl border-border bg-muted/40">
-                          <SelectValue placeholder="All clients" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {clientOptions.map((client) => (
-                            <SelectItem key={client} value={client}>
-                              {client === 'all' ? 'All clients' : client}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-muted-foreground mb-1">Search address, zip</p>
-                      <Input
-                        value={draftFilters.address}
-                        onChange={(event) =>
-                          setDraftFilters((prev) => ({ ...prev, address: event.target.value }))
-                        }
-                        placeholder="City, street, zip"
-                        className="rounded-xl border-border bg-muted/40"
-                      />
-                    </div>
-                  </div>
-                </section>
-
-                {showAssignmentFilters && <section>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Photographer</p>
-                  <div className="rounded-2xl border border-border/60 bg-muted/30">
-                    <ScrollArea className="max-h-64">
-                      <div className="p-3 space-y-2">
-                        {photographerOptions.map((photographer) => {
-                          const checked = draftFilters.photographerIds.includes(photographer.id);
-                          return (
-                            <label
-                              key={photographer.id}
-                              className="flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-background/60"
-                            >
-                              <Checkbox
-                                checked={checked}
-                                onCheckedChange={(value) =>
-                                  setDraftFilters((prev) => ({
-                                    ...prev,
-                                    photographerIds: value
-                                      ? [...prev.photographerIds, photographer.id]
-                                      : prev.photographerIds.filter((id) => id !== photographer.id),
-                                  }))
-                                }
-                              />
-                              <Avatar
-                                src={photographer.avatar}
-                                initials={photographer.name[0]}
-                                className="w-8 h-8 rounded-full"
-                              />
-                              <span className="text-sm font-medium">{photographer.name}</span>
-                            </label>
-                          );
-                        })}
-                      </div>
-                    </ScrollArea>
-                    <label className="flex items-center gap-2 px-4 py-3 border-t border-border/60 text-sm text-muted-foreground">
-                      <Checkbox
-                        checked={draftFilters.unassignedOnly}
-                        onCheckedChange={(value) =>
-                          setDraftFilters((prev) => ({ ...prev, unassignedOnly: Boolean(value) }))
-                        }
-                      />
-                      Unassigned only
-                    </label>
-                  </div>
-                </section>}
-
-                <section>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Services</p>
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    {serviceOptions.map(({ key: serviceKey, label: serviceLabel }) => {
-                      const active = draftFilters.services.includes(serviceKey);
-                      const label = serviceLabel || SERVICE_LABELS[serviceKey] || serviceKey.replace(/_/g, ' ');
-                      return (
-                        <button
-                          key={serviceKey}
-                          className={cn(
-                            'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
-                            active
-                              ? 'bg-primary/10 border-primary/40 text-primary'
-                              : 'border-border text-muted-foreground',
-                          )}
-                          onClick={() =>
-                            setDraftFilters((prev) => ({
-                              ...prev,
-                              services: active
-                                ? prev.services.filter((s) => s !== serviceKey)
-                                : [...prev.services, serviceKey],
-                            }))
-                          }
-                        >
-                          {label}
-                        </button>
-                      );
-                    })}
-                    {serviceOptions.length === 0 && (
-                      <span className="text-sm text-muted-foreground">No services detected</span>
-                    )}
-                  </div>
-                </section>
-
-                <section>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Date range</p>
-                  <div className="flex flex-wrap gap-1.5 sm:gap-2">
-                    {DATE_RANGE_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        className={cn(
-                          'px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors',
-                          draftFilters.dateRange === option.value
-                            ? 'bg-primary/10 border-primary/40 text-primary'
-                            : 'border-border text-muted-foreground',
-                        )}
-                        onClick={() =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            dateRange: prev.dateRange === option.value ? null : option.value,
-                          }))
-                        }
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
-                  {draftFilters.dateRange === 'custom' && (
-                    <div className="mt-4">
-                      <DateRangePicker
-                        value={{
-                          startDate: draftFilters.customRange.from,
-                          endDate: draftFilters.customRange.to,
-                        }}
-                        onChange={({ startDate, endDate }) =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            customRange: { from: startDate, to: endDate },
-                          }))
-                        }
-                      />
-                    </div>
-                  )}
-                </section>
-
-                <section>
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">Priority & flags</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-                    <label className="flex items-center gap-2 text-sm text-foreground">
-                      <Checkbox
-                        checked={draftFilters.flaggedOnly}
-                        onCheckedChange={(value) =>
-                          setDraftFilters((prev) => ({ ...prev, flaggedOnly: Boolean(value) }))
-                        }
-                      />
-                      Only flagged
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-foreground">
-                      <Checkbox
-                        checked={draftFilters.priority.highPriority}
-                        onCheckedChange={(value) =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            priority: { ...prev.priority, highPriority: Boolean(value) },
-                          }))
-                        }
-                      />
-                      High priority
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-foreground">
-                      <Checkbox
-                        checked={draftFilters.priority.missingRaw}
-                        onCheckedChange={(value) =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            priority: { ...prev.priority, missingRaw: Boolean(value) },
-                          }))
-                        }
-                      />
-                      Missing RAW
-                    </label>
-                    <label className="flex items-center gap-2 text-sm text-foreground">
-                      <Checkbox
-                        checked={draftFilters.priority.missingEditor}
-                        onCheckedChange={(value) =>
-                          setDraftFilters((prev) => ({
-                            ...prev,
-                            priority: { ...prev.priority, missingEditor: Boolean(value) },
-                          }))
-                        }
-                      />
-                      Missing editor
-                    </label>
-                  </div>
-                </section>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-2 mt-5">
-                <Button variant="ghost" className="flex-1" onClick={cancelFilters}>
-                  Cancel
-                </Button>
-                <Button variant="outline" className="flex-1" onClick={resetFilters}>
-                  Reset all filters
-                </Button>
-                <Button className="flex-1" onClick={applyFilters}>
-                  Apply filters
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>,
-        filterPanelHostRef.current,
-      )}
-
-      <div ref={filterPanelHostRef} />
+      <DashboardShootFilters open={isFilterOpen} title={'Filter shoots'} role={role}
+        filters={filters} draft={draftFilters} onDraftChange={setDraftFilters}
+        onApply={applyFilters} onCancel={cancelFilters} onReset={resetFilters}
+        clientOptions={clientOptions} photographerOptions={photographerOptions} serviceOptions={serviceOptions} />
+      <DashboardFilterChips filters={filters} onChange={setFilters} onReset={resetFilters} role={role}
+        clientOptions={clientOptions} photographerOptions={photographerOptions} serviceOptions={serviceOptions} />
 
       <div className={cn('flex min-h-0 flex-1 flex-col overflow-hidden', DASHBOARD_MOBILE_LIST_SHELL_CLASS)}>
         {activeTab === 'upcoming' ? (

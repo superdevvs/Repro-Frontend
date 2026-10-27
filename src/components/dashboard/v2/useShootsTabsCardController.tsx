@@ -1,3 +1,4 @@
+import { matchesDashboardFilters } from './dashboardFilterModel';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { addDays, format, startOfDay } from 'date-fns';
 import type { DashboardShootServiceTag, DashboardShootSummary } from '@/types/dashboard';
@@ -26,18 +27,15 @@ import {
   UPCOMING_SHOOT_LIST_PEEK_COUNT,
 } from '@/features/dashboard/utils/dashboardMobilePanel';
 import {
-  DATE_RANGE_OPTIONS,
   SERVICE_ICON_MAP,
   SERVICE_LABELS,
   STATUS_COLORS,
-  STATUS_FILTERS,
   countActiveFilters,
   compareShootLocalTimes,
   defaultFilters,
   getServiceKey,
   getSummaryLocalDate,
   isShootInPast,
-  matchesDateRange,
   paginateShootDayGroups,
   visiblePastDayGroups,
   type FiltersState,
@@ -114,7 +112,6 @@ export function useShootsTabsCardController({
   const [visibleCount, setVisibleCount] = useState(SHOOTS_PER_PAGE);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const loadMoreSentinelRef = useRef<HTMLDivElement>(null);
-  const filterPanelHostRef = useRef<HTMLDivElement>(null);
   // Dynamic height so the list reveals ~10 full ShootCards (tags/weather included)
   const [shootCardHeight, setShootCardHeight] = useState<number>(0);
   const [listPeekHeightPx, setListPeekHeightPx] = useState<number>(0);
@@ -196,43 +193,8 @@ export function useShootsTabsCardController({
     setIsFilterOpen(false);
   };
   const filterShoots = useCallback((shoots: DashboardShootSummary[]) => {
-    return shoots.filter((shoot) => {
-      const statusKey = (shoot.workflowStatus || shoot.status || '').toLowerCase();
-      if (filters.statuses.length && !filters.statuses.includes(statusKey)) return false;
-      if (filters.client !== 'all' && (shoot.clientName || '').toLowerCase() !== filters.client.toLowerCase()) {
-        return false;
-      }
-      if (filters.address) {
-        const addressTarget = `${shoot.addressLine} ${shoot.cityStateZip}`.toLowerCase();
-        if (!addressTarget.includes(filters.address.toLowerCase())) return false;
-      }
-      if (showAssignmentFilters && filters.photographerIds.length) {
-        const shootPhotographerId = shoot.photographer?.id ?? null;
-        if (!shootPhotographerId || !filters.photographerIds.includes(shootPhotographerId)) {
-          return false;
-        }
-      }
-      if (showAssignmentFilters && filters.unassignedOnly && shoot.photographer) return false;
-      if (filters.services.length) {
-        const serviceMatch = shoot.services.some((service) =>
-          filters.services.includes(getServiceKey(service.label, service.type)),
-        );
-        if (!serviceMatch) return false;
-      }
-      if (filters.flaggedOnly && !shoot.isFlagged) return false;
-      if (filters.priority.highPriority && !shoot.isFlagged) return false;
-      if (filters.priority.missingRaw) {
-        const note = shoot.adminIssueNotes?.toLowerCase() || '';
-        if (!note.includes('raw')) return false;
-      }
-      if (filters.priority.missingEditor) {
-        const note = shoot.adminIssueNotes?.toLowerCase() || '';
-        if (!note.includes('editor')) return false;
-      }
-      if (!matchesDateRange(shoot, filters)) return false;
-      return true;
-    });
-  }, [filters, showAssignmentFilters]);
+    return shoots.filter(shoot => matchesDashboardFilters(shoot, filters, role));
+  }, [filters, role]);
   const filteredUpcomingShoots = useMemo(() => filterShoots(upcomingShoots), [filterShoots, upcomingShoots]);
   const filteredRequestedShoots = useMemo(() => filterShoots(visibleRequestedShoots), [filterShoots, visibleRequestedShoots]);
   const activeFilterCount = countActiveFilters(filters);
@@ -911,7 +873,6 @@ export function useShootsTabsCardController({
     setVisibleCount,
     scrollContainerRef,
     loadMoreSentinelRef,
-    filterPanelHostRef,
     shootCardHeight,
     pastRequests,
     currentRequests,

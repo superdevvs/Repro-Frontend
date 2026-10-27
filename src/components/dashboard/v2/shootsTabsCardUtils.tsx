@@ -58,18 +58,6 @@ export const STATUS_COLORS: Record<string, string> = {
   on_hold: 'bg-amber-100 text-amber-700 border-amber-200',
 };
 
-export const STATUS_FILTERS = [
-  { label: 'Scheduled', value: 'scheduled' },
-  { label: 'Confirmed', value: 'confirmed' },
-  { label: 'In Field', value: 'in_field' },
-  { label: 'Uploading', value: 'uploading' },
-  { label: 'Editing', value: 'editing' },
-  { label: 'QC', value: 'qc' },
-  { label: 'Ready', value: 'ready' },
-  { label: 'Delivered', value: 'delivered' },
-  { label: 'Canceled', value: 'canceled' },
-] as const;
-
 export const DATE_RANGE_OPTIONS = [
   { label: 'Today', value: 'today' },
   { label: 'Tomorrow', value: 'tomorrow' },

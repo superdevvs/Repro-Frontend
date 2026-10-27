@@ -1,6 +1,9 @@
-import React, { useCallback, useEffect, useState } from "react";
+import { DashboardShootFilters, DashboardFilterChips } from '@/components/dashboard/v2/DashboardShootFilters';
+import { defaultFilters, countActiveFilters, getServiceKey } from '@/components/dashboard/v2/shootsTabsCardUtils';
+import { matchesDashboardFilters } from '@/components/dashboard/v2/dashboardFilterModel';
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
-import { CalendarDays, CalendarPlus, Download, Ghost, Image as ImageIcon, Inbox, LayoutGrid, List } from "lucide-react";
+import { CalendarDays, CalendarPlus, Download, Filter, Ghost, Image as ImageIcon, Inbox, LayoutGrid, List } from "lucide-react";
 
 import { Card } from "@/components/dashboard/v2/SharedComponents";
 import { DASHBOARD_MOBILE_PANEL_CLASS } from "@/features/dashboard/utils/dashboardMobilePanel";
@@ -134,8 +137,18 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
     onDownload(record);
   }, [onDownload]);
 
-  const list =
-    activeTab === "upcoming" ? upcoming : activeTab === "completed" ? completed : onHold;
+  const [filters, setFilters] = useState(defaultFilters);
+  const [draftFilters, setDraftFilters] = useState(defaultFilters);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const filterCount = countActiveFilters(filters);
+  const serviceOptions = useMemo(() => {
+    const options = new Map<string, string>();
+    [...upcoming, ...completed, ...onHold].forEach(record => record.summary.services.forEach(service => options.set(getServiceKey(service.label, service.type), service.label)));
+    return [...options].map(([key, label]) => ({ key, label }));
+  }, [upcoming, completed, onHold]);
+  const resetFilters = () => { setFilters(defaultFilters); setDraftFilters(defaultFilters); setIsFilterOpen(false); };
+  const list = (activeTab === "upcoming" ? upcoming : activeTab === "completed" ? completed : onHold)
+    .filter(record => matchesDashboardFilters(record.summary, filters, 'client'));
 
   return (
     <DevProfiler id="ClientMyShoots">
@@ -174,7 +187,10 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                 </button>
               ))}
             </div>
-          <div className="flex shrink-0 flex-col items-end gap-2" data-onboarding-target="client-dashboard-requests">
+          <div className="flex shrink-0 flex-wrap items-center justify-end gap-2" data-onboarding-target="client-dashboard-requests">
+            <Button variant="outline" size="icon" className="relative h-8 w-8 rounded-full" aria-label="Filters" aria-expanded={isFilterOpen} onClick={() => { setDraftFilters(filters); setIsFilterOpen(true); }}>
+              <Filter className="h-3.5 w-3.5" />{filterCount > 0 && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-primary text-[10px] text-primary-foreground">{filterCount}</span>}
+            </Button>
             {onOpenRequests && (
               <Button
                 type="button"
@@ -212,6 +228,12 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
           </div>
         </div>
 
+        <DashboardShootFilters open={isFilterOpen} role="client" title="Filter my shoots" filters={filters} draft={draftFilters}
+          onDraftChange={setDraftFilters} onApply={() => { setFilters(draftFilters); setIsFilterOpen(false); }}
+          onCancel={() => { setDraftFilters(filters); setIsFilterOpen(false); }} onReset={resetFilters}
+          clientOptions={[]} photographerOptions={[]} serviceOptions={serviceOptions} />
+        <DashboardFilterChips filters={filters} onChange={setFilters} onReset={resetFilters} role="client"
+          clientOptions={[]} photographerOptions={[]} serviceOptions={serviceOptions} />
         <div className="flex flex-1 min-h-0 flex-col">
           {list.length === 0 ? (
             <div className="hidden-scrollbar flex min-h-0 flex-1 flex-col overflow-y-auto px-4 py-6 text-center">
@@ -220,16 +242,16 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                 <CalendarDays className="h-8 w-8 text-muted-foreground" />
               </div>
               <h3 className="text-base font-semibold text-foreground mb-1">
-                {activeTab === "upcoming" && "No scheduled shoots"}
-                {activeTab === "completed" && "No delivered shoots yet"}
-                {activeTab === "hold" && "No shoots on hold"}
+                {filterCount > 0 ? "No shoots match your filters" : activeTab === "upcoming" && "No scheduled shoots"}
+                {!filterCount && activeTab === "completed" && "No delivered shoots yet"}
+                {!filterCount && activeTab === "hold" && "No shoots on hold"}
               </h3>
               <p className="text-sm text-muted-foreground mb-4 max-w-xs">
-                {activeTab === "upcoming" && "You don't have any shoots scheduled. Book a new shoot to get started!"}
-                {activeTab === "completed" && "Once your shoots are delivered, they'll appear here."}
-                {activeTab === "hold" && "Shoots requiring your attention will appear here."}
+                {filterCount > 0 ? "Try a different date, status, or service, or clear your filters." : activeTab === "upcoming" && "You don't have any shoots scheduled. Book a new shoot to get started!"}
+                {!filterCount && activeTab === "completed" && "Once your shoots are delivered, they'll appear here."}
+                {!filterCount && activeTab === "hold" && "Shoots requiring your attention will appear here."}
               </p>
-              {(activeTab === "upcoming" || activeTab === "completed") && (
+              {filterCount > 0 ? <Button variant="outline" onClick={resetFilters}>Clear all filters</Button> : (activeTab === "upcoming" || activeTab === "completed") && (
                 <Button onClick={onBookNewShoot} className="gap-2">
                   <CalendarPlus className="h-4 w-4" />
                   Book New Shoot
