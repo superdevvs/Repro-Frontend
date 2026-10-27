@@ -1,7 +1,8 @@
 import { DashboardShootFilters, DashboardFilterChips } from '@/components/dashboard/v2/DashboardShootFilters';
 import { defaultFilters, countActiveFilters, getServiceKey } from '@/components/dashboard/v2/shootsTabsCardUtils';
 import { matchesDashboardFilters } from '@/components/dashboard/v2/dashboardFilterModel';
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createPortal } from 'react-dom';
 import { format } from "date-fns";
 import { CalendarDays, CalendarPlus, Download, Filter, Ghost, Image as ImageIcon, Inbox, LayoutGrid, List } from "lucide-react";
 
@@ -24,6 +25,7 @@ import { getClientDeliveredMedia } from "../utils";
 import { ClientPaymentPill } from "./ClientPaymentPill";
 import { ClientShootTile } from "./ClientShootTile";
 import { DevProfiler } from "./DevProfiler";
+import { DashboardMobileToolbarContext } from './dashboardMobileToolbarContext';
 
 export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
   upcoming,
@@ -47,6 +49,7 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
   onActiveTabChange,
   deliveredUnseenCount = 0,
 }) => {
+  const mobileToolbarHost = useContext(DashboardMobileToolbarContext);
   const tabs: Array<{ key: "upcoming" | "completed" | "hold"; label: string; count: number }> = [
     { key: "upcoming", label: "Scheduled", count: upcoming.length },
     { key: "completed", label: "Delivered", count: completed.length },
@@ -149,9 +152,22 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
   const resetFilters = () => { setFilters(defaultFilters); setDraftFilters(defaultFilters); setIsFilterOpen(false); };
   const list = (activeTab === "upcoming" ? upcoming : activeTab === "completed" ? completed : onHold)
     .filter(record => matchesDashboardFilters(record.summary, filters, 'client'));
+  const deliveredViewControls = activeTab === 'completed' && list.length > 0 ? (
+    <div role="group" aria-label="Delivered shoot view" className="flex shrink-0 items-center overflow-hidden rounded-full border border-border bg-background">
+      {(['grid', 'list'] as const).map(mode => (
+        <button key={mode} type="button" onClick={() => toggleDeliveredView(mode)}
+          aria-label={mode === 'grid' ? 'Grid view' : 'List view'} aria-pressed={deliveredViewMode === mode}
+          title={mode === 'grid' ? 'Grid view' : 'List view'}
+          className={cn('flex h-9 w-9 items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary', deliveredViewMode === mode ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted')}>
+          {mode === 'grid' ? <LayoutGrid className="h-4 w-4" /> : <List className="h-4 w-4" />}
+        </button>
+      ))}
+    </div>
+  ) : null;
 
   return (
     <DevProfiler id="ClientMyShoots">
+      {mobileToolbarHost && createPortal(deliveredViewControls, mobileToolbarHost)}
       <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex h-full flex-1 min-h-0 flex-col overflow-hidden")}>
         <div className="flex shrink-0 items-start justify-between gap-2 mb-4 sm:mb-6">
             <div aria-label="Shoot status" className="hidden-scrollbar flex min-w-0 items-center gap-1 overflow-x-auto">
@@ -207,24 +223,7 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
                 </Badge>
               </Button>
             )}
-            {activeTab === "completed" && list.length > 0 && (
-              <div className="flex items-center border rounded-md overflow-hidden">
-                <button
-                  onClick={() => toggleDeliveredView('grid')}
-                  className={`h-7 w-7 flex items-center justify-center transition-colors ${deliveredViewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
-                  title="Grid view"
-                >
-                  <LayoutGrid className="h-3.5 w-3.5" />
-                </button>
-                <button
-                  onClick={() => toggleDeliveredView('list')}
-                  className={`h-7 w-7 flex items-center justify-center transition-colors ${deliveredViewMode === 'list' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted text-muted-foreground'}`}
-                  title="List view"
-                >
-                  <List className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
+            {!mobileToolbarHost && deliveredViewControls}
           </div>
         </div>
 

@@ -45,6 +45,7 @@ import { DashboardOnboarding } from "../components/DashboardOnboarding";
 import { dashboardOnboardingConfig } from "../config/dashboardOnboardingConfig";
 import { ClientInvoicesCard } from "../components/ClientInvoicesCard";
 import { ClientMyShoots } from "../components/ClientMyShoots";
+import { DashboardMobileToolbarContext } from '../components/dashboardMobileToolbarContext';
 import { ClientAccessInfoDialog } from "../components/ClientAccessInfoDialog";
 import { ClientDeliveryBanner } from "../components/ClientDeliveryBanner";
 import { ProfileCompletionNotice } from "../components/ProfileCompletionNotice";
@@ -152,6 +153,7 @@ export const ClientDashboardView = ({
   const [accessInfoOpen, setAccessInfoOpen] = useState(false);
   const [accessInfoRecord, setAccessInfoRecord] = useState<ClientShootRecord | null>(null);
   const [clientShootsTab, setClientShootsTab] = useState<'upcoming' | 'completed' | 'hold'>('upcoming');
+  const [mobileToolbarHost, setMobileToolbarHost] = useState<HTMLDivElement | null>(null);
   const deliveryNotifications = useClientDeliveryNotifications();
   const clientOnboarding = useDashboardOnboarding(user, "client");
   const shootToPayServiceItems = shootToPay
@@ -359,6 +361,7 @@ export const ClientDashboardView = ({
   const clientMobileContent = (
     <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden">
       {clientMetricsContent}
+      <DashboardMobileToolbarContext.Provider value={mobileToolbarHost}>
       <Tabs
         value={mobileClientTab}
         onValueChange={(val) => onSetMobileClientTab(val as MobileClientDashboardTab)}
@@ -366,7 +369,7 @@ export const ClientDashboardView = ({
       >
         <div
           data-onboarding-target="client-dashboard-mobile-tabs"
-          className={DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS}
+          className={cn(DASHBOARD_MOBILE_SECTION_TABS_STICKY_CLASS, 'flex items-center justify-between gap-2')}
         >
           <div className={DASHBOARD_MOBILE_TAB_ROW_CLASS}>
             <TabsList className={cn(DASHBOARD_MOBILE_TAB_LIST_CLASS, "bg-muted/30")}>
@@ -381,6 +384,7 @@ export const ClientDashboardView = ({
               ))}
             </TabsList>
           </div>
+          <div ref={setMobileToolbarHost} data-client-dashboard-mobile-toolbar className="ml-auto flex shrink-0 items-center gap-1" />
         </div>
         {clientMobileTabs.map((tab) => (
           <TabsContent key={tab.id} value={tab.id} className="focus-visible:outline-none flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -390,6 +394,7 @@ export const ClientDashboardView = ({
           </TabsContent>
         ))}
       </Tabs>
+      </DashboardMobileToolbarContext.Provider>
     </div>
   );
 
