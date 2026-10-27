@@ -5,6 +5,7 @@ import type { DashboardShootSummary } from '@/types/dashboard';
 import type { useShootsTabsCardController } from './useShootsTabsCardController';
 import { DefaultShootsTabsView } from './DefaultShootsTabsView';
 import { EditingManagerShootsTabsView } from './EditingManagerShootsTabsView';
+import { defaultFilters } from './shootsTabsCardUtils';
 
 vi.mock('@/components/shoots/ShootEmptyState', () => ({ ShootEmptyState: ({ title }: { title: string }) => <div>{title}</div> }));
 vi.mock('./EarlierShootsStack', () => ({
@@ -29,7 +30,17 @@ function model(overrides: Partial<Model> = {}): Model {
     setShowPastRequests: vi.fn(),
     setIsMenuOpen: vi.fn(),
     setDraftFilters: vi.fn(),
+    setFilters: vi.fn(),
     setIsFilterOpen: vi.fn(),
+    isFilterOpen: false,
+    filters: defaultFilters,
+    draftFilters: defaultFilters,
+    clientOptions: [],
+    photographerOptions: [],
+    serviceOptions: [],
+    applyFilters: vi.fn(),
+    cancelFilters: vi.fn(),
+    resetFilters: vi.fn(),
     isCompactDashboardViewport: true,
     isCompactMobile: false,
     isMenuOpen: false,
@@ -40,7 +51,6 @@ function model(overrides: Partial<Model> = {}): Model {
     requestedCount: 0,
     upcomingCount: 2,
     activeFilterCount: 0,
-    filterPanelHostRef: { current: null },
     scrollContainerRef: { current: null },
     loadMoreSentinelRef: { current: null },
     paginatedGroups: [group],
