@@ -152,6 +152,11 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
   const resetFilters = () => { setFilters(defaultFilters); setDraftFilters(defaultFilters); setIsFilterOpen(false); };
   const list = (activeTab === "upcoming" ? upcoming : activeTab === "completed" ? completed : onHold)
     .filter(record => matchesDashboardFilters(record.summary, filters, 'client'));
+  const filterControl = (
+    <Button variant="outline" size="icon" className={cn('relative shrink-0 rounded-full', mobileToolbarHost ? 'h-9 w-9' : 'h-8 w-8')} aria-label="Filters" aria-expanded={isFilterOpen} onClick={() => { setDraftFilters(filters); setIsFilterOpen(true); }}>
+      <Filter className="h-3.5 w-3.5" />{filterCount > 0 && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-primary text-[10px] text-primary-foreground">{filterCount}</span>}
+    </Button>
+  );
   const deliveredViewControls = activeTab === 'completed' && list.length > 0 ? (
     <div role="group" aria-label="Delivered shoot view" className="flex shrink-0 items-center overflow-hidden rounded-full border border-border bg-background">
       {(['grid', 'list'] as const).map(mode => (
@@ -167,7 +172,7 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
 
   return (
     <DevProfiler id="ClientMyShoots">
-      {mobileToolbarHost && createPortal(deliveredViewControls, mobileToolbarHost)}
+      {mobileToolbarHost && createPortal(<>{deliveredViewControls}{filterControl}</>, mobileToolbarHost)}
       <Card className={cn(DASHBOARD_MOBILE_PANEL_CLASS, "flex h-full flex-1 min-h-0 flex-col overflow-hidden")}>
         <div className="flex shrink-0 items-start justify-between gap-2 mb-4 sm:mb-6">
             <div aria-label="Shoot status" className="hidden-scrollbar flex min-w-0 items-center gap-1 overflow-x-auto">
@@ -204,9 +209,7 @@ export const ClientMyShoots: React.FC<ClientMyShootsProps> = React.memo(({
               ))}
             </div>
           <div className="flex shrink-0 flex-wrap items-center justify-end gap-2" data-onboarding-target="client-dashboard-requests">
-            <Button variant="outline" size="icon" className="relative h-8 w-8 rounded-full" aria-label="Filters" aria-expanded={isFilterOpen} onClick={() => { setDraftFilters(filters); setIsFilterOpen(true); }}>
-              <Filter className="h-3.5 w-3.5" />{filterCount > 0 && <span className="absolute -right-1 -top-1 min-w-4 rounded-full bg-primary text-[10px] text-primary-foreground">{filterCount}</span>}
-            </Button>
+            {!mobileToolbarHost && filterControl}
             {onOpenRequests && (
               <Button
                 type="button"
