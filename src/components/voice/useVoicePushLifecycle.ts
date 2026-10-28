@@ -15,7 +15,15 @@ export function useVoicePushLifecycle() {
     }
     if (permissionsLoading) return;
     // A failed lookup must not unsubscribe an enrolled device. Identity sync
-    // still clears a different account; it cannot enroll or grant permissions.
-    void syncVoicePushIdentity(user?.id ? String(user.id) : null, allowed || permissionsUnavailable).catch(() => undefined);
+    // still clears a different account; restoration rechecks server permissions.
+    const reconcile = () => { void syncVoicePushIdentity(user?.id ? String(user.id) : null, allowed || permissionsUnavailable).catch(() => undefined); };
+    const reconnect = (event: MessageEvent) => { if (event.data?.type === 'VOICE_PUSH_RECONNECT') reconcile(); };
+    reconcile();
+    window.addEventListener('online', reconcile);
+    navigator.serviceWorker?.addEventListener('message', reconnect);
+    return () => {
+      window.removeEventListener('online', reconcile);
+      navigator.serviceWorker?.removeEventListener('message', reconnect);
+    };
   }, [allowed, isAuthenticated, isImpersonating, isLoading, permissionsLoading, permissionsUnavailable, user?.id]);
 }

@@ -4,6 +4,17 @@ declare const __VOICE_PUSH_WORKER_REVISION__: string;
 const workerRevision = typeof __VOICE_PUSH_WORKER_REVISION__ === 'string' ? __VOICE_PUSH_WORKER_REVISION__ : 'development';
 export const VOICE_PUSH_WORKER_URL = `/voice-push-worker.js?v=${encodeURIComponent(workerRevision)}`;
 let identityRevision = 0;
+let currentUserId: string | null = null;
+const consentKey = (userId: string) => `repro-call-alert-consent:${userId}`;
+function savedConsent(userId: string): string | null {
+  try { return localStorage.getItem(consentKey(userId)); } catch { return null; }
+}
+function rememberConsent(userId: string, label: string) {
+  try { localStorage.setItem(consentKey(userId), label); } catch { /* Storage may be unavailable. */ }
+}
+function forgetConsent(userId: string | null) {
+  if (userId) try { localStorage.removeItem(consentKey(userId)); } catch { /* No stored consent. */ }
+}
 
 function isVoicePushWorker(worker?: ServiceWorker | null): boolean {
   if (!worker) return false;
@@ -48,18 +59,38 @@ export async function workerMessage<T = unknown>(registration: ServiceWorkerRegi
 
 export async function syncVoicePushIdentity(userId: string | null, enabled: boolean): Promise<void> {
   const revision = ++identityRevision;
+  currentUserId = userId;
   if (!('serviceWorker' in navigator)) return;
   const registration = await navigator.serviceWorker.getRegistration('/');
   if (revision !== identityRevision || !registration || !isVoicePushWorker(registration.active)) return;
+  if (userId && !enabled) forgetConsent(userId);
   const identity = { type: 'VOICE_PUSH_IDENTITY', user_id: userId, enabled };
   // Revoke an old account before doing any network work for a worker upgrade.
   await workerMessage(registration, identity);
   if (revision !== identityRevision || !userId || !enabled) return;
-  if (registration.active?.scriptURL === new URL(VOICE_PUSH_WORKER_URL, window.location.origin).href) return;
+  const previous = await workerMessage<{ subscription?: VoicePushIdentity }>(registration, { type: 'VOICE_PUSH_STATUS' });
+  if (revision !== identityRevision) return;
+  // Remember only this browser's prior opt-in, never credentials or authorization.
+  // This also migrates already-enrolled browsers before their next sign-out.
+  if (previous.subscription && !savedConsent(previous.subscription.user_id)) rememberConsent(previous.subscription.user_id, 'My device');
   // Only refresh our already-installed worker; never register over another app
   // or install push automatically for someone who has not enabled it.
-  const updated = await navigator.serviceWorker.register(VOICE_PUSH_WORKER_URL, { scope: '/', updateViaCache: 'none' }).catch(() => null);
-  if (revision === identityRevision && updated && isVoicePushWorker(updated.active)) await workerMessage(updated, identity);
+  if (registration.active?.scriptURL !== new URL(VOICE_PUSH_WORKER_URL, window.location.origin).href) {
+    const updated = await navigator.serviceWorker.register(VOICE_PUSH_WORKER_URL, { scope: '/', updateViaCache: 'none' }).catch(() => null);
+    if (revision === identityRevision && updated && isVoicePushWorker(updated.active)) await workerMessage(updated, identity);
+  }
+  if (revision !== identityRevision || previous.subscription?.user_id === userId) return;
+  const restore = async () => {
+    if (revision !== identityRevision || !savedConsent(userId) || typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+    // Recheck under the browser-wide lock so two tabs cannot rotate the same
+    // subscription's authorization out of order during sign-in.
+    if (await localVoicePushIdentity()) return;
+    const settings = await getVoicePushSettings();
+    if (revision !== identityRevision || !savedConsent(userId) || !settings.configured || !settings.preferences.incoming_calls || !settings.public_key) return;
+    await enrollVoicePush(userId, settings.public_key, savedConsent(userId)!, false);
+  };
+  if (navigator.locks) await navigator.locks.request('repro-call-alert-restore', restore);
+  else await restore();
 }
 
 export async function localVoicePushIdentity(): Promise<VoicePushIdentity | null> {
@@ -71,6 +102,10 @@ export async function localVoicePushIdentity(): Promise<VoicePushIdentity | null
 }
 
 export async function enableVoicePush(userId: string, publicKey: string, label: string): Promise<VoicePushIdentity> {
+  return enrollVoicePush(userId, publicKey, label, true);
+}
+
+async function enrollVoicePush(userId: string, publicKey: string, label: string, requestPermission: boolean): Promise<VoicePushIdentity> {
   const revision = identityRevision;
   const assertCurrentIdentity = () => {
     if (revision !== identityRevision) throw new Error('Your sign-in or call permissions changed while enabling alerts. Open call settings and enable this device again.');
@@ -78,7 +113,7 @@ export async function enableVoicePush(userId: string, publicKey: string, label: 
   const support = pushSupport();
   if (!support.supported) throw new Error(support.reason);
   // The permission request starts directly within the button gesture.
-  const permission = await Notification.requestPermission();
+  const permission = requestPermission ? await Notification.requestPermission() : Notification.permission;
   assertCurrentIdentity();
   if (permission !== 'granted') throw new Error('Notifications are blocked. Allow notifications in this browser’s site settings, then try again.');
   const existing = await navigator.serviceWorker.getRegistration('/');
@@ -131,13 +166,19 @@ export async function enableVoicePush(userId: string, publicKey: string, label: 
     if (revision === identityRevision) await subscription.unsubscribe().catch(() => undefined);
     throw cause;
   }
+  rememberConsent(userId, label);
+  window.dispatchEvent(new Event('voice-push-changed'));
   return identity;
 }
 
 export async function clearLocalVoicePush(): Promise<void> {
+  ++identityRevision;
+  forgetConsent(currentUserId);
   if (!('serviceWorker' in navigator)) return;
   const registration = await navigator.serviceWorker.getRegistration('/');
-  if (registration && isVoicePushWorker(registration.active)) await workerMessage(registration, { type: 'VOICE_PUSH_CLEAR' });
+  if (registration && isVoicePushWorker(registration.active)) {
+    await workerMessage(registration, { type: 'VOICE_PUSH_CLEAR' });
+  }
 }
 
 export async function closeVoicePushOffer(offerId: string): Promise<void> {

@@ -60,9 +60,18 @@ export function VoiceNotificationSettings() {
       void localVoicePushIdentity().then((value) => { if (current) setLocal(value); }).catch(() => undefined);
     };
     refreshIdentity();
+    const refreshEnrollment = () => {
+      refreshIdentity();
+      void client.invalidateQueries({ queryKey: ['voice-push-settings', user?.id] });
+    };
     navigator.serviceWorker?.addEventListener('message', refreshIdentity);
-    return () => { current = false; navigator.serviceWorker?.removeEventListener('message', refreshIdentity); };
-  }, [user?.id]);
+    window.addEventListener('voice-push-changed', refreshEnrollment);
+    return () => {
+      current = false;
+      navigator.serviceWorker?.removeEventListener('message', refreshIdentity);
+      window.removeEventListener('voice-push-changed', refreshEnrollment);
+    };
+  }, [client, user?.id]);
   useEffect(() => { setPhoneOpen(false); setDetailsOpen(false); setNumber(''); setCode(''); setError(null); setMessage(null); }, [user?.id]);
 
   const run = async (operation: () => Promise<void>) => {

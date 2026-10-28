@@ -1,20 +1,26 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { clearLocalVoicePush, closeVoicePushOffer, enableVoicePush, localVoicePushIdentity, syncVoicePushIdentity } from './voicePush';
 
-const api = vi.hoisted(() => ({ post: vi.fn(), delete: vi.fn() }));
+const api = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), delete: vi.fn() }));
 vi.mock('./api', () => ({ apiClient: api }));
 const identity = { id: 'device-1', scope: 'scope-1', revoke_token: 'revoke-1', user_id: '9' };
 let registration: ServiceWorkerRegistration;
 let getRegistration: ReturnType<typeof vi.fn>;
 let register: ReturnType<typeof vi.fn>;
 let messages: Record<string, unknown>[];
+let workerIdentity: typeof identity | null;
 const worker = (url: string) => ({ scriptURL: url, postMessage: vi.fn((message, ports) => {
   messages.push(message);
-  ports[0].respond({ ok: true, ...(message.type === 'VOICE_PUSH_STATUS' ? { subscription: identity } : {}) });
+  if (message.type === 'VOICE_PUSH_IDENTITY' && (!message.user_id || workerIdentity?.user_id !== message.user_id || !message.enabled)) workerIdentity = null;
+  if (message.type === 'VOICE_PUSH_SAVE') workerIdentity = message.subscription;
+  if (message.type === 'VOICE_PUSH_CLEAR') workerIdentity = null;
+  ports[0].respond({ ok: true, ...(message.type === 'VOICE_PUSH_STATUS' ? { subscription: workerIdentity } : {}) });
 }) } as unknown as ServiceWorker);
 
 beforeEach(() => {
   messages = [];
+  workerIdentity = identity;
+  localStorage.clear();
   registration = { active: worker(`${location.origin}/voice-push-worker.js?v=old`), pushManager: {
     getSubscription: vi.fn().mockResolvedValue(null),
     subscribe: vi.fn().mockResolvedValue({ toJSON: () => ({ endpoint: 'https://fcm.googleapis.com/test', keys: {} }), unsubscribe: vi.fn() }),
@@ -28,10 +34,83 @@ beforeEach(() => {
   });
   vi.stubGlobal('isSecureContext', true);
   vi.stubGlobal('PushManager', class {});
-  vi.stubGlobal('Notification', { requestPermission: vi.fn().mockResolvedValue('granted') });
+  vi.stubGlobal('Notification', { permission: 'default', requestPermission: vi.fn().mockResolvedValue('granted') });
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true }));
   api.post.mockReset().mockResolvedValue({ data: identity });
+  api.get.mockReset().mockResolvedValue({ data: { configured: true, preferences: { incoming_calls: true }, public_key: btoa(String.fromCharCode(...new Uint8Array(65))) } });
   api.delete.mockReset().mockResolvedValue(undefined);
+});
+
+it('restores this browser for the same account after sign-out without a new permission prompt', async () => {
+  Object.assign(Notification, { permission: 'granted' });
+  await syncVoicePushIdentity('9', true);
+  await syncVoicePushIdentity(null, false);
+  expect(workerIdentity).toBeNull();
+  expect(api.post).not.toHaveBeenCalled();
+  await syncVoicePushIdentity('9', true);
+  expect(workerIdentity).toEqual(identity);
+  expect(api.post).toHaveBeenCalledOnce();
+  expect(Notification.requestPermission).not.toHaveBeenCalled();
+});
+
+it('does not transfer remembered consent to another account', async () => {
+  Object.assign(Notification, { permission: 'granted' });
+  await syncVoicePushIdentity('9', true);
+  await syncVoicePushIdentity(null, false);
+  await syncVoicePushIdentity('another-user', true);
+  expect(workerIdentity).toBeNull();
+  expect(api.post).not.toHaveBeenCalled();
+});
+
+it.each(['default', 'denied'])('does not restore or prompt when browser permission is %s', async permission => {
+  Object.assign(Notification, { permission });
+  await syncVoicePushIdentity('9', true);
+  await syncVoicePushIdentity(null, false);
+  await syncVoicePushIdentity('9', true);
+  expect(api.post).not.toHaveBeenCalled();
+  expect(Notification.requestPermission).not.toHaveBeenCalled();
+});
+
+it('does not enroll a browser that never opted in', async () => {
+  workerIdentity = null;
+  Object.assign(Notification, { permission: 'granted' });
+  await syncVoicePushIdentity('9', true);
+  expect(api.post).not.toHaveBeenCalled();
+});
+
+it('respects Turn off here across sign-out and sign-in', async () => {
+  Object.assign(Notification, { permission: 'granted' });
+  await syncVoicePushIdentity('9', true);
+  await clearLocalVoicePush();
+  await syncVoicePushIdentity('9', true);
+  await syncVoicePushIdentity(null, false);
+  await syncVoicePushIdentity('9', true);
+  expect(workerIdentity).toBeNull();
+  expect(api.post).not.toHaveBeenCalled();
+});
+
+it('does not restore when account notifications are paused', async () => {
+  Object.assign(Notification, { permission: 'granted' });
+  api.get.mockResolvedValue({ data: { configured: true, preferences: { incoming_calls: false }, public_key: 'key' } });
+  await syncVoicePushIdentity('9', true);
+  await syncVoicePushIdentity(null, false);
+  await syncVoicePushIdentity('9', true);
+  expect(api.post).not.toHaveBeenCalled();
+});
+
+it('cancels restoration if sign-out occurs during the settings lookup', async () => {
+  Object.assign(Notification, { permission: 'granted' });
+  await syncVoicePushIdentity('9', true);
+  await syncVoicePushIdentity(null, false);
+  let finish!: (value: unknown) => void;
+  api.get.mockImplementation(() => new Promise(resolve => { finish = resolve; }));
+  const restore = syncVoicePushIdentity('9', true);
+  await vi.waitFor(() => expect(api.get).toHaveBeenCalledOnce());
+  await syncVoicePushIdentity(null, false);
+  finish({ data: { configured: true, preferences: { incoming_calls: true }, public_key: 'key' } });
+  await restore;
+  expect(workerIdentity).toBeNull();
+  expect(api.post).not.toHaveBeenCalled();
 });
 afterEach(() => { vi.unstubAllGlobals(); Reflect.deleteProperty(navigator, 'serviceWorker'); });
 
