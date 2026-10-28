@@ -27,7 +27,8 @@ interface EmailMessageDetailProps {
   onRefresh: () => void;
 }
 
-const statusIcons = {
+const statusIcons: Record<Message['status'], typeof XCircle> = {
+  BLOCKED: XCircle,
   SENT: CheckCircle,
   SCHEDULED: Clock,
   FAILED: XCircle,
@@ -38,7 +39,8 @@ const statusIcons = {
   COMPLAINED: XCircle,
 };
 
-const statusLabels = {
+const statusLabels: Record<Message['status'], string> = {
+  BLOCKED: 'Blocked',
   SENT: 'Sent',
   SCHEDULED: 'Scheduled',
   FAILED: 'Failed',
@@ -49,7 +51,8 @@ const statusLabels = {
   COMPLAINED: 'Spam complaint',
 };
 
-const statusColors = {
+const statusColors: Record<Message['status'], string> = {
+  BLOCKED: 'bg-amber-100 text-amber-800',
   SENT: 'bg-green-100 text-green-800',
   SCHEDULED: 'bg-blue-100 text-blue-800',
   FAILED: 'bg-red-100 text-red-800',
@@ -127,7 +130,7 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
     });
   };
 
-  const StatusIcon = statusIcons[message.status];
+  const StatusIcon = statusIcons[message.status] ?? XCircle;
   const senderLabel = message.sender_display_name || message.from_address;
 
   const handleSendReply = async () => {
@@ -250,7 +253,7 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
         {/* Status Badge */}
         <Badge className={statusColors[message.status]}>
-          {statusLabels[message.status]}
+          {statusLabels[message.status] ?? message.status ?? 'Unknown'}
         </Badge>
 
         {/* Subject */}
@@ -373,11 +376,11 @@ export function EmailMessageDetail({ message, onClose, onRefresh }: EmailMessage
         )}
 
         {/* Error */}
-        {message.status === 'FAILED' && message.error_message && (
+        {(message.status === 'FAILED' || message.status === 'BLOCKED') && message.error_message && (
           <>
             <Separator />
             <Card className="p-4 bg-red-50 border-red-200">
-              <h3 className="font-semibold text-red-800 mb-2">Error Details</h3>
+              <h3 className="font-semibold text-red-800 mb-2">{message.status === 'BLOCKED' ? 'Delivery blocked' : 'Error Details'}</h3>
               <p className="text-sm text-red-700">{message.error_message}</p>
             </Card>
           </>

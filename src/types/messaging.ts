@@ -1,6 +1,6 @@
 export type MessageChannel = 'EMAIL' | 'SMS';
 export type MessageDirection = 'OUTBOUND' | 'INBOUND';
-export type MessageStatus = 'QUEUED' | 'SCHEDULED' | 'SENT' | 'DELIVERED' | 'FAILED' | 'CANCELLED' | 'BOUNCED' | 'COMPLAINED';
+export type MessageStatus = 'QUEUED' | 'SCHEDULED' | 'SENT' | 'DELIVERED' | 'FAILED' | 'CANCELLED' | 'BOUNCED' | 'COMPLAINED' | 'BLOCKED';
 export type SendSource = 'MANUAL' | 'AUTOMATION' | 'SYSTEM';
 export type TemplateScope = 'SYSTEM' | 'GLOBAL' | 'ACCOUNT' | 'USER';
 export type TemplateCategory = 'BOOKING' | 'REMINDER' | 'PAYMENT' | 'INVOICE' | 'ACCOUNT' | 'GENERAL';

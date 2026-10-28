@@ -54,6 +54,7 @@ const statusIcons = {
   CANCELLED: AlertCircle,
   BOUNCED: AlertCircle,
   COMPLAINED: AlertCircle,
+  BLOCKED: AlertCircle,
 };
 
 const statusColors = {
@@ -65,6 +66,7 @@ const statusColors = {
   CANCELLED: 'text-gray-600',
   BOUNCED: 'text-red-600',
   COMPLAINED: 'text-red-600',
+  BLOCKED: 'text-amber-600',
 };
 
 const contextLabels = {
