@@ -71,7 +71,7 @@ export function LandorTour({ data, palette: paletteProp }: { data: PublicTourDat
   return <div className="landor-tour" id="landor-top" data-palette={palette}>
     <a className="landor-skip" href="#overview">Skip to property details</a>
     <div className="landor-banner">
-      {hero && <img className="landor-banner-photo" src={hero} alt="" loading="eager" draggable={false} onError={showMissingTourImage} onContextMenu={preventTourImageDownloadGesture} />}
+      {hero && <img className="landor-banner-photo" src={hero} alt="" loading="eager" fetchPriority="high" decoding="async" draggable={false} onError={showMissingTourImage} onContextMenu={preventTourImageDownloadGesture} />}
       <div className="landor-banner-shape" aria-hidden="true" />
       <header className="landor-header">
         <a href="#landor-top" className="landor-brand" aria-label="Back to property overview">

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { apiClient } from '@/services/api'
 import { mapShootApiToShootData } from '@/components/shoots/history/shootHistoryTransforms'
@@ -20,7 +20,7 @@ type EditorDashboardQueueData = {
   deliveredSummaries: DashboardShootSummary[]
 }
 
-const DEDICATED_EDITOR_QUEUE_PER_PAGE = 200
+const DEDICATED_EDITOR_QUEUE_PER_PAGE = 50
 const DELIVERED_EDITOR_LANE_STATUSES = new Set([
   'delivered', 'ready_for_client', 'admin_verified', 'client_delivered',
   'workflow_completed', 'delivered_to_client', 'finalized',
@@ -38,6 +38,8 @@ const fetchEditorDashboardShoots = async (tab: 'completed' | 'delivered', signal
         page,
         per_page: DEDICATED_EDITOR_QUEUE_PER_PAGE,
         include_files: 'false',
+        include_filters: 'false',
+        view: 'card',
         no_cache: 'true',
         ...(tab === 'completed' ? { dashboard_open: true } : {}),
       },
@@ -61,15 +63,24 @@ export const useEditorDashboardQueue = (
   editorId: number | string | null | undefined,
   enabled: boolean,
 ) => {
-  const query = useQuery({
-    queryKey: ['editor-dashboard-queue', editorId ?? null],
+  const completed = useQuery({
+    queryKey: ['editor-dashboard-queue', editorId ?? null, 'completed'],
     enabled: enabled && Boolean(editorId),
-    queryFn: async ({ signal }): Promise<EditorDashboardQueueData> => {
-      const [completedShoots, deliveredShoots] = await Promise.all([
-        fetchEditorDashboardShoots('completed', signal),
-        fetchEditorDashboardShoots('delivered', signal),
-      ])
-
+    queryFn: ({ signal }) => fetchEditorDashboardShoots('completed', signal),
+    staleTime: 0, refetchOnWindowFocus: true,
+  })
+  const delivered = useQuery({
+    queryKey: ['editor-dashboard-queue', editorId ?? null, 'delivered'],
+    enabled: enabled && Boolean(editorId),
+    queryFn: ({ signal }) => fetchEditorDashboardShoots('delivered', signal),
+    staleTime: 0, refetchOnWindowFocus: true,
+  })
+  const refetchCompleted = completed.refetch
+  const refetchDelivered = delivered.refetch
+  const refetch = useCallback(() => Promise.all([refetchCompleted(), refetchDelivered()]), [refetchCompleted, refetchDelivered])
+  const data = useMemo((): EditorDashboardQueueData => {
+      const completedShoots = completed.data ?? []
+      const deliveredShoots = delivered.data ?? []
       const hasPendingEditorWork = (shoot: ShootData) => shoot.editorAssignments?.some(
         assignment => String(assignment.editorId ?? assignment.editor?.id) === String(editorId) && assignment.ready === false,
       ) ?? false
@@ -93,24 +104,15 @@ export const useEditorDashboardQueue = (
         })),
         deliveredSummaries: resolvedDeliveredShoots.map((shoot) => shootDataToSummary(shoot)),
       }
-    },
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  })
+  }, [completed.data, delivered.data, editorId])
 
-  return useMemo(
-    () => ({
-      sourceShoots: query.data?.sourceShoots ?? [],
-      upcomingShoots: query.data?.upcomingShoots ?? [],
-      deliveredShoots: query.data?.deliveredShoots ?? [],
-      upcomingSummaries: query.data?.upcomingSummaries ?? [],
-      deliveredSummaries: query.data?.deliveredSummaries ?? [],
-      isLoading: query.isLoading,
-      isFetching: query.isFetching,
-      isError: query.isError,
-      error: query.error,
-      refetch: query.refetch,
-    }),
-    [query.data, query.error, query.isError, query.isFetching, query.isLoading, query.refetch],
-  )
+  return {
+    ...data,
+    isLoading: completed.isLoading || delivered.isLoading,
+    isDeliveredLoading: delivered.isLoading,
+    isFetching: completed.isFetching || delivered.isFetching,
+    isError: completed.isError || delivered.isError,
+    error: completed.error ?? delivered.error,
+    refetch,
+  }
 }

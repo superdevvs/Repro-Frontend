@@ -83,7 +83,7 @@ describe.each([
     expect(tour).toHaveAttribute('data-variant', variant);
     expect(tour).toHaveTextContent('4 bedrooms');
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining(`/42/${endpoint}?t=`));
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining(`/42/${endpoint}`), { cache: 'no-cache' });
   });
 
   it.each(layouts)('accepts saved %s inside tour_links', async (layout) => {

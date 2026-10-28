@@ -15,9 +15,8 @@ export async function loadPublicTourData(
   variant: PublicTourVariant,
   signal?: AbortSignal,
 ): Promise<PublicTourData> {
-  const separator = endpoint.includes('?') ? '&' : '?';
-  const response = await fetch(`${endpoint}${separator}t=${Date.now()}`, {
-    signal, cache: 'no-store', headers: { Accept: 'application/json' },
+  const response = await fetch(endpoint, {
+    signal, cache: 'no-cache', headers: { Accept: 'application/json' },
   });
   if (!response.ok) {
     if (response.status === 404) throw new Error('This property tour could not be found.');

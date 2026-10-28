@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { ArrowLeft, ArrowRight, Images, ImageOff } from 'lucide-react';
 import { PublicTourLightbox } from '../shared/PublicTourLightbox';
-import { preventTourImageDownloadGesture as preventImageDownloadGesture, showMissingTourImage as showMissingImage } from '../shared/publicTourImage';
+import { preventTourImageDownloadGesture as preventImageDownloadGesture, showMissingTourImage as showMissingImage, publicTourImageSource } from '../shared/publicTourImage';
+import type { PublicTourPhotoRenditions } from '../publicTourData';
 import { trackMediaView } from '@/lib/tourTracking';
 
 export interface HomeifyGalleryProps {
   photos: string[];
+  photoRenditions?: PublicTourPhotoRenditions;
   address: string;
   shootId?: number | string;
   tourType: 'branded' | 'mls' | 'generic_mls';
 }
 
-export function HomeifyGallery({ photos, address, shootId, tourType }: HomeifyGalleryProps) {
+export function HomeifyGallery({ photos, photoRenditions, address, shootId, tourType }: HomeifyGalleryProps) {
   const [selected, setSelected] = useState(0);
   const [open, setOpen] = useState(false);
   const opener = useRef<HTMLElement | null>(null);
@@ -69,7 +71,7 @@ export function HomeifyGallery({ photos, address, shootId, tourType }: HomeifyGa
     <section id="photos" className="homeify-gallery" aria-label="Property photography" onKeyDown={handleKeys}>
       <div className="homeify-hero">
         <button type="button" className="homeify-hero-photo" onClick={openGallery} aria-label={`Open photo ${index + 1} of ${count}`}>
-          <img key={photo} className="homeify-hero-image" src={photo} alt={`${address} — photo ${index + 1}`} loading="eager" decoding="async" draggable={false} onContextMenu={preventImageDownloadGesture} onDragStart={preventImageDownloadGesture} onError={showMissingImage} />
+          <img key={photo} className="homeify-hero-image" src={publicTourImageSource(photo, 'web', photoRenditions)} alt={`${address} — photo ${index + 1}`} loading="eager" fetchPriority="high" decoding="async" draggable={false} onContextMenu={preventImageDownloadGesture} onDragStart={preventImageDownloadGesture} onError={showMissingImage} />
         </button>
         {count > 1 && <>
           <button type="button" className="homeify-gallery-arrow homeify-prev" aria-label="Previous property photo" onClick={() => move(-1)}><ArrowLeft aria-hidden="true" /></button>
@@ -82,7 +84,7 @@ export function HomeifyGallery({ photos, address, shootId, tourType }: HomeifyGa
         <div className="homeify-thumbnails" aria-label="Select a property photo">
           {photos.map((url, position) => (
             <button key={`${url}-${position}`} ref={position === index ? selectedThumbnail : undefined} type="button" className={`homeify-thumb${position === index ? ' is-active' : ''}`} aria-label={`Show property photo ${position + 1}`} aria-pressed={position === index} onClick={() => setSelected(position)}>
-              <img src={url} alt="" loading="lazy" decoding="async" draggable={false} onContextMenu={preventImageDownloadGesture} onDragStart={preventImageDownloadGesture} onError={showMissingImage} />
+              <img src={publicTourImageSource(url, 'thumbnail', photoRenditions)} alt="" loading="lazy" decoding="async" draggable={false} onContextMenu={preventImageDownloadGesture} onDragStart={preventImageDownloadGesture} onError={showMissingImage} />
             </button>
           ))}
         </div>

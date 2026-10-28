@@ -99,13 +99,14 @@ const isRawStage = (mediaStage?: string | null) => {
 
 export function EditorRawLinksCard({
   shoots,
+  editorId,
   isLoading = false,
   isError = false,
   onOpenShoot,
 }: EditorRawLinksCardProps) {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [shareLinksByShoot, setShareLinksByShoot] = React.useState<Record<string, ShareLink | null>>({});
+  const [shareLinkResult, setShareLinkResult] = React.useState<{ key: string; links: Record<string, ShareLink | null> }>({ key: '', links: {} });
   const [scheduleSummary, setScheduleSummary] = React.useState<{
     today: number;
     tomorrow: number;
@@ -125,21 +126,21 @@ export function EditorRawLinksCard({
     [visibleShoots],
   );
 
+  // History completion may recreate the shoot array without changing these rows.
+  // Only the five visible links are useful, and a changed account must start fresh.
+  const linkRequestKey = JSON.stringify([editorId ?? null, visibleShoots.map(shoot => [String(shoot.id), shoot.updatedAt ?? null])]);
+  const shareLinksByShoot = shareLinkResult.key === linkRequestKey ? shareLinkResult.links : {};
+
   React.useEffect(() => {
-    let isMounted = true;
+    const controller = new AbortController();
+    const [, rows] = JSON.parse(linkRequestKey) as [unknown, Array<[string, string | null]>];
 
     const loadShareLinks = async () => {
-      if (sortedShoots.length === 0) {
-        if (isMounted) {
-          setShareLinksByShoot({});
-        }
-        return;
-      }
-
       const results = await Promise.all(
-        sortedShoots.map(async (shoot) => {
+        rows.map(async ([shootId]) => {
           try {
-            const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/share-links`, {
+            const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/share-links`, {
+              signal: controller.signal,
               headers: {
                 ...getApiHeaders(),
                 Accept: 'application/json',
@@ -147,7 +148,7 @@ export function EditorRawLinksCard({
             });
 
             if (!response.ok) {
-              return [String(shoot.id), null] as const;
+              return [shootId, null] as const;
             }
 
             const data = await response.json();
@@ -161,24 +162,24 @@ export function EditorRawLinksCard({
                 return isRawStage(link.media_stage);
               }) ?? null;
 
-            return [String(shoot.id), activeRawLink] as const;
+            return [shootId, activeRawLink] as const;
           } catch {
-            return [String(shoot.id), null] as const;
+            return [shootId, null] as const;
           }
         }),
       );
 
-      if (isMounted) {
-        setShareLinksByShoot(Object.fromEntries(results));
+      if (!controller.signal.aborted) {
+        setShareLinkResult({ key: linkRequestKey, links: Object.fromEntries(results) });
       }
     };
 
     void loadShareLinks();
 
     return () => {
-      isMounted = false;
+      controller.abort();
     };
-  }, [sortedShoots]);
+  }, [linkRequestKey]);
 
   React.useEffect(() => {
     let isMounted = true;

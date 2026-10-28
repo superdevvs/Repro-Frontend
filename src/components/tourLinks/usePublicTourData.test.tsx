@@ -41,7 +41,8 @@ describe('public tour loader', () => {
     vi.stubGlobal('fetch', fetchMock);
     const { result } = renderHook(() => usePublicTourData({ variant: 'generic-mls', search: '?address=123+Oak&city=Boston&state=MA' }));
     await waitFor(() => expect(result.current.loading).toBe(false));
-    expect(fetchMock.mock.calls[0][0]).toMatch(/\/g-mls\?address=123\+Oak&city=Boston&state=MA&t=\d+$/);
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/g-mls\?address=123\+Oak&city=Boston&state=MA$/);
+    expect(fetchMock.mock.calls[0][1].cache).toBe('no-cache');
     expect(trackPageView).toHaveBeenCalledWith(55, 'generic_mls');
     expect(result.current.data?.shoot?.id).toBe(55);
   });

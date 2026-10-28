@@ -40,7 +40,7 @@ export function LandorMedia({ data }: { data: PublicTourData }) {
         </div>
 
         {photos.length > 0 && <Tabs.Content className="landor-media-panel" value="photos">
-          <LandorGallery photos={photos} address={data.shoot?.address || 'Property'} shootId={data.analytics.shootId ?? undefined} tourType={data.analytics.tourType} />
+          <LandorGallery photos={photos} photoRenditions={data.photoRenditions} address={data.shoot?.address || 'Property'} shootId={data.analytics.shootId ?? undefined} tourType={data.analytics.tourType} />
         </Tabs.Content>}
 
         {floorplans.length > 0 && <Tabs.Content className="landor-media-panel" value="plans">

@@ -18,6 +18,8 @@ import {
   resolvePublicTourVariantFromPath,
 } from './publicIguideModel';
 import { brandedTourOfficePhone } from '@/utils/officePhone';
+import { normalizePublicPhotoRenditions, type PublicTourPhotoRenditions } from './publicTourData';
+import { publicTourImageSource } from './shared/publicTourImage';
 
 interface ShootData {
   id: number;
@@ -66,7 +68,8 @@ interface WeatherInfo {
 
 type SectionId = 'header' | 'gallery' | 'details' | 'embeds' | 'video' | 'contact';
 
-export function NeoTour() {
+export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
+  const [photoRenditions, setPhotoRenditions] = useState<PublicTourPhotoRenditions>({});
   const [photos, setPhotos] = useState<string[]>([]);
   const [heroPhotos, setHeroPhotos] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
@@ -136,15 +139,14 @@ export function NeoTour() {
       try {
         const params = new URLSearchParams(window.location.search);
         const shootId = params.get('shootId');
-        if (!shootId) { setLoading(false); return; }
+        if (!shootId && initialData === undefined) { setLoading(false); return; }
         
         // Determine which endpoint to use based on current route
         const endpoint = publicTourVariant === 'generic-mls' ? 'g-mls' : publicTourVariant;
         
-        // Add cache-busting parameter to ensure fresh data
-        const cacheBuster = new Date().getTime();
-        const res = await fetch(`${API_BASE_URL}/api/public/shoots/${shootId}/${endpoint}?t=${cacheBuster}`);
-        const data = await res.json();
+        // The parent has already fetched and authorized this exact tour/unit.
+        const data = initialData ?? await (await fetch(`${API_BASE_URL}/api/public/shoots/${shootId}/${endpoint}`, { cache: 'no-cache' })).json();
+        setPhotoRenditions(normalizePublicPhotoRenditions(data, Array.isArray(data?.photos) ? data.photos : []));
         
         setPhotos(Array.isArray(data?.photos) ? data.photos : []);
         setHeroPhotos(Array.isArray(data?.hero_photos) ? data.hero_photos : []);
@@ -189,7 +191,7 @@ export function NeoTour() {
       }
     };
     fetchData();
-  }, [publicTourVariant]);
+  }, [publicTourVariant, initialData]);
 
   const getBeds = () => propertyDetails?.beds || propertyDetails?.bedrooms || propertyDetails?.building?.[0]?.bedrooms || null;
   const getBaths = () => propertyDetails?.baths || propertyDetails?.bathrooms || propertyDetails?.building?.[0]?.baths || null;
@@ -510,8 +512,7 @@ export function NeoTour() {
             <img
               src={(heroPhotos.length > 0 ? heroPhotos : photos)[0]}
               alt="Hero Property"
-              loading="eager"
-              decoding="async"
+              loading="eager" fetchPriority="high" decoding="async"
               className="w-full h-full object-cover"
             />
           ) : (
@@ -625,7 +626,7 @@ export function NeoTour() {
                   onClick={() => openLightbox(index)}
                 >
                   <img
-                    src={photo}
+                    src={publicTourImageSource(photo, 'grid', photoRenditions)}
                     alt={`Property photo ${index + 1}`}
                     loading="lazy"
                     decoding="async"

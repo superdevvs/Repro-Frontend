@@ -63,6 +63,14 @@ export interface PublicTourEmbed {
   value: string;
 }
 
+export interface PublicTourPhotoRendition {
+  thumbnail: string;
+  grid: string;
+  web: string;
+}
+
+export type PublicTourPhotoRenditions = Record<string, PublicTourPhotoRendition>;
+
 export interface PublicTourData {
   variant: PublicTourVariant;
   shoot: PublicTourShoot | null;
@@ -70,6 +78,7 @@ export interface PublicTourData {
   propertyDetails: PublicTourPropertyDetails;
   stats: { beds: number | null; baths: number | null; sqft: number | null; garageCars: number | null };
   photos: string[];
+  photoRenditions: PublicTourPhotoRenditions;
   heroPhotos: string[];
   heroSlides: string[];
   videos: string[];
@@ -126,6 +135,20 @@ const urls = (value: unknown): string[] => Array.from(new Set(array(value).map((
   const media = record(item);
   return normalizePublicTourUrl(typeof item === 'string' ? item : text(media.url, media.web_url, media.path));
 }).filter(Boolean)));
+
+export function normalizePublicPhotoRenditions(payload: unknown, photos: string[]): PublicTourPhotoRenditions {
+  const allowed = new Set(photos.map(normalizePublicTourUrl));
+  return Object.fromEntries(array(record(payload).photo_renditions).flatMap(item => {
+    const value = record(item);
+    const url = normalizePublicTourUrl(value.url);
+    if (!allowed.has(url)) return [];
+    return [[url, {
+      thumbnail: normalizePublicTourUrl(value.thumbnail_url) || normalizePublicTourUrl(value.grid_url) || url,
+      grid: normalizePublicTourUrl(value.grid_url) || normalizePublicTourUrl(value.web_url) || url,
+      web: normalizePublicTourUrl(value.web_url) || url,
+    }]];
+  }));
+}
 
 /** Address lookup matches existing tour URLs and selects the most recent matching shoot. */
 export function buildPublicTourEndpoint(search: string | URLSearchParams, variant: PublicTourVariant): string | null {
@@ -241,6 +264,7 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
       description: text(details.description),
     },
     stats: { beds, baths, sqft, garageCars }, photos, heroPhotos,
+    photoRenditions: normalizePublicPhotoRenditions(root, [...photos, ...heroPhotos]),
     heroSlides: Array.from(new Set([...heroPhotos, ...photos])),
     videos, videoLink,
     videoPosterUrl: locked || videoRestricted ? '' : normalizePublicTourUrl(text(root.video_poster_url, root.video_thumbnail_url)),

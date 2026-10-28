@@ -2,16 +2,18 @@ import { useCallback, useEffect, useId, useRef, useState, type MouseEvent } from
 import { ArrowLeft, ArrowRight, ImageOff, Maximize2 } from 'lucide-react';
 import { trackMediaView } from '@/lib/tourTracking';
 import { PublicTourLightbox } from '../shared/PublicTourLightbox';
-import { preventTourImageDownloadGesture, showMissingTourImage } from '../shared/publicTourImage';
+import { preventTourImageDownloadGesture, showMissingTourImage, publicTourImageSource } from '../shared/publicTourImage';
+import type { PublicTourPhotoRenditions } from '../publicTourData';
 
 export interface LandorGalleryProps {
   photos: string[];
+  photoRenditions?: PublicTourPhotoRenditions;
   address: string;
   shootId?: number | string;
   tourType: 'branded' | 'mls' | 'generic_mls';
 }
 
-export function LandorGallery({ photos, address, shootId, tourType }: LandorGalleryProps) {
+export function LandorGallery({ photos, photoRenditions, address, shootId, tourType }: LandorGalleryProps) {
   const [selected, setSelected] = useState(0);
   const [open, setOpen] = useState(false);
   const [progress, setProgress] = useState(100);
@@ -73,7 +75,7 @@ export function LandorGallery({ photos, address, shootId, tourType }: LandorGall
       }}>
         {photos.map((photo, index) => (
           <button key={`${photo}-${index}`} type="button" className="landor-gallery-card" aria-label={`Open photo ${index + 1} of ${count}`} onClick={(event) => openPhoto(event, index)}>
-            <img src={photo} alt={`${address} — photo ${index + 1}`} loading="lazy" decoding="async" draggable={false} onContextMenu={preventTourImageDownloadGesture} onDragStart={preventTourImageDownloadGesture} onError={showMissingTourImage} />
+            <img src={publicTourImageSource(photo, 'grid', photoRenditions)} alt={`${address} — photo ${index + 1}`} loading="lazy" decoding="async" draggable={false} onContextMenu={preventTourImageDownloadGesture} onDragStart={preventTourImageDownloadGesture} onError={showMissingTourImage} />
             <span className="landor-gallery-zoom" aria-hidden="true"><Maximize2 /></span>
           </button>
         ))}
@@ -93,7 +95,7 @@ export function LandorGallery({ photos, address, shootId, tourType }: LandorGall
         <div className="landor-masonry">
           {photos.map((photo, index) => (
             <button key={`${photo}-${index}`} type="button" className="landor-masonry-card" aria-label={`Open photo ${index + 1} of ${count}`} onClick={(event) => openPhoto(event, index)}>
-              <img src={photo} alt={`${address} — photo ${index + 1}`} loading="lazy" decoding="async" draggable={false} onContextMenu={preventTourImageDownloadGesture} onDragStart={preventTourImageDownloadGesture} onError={showMissingTourImage} />
+              <img src={publicTourImageSource(photo, 'grid', photoRenditions)} alt={`${address} — photo ${index + 1}`} loading="lazy" decoding="async" draggable={false} onContextMenu={preventTourImageDownloadGesture} onDragStart={preventTourImageDownloadGesture} onError={showMissingTourImage} />
               <span className="landor-gallery-zoom" aria-hidden="true"><Maximize2 /></span>
             </button>
           ))}

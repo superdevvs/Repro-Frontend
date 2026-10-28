@@ -59,6 +59,12 @@ describe('dashboard shoot hydration', () => {
     expect(screen.queryByText('No upcoming shoots')).toBeNull();
   });
 
+  it('shows a loaded first page while later pages still hydrate', () => {
+    render(<Probe params={{ ...base, shootsLoading: true, upcomingShootsWithoutRequested: [{ id: 1 } as Params['upcomingShootsWithoutRequested'][number]] }} />);
+    expect(screen.queryByRole('status', { name: 'Loading shoots' })).toBeNull();
+    expect(screen.getByText('Loaded shoots')).toBeTruthy();
+  });
+
   it('does not hide hydrated shoot cards during a background overview refresh', () => {
     render(<Probe params={{ ...base, shootsLoading: false, loading: true }} />);
     expect(screen.queryByRole('status', { name: 'Loading shoots' })).toBeNull();

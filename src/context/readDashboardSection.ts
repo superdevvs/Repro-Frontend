@@ -15,7 +15,7 @@ export class DashboardSectionError extends Error {
 export const readDashboardSection = async <T, P extends ShootPage<T>>(
   section: string,
   read: (page: number, signal?: AbortSignal) => Promise<Response>,
-  options: { page: number; signal?: AbortSignal; allPages: boolean },
+  options: { page: number; signal?: AbortSignal; allPages: boolean; onPage?: (payload: P, page: number) => void },
 ): Promise<P> => {
   const checkAborted = () => {
     if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
@@ -50,6 +50,7 @@ export const readDashboardSection = async <T, P extends ShootPage<T>>(
         const payload = JSON.parse(body) as P;
         checkAborted();
         if (!Array.isArray(payload.data)) throw new Error('Invalid shoot response');
+        options.onPage?.(payload, page);
         return payload;
       } catch (error) {
         checkAborted();

@@ -19,11 +19,12 @@ const response = (payload: unknown, status = 200) => ({
 }) as Response;
 
 const Probe = () => {
-  const { shoots, isInitialLoading, fetchShoots, refreshIssue, updateShoot } = useShoots();
+  const { shoots, isInitialLoading, fetchShoots, refreshIssue, updateShoot, deleteShoot } = useShoots();
   return <>
     <DashboardRefreshNotice />
     <button onClick={() => void fetchShoots()}>Refresh</button>
     <button onClick={() => void updateShoot('101', { workflowStatus: 'ready' }, { skipApi: true })}>Commit submission</button>
+    <button onClick={() => deleteShoot('101')}>Delete shoot</button>
     <output data-testid="issue">{refreshIssue}</output>
     <output data-testid="statuses">{shoots.map(shoot => shoot.workflowStatus).join(',')}</output>
     <output data-testid="loading">{String(isInitialLoading)}</output>
@@ -38,6 +39,54 @@ beforeEach(() => { localStorage.clear(); localStorage.setItem('authToken', 'test
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('complete scheduled shoot hydration', () => {
+  it('does not restore a deleted initial row when the remaining lane fails without another page', async () => {
+    auth.user.role = 'admin';
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    let failLane!: (value: Response) => void;
+    const pendingLane = new Promise<Response>(resolve => { failLane = resolve; });
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+      if (options?.method === 'DELETE') return response({});
+      const tab = new URL(String(input), 'https://example.test').searchParams.get('tab');
+      return tab === 'scheduled' ? response({ data: [record(101)] }) : pendingLane;
+    }));
+    showProbe();
+    await waitFor(() => expect(screen.getByTestId('ids').textContent).toBe('101'));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete shoot' }));
+    await waitFor(() => expect(screen.getByTestId('ids').textContent).toBe(''));
+    await act(async () => failLane(response({}, 500)));
+    await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
+    expect(screen.getByTestId('ids').textContent).toBe('');
+    expect(JSON.parse(localStorage.getItem('shoots') ?? '[]')).toEqual([]);
+    expect(screen.getByTestId('issue').textContent).toContain('completed, page 1');
+    consoleError.mockRestore();
+  });
+
+  it.each(['admin', 'client'])('shows first scheduled page before slower pages and history finish for %s', async role => {
+    auth.user.role = role;
+    let finishPage!: (response: Response) => void;
+    let finishHistory!: (response: Response) => void;
+    const laterPage = new Promise<Response>(resolve => { finishPage = resolve; });
+    const history = new Promise<Response>(resolve => { finishHistory = resolve; });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), 'https://example.test');
+      if (url.searchParams.get('tab') !== 'scheduled') return history;
+      return url.searchParams.get('page') === '2' ? laterPage
+        : response({ data: [record(1)], meta: { last_page: 2, count: 2 } });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    showProbe();
+    await waitFor(() => expect(screen.getByTestId('ids').textContent).toBe('1'));
+    expect(screen.getByTestId('loading').textContent).toBe('true');
+    await act(async () => finishPage(response({ data: [record(2)] })));
+    expect(screen.getByTestId('ids').textContent).toBe('1,2');
+    await act(async () => finishHistory(response({ data: [] })));
+    await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
+    if (role === 'client') {
+      const deliveredUrl = fetchMock.mock.calls.map(([url]) => String(url)).find(url => url.includes('tab=delivered'));
+      expect(deliveredUrl).toContain('per_page=50');
+    }
+  });
+
   it('does not overwrite a committed submission with an older dashboard response', async () => {
     auth.user.role = 'admin';
     let refreshing = false;
@@ -151,7 +200,7 @@ describe('complete scheduled shoot hydration', () => {
       expect(urls.filter(url => url.includes('tab=completed')).every(url => url.includes('dashboard_open=true'))).toBe(true);
       expect(urls.some(url => url.includes('tab=delivered&page=2'))).toBe(false);
       expect(urls.every(url => url.includes('include_filters=false'))).toBe(true);
-      expect(urls.every(url => new URL(url, 'https://example.test').searchParams.get('view') === (role === 'editing_manager' ? 'card' : null))).toBe(true);
+      expect(urls.every(url => new URL(url, 'https://example.test').searchParams.get('view') === 'card')).toBe(true);
     },
   );
 
@@ -166,7 +215,7 @@ describe('complete scheduled shoot hydration', () => {
     await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
     expect(fetchMock.mock.calls).toHaveLength(3);
     expect(fetchMock.mock.calls.every(([url]) => !String(url).includes('dashboard_open'))).toBe(true);
-    expect(fetchMock.mock.calls.every(([url]) => String(url).includes('include_filters=false') && !String(url).includes('view=card'))).toBe(true);
+    expect(fetchMock.mock.calls.every(([url]) => String(url).includes('include_filters=false') && String(url).includes('view=card'))).toBe(true);
   });
 
   it('keeps detailed file refreshes and non-dashboard editing-manager reads on their full payload contract', async () => {
@@ -200,7 +249,7 @@ describe('complete scheduled shoot hydration', () => {
     vi.restoreAllMocks();
   });
 
-  it('keeps the schedule without publishing a partial completed lane when a later page fails', async () => {
+  it('retains initially loaded completed pages with an explicit incomplete notice when a later page fails', async () => {
     auth.user.role = 'admin';
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
@@ -211,7 +260,8 @@ describe('complete scheduled shoot hydration', () => {
     }));
     showProbe();
     await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
-    expect(screen.getByTestId('ids').textContent).toBe('1');
+    expect(screen.getByTestId('ids').textContent).toBe('1,101');
+    expect(screen.getByTestId('issue').textContent).toContain('more shoots may remain unloaded');
     vi.restoreAllMocks();
   });
 
@@ -256,7 +306,7 @@ describe('complete scheduled shoot hydration', () => {
     },
   );
 
-  it('does not publish a partial schedule when a later page fails', async () => {
+  it('retains initially loaded schedule pages with an incomplete notice when a later page fails', async () => {
     auth.user.role = 'admin';
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
@@ -267,7 +317,8 @@ describe('complete scheduled shoot hydration', () => {
     }));
     showProbe();
     await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
-    expect(screen.getByTestId('ids').textContent).toBe('');
+    expect(screen.getByTestId('ids').textContent).toBe('1');
+    expect(screen.getByTestId('issue').textContent).toContain('scheduled, page 2');
     vi.restoreAllMocks();
   });
 });

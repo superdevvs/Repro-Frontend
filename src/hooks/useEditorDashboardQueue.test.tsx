@@ -1,5 +1,5 @@
 import React from 'react';
-import { cleanup, renderHook, waitFor } from '@testing-library/react';
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEditorDashboardQueue } from './useEditorDashboardQueue';
@@ -18,6 +18,20 @@ beforeEach(() => { mocks.get.mockReset(); });
 afterEach(cleanup);
 
 describe('editor dashboard operational pagination', () => {
+  it('publishes the active queue without waiting for delivered history', async () => {
+    let finishHistory!: (value: unknown) => void;
+    const history = new Promise(resolve => { finishHistory = resolve; });
+    mocks.get.mockImplementation(async (_path, { params }) => params.tab === 'delivered' ? history : ({ data: {
+      data: [record(1)], meta: { last_page: 1 },
+    } }));
+    const { result } = renderHook(() => useEditorDashboardQueue(7, true), { wrapper });
+    await waitFor(() => expect(result.current.upcomingShoots.map(shoot => shoot.id)).toEqual(['1']));
+    expect(result.current.isDeliveredLoading).toBe(true);
+    expect(mocks.get.mock.calls.every(([, { params }]) => params.view === 'card' && params.include_filters === 'false' && params.per_page === 50)).toBe(true);
+    await act(async () => finishHistory({ data: { data: [record(2, 'delivered')], meta: { last_page: 1 } } }));
+    await waitFor(() => expect(result.current.deliveredShoots.map(shoot => shoot.id)).toEqual(['2']));
+  });
+
   it('loads all active pages and only the first delivered page', async () => {
     mocks.get.mockImplementation(async (_path, { params }) => ({ data: {
       data: params.tab === 'completed' ? [record(params.page), record(1)] : [record(200, 'delivered')],

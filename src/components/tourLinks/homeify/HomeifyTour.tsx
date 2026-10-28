@@ -123,7 +123,7 @@ export function HomeifyTour({ data }: { data: PublicTourData }) {
           </div>
         </div>
 
-        <HomeifyGallery photos={data.heroSlides} address={address} shootId={analytics.shootId ?? undefined} tourType={analytics.tourType} />
+        <HomeifyGallery photos={data.heroSlides} photoRenditions={data.photoRenditions} address={address} shootId={analytics.shootId ?? undefined} tourType={analytics.tourType} />
 
         <div className="homeify-content-grid">
           <div className="homeify-main-column">

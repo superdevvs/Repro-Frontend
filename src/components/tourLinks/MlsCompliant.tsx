@@ -20,7 +20,8 @@ import { TourStatsGrid } from './TourStatsGrid';
 import { TourAboutSection } from './TourAboutSection';
 import { Public3dTourViewer } from './Public3dTourViewer';
 import { resolvePublicEmbedSources, resolvePublicIguideSources } from './publicIguideModel';
-import { normalizePublicTourData } from './publicTourData';
+import { normalizePublicTourData, normalizePublicPhotoRenditions } from './publicTourData';
+import { publicTourImageSource } from './shared/publicTourImage';
 import { isLandorTourStyle, resolvePublicTourStyle } from './publicTourStyle';
 import NotFound from '@/pages/NotFound';
 
@@ -82,6 +83,7 @@ export function MlsCompliant({ legacyPath = false }: { legacyPath?: boolean } = 
   const [heroIndex, setHeroIndex] = useState(0);
   const [lockedMessage, setLockedMessage] = useState<string | null>(null);
   const [rawPayload, setRawPayload] = useState<unknown>(null);
+  const photoRenditions = useMemo(() => normalizePublicPhotoRenditions(rawPayload, photos), [rawPayload, photos]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -121,9 +123,7 @@ export function MlsCompliant({ legacyPath = false }: { legacyPath?: boolean } = 
           ? `${API_BASE_URL}/api/public/shoots/mls?${query.toString()}`
           : `${API_BASE_URL}/api/public/shoots/${shootId}/mls`;
 
-        const cacheBuster = new Date().getTime();
-        const separator = endpoint.includes('?') ? '&' : '?';
-        const res = await fetch(withTourUnit(`${endpoint}${separator}t=${cacheBuster}`, params.get('unitId')));
+        const res = await fetch(withTourUnit(endpoint, params.get('unitId')), { cache: 'no-cache' });
         const data = await res.json();
 
         if (data?.locked) {
@@ -322,7 +322,7 @@ export function MlsCompliant({ legacyPath = false }: { legacyPath?: boolean } = 
   }
 
   if (resolvedStyle === 'neo') {
-    return <NeoTour />;
+    return <NeoTour initialData={rawPayload} />;
   }
 
   return (
@@ -336,8 +336,7 @@ export function MlsCompliant({ legacyPath = false }: { legacyPath?: boolean } = 
                 key={heroIndex}
                 src={heroSlides[heroIndex % heroSlides.length]}
                 alt="Hero"
-                loading="eager"
-                decoding="async"
+                loading="eager" fetchPriority="high" decoding="async"
                 className="absolute inset-0 w-full h-full object-cover"
                 initial={{ opacity: 0, scale: 1.05 }}
                 animate={{ opacity: 1, scale: 1.15 }}
@@ -445,7 +444,7 @@ export function MlsCompliant({ legacyPath = false }: { legacyPath?: boolean } = 
                 )}
                 onClick={() => openLightbox(index)}
               >
-                <img src={photo} alt={`Photo ${index + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover aspect-square group-hover:scale-105 transition-transform duration-500" />
+                <img src={publicTourImageSource(photo, 'grid', photoRenditions)} alt={`Photo ${index + 1}`} loading="lazy" decoding="async" className="w-full h-full object-cover aspect-square group-hover:scale-105 transition-transform duration-500" />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
               </motion.div>
             ))}

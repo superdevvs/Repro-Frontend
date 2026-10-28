@@ -178,7 +178,7 @@ export const useDashboardSections = ({
   );
 
   const renderUpcomingCard = () =>
-    shootListsLoading ? (
+    shootListsLoading && upcomingShootsWithoutRequested.length === 0 ? (
       <UpcomingShootsCardSkeleton />
     ) : (
       <UpcomingShootsCard
@@ -282,7 +282,7 @@ export const useDashboardSections = ({
     ) : null;
 
   const renderRequestedShootsSection = () =>
-    shootListsLoading ? (
+    shootListsLoading && requestedShoots.length === 0 ? (
       <RequestedShootsCardSkeleton />
     ) : requestedShoots.length > 0 ? (
       <RequestedShootsSection
@@ -295,7 +295,7 @@ export const useDashboardSections = ({
     ) : null;
 
   const renderShootsTabsCard = () =>
-    shootListsLoading ? (
+    shootListsLoading && upcomingShootsWithoutRequested.length === 0 && requestedShoots.length === 0 ? (
       <UpcomingShootsCardSkeleton />
     ) : (
       <ShootsTabsCard
@@ -311,7 +311,7 @@ export const useDashboardSections = ({
     );
 
   const renderEditingManagerShootsTabsCard = () =>
-    shootListsLoading ? (
+    shootListsLoading && editingManagerUpcomingShoots.length === 0 && editingManagerUploadedShoots.length === 0 && editingManagerReadyToDeliverShoots.length === 0 ? (
       <UpcomingShootsCardSkeleton />
     ) : (
       <ShootsTabsCard

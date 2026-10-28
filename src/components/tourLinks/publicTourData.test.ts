@@ -21,6 +21,16 @@ describe('public tour endpoint selection', () => {
 });
 
 describe('normalizePublicTourData', () => {
+  it('keeps only visible rendition metadata and falls back for older payloads', () => {
+    const result = normalizePublicTourData({ photos: ['/web.jpg'], photo_renditions: [
+      { url: '/web.jpg', thumbnail_url: '/thumb.jpg', grid_url: '/grid.jpg', web_url: '/web.jpg' },
+      { url: '/hidden.jpg', thumbnail_url: '/hidden-thumb.jpg' },
+    ] }, 'branded');
+    expect(result.photoRenditions).toEqual({ 'http://localhost:3000/web.jpg': { thumbnail: 'http://localhost:3000/thumb.jpg', grid: 'http://localhost:3000/grid.jpg', web: 'http://localhost:3000/web.jpg' } });
+    expect(normalizePublicTourData({ locked: true, photos: ['/web.jpg'], photo_renditions: [{ url: '/web.jpg', grid_url: '/grid.jpg' }] }, 'branded').photoRenditions).toEqual({});
+    expect(normalizePublicTourData({ photos: ['/web.jpg'] }, 'mls').photoRenditions).toEqual({});
+  });
+
   it.each(['branded', 'mls', 'generic-mls'] as const)('prefers the published %s video over uploaded copies while retaining distinct explicit embeds', (variant) => {
     const video = 'https://vimeo.com/1234761777?share=copy';
     const result = normalizePublicTourData({ video_link: video, videos: ['https://media.test/4421-Bradley-Lane.mp4'], tour_links: { embeds: [

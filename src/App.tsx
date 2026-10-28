@@ -1,3 +1,5 @@
+import '@/services/api'; // Register auth/impersonation interceptors before dashboard effects.
+import { initializeDashboardInstall } from '@/hooks/useDashboardInstall';
 import { ShootEditingDialogHost } from '@/components/shoots/ShootEditingDialog';
 import { MediaVersionsDialogHost } from '@/components/shoots/MediaVersionsDialog';
 import { PageLoadingOverlay } from '@/components/layout/PageLoadingOverlay';
@@ -785,6 +787,7 @@ const AppRoutes = () => {
 };
 
 function App() {
+  useEffect(() => { initializeDashboardInstall(); }, []);
   return (
     <div className="app-root">
       <div className="app-shell">
