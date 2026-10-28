@@ -5,10 +5,17 @@ import { syncVoicePushIdentity } from '@/services/voicePush';
 
 export function useVoicePushLifecycle() {
   const { user, isAuthenticated, isImpersonating, isLoading } = useAuth();
-  const { can, isLoading: permissionsLoading } = usePermissions();
+  const { can, isLoading: permissionsLoading, hasError: permissionsUnavailable } = usePermissions();
   const allowed = isAuthenticated && !isImpersonating && can('voice-calls', 'view') && can('voice-calls', 'operate');
   useEffect(() => {
-    if (isLoading || permissionsLoading) return;
-    void syncVoicePushIdentity(user?.id ? String(user.id) : null, allowed).catch(() => undefined);
-  }, [allowed, isLoading, permissionsLoading, user?.id]);
+    if (isLoading) return;
+    if (!isAuthenticated || isImpersonating) {
+      void syncVoicePushIdentity(null, false).catch(() => undefined);
+      return;
+    }
+    if (permissionsLoading) return;
+    // A failed lookup must not unsubscribe an enrolled device. Identity sync
+    // still clears a different account; it cannot enroll or grant permissions.
+    void syncVoicePushIdentity(user?.id ? String(user.id) : null, allowed || permissionsUnavailable).catch(() => undefined);
+  }, [allowed, isAuthenticated, isImpersonating, isLoading, permissionsLoading, permissionsUnavailable, user?.id]);
 }

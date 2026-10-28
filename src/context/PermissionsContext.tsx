@@ -9,6 +9,7 @@ interface PermissionsContextType {
   userPermissions: PermissionRule[];
   permissionIds: string[];
   isLoading: boolean;
+  hasError: boolean;
 }
 
 const defaultContext: PermissionsContextType = {
@@ -16,6 +17,7 @@ const defaultContext: PermissionsContextType = {
   userPermissions: [],
   permissionIds: [],
   isLoading: true,
+  hasError: false,
 };
 
 const PermissionsContext = createContext<PermissionsContextType>(defaultContext);
@@ -33,6 +35,7 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
   const [userPermissions, setUserPermissions] = useState<PermissionRule[]>([]);
   const [permissionIds, setPermissionIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [loadedScope, setLoadedScope] = useState<string>('guest');
 
   const currentScope = isAuthenticated && role
@@ -53,6 +56,7 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
         setUserPermissions([]);
         setPermissionIds([]);
         setLoadedScope('guest');
+        setHasError(false);
         setIsLoading(false);
         return;
       }
@@ -66,6 +70,7 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
         setUserPermissions(response.permissions || []);
         setPermissionIds(response.permissionIds || []);
         setLoadedScope(scopeForRequest);
+        setHasError(false);
       } catch (error) {
         if (controller.signal.aborted || revision !== requestRevision) {
           return;
@@ -75,6 +80,9 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
         setUserPermissions([]);
         setPermissionIds([]);
         setLoadedScope(scopeForRequest);
+        // Fail closed for UI actions, but distinguish an unavailable lookup
+        // from a confirmed permission removal for persistent device enrollment.
+        setHasError(true);
       } finally {
         if (!controller.signal.aborted && revision === requestRevision) {
           setIsLoading(false);
@@ -91,10 +99,13 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
     };
     window.addEventListener('focus', refreshOnFocus);
     document.addEventListener('visibilitychange', refreshOnFocus);
+    const refreshOnReconnect = () => { void loadPermissions(true); };
+    window.addEventListener('online', refreshOnReconnect);
 
     return () => {
       window.removeEventListener('focus', refreshOnFocus);
       document.removeEventListener('visibilitychange', refreshOnFocus);
+      window.removeEventListener('online', refreshOnReconnect);
       controller.abort();
     };
   }, [role, user?.id, isAuthenticated, authLoading, currentScope]);
@@ -136,7 +147,7 @@ export const PermissionsProvider: React.FC<PermissionsProviderProps> = ({ childr
   };
 
   return (
-    <PermissionsContext.Provider value={{ can, userPermissions, permissionIds, isLoading: effectiveIsLoading }}>
+    <PermissionsContext.Provider value={{ can, userPermissions, permissionIds, isLoading: effectiveIsLoading, hasError }}>
       {children}
     </PermissionsContext.Provider>
   );
