@@ -51,11 +51,11 @@ it("keeps recurring occurrences distinct when the mobile month drawer changes da
   });
   props.getMonthAvailabilities = () => [occurrence("2026-10-19"), occurrence("2026-10-26")];
   const { rerender } = render(<ScheduleDetailsPanel {...props} />);
-  expect(screen.getByText("Oct 19, 2026")).toBeInTheDocument();
-  expect(screen.getByText("Oct 26, 2026")).toBeInTheDocument();
+  expect(screen.getByText("Monday, Oct 19, 2026")).toBeInTheDocument();
+  expect(screen.getByText("Monday, Oct 26, 2026")).toBeInTheDocument();
   rerender(<ScheduleDetailsPanel {...props} getMonthAvailabilities={() => [occurrence("2026-11-02")]} />);
-  expect(screen.queryByText("Oct 19, 2026")).not.toBeInTheDocument();
-  expect(screen.queryByText("Oct 26, 2026")).not.toBeInTheDocument();
-  expect(screen.getByText("Nov 2, 2026")).toBeInTheDocument();
+  expect(screen.queryByText("Monday, Oct 19, 2026")).not.toBeInTheDocument();
+  expect(screen.queryByText("Monday, Oct 26, 2026")).not.toBeInTheDocument();
+  expect(screen.getByText("Monday, Nov 2, 2026")).toBeInTheDocument();
   expect(consoleError.mock.calls.flat().join(" ")).not.toContain("same key");
 });

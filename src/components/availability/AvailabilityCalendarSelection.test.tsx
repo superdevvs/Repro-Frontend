@@ -107,7 +107,7 @@ it('opens a photographer hidden by the month overflow without losing the selecte
   const drawer = await screen.findByRole('dialog', { name: 'Schedule details' });
   await waitFor(() => expect(within(drawer).getByRole('combobox', { name: 'Photographer' })).toHaveTextContent('Cam Park'));
   expect(within(drawer).getByText("Cam Park's Schedule")).toBeVisible();
-  expect(within(drawer).getByText('Oct 25, 2026')).toBeVisible();
+  expect(within(drawer).getByText('Sunday, Oct 25, 2026')).toBeVisible();
 });
 
 it.each(['week', 'month'] as const)('keeps a date-only %s tap on the team calendar instead of opening an empty drawer', async viewMode => {

@@ -192,7 +192,7 @@ export function ScheduleDetailsPanel(props: ScheduleDetailsPanelProps) {
                                     <Clock className="h-3.5 w-3.5 text-muted-foreground" />
                                     {to12HourDisplay(slot.startTime)} - {to12HourDisplay(slot.endTime)}
                                   </div>
-                                  {slot.date && <div className="text-xs text-muted-foreground mt-1">{formatAvailabilityDate(slot.date, 'MMM d, yyyy')}</div>}
+                                  {slot.date && <div className="text-xs text-muted-foreground mt-1">{formatAvailabilityDate(slot.date, 'EEEE, MMM d, yyyy')}</div>}
                                   {(slot.shootDetails?.address || slot.shootDetails?.title || slot.shootTitle) && (
                                     <div className="text-sm font-semibold mt-1">{slot.shootDetails?.address || slot.shootDetails?.title || slot.shootTitle}</div>
                                   )}
