@@ -20,6 +20,8 @@ import { MultiSelectChecklist } from '@/components/ui/multi-select-checklist';
 import type { ServiceGroupDetail } from '@/types/serviceGroups';
 import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
 import { resolveServiceShootDuration, type ServiceDurationSource } from '@/utils/shootDuration';
+import { ServiceInclusionsEditor } from './ServiceInclusionsEditor';
+import { inclusionCapabilities, inclusionError, UPLOAD_LABELS, type ServiceInclusion, type UploadIntakeType } from './serviceInclusions';
 import { servicePhotoCountLabel, serviceUsesPhotoCounts } from './servicePhotoCounts';
 
 type SqftRange = {
@@ -50,6 +52,7 @@ type ServiceProps = {
     exclude_from_sales_commission?: boolean;
     photo_count?: number;
     upload_intake_type?: string;
+    included_components?: ServiceInclusion[] | null;
     quantity?: number;
     active: boolean;
     category?: string;
@@ -71,7 +74,7 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
   const [sqftRanges, setSqftRanges] = useState<SqftRange[]>(service.sqft_ranges || []);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const isPhotoCategory = serviceUsesPhotoCounts(service);
+  const isPhotoCategory = serviceUsesPhotoCounts(isEditDialogOpen ? editedService : service);
   const photoCountLabel = servicePhotoCountLabel(service);
   const isPercentPay = editedService.photographer_pay_type === 'percent';
   /** Preview the resolved amount so the admin sees the result before saving. */
@@ -141,6 +144,8 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
   };
 
   const handleSaveService = async () => {
+    const error = inclusionError(editedService.included_components);
+    if (error) { toast({ title: 'Check included services', description: error, variant: 'destructive' }); return; }
     setIsSubmitting(true);
   
     const token = localStorage.getItem('authToken');
@@ -181,6 +186,7 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
         && editedService.photographer_pay_percent != null
         ? parseFloat(String(editedService.photographer_pay_percent))
         : null,
+      included_components: editedService.included_components ?? undefined,
       photo_count: editedService.photo_count ?? null,
       quantity: editedService.quantity ?? null,
       service_group_ids: (editedService.service_group_ids || []).map((id) => Number(id)),
@@ -315,6 +321,13 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
             {service.description || "No description provided"}
           </p>
           
+          <div className="mb-4 space-y-2">
+            <div className="flex flex-wrap gap-1">
+              {service.included_components?.map(component => <Badge key={component.name} variant="secondary" className="max-w-full whitespace-normal text-left">{component.name}</Badge>)}
+            </div>
+            <p className="text-xs font-medium">{UPLOAD_LABELS[(service.upload_intake_type ?? 'none') as UploadIntakeType] ?? UPLOAD_LABELS.none}</p>
+            {service.included_components == null && <p className="text-xs text-muted-foreground">Inclusions not marked yet</p>}
+          </div>
           <div className="space-y-2">
             <div className="flex justify-between">
               <span className="text-sm font-medium">Price:</span>
@@ -431,6 +444,9 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
                 />
               </div>
 
+              <ServiceInclusionsEditor value={editedService.included_components} currentIntake={service.upload_intake_type}
+                onChange={included_components => setEditedService(prev => ({ ...prev, included_components,
+                  ...inclusionCapabilities(included_components) }))} />
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Icon</Label>

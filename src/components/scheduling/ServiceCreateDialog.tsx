@@ -13,6 +13,9 @@ import { cn } from '@/lib/utils';
 import { HelpCircle, Plus, Save, Trash2 } from 'lucide-react';
 import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
 
+import { ServiceInclusionsEditor } from './ServiceInclusionsEditor';
+import type { ServiceInclusion } from './serviceInclusions';
+
 export type PhotographerPayType = 'fixed' | 'percent';
 
 export interface SqftRange {
@@ -42,6 +45,7 @@ export interface ServiceDraft {
   exclude_from_sales_commission: boolean;
   photo_count?: number;
   quantity?: number;
+  included_components?: ServiceInclusion[] | null;
   service_group_ids: string[];
 }
 
@@ -158,6 +162,8 @@ export function ServiceCreateDialog({
                 placeholder="Service description"
               />
             </div>
+            <ServiceInclusionsEditor value={newService.included_components ?? []}
+              onChange={included_components => setNewService(prev => ({ ...prev, included_components }))} />
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Icon</Label>

@@ -18,6 +18,7 @@ import API_ROUTES from '@/lib/api';
 import { useQueryClient } from '@tanstack/react-query';
 import { ServiceCreateDialog } from './ServiceCreateDialog';
 import { serviceMatchesSearch } from './catalogSearch';
+import { inclusionCapabilities, inclusionError, normalizeInclusions, type ServiceInclusion } from './serviceInclusions';
 import { serviceUsesPhotoCounts } from './servicePhotoCounts';
 import type { PhotographerPayType, ServiceDraft, SqftRange } from './ServiceCreateDialog';
 import { resolveServiceShootDuration, type ServiceDurationSource } from '@/utils/shootDuration';
@@ -38,6 +39,7 @@ type Service = ServiceDurationSource & {
   exclude_from_sales_commission?: boolean;
   photo_count?: number;
   upload_intake_type?: string;
+  included_components?: ServiceInclusion[] | null;
   quantity?: number;
   active: boolean;
   category?: string;
@@ -152,6 +154,7 @@ const normalizeService = (value: unknown): Service | null => {
     exclude_from_sales_commission: Boolean(item.exclude_from_sales_commission),
     photo_count: photoCount,
     upload_intake_type: typeof item.upload_intake_type === 'string' ? item.upload_intake_type : undefined,
+    included_components: normalizeInclusions(item.included_components),
     quantity: toNumber(item.quantity),
     icon: typeof item.icon === 'string' ? item.icon : undefined,
     service_group_ids: rawGroupIds.map(String),
@@ -201,6 +204,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle, { serviceQuery: string;
     exclude_from_sales_commission: false,
     photo_count: undefined,
     quantity: undefined,
+    included_components: [],
     service_group_ids: [],
   });
   const [newSqftRanges, setNewSqftRanges] = useState<SqftRange[]>([]);
@@ -284,7 +288,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle, { serviceQuery: string;
   };
 
   const isNewServicePhotoCategory = serviceUsesPhotoCounts({
-    ...newService, category: getCategoryNameById(newService.category), sqft_ranges: newSqftRanges,
+    ...newService, ...inclusionCapabilities(newService.included_components ?? []), category: getCategoryNameById(newService.category), sqft_ranges: newSqftRanges,
   });
 
   const handleCategoryChange = (categoryId: string) => {
@@ -310,6 +314,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle, { serviceQuery: string;
       exclude_from_sales_commission: false,
       photo_count: undefined,
       quantity: undefined,
+      included_components: [],
       service_group_ids: [],
     });
     setNewSqftRanges([]);
@@ -322,6 +327,8 @@ export const ServicesTab = forwardRef<ServicesTabHandle, { serviceQuery: string;
   }));
 
   const handleSaveService = async () => {
+    const error = inclusionError(newService.included_components);
+    if (error) { toast({ title: 'Check included services', description: error, variant: 'destructive' }); return; }
     const token = localStorage.getItem('authToken');
     if (!token) {
       toast({
@@ -371,6 +378,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle, { serviceQuery: string;
         && newService.photographer_pay_percent != null
         ? parseFloat(String(newService.photographer_pay_percent))
         : null,
+      included_components: newService.included_components ?? [],
       photo_count: newService.photo_count ?? null,
       quantity: newService.quantity ?? null,
       service_group_ids: newService.service_group_ids.map((id) => Number(id)),
@@ -607,7 +615,7 @@ export const ServicesTab = forwardRef<ServicesTabHandle, { serviceQuery: string;
   const filteredServices = services.filter((service) => {
     const inCategory = !selectedCategory || !normalizedSelectedCategory
       || normalizeCategoryName(service.category || '') === normalizedSelectedCategory;
-    return inCategory && serviceMatchesSearch(service.name, service.description, serviceQuery);
+    return inCategory && serviceMatchesSearch(service.name, [service.description, ...((service.included_components ?? []).map(c => c.name))].filter(Boolean).join(' '), serviceQuery);
   });
   const sortedCategories = React.useMemo(() => {
     if (!mergedCategories.length) return [];
