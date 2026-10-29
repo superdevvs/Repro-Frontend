@@ -325,8 +325,8 @@ export function ServiceCard({ service, availableServiceGroups, onUpdate }: Servi
             <div className="flex flex-wrap gap-1">
               {service.included_components?.map(component => <Badge key={component.name} variant="secondary" className="max-w-full whitespace-normal text-left">{component.name}</Badge>)}
             </div>
-            <p className="text-xs font-medium">{UPLOAD_LABELS[(service.upload_intake_type ?? 'none') as UploadIntakeType] ?? UPLOAD_LABELS.none}</p>
-            {service.included_components == null && <p className="text-xs text-muted-foreground">Inclusions not marked yet</p>}
+            <p className="text-xs font-medium">Photographer uploads: {UPLOAD_LABELS[(service.upload_intake_type ?? 'none') as UploadIntakeType] ?? UPLOAD_LABELS.none}</p>
+            {service.included_components == null && <p className="text-xs text-muted-foreground">Included services haven't been listed yet</p>}
           </div>
           <div className="space-y-2">
             <div className="flex justify-between">

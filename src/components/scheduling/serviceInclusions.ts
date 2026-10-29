@@ -16,7 +16,7 @@ export const INCLUSION_PRESETS: ServiceInclusion[] = [
 ];
 
 export const UPLOAD_LABELS: Record<UploadIntakeType, string> = {
-  none: 'No camera uploads', photo: 'Photo uploads', video: 'Video uploads', photo_video: 'Photo & video uploads',
+  none: 'No photos or videos', photo: 'Photos', video: 'Videos', photo_video: 'Photos and videos',
 };
 
 export function normalizeInclusions(value: unknown): ServiceInclusion[] | null {
@@ -39,7 +39,7 @@ export function inclusionCapabilities(components: ServiceInclusion[]) {
 export function inclusionError(components?: ServiceInclusion[] | null): string | null {
   if (!components) return null;
   const names = components.map(c => c.name.trim().toLowerCase());
-  if (names.some(name => !name)) return 'Give every inclusion a name or remove the empty row.';
-  if (new Set(names).size !== names.length) return 'Give each inclusion a unique name.';
+  if (names.some(name => !name)) return 'Name each included service or remove the empty row.';
+  if (new Set(names).size !== names.length) return 'Use a different name for each included service.';
   return null;
 }
