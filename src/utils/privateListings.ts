@@ -143,7 +143,7 @@ export const normalizePrivateListing = (value: unknown): PrivateListing | null =
     zip,
     fullAddress: optionalString(location.fullAddress) || optionalString(shoot.fullAddress)
       || [address, city, state, zip].filter(Boolean).join(', '),
-    heroImage: optionalString(shoot.heroImage) || optionalString(shoot.hero_image),
+    heroImage: optionalString(shoot.preview_image_url) || optionalString(shoot.heroImage) || optionalString(shoot.hero_image),
     scheduledDate: optionalString(shoot.scheduledDate) || optionalString(shoot.scheduled_date),
     completedDate: optionalString(shoot.completedDate) || optionalString(shoot.completed_date),
     client: { name: optionalString(client.name) || 'Unknown', email: optionalString(client.email) },
