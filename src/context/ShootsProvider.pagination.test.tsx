@@ -23,6 +23,7 @@ const Probe = () => {
   return <>
     <DashboardRefreshNotice />
     <button onClick={() => void fetchShoots()}>Refresh</button>
+    <button onClick={() => void fetchShoots(undefined, 1, 25, { includeFiles: true })}>Refresh with files</button>
     <button onClick={() => void updateShoot('101', { workflowStatus: 'ready' }, { skipApi: true })}>Commit submission</button>
     <button onClick={() => deleteShoot('101')}>Delete shoot</button>
     <output data-testid="issue">{refreshIssue}</output>
@@ -36,9 +37,38 @@ const showProbe = (path = '/dashboard') => render(<MemoryRouter initialEntries={
 const record = (id: number) => ({ id, status: 'scheduled', address: `Property ${id}`, scheduled_date: id <= 9 ? '2026-09-28' : '2026-10-02', time: '10:00' });
 
 beforeEach(() => { localStorage.clear(); localStorage.setItem('authToken', 'test-token'); auth.logout.mockClear(); effects.toast.mockClear(); });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('complete scheduled shoot hydration', () => {
+  it('keeps fresh shoots usable when the browser cache is full during initial load and refresh', async () => {
+    auth.user.role = 'photographer';
+    let id = 101;
+    const originalSet = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (key, value) {
+      if (key === 'shoots') throw new DOMException('Quota exceeded', 'QuotaExceededError');
+      originalSet.call(this, key, value);
+    });
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => response({
+      data: String(input).includes('tab=scheduled') ? [record(id)] : [],
+    }));
+    vi.stubGlobal('fetch', fetchMock);
+    showProbe();
+    await waitFor(() => expect(screen.getByTestId('loading').textContent).toBe('false'));
+    expect(screen.getByTestId('ids').textContent).toBe('101');
+    originalSet.call(localStorage, 'shoots', JSON.stringify([{ id: 'stale' }]));
+    id = 202;
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    await waitFor(() => expect(screen.getByTestId('ids').textContent).toBe('202'));
+    expect(localStorage.getItem('shoots')).toBeNull();
+    expect(screen.getByTestId('issue').textContent).toBe('');
+    expect(effects.toast).not.toHaveBeenCalled();
+    expect(fetchMock).toHaveBeenCalledTimes(6);
+    for (const [url] of fetchMock.mock.calls) {
+      expect(String(url)).toContain('include_files=false');
+      expect(String(url)).toContain('view=card');
+    }
+  });
+
   it('does not restore a deleted initial row when the remaining lane fails without another page', async () => {
     auth.user.role = 'admin';
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
@@ -227,7 +257,7 @@ describe('complete scheduled shoot hydration', () => {
     expect(fetchMock).toHaveBeenCalledTimes(3);
     expect(fetchMock.mock.calls.every(([url]) => !String(url).includes('view=card'))).toBe(true);
     fetchMock.mockClear();
-    fireEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Refresh with files' }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     expect(fetchMock.mock.calls.every(([url]) => String(url).includes('include_files=true') && !String(url).includes('view=card'))).toBe(true);
   });

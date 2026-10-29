@@ -27,6 +27,7 @@ export function AdditionalFilesPanel({ shoot, onUploadComplete, incomingFiles, o
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [downloadError, setDownloadError] = useState('');
+  const [refreshError, setRefreshError] = useState('');
   const targets = useMemo(() => {
     const photo = resolveUploadServiceTargets(shoot, user, 'raw', ['photo']);
     const video = resolveUploadServiceTargets(shoot, user, 'raw', ['video']);
@@ -55,8 +56,9 @@ export function AdditionalFilesPanel({ shoot, onUploadComplete, incomingFiles, o
 
   const upload = async () => {
     if (busy) return;
-    setBusy(true); setProgress(0);
+    setBusy(true); setProgress(0); setRefreshError('');
     const pending = files.filter(item => item.state !== 'done');
+    let anyAccepted = false;
     try {
       for (const [index, item] of pending.entries()) {
         setFiles(current => current.map(row => row.key === item.key ? { ...row, state: 'uploading', message: undefined } : row));
@@ -76,15 +78,26 @@ export function AdditionalFilesPanel({ shoot, onUploadComplete, incomingFiles, o
           if (result.ok === false) throw new Error(result.message);
           const response = JSON.parse(result.responseText) as { message?: string; success_count?: number; error_count?: number; file_outcomes?: Outcome[]; errors?: { message?: string }[] };
           accepted = result.status >= 200 && result.status < 300 && (response.success_count ?? 0) > 0;
+          anyAccepted ||= accepted;
           if (result.status < 200 || result.status >= 300 || response.error_count || !response.success_count) {
             throw new Error(response.errors?.[0]?.message || response.message || 'The file could not be saved. Retry the upload.');
           }
-          setFiles(current => current.map(row => row.key === item.key ? { ...row, state: 'done', message: 'Saved', outcomes: response.file_outcomes } : row));
+          const additionalOnly = response.file_outcomes?.length && response.file_outcomes.every(outcome => outcome.destination === 'additional');
+          setFiles(current => current.map(row => row.key === item.key ? { ...row, state: 'done', message: additionalOnly ? 'Saved in Additional files' : 'Saved', outcomes: response.file_outcomes } : row));
         } catch (error) {
           setFiles(current => current.map(row => row.key === item.key ? { ...row, state: 'failed', message: error instanceof Error ? error.message : 'Upload interrupted. Retry to finish.' } : row));
         }
-        await client.invalidateQueries({ queryKey: ['shoot-additional-files', shoot.id] });
-        if (accepted) onUploadComplete();
+        setProgress(((index + 1) / pending.length) * 100);
+      }
+      // Refresh once after the batch. This callback must keep this panel mounted:
+      // its per-file outcomes and partial-failure retry queue still belong here.
+      if (anyAccepted) {
+        try {
+          await client.invalidateQueries({ queryKey: ['shoot-additional-files', shoot.id] });
+          await onUploadComplete();
+        } catch {
+          setRefreshError('Files were saved, but the view could not refresh. Reopen this panel to see them; do not upload them again.');
+        }
       }
     } finally { setBusy(false); }
   };
@@ -123,6 +136,7 @@ export function AdditionalFilesPanel({ shoot, onUploadComplete, incomingFiles, o
         onChange={event => { stage(Array.from(event.target.files || [])); event.target.value = ''; }} />
       <p className="text-xs text-muted-foreground">Up to 1 GB per file. ZIPs: up to 1 GB unpacked and 1,000 entries. Files are checked before acceptance. Additional files do not change charges or required photo counts.</p>
       {busy && <Progress value={progress} aria-label="Additional file upload progress" />}
+      {!!files.filter(item => item.state === 'done').length && <p role="status" className="text-sm">{files.filter(item => item.state === 'done').length} of {files.length} selected files saved. Files marked “Additional files” are listed below, separately from the photo gallery.</p>}
       {files.length > 0 && <ul className="space-y-2 text-sm" aria-label="Additional file upload results">{files.map(item => <li key={item.key} className="break-words rounded-md border p-2">
         <span className="font-medium">{item.file.name}</span><span className="ml-2 text-xs text-muted-foreground">{item.state === 'ready' ? 'Ready' : item.state === 'uploading' ? 'Uploading…' : item.message}</span>
         {item.outcomes?.map((outcome, index) => <p key={index} className="text-xs text-muted-foreground">{outcome.filename} — {outcome.note || outcome.destination}</p>)}
@@ -136,6 +150,7 @@ export function AdditionalFilesPanel({ shoot, onUploadComplete, incomingFiles, o
         <Button size="icon" variant="ghost" aria-label={`Download ${file.filename}`} onClick={() => void download(file)}><Download className="h-4 w-4" /></Button>
       </li>)}</ul>}
       {downloadError && <p role="alert" className="text-sm text-destructive">{downloadError}</p>}
+      {refreshError && <p role="alert" className="text-sm text-destructive">{refreshError}</p>}
     </div>}
   </section>;
 }

@@ -168,7 +168,14 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const persistShoots = useCallback((items: ShootData[]) => {
     if (typeof window === 'undefined') return;
     shootsRef.current = items;
-    localStorage.setItem('shoots', JSON.stringify(items));
+    // The server read already succeeded. An optional browser cache must never
+    // turn that success into a loading error or replace fresh state with old data.
+    try {
+      localStorage.setItem('shoots', JSON.stringify(items));
+    } catch {
+      try { localStorage.removeItem('shoots'); } catch { /* Storage may be disabled. */ }
+      return;
+    }
     window.dispatchEvent(new CustomEvent('shoots:updated'));
   }, []);
 
@@ -188,7 +195,8 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     options?: FetchShootsOptions,
   ): Promise<ShootData[]> => {
     const token = getAuthToken();
-    const includeFiles = options?.includeFiles ?? true;
+    // Lists refresh after uploads too; media panels fetch their own files.
+    const includeFiles = options?.includeFiles ?? false;
     // This provider uses pagination metadata, not the global filter catalog.
     // The card contract preserves operational facts and capabilities for every role.
     const listProfile = `&include_filters=false${!includeFiles && locationRef.current === '/dashboard' ? '&view=card' : ''}`;
@@ -345,7 +353,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       
       // Don't fall back to mock data - return empty array
       // Mock data is not filtered by account and could leak data
-      let errorMessage = 'An unexpected error occurred while loading shoots.';
+      let errorMessage = 'The dashboard could not refresh. Saved uploads are unaffected. Retry the dashboard refresh.';
       if (error instanceof Error) {
         if (error.message === 'Failed to load shoots from server') {
           errorMessage = 'Unable to connect to the server. Please check your connection and ensure the backend is running.';
@@ -355,7 +363,7 @@ export const ShootsProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       
       toast({
-        title: 'Error',
+        title: 'Dashboard refresh failed',
         description: errorMessage,
         variant: 'destructive',
       });

@@ -27,6 +27,52 @@ beforeEach(() => { mocks.user.role = 'photographer'; mocks.get.mockResolvedValue
 afterEach(() => { cleanup(); vi.clearAllMocks(); });
 
 describe('additional files on every assigned shoot', () => {
+  it('refreshes once after all files finish, preserving saved results and a failed-file retry', async () => {
+    let finishLast!: (value: typeof success) => void;
+    mocks.upload.mockResolvedValueOnce(success)
+      .mockResolvedValueOnce({ ok: false, message: 'Connection interrupted' })
+      .mockImplementationOnce(() => new Promise(resolve => { finishLast = resolve; }));
+    wrapper(<AdditionalFilesPanel shoot={shoot()} onUploadComplete={mocks.complete} />);
+    fireEvent.click(screen.getByRole('button', { name: /Additional files/ }));
+    fireEvent.change(screen.getByTestId('additional-files-input'), { target: { files: ['one', 'two', 'three'].map(name => new File(['video'], `${name}.mp4`, { type: 'video/mp4' })) } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload additional files' }));
+    await waitFor(() => expect(mocks.upload).toHaveBeenCalledTimes(3));
+    expect(mocks.complete).not.toHaveBeenCalled();
+    finishLast(success);
+    const retry = await screen.findByRole('button', { name: 'Retry remaining files' });
+    await waitFor(() => expect(retry).toBeEnabled());
+    expect(mocks.complete).toHaveBeenCalledOnce();
+    expect(screen.getByRole('status')).toHaveTextContent('2 of 3 selected files saved');
+    expect(screen.getByText('Connection interrupted')).toBeVisible();
+    const failedKey = mocks.upload.mock.calls[1][0].body.get('idempotency_key');
+    fireEvent.click(retry);
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('3 of 3 selected files saved'));
+    expect(mocks.upload).toHaveBeenCalledTimes(4);
+    expect(mocks.upload.mock.calls[3][0].body.get('idempotency_key')).toBe(failedKey);
+  });
+
+  it('keeps additional videos visible instead of invoking the RAW gallery navigation callback', async () => {
+    wrapper(<RawUploadSection shoot={shoot('photo')} onUploadComplete={mocks.complete} />);
+    fireEvent.click(screen.getByRole('button', { name: /Additional files/ }));
+    fireEvent.change(screen.getByTestId('additional-files-input'), { target: { files: [new File(['video'], 'walkthrough.mp4', { type: 'video/mp4' })] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload additional files' }));
+    await screen.findByText('Saved in Additional files');
+    await waitFor(() => expect(screen.queryByLabelText('Additional file upload progress')).not.toBeInTheDocument());
+    expect(mocks.complete).not.toHaveBeenCalled();
+    expect(screen.getByRole('region', { name: 'Additional files' })).toBeVisible();
+  });
+
+  it('does not turn a saved file into a failed upload when the parent refresh fails', async () => {
+    const refresh = vi.fn().mockRejectedValue(new Error('Refresh failed'));
+    wrapper(<AdditionalFilesPanel shoot={shoot()} onUploadComplete={refresh} />);
+    fireEvent.click(screen.getByRole('button', { name: /Additional files/ }));
+    fireEvent.change(screen.getByTestId('additional-files-input'), { target: { files: [new File(['video'], 'walkthrough.mp4', { type: 'video/mp4' })] } });
+    fireEvent.click(screen.getByRole('button', { name: 'Upload additional files' }));
+    await screen.findByText(/Files were saved, but the view could not refresh/);
+    expect(screen.getByText('Saved in Additional files')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Retry remaining files' })).not.toBeInTheDocument();
+  });
+
   it('accepts a file on a non-capture shoot without preparing a RAW batch', async () => {
     wrapper(<AdditionalFilesPanel shoot={shoot()} onUploadComplete={mocks.complete} />);
     fireEvent.click(screen.getByRole('button', { name: /Additional files/ }));
@@ -35,7 +81,7 @@ describe('additional files on every assigned shoot', () => {
     fireEvent.change(input, { target: { files: [new File(['image'], 'reference.jpg', { type: 'image/jpeg' })] } });
     expect(input.value).toBe('');
     fireEvent.click(screen.getByRole('button', { name: 'Upload additional files' }));
-    await screen.findByText('Saved');
+    await screen.findByText('Saved in Additional files');
     const request = mocks.upload.mock.calls[0][0];
     expect(request.url).toMatch(/\/api\/shoots\/2498\/upload$/);
     expect(request.body.get('upload_type')).toBe('additional');
@@ -59,7 +105,7 @@ describe('additional files on every assigned shoot', () => {
     expect(mocks.complete).not.toHaveBeenCalled();
     expect(screen.getByLabelText('Additional file service')).toBeDisabled();
     fireEvent.click(retry);
-    await screen.findByText('Saved');
+    await screen.findByText('Saved in Additional files');
     const first = mocks.upload.mock.calls[0][0].body;
     const second = mocks.upload.mock.calls[1][0].body;
     expect(first.get('idempotency_key')).toBe(second.get('idempotency_key'));

@@ -766,7 +766,12 @@ export function RawUploadSection({
             />
           ))}
 
-      <AdditionalFilesPanel shoot={shoot} onUploadComplete={onUploadComplete} incomingFiles={additionalFiles} onIncomingConsumed={() => setAdditionalFiles(undefined)} />
+      <AdditionalFilesPanel shoot={shoot} onUploadComplete={() => {
+        // The main completion callback navigates to the photo grid. Additional
+        // files remain in this panel, including saved videos and retry results.
+        void queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id] });
+        triggerUploadRefreshes(shoot.id);
+      }} incomingFiles={additionalFiles} onIncomingConsumed={() => setAdditionalFiles(undefined)} />
       {uploadBlockReason ? (
         <div role="alert" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-sm">{uploadBlockReason}</div>
       ) : <UploadDropzone
