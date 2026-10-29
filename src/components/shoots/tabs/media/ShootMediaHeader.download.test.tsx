@@ -25,6 +25,19 @@ function StatefulHeader(options: ComponentProps<typeof ShootMediaHeader>) {
 }
 
 describe('selected media download buttons', () => {
+  it('offers smaller RAW downloads only to editors with download access', () => {
+    const options = { ...props(), shootId: 63, rawFiles: [
+      { id: '1', filename: 'one.raf', fileSize: 400 * 1024 ** 2 },
+      { id: '2', filename: 'two.raf', fileSize: 400 * 1024 ** 2 },
+    ] };
+    const { rerender } = render(<ShootMediaHeader {...options} />);
+    expect(screen.getByRole('button', { name: 'Download in parts' })).toBeEnabled();
+    for (const restricted of [{ canDownload: false }, { isEditor: false }, { isClient: true }, { displayTab: 'edited' as const }]) {
+      rerender(<ShootMediaHeader {...options} {...restricted} />);
+      expect(screen.queryByRole('button', { name: 'Download in parts' })).not.toBeInTheDocument();
+    }
+  });
+
   it.each([true, false])('uses one download control and blocks duplicate downloads while busy (editor=%s)', (isEditor) => {
     const options = { ...props(), isEditor, displayTab: isEditor ? 'uploaded' as const : 'edited' as const };
     const { rerender } = render(<ShootMediaHeader {...options} />);

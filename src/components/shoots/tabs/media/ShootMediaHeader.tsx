@@ -5,6 +5,7 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MediaSortControl } from './MediaSortControl';
+import { RawDownloadBatches } from './RawDownloadBatches';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { MediaFile } from '@/hooks/useShootFiles';
 import type { ReclassifyMediaType } from './useShootMediaActions';
@@ -140,6 +141,9 @@ export function ShootMediaHeader({
           )}
           
           <div className="shoot-media-toolbar flex shrink-0 items-center gap-1.5">
+            {isEditor && !isClient && canDownload && displayTab === 'uploaded' && shootId != null && (
+              <RawDownloadBatches key={shootId} shootId={shootId} files={rawFiles} disabled={downloading} />
+            )}
             {(rawFiles.length > 0 || editedFiles.length > 0) && (
               <div className="flex shrink-0 items-center overflow-hidden rounded-md border" role="group" aria-label="Media view">
                 <Button

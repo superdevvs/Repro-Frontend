@@ -151,7 +151,8 @@ export const buildShootDownloadFilename = (
  * to the browser so Content-Disposition attachment streams to disk — never
  * fetch→Blob→createObjectURL (that OOMs Full-size ~256MB ZIPs).
  */
-const downloadReadyAsset = async (url: string, _fallbackFilename?: string, _signal?: AbortSignal) => {
+const downloadReadyAsset = async (url: string, _fallbackFilename?: string, signal?: AbortSignal) => {
+  if (signal?.aborted) throw new DOMException('Download cancelled.', 'AbortError');
   const safeUrl = validateDownloadUrl(url);
   startSameWindowDownload(safeUrl);
   return { mode: 'redirect' as const, url: safeUrl };

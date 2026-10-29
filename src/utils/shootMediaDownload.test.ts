@@ -17,6 +17,18 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); document.body.innerHTML = ''; });
 
 describe('shoot archive requests', () => {
+  it('does not start a ready download after preparation was cancelled', async () => {
+    const controller = new AbortController();
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => {
+      controller.abort();
+      return Response.json({ type: 'redirect', url: 'https://assets.example.test/archive.zip' });
+    }));
+    await expect(resolveShootMediaArchiveRequest({ ...archiveOptions, signal: controller.signal }))
+      .rejects.toMatchObject({ name: 'AbortError' });
+    expect(document.querySelector('iframe')).toBeNull();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
   it('retains photo-only, unit and booked-service filters on the archive request', async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ type: 'redirect', url: 'https://assets.example.test/archive.zip' }));
     vi.stubGlobal('fetch', fetchMock);
