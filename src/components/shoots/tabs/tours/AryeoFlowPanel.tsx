@@ -17,6 +17,7 @@ type ManualReceipt = {
 };
 type Order = {
   id: number; connection_id: number; request_id: string | null; listing_id: string | null;
+  delivery_setup?: { can_enable: boolean; client_name: string | null; client_access_required: boolean };
   discovery: { address: string; requester_email: string | null; requester_name?: string | null; required: Record<keyof Counts, number | null> | null; source_kind?: string };
   inventory: { complete?: boolean; assets?: Asset[]; manual_delivery_receipt?: ManualReceipt; provider_status?: ProviderStatus } | null; inventory_checked_at: string | null;
   readiness: { eligible: boolean; blockers: string[]; dashboard?: { paid: boolean; delivered: boolean; summary_required: boolean }; available: Counts; media_version: string; assets: { id: number; filename: string; type: string }[]; tours?: { id: string }[] };
@@ -143,9 +144,13 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
       const inventoryKnown = Boolean(order.inventory?.complete && order.inventory_checked_at && Number.isFinite(Date.parse(order.inventory_checked_at)));
       const inventoryFresh = inventoryKnown && Date.now() - Date.parse(order.inventory_checked_at!) < 120000;
       const canProcess = Boolean(c?.online && c.processing_enabled && c.shoot_enabled && c.executor_ready && order.request_id && order.discovery.requester_email && !error);
+      const needsSetup = Boolean(c && !c.shoot_enabled && order.delivery_setup?.can_enable && c.processing_enabled
+        && !supervised && !providerOnlyDelivered && !sameDelivered && !active);
+      const readyLabel = !c?.shoot_enabled ? 'Delivery setup required' : !c.processing_enabled ? 'Delivery paused'
+        : !c.online ? 'Worker offline' : !c.executor_ready ? 'Worker setup required' : 'Ready to process';
       return <div key={order.id} className="space-y-3 border-t pt-3">
         <p className="text-sm font-medium">Aryeo request received</p>
-        <div className="flex flex-wrap justify-between gap-2 text-sm"><span className="min-w-0 break-all font-medium">{supervised ? `Listing ${order.listing_id}` : `Order ${order.request_id ?? 'awaiting Aryeo verification'}`}</span><span>{providerOnlyDelivered ? 'Delivered in Aryeo' : supervised ? (manualDelivered ? 'Delivered manually' : 'Manual delivery needs verification') : job?.receipt ? (job.status === 'completed' ? (sameDelivered ? 'Delivered' : 'Update available') : 'Delivered · follow-up pending') : job ? readable(job.status) : order.readiness.eligible ? 'Ready to process' : 'Waiting'}</span></div>
+        <div className="flex flex-wrap justify-between gap-2 text-sm"><span className="min-w-0 break-all font-medium">{supervised ? `Listing ${order.listing_id}` : `Order ${order.request_id ?? 'awaiting Aryeo verification'}`}</span><span>{providerOnlyDelivered ? 'Delivered in Aryeo' : supervised ? (manualDelivered ? 'Delivered manually' : 'Manual delivery needs verification') : job?.receipt ? (job.status === 'completed' ? (sameDelivered ? 'Delivered' : 'Update available') : 'Delivered · follow-up pending') : job ? readable(job.status) : order.readiness.eligible ? readyLabel : 'Waiting'}</span></div>
         <p className="break-words text-xs text-muted-foreground">{order.discovery.address} · {order.discovery.requester_email || order.discovery.requester_name || 'Requester email pending'}{order.listing_id ? ` · Listing ${order.listing_id}` : ''}</p>
         {!order.discovery.requester_email && <p className="text-xs text-amber-700 dark:text-amber-400">Requester email needs verification before delivery.</p>}
         {supervised && <p className="text-xs text-muted-foreground">Original Aryeo request ID unavailable. {manualDelivered ? 'Delivery verified from the listing and supervised record.' : 'Supervised delivery evidence must be verified.'}</p>}
@@ -163,6 +168,14 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
           {job && Object.entries(job.steps).map(([step, state]) => <p key={step}>{readable(step)}: {readable(state)}</p>)}
           {manualDelivered && <p>Supervised operation: {order.inventory?.manual_delivery_receipt?.operation_id}</p>}
         </div></details>
+        {needsSetup && <div className="space-y-2 rounded-md border p-3">
+          <p className="text-xs text-muted-foreground">{order.delivery_setup?.client_access_required
+            ? `Connect ${order.delivery_setup.client_name || 'this client'} to Aryeo to access their released media, and enable delivery for this shoot.`
+            : 'Enable Aryeo delivery for this shoot. Media approval and payment checks still apply.'}</p>
+          <Button size="sm" variant="outline" disabled={busy || Boolean(error)} onClick={() => void action(`requests/${order.id}/enable-delivery`, { confirm_access: true, unit_id: unitId ?? null })}>
+            {busy ? 'Working…' : order.delivery_setup?.client_access_required ? 'Connect client & enable delivery' : 'Enable delivery'}
+          </Button>
+        </div>}
         <div className="flex flex-col items-start gap-3 sm:flex-row">
         <Button size="sm" className="shrink-0" disabled={busy || supervised || providerOnlyDelivered || !canProcess || Boolean(active) || Boolean(sameDelivered) || (!retry && !order.readiness.eligible)} onClick={() => void action(retry ? `jobs/${job.id}/retry` : `requests/${order.id}/process`)}>
           {providerOnlyDelivered ? 'Delivered in Aryeo' : supervised ? (manualDelivered ? 'Delivered manually' : 'Manual delivery') : busy ? 'Working…' : active ? 'Processing…' : retry ? 'Resume unfinished steps' : sameDelivered ? 'Delivered' : order.jobs.some(j => j.receipt) ? 'Deliver update' : 'Process & deliver'}

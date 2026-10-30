@@ -33,6 +33,52 @@ function providerFixture() {
 }
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 describe('Aryeo Flow panel', () => {
+  it('offers explicit client connection and shoot enablement without queueing delivery', async () => {
+    const original = fixture();
+    const data = { ...original,
+      connections: [{ ...original.connections[0], discovery_only: true, shoot_enabled: false }],
+      orders: [{ ...original.orders[0], delivery_setup: { can_enable: true, client_name: 'David Wagner', client_access_required: true } }],
+    };
+    let enabled = false;
+    const fetch = vi.fn().mockImplementation(async (_url, options) => {
+      if (options.method === 'POST') enabled = true;
+      return { ok: true, json: async () => enabled
+        ? { ...data, connections: [{ ...data.connections[0], shoot_enabled: true, discovery_only: false }] }
+        : data };
+    });
+    vi.stubGlobal('fetch', fetch);
+    render(<AryeoFlowPanel shootId={4} unitId={7} />);
+    const connect = await screen.findByRole('button', { name: 'Connect client & enable delivery' });
+    expect(screen.getByText('Delivery setup required')).toBeVisible();
+    expect(screen.getByText(/Connect David Wagner to Aryeo to access their released media/)).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Process & deliver' })).toBeDisabled();
+    expect(fetch.mock.calls.every(call => call[1].method === 'GET')).toBe(true);
+    fireEvent.click(connect);
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Process & deliver' })).toBeEnabled());
+    const mutation = fetch.mock.calls.find(call => call[1].method === 'POST');
+    expect(mutation?.[0]).toContain('/shoots/4/aryeo/requests/3/enable-delivery');
+    expect(JSON.parse(mutation?.[1].body)).toEqual({ confirm_access: true, unit_id: 7 });
+    expect(fetch.mock.calls.some(call => call[0].endsWith('/process'))).toBe(false);
+  });
+  it('does not expose enablement without verified identity and admin permission', async () => {
+    const original = fixture();
+    const data = { ...original, connections: [{ ...original.connections[0], shoot_enabled: false }],
+      orders: [{ ...original.orders[0], delivery_setup: { can_enable: false, client_name: 'David Wagner', client_access_required: false } }] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => data }));
+    render(<AryeoFlowPanel shootId={4} />);
+    expect(await screen.findByText('Delivery setup required')).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Enable delivery' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Process & deliver' })).toBeDisabled();
+  });
+  it('does not offer enablement while processing is paused', async () => {
+    const original = fixture();
+    const data = { ...original, connections: [{ ...original.connections[0], shoot_enabled: false, processing_enabled: false }],
+      orders: [{ ...original.orders[0], delivery_setup: { can_enable: true, client_name: 'David Wagner', client_access_required: false } }] };
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => data }));
+    render(<AryeoFlowPanel shootId={4} />);
+    expect(await screen.findByRole('button', { name: 'Process & deliver' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Enable delivery' })).not.toBeInTheDocument();
+  });
   it('shows a verified provider delivery without inventing a connector receipt or starting another job', async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => providerFixture() });
     vi.stubGlobal('fetch', fetch);
