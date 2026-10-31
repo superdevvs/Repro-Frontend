@@ -59,4 +59,23 @@ describe('owned client payment approval', () => {
     await user.click(await screen.findByRole('button', { name: 'Decline request' })); expect(listingStudioPaymentRequests.cancel).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Confirm decline' })); await waitFor(() => expect(listingStudioPaymentRequests.cancel).toHaveBeenCalledTimes(1));
   });
+  it('allows a server-authorized decline after an unsubmitted failure and preserves recovery until it succeeds', async () => {
+    vi.mocked(listingStudioPaymentRequests.confirm).mockRejectedValueOnce(new Error('Connection interrupted'));
+    vi.mocked(listingStudioPaymentRequests.cancel).mockRejectedValueOnce(new Error('Please retry')).mockResolvedValueOnce({ ...clientRequest, status: 'cancelled', actions: { ...clientRequest.actions, canConfirm: false, canCancel: false } });
+    view(); const user = userEvent.setup();
+    await user.click(await screen.findByRole('checkbox')); await user.click(screen.getByRole('button', { name: 'Approve and continue to payment' }));
+    await screen.findByRole('button', { name: 'Check existing confirmation' }); const saved = readStudioRequestConfirmation('42', billingRequest.id);
+    expect(saved).not.toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Decline request' })); await user.click(screen.getByRole('button', { name: 'Confirm decline' }));
+    await waitFor(() => expect(listingStudioPaymentRequests.cancel).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Confirm decline' })).toBeEnabled());
+    expect(readStudioRequestConfirmation('42', billingRequest.id)).toEqual(saved);
+    await user.click(screen.getByRole('button', { name: 'Confirm decline' }));
+    await waitFor(() => expect(readStudioRequestConfirmation('42', billingRequest.id)).toBeNull());
+  });
+  it('does not offer decline when the server retains an uncertain submission', async () => {
+    vi.mocked(listingStudioPaymentRequests.review).mockResolvedValue({ request: { ...clientRequest, status: 'processing', actions: { ...clientRequest.actions, canCancel: false } }, review: null });
+    view(); await screen.findByRole('link', { name: 'Open credit & plan' });
+    expect(screen.queryByRole('button', { name: 'Decline request' })).not.toBeInTheDocument();
+  });
 });
