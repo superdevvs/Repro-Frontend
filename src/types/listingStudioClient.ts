@@ -1,4 +1,5 @@
 import type { ListingStudioTrialService } from '@/services/listingStudioTrials';
+import type { StudioBillingRequest, StudioSubscriptionSummary } from './listingStudioStaff';
 
 export type StudioService = ListingStudioTrialService;
 export type StudioKind = 'ai_edit' | 'human_revision';
@@ -30,6 +31,8 @@ export interface StudioAccount {
   revisionDiscountPercent: number;
   capabilities: { canCreateOrder: boolean; canUseCredits: boolean; canPayByCard: boolean; canSubscribe: boolean; canManageBilling: boolean };
   notice: string | null;
+  subscriptionManagement?: StudioSubscriptionSummary;
+  pendingBilling?: { count: number; requests: StudioBillingRequest[] };
   trialUsage: { allowancePerService: number; services: { service: StudioService; completed: number; reserved: number; remaining: number }[]; startUrl: string };
 }
 export interface StudioPricing {

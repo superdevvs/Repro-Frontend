@@ -8,6 +8,7 @@ import { normalizeApiError } from '@/services/apiError';
 import { forgetStudioAction, studioActionKey } from '@/lib/listingStudioPurchase';
 import type { StudioAccount, StudioCatalog, StudioPlan } from '@/types/listingStudioClient';
 import { studioDate, studioMoney } from './studioPresentation';
+import { StudioPendingBilling } from './StudioPendingBilling';
 
 export function StudioCreditSummary({ account }: { account: StudioAccount }) {
   return <section aria-label="Editing credit" className="grid grid-cols-2 gap-3 sm:grid-cols-3">
@@ -49,6 +50,7 @@ export function StudioBilling({ accountId, account, catalog, initialPlanCode, on
       <div className="space-y-2"><h2 className="text-lg font-semibold">{currentPlan ? `${currentPlan.name} plan` : 'Your editing plan'}</h2><p className="text-sm leading-6 text-muted-foreground">{account.subscription ? `${account.subscription.status.replaceAll('_', ' ')} · ${account.subscription.cancelAtPeriodEnd ? 'Ends' : 'Current period ends'} ${studioDate(account.subscription.periodEnd)}` : 'Pay per photo or choose monthly editing credit.'}</p><p className="text-xs text-muted-foreground">Credit expires at the end of each billing period. No rollover.</p></div>
       {account.capabilities.canManageBilling && <Button variant="outline" disabled={busy} onClick={() => void navigateBilling()}><ArrowUpRight className="mr-2 h-4 w-4" />{busy ? 'Opening…' : 'Manage subscription & invoices'}</Button>}
     </section>
+    <StudioPendingBilling account={account} />
     <section aria-label="Monthly plans" className="grid gap-4 md:grid-cols-3">
       {catalog.plans.map(plan => <article key={plan.code} className={`flex flex-col gap-4 rounded-2xl border bg-card p-5 ${currentPlan?.code === plan.code ? 'border-primary' : ''}`}><div><h3 className="font-semibold">{plan.name}{currentPlan?.code === plan.code ? ' · Current plan' : ''}</h3><p className="mt-3 text-3xl font-semibold">{studioMoney(plan.monthlyPriceCents)}<span className="text-sm font-normal text-muted-foreground"> / month</span></p></div><p className="text-sm">{studioMoney(plan.monthlyCreditCents)} monthly editing credit</p><p className="flex-1 text-sm text-muted-foreground">{plan.revisionDiscountPercent ? `${plan.revisionDiscountPercent}% off team revisions` : 'Optional team revisions'}</p><Button variant={plan.code === 'pro' ? 'default' : 'outline'} disabled={!account.capabilities.canSubscribe || !catalog.checkoutAvailable || busy} onClick={() => { setError(''); setSelectedPlan(plan); }}>Choose {plan.name}</Button></article>)}
     </section>

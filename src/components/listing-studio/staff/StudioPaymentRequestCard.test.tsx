@@ -12,6 +12,11 @@ function view(request = billingRequest) { return render(<StudioPaymentRequestCar
 beforeEach(() => { vi.clearAllMocks(); sessionStorage.clear(); });
 afterEach(cleanup);
 describe('staff payment-request sharing', () => {
+  it('does not invent a zero price before an upgrade has been reviewed', () => {
+    view({ ...billingRequest, kind: 'subscription_upgrade', amountCents: null });
+    expect(screen.getByText('Calculated at client review')).toBeInTheDocument();
+    expect(screen.queryByText('$0')).not.toBeInTheDocument();
+  });
   it('does not email automatically and copies only an owned client review link', async () => {
     const user = userEvent.setup(); const copy = vi.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(); view();
     expect(listingStudioStaff.emailRequest).not.toHaveBeenCalled();

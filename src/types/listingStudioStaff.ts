@@ -12,7 +12,7 @@ export type StudioBillingRequestInput = { kind: 'order_payment'; orderId: string
 export interface StudioBillingRequest {
   id: string; kind: StudioBillingRequestInput['kind']; status: 'pending' | 'processing' | 'completed' | 'expired' | 'cancelled' | 'needs_attention';
   client: StudioManagedClient; actor: { id: string; name: string };
-  orderId: string | null; planCode: string | null; amountCents: number; currency: 'usd';
+  orderId: string | null; planCode: string | null; amountCents: number | null; currency: 'usd';
   expiresAt: string; createdAt: string; completedAt: string | null; appUrl: string;
   actions: { canEmail: boolean; canCancel: boolean; canConfirm: boolean; canShare: boolean };
   email: { status: 'queued' | 'submitting' | 'sent' | 'needs_attention' | null; lastSentAt: string | null };
