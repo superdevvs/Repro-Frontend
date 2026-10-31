@@ -8,7 +8,7 @@ const taskPath = (id: string) => `${root}/${encodeURIComponent(id)}`;
 const keyed = (key: string) => ({ headers: { 'Idempotency-Key': key } });
 type TaskResult = { task: StudioRevisionTask; created?: boolean };
 export const listingStudioTeam = {
-  async list(page = 1, status = '') { return (await apiClient.get<Envelope<StudioRevisionPage>>(root, { params: { page, perPage: 20, ...(status ? { status } : {}) } })).data.data; },
+  async list(page = 1, status = '', perPage = 20) { return (await apiClient.get<Envelope<StudioRevisionPage>>(root, { params: { page, perPage, ...(status ? { status } : {}) } })).data.data; },
   async detail(id: string) { return (await apiClient.get<Envelope<TaskResult>>(taskPath(id))).data.data.task; },
   async assignees(id: string) { return (await apiClient.get<Envelope<StudioRevisionAssignees>>(`${taskPath(id)}/assignees`)).data.data; },
   async assign(id: string, assigneeId: string | null, expectedVersion: number, key: string) { return (await apiClient.patch<Envelope<TaskResult>>(`${taskPath(id)}/assignment`, { assigneeId, expectedVersion }, keyed(key))).data.data.task; },

@@ -8,6 +8,7 @@ import { Camera, CheckCircle2, MessageCircle, Users } from "lucide-react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
+import { useStudioRevisionRequests } from '@/context/studioRevisionRequestsState';
 import { ShootsTabsCard } from "@/components/dashboard/v2/ShootsTabsCard";
 import { CompletedShootsCardSkeleton } from "@/components/dashboard/v2/CompletedShootsCardSkeleton";
 import { UpcomingShootsCardSkeleton } from "@/components/dashboard/v2/UpcomingShootsCardSkeleton";
@@ -124,13 +125,14 @@ export const SalesDashboardView = ({
 }: SalesDashboardViewProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const studioRevisions = useStudioRevisionRequests();
   const isCompactDashboardViewport = useMediaQuery("(max-width: 1024px)");
   const [mobileTab, setMobileTab] = useState("shoots");
   const salesOnboarding = useDashboardOnboarding(user, "salesRep");
   const clientRequestCount = clientRequests.filter((request) =>
     ['open', 'in-progress', 'in_progress'].includes(request.status),
   ).length;
-  const pendingRequestCount = pendingReviews.length + clientRequestCount + cancellationShoots.length
+  const pendingRequestCount = pendingReviews.length + clientRequestCount + cancellationShoots.length + studioRevisions.activeCount
     + (holdRequests?.shoots.length ?? 0) + (rescheduleRequests?.pendingCount ?? 0) + (overdueClients?.total ?? 0);
   const salesRepRequestsCard = (
     <div id="requests-queue" data-onboarding-target="salesrep-requests">

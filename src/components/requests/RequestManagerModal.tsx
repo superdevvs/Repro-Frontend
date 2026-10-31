@@ -4,6 +4,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { useRequestManager, type RequestCategoryId } from '@/context/RequestManagerContext';
 import { cn } from '@/lib/utils';
 import { ClientRequestManagerContent } from './ClientRequestManagerContent';
+import { EditingRequestsContent } from './EditingRequestsContent';
+import { useStudioRevisionRequests } from '@/context/studioRevisionRequestsState';
 
 const icons = { client: MessageSquare, editing: Pencil, cancellation: XCircle, hold: PauseCircle, reschedule: CalendarClock, overdue: CircleAlert };
 const descriptions: Record<RequestCategoryId, string> = {
@@ -17,7 +19,11 @@ const descriptions: Record<RequestCategoryId, string> = {
 
 export function RequestManagerModal() {
   const { isOpen, closeModal, category = 'client', categories = [], selectCategory, requests } = useRequestManager();
-  const tabs = categories.length ? categories : [{ id: 'client' as const, label: 'Client', count: requests.filter((request) => !['resolved', 'dismissed'].includes(request.status || '')).length, renderContent: () => null }];
+  const studio = useStudioRevisionRequests();
+  const tabs = [...(categories.length ? categories : [{ id: 'client' as const, label: 'Client', count: requests.filter((request) => !['resolved', 'dismissed'].includes(request.status || '')).length, renderContent: () => null }])];
+  // Compact dashboards may not have mounted their Requests card yet. Clients
+  // with an authorized secondary team role also use this existing manager.
+  if (studio.enabled && !tabs.some(tab => tab.id === 'editing')) tabs.push({ id: 'editing', label: 'Editing', count: studio.activeCount, renderContent: () => <EditingRequestsContent managerMode showShootRequests={false} /> });
   const active = tabs.find((tab) => tab.id === category) || tabs[0];
   const total = tabs.reduce((sum, tab) => sum + tab.count, 0);
   const Icon = icons[active.id];

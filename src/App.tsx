@@ -25,6 +25,7 @@ import { StaffEmailRoute } from '@/pages/messaging/StaffEmailRoute';
 import { isSupportInbox, supportInboxRedirect } from '@/pages/messaging/messagingSupport';
 import { UserPreferencesProvider } from './contexts/UserPreferencesContext';
 import { RequestManagerProvider, useRequestManager } from './context/RequestManagerContext';
+import { StudioRevisionRequestsProvider } from './context/StudioRevisionRequestsContext';
 import { PhotographerAssignmentProvider, usePhotographerAssignment } from './context/PhotographerAssignmentContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { DashboardRouteSkeleton } from '@/components/layout/DashboardRouteSkeleton';
@@ -529,13 +530,13 @@ const AppRoutes = () => {
       <Route path="/dashboard" element={
         <PermissionRoute resource="dashboard" fallbackTo="/">
           <ShootRoutesWrapper>
-            <RequestManagerProvider>
+            <RequestManagerProvider><StudioRevisionRequestsProvider>
               <PhotographerAssignmentProvider>
                 <DashboardWrapper>
                   <Dashboard />
                 </DashboardWrapper>
               </PhotographerAssignmentProvider>
-            </RequestManagerProvider>
+            </StudioRevisionRequestsProvider></RequestManagerProvider>
           </ShootRoutesWrapper>
         </PermissionRoute>
       } />

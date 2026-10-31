@@ -27,6 +27,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserPreferences } from "@/contexts/UserPreferencesContext";
 import { useEditingRequests } from "@/hooks/useEditingRequests";
 import { useRequestManager } from "@/context/RequestManagerContext";
+import { useStudioRevisionRequests } from "@/context/studioRevisionRequestsState";
 import { UpcomingShootsCardSkeleton } from "@/components/dashboard/v2/UpcomingShootsCardSkeleton";
 import { withErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { DashboardNoticeStack } from "@/components/dashboard/DashboardNoticeStack";
@@ -190,6 +191,7 @@ const Dashboard = () => {
   const location = useLocation();
   const { toast } = useToast();
   const { openModal, removeRequest, registerShootOpenHandler } = useRequestManager();
+  const studioRevisions = useStudioRevisionRequests();
   const { data, loading, error, refresh } = useDashboardOverview();
   const [selectedPhotographer, setSelectedPhotographer] =
     useState<DashboardPhotographerSummary | null>(null);
@@ -565,13 +567,13 @@ const Dashboard = () => {
     editingManagerReadyToDeliverShoots.length;
   const editingManagerReadyCount = editingManagerReadyToDeliverShoots.length;
   const editingManagerRequestCount =
-    editingRequests.filter((request) => request.status !== 'completed').length +
+    editingRequests.filter((request) => request.status !== 'completed').length + studioRevisions.activeCount +
     holdRequests.shoots.length +
     rescheduleRequests.pendingCount +
     (Array.isArray(data?.pendingReviews) ? data.pendingReviews.length : 0);
   const adminRequestIndicatorCount =
     clientRequests.filter((request) => String(request.status ?? '').toLowerCase() !== 'dismissed').length +
-    editingRequests.filter((request) => request.status !== 'completed').length +
+    editingRequests.filter((request) => request.status !== 'completed').length + studioRevisions.activeCount +
     cancellationShoots.length + holdRequests.shoots.length + rescheduleRequests.pendingCount + overdueClients.total;
 
   const [approvalModalShoot, setApprovalModalShoot] = useState<DashboardShootSummary | null>(null);

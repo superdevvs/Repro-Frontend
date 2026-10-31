@@ -31,6 +31,7 @@ import {
 } from "@/utils/dashboardDerivedUtils";
 import { API_BASE_URL } from "@/config/env";
 import { usePermission } from "@/hooks/usePermission";
+import { useStudioRevisionRequests } from '@/context/studioRevisionRequestsState';
 import { useClientBilling } from "@/hooks/useClientBilling";
 import { emptyClientBillingSummary, toClientBillingInvoiceViewData } from "@/services/clientBillingService";
 import type { ClientBillingItem } from "@/types/clientBilling";
@@ -129,6 +130,7 @@ export const ClientDashboardView = ({
 }: ClientDashboardViewProps) => {
   const navigate = useNavigate();
   const { can } = usePermission();
+  const studioRevisions = useStudioRevisionRequests();
   const canViewClientBillingWidget = can("dashboard-client-billing", "view");
   const { data: clientBillingData, loading: clientBillingLoading } = useClientBilling();
   const [selectedClientInvoice, setSelectedClientInvoice] = useState<ClientBillingItem | null>(null);
@@ -318,7 +320,7 @@ export const ClientDashboardView = ({
           setPaymentModalOpen(true);
         }}
         onBookNewShoot={() => navigate("/book-shoot")}
-        activeRequestCount={activeClientRequestCount}
+        activeRequestCount={activeClientRequestCount + studioRevisions.activeCount}
         requestsLoading={clientRequestsLoading}
         onOpenRequests={onOpenClientRequests}
         activeTab={clientShootsTab}

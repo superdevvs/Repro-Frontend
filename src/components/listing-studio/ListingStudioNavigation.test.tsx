@@ -31,6 +31,13 @@ afterEach(() => {
 });
 
 describe('Listing Studio navigation', () => {
+  it.each(['admin', 'superadmin', 'editing_manager', 'editor'])('keeps revisions out of desktop and mobile menus for %s', role => {
+    auth.role = role;
+    render(<SidebarLinks role={role} isCollapsed={false} />, { wrapper });
+    expect(screen.queryByRole('link', { name: 'Studio revisions' })).not.toBeInTheDocument();
+    const { result } = renderHook(useMobileMenu, { wrapper });
+    expect(result.current.filteredItems.some(item => item.to === '/listing-studio/revisions')).toBe(false);
+  });
   it.each(['client', 'salesRep', 'admin', 'superadmin'])('places the desktop entry immediately after Exclusive Listings for %s', role => {
     auth.role = role;
     render(<SidebarLinks role={role} isCollapsed={false} />, { wrapper });
