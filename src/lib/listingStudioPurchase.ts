@@ -2,7 +2,7 @@ import type { StudioFundingMethod } from '@/types/listingStudioClient';
 
 export interface StudioPurchaseAttempt { accountId: string; quoteId: string; fundingMethod: StudioFundingMethod; key: string }
 const prefix = 'repro:listing-studio:purchase:';
-const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export function readStudioPurchase(accountId: string): StudioPurchaseAttempt | null {
   try {

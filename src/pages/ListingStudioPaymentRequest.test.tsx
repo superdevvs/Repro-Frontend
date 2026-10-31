@@ -17,6 +17,12 @@ function view(id = billingRequest.id) { const client = new QueryClient({ default
 beforeEach(() => { vi.clearAllMocks(); sessionStorage.clear(); auth.user = { id: '42', role: 'client', isActive: true }; auth.isImpersonating = false; auth.isLoading = false; auth.isAuthenticated = true; vi.mocked(listingStudioPaymentRequests.review).mockResolvedValue({ request: clientRequest, review: billingReview }); vi.mocked(listingStudioPaymentRequests.confirm).mockResolvedValue({ request: { ...clientRequest, status: 'processing' }, status: 'processing', nextAction: { type: 'await_payment' } }); });
 afterEach(cleanup);
 describe('owned client payment approval', () => {
+  it('opens dashboard-issued UUIDv7 review routes', async () => {
+    const id = '019a3adb-2c54-7f80-a3df-8c2ef86bd090';
+    vi.mocked(listingStudioPaymentRequests.review).mockResolvedValue({ request: { ...clientRequest, id }, review: billingReview });
+    view(id); await screen.findByRole('checkbox');
+    expect(listingStudioPaymentRequests.review).toHaveBeenCalledWith(id, expect.any(AbortSignal));
+  });
   it('loads the server price without confirming and requires explicit approval', async () => {
     view(); const user = userEvent.setup(); const approve = await screen.findByRole('button', { name: 'Approve and continue to payment' });
     expect(approve).toBeDisabled(); expect(listingStudioPaymentRequests.confirm).not.toHaveBeenCalled();

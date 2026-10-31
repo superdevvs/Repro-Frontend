@@ -4,6 +4,14 @@ import { beginStudioPurchase, forgetStudioPurchase, readStudioPurchase, studioAc
 const quoteId = '00000000-0000-4000-8000-000000000001';
 beforeEach(() => { sessionStorage.clear(); vi.restoreAllMocks(); });
 describe('Studio purchase recovery', () => {
+  it('recovers the same purchase key for dashboard-issued UUIDv7 quotes after reload', () => {
+    const quote = '019a3adb-2c54-7f80-a3df-8c2ef86bd090';
+    const first = beginStudioPurchase('client-a', quote, 'credits');
+    expect(readStudioPurchase('client-a')).toEqual(first);
+    expect(beginStudioPurchase('client-a', quoteId, 'card')).toEqual(first);
+    forgetStudioPurchase('client-a', first.key);
+    expect(readStudioPurchase('client-a')).toBeNull();
+  });
   it('keeps the exact confirmed request across a reload and a changed selection', () => {
     const first = beginStudioPurchase('client-a', quoteId, 'credits');
     expect(readStudioPurchase('client-a')).toEqual(first);
