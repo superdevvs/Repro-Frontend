@@ -1,6 +1,9 @@
 import { lazy } from 'react';
 import { isPublicTourEntry } from './publicTourEntry';
 import { initializeDashboardInstall } from '@/hooks/useDashboardInstall';
+import { captureListingStudioClaimLocation } from '@/lib/listingStudioClaim';
+
+captureListingStudioClaimLocation();
 
 // Select before loading any dashboard providers. Capture install prompts early
 // for dashboard visitors, while public links load their independent shell.

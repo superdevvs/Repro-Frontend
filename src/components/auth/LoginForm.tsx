@@ -41,6 +41,7 @@ import type { RegisterSuccessPayload } from './registerFormModel';
 import { API_BASE_URL } from '@/config/env';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
 import { getLoginReturnPath } from './loginReturn';
+import { LISTING_STUDIO_CLAIM_PATH } from '@/lib/listingStudioClaim';
 
 
 const loginSchema = z.object({
@@ -138,7 +139,9 @@ export function LoginForm({ onTabChange }: LoginFormProps = {}) {
     toast({
       title: 'Account created',
       description:
-        user.email_health?.status && user.email_health.status !== 'verified'
+        loginReturnPath === LISTING_STUDIO_CLAIM_PATH
+          ? 'Your account is ready. You can now download your edited photos.'
+          : user.email_health?.status && user.email_health.status !== 'verified'
           ? 'You have successfully registered. Check your email to verify your address.'
           : 'You have successfully registered and logged in!',
     });

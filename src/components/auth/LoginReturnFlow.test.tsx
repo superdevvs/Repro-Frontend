@@ -4,11 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import Index from '@/pages/Index';
 import { LoginRedirect } from './LoginRedirect';
+import { ListingStudioClaimEntry } from '@/components/listing-studio/ListingStudioClaimEntry';
+import { forgetListingStudioClaim, readListingStudioClaim } from '@/lib/listingStudioClaim';
+import type { RegisterFormProps } from './registerFormModel';
 
 const mocks = vi.hoisted(() => ({
   isAuthenticated: false,
   login: vi.fn(),
   post: vi.fn(),
+  toast: vi.fn(),
 }));
 vi.mock('@/components/auth', () => ({
   useAuth: () => ({ isAuthenticated: mocks.isAuthenticated, login: mocks.login }),
@@ -16,8 +20,11 @@ vi.mock('@/components/auth', () => ({
 vi.mock('axios', () => ({ default: { post: mocks.post, isAxiosError: () => false } }));
 vi.mock('@/hooks/use-mobile', () => ({ useIsMobile: () => false }));
 vi.mock('@/components/layout/Logo', () => ({ Logo: () => <span>REPro</span> }));
-vi.mock('./RegisterForm', () => ({ default: () => null }));
-vi.mock('@/components/ui/use-toast', () => ({ toast: vi.fn() }));
+vi.mock('./RegisterForm', () => ({ default: ({ onSuccess, isActive }: RegisterFormProps) => isActive ? <button onClick={() => onSuccess({
+  user: { id: '42', name: 'New Client', email: 'new@example.test', role: 'client', email_health: { status: 'unverified' } },
+  token: 'new-session',
+})}>Complete signup</button> : null }));
+vi.mock('@/components/ui/use-toast', () => ({ toast: mocks.toast }));
 
 function LocationProbe() {
   const location = useLocation();
@@ -28,6 +35,10 @@ function DashboardDestination() {
   return mocks.isAuthenticated ? <div>Photographer dashboard</div> : <LoginRedirect />;
 }
 
+function StudioDestination() {
+  return mocks.isAuthenticated ? <div>Saved Studio photos</div> : <LoginRedirect />;
+}
+
 function mountAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
@@ -36,6 +47,7 @@ function mountAt(path: string) {
         <Route path="/" element={<Index />} />
         <Route path="/dashboard" element={<DashboardDestination />} />
         <Route path="/listing-studio/free-edits" element={mocks.isAuthenticated ? <div>Free edit intake</div> : <LoginRedirect />} />
+        <Route path="/listing-studio/claim" element={<ListingStudioClaimEntry><StudioDestination /></ListingStudioClaimEntry>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -53,6 +65,8 @@ const loginResponse = { data: {
 } };
 
 beforeEach(() => {
+  const claim = readListingStudioClaim();
+  if (claim) forgetListingStudioClaim(claim);
   vi.clearAllMocks();
   mocks.isAuthenticated = false;
   mocks.post.mockReset();
@@ -61,6 +75,24 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe('upload guide sign-in return flow', () => {
+  it('returns a newly registered unverified client directly to Studio downloads', async () => {
+    mountAt('/?returnTo=%2Flisting-studio%2Fclaim');
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Register' }), { button: 0, ctrlKey: false });
+    fireEvent.click(await screen.findByRole('button', { name: 'Complete signup' }));
+    expect(await screen.findByText('Saved Studio photos')).toBeVisible();
+    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ description: 'Your account is ready. You can now download your edited photos.' }));
+  });
+  it('captures a Studio handoff and returns after login without putting its token in the login URL', async () => {
+    const token = 'd'.repeat(64);
+    mocks.post.mockResolvedValueOnce(loginResponse);
+    mountAt(`/listing-studio/claim#${token}`);
+    await screen.findByRole('heading', { name: 'Log in to your dashboard' });
+    expect(screen.getByTestId('location').textContent).toBe('/?returnTo=%2Flisting-studio%2Fclaim');
+    expect(readListingStudioClaim()).toBe(token);
+    submitCredentials();
+    expect(await screen.findByText('Saved Studio photos')).toBeVisible();
+    expect(screen.getByTestId('location').textContent).toBe('/listing-studio/claim');
+  });
   it('returns a website offer link to the free edit intake after sign-in', async () => {
     mocks.post.mockResolvedValueOnce(loginResponse);
     mountAt('/listing-studio/free-edits');

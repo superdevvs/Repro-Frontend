@@ -15,6 +15,7 @@ import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/reac
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/auth";
 import { LoginRedirect } from './components/auth/LoginRedirect';
+import { ListingStudioClaimEntry } from './components/listing-studio/ListingStudioClaimEntry';
 import { FirstLoginLegalAgreementPrompt } from '@/components/auth/FirstLoginLegalAgreementPrompt';
 import { PermissionsProvider } from './context/PermissionsContext';
 import { ContextualSearchProvider } from '@/components/search/ContextualSearchProvider';
@@ -74,6 +75,7 @@ const Integrations = lazy(() => import('./pages/Integrations'));
 const MlsPublishingQueue = lazy(() => import('./pages/MlsPublishingQueue'));
 const PrivateListingPortal = lazy(() => import('./pages/PrivateListingPortal'));
 const ListingStudioFreeEdits = lazy(() => import('./pages/ListingStudioFreeEdits'));
+const ListingStudioClaim = lazy(() => import('./pages/ListingStudioClaim'));
 const ExclusiveListingDetails = lazy(() => import('./pages/ExclusiveListingDetails'));
 const ChatWithReproAi = lazy(() => import('./pages/ChatWithReproAi'));
 const AiEditing = lazy(() => import('./pages/AiEditing'));
@@ -393,6 +395,7 @@ const AppRoutes = () => {
       <Route path="/login" element={<Navigate to="/" replace />} />
       <Route path="/copilot/connect" element={<ProtectedRoute><CopilotConnect /></ProtectedRoute>} />
       <Route path="/copilot/connections" element={<ProtectedRoute><CopilotConnections /></ProtectedRoute>} />
+      <Route path="/listing-studio/claim" element={<ListingStudioClaimEntry><ProtectedRoute><ListingStudioClaim /></ProtectedRoute></ListingStudioClaimEntry>} />
       {import.meta.env.DEV ? renderDevOnlyPublicRoutes() : null}
 
       {/* Legacy paths preserve client bookmarks; source IDs resolve on the server. */}
