@@ -7,6 +7,29 @@ const apiError = (data: unknown, status = 422) => new AxiosError('Request failed
 });
 
 describe('registration responses', () => {
+  it('directs eligible unverified claim accounts to sign in or reset their password', () => {
+    const failure = registrationFailure(apiError({ code: 'account_exists',
+      message: 'An account with this email already exists. Please verify your email, then log in.',
+      email_verification_required: true,
+    }), '/listing-studio/claim');
+    expect(failure).toMatchObject({ accountExists: true,
+      message: 'An account with this email already exists. Sign in to download your edited photos, or reset your password if needed.',
+      emailMessage: 'An account with this email already exists. Sign in to download your edited photos, or reset your password if needed.',
+    });
+  });
+
+  it.each([false, undefined])('preserves unavailable-account support instructions in the claim flow (flag: %s)', (required) => {
+    const message = 'An account with this email already exists. Please contact support for help accessing it.';
+    expect(registrationFailure(apiError({ code: 'account_exists', message, email_verification_required: required }), '/listing-studio/claim'))
+      .toMatchObject({ accountExists: true, message, emailMessage: message });
+  });
+
+  it.each(['/listing-studio/free-edits', '/dashboard', '/listing-studio/claim?extra=1'])('preserves verification guidance outside the exact claim destination: %s', (returnTo) => {
+    const message = 'An account with this email already exists. Please verify your email, then log in.';
+    expect(registrationFailure(apiError({ code: 'account_exists', message, email_verification_required: true }), returnTo))
+      .toMatchObject({ accountExists: true, message, emailMessage: message });
+  });
+
   it.each([true, false])('preserves existing-account instructions (verification required: %s)', (required) => {
     const message = `An account with this email already exists. ${required ? 'Please verify your email, then log in.' : 'Please log in.'}`;
     expect(registrationFailure(apiError({ code: 'account_exists', message, email_verification_required: required })))

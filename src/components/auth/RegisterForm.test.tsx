@@ -53,6 +53,49 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('registration error recovery', () => {
+  it.each([false, true])('preserves claim context through an existing unverified account conflict and sign-in (mobile: %s)', async (mobile) => {
+    mocks.mobile = mobile;
+    mocks.post.mockRejectedValueOnce(duplicate()).mockResolvedValueOnce({ data: { token: 'existing-session', user: {
+      id: 41, name: 'Existing Client', email: 'client@example.com', role: 'client', email_health: { status: 'unverified' },
+    } } });
+    render(<MemoryRouter initialEntries={['/?returnTo=%2Flisting-studio%2Fclaim']}><Routes>
+      <Route path="/" element={<LoginForm />} />
+      <Route path="/listing-studio/claim" element={<h1>Saved Studio photos</h1>} />
+    </Routes></MemoryRouter>);
+    await userEvent.click(screen.getByRole('tab', { name: 'Register' }));
+    await submitRegistration();
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('Sign in to download your edited photos, or reset your password if needed.');
+    expect(alert).not.toHaveTextContent(/verify your email/i);
+    expect(mocks.login).not.toHaveBeenCalled();
+    expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('return_to');
+    fireEvent.click(within(alert).getByRole('button', { name: 'Go to login' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Log in to your dashboard' })).toBeVisible());
+    expect(screen.getByPlaceholderText('Email')).toHaveValue('client@example.com');
+    expect(screen.getByPlaceholderText('Password')).toHaveValue('');
+    expect(screen.getByText('Forgot Password? Reset')).toBeVisible();
+    fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'Existing-password-42' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Log In' }));
+    expect(await screen.findByRole('heading', { name: 'Saved Studio photos' })).toBeVisible();
+    expect(mocks.login).toHaveBeenCalledWith(expect.objectContaining({ role: 'client' }), 'existing-session');
+  });
+
+  it('takes a fresh unverified signup directly to claim with account-ready feedback', async () => {
+    mocks.post.mockResolvedValueOnce({ data: { token: 'new-session', user: {
+      id: 42, name: 'New Client', email: 'client@example.com', role: 'client', email_health: { status: 'unverified' },
+    } } });
+    render(<MemoryRouter initialEntries={['/?returnTo=%2Flisting-studio%2Fclaim']}><Routes>
+      <Route path="/" element={<LoginForm />} />
+      <Route path="/listing-studio/claim" element={<h1>Saved Studio photos</h1>} />
+    </Routes></MemoryRouter>);
+    await userEvent.click(screen.getByRole('tab', { name: 'Register' }));
+    await submitRegistration();
+    expect(await screen.findByRole('heading', { name: 'Saved Studio photos' })).toBeVisible();
+    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ description: 'Your account is ready. You can now download your edited photos.' }));
+    expect(mocks.post.mock.calls[0][1]).not.toHaveProperty('return_to');
+    expect(mocks.login).toHaveBeenCalledWith(expect.objectContaining({ role: 'client' }), 'new-session');
+  });
+
   it('preserves the free edit destination through signup and its verification email', async () => {
     mocks.post.mockResolvedValueOnce({ data: { token: 'test-token', user: {
       id: 41, name: 'New Client', email: 'client@example.com', role: 'client',
@@ -67,6 +110,7 @@ describe('registration error recovery', () => {
     expect(await screen.findByRole('heading', { name: 'Verify email for free edits' })).toBeVisible();
     expect(mocks.post).toHaveBeenCalledWith(expect.stringMatching(/\/api\/register$/), expect.objectContaining({ return_to: '/listing-studio/free-edits' }), { headers: { Accept: 'application/json' } });
     expect(mocks.login).toHaveBeenCalledWith(expect.objectContaining({ role: 'client' }), 'test-token');
+    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ description: 'You have successfully registered. Check your email to verify your address.' }));
   });
 
   it.each([undefined, '/dashboard', 'https://unsafe.example', '//unsafe.example', '/listing-studio/free-edits?returnTo=unsafe'])('does not add a verification redirect for %s', async verificationReturnTo => {

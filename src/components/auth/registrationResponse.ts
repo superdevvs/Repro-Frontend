@@ -1,6 +1,7 @@
 import axios from 'axios';
 import type { EmailHealth, UserRole } from '@/types/auth';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
+import { LISTING_STUDIO_CLAIM_PATH } from '@/lib/listingStudioClaim';
 import type { RegisterSuccessPayload } from './registerFormModel';
 
 const asRecord = (value: unknown): Record<string, unknown> | undefined =>
@@ -54,7 +55,7 @@ export interface RegistrationFailure {
   emailHealth?: EmailHealth;
 }
 
-export function registrationFailure(error: unknown): RegistrationFailure {
+export function registrationFailure(error: unknown, returnTo?: string): RegistrationFailure {
   const response = axios.isAxiosError(error) ? error.response : undefined;
   const data = asRecord(response?.data);
   const errors = asRecord(data?.errors);
@@ -64,10 +65,16 @@ export function registrationFailure(error: unknown): RegistrationFailure {
     .map(safeMessage).find(Boolean);
   const accountExists = data?.code === 'account_exists'
     || Boolean(emailMessage && /email.*already (?:been taken|taken|exists|registered)/i.test(emailMessage));
+  // This API flag identifies an eligible existing account. Inactive/deleted
+  // accounts return false and must retain their support instructions.
+  const claimAccount = returnTo === LISTING_STUDIO_CLAIM_PATH
+    && data?.code === 'account_exists' && data?.email_verification_required === true;
   const fallback = response?.status === 429
     ? 'Too many registration attempts. Please wait a moment and try again.'
     : "We couldn't complete registration. Please try again. If you already have an account, log in or reset your password.";
-  const message = accountExists
+  const message = claimAccount
+    ? 'An account with this email already exists. Sign in to download your edited photos, or reset your password if needed.'
+    : accountExists
     ? (data?.code === 'account_exists' ? safeMessage(data.message) : undefined)
       || (data?.email_verification_required === false
         ? 'An account with this email already exists. Please log in.'

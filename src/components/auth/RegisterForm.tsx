@@ -360,7 +360,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSuccess, onStepChange, on
       setEmailWarningOverride(false);
       setServerEmailHealth(undefined);
     } catch (error: unknown) {
-      const failure = registrationFailure(error);
+      const failure = registrationFailure(error, verificationReturnTo);
       setRegistrationError(failure);
       setCurrentStep(1);
       setServerEmailHealth(failure.emailHealth);
