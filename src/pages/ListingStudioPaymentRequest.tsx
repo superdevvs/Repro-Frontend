@@ -29,6 +29,10 @@ function PaymentRequestReview({ accountId, requestId }: { accountId: string; req
   const [error, setError] = useState(''); const [notice, setNotice] = useState(''); const [cancelOpen, setCancelOpen] = useState(false);
   const [pending, setPending] = useState(() => readStudioRequestConfirmation(accountId, requestId));
   const request = query.data?.request; const review = query.data?.review;
+  let recoveryUrl: string | null = null;
+  if (query.data?.url && request?.actions.canConfirm && ['processing', 'needs_attention'].includes(request.status)) {
+    try { recoveryUrl = studioClientPaymentUrl(query.data.url); } catch { /* Never navigate to an unverified recovery URL. */ }
+  }
   useEffect(() => { setAccepted(false); }, [review?.reviewId, review?.confirmationToken, review?.amountCents, review?.monthlyPriceCents]);
   useEffect(() => { if (request && terminal.has(request.status)) { forgetStudioRequestConfirmation(accountId, requestId); setPending(null); } }, [accountId, requestId, request]);
   const refresh = () => { setError(''); void query.refetch(); };
@@ -68,6 +72,7 @@ function PaymentRequestReview({ accountId, requestId }: { accountId: string; req
       {request.status === 'completed' && <p role="status" className="rounded-xl bg-muted p-3 text-sm">This request is complete.</p>}
       {request.status === 'needs_attention' && <p role="status" className="rounded-xl bg-muted p-3 text-sm">The team is reviewing this existing request. Starting another purchase is not needed.</p>}
       {pending && !terminal.has(request.status) ? <div className="space-y-3"><p className="text-sm leading-6">Your earlier confirmation is saved. Check that same confirmation before starting anything else.</p><Button disabled={busy || !request.actions.canConfirm} onClick={() => void confirm()}>{busy ? 'Checking confirmation…' : 'Check existing confirmation'}</Button></div> : request.actions.canConfirm && review ? <div className="space-y-4"><label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={accepted} disabled={busy} onChange={event => setAccepted(event.target.checked)} /><span>I approve {studioMoney(review.amountCents)}{request.kind === 'subscription_purchase' ? ' each month' : ''} for this {request.kind === 'order_payment' ? 'photo edit' : request.kind === 'subscription_upgrade' ? 'plan upgrade' : 'subscription'}.</span></label><Button disabled={busy || !accepted} onClick={() => void confirm()}>{busy ? 'Confirming…' : 'Approve and continue to payment'}</Button></div> : null}
+      {!pending && !review && recoveryUrl && <div className="space-y-3"><p className="text-sm">Your earlier approval is saved. Continue the existing payment to finish any required authentication.</p><Button asChild><a href={recoveryUrl}>Continue existing payment</a></Button></div>}
       {request.actions.canCancel && !pending && <Button variant="ghost" disabled={busy} onClick={() => setCancelOpen(true)}>Decline request</Button>}
       {notice && <p role="status" className="text-sm text-muted-foreground">{notice}</p>}{error && <p role="alert" className="text-sm text-destructive">{error}</p>}
       <div className="flex flex-wrap gap-3 border-t pt-4"><Button variant="outline" disabled={busy || query.isFetching} onClick={refresh}>Refresh request</Button><Button asChild variant="ghost"><Link to="/listing-studio?tab=billing">Open credit & plan</Link></Button></div>

@@ -23,7 +23,7 @@ export interface StudioBillingReview {
   planCode?: string; currentPlanCode?: string; additionalCreditCents?: number; expiresAt: string;
   periodEnd?: string; prorationDate?: string; monthlyPriceCents?: number; monthlyCreditCents?: number;
 }
-export interface StudioBillingRequestReview { request: StudioBillingRequest; review: StudioBillingReview | null }
+export interface StudioBillingRequestReview { request: StudioBillingRequest; review: StudioBillingReview | null; url?: string | null; nextAction?: { type: string } }
 export interface StudioBillingConfirmation { request: StudioBillingRequest; status: string; nextAction: { type: string }; url?: string | null }
 
 export type StudioSubscriptionActionType = 'schedule_downgrade' | 'cancel_renewal' | 'undo_cancel' | 'undo_downgrade';

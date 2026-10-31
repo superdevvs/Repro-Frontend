@@ -43,6 +43,13 @@ describe('owned client payment approval', () => {
     await screen.findByText('Review the current price.'); expect(readStudioRequestConfirmation('42', billingRequest.id)).toBeNull();
     expect(screen.getByRole('button', { name: 'Approve and continue to payment' })).toBeDisabled();
   });
+  it('continues an already approved payment on a new device without another submission', async () => {
+    vi.mocked(listingStudioPaymentRequests.review).mockResolvedValue({ request: { ...clientRequest, kind: 'subscription_upgrade', status: 'processing' }, review: null, url: 'https://invoice.stripe.com/i/test-existing', nextAction: { type: 'complete_payment' } });
+    view();
+    expect(await screen.findByRole('link', { name: 'Continue existing payment' })).toHaveAttribute('href', 'https://invoice.stripe.com/i/test-existing');
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(listingStudioPaymentRequests.confirm).not.toHaveBeenCalled();
+  });
   it.each(['expired', 'cancelled', 'completed'] as const)('has no payment action for a %s request', async status => {
     vi.mocked(listingStudioPaymentRequests.review).mockResolvedValue({ request: { ...clientRequest, status, actions: { ...clientRequest.actions, canConfirm: false, canCancel: false } }, review: null }); view();
     await screen.findByRole('link', { name: 'Open credit & plan' }); expect(screen.queryByRole('checkbox')).not.toBeInTheDocument(); expect(screen.queryByRole('button', { name: /Approve/ })).not.toBeInTheDocument(); expect(listingStudioPaymentRequests.confirm).not.toHaveBeenCalled();

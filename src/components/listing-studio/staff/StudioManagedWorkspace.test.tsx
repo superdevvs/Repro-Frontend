@@ -19,7 +19,7 @@ const page = { page: 1, perPage: 12, total: 0, hasMore: false };
 function view() { const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } }); return render(<QueryClientProvider client={client}><MemoryRouter><StudioManagedWorkspace actorId="9" clientId="42" /></MemoryRouter></QueryClientProvider>); }
 beforeEach(() => {
   vi.clearAllMocks(); sessionStorage.clear();
-  vi.mocked(useStudioAccount).mockReturnValue({ data: managedAccount, isPending: false } as ReturnType<typeof useStudioAccount>);
+  vi.mocked(useStudioAccount, { partial: true }).mockReturnValue({ data: managedAccount, isPending: false });
   vi.mocked(listingStudioStaff.catalog).mockResolvedValue(fixtures.catalog as StudioCatalog);
   vi.mocked(listingStudioStaff.orders).mockResolvedValue({ orders: [], pagination: page });
   vi.mocked(listingStudioStaff.requests).mockResolvedValue({ requests: [], pagination: page });
@@ -33,10 +33,10 @@ describe('selected-client billing workspace', () => {
     await screen.findByRole('button', { name: 'Copy client review link' }); expect(listingStudioStaff.createRequest).toHaveBeenCalledWith('42', { kind: 'subscription_upgrade', planCode: 'studio' }, expect.stringMatching(/^[0-9a-f-]{36}$/)); expect(listingStudioStaff.emailRequest).not.toHaveBeenCalled();
   });
   it('recovers an uncertain local request using the same key and target plan', async () => {
-    vi.mocked(useStudioAccount).mockReturnValue({ data: { ...managedAccount, subscription: null, capabilities: { ...managedAccount.capabilities, canSubscribe: true } }, isPending: false } as ReturnType<typeof useStudioAccount>);
+    vi.mocked(useStudioAccount, { partial: true }).mockReturnValue({ data: { ...managedAccount, subscription: null, capabilities: { ...managedAccount.capabilities, canSubscribe: true } }, isPending: false });
     const request = { ...billingRequest, kind: 'subscription_purchase' as const, planCode: 'starter', amountCents: 4900 }; vi.mocked(listingStudioStaff.createRequest).mockRejectedValueOnce(new Error('Lost response')).mockResolvedValueOnce({ request, created: false }); vi.mocked(listingStudioStaff.request).mockResolvedValue(request);
     view(); const user = userEvent.setup(); const heading = await screen.findByRole('heading', { name: 'Starter' }); await user.click(within(heading.closest('article')!).getByRole('button', { name: 'Create payment request' })); await user.click(screen.getByRole('button', { name: 'Create review link' })); await waitFor(() => expect(listingStudioStaff.createRequest).toHaveBeenCalledTimes(1)); const first = vi.mocked(listingStudioStaff.createRequest).mock.calls[0];
     await user.click(screen.getByRole('button', { name: 'Create review link' })); await screen.findByRole('button', { name: 'Copy client review link' }); expect(vi.mocked(listingStudioStaff.createRequest).mock.calls[1]).toEqual(first); expect(listingStudioStaff.emailRequest).not.toHaveBeenCalled();
   });
-  it('keeps purchase actions disabled when delegated billing is unavailable', async () => { vi.mocked(useStudioAccount).mockReturnValue({ data: { ...managedAccount, management: { ...managedAccount.management, canPurchase: false } }, isPending: false } as ReturnType<typeof useStudioAccount>); view(); await screen.findByRole('heading', { name: 'Jane Client' }); expect(screen.getByRole('button', { name: 'Request upgrade payment' })).toBeDisabled(); expect(listingStudioStaff.createRequest).not.toHaveBeenCalled(); });
+  it('keeps purchase actions disabled when delegated billing is unavailable', async () => { vi.mocked(useStudioAccount, { partial: true }).mockReturnValue({ data: { ...managedAccount, management: { ...managedAccount.management, canPurchase: false } }, isPending: false }); view(); await screen.findByRole('heading', { name: 'Jane Client' }); expect(screen.getByRole('button', { name: 'Request upgrade payment' })).toBeDisabled(); expect(listingStudioStaff.createRequest).not.toHaveBeenCalled(); });
 });
