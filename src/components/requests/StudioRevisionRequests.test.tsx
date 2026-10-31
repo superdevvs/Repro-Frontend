@@ -58,7 +58,7 @@ describe('Studio revisions in dashboard requests', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Shoot edits' }));
     expect(screen.queryByText('Listing Studio')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Editing tasks' })).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Studio revisions', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Studio revisions' }));
     expect(await screen.findByText('Listing Studio')).toBeVisible();
     expect(screen.queryByText('Fix the living room')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /Listing Studio.*Studio client/ }));
@@ -66,7 +66,7 @@ describe('Studio revisions in dashboard requests', () => {
     expect(await within(manager).findByText(`Private revision 87 / ${taskId}`)).toBeVisible();
     fireEvent.click(within(manager).getByRole('button', { name: 'Back to editing requests' }));
     expect(await within(manager).findByText('Listing Studio')).toBeVisible();
-    expect(within(manager).getByRole('button', { name: 'Studio revisions', exact: true })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(manager).getByRole('button', { name: 'Studio revisions' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('redirects legacy task links into the existing manager even before a Requests card mounts', async () => {
