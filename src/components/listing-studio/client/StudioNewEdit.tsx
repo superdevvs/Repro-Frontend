@@ -73,7 +73,11 @@ export function StudioNewEdit({ accountId, account, catalog, revision, onCreated
         ...(revision ? { instructions: instructions.trim() } : {}),
       });
       setQuote(result); setFunding(result.fundingOptions.credits.available ? 'credits' : 'card');
-    } catch (failure) { setError(normalizeApiError(failure).message); }
+    } catch (failure) {
+      const details = normalizeApiError(failure);
+      if (!revision && details.code === 'source_unavailable') { setUpload(null); uploadKey.current = null; }
+      setError(details.message);
+    }
     finally { inFlight.current = false; setBusy(false); setStep(''); }
   };
   const purchase = async () => {
@@ -88,6 +92,7 @@ export function StudioNewEdit({ accountId, account, catalog, revision, onCreated
       const details = normalizeApiError(failure);
       if (attempt && definitivePurchaseErrors.has(details.code)) {
         forgetStudioPurchase(accountId, attempt.key); setPending(null); setQuote(null);
+        if (!revision && details.code === 'source_unavailable') { setUpload(null); uploadKey.current = null; }
       }
       setError(details.message);
     } finally { inFlight.current = false; setBusy(false); setStep(''); }

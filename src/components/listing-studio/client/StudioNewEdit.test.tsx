@@ -78,6 +78,17 @@ describe('paid photo confirmation and recovery', () => {
     expect(screen.queryByRole('button', { name: 'Confirm · use $7 credit' })).not.toBeInTheDocument();
     expect(listingStudioClient.createOrder).not.toHaveBeenCalled();
   });
+  it('uploads the selected photo again after a definitive source expiry without creating an order', async () => {
+    vi.mocked(listingStudioClient.quote).mockRejectedValueOnce({ response: { status: 422, data: { code: 'source_unavailable', message: 'The source photo expired. Upload it again.' } } });
+    view(); const user = userEvent.setup(); await user.upload(screen.getByLabelText('Your photo'), newPhoto());
+    await user.click(screen.getByRole('button', { name: 'Review price' })); await screen.findByText('The source photo expired. Upload it again.');
+    const oldKey = vi.mocked(listingStudioClient.upload).mock.calls[0][1];
+    await user.click(screen.getByRole('button', { name: 'Review price' }));
+    await screen.findByRole('button', { name: 'Confirm · use $7 credit' });
+    expect(listingStudioClient.upload).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(listingStudioClient.upload).mock.calls[1][1]).not.toBe(oldKey);
+    expect(listingStudioClient.createOrder).not.toHaveBeenCalled();
+  });
   it('does not upload or create orders while paid editing is disabled', async () => {
     view({ account: { ...account, capabilities: { ...account.capabilities, canCreateOrder: false } } });
     await userEvent.upload(screen.getByLabelText('Your photo'), newPhoto());
