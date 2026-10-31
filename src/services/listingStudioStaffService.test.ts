@@ -1,3 +1,4 @@
+import axios from 'axios';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from './api';
 import { listingStudioStaff } from './listingStudioStaffService';
@@ -5,6 +6,36 @@ import { listingStudioPaymentRequests } from './listingStudioPaymentRequestServi
 vi.mock('./api', () => ({ apiClient: { get: vi.fn(), post: vi.fn() } }));
 beforeEach(() => { vi.clearAllMocks(); vi.mocked(apiClient.get).mockResolvedValue({ data: { success: true, data: { request: {}, order: {} } } }); vi.mocked(apiClient.post).mockResolvedValue({ data: { success: true, data: { request: {}, order: {}, upload: {} } } }); });
 describe('explicit beneficiary billing API', () => {
+  it('omits blank and cleared client searches from the serialized request URL', async () => {
+    const urls: string[] = [];
+    const transport = axios.create({ baseURL: 'https://dashboard.test/api', adapter: async (config) => {
+      urls.push(axios.getUri(config));
+      return { data: { success: true, data: { clients: [] } }, status: 200, statusText: 'OK', headers: {}, config };
+    } });
+    vi.mocked(apiClient.get).mockImplementation(transport.get);
+    await listingStudioStaff.clients();
+    await listingStudioStaff.clients('Jordan');
+    await listingStudioStaff.clients('');
+    await listingStudioStaff.clients(' \t\n ', 2);
+    expect(urls).toEqual([
+      'https://dashboard.test/api/listing-studio/staff/clients?page=1',
+      'https://dashboard.test/api/listing-studio/staff/clients?q=Jordan&page=1',
+      'https://dashboard.test/api/listing-studio/staff/clients?page=1',
+      'https://dashboard.test/api/listing-studio/staff/clients?page=2',
+    ]);
+  });
+  it('trims nonblank search text while preserving URL encoding, page and cancellation', async () => {
+    const signal = new AbortController().signal;
+    let requestUrl = '';
+    const transport = axios.create({ baseURL: 'https://dashboard.test/api', adapter: async (config) => {
+      requestUrl = axios.getUri(config);
+      expect(config.signal).toBe(signal);
+      return { data: { success: true, data: { clients: [] } }, status: 200, statusText: 'OK', headers: {}, config };
+    } });
+    vi.mocked(apiClient.get).mockImplementation(transport.get);
+    await listingStudioStaff.clients('  Morgan & Lee  ', 3, signal);
+    expect(requestUrl).toBe('https://dashboard.test/api/listing-studio/staff/clients?q=Morgan+%26+Lee&page=3');
+  });
   it('reads the selected client account with cancellation support', async () => { const signal = new AbortController().signal; await listingStudioStaff.account('42', signal); expect(apiClient.get).toHaveBeenCalledWith('/listing-studio/staff/clients/42/account', { signal }); });
   it('adds explicit credit consent only for delegated credit-funded orders', async () => {
     await listingStudioStaff.createOrder('42', 'quote-id', 'credits', 'same-key');

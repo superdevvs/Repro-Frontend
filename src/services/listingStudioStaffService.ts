@@ -8,7 +8,10 @@ const clientPath = (id: string) => root + '/' + encodeURIComponent(id);
 const idempotency = (key: string) => ({ headers: { 'Idempotency-Key': key } });
 
 export const listingStudioStaff = {
-  async clients(q = '', page = 1, signal?: AbortSignal) { return (await apiClient.get<Envelope<StudioManagedClients>>(root, { params: { q, page }, signal })).data.data; },
+  async clients(q = '', page = 1, signal?: AbortSignal) {
+    const query = q.trim();
+    return (await apiClient.get<Envelope<StudioManagedClients>>(root, { params: { ...(query ? { q: query } : {}), page }, signal })).data.data;
+  },
   async account(clientId: string, signal?: AbortSignal) { return (await apiClient.get<Envelope<StudioManagedAccount>>(clientPath(clientId) + '/account', { signal })).data.data; },
   async catalog(clientId: string, signal?: AbortSignal) { return (await apiClient.get<Envelope<StudioCatalog>>(clientPath(clientId) + '/catalog', { signal })).data.data; },
   async orders(clientId: string, page = 1, signal?: AbortSignal) { return (await apiClient.get<Envelope<StudioManagedOrdersPage>>(clientPath(clientId) + '/orders', { params: { page, perPage: 12 }, signal })).data.data; },
