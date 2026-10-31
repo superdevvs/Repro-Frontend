@@ -106,3 +106,20 @@ describe('paid photo confirmation and recovery', () => {
     expect(screen.getByText('Plan discount (20%)')).toBeInTheDocument();
   });
 });
+
+
+describe('delegated purchase confirmation', () => {
+  it('requires explicit named-client credit consent before calling the delegated adapter', async () => {
+    const api = { upload: vi.fn().mockResolvedValue({ id: quote.source.id }), quote: vi.fn().mockResolvedValue(quote), createOrder: vi.fn().mockResolvedValue({ order, created: true, nextAction: { type: 'await_processing' } }) };
+    view({ api, accountId: 'staff:9:client:42', forClient: { name: 'Jane Client' } }); const user = await reviewPhoto();
+    const confirm = screen.getByRole('button', { name: 'Confirm · use $7 credit' }); expect(confirm).toBeDisabled();
+    await user.click(screen.getByRole('checkbox', { name: /I confirm using/ })); await user.click(confirm);
+    expect(api.createOrder).toHaveBeenCalledWith(quote.id, 'credits', expect.any(String)); expect(listingStudioClient.createOrder).not.toHaveBeenCalled(); expect(readStudioPurchase('42')).toBeNull();
+  });
+  it('labels delegated card orders as a client payment request without opening Stripe', async () => {
+    const api = { upload: vi.fn().mockResolvedValue({ id: quote.source.id }), quote: vi.fn().mockResolvedValue(quote), createOrder: vi.fn().mockResolvedValue({ order: { ...order, funding: { ...order.funding, method: 'card', status: 'pending' } }, created: true, nextAction: { type: 'checkout' } }) };
+    view({ api, accountId: 'staff:9:client:42', forClient: { name: 'Jane Client' } }); const user = await reviewPhoto();
+    await user.click(screen.getByRole('radio', { name: /Pay.*by card/ })); await user.click(screen.getByRole('button', { name: 'Create client payment request' }));
+    expect(api.createOrder).toHaveBeenCalledWith(quote.id, 'card', expect.any(String)); expect(listingStudioClient.createOrder).not.toHaveBeenCalled();
+  });
+});

@@ -1,0 +1,11 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
+import '@testing-library/jest-dom/vitest';
+import { StudioClientPicker } from './StudioClientPicker';
+import { listingStudioStaff } from '@/services/listingStudioStaffService';
+vi.mock('@/services/listingStudioStaffService', () => ({ listingStudioStaff: { clients: vi.fn() } }));
+beforeEach(() => { vi.clearAllMocks(); vi.mocked(listingStudioStaff.clients).mockResolvedValue({ clients: [{ id: '42', name: 'Jane Client', email: 'jane@example.test' }], pagination: { page: 1, perPage: 20, total: 1, hasMore: false } }); }); afterEach(cleanup);
+it('searches authorized active clients and navigates with explicit beneficiary identity', async () => { const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } }); render(<QueryClientProvider client={client}><MemoryRouter><StudioClientPicker actorId="9" /></MemoryRouter></QueryClientProvider>); const link = await screen.findByRole('link', { name: /Jane Client/ }); expect(link).toHaveAttribute('href', '/listing-studio/manage/42'); const user = userEvent.setup(); await user.type(screen.getByLabelText('Find an active client'), 'Jane'); await waitFor(() => expect(listingStudioStaff.clients).toHaveBeenCalledWith('Jane', 1, expect.any(AbortSignal))); });

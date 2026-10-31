@@ -14,11 +14,13 @@ export interface StudioRevisionSource { source: StudioSource; service: StudioSer
 interface Props {
   accountId: string; account: StudioAccount; catalog: StudioCatalog; revision?: StudioRevisionSource | null;
   onCreated: (order: StudioOrder) => void; onCancelRevision: () => void;
+  api?: Pick<typeof listingStudioClient, 'upload' | 'quote' | 'createOrder'>;
+  forClient?: { name: string };
 }
 const definitivePurchaseErrors = new Set(['quote_expired', 'quote_stale', 'insufficient_credits', 'source_unavailable', 'service_unavailable', 'validation_error', 'validation_failed']);
 const selectClass = 'h-11 w-full rounded-lg border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50';
 
-export function StudioNewEdit({ accountId, account, catalog, revision, onCreated, onCancelRevision }: Props) {
+export function StudioNewEdit({ accountId, account, catalog, revision, onCreated, onCancelRevision, api = listingStudioClient, forClient }: Props) {
   const [service, setService] = useState<StudioService>(revision?.service ?? 'staging');
   const [roomType, setRoomType] = useState(catalog.stagingOptions.defaults.roomType);
   const [style, setStyle] = useState(catalog.stagingOptions.defaults.style);
@@ -28,6 +30,7 @@ export function StudioNewEdit({ accountId, account, catalog, revision, onCreated
   const [upload, setUpload] = useState<StudioUpload | null>(null);
   const [quote, setQuote] = useState<StudioQuote | null>(null);
   const [funding, setFunding] = useState<StudioFundingMethod>('credits');
+  const [creditConfirmed, setCreditConfirmed] = useState(false);
   const [pending, setPending] = useState<StudioPurchaseAttempt | null>(() => readStudioPurchase(accountId));
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState('');
@@ -43,7 +46,7 @@ export function StudioNewEdit({ accountId, account, catalog, revision, onCreated
     return () => URL.revokeObjectURL(url);
   }, [file]);
 
-  const invalidate = () => { setQuote(null); setError(''); };
+  const invalidate = () => { setQuote(null); setError(''); setCreditConfirmed(false); };
   const chooseFile = (candidate: File | undefined) => {
     invalidate(); setUpload(null); setFile(null); uploadKey.current = null;
     if (!candidate) return;
@@ -62,17 +65,17 @@ export function StudioNewEdit({ accountId, account, catalog, revision, onCreated
       if (!source && file) {
         setStep('Uploading your photo…');
         uploadKey.current ??= crypto.randomUUID();
-        const saved = upload ?? await listingStudioClient.upload(file, uploadKey.current);
+        const saved = upload ?? await api.upload(file, uploadKey.current);
         setUpload(saved); source = { kind: 'upload', id: saved.id };
       }
       if (!source) return;
       setStep('Preparing your quote…');
-      const result = await listingStudioClient.quote({
+      const result = await api.quote({
         kind: revision ? 'human_revision' : 'ai_edit', service, source,
         options: !revision && service === 'staging' ? { roomType, style } : {},
         ...(revision ? { instructions: instructions.trim() } : {}),
       });
-      setQuote(result); setFunding(result.fundingOptions.credits.available ? 'credits' : 'card');
+      setCreditConfirmed(false); setQuote(result); setFunding(result.fundingOptions.credits.available ? 'credits' : 'card');
     } catch (failure) {
       const details = normalizeApiError(failure);
       if (!revision && details.code === 'source_unavailable') { setUpload(null); uploadKey.current = null; }
@@ -81,12 +84,12 @@ export function StudioNewEdit({ accountId, account, catalog, revision, onCreated
     finally { inFlight.current = false; setBusy(false); setStep(''); }
   };
   const purchase = async () => {
-    if (inFlight.current || (!quote && !pending)) return;
+    if (inFlight.current || (!quote && !pending) || (!pending && forClient && funding === 'credits' && !creditConfirmed)) return;
     inFlight.current = true; setBusy(true); setError(''); setStep(pending ? 'Checking your existing request…' : 'Creating your order…');
     let attempt = pending;
     try {
       attempt ??= beginStudioPurchase(accountId, quote!.id, funding); setPending(attempt);
-      const result = await listingStudioClient.createOrder(attempt.quoteId, attempt.fundingMethod, attempt.key);
+      const result = await api.createOrder(attempt.quoteId, attempt.fundingMethod, attempt.key);
       forgetStudioPurchase(accountId, attempt.key); setPending(null); setQuote(null); onCreated(result.order);
     } catch (failure) {
       const details = normalizeApiError(failure);
@@ -139,8 +142,9 @@ export function StudioNewEdit({ accountId, account, catalog, revision, onCreated
           <label className="flex items-start gap-3 text-sm"><input className="mt-1" type="radio" name="studio-funding" value="credits" checked={funding === 'credits'} disabled={!quote.fundingOptions.credits.available} onChange={() => setFunding('credits')} /><span>Use {studioMoney(quote.pricing.creditCostCents)} editing credit<span className="block text-xs leading-5 text-muted-foreground">{quote.fundingOptions.credits.available ? `${studioMoney(account.credits.availableCents)} available` : quote.fundingOptions.credits.shortfallCents > 0 ? `${studioMoney(quote.fundingOptions.credits.shortfallCents)} more credit needed` : 'Editing credit is unavailable'}</span></span></label>
           <label className="flex items-start gap-3 text-sm"><input className="mt-1" type="radio" name="studio-funding" value="card" checked={funding === 'card'} disabled={!quote.fundingOptions.card.available} onChange={() => setFunding('card')} /><span>Pay {studioMoney(quote.pricing.totalPriceCents)} by card<span className="block text-xs leading-5 text-muted-foreground">One photo. No subscription required.</span></span></label>
         </fieldset>
-        <p className="text-xs leading-5 text-muted-foreground">{funding === 'credits' ? 'Credit is reserved when you confirm and used only after the finished photo is saved. Unused period credit does not roll over.' : 'Continue to Stripe for secure payment. Editing starts after payment is confirmed.'}</p>
-        <Button className="w-full" disabled={busy || !(funding === 'credits' ? quote.fundingOptions.credits.available : quote.fundingOptions.card.available)} onClick={() => void purchase()}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" /> : <ArrowRight className="mr-2 h-4 w-4" />}{busy ? step : funding === 'credits' ? `Confirm · use ${studioMoney(quote.pricing.creditCostCents)} credit` : `Continue · pay ${studioMoney(quote.pricing.totalPriceCents)}`}</Button>
+        <p className="text-xs leading-5 text-muted-foreground">{funding === 'credits' ? 'Credit is reserved when you confirm and used only after the finished photo is saved. Unused period credit does not roll over.' : forClient ? 'Create an order for this client. They must review a payment request and complete secure checkout before editing starts.' : 'Continue to Stripe for secure payment. Editing starts after payment is confirmed.'}</p>
+        {forClient && funding === 'credits' && <label className="flex items-start gap-3 text-sm"><input type="checkbox" className="mt-1" checked={creditConfirmed} disabled={busy} onChange={event => setCreditConfirmed(event.target.checked)} /><span>I confirm using {studioMoney(quote.pricing.creditCostCents)} of {forClient.name}’s editing credit for this order.</span></label>}
+        <Button className="w-full" disabled={busy || (Boolean(forClient) && funding === 'credits' && !creditConfirmed) || !(funding === 'credits' ? quote.fundingOptions.credits.available : quote.fundingOptions.card.available)} onClick={() => void purchase()}>{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin motion-reduce:animate-none" /> : <ArrowRight className="mr-2 h-4 w-4" />}{busy ? step : funding === 'credits' ? `Confirm · use ${studioMoney(quote.pricing.creditCostCents)} credit` : forClient ? 'Create client payment request' : `Continue · pay ${studioMoney(quote.pricing.totalPriceCents)}`}</Button>
       </div> : <div className="space-y-3 py-6"><h3 className="font-semibold">A clear price before you start</h3><p className="text-sm leading-6 text-muted-foreground">Your quote will appear here. Pay with your available editing credit or by card.</p><p className="text-xs leading-5 text-muted-foreground">Instant free trials and the three-photo team offer are separate from paid editing.</p></div>}
     </div>
   </section>;
