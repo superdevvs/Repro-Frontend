@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import type { StudioCatalog } from '@/types/listingStudioClient';
 
 export type ListingStudioRequestType = 'signup' | 'call' | 'change';
 export type ListingStudioStatus = 'pending' | 'approved' | 'declined' | 'completed';
@@ -10,6 +11,7 @@ export interface ListingStudioContact {
   company_name?: string | null;
 }
 export interface ListingStudioCatalog {
+  billing?: StudioCatalog;
   plans: { code: string; name: string; reference_price_usd: number | null }[];
   services: { code: string; name: string }[];
   historical_plans?: { code: string; name: string }[];

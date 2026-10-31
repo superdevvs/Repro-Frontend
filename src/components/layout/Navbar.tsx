@@ -400,7 +400,7 @@ export function Navbar() {
       ? [{ to: MESSAGING_SUPPORT_URL, icon: MessageSquare, label: 'Messaging' }]
       : []),
     ...(isSimplifiedLayout && canUseListingStudio(role, user?.secondary_roles)
-      ? [{ to: listingStudioHref(location, role, user?.secondary_roles), icon: Sparkles, label: 'Listing Studio', external: listingStudioIsExternal(role, user?.secondary_roles) }]
+      ? [{ to: listingStudioHref(location, user?.role ?? role, user?.secondary_roles), icon: Sparkles, label: 'Listing Studio', external: listingStudioIsExternal(role, user?.secondary_roles) }]
       : []),
   ];
 

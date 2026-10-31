@@ -28,7 +28,17 @@ beforeEach(() => {
   vi.mocked(listingStudioStaff.request).mockResolvedValue(billingRequest);
 }); afterEach(cleanup);
 describe('selected-client billing workspace', () => {
-  it('shows the beneficiary identity and limits private history to initiated purchases', async () => { view(); await screen.findByRole('heading', { name: 'Jane Client' }); expect(useStudioAccount).toHaveBeenCalledWith('42'); expect(listingStudioStaff.catalog).toHaveBeenCalledWith('42', expect.any(AbortSignal)); const user = userEvent.setup(); await user.click(screen.getByRole('tab', { name: 'Your purchases' })); await screen.findByText('You have not created any purchases for this client.'); expect(listingStudioStaff.orders).toHaveBeenCalledWith('42', 1, expect.any(AbortSignal)); });
+  it('labels current and lower plans without misleading disabled purchase buttons', async () => {
+    view();
+    const current = (await screen.findByRole('heading', { name: 'Pro' })).closest('article')!;
+    const lower = screen.getByRole('heading', { name: 'Starter' }).closest('article')!;
+    expect(within(current).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(lower).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(lower).getByText('Manage lower plans in subscription controls')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Request upgrade payment' })).toBeEnabled();
+    expect(listingStudioStaff.createRequest).not.toHaveBeenCalled();
+  });
+  it('shows the beneficiary identity and limits private history to initiated purchases', async () => { view(); await screen.findByRole('heading', { name: 'Jane Client' }); expect(useStudioAccount).toHaveBeenCalledWith('42'); expect(screen.getByRole('link', { name: 'Change client' })).toHaveAttribute('href', '/listing-studio/manage?tab=clients'); expect(listingStudioStaff.catalog).toHaveBeenCalledWith('42', expect.any(AbortSignal)); const user = userEvent.setup(); await user.click(screen.getByRole('tab', { name: 'Your purchases' })); await screen.findByText('You have not created any purchases for this client.'); expect(listingStudioStaff.orders).toHaveBeenCalledWith('42', 1, expect.any(AbortSignal)); });
   it('creates an upgrade review link only after confirmation and never sends email automatically', async () => {
     const request = { ...billingRequest, kind: 'subscription_upgrade' as const, planCode: 'studio', amountCents: 24900 }; vi.mocked(listingStudioStaff.createRequest).mockResolvedValue({ request, created: true }); vi.mocked(listingStudioStaff.request).mockResolvedValue(request);
     view(); const user = userEvent.setup(); await user.click(await screen.findByRole('button', { name: 'Request upgrade payment' })); expect(listingStudioStaff.createRequest).not.toHaveBeenCalled(); await user.click(screen.getByRole('button', { name: 'Create review link' }));
@@ -83,5 +93,5 @@ describe('selected-client billing workspace', () => {
     await user.click(within(heading.closest('article')!).getByRole('button', { name: 'Create payment request' })); await user.click(screen.getByRole('button', { name: 'Create review link' }));
     await waitFor(() => expect(listingStudioStaff.createRequest).toHaveBeenCalledWith('42', { kind: 'subscription_purchase', planCode: 'pro' }, expect.any(String)));
   });
-  it('keeps purchase actions disabled when delegated billing is unavailable', async () => { const blockedAccount = { ...managedAccount, management: { ...managedAccount.management, canPurchase: false } }; vi.mocked(useStudioAccount, { partial: true }).mockReturnValue({ data: blockedAccount, isPending: false }); view(); await screen.findByRole('heading', { name: 'Jane Client' }); expect(screen.getByRole('button', { name: 'Request upgrade payment' })).toBeDisabled(); expect(listingStudioStaff.createRequest).not.toHaveBeenCalled(); });
+  it('keeps purchase actions disabled when delegated billing is unavailable', async () => { const blockedAccount = { ...managedAccount, management: { ...managedAccount.management, canPurchase: false } }; vi.mocked(useStudioAccount, { partial: true }).mockReturnValue({ data: blockedAccount, isPending: false }); view(); await screen.findByRole('heading', { name: 'Jane Client' }); expect(screen.queryByRole('button', { name: 'Request upgrade payment' })).not.toBeInTheDocument(); expect(screen.getByText('Purchases currently unavailable')).toBeInTheDocument(); expect(listingStudioStaff.createRequest).not.toHaveBeenCalled(); });
 });

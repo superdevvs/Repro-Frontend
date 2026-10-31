@@ -115,11 +115,11 @@ export const useMobileMenu = () => {
       visible: permission.can('portal', 'view'),
     },
     {
-      to: listingStudioHref(location, role, user?.secondary_roles),
+      to: listingStudioHref(location, user?.role ?? role, user?.secondary_roles),
       external: listingStudioIsExternal(role, user?.secondary_roles),
       icon: "Sparkles",
       label: "Listing Studio",
-      isActive: pathname === '/listing-studio',
+      isActive: pathname === '/listing-studio' || pathname === '/listing-studio/manage' || pathname.startsWith('/listing-studio/manage/'),
       visible: canUseListingStudio(role, user?.secondary_roles),
     },
     {

@@ -31,6 +31,18 @@ afterEach(() => {
 });
 
 describe('Listing Studio navigation', () => {
+  it.each(['salesRep', 'rep', 'representative', 'superadmin', 'admin'])('opens the pricing workspace for primary %s without a legacy modal query', role => {
+    expect(listingStudioHref({ pathname: '/dashboard', search: '?listingStudio=1&listingStudioTab=requests', hash: '#saved' }, role)).toBe('/listing-studio/manage');
+  });
+  it('keeps the Listing Studio entry active on a selected client workspace', () => {
+    auth.role = 'superadmin';
+    const managedWrapper = ({ children }: { children: React.ReactNode }) => <QueryClientProvider client={queryClient}><MemoryRouter initialEntries={['/listing-studio/manage/42?tab=billing']}>{children}</MemoryRouter></QueryClientProvider>;
+    render(<SidebarLinks role="superadmin" isCollapsed={false} />, { wrapper: managedWrapper });
+    expect(screen.getByRole('link', { name: 'Listing Studio' })).toHaveAttribute('data-sidebar-active', 'true');
+    const { result } = renderHook(useMobileMenu, { wrapper: managedWrapper });
+    expect(result.current.filteredItems.find(item => item.label === 'Listing Studio')?.isActive).toBe(true);
+  });
+
   it.each(['admin', 'superadmin', 'editing_manager', 'editor'])('keeps revisions out of desktop and mobile menus for %s', role => {
     auth.role = role;
     render(<SidebarLinks role={role} isCollapsed={false} />, { wrapper });
@@ -44,7 +56,7 @@ describe('Listing Studio navigation', () => {
     const links = screen.getAllByRole('link');
     const exclusiveIndex = links.indexOf(screen.getByRole('link', { name: 'Exclusive Listings' }));
     expect(links[exclusiveIndex + 1]).toHaveTextContent('Listing Studio');
-    expect(links[exclusiveIndex + 1]).toHaveAttribute('href', role === 'client' ? LISTING_STUDIO_CLIENT_PATH : '/portal?view=grid&listingStudio=1#saved');
+    expect(links[exclusiveIndex + 1]).toHaveAttribute('href', role === 'client' ? LISTING_STUDIO_CLIENT_PATH : '/listing-studio/manage');
     expect(links[exclusiveIndex + 1]).not.toHaveAttribute('target', '_blank');
   });
 
@@ -54,7 +66,7 @@ describe('Listing Studio navigation', () => {
     const items = result.current.filteredItems;
     const exclusiveIndex = items.findIndex(item => item.label === 'Exclusive Listings');
     const item = items[exclusiveIndex + 1];
-    expect(item).toMatchObject({ label: 'Listing Studio', to: role === 'client' ? LISTING_STUDIO_CLIENT_PATH : '/portal?view=grid&listingStudio=1#saved' });
+    expect(item).toMatchObject({ label: 'Listing Studio', to: role === 'client' ? LISTING_STUDIO_CLIENT_PATH : '/listing-studio/manage' });
     expect(Boolean(item.external)).toBe(false);
     render(<MenuItem {...item} onClick={vi.fn()} />, { wrapper });
     const link = screen.getByRole('link', { name: 'Listing Studio' });
@@ -79,20 +91,20 @@ describe('Listing Studio navigation', () => {
     expect(canUseListingStudioDashboard('client')).toBe(false);
     expect(canUseListingStudioDashboard('editor', ['client'])).toBe(false);
     expect(canUseListingStudioDashboard('client', ['sales_rep'])).toBe(true);
-    expect(listingStudioHref({ pathname: '/dashboard', search: '?listingStudio=1', hash: '' }, 'admin')).toBe('/dashboard?listingStudio=1');
+    expect(listingStudioHref({ pathname: '/dashboard', search: '?listingStudio=1', hash: '' }, 'admin')).toBe('/listing-studio/manage');
     expect(listingStudioHref({ pathname: '/dashboard', search: '?listingStudio=1&listingStudioTab=requests', hash: '' }, 'client')).toBe(LISTING_STUDIO_CLIENT_PATH);
     expect(listingStudioHref({ pathname: '/dashboard', search: '', hash: '' }, 'editor', ['client'])).toBe(LISTING_STUDIO_WEBSITE_URL);
   });
 
-  it('keeps staff signup available to a primary client with a secondary rep role', () => {
-    auth.user.secondary_roles = ['sales_rep'];
+  it.each(['sales_rep', 'admin', 'superadmin'])('keeps primary client navigation on its own workspace with secondary %s', secondaryRole => {
+    auth.user.secondary_roles = [secondaryRole];
     render(<SidebarLinks role="client" isCollapsed={false} />, { wrapper });
     const link = screen.getByRole('link', { name: 'Listing Studio' });
-    expect(link).toHaveAttribute('href', '/portal?view=grid&listingStudio=1#saved');
+    expect(link).toHaveAttribute('href', LISTING_STUDIO_CLIENT_PATH);
     expect(link).not.toHaveAttribute('target', '_blank');
     const { result } = renderHook(useMobileMenu, { wrapper });
     const item = result.current.filteredItems.find(item => item.label === 'Listing Studio');
-    expect(item?.to).toBe('/portal?view=grid&listingStudio=1#saved');
+    expect(item?.to).toBe(LISTING_STUDIO_CLIENT_PATH);
     expect(item?.external).toBeFalsy();
   });
 });

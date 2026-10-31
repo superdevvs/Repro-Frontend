@@ -345,12 +345,12 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
 
       {canUseListingStudio(role, user?.secondary_roles) && (
         <NavLink
-          to={listingStudioHref(location, role, user?.secondary_roles)}
+          to={listingStudioHref(location, user?.role ?? role, user?.secondary_roles)}
           external={listingStudioIsExternal(role, user?.secondary_roles)}
           icon={<Sparkles className="h-5 w-5" />}
           label="Listing Studio"
           isCollapsed={isCollapsed}
-          isActive={pathname === '/listing-studio'}
+          isActive={pathname === '/listing-studio' || pathname === '/listing-studio/manage' || pathname.startsWith('/listing-studio/manage/')}
         />
       )}
 

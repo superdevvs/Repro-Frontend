@@ -70,21 +70,19 @@ describe('persistent Studio credit', () => {
     expect(screen.queryByRole('link')).toBeNull();
     expect(state.account).not.toHaveBeenCalled();
   });
-  it.each(['salesRep', 'superadmin'])('shows a launcher rather than an invented staff balance for %s', role => {
-    state.auth.user.role = role; show();
-    expect(screen.getByRole('link', { name: 'Client plans & credit' }).getAttribute('href')).toBe('/listing-studio/manage');
+  it.each(['salesRep', 'rep', 'superadmin', 'admin', 'editing_manager', 'editingManager'].flatMap(role =>
+    ['/dashboard', '/listing-studio/manage/81?tab=billing'].flatMap(path => [false, true].map(collapsed => ({ role, path, collapsed }))),
+  ))('hides staff credit and launcher for $role on $path (collapsed=$collapsed)', ({ role, path, collapsed }) => {
+    state.auth.user.role = role;
+    state.query.data = { ...(state.query.data as object), client: { id: '81', name: 'Jane Client', email: 'jane@example.test' }, management: { canPurchase: true, canManageSubscription: false } };
+    const view = show(path, collapsed);
+    expect(view.container.textContent).toBe('');
+    expect(screen.queryByRole('link')).toBeNull();
     expect(state.account).not.toHaveBeenCalled();
   });
-  it('labels the selected client and resets to a launcher outside the managed route', () => {
-    state.auth.user.role = 'salesRep';
-    state.query.data = { ...(state.query.data as object), client: { id: '81', name: 'Jane Client', email: 'jane@example.test' }, management: { canPurchase: true, canManageSubscription: false } };
+  it('always reads the primary client own balance, regardless of a managed route parameter', () => {
     show('/listing-studio/manage/81?tab=billing');
-    expect(state.account).toHaveBeenCalledWith('81');
-    expect(screen.getByRole('link', { name: /^Jane Client:/ }).getAttribute('href')).toBe('/listing-studio/manage/81?tab=billing');
-    expect(screen.getByText('Jane Client')).toBeTruthy();
-    cleanup(); show('/dashboard');
-    expect(screen.getByRole('link', { name: 'Client plans & credit' })).toBeTruthy();
-    expect(screen.queryByText('Jane Client')).toBeNull();
+    expect(state.account).toHaveBeenCalledWith(undefined);
+    expect(screen.getByRole('link').getAttribute('href')).toBe('/listing-studio?tab=billing');
   });
 });
-

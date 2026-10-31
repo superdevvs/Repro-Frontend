@@ -1,4 +1,5 @@
 import { LISTING_STUDIO_CLIENT_PATH, LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
+import { canManageStudioBilling, studioBillingRole } from '@/lib/studioBillingAccess';
 
 export const LISTING_STUDIO_QUERY = 'listingStudio';
 
@@ -11,7 +12,7 @@ export const listingStudioRole = (role?: string, secondaryRoles?: string[]): str
 };
 
 export const canUseListingStudio = (role?: string, secondaryRoles?: string[]): boolean =>
-  Boolean(listingStudioRole(role, secondaryRoles));
+  canManageStudioBilling(role) || Boolean(listingStudioRole(role, secondaryRoles));
 
 export const canUseListingStudioDashboard = (role?: string, secondaryRoles?: string[]): boolean =>
   ['salesrep', 'admin', 'superadmin'].includes(listingStudioRole(role, secondaryRoles) ?? '');
@@ -26,6 +27,8 @@ export const canUseListingStudioRevisions = (role?: string, secondaryRoles?: str
   [role, ...(secondaryRoles ?? [])].some(value => ['admin', 'superadmin', 'editingmanager', 'editor'].includes((value ?? '').toLowerCase().replace(/[_-]/g, '')));
 
 export const listingStudioHref = (location: { pathname: string; search: string; hash: string }, role?: string, secondaryRoles?: string[]): string => {
+  if (studioBillingRole(role) === 'client') return LISTING_STUDIO_CLIENT_PATH;
+  if (canManageStudioBilling(role) || studioBillingRole(role) === 'admin') return '/listing-studio/manage';
   if (listingStudioRole(role, secondaryRoles) === 'client') return listingStudioIsExternal(role, secondaryRoles) ? LISTING_STUDIO_WEBSITE_URL : LISTING_STUDIO_CLIENT_PATH;
   const params = new URLSearchParams(location.search);
   params.set(LISTING_STUDIO_QUERY, '1');
