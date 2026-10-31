@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { getLoginPath, getLoginReturnPath, sanitizeLoginReturnPath } from './loginReturn';
 
 describe('login return locations', () => {
+  it('retains the client payment request through sign-in without accepting an external redirect', () => {
+    const path = '/listing-studio/payment-requests/7cf091bb-15d8-43f0-ac58-3bb4c77de9a4';
+    const loginPath = getLoginPath({ pathname: path, search: '', hash: '' });
+    expect(getLoginReturnPath(new URL(loginPath, 'https://reprodashboard.com').search)).toBe(path);
+  });
   it('preserves the upload guide and other query parameters across the login URL', () => {
     const loginPath = getLoginPath({ pathname: '/dashboard', search: '?guide=uploads&source=email', hash: '#guide' });
     expect(getLoginReturnPath(new URL(loginPath, 'https://reprodashboard.com').search))

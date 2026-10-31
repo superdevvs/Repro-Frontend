@@ -15,6 +15,7 @@ import { forgetStudioAction, studioActionKey } from '@/lib/listingStudioPurchase
 import { normalizeApiError } from '@/services/apiError';
 import { listingStudioClient, studioCheckoutUrl } from '@/services/listingStudioClientService';
 import type { StudioOrder } from '@/types/listingStudioClient';
+import { useStudioAccount } from '@/hooks/useStudioAccount';
 
 const tabs = ['photos', 'new', 'billing'];
 const orderIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -31,7 +32,7 @@ function ClientWorkspace({ accountId }: { accountId: string }) {
   const rawOrderId = params.get('order'); const selectedOrderId = rawOrderId && orderIdPattern.test(rawOrderId) ? rawOrderId : null;
   const [revision, setRevision] = useState<StudioRevisionSource | null>(null);
   const [checkoutBusy, setCheckoutBusy] = useState(false); const [error, setError] = useState(''); const [paymentNotice, setPaymentNotice] = useState(''); const checkoutLock = useRef(false);
-  const account = useQuery({ queryKey: ['studio-client', accountId, 'account'], queryFn: listingStudioClient.account, refetchInterval: 30000 });
+  const account = useStudioAccount();
   const catalog = useQuery({ queryKey: ['studio-client', accountId, 'catalog'], queryFn: listingStudioClient.catalog, staleTime: 60000 });
   useEffect(() => {
     if (account.data?.subscription && ['active', 'trialing'].includes(account.data.subscription.status)) {

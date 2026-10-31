@@ -47,6 +47,7 @@ vi.mock('@/state/weatherProviderStore', () => ({
   subscribeToWeatherProvider: () => () => undefined,
 }));
 vi.mock('@/config/env', () => ({
+  API_BASE_URL: 'https://dashboard.example.test',
   withApiBase: (path: string) => path,
 }));
 

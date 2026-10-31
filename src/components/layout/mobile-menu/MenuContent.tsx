@@ -5,6 +5,7 @@ import { LogOutIcon } from 'lucide-react';
 import { MenuItem } from './MenuItem';
 import type { MobileMenuItem } from './useMobileMenu';
 import { useMessagingBadgeCounts } from '@/hooks/useMessagingBadgeCounts';
+import { StudioCreditCard } from '../sidebar/StudioCreditCard';
 
 interface MenuContentProps {
   isMenuOpen: boolean;
@@ -56,6 +57,7 @@ export const MenuContent = ({ isMenuOpen, filteredItems, closeMenu, handleLogout
 
         {/* Menu Items Grid */}
         <div className="flex-1 overflow-auto overscroll-contain px-3 pt-3 pb-[calc(1.25rem+env(safe-area-inset-bottom,0px))]">
+          <StudioCreditCard onNavigate={closeMenu} />
           <motion.div 
             className="grid grid-cols-2 gap-2.5"
             variants={{

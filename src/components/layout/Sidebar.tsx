@@ -11,6 +11,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarHeader } from './sidebar/SidebarHeader';
 import { SidebarLinks } from './sidebar/SidebarLinks';
 import { SidebarFooter } from './sidebar/SidebarFooter';
+import { StudioCreditCard } from './sidebar/StudioCreditCard';
 import { OldDashboardLink } from './OldDashboardLink';
 import { canViewOldDashboard } from '@/config/oldDashboard';
 
@@ -146,6 +147,7 @@ export function Sidebar({ className }: SidebarProps) {
           <SidebarLinks isCollapsed={isCollapsed} role={role} />
         </ScrollArea>
         
+        <StudioCreditCard isCollapsed={isCollapsed} />
         <SidebarFooter isCollapsed={isCollapsed} logout={logout} onToggleCollapse={toggleCollapse} />
         {canViewOldDashboard(role) && (
           <div className="mt-2">

@@ -8,7 +8,7 @@ const idempotency = (key: string) => ({ headers: { 'Idempotency-Key': key } });
 
 export const listingStudioClient = {
   async catalog() { return (await apiClient.get<Envelope<StudioCatalog>>(`${root}/catalog`)).data.data; },
-  async account() { return (await apiClient.get<Envelope<StudioAccount>>(`${root}/account`)).data.data; },
+  async account(signal?: AbortSignal) { return (await apiClient.get<Envelope<StudioAccount>>(`${root}/account`, { signal })).data.data; },
   async orders(page = 1) { return (await apiClient.get<Envelope<StudioOrdersPage>>(`${root}/orders`, { params: { page, perPage: 12 } })).data.data; },
   async order(id: string) { return (await apiClient.get<Envelope<{ order: StudioOrder }>>(orderPath(id))).data.data.order; },
   async transactions(page = 1) { return (await apiClient.get<Envelope<StudioTransactionsPage>>(`${root}/transactions`, { params: { page, perPage: 20 } })).data.data; },

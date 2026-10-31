@@ -16,6 +16,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "rea
 import { AuthProvider, useAuth } from "./components/auth";
 import { LoginRedirect } from './components/auth/LoginRedirect';
 import { ListingStudioClaimEntry } from './components/listing-studio/ListingStudioClaimEntry';
+import { STUDIO_FINANCIAL_QUERY_ROOTS } from '@/lib/studioBillingAccess';
 import { FirstLoginLegalAgreementPrompt } from '@/components/auth/FirstLoginLegalAgreementPrompt';
 import { PermissionsProvider } from './context/PermissionsContext';
 import { ContextualSearchProvider } from '@/components/search/ContextualSearchProvider';
@@ -78,6 +79,8 @@ const PrivateListingPortal = lazy(() => import('./pages/PrivateListingPortal'));
 const ListingStudioFreeEdits = lazy(() => import('./pages/ListingStudioFreeEdits'));
 const ListingStudioClaim = lazy(() => import('./pages/ListingStudioClaim'));
 const ListingStudioClient = lazy(() => import('./pages/ListingStudioClient'));
+const ListingStudioManage = lazy(() => import('./pages/ListingStudioManage'));
+const ListingStudioPaymentRequest = lazy(() => import('./pages/ListingStudioPaymentRequest'));
 const ListingStudioRevisions = lazy(() => import('./pages/ListingStudioRevisions'));
 const ExclusiveListingDetails = lazy(() => import('./pages/ExclusiveListingDetails'));
 const ChatWithReproAi = lazy(() => import('./pages/ChatWithReproAi'));
@@ -314,7 +317,7 @@ function PerformanceCacheScope() {
   }, [client]);
   useEffect(() => {
     if (prior.current !== scope) {
-      for (const key of ['shoot-history', 'accounting-performance', 'shootFiles', 'dashboardOverview']) {
+      for (const key of ['shoot-history', 'accounting-performance', 'shootFiles', 'dashboardOverview', ...STUDIO_FINANCIAL_QUERY_ROOTS]) {
         void client.cancelQueries({ queryKey: [key] });
         client.removeQueries({ queryKey: [key] });
       }
@@ -526,6 +529,9 @@ const AppRoutes = () => {
       <Route path="/search" element={<ProtectedRoute loadingFallback={<DashboardRouteFallback />}><SearchPage /></ProtectedRoute>} />
       <Route path="/listing-studio/free-edits" element={<PermissionRoute resource="support"><ListingStudioFreeEdits /></PermissionRoute>} />
       <Route path="/listing-studio" element={<ListingStudioClient />} />
+      <Route path="/listing-studio/manage" element={<ListingStudioManage />} />
+      <Route path="/listing-studio/manage/:clientId" element={<ListingStudioManage />} />
+      <Route path="/listing-studio/payment-requests/:requestId" element={<ListingStudioPaymentRequest />} />
       <Route path="/listing-studio/revisions" element={<ListingStudioRevisions />} />
       <Route path="/dashboard" element={
         <PermissionRoute resource="dashboard" fallbackTo="/">
