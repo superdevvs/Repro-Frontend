@@ -57,7 +57,7 @@ export interface ShootDetailsMediaTabViewProps {
   isPhotoOnlyEditor?: boolean;
   sortOrder: MediaSortOrder;
   isDragMode: boolean;
-  sortSaveStatus: 'idle' | 'saving' | 'saved';
+  sortSaveStatus: 'idle' | 'saving' | 'saved' | 'error';
   changeSortOrder: (order: MediaSortOrder) => void;
   toggleDragMode: () => void;
   activeShootUploads: ShootUpload[];

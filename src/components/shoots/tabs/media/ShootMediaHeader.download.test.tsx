@@ -107,7 +107,7 @@ describe('media sort controls', () => {
     const user = userEvent.setup();
     const options = { ...sortProps(), sortOrder: 'manual' as const, isDragMode: true };
     const { rerender } = render(<ShootMediaHeader {...options} />);
-    await user.click(screen.getByRole('button', { name: 'Stop reordering media' }));
+    await user.click(screen.getByRole('button', { name: 'Save media order' }));
     rerender(<ShootMediaHeader {...options} isDragMode={false} />);
     await user.click(screen.getByRole('button', { name: 'Start reordering media' }));
     expect(options.toggleDragMode).toHaveBeenCalledTimes(2);

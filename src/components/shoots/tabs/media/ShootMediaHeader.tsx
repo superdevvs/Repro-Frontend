@@ -35,7 +35,7 @@ interface ShootMediaHeaderProps {
   setSortMenuOpen: Dispatch<SetStateAction<boolean>>;
   sortOrder: MediaSortOrder;
   isDragMode: boolean;
-  sortSaveStatus: 'idle' | 'saving' | 'saved';
+  sortSaveStatus: 'idle' | 'saving' | 'saved' | 'error';
   changeSortOrder: (order: MediaSortOrder) => void;
   toggleDragMode: () => void;
   showUploadTab: boolean;

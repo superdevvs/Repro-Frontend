@@ -21,7 +21,7 @@ export function MediaSortControl({
   onOpenChange: (open: boolean) => void;
   sortOrder: MediaSortOrder;
   isDragMode: boolean;
-  sortSaveStatus: 'idle' | 'saving' | 'saved';
+  sortSaveStatus: 'idle' | 'saving' | 'saved' | 'error';
   changeSortOrder: (order: MediaSortOrder) => void;
   toggleDragMode: () => void;
   compact?: boolean;
@@ -33,14 +33,16 @@ export function MediaSortControl({
       {sortOrder === 'manual' && (
         <Button
           variant={isDragMode ? 'default' : 'outline'}
-          size="icon"
-          className="h-9 w-9 shrink-0 gap-0 sm:h-8 sm:w-8"
+          size="sm"
+          className="h-9 shrink-0 gap-1.5 px-2 text-xs sm:h-8"
           onClick={toggleDragMode}
-          aria-label={isDragMode ? 'Stop reordering media' : 'Start reordering media'}
+          disabled={sortSaveStatus === 'saving'}
+          aria-label={isDragMode ? 'Save media order' : 'Start reordering media'}
           aria-pressed={isDragMode}
           title={isDragMode ? 'Done reordering — keep this order' : 'Drag to reorder media'}
         >
           {isDragMode ? <Check /> : <GripVertical />}
+          {isDragMode ? 'Save order' : 'Reorder'}
         </Button>
       )}
       <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -67,8 +69,8 @@ export function MediaSortControl({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <span className="sr-only" role="status">
-        {sortSaveStatus === 'saving' ? 'Saving media order' : sortSaveStatus === 'saved' ? 'Media order saved' : ''}
+      <span className="text-xs text-muted-foreground" role="status">
+        {sortSaveStatus === 'saving' ? 'Saving media order' : sortSaveStatus === 'saved' ? 'Saved' : sortSaveStatus === 'error' ? 'Not saved - retry Save order' : ''}
       </span>
     </div>
   );
