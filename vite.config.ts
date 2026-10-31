@@ -5,6 +5,7 @@ import http from "node:http";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { componentTagger } from "lovable-tagger";
+import { reviewedBuildGlobGuard } from "./scripts/build-glob-review.mjs";
 
 const normalizeModuleId = (id: string) => id.replaceAll("\\", "/");
 
@@ -162,6 +163,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   plugins: [
+    reviewedBuildGlobGuard(),
     {
       name: 'exclude-build-only-glob-tools',
       generateBundle(_options, bundle) {

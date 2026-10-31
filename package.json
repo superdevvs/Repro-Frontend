@@ -24,7 +24,7 @@
     "check:file-sizes": "node scripts/check-file-sizes.mjs",
     "check:file-sizes:update": "node scripts/check-file-sizes.mjs --update",
     "check:bundle-sizes": "node scripts/check-bundle-sizes.mjs",
-    "audit": "node scripts/audit-with-policy.mjs",
+    "audit": "node --test scripts/build-glob-review.test.mjs && node scripts/audit-with-policy.mjs",
     "audit:raw": "npm audit --audit-level=low",
     "quality": "npm run lint:ci && npm run typecheck && npm run test:run && npm run build && npm run check:file-sizes && npm run check:bundle-sizes && npm run audit && npm run monitor:test && npm run desktop:check && npm run edit-helper:check",
     "preview": "vite preview",

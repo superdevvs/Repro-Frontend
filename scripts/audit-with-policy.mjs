@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { assertReviewedLock, assertRuntimeSource, isReviewedAdvisory, reviewedPackages, reviewExpiresAt } from './build-glob-review.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const allowedAdvisory = 'GHSA-qwww-vcr4-c8h2';
@@ -11,7 +12,7 @@ const buildOnlyPackages = new Set([
   '@typescript-eslint/type-utils', '@typescript-eslint/typescript-estree', '@typescript-eslint/utils',
 ]);
 const allowedRouterVersion = '7.18.2';
-const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx']);
+const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx', '.cjs', '.mjs']);
 const ignoredDirectories = new Set(['__tests__', 'dist', 'node_modules']);
 
 const packageJson = JSON.parse(
@@ -62,6 +63,11 @@ const collectSourceFiles = (directory) => {
 
 collectSourceFiles(path.join(projectRoot, 'src'));
 collectSourceFiles(path.join(projectRoot, 'packages'));
+
+assertReviewedLock(packageLock);
+for (const file of sourceFiles) {
+  assertRuntimeSource(path.relative(projectRoot, file), readFileSync(file, 'utf8'));
+}
 
 // Temporary exposure-based review, not a general high-severity exception.
 // These tools consume repository-controlled build patterns only. See the review
@@ -147,7 +153,8 @@ for (const packageName of Object.keys(vulnerabilities)) {
   for (const id of ids) {
     const routerAllowed = id === allowedAdvisory && ['react-router', 'react-router-dom'].includes(packageName);
     const buildAllowed = id === buildOnlyAdvisory && buildOnlyPackages.has(packageName);
-    if (!routerAllowed && !buildAllowed) {
+    const reviewedGlobAllowed = isReviewedAdvisory(packageName, id);
+    if (!routerAllowed && !buildAllowed && !reviewedGlobAllowed) {
       unexpected.push(`${packageName}: ${id}`);
     }
   }
@@ -160,7 +167,7 @@ if (unexpected.length > 0) {
 // The approved packages are an upper bound, not an exact expectation: anything
 // outside this set is unreviewed and must fail, but an empty report means the
 // advisory has cleared upstream and is strictly better than the reviewed state.
-const approvedPackages = new Set(['react-router', 'react-router-dom', ...buildOnlyPackages]);
+const approvedPackages = new Set(['react-router', 'react-router-dom', ...buildOnlyPackages, ...reviewedPackages]);
 const affectedPackages = Object.keys(vulnerabilities).sort();
 const unapprovedPackages = affectedPackages.filter((name) => !approvedPackages.has(name));
 
@@ -181,6 +188,7 @@ if (affectedPackages.length === 0) {
   console.log(
     'Audit policy passed with only explicitly reviewed, exposure-constrained advisories. ' +
       `Router ${allowedRouterVersion} is SPA-only; braces is restricted to repository-controlled build tools until 2026-11-03. ` +
+      `The separately reviewed glob/minimatch build-tool scope expires ${reviewExpiresAt}. ` +
       'Use npm run audit:raw to view the non-zero upstream report.',
   );
 }
