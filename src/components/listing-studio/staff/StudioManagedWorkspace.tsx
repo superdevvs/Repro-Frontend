@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isStudioManagedAccount } from '@/lib/studioBillingAccess';
 import { useStudioAccount } from '@/hooks/useStudioAccount';
+import { useStudioOrderBalanceRefresh } from '@/hooks/useStudioOrderBalanceRefresh';
 import { forgetStudioAction, studioActionKey } from '@/lib/listingStudioPurchase';
 import { studioManagedActionScope, studioManagedScope } from '@/lib/listingStudioStaff';
 import { normalizeApiError } from '@/services/apiError';
@@ -27,6 +28,7 @@ export function StudioManagedWorkspace({ actorId, clientId }: { actorId: string;
   const [orderPage, setOrderPage] = useState(1); const [requestPage, setRequestPage] = useState(1);
   const orders = useQuery({ queryKey: [...scope, 'orders', orderPage], queryFn: ({ signal }) => listingStudioStaff.orders(clientId, orderPage, signal), enabled: tab === 'orders', refetchInterval: tab === 'orders' ? 15000 : false });
   const requests = useQuery({ queryKey: [...scope, 'requests', requestPage], queryFn: ({ signal }) => listingStudioStaff.requests(clientId, requestPage, signal), enabled: tab === 'billing', refetchInterval: tab === 'billing' ? 15000 : false });
+  useStudioOrderBalanceRefresh(actorId, orders.data?.orders, clientId);
   const [latest, setLatest] = useState<StudioBillingRequest | null>(null); const [selectedPlan, setSelectedPlan] = useState<StudioPlan | null>(null);
   const latestQuery = useQuery({ queryKey: [...scope, 'request', latest?.id], queryFn: ({ signal }) => listingStudioStaff.request(clientId, latest!.id, signal), enabled: Boolean(latest), refetchInterval: latest ? 15000 : false });
   const currentRequest = latestQuery.data ?? latest;

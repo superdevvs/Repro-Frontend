@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useStudioOrderBalanceRefresh } from '@/hooks/useStudioOrderBalanceRefresh';
 import { Download, ImageIcon, Loader2, Plus, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { listingStudioClient } from '@/services/listingStudioClientService';
@@ -18,6 +19,7 @@ export function StudioPhotos({ accountId, catalog, selectedOrderId, onSelectOrde
   const [page, setPage] = useState(1); const [downloading, setDownloading] = useState<string | null>(null); const [error, setError] = useState('');
   const orders = useQuery({ queryKey: ['studio-client', accountId, 'orders', page], queryFn: () => listingStudioClient.orders(page), refetchInterval: query => query.state.data?.orders.some(order => studioIsActive(order.item.status)) ? 10000 : false });
   const trials = useQuery({ queryKey: ['studio-client', accountId, 'trials'], queryFn: getListingStudioTrials });
+  useStudioOrderBalanceRefresh(accountId, orders.data?.orders);
   const downloadTrial = async (trial: ListingStudioTrial) => {
     if (downloading) return; setDownloading(trial.id); setError('');
     try { await downloadListingStudioTrial(trial); } catch (failure) { setError(normalizeApiError(failure).message); } finally { setDownloading(null); }

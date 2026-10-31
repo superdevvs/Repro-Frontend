@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useStudioOrderBalanceRefresh } from '@/hooks/useStudioOrderBalanceRefresh';
 import { CheckCircle2, CreditCard, Download, ImageIcon, Loader2, RefreshCw, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { normalizeApiError } from '@/services/apiError';
@@ -48,6 +49,7 @@ export function StudioOrderPanel({ accountId, orderId, onRevision, onCheckout, c
   });
   const [downloading, setDownloading] = useState(false); const [cancelling, setCancelling] = useState(false); const [error, setError] = useState(''); const downloadLock = useRef(false); const cancelLock = useRef(false);
   const order = query.data;
+  useStudioOrderBalanceRefresh(accountId, order ? [order] : undefined);
   if (query.isPending) return <p role="status" className="flex items-center gap-2 rounded-2xl border p-6 text-sm"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />Loading your photo…</p>;
   if (!order) return <div role="alert" className="space-y-3 rounded-2xl border p-6"><p className="text-sm">This order could not be loaded.</p><Button variant="outline" onClick={() => void query.refetch()}>Try again</Button></div>;
   const download = async () => {
