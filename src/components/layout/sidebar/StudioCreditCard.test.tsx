@@ -33,6 +33,12 @@ describe('persistent Studio credit', () => {
     show('/dashboard', true);
     expect(screen.getByRole('link', { name: /\$125.50 editing credit available, \$15 reserved/ })).toBeTruthy();
   });
+  it.each(['canceled', 'incomplete_expired'])('offers plans when only a historical %s subscription remains', status => {
+    state.query.data = { ...fixture.account, subscription: { planCode: 'pro', status } };
+    show();
+    expect(screen.getByText('View plans')).toBeTruthy();
+    expect(screen.queryByText(/^Pro/)).toBeNull();
+  });
   it('never renders a fabricated zero while loading or on failure', () => {
     state.query.data = undefined; state.query.isPending = true;
     const view = show();

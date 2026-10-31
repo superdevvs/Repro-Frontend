@@ -42,7 +42,8 @@ function AccountCreditCard({ managedClientId, isCollapsed, onNavigate }: Props &
   const unavailable = account.isError || (!data && !account.isPending);
   const available = data ? studioMoney(data.credits.availableCents) : '';
   const reserved = data && data.credits.reservedCents > 0 ? studioMoney(data.credits.reservedCents) : '';
-  const planCode = data?.subscription?.planCode;
+  const subscription = data?.subscription && !['canceled', 'incomplete_expired'].includes(data.subscription.status) ? data.subscription : null;
+  const planCode = subscription?.planCode;
   const plan = planCode ? planNames[planCode] ?? planCode : null;
   const label = unavailable ? 'Editing credit balance unavailable' : !data ? 'Loading editing credit' : `${client ? `${client.name}: ` : ''}${available} editing credit available${reserved ? `, ${reserved} reserved` : ''}. Open Credit & plan`;
 
@@ -60,7 +61,7 @@ function AccountCreditCard({ managedClientId, isCollapsed, onNavigate }: Props &
           <p className="text-xl font-semibold tabular-nums">{available}<span className="ml-1.5 text-[10px] font-normal text-muted-foreground">available</span></p>
           {reserved && <p className="text-[11px] text-muted-foreground">{reserved} reserved</p>}
           {plan && <p className="text-[11px] text-muted-foreground">{plan}{data.credits.expiresAt ? ` · Expires ${studioDate(data.credits.expiresAt)}` : ''}</p>}
-          <span className="inline-flex items-center gap-1 pt-1 text-xs font-medium text-primary">{data.subscription ? 'Credit & plan' : 'View plans'}<ArrowUpRight className="h-3 w-3" aria-hidden="true" /></span>
+          <span className="inline-flex items-center gap-1 pt-1 text-xs font-medium text-primary">{subscription ? 'Credit & plan' : 'View plans'}<ArrowUpRight className="h-3 w-3" aria-hidden="true" /></span>
         </>}
       </div>}
     </CreditLink>}
