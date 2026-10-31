@@ -28,7 +28,7 @@ import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
 import { usePermission } from '@/hooks/usePermission';
 import { usesSettingsOnlyAccount } from '@/pages/profileNavigation';
 import { MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
-import { canUseListingStudio, canUseListingStudioDashboard, listingStudioHref } from '@/utils/listingStudio';
+import { canUseListingStudio, canUseListingStudioRevisions, listingStudioIsExternal, listingStudioHref } from '@/utils/listingStudio';
 import { useMediaQuery } from '@/hooks/use-media-query';
 
 const DEFAULT_WEATHER_COORDS = { lat: 23.3026, lon: 85.3219 };
@@ -400,7 +400,10 @@ export function Navbar() {
       ? [{ to: MESSAGING_SUPPORT_URL, icon: MessageSquare, label: 'Messaging' }]
       : []),
     ...(isSimplifiedLayout && canUseListingStudio(role, user?.secondary_roles)
-      ? [{ to: listingStudioHref(location, role, user?.secondary_roles), icon: Sparkles, label: 'Listing Studio', external: !canUseListingStudioDashboard(role, user?.secondary_roles) }]
+      ? [{ to: listingStudioHref(location, role, user?.secondary_roles), icon: Sparkles, label: 'Listing Studio', external: listingStudioIsExternal(role, user?.secondary_roles) }]
+      : []),
+    ...(isSimplifiedLayout && canUseListingStudioRevisions(role, user?.secondary_roles)
+      ? [{ to: '/listing-studio/revisions', icon: Sparkles, label: 'Studio revisions', external: false }]
       : []),
   ];
 

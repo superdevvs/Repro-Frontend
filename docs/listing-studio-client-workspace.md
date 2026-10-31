@@ -1,0 +1,15 @@
+# Listing Studio client and team workspace
+
+Client accounts open `/listing-studio` from the dashboard navigation. The workspace shows owned projects, completed free trials, monthly editing credit, reservations and transaction history. The existing guest claim page remains outside the verification-gated dashboard layout; paid editing uses the normal authenticated client layout.
+
+Prices, availability, upload limits and plan options come from the dashboard catalog. An edit requires a server quote followed by explicit credit or card confirmation. A card order never falls back to credits, and insufficient credits never cause an automatic card charge. New monthly subscriptions have a separate recurring-payment confirmation. Existing subscriptions use the billing portal.
+
+Order creation and checkout retries preserve account-scoped idempotency keys in session storage. An uncertain purchase is recovered with its original quote and funding choice. Checkout return parameters select the existing order only; they never confirm payment. A pending verified payment event is shown as waiting. New checkout keys are permitted only after a definitive server rejection explicitly allows them. Eligible never-paid orders can be cancelled using the server's `canCancel` action; open or uncertain payments cannot be cancelled through that action.
+
+Photos are loaded as authenticated blobs and object URLs are revoked after use. Before/after comparisons support keyboard input. Processing uses indeterminate indicators and respects reduced motion. Full-size downloads remain owner-only server requests.
+
+Authorized editors and managers open `/listing-studio/revisions`. Server-issued actions control assignment, start, delivery, recovery and exception handling. Delivery persists its file hash, original version and idempotency key before uploading. Lost responses keep that identity, while a definitive version rejection requires reviewing the refreshed task. Accepted delivery is shown as saving until the private output, preview and financial completion are confirmed. Team actions never manipulate credit balances locally.
+
+The legacy team request/subscription dialogs remain available to their existing staff roles. Historical plan/service labels are shown in request history, while new choices use the consolidated catalog. Secondary client roles on staff accounts retain their existing external-site behavior; paid checkout requires the primary client account and disallows impersonation.
+
+Validation includes purchase recovery, duplicate confirmation, credit failure without card fallback, plan checkout waiting and retry authorization, private media/checkout URL handling, structured processing errors, unpaid cancellation races, team delivery recovery/version conflicts, navigation, and the existing free claim/offer flows. Browser verification uses a closed local fixture adapter with no production processing or payment calls, including desktop, narrow mobile, dark mode and keyboard comparison checks. Backend availability gates remain authoritative.

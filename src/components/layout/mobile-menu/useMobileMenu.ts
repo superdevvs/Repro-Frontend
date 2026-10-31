@@ -8,7 +8,7 @@ import { usePermission } from '@/hooks/usePermission';
 import { canUseEmailWorkspace } from '@/utils/messagingRoles';
 import { MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
-import { canUseListingStudio, canUseListingStudioDashboard, listingStudioHref } from '@/utils/listingStudio';
+import { canUseListingStudio, canUseListingStudioRevisions, listingStudioIsExternal, listingStudioHref } from '@/utils/listingStudio';
 
 export interface MobileMenuItem {
   to: string;
@@ -116,11 +116,15 @@ export const useMobileMenu = () => {
     },
     {
       to: listingStudioHref(location, role, user?.secondary_roles),
-      external: !canUseListingStudioDashboard(role, user?.secondary_roles),
+      external: listingStudioIsExternal(role, user?.secondary_roles),
       icon: "Sparkles",
       label: "Listing Studio",
-      isActive: false,
+      isActive: pathname === '/listing-studio',
       visible: canUseListingStudio(role, user?.secondary_roles),
+    },
+    {
+      to: '/listing-studio/revisions', icon: 'Sparkles', label: 'Studio revisions',
+      isActive: pathname === '/listing-studio/revisions', visible: canUseListingStudioRevisions(role, user?.secondary_roles),
     },
     {
       to: "/accounting",

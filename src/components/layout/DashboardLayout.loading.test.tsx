@@ -6,7 +6,7 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { DashboardLayout } from './DashboardLayout';
 import { usePageLoading } from '@/hooks/use-page-loading';
-import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
+import { LISTING_STUDIO_CLIENT_PATH } from '@/config/listingStudio';
 
 function render(ui: React.ReactNode) {
   const queryClient = new QueryClient();
@@ -97,16 +97,10 @@ describe('dashboard page loading integration', () => {
     expect(container.querySelector('footer')).toBeNull();
   });
 
-  it.each(['/dashboard?listingStudio=1', '/dashboard?listingStudio=1&listingStudioTab=requests', '/dashboard?listingStudio=1&listingStudioTab=subscriptions'])('redirects a client legacy link to the website without opening a form: %s', path => {
+  it.each(['/dashboard?listingStudio=1', '/dashboard?listingStudio=1&listingStudioTab=requests', '/dashboard?listingStudio=1&listingStudioTab=subscriptions'])('redirects a client legacy link to their workspace without opening a staff form: %s', path => {
     auth.role = 'client';
-    const replace = vi.fn();
-    // Stub only this test's window reference; do not redefine jsdom's Location.
-    const actualWindow = window;
-    vi.stubGlobal('window', new Proxy(actualWindow, {
-      get: (target, property) => property === 'location' ? { replace } : Reflect.get(target, property, target),
-    }));
-    render(<MemoryRouter initialEntries={[path]}><DashboardLayout><button>Page action</button></DashboardLayout></MemoryRouter>);
-    expect(replace).toHaveBeenCalledWith(LISTING_STUDIO_WEBSITE_URL);
+    render(<MemoryRouter initialEntries={[path]}><Routes><Route path="/dashboard" element={<DashboardLayout><button>Page action</button></DashboardLayout>} /><Route path={LISTING_STUDIO_CLIENT_PATH} element={<h1>Client Studio workspace</h1>} /></Routes></MemoryRouter>);
+    expect(screen.getByRole('heading', { name: 'Client Studio workspace' })).toBeInTheDocument();
     expect(screen.queryByRole('dialog', { name: 'Listing Studio' })).not.toBeInTheDocument();
   });
 

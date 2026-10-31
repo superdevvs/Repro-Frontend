@@ -76,6 +76,8 @@ const MlsPublishingQueue = lazy(() => import('./pages/MlsPublishingQueue'));
 const PrivateListingPortal = lazy(() => import('./pages/PrivateListingPortal'));
 const ListingStudioFreeEdits = lazy(() => import('./pages/ListingStudioFreeEdits'));
 const ListingStudioClaim = lazy(() => import('./pages/ListingStudioClaim'));
+const ListingStudioClient = lazy(() => import('./pages/ListingStudioClient'));
+const ListingStudioRevisions = lazy(() => import('./pages/ListingStudioRevisions'));
 const ExclusiveListingDetails = lazy(() => import('./pages/ExclusiveListingDetails'));
 const ChatWithReproAi = lazy(() => import('./pages/ChatWithReproAi'));
 const AiEditing = lazy(() => import('./pages/AiEditing'));
@@ -522,6 +524,8 @@ const AppRoutes = () => {
       }>
       <Route path="/search" element={<ProtectedRoute loadingFallback={<DashboardRouteFallback />}><SearchPage /></ProtectedRoute>} />
       <Route path="/listing-studio/free-edits" element={<PermissionRoute resource="support"><ListingStudioFreeEdits /></PermissionRoute>} />
+      <Route path="/listing-studio" element={<ListingStudioClient />} />
+      <Route path="/listing-studio/revisions" element={<ListingStudioRevisions />} />
       <Route path="/dashboard" element={
         <PermissionRoute resource="dashboard" fallbackTo="/">
           <ShootRoutesWrapper>

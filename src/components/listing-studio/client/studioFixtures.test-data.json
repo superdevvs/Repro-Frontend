@@ -1,0 +1,258 @@
+{
+  "catalog": {
+    "version": "catalog-v1",
+    "currency": "usd",
+    "creditScale": 100,
+    "uploadConstraints": {
+      "mimeTypes": [
+        "image/jpeg",
+        "image/png",
+        "image/webp"
+      ],
+      "maxFileBytes": 10485760,
+      "maxPixels": 40000000,
+      "maxFiles": 1
+    },
+    "stagingOptions": {
+      "rooms": {
+        "living": "Living room",
+        "bed": "Bedroom",
+        "kitchen": "Kitchen",
+        "dining": "Dining room",
+        "home_office": "Home office",
+        "outdoor": "Outdoor",
+        "kids_room": "Kids room"
+      },
+      "styles": {
+        "standard": "Standard",
+        "modern": "Modern",
+        "scandinavian": "Scandinavian",
+        "industrial": "Industrial",
+        "midcentury": "Mid-century",
+        "luxury": "Luxury",
+        "farmhouse": "Farmhouse",
+        "coastal": "Coastal"
+      },
+      "defaults": {
+        "roomType": "living",
+        "style": "modern"
+      }
+    },
+    "revisionConstraints": {
+      "maxInstructionsLength": 4000
+    },
+    "services": [
+      {
+        "id": "staging",
+        "name": "Virtual staging",
+        "aiPriceCents": 1500,
+        "aiCreditCents": 1500,
+        "revisionBasePriceCents": 3000,
+        "revisionBaseCreditCents": 3000,
+        "aiAvailable": true,
+        "revisionAvailable": true,
+        "unavailableReason": null
+      },
+      {
+        "id": "decluttering",
+        "name": "Decluttering",
+        "aiPriceCents": 1200,
+        "aiCreditCents": 1200,
+        "revisionBasePriceCents": 1500,
+        "revisionBaseCreditCents": 1500,
+        "aiAvailable": true,
+        "revisionAvailable": true,
+        "unavailableReason": null
+      },
+      {
+        "id": "grass",
+        "name": "Grass enhancement",
+        "aiPriceCents": 700,
+        "aiCreditCents": 700,
+        "revisionBasePriceCents": 1500,
+        "revisionBaseCreditCents": 1500,
+        "aiAvailable": true,
+        "revisionAvailable": true,
+        "unavailableReason": null
+      },
+      {
+        "id": "twilight",
+        "name": "Virtual twilight",
+        "aiPriceCents": 1000,
+        "aiCreditCents": 1000,
+        "revisionBasePriceCents": 1500,
+        "revisionBaseCreditCents": 1500,
+        "aiAvailable": true,
+        "revisionAvailable": true,
+        "unavailableReason": null
+      }
+    ],
+    "plans": [
+      {
+        "code": "starter",
+        "name": "Starter",
+        "monthlyPriceCents": 4900,
+        "monthlyCreditCents": 6000,
+        "revisionDiscountPercent": 0
+      },
+      {
+        "code": "pro",
+        "name": "Pro",
+        "monthlyPriceCents": 9900,
+        "monthlyCreditCents": 13500,
+        "revisionDiscountPercent": 20
+      },
+      {
+        "code": "studio",
+        "name": "Studio",
+        "monthlyPriceCents": 24900,
+        "monthlyCreditCents": 37500,
+        "revisionDiscountPercent": 30
+      }
+    ],
+    "rules": {
+      "creditRollover": false,
+      "mixedFunding": false,
+      "photosPerAiOrder": 1
+    },
+    "checkoutAvailable": true,
+    "dashboardPath": "/listing-studio"
+  },
+  "account": {
+    "status": "ready",
+    "subscription": {
+      "id": "42",
+      "planCode": "pro",
+      "status": "active",
+      "periodStart": "2026-10-31T00:00:00Z",
+      "periodEnd": "2026-11-30T00:00:00Z",
+      "cancelAtPeriodEnd": false
+    },
+    "credits": {
+      "earnedCents": 13500,
+      "usedCents": 1500,
+      "reservedCents": 700,
+      "availableCents": 11300,
+      "expiresAt": "2026-11-30T00:00:00Z",
+      "rollover": false
+    },
+    "revisionDiscountPercent": 20,
+    "capabilities": {
+      "canCreateOrder": true,
+      "canUseCredits": true,
+      "canPayByCard": true,
+      "canSubscribe": false,
+      "canManageBilling": true
+    },
+    "notice": null,
+    "trialUsage": {
+      "allowancePerService": 1,
+      "services": [
+        {
+          "service": "staging",
+          "completed": 0,
+          "reserved": 0,
+          "remaining": 1
+        },
+        {
+          "service": "decluttering",
+          "completed": 0,
+          "reserved": 0,
+          "remaining": 1
+        },
+        {
+          "service": "grass",
+          "completed": 1,
+          "reserved": 0,
+          "remaining": 0
+        },
+        {
+          "service": "twilight",
+          "completed": 0,
+          "reserved": 0,
+          "remaining": 1
+        }
+      ],
+      "startUrl": "https://reprophotos.com/listing-studio"
+    }
+  },
+  "quote": {
+    "id": "00000000-0000-4000-8000-000000000004",
+    "expiresAt": "2026-10-31T12:15:00Z",
+    "catalogVersion": "catalog-v1",
+    "kind": "human_revision",
+    "service": "grass",
+    "source": {
+      "kind": "claimed_trial",
+      "id": "00000000-0000-4000-8000-000000000005"
+    },
+    "options": {},
+    "instructions": "Please refine the grass around the pathway.",
+    "pricing": {
+      "currency": "usd",
+      "basePriceCents": 1500,
+      "discountPercent": 20,
+      "discountCents": 300,
+      "totalPriceCents": 1200,
+      "creditCostCents": 1200,
+      "planCode": "pro"
+    },
+    "fundingOptions": {
+      "credits": {
+        "available": true,
+        "shortfallCents": 0,
+        "reason": null
+      },
+      "card": {
+        "available": true,
+        "reason": null
+      }
+    },
+    "confirmationRequired": true
+  },
+  "order": {
+    "id": "00000000-0000-4000-8000-000000000001",
+    "createdAt": "2026-10-31T12:01:00Z",
+    "kind": "ai_edit",
+    "service": "grass",
+    "pricing": {
+      "currency": "usd",
+      "basePriceCents": 700,
+      "discountPercent": 0,
+      "discountCents": 0,
+      "totalPriceCents": 700,
+      "creditCostCents": 700,
+      "planCode": "pro",
+      "catalogVersion": "catalog-v1"
+    },
+    "funding": {
+      "method": "credits",
+      "status": "reserved",
+      "reservedCreditCents": 700,
+      "capturedCreditCents": 0,
+      "paidAmountCents": 0,
+      "refundedAmountCents": 0
+    },
+    "item": {
+      "id": "00000000-0000-4000-8000-000000000002",
+      "status": "processing",
+      "progress": null,
+      "source": {
+        "kind": "upload",
+        "id": "00000000-0000-4000-8000-000000000003",
+        "originalPreviewAvailable": true
+      },
+      "previewAvailable": false,
+      "downloadAvailable": false,
+      "completedAt": null,
+      "error": null,
+      "revisionFulfillment": null
+    },
+    "actions": {
+      "canCheckout": false,
+      "canDownload": false,
+      "canRequestRevision": false,
+      "canCancel": false
+    }
+  }
+}

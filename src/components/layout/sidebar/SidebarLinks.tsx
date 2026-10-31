@@ -29,7 +29,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import styles from './SidebarLinks.module.css';
-import { canUseListingStudio, canUseListingStudioDashboard, listingStudioHref } from '@/utils/listingStudio';
+import { canUseListingStudio, canUseListingStudioRevisions, listingStudioIsExternal, listingStudioHref } from '@/utils/listingStudio';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useMessagingBadgeCounts } from '@/hooks/useMessagingBadgeCounts';
 
@@ -346,13 +346,15 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
       {canUseListingStudio(role, user?.secondary_roles) && (
         <NavLink
           to={listingStudioHref(location, role, user?.secondary_roles)}
-          external={!canUseListingStudioDashboard(role, user?.secondary_roles)}
+          external={listingStudioIsExternal(role, user?.secondary_roles)}
           icon={<Sparkles className="h-5 w-5" />}
           label="Listing Studio"
           isCollapsed={isCollapsed}
-          isActive={false}
+          isActive={pathname === '/listing-studio'}
         />
       )}
+
+      {canUseListingStudioRevisions(role, user?.secondary_roles) && <NavLink to="/listing-studio/revisions" icon={<Sparkles className="h-5 w-5" />} label="Studio revisions" isCollapsed={isCollapsed} isActive={pathname === '/listing-studio/revisions'} />}
 
       {/* Messaging - Simple link for clients, expandable for admins */}
       {canViewEmailInbox && !canViewMessagingOverview && !canViewSms && !canViewCalls && (

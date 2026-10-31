@@ -12,6 +12,8 @@ export interface ListingStudioContact {
 export interface ListingStudioCatalog {
   plans: { code: string; name: string; reference_price_usd: number | null }[];
   services: { code: string; name: string }[];
+  historical_plans?: { code: string; name: string }[];
+  historical_services?: { code: string; name: string }[];
 }
 export interface ListingStudioRequest {
   id: number;

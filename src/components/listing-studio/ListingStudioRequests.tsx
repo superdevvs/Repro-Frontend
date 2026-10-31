@@ -18,7 +18,7 @@ function RequestCard({ request, catalog, canReview, onReviewed }: { request: Lis
     mutationFn: (status: Exclude<ListingStudioStatus, 'pending'>) => listingStudioService.review(request.id, { status, ...(reviewNote.trim() ? { review_note: reviewNote.trim() } : {}) }),
     onSuccess: onReviewed,
   });
-  const plan = catalog.plans.find(item => item.code === request.plan_code);
+  const plan = [...catalog.plans, ...(catalog.historical_plans ?? []).map(item => ({ ...item, reference_price_usd: null }))].find(item => item.code === request.plan_code);
   return <article className="min-w-0 rounded-xl border bg-card p-4" aria-label={`${requestLabels[request.type]} ${request.id}`}>
     <div className="flex flex-wrap items-start justify-between gap-2">
       <div><h3 className="text-sm font-semibold">{requestLabels[request.type]} <span className="font-normal text-muted-foreground">#{request.id}</span></h3><p className="mt-1 text-xs text-muted-foreground">{dateLabel(request.created_at)}</p></div>
@@ -27,7 +27,7 @@ function RequestCard({ request, catalog, canReview, onReviewed }: { request: Lis
     <div className="mt-3 space-y-2 text-sm">
       <div><p className="font-medium">{request.contact.name}</p><p className="break-all text-muted-foreground">{request.contact.email}</p>{request.contact.company_name && <p className="text-muted-foreground">{request.contact.company_name}</p>}{request.contact.phone && request.type !== 'call' && <p className="text-muted-foreground">{request.contact.phone}</p>}</div>
       {plan && <p><span className="text-muted-foreground">Plan preference: </span>{plan.name}{plan.reference_price_usd !== null ? ` · $${plan.reference_price_usd} reference price` : ''}</p>}
-      {!!request.services?.length && <div className="flex flex-wrap gap-1.5">{request.services.map(code => <Badge variant="secondary" className="font-normal" key={code}>{catalog.services.find(service => service.code === code)?.name ?? code}</Badge>)}</div>}
+      {!!request.services?.length && <div className="flex flex-wrap gap-1.5">{request.services.map(code => <Badge variant="secondary" className="font-normal" key={code}>{[...catalog.services, ...(catalog.historical_services ?? [])].find(service => service.code === code)?.name ?? code}</Badge>)}</div>}
       {request.type === 'call' && <div><p><span className="text-muted-foreground">Callback: </span>{request.phone}</p>{request.preferred_time && <p className="mt-1"><span className="text-muted-foreground">Preferred time: </span>{request.preferred_time}</p>}</div>}
       {request.details && <p className="whitespace-pre-wrap break-words rounded-lg bg-muted/50 p-3">{request.details}</p>}
       <p className="text-xs text-muted-foreground">Submitted by {request.submitted_by?.name ?? 'Former account'}</p>

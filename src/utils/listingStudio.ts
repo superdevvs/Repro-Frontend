@@ -1,4 +1,4 @@
-import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
+import { LISTING_STUDIO_CLIENT_PATH, LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
 
 export const LISTING_STUDIO_QUERY = 'listingStudio';
 
@@ -19,8 +19,14 @@ export const canUseListingStudioDashboard = (role?: string, secondaryRoles?: str
 export const canReviewListingStudio = (role?: string, secondaryRoles?: string[]): boolean =>
   ['admin', 'superadmin'].includes(listingStudioRole(role, secondaryRoles) ?? '');
 
+export const listingStudioIsExternal = (role?: string, secondaryRoles?: string[]): boolean =>
+  listingStudioRole(role, secondaryRoles) === 'client' && role?.toLowerCase() !== 'client';
+
+export const canUseListingStudioRevisions = (role?: string, secondaryRoles?: string[]): boolean =>
+  [role, ...(secondaryRoles ?? [])].some(value => ['admin', 'superadmin', 'editingmanager', 'editor'].includes((value ?? '').toLowerCase().replace(/[_-]/g, '')));
+
 export const listingStudioHref = (location: { pathname: string; search: string; hash: string }, role?: string, secondaryRoles?: string[]): string => {
-  if (listingStudioRole(role, secondaryRoles) === 'client') return LISTING_STUDIO_WEBSITE_URL;
+  if (listingStudioRole(role, secondaryRoles) === 'client') return listingStudioIsExternal(role, secondaryRoles) ? LISTING_STUDIO_WEBSITE_URL : LISTING_STUDIO_CLIENT_PATH;
   const params = new URLSearchParams(location.search);
   params.set(LISTING_STUDIO_QUERY, '1');
   return `${location.pathname}?${params.toString()}${location.hash}`;

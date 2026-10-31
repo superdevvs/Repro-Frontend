@@ -7,7 +7,7 @@ import '@testing-library/jest-dom/vitest';
 import { SidebarLinks } from '@/components/layout/sidebar/SidebarLinks';
 import { useMobileMenu } from '@/components/layout/mobile-menu/useMobileMenu';
 import { canReviewListingStudio, canUseListingStudio, canUseListingStudioDashboard, listingStudioHref, listingStudioRole } from '@/utils/listingStudio';
-import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
+import { LISTING_STUDIO_CLIENT_PATH, LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
 import { MenuItem } from '@/components/layout/mobile-menu/MenuItem';
 
 const auth = vi.hoisted(() => ({ role: 'client', user: { secondary_roles: [] as string[] }, logout: vi.fn() }));
@@ -37,13 +37,8 @@ describe('Listing Studio navigation', () => {
     const links = screen.getAllByRole('link');
     const exclusiveIndex = links.indexOf(screen.getByRole('link', { name: 'Exclusive Listings' }));
     expect(links[exclusiveIndex + 1]).toHaveTextContent('Listing Studio');
-    expect(links[exclusiveIndex + 1]).toHaveAttribute('href', role === 'client' ? LISTING_STUDIO_WEBSITE_URL : '/portal?view=grid&listingStudio=1#saved');
-    if (role === 'client') {
-      expect(links[exclusiveIndex + 1]).toHaveAttribute('target', '_blank');
-      expect(links[exclusiveIndex + 1]).toHaveAttribute('rel', 'noopener noreferrer');
-    } else {
-      expect(links[exclusiveIndex + 1]).not.toHaveAttribute('target', '_blank');
-    }
+    expect(links[exclusiveIndex + 1]).toHaveAttribute('href', role === 'client' ? LISTING_STUDIO_CLIENT_PATH : '/portal?view=grid&listingStudio=1#saved');
+    expect(links[exclusiveIndex + 1]).not.toHaveAttribute('target', '_blank');
   });
 
   it.each(['client', 'salesRep', 'admin', 'superadmin'])('places the mobile entry immediately after Exclusive Listings for %s', role => {
@@ -52,15 +47,12 @@ describe('Listing Studio navigation', () => {
     const items = result.current.filteredItems;
     const exclusiveIndex = items.findIndex(item => item.label === 'Exclusive Listings');
     const item = items[exclusiveIndex + 1];
-    expect(item).toMatchObject({ label: 'Listing Studio', to: role === 'client' ? LISTING_STUDIO_WEBSITE_URL : '/portal?view=grid&listingStudio=1#saved' });
-    expect(Boolean(item.external)).toBe(role === 'client');
+    expect(item).toMatchObject({ label: 'Listing Studio', to: role === 'client' ? LISTING_STUDIO_CLIENT_PATH : '/portal?view=grid&listingStudio=1#saved' });
+    expect(Boolean(item.external)).toBe(false);
     render(<MenuItem {...item} onClick={vi.fn()} />, { wrapper });
     const link = screen.getByRole('link', { name: 'Listing Studio' });
     expect(link).toHaveAttribute('href', item.to);
-    if (role === 'client') {
-      expect(link).toHaveAttribute('target', '_blank');
-      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
-    }
+    expect(link).not.toHaveAttribute('target', '_blank');
   });
 
   it.each(['photographer', 'editor', 'editing_manager'])('hides both entries for %s', role => {
@@ -81,7 +73,8 @@ describe('Listing Studio navigation', () => {
     expect(canUseListingStudioDashboard('editor', ['client'])).toBe(false);
     expect(canUseListingStudioDashboard('client', ['sales_rep'])).toBe(true);
     expect(listingStudioHref({ pathname: '/dashboard', search: '?listingStudio=1', hash: '' }, 'admin')).toBe('/dashboard?listingStudio=1');
-    expect(listingStudioHref({ pathname: '/dashboard', search: '?listingStudio=1&listingStudioTab=requests', hash: '' }, 'client')).toBe(LISTING_STUDIO_WEBSITE_URL);
+    expect(listingStudioHref({ pathname: '/dashboard', search: '?listingStudio=1&listingStudioTab=requests', hash: '' }, 'client')).toBe(LISTING_STUDIO_CLIENT_PATH);
+    expect(listingStudioHref({ pathname: '/dashboard', search: '', hash: '' }, 'editor', ['client'])).toBe(LISTING_STUDIO_WEBSITE_URL);
   });
 
   it('keeps staff signup available to a primary client with a secondary rep role', () => {

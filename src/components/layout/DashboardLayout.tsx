@@ -12,8 +12,8 @@ import { Button } from '@/components/ui/button';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
 import { EmailVerificationNotice } from '@/components/auth/EmailVerificationNotice';
 import { AlertCircle, LogOut } from 'lucide-react';
-import { canUseListingStudioDashboard, listingStudioRole, LISTING_STUDIO_QUERY } from '@/utils/listingStudio';
-import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
+import { canUseListingStudioDashboard, listingStudioIsExternal, listingStudioRole, LISTING_STUDIO_QUERY } from '@/utils/listingStudio';
+import { LISTING_STUDIO_CLIENT_PATH, LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
 import { isSupportInbox } from '@/pages/messaging/messagingSupport';
 import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 import { PhotographerHelpProvider } from '@/features/dashboard/components/PhotographerHelpProvider';
@@ -52,11 +52,12 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const isListingStudioClient = listingStudioRole(role, user?.secondary_roles) === 'client';
   const listingStudioOpen = canUseListingStudioDashboard(role, user?.secondary_roles) && listingStudioRequested;
   React.useEffect(() => {
-    // Existing bookmarks and notification links should follow the client's website flow too.
+    // Keep existing client bookmarks connected to the current Studio workspace.
     if (!isInsideDashboardLayout && isListingStudioClient && listingStudioRequested) {
-      window.location.replace(LISTING_STUDIO_WEBSITE_URL);
+      if (listingStudioIsExternal(role, user?.secondary_roles)) window.location.replace(LISTING_STUDIO_WEBSITE_URL);
+      else navigate(LISTING_STUDIO_CLIENT_PATH, { replace: true });
     }
-  }, [isInsideDashboardLayout, isListingStudioClient, listingStudioRequested]);
+  }, [isInsideDashboardLayout, isListingStudioClient, listingStudioRequested, navigate, role, user?.secondary_roles]);
   const closeListingStudio = () => {
     const params = new URLSearchParams(location.search);
     params.delete(LISTING_STUDIO_QUERY);
