@@ -37,8 +37,8 @@ describe('owned client payment approval', () => {
     await user.click(await screen.findByRole('button', { name: 'Check existing confirmation' })); await waitFor(() => expect(listingStudioPaymentRequests.confirm).toHaveBeenCalledTimes(2));
     expect(vi.mocked(listingStudioPaymentRequests.confirm).mock.calls[1]).toEqual(firstArgs); expect(readStudioRequestConfirmation('43', billingRequest.id)).toBeNull();
   });
-  it('clears a definitively stale review and requires approval of the refreshed amount', async () => {
-    vi.mocked(listingStudioPaymentRequests.confirm).mockRejectedValueOnce({ response: { status: 409, data: { code: 'review_stale', message: 'Review the current price.' } } }); view(); const user = userEvent.setup();
+  it.each(['review_stale', 'subscription_review_expired', 'subscription_review_changed'])('clears %s and requires approval of the refreshed amount', async code => {
+    vi.mocked(listingStudioPaymentRequests.confirm).mockRejectedValueOnce({ response: { status: 409, data: { code, message: 'Review the current price.' } } }); view(); const user = userEvent.setup();
     await screen.findByRole('checkbox'); await user.click(screen.getByRole('checkbox')); await user.click(screen.getByRole('button', { name: 'Approve and continue to payment' }));
     await screen.findByText('Review the current price.'); expect(readStudioRequestConfirmation('42', billingRequest.id)).toBeNull();
     expect(screen.getByRole('button', { name: 'Approve and continue to payment' })).toBeDisabled();

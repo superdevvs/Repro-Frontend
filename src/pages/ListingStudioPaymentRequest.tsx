@@ -12,7 +12,7 @@ import { normalizeApiError } from '@/services/apiError';
 import { listingStudioPaymentRequests } from '@/services/listingStudioPaymentRequestService';
 
 const terminal = new Set(['completed', 'cancelled', 'expired']);
-const staleReview = new Set(['review_stale', 'billing_request_expired']);
+const staleReview = new Set(['review_stale', 'billing_request_expired', 'subscription_review_expired', 'subscription_review_changed']);
 
 export default function ListingStudioPaymentRequest() {
   const { user, isAuthenticated, isLoading, isImpersonating } = useAuth(); const { requestId } = useParams();
