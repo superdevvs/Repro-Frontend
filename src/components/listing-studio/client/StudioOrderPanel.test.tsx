@@ -35,6 +35,11 @@ describe('order recovery and unpaid cancellation', () => {
     expect(listingStudioClient.cancelOrder).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole('button', { name: 'Cancel unpaid order' })).not.toBeInTheDocument();
   });
+  it('does not imply rendering has started while payment or refund review holds the order', async () => {
+    current = { ...current, item: { ...current.item, status: 'needs_attention', error: { code: 'payment_review', message: 'Payment details are being checked.' } }, actions: { ...current.actions, canCheckout: false, canCancel: false } };
+    view(); await screen.findByText(/This order is on hold because of its payment or refund status/);
+    expect(screen.queryByText(/Its processing request is saved/)).not.toBeInTheDocument();
+  });
   it('refreshes a refused cancellation without treating an unresolved payment as cancelled', async () => {
     vi.mocked(listingStudioClient.cancelOrder).mockImplementation(async () => {
       current = { ...current, actions: { ...current.actions, canCheckout: false, canCancel: false } };
