@@ -16,3 +16,10 @@ it('offers an explicit save action and keeps failed saves visible', () => {
   rerender(<MediaSortControl {...props} sortSaveStatus="saved" />);
   expect(screen.getByRole('status')).toHaveTextContent('Saved');
 });
+
+it('keeps retry feedback on the compact save button', () => {
+  render(<MediaSortControl open={false} onOpenChange={vi.fn()} sortOrder="manual" isDragMode
+    sortSaveStatus="error" changeSortOrder={vi.fn()} toggleDragMode={vi.fn()} compact />);
+  expect(screen.getByRole('button', { name: 'Save media order' })).toHaveTextContent('Retry save');
+  expect(screen.getByRole('status')).toHaveClass('sr-only');
+});

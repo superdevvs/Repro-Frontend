@@ -42,7 +42,7 @@ export function MediaSortControl({
           title={isDragMode ? 'Done reordering — keep this order' : 'Drag to reorder media'}
         >
           {isDragMode ? <Check /> : <GripVertical />}
-          {isDragMode ? 'Save order' : 'Reorder'}
+          {isDragMode ? (sortSaveStatus === 'error' ? 'Retry save' : 'Save order') : 'Reorder'}
         </Button>
       )}
       <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -69,7 +69,7 @@ export function MediaSortControl({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
-      <span className="text-xs text-muted-foreground" role="status">
+      <span className={compact ? "sr-only" : "max-w-32 text-xs text-muted-foreground"} role="status">
         {sortSaveStatus === 'saving' ? 'Saving media order' : sortSaveStatus === 'saved' ? 'Saved' : sortSaveStatus === 'error' ? 'Not saved - retry Save order' : ''}
       </span>
     </div>
