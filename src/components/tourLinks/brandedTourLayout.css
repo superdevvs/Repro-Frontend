@@ -1,0 +1,66 @@
+.branded-tour-page {
+  scroll-padding-top: calc(env(safe-area-inset-top, 0px) + 80px);
+}
+
+.tour-floating-navigation {
+  position: fixed;
+  top: calc(env(safe-area-inset-top, 0px) + 22px);
+  right: 22px;
+  z-index: 30;
+  max-width: calc(100vw - 44px);
+}
+
+@media (min-width: 768px) {
+  .tour-floating-navigation {
+    top: calc(env(safe-area-inset-top, 0px) + 30px);
+    right: 30px;
+    max-width: calc(100vw - 60px);
+  }
+}
+
+.tour-mobile-agent-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: 32px 24px 24px;
+  flex: 1;
+  min-width: 0;
+  height: 80px;
+}
+
+.tour-mobile-agent-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tour-mobile-agent-title h2 {
+  min-width: 0;
+  margin: 0;
+  font-size: clamp(16px, 4.6vw, 18px);
+  line-height: 24px;
+}
+
+.tour-mobile-lot-size {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  height: 32px;
+  padding: 3px 8px;
+}
+
+.tour-mobile-lot-size strong { margin-top: 1px; font-size: 14px; line-height: 16px; }
+.tour-mobile-agent-phones { grid-row: 2; }
+.tour-mobile-agent-phones > a { min-height: 24px; }
+.tour-mobile-agent-bottom { display: flex; align-items: center; gap: 8px; grid-row: 3; min-width: 0; }
+.tour-mobile-agent-bottom p { flex: 1; min-width: 0; margin: 0; font-size: 12px; line-height: 16px; }
+.tour-mobile-agent-socials { display: flex; flex: none; gap: 4px; margin-left: auto; }
+.tour-mobile-agent-socials a { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; }
+
+@media (max-width: 340px) {
+  .tour-mobile-agent-phones { gap: 2px; }
+  .tour-mobile-agent-phones > a { gap: 1px; }
+}

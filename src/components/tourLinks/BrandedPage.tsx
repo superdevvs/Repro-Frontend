@@ -25,6 +25,7 @@ import { publicTourImageSource } from './shared/publicTourImage';
 import { TourContactNumbers } from './TourContactNumbers';
 import { isLandorTourStyle, resolvePublicTourStyle } from './publicTourStyle';
 import NotFound from '@/pages/NotFound';
+import './brandedTourLayout.css';
 
 const HomeifyTour = lazy(() => import('./homeify/HomeifyTour').then((module) => ({ default: module.HomeifyTour })));
 const LandorThemeRouter = lazy(() => import('./landor/LandorThemeRouter').then((module) => ({ default: module.LandorThemeRouter })));
@@ -366,7 +367,26 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
   const fullAddress = [shoot?.address, shoot?.city, shoot?.state, shoot?.zip].filter(Boolean).join(', ');
 
   return (
-    <div className="fixed inset-0 overflow-auto bg-background text-foreground font-sans">
+    <div className="branded-tour-page fixed inset-0 overflow-auto bg-background text-foreground font-sans">
+      {/* Floating nav pill */}
+      <nav aria-label="Property tour navigation" className="tour-floating-navigation flex items-center gap-0.5 md:gap-1 bg-white/15 backdrop-blur-md rounded-full px-1.5 md:px-2 py-1 md:py-1.5 border border-white/20 overflow-x-auto no-scrollbar">
+        {description && (
+          <a href="#about" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium bg-white text-black rounded-full transition-colors whitespace-nowrap">About</a>
+        )}
+        {photos.length > 0 && (
+          <a href="#photos" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Photos</a>
+        )}
+        <a href="#contact" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Map</a>
+        {hasVideo && (
+          <a href="#video" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Videos</a>
+        )}
+        {(matterportUrl || iguideUrl) && (
+          <a href="#tour" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">3D Tour</a>
+        )}
+        {floorplans.length > 0 && (
+          <a href="#floorplan" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Floor Plans</a>
+        )}
+      </nav>
       {/* Hero — Ken Burns slideshow */}
       <div className="p-2.5">
         <div className="rounded-2xl overflow-hidden relative h-[calc(100vh-110px)] md:h-[calc(100vh-120px)] min-h-[500px] md:min-h-[500px]">
@@ -390,26 +410,6 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
             </div>
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent z-[1]" />
-
-          {/* Floating nav pill */}
-          <nav className="absolute top-3 right-3 md:top-5 md:right-5 z-10 flex items-center gap-0.5 md:gap-1 bg-white/15 backdrop-blur-md rounded-full px-1.5 md:px-2 py-1 md:py-1.5 border border-white/20 overflow-x-auto no-scrollbar">
-            {description && (
-              <a href="#about" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium bg-white text-black rounded-full transition-colors whitespace-nowrap">About</a>
-            )}
-            {photos.length > 0 && (
-              <a href="#photos" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Photos</a>
-            )}
-            <a href="#contact" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Map</a>
-            {hasVideo && (
-              <a href="#video" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Videos</a>
-            )}
-            {(matterportUrl || iguideUrl) && (
-              <a href="#tour" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">3D Tour</a>
-            )}
-            {floorplans.length > 0 && (
-              <a href="#floorplan" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Floor Plans</a>
-            )}
-          </nav>
 
           {/* Address on hero — mobile only (desktop address is in the overlap section) */}
           <div className="absolute bottom-4 left-0 right-0 px-4 z-[2] md:hidden">
@@ -513,10 +513,10 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
         )}
       </div>
 
-      {/* ===== MOBILE: Agent info cleanly below hero ===== */}
+      {/* ===== MOBILE: Agent details stay within the portrait height ===== */}
       {shoot?.client_name && (
         <div className="md:hidden max-w-6xl mx-auto px-3">
-          <div className="flex items-start gap-3">
+          <div className="tour-mobile-agent flex items-start gap-3">
             <div className="shrink-0">
               {shoot.client_avatar ? (
                 <img src={shoot.client_avatar} alt={shoot.client_name} className="w-[80px] h-[80px] rounded-xl object-cover border-[3px] border-background" />
@@ -526,52 +526,33 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
                 </div>
               )}
             </div>
-            <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch">
-              <div className="min-w-0">
-                <h2 className="text-lg font-extrabold text-foreground leading-tight">{shoot.client_name}</h2>
-                <TourContactNumbers source={shoot} className="text-primary mt-0.5" />
-                {shoot.client_company && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{shoot.client_company}</p>
+            <div className="tour-mobile-agent-details">
+              <div className="tour-mobile-agent-title">
+                <h2 className="truncate font-extrabold text-foreground" title={shoot.client_name}>{shoot.client_name}</h2>
+                {lotSize && (
+                  <div className="tour-mobile-lot-size rounded-xl border border-border/40 bg-card shadow-sm">
+                    <div className="text-[7px] uppercase tracking-widest text-muted-foreground font-semibold leading-none">Lot Size</div>
+                    <strong className="text-foreground">{String(lotSize)}</strong>
+                  </div>
                 )}
               </div>
-              <div className="flex items-center gap-2 justify-end mt-1">
-                {branding?.facebook_url && (
-                  <a href={branding.facebook_url} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full border-2 border-foreground/20 flex items-center justify-center hover:border-primary hover:text-primary transition-colors text-foreground">
-                    <Facebook className="w-4 h-4" />
-                  </a>
-                )}
-                {branding?.linkedin_url && (
-                  <a href={branding.linkedin_url} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full border-2 border-foreground/20 flex items-center justify-center hover:border-primary hover:text-primary transition-colors text-foreground">
-                    <Linkedin className="w-4 h-4" />
-                  </a>
-                )}
-                {branding?.instagram_url && (
-                  <a href={branding.instagram_url} target="_blank" rel="noopener noreferrer" className="w-9 h-9 rounded-full border-2 border-foreground/20 flex items-center justify-center hover:border-primary hover:text-primary transition-colors text-foreground">
-                    <Instagram className="w-4 h-4" />
-                  </a>
-                )}
+              <TourContactNumbers source={shoot} className="tour-mobile-agent-phones text-primary" />
+              <div className="tour-mobile-agent-bottom">
+                {shoot.client_company && <p className="truncate text-muted-foreground" title={shoot.client_company}>{shoot.client_company}</p>}
+                <div className="tour-mobile-agent-socials">
+                  {branding?.facebook_url && <a href={branding.facebook_url} aria-label="Facebook" target="_blank" rel="noopener noreferrer" className="rounded-full border border-foreground/20 text-foreground hover:text-primary"><Facebook className="w-3.5 h-3.5" /></a>}
+                  {branding?.linkedin_url && <a href={branding.linkedin_url} aria-label="LinkedIn" target="_blank" rel="noopener noreferrer" className="rounded-full border border-foreground/20 text-foreground hover:text-primary"><Linkedin className="w-3.5 h-3.5" /></a>}
+                  {branding?.instagram_url && <a href={branding.instagram_url} aria-label="Instagram" target="_blank" rel="noopener noreferrer" className="rounded-full border border-foreground/20 text-foreground hover:text-primary"><Instagram className="w-3.5 h-3.5" /></a>}
+                </div>
               </div>
             </div>
           </div>
-          {(lotSize || listPrice) && (
+          {listPrice && (
             <div className="mt-2 flex items-center justify-start gap-2">
-              {lotSize && (
-                <div className="rounded-xl border border-border/40 bg-card px-2.5 py-1.5 shadow-sm">
-                  <div className="text-[7px] uppercase tracking-widest text-muted-foreground font-semibold leading-none">Lot Size</div>
-                  <div className="mt-0.5 text-sm font-extrabold text-foreground leading-none">{String(lotSize)}</div>
-                </div>
-              )}
-              {listPrice && (
-                <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-2.5 py-1.5 shadow-sm">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground">
-                    <DollarSign className="h-3.5 w-3.5" />
-                  </div>
-                  <div>
-                    <div className="text-[7px] uppercase tracking-widest text-muted-foreground font-semibold leading-none">List Price</div>
-                    <div className="mt-0.5 text-sm font-extrabold text-foreground leading-none">{listPrice}</div>
-                  </div>
-                </div>
-              )}
+              <div className="flex items-center gap-2 rounded-xl border border-primary/20 bg-primary/5 px-2.5 py-1.5 shadow-sm">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground"><DollarSign className="h-3.5 w-3.5" /></div>
+                <div><div className="text-[7px] uppercase tracking-widest text-muted-foreground font-semibold leading-none">List Price</div><div className="mt-0.5 text-sm font-extrabold text-foreground leading-none">{listPrice}</div></div>
+              </div>
             </div>
           )}
         </div>

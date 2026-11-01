@@ -64,4 +64,19 @@ describe('historical branded tour media', () => {
     expect(container.querySelector('video')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Open Zillow 3D tour' })).not.toBeInTheDocument();
   });
+
+  it('retains property navigation and both clickable contact numbers with lot details', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ ...payload,
+      shoot: { ...payload.shoot, client_name: 'Harry Moore', client_company: 'EXP Realty LLC',
+        client_phone: '3019607194', office_phone: '8333357433' },
+      property_details: { lot_size: 16406 },
+    }) });
+    render(<BrandedPage />);
+    const navigation = await screen.findByRole('navigation', { name: 'Property tour navigation' });
+    expect(navigation.querySelector('a[href="#photos"]')).toHaveTextContent('Photos');
+    expect(navigation.querySelector('a[href="#contact"]')).toHaveTextContent('Map');
+    expect(screen.getAllByRole('link', { name: '(301) 960-7194' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('link', { name: 'Office (833) 335-7433' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('16406').length).toBeGreaterThan(0);
+  });
 });
