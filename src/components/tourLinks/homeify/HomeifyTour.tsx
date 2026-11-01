@@ -1,6 +1,7 @@
 import { publicGalleryPhotos } from '../publicGalleryPhotos';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
-import { ArrowDown, ArrowUpRight, Bath, BedDouble, CalendarDays, CarFront, Check, ChevronRight, House, Images, Layers3, Mail, MapPin, Maximize, Menu, Phone, Printer, Share2, X } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, Bath, BedDouble, CalendarDays, CarFront, Check, ChevronRight, House, Images, Layers3, Mail, MapPin, Maximize, Menu, Printer, Share2, X } from 'lucide-react';
+import { TourContactNumbers } from '../TourContactNumbers';
 import type { PublicTourData } from '../publicTourData';
 import { formatTourPrice } from '../tourDisplayUtils';
 import { trackLinkClick, trackShare } from '@/lib/tourTracking';
@@ -153,8 +154,7 @@ export function HomeifyTour({ data }: { data: PublicTourData }) {
                 {shoot.client_avatar ? <img src={shoot.client_avatar} alt={shoot.client_name || 'Listing contact'} loading="lazy" onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <span className="homeify-avatar">{shoot.client_name?.split(' ').map((word) => word[0]).slice(0, 2).join('') || <House size={24} />}</span>}
                 <div><strong>{shoot.client_name || 'Listing contact'}</strong><span>{shoot.client_company || 'Property contact'}</span></div>
               </div>
-              {shoot.client_phone && <a className="homeify-button" href={`tel:${shoot.client_phone.replace(/[^+\d]/g, '')}`} onClick={() => trackLink('phone', `tel:${shoot.client_phone}`)}><Phone size={17} />{shoot.client_phone}</a>}
-              {shoot.office_phone && <a className="homeify-button" href={`tel:${shoot.office_phone.replace(/[^+\d]/g, '')}`} onClick={() => trackLink('phone', `tel:${shoot.office_phone}`)}><Phone size={17} />Office {shoot.office_phone}</a>}
+              <TourContactNumbers source={shoot} onPhoneClick={(phone) => trackLink('phone', `tel:${phone}`)} />
               {shoot.client_email && <a className="homeify-button homeify-button-outline" href={`mailto:${shoot.client_email}?subject=${encodeURIComponent(`Property inquiry: ${address}`)}`} onClick={() => trackLink('email', `mailto:${shoot.client_email}`)}><Mail size={17} />Email contact</a>}
               {data.tourSettings.realtor_info && <p className="homeify-agent-notes">{data.tourSettings.realtor_info}</p>}
             </section>}

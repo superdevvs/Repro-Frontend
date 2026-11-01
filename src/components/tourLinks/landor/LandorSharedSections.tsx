@@ -1,4 +1,5 @@
-import { ArrowDown, ArrowUpRight, House, Mail, MapPin, Phone } from 'lucide-react';
+import { ArrowDown, ArrowUpRight, House, Mail, MapPin } from 'lucide-react';
+import { TourContactNumbers } from '../TourContactNumbers';
 import type { PublicTourData } from '../publicTourData';
 import { showMissingTourImage, preventTourImageDownloadGesture } from '../shared/publicTourImage';
 import type { useLandorModel } from './useLandorModel';
@@ -32,18 +33,7 @@ export function LandorHeader({ model, themeClass }: { model: Model; themeClass?:
         ))}
       </nav>
       <div className="landor-header-actions">
-        {branded && shoot.client_phone && (
-          <a className="landor-header-phone" href={`tel:${shoot.client_phone.replace(/[^+\d]/g, '')}`} onClick={() => model.track('phone', `tel:${shoot.client_phone}`)}>
-            <span><Phone size={18} /></span>
-            <div><small>Get in touch</small>{shoot.client_phone}</div>
-          </a>
-        )}
-        {branded && shoot.office_phone && (
-          <a className="landor-header-phone" href={`tel:${shoot.office_phone.replace(/[^+\d]/g, '')}`} onClick={() => model.track('phone', `tel:${shoot.office_phone}`)}>
-            <span><Phone size={18} /></span>
-            <div><small>Office</small>{shoot.office_phone}</div>
-          </a>
-        )}
+        {branded && <TourContactNumbers source={shoot} className="landor-header-phone" onPhoneClick={(phone) => model.track('phone', `tel:${phone}`)} />}
         {hasContact && <a className="landor-button landor-contact-button" href="#contact">Contact agent <i /></a>}
         <button type="button" className="landor-menu" aria-label={menuOpen ? 'Close navigation' : 'Open navigation'} aria-expanded={menuOpen} aria-controls="landor-navigation" onClick={() => setMenuOpen((value) => !value)}>
           {menuOpen ? 'Close' : 'Menu'}
@@ -90,16 +80,7 @@ export function LandorContactSection({ model, data, photo }: { model: Model; dat
             {shoot.client_company && <span>{shoot.client_company}</span>}
           </div>
         </div>
-        {shoot.client_phone && (
-          <a className="landor-button" href={`tel:${shoot.client_phone.replace(/[^+\d]/g, '')}`} onClick={() => track('phone', `tel:${shoot.client_phone}`)}>
-            <Phone size={18} />{shoot.client_phone}
-          </a>
-        )}
-        {shoot.office_phone && (
-          <a className="landor-button" href={`tel:${shoot.office_phone.replace(/[^+\d]/g, '')}`} onClick={() => track('phone', `tel:${shoot.office_phone}`)}>
-            <Phone size={18} />Office {shoot.office_phone}
-          </a>
-        )}
+        <TourContactNumbers source={shoot} onPhoneClick={(phone) => track('phone', `tel:${phone}`)} />
         {shoot.client_email && (
           <a className="landor-button" href={`mailto:${shoot.client_email}?subject=${encodeURIComponent(`Property inquiry: ${address}`)}`} onClick={() => track('email', `mailto:${shoot.client_email}`)}>
             <Mail size={18} />Email contact <ArrowUpRight size={18} />

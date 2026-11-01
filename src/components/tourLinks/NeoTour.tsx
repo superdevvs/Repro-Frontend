@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { motion, useScroll, useMotionValueEvent } from "framer-motion";
-import { MapPin, BedDouble, Bath, Maximize, ChevronDown, ChevronLeft, ChevronRight, Mail, Phone, User, Wind, Sun, Cloud, CloudRain, Snowflake, Droplets, Link2, ExternalLink, Users } from "lucide-react";
+import { MapPin, BedDouble, Bath, Maximize, ChevronDown, ChevronLeft, ChevronRight, Mail, User, Wind, Sun, Cloud, CloudRain, Snowflake, Droplets, Link2, ExternalLink, Users } from "lucide-react";
 import { sanitizeTourEmbedHtml } from './videoControlRestrictions';
 import { filterVirtualTourEmbeds, getTourMediaEmbedUrl } from './tourMediaEmbedUrl';
 import { PropertyInfoSummary } from './PropertyInfoSummary';
@@ -17,7 +17,7 @@ import {
   resolvePublicIguideSources,
   resolvePublicTourVariantFromPath,
 } from './publicIguideModel';
-import { brandedTourOfficePhone } from '@/utils/officePhone';
+import { TourContactNumbers } from './TourContactNumbers';
 import { normalizePublicPhotoRenditions, type PublicTourPhotoRenditions } from './publicTourData';
 import { publicTourImageSource } from './shared/publicTourImage';
 
@@ -783,20 +783,7 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
                   </div>
                 )}
                 <div className="flex flex-wrap justify-center md:justify-start gap-4">
-                  {shoot?.client_phone && (
-                    <Button variant="link" className="text-blue-400 hover:text-blue-300 p-0 h-auto">
-                      <Phone className="w-4 h-4 mr-2" />
-                      {shoot.client_phone}
-                    </Button>
-                  )}
-                  {brandedTourOfficePhone(shoot) && (
-                    <Button variant="link" className="text-blue-400 hover:text-blue-300 p-0 h-auto" asChild>
-                      <a href={`tel:${brandedTourOfficePhone(shoot)}`}>
-                        <Phone className="w-4 h-4 mr-2" />
-                        Office {brandedTourOfficePhone(shoot)}
-                      </a>
-                    </Button>
-                  )}
+                  <TourContactNumbers source={shoot} className="text-blue-400" />
                   {shoot?.client_email && (
                     <Button variant="link" className="text-blue-400 hover:text-blue-300 p-0 h-auto">
                       <Mail className="w-4 h-4 mr-2" />

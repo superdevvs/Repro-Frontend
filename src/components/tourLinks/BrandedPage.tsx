@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
-import { BedDouble, Bath, Maximize, ChevronLeft, ChevronRight, FileText, Mail, Phone, Link2, ExternalLink, Car, Facebook, Linkedin, Instagram, DollarSign } from "lucide-react";
+import { BedDouble, Bath, Maximize, ChevronLeft, ChevronRight, FileText, Mail, Link2, ExternalLink, Car, Facebook, Linkedin, Instagram, DollarSign } from "lucide-react";
 import { NeoTour } from "./NeoTour";
 import { trackPageView, trackMediaView } from '@/lib/tourTracking';
 import { restrictedVideoProps, sanitizeTourEmbedHtml } from './videoControlRestrictions';
@@ -22,7 +22,7 @@ import { Public3dTourViewer } from './Public3dTourViewer';
 import { resolvePublicEmbedSources, resolvePublicIguideSources } from './publicIguideModel';
 import { normalizePublicTourData, normalizePublicPhotoRenditions } from './publicTourData';
 import { publicTourImageSource } from './shared/publicTourImage';
-import { brandedTourOfficePhone } from '@/utils/officePhone';
+import { TourContactNumbers } from './TourContactNumbers';
 import { isLandorTourStyle, resolvePublicTourStyle } from './publicTourStyle';
 import NotFound from '@/pages/NotFound';
 
@@ -469,12 +469,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
             <div className="flex-1 flex items-start justify-between gap-4 min-w-0">
               <div className="min-w-0">
                 <h2 className="text-3xl font-extrabold text-foreground leading-tight">{shoot.client_name}</h2>
-                {shoot.client_phone && (
-                  <a href={`tel:${shoot.client_phone}`} className="text-primary text-lg hover:underline transition-colors block mt-0.5">{shoot.client_phone}</a>
-                )}
-                {brandedTourOfficePhone(shoot) && (
-                  <a href={`tel:${brandedTourOfficePhone(shoot)}`} className="text-primary text-lg hover:underline transition-colors block mt-0.5">Office {brandedTourOfficePhone(shoot)}</a>
-                )}
+                <TourContactNumbers source={shoot} className="text-primary mt-0.5" />
                 {shoot.client_company && (
                   <p className="text-sm text-muted-foreground mt-0.5">{shoot.client_company}</p>
                 )}
@@ -534,12 +529,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
             <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch">
               <div className="min-w-0">
                 <h2 className="text-lg font-extrabold text-foreground leading-tight">{shoot.client_name}</h2>
-                {shoot.client_phone && (
-                  <a href={`tel:${shoot.client_phone}`} className="text-primary text-sm hover:underline transition-colors block mt-0.5">{shoot.client_phone}</a>
-                )}
-                {brandedTourOfficePhone(shoot) && (
-                  <a href={`tel:${brandedTourOfficePhone(shoot)}`} className="text-primary text-sm hover:underline transition-colors block mt-0.5">Office {brandedTourOfficePhone(shoot)}</a>
-                )}
+                <TourContactNumbers source={shoot} className="text-primary mt-0.5" />
                 {shoot.client_company && (
                   <p className="text-xs text-muted-foreground mt-0.5">{shoot.client_company}</p>
                 )}
@@ -752,16 +742,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
               <div className="min-w-0">
                 <h3 className="text-base font-bold leading-tight">{shoot?.client_name || 'Listing Agent'}</h3>
                 <div className="flex flex-wrap gap-3 mt-1">
-                  {shoot?.client_phone && (
-                    <a href={`tel:${shoot.client_phone}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                      <Phone className="w-3 h-3" />{shoot.client_phone}
-                    </a>
-                  )}
-                  {brandedTourOfficePhone(shoot) && (
-                    <a href={`tel:${brandedTourOfficePhone(shoot)}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                      <Phone className="w-3 h-3" />Office {brandedTourOfficePhone(shoot)}
-                    </a>
-                  )}
+                  <TourContactNumbers source={shoot} className="text-primary" />
                   {shoot?.client_email && (
                     <a href={`mailto:${shoot.client_email}`} className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
                       <Mail className="w-3 h-3" />{shoot.client_email}
