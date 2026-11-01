@@ -1,3 +1,4 @@
+import { publicGalleryPhotos } from '../publicGalleryPhotos';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ArrowDown, ArrowUpRight, Bath, BedDouble, CalendarDays, CarFront, Check, ChevronRight, House, Images, Layers3, Mail, MapPin, Maximize, Menu, Phone, Printer, Share2, X } from 'lucide-react';
 import type { PublicTourData } from '../publicTourData';
@@ -123,7 +124,7 @@ export function HomeifyTour({ data }: { data: PublicTourData }) {
           </div>
         </div>
 
-        <HomeifyGallery photos={data.heroSlides} photoRenditions={data.photoRenditions} address={address} shootId={analytics.shootId ?? undefined} tourType={analytics.tourType} />
+        <HomeifyGallery photos={publicGalleryPhotos(data)} photoRenditions={data.photoRenditions} address={address} shootId={analytics.shootId ?? undefined} tourType={analytics.tourType} />
 
         <div className="homeify-content-grid">
           <div className="homeify-main-column">

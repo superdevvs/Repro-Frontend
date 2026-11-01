@@ -20,6 +20,14 @@ const payload = {
 };
 
 describe('Landor media tabs', () => {
+  it.each(['branded', 'mls', 'generic-mls'] as const)('keeps the %s gallery in saved order instead of moving the cover first', variant => {
+    const photos = ['https://media.test/first.jpg', 'https://media.test/second.jpg', 'https://media.test/cover.jpg'];
+    const data = normalizePublicTourData({ ...payload, photos, hero_photos: [photos[2]] }, variant);
+    expect(getLandorMedia(data).photos).toEqual(photos);
+    render(<LandorMedia data={data} />);
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', photos[0]);
+  });
+
   it('renders the published film once while preserving separate historical videos', () => {
     const source = { videos: ['https://media.test/upload.mp4'], video_link: 'https://vimeo.com/1234761777?share=copy' };
     const { container, rerender } = render(<LandorMedia data={normalizePublicTourData(source, 'branded')} />);

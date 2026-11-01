@@ -24,14 +24,14 @@ const propertyPayload = {
 };
 
 describe('Homeify property tour', () => {
-  it('renders the real property fields, selected hero media, and floorplan preview', () => {
+  it('renders the real property fields, gallery order, and floorplan preview', () => {
     const { container } = render(<HomeifyTour data={normalizePublicTourData(propertyPayload, 'branded')} />);
     expect(screen.getByRole('heading', { name: '123 Oak Street', level: 1 })).toBeInTheDocument();
     expect(container.querySelector('.homeify-price')?.textContent?.replace(/,/g, '')).toBe('$1250000');
     expect(screen.getByText(propertyPayload.property_details.description)).toBeInTheDocument();
     expect(screen.getByText('0.3 acres')).toBeInTheDocument();
     expect(screen.getByText('BOS123')).toBeInTheDocument();
-    expect(screen.getByAltText('123 Oak Street — photo 1')).toHaveAttribute('src', 'https://media.test/exterior.jpg');
+    expect(screen.getByAltText('123 Oak Street — photo 1')).toHaveAttribute('src', 'https://media.test/living.jpg');
     expect(screen.getByAltText('Floor plan 1')).toHaveAttribute('src', 'https://media.test/plan.jpg');
     const facts = container.querySelector('.homeify-stats');
     expect(facts).toHaveTextContent('4Bedrooms');
@@ -39,6 +39,16 @@ describe('Homeify property tour', () => {
     expect(facts).toHaveTextContent('2,500Square feet');
     expect(facts).toHaveTextContent('2006Year built');
     expect(facts).toHaveTextContent('2Garage spaces');
+  });
+
+  it.each(['branded', 'mls', 'generic-mls'] as const)('preserves saved photo order when the cover is a later photo on %s', variant => {
+    const photos = ['https://media.test/first.jpg', 'https://media.test/second.jpg', 'https://media.test/cover.jpg'];
+    render(<HomeifyTour data={normalizePublicTourData({ ...propertyPayload, photos, hero_photos: [photos[2]] }, variant)} />);
+    expect(screen.getByAltText(/photo 1$/)).toHaveAttribute('src', photos[0]);
+    fireEvent.click(screen.getByRole('button', { name: 'Next property photo' }));
+    expect(screen.getByAltText(/photo 2$/)).toHaveAttribute('src', photos[1]);
+    fireEvent.click(screen.getByRole('button', { name: 'Next property photo' }));
+    expect(screen.getByAltText(/photo 3$/)).toHaveAttribute('src', photos[2]);
   });
 
   it.each(['mls', 'generic-mls'] as const)('keeps agent identity and logos out of the %s presentation', (variant) => {
