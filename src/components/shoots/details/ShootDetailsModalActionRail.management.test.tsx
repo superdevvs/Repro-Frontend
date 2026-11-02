@@ -33,17 +33,29 @@ describe('shoot action rail booking capability', () => {
     expect(within(screen.getByRole('dialog', { name: 'Actions' })).queryByRole('button', { name: 'Edit shoot' })).not.toBeInTheDocument();
   });
 
-  it('keeps legacy booking edits when the capability is absent', () => {
+  it('hides desktop and mobile booking edits when the capability is absent', () => {
     const { rerender } = render(<ShootDetailsModalActionRail {...props} isDelivered={false} />);
-    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
     rerender(<ShootDetailsModalActionRail {...props} isDelivered={false} isMobileActionsOpen />);
-    expect(within(screen.getByRole('dialog', { name: 'Actions' })).getByRole('button', { name: 'Edit shoot' })).toBeInTheDocument();
+    expect(within(screen.getByRole('dialog', { name: 'Actions' })).queryByRole('button', { name: 'Edit shoot' })).not.toBeInTheDocument();
   });
 
   it('preserves the requested-shoot approval and modification flow', () => {
-    render(<ShootDetailsModalActionRail {...props} isDelivered={false} isRequestedStatus />);
+    render(<ShootDetailsModalActionRail {...props} isDelivered={false} isRequestedStatus canAdminEdit canManageBooking canReviewRequests canApproveRequest />);
     expect(screen.getByRole('button', { name: 'Approve' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Modify' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit shoot' })).not.toBeInTheDocument();
+  });
+
+  it('offers request rejection without approval or modification when booking edits are denied', () => {
+    render(<ShootDetailsModalActionRail {...props} isRequestedStatus canManageBooking={false} canReviewRequests />);
+    expect(screen.getByRole('button', { name: 'Decline' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Modify' })).not.toBeInTheDocument();
+  });
+
+  it('does not restore editing through scheduled-role fallbacks after a server denial', () => {
+    render(<ShootDetailsModalActionRail {...props} isDelivered={false} canManageBooking canAdminEdit={false} />);
+    expect(screen.queryByRole('button', { name: 'Edit' })).not.toBeInTheDocument();
   });
 });

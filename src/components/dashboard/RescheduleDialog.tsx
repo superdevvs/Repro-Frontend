@@ -3,7 +3,7 @@ import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel
 import { useTravelFeasibility } from '@/features/travel/useTravelFeasibility';
 import { shootTravelPayload } from '@/features/travel/travelPayload';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ServiceDurationPicker } from '@/components/shoots/ServiceDurationPicker';
 import { buildRescheduleDurationPayload, getRescheduleDurationEntries } from '@/utils/rescheduleDurations';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,13 +18,12 @@ import { format } from 'date-fns';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { parseLocalYmd } from '@/utils/shootLocalDate';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useRescheduleAccess } from '@/hooks/useRescheduleAccess';
 import { useToast } from "@/hooks/use-toast";
 import { useShoots } from '@/context/shootsContextState';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 import { MapPin, Camera, Calendar as CalendarIcon, Clock } from 'lucide-react';
-import { canReviewRescheduleRequests } from '@/utils/rescheduleRequests';
 import { getShootUnits } from '@/features/shoot-units/shootUnitData';
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
 
@@ -46,27 +45,44 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
   );
   const [reason, setReason] = useState("");
   const [durationChanges, setDurationChanges] = useState<Record<string, number>>({});
-  useEffect(() => { setDurationChanges({}); }, [isOpen, shoot.id]);
+  const draftSession = useRef({ isOpen: false, shootId: shoot.id, revision: 0 });
+  useEffect(() => {
+    const previous = draftSession.current;
+    const newDraft = isOpen && (!previous.isOpen || previous.shootId !== shoot.id);
+    draftSession.current = { isOpen, shootId: shoot.id, revision: previous.revision + (newDraft ? 1 : 0) };
+    if (!newDraft) return;
+    setDate(schedule.date ? parseLocalYmd(schedule.date) : undefined);
+    setTime(schedule.time ? formatTimeForDisplay(schedule.time) : '10:00 AM');
+    setReason('');
+    setDurationChanges({});
+    setIsSubmitting(false);
+  }, [isOpen, shoot.id, schedule.date, schedule.time]);
   const durationEntries = getRescheduleDurationEntries(shoot);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const { user, role } = useAuth();
   const { toast } = useToast();
   const { fetchShoots } = useShoots();
-
-  /**
-   * Staff reschedule outright; everyone else raises a request that waits for
-   * review. The copy below follows this so the dialog cannot promise something
-   * the backend will not do — the A1 item 4 mismatch.
-   */
-  const appliesImmediately = canReviewRescheduleRequests(role);
+  const { access, viewerScope } = useRescheduleAccess(shoot);
+  const appliesImmediately = access === 'apply';
+  const canSubmit = appliesImmediately || access === 'request';
+  const submissionScope = `${shoot.id}:${viewerScope}:${access}:${isOpen}:${draftSession.current.revision}`;
+  const currentSubmissionScope = useRef(submissionScope);
+  currentSubmissionScope.current = submissionScope;
+  useEffect(() => () => { currentSubmissionScope.current = ''; }, []);
+  const accessMessage = access === 'checking'
+    ? 'Checking your scheduling permissions…'
+    : access === 'unavailable'
+      ? 'Scheduling permissions could not be loaded. Close this dialog and refresh before trying again.'
+      : 'You do not have permission to reschedule this appointment.';
 
   const durationPayload = appliesImmediately ? buildRescheduleDurationPayload(shoot, durationChanges) : {};
-  const travel = useTravelFeasibility({ requestedOnly: !appliesImmediately, payload: isOpen && date && time ? shootTravelPayload(shoot, {
+  const travel = useTravelFeasibility({ requestedOnly: !appliesImmediately, payload: isOpen && canSubmit && date && time ? shootTravelPayload(shoot, {
     requested_date: format(date, 'yyyy-MM-dd'), requested_time: normalizeSlotTime(time), ...durationPayload,
   }, 'reschedule') : null });
   const handleReschedule = async () => {
-    if (travel.blocked) return;
+    if (!canSubmit || travel.blocked) return;
+    const submittedScope = submissionScope;
+    const submittedRevision = draftSession.current.revision;
     if (!date) {
       toast({
         title: "Select a date",
@@ -80,7 +96,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
     
     try {
       const travelConfirmation = await travel.confirmSave();
-      if (!travelConfirmation) return;
+      if (!travelConfirmation || submittedScope !== currentSubmissionScope.current) return;
       const token = localStorage.getItem('authToken');
       if (!token) {
         throw new Error('Authentication token missing');
@@ -107,7 +123,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
       await fetchShoots();
 
       // The server reports whether it applied the change or queued a request;
-      // trust that over the local role guess so the toast is never wrong.
+      // trust that over a capability snapshot so the toast is never wrong.
       const applied = response?.data?.applied ?? appliesImmediately;
 
       toast({
@@ -137,7 +153,7 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
         variant: "destructive",
       });
     } finally {
-      setIsSubmitting(false);
+      if (submittedRevision === draftSession.current.revision) setIsSubmitting(false);
     }
   };
   
@@ -146,10 +162,10 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
       <DialogContent className="max-h-[92dvh] max-w-3xl overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {appliesImmediately ? 'Reschedule Shoot' : 'Request to Reschedule'}
+            {!canSubmit ? 'Reschedule unavailable' : appliesImmediately ? 'Reschedule Shoot' : 'Request to Reschedule'}
           </DialogTitle>
           <DialogDescription>
-            {appliesImmediately
+            {!canSubmit ? accessMessage : appliesImmediately
               ? 'Select a new date and time. This is applied to the shoot straight away.'
               : 'Select the date and time you would like. The shoot keeps its current slot until our team approves the request.'}
           </DialogDescription>
@@ -273,9 +289,11 @@ export function RescheduleDialog({ shoot, isOpen, onClose, onSuccess }: Reschedu
         <TravelFeasibilityPanel travel={travel} />
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleReschedule} disabled={isSubmitting || travel.blocked}>
+          <Button onClick={handleReschedule} disabled={!canSubmit || isSubmitting || travel.blocked}>
             {isSubmitting
               ? 'Submitting...'
+              : !canSubmit
+                ? access === 'checking' ? 'Checking permissions...' : 'Reschedule unavailable'
               : appliesImmediately
                 ? 'Reschedule Shoot'
                 : 'Submit Request'}

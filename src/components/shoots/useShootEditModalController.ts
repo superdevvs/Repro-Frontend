@@ -1,13 +1,14 @@
+import { usePhotographerRoster } from './usePhotographerRoster';
+import { enrichPickerPhotographer, usePhotographerPickerAvailability } from './usePhotographerPickerAvailability';
 import { readOfficePhone } from '@/utils/officePhone';
 import { comparePhotographerDistance } from '@/utils/photographerDistanceSort';
-import { travelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
 import { useTravelFeasibility } from '@/features/travel/useTravelFeasibility';
 import { buildForceSaveChanges } from '@/features/travel/forceSaveChanges';
 import { shootEditTravelMode } from '@/features/travel/shootEditTravelMode';
 import type { TravelConfirmation } from '@/features/travel/types';
 import { buildShootEditMutationRequest } from './shootEditSubmission';
 import { safelyBuildTravelPayload, shootTravelPayload } from '@/features/travel/travelPayload';
-import { fetchDurationAwareAvailability, photographerVisitDurationGroups } from '@/utils/photographerVisitDuration';
+import { photographerVisitDurationGroups } from '@/utils/photographerVisitDuration';
 import { formatPhotographerLocationLabel } from './shootEditPhotographerDisplay';
 import { useUnitScopedEdit, useUnitEditDirtyTracking } from '@/features/shoot-units/useUnitScopedEdit';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -19,7 +20,6 @@ import { hasSalesRepRole } from '@/utils/shootManagementAccess';
 import { canNotifyDistinctPhotographer } from './shootEditNotificationRecipients';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { API_BASE_URL } from '@/config/env';
-import API_ROUTES from '@/lib/api';
 import type { AddressDetails } from '@/utils/addressLookup';
 import type { ServiceSelectionOption } from '@/components/booking/ServiceSelectionDialog';
 import { getBookedServiceQuantities, getBookedServiceUnitPrices, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
@@ -47,11 +47,8 @@ import {
   submitShootServiceMutation,
   type ServiceDetachConfirmation,
 } from '@/utils/shootServiceMutation';
-import { extractLookupPropertyDetails, loadPhotographerOptions, mapPhotographerOption, normalizeCategoryKey, resolveSelectedServiceIds, type Photographer, type AvailabilitySlot, type MobileEditPanel, type PhotographerAvailabilityMap, type PhotographerPickerContext, type PropertyDetails, type Service, type ServiceApiRange, type ServiceApiRecord, type ServiceScheduleFields, type ShootDetails, type ShootEditModalProps } from './shootEditModalTypes';
-import { readBookingJobCoords } from '@/components/photographers/map/photographerMapFields';
-import { getCoordinatesFromAddress } from '@/utils/distanceUtils';
+import { extractLookupPropertyDetails, loadPhotographerOptions, mapPhotographerOption, normalizeCategoryKey, resolveSelectedServiceIds, type MobileEditPanel, type PhotographerAvailabilityMap, type PhotographerPickerContext, type PropertyDetails, type Service, type ServiceApiRange, type ServiceApiRecord, type ServiceScheduleFields, type ShootDetails, type ShootEditModalProps } from './shootEditModalTypes';
 import { toValidMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
-import type { ShootMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
 export function useShootEditModalController({
   isOpen,
   onClose,
@@ -67,15 +64,15 @@ export function useShootEditModalController({
   const [isLoading, setIsLoading] = useState(false);
   const [shootDetails, setShootDetails] = useState<ShootDetails | null>(null);
   const [availableServices, setAvailableServices] = useState<Service[]>([]);
-  const [photographers, setPhotographers] = useState<Photographer[]>([]);
+  const photographerRoster = usePhotographerRoster(isOpen, String(shootId), loadPhotographerOptions);
+  const photographers = photographerRoster.photographers;
   const shootDetailsRef = useRef<ShootDetails | null>(null);
-  const photographersRef = useRef<Photographer[]>([]);
   const [photographerPickerOpen, setPhotographerPickerOpen] = useState(false);
   const [photographerPickerContext, setPhotographerPickerContext] = useState<PhotographerPickerContext>(null);
   const [pickerPhotographerId, setPickerPhotographerId] = useState('');
   const [photographerSearchQuery, setPhotographerSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'distance' | 'availability'>('distance');
-  const [showAllPhotographers, setShowAllPhotographers] = useState(false);
+  const [showAllPhotographers, setShowAllPhotographers] = useState(true);
   const [expandedServiceScheduleId, setExpandedServiceScheduleId] = useState<string | null>(null);
   const [servicesEditorOpen, setServicesEditorOpen] = useState(false);
   const [serviceDetachConfirmation, setServiceDetachConfirmation] = useState<ServiceDetachConfirmation | null>(null);
@@ -104,9 +101,6 @@ export function useShootEditModalController({
   const inheritedServiceScheduleIds = useRef(new Set<string>());
   const [photographerId, setPhotographerId] = useState<string>('');
   const [perCategoryPhotographers, setPerCategoryPhotographers] = useState<Record<string, string>>({});
-  const [photographerAvailability, setPhotographerAvailability] = useState<PhotographerAvailabilityMap>({});
-  const [isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability] = useState(false);
-  const [bookingJobCoords, setBookingJobCoords] = useState<ShootMapCoordinates | null>(null);
   const [editDayAvailability, setEditDayAvailability] = useState<DayAvailability | null>(null);
   const [scheduleError, setScheduleError] = useState<string | null>(null);
   const [shootNotes, setShootNotes] = useState(''); // All: client, admin, rep
@@ -123,16 +117,20 @@ export function useShootEditModalController({
   const [activeMobilePanel, setActiveMobilePanel] = useState<MobileEditPanel>('schedule');
   const isDesktopLayout = useMediaQuery('(min-width: 768px)');
   useEffect(() => { shootDetailsRef.current = shootDetails; }, [shootDetails]);
-  useEffect(() => { photographersRef.current = photographers; }, [photographers]);
   useEffect(() => {
     if (isOpen) {
       setActiveMobilePanel('schedule');
     }
   }, [isOpen, shootId]);
   useEffect(() => {
+    let current = true;
+    const controller = new AbortController();
     const fetchData = async () => {
       if (!isOpen || !shootId) return;
       setIsLoading(true);
+      setShootDetails(null);
+      setScheduledDate(undefined);
+      setScheduledTime('10:00');
       setSelectedServiceIds(new Set());
       setServiceQuantities({});
       setServiceSchedules({});
@@ -147,13 +145,13 @@ export function useShootEditModalController({
       setAlternateTime('');
       try {
         const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const [shootResponse, servicesResponse, photographersData] = await Promise.all([
+        const [shootResponse, servicesResponse] = await Promise.all([
           fetch(`${API_BASE_URL}/api/shoots/${shootId}`, {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` }, signal: controller.signal
           }),
-          axios.get(`${API_BASE_URL}/api/services`),
-          loadPhotographerOptions(isRep),
+          axios.get(`${API_BASE_URL}/api/services`, { signal: controller.signal }),
         ]);
+        if (!current) return;
         const servicesData = servicesResponse.data?.data || [];
         const mappedServices = servicesData.map((s: ServiceApiRecord) => ({
           id: s.id?.toString() || s.id,
@@ -182,9 +180,9 @@ export function useShootEditModalController({
           })),
         }));
         setAvailableServices(mappedServices);
-        setPhotographers(photographersData);
         if (shootResponse.ok) {
           const data = await shootResponse.json();
+          if (!current) return;
           const shoot = projectUnitFetched(data.data || data);
           setShootDetails(shoot);
           setServiceQuantities(getBookedServiceQuantities(shoot));
@@ -273,6 +271,7 @@ export function useShootEditModalController({
           }
         }
       } catch (error: unknown) {
+        if (!current) return;
         console.error('Error fetching data:', error);
         if (!shootDetailsRef.current) {
           toast({
@@ -282,10 +281,11 @@ export function useShootEditModalController({
           });
         }
       } finally {
-        setIsLoading(false);
+        if (current) setIsLoading(false);
       }
     };
     fetchData();
+    return () => { current = false; controller.abort(); };
   }, [isOpen, shootId, toast, isRep, projectUnitFetched]);
   const clearAddressDerivedState = React.useCallback(() => {
     setCity('');
@@ -403,11 +403,20 @@ export function useShootEditModalController({
   ), [availableServices, perCategoryPhotographers, photographerId, photographerPickerContext, photographers, propertySqft, scheduledDate, scheduledTime, selectedServiceCategoryGroups, serviceSchedules]);
   const availabilityDurationKey = JSON.stringify(availabilityDurationGroups);
   const hasMultiplePhotographerCategories = selectedServiceCategoryGroups.length > 1;
+  const shootCoordinates = shootDetails as (ShootDetails & { latitude?: number; longitude?: number; location?: { latitude?: number; longitude?: number } }) | null;
+  const bookingJobCoords = toValidMapCoordinates(shootCoordinates?.location?.latitude ?? shootCoordinates?.latitude, shootCoordinates?.location?.longitude ?? shootCoordinates?.longitude);
+  const pickerAvailability = usePhotographerPickerAvailability({ active: isOpen, scope: String(shootId),
+    date: scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '', time: scheduledTime,
+    location: { address, city, state, zip, latitude: bookingJobCoords?.lat, longitude: bookingJobCoords?.lng },
+    photographerIds: photographers.map(person => person.id), groups: JSON.parse(availabilityDurationKey) });
+  const enrichedPhotographers = useMemo(() => photographers.map(person => enrichPickerPhotographer(person, pickerAvailability.byId.get(String(person.id)))), [photographers, pickerAvailability.byId]);
+  const photographerAvailability = useMemo<PhotographerAvailabilityMap>(() => Object.fromEntries(enrichedPhotographers.map(person => [person.id, person.netAvailableSlots])), [enrichedPhotographers]);
+  const isLoadingPhotographerAvailability = pickerAvailability.status === 'loading';
   const resolvePhotographerDetails = (value?: string | number | null) => {
     if (value === null || value === undefined || value === '') return null;
     const normalizedId = String(value);
     return (
-      photographers.find((photographer) => String(photographer.id) === normalizedId) ||
+      enrichedPhotographers.find((photographer) => String(photographer.id) === normalizedId) ||
       (shootDetails?.photographer && String(shootDetails.photographer.id) === normalizedId
         ? mapPhotographerOption(shootDetails.photographer)
         : null)
@@ -416,13 +425,13 @@ export function useShootEditModalController({
   const filteredPhotographers = useMemo(() => {
     const query = photographerSearchQuery.trim().toLowerCase();
     const searched = query
-      ? photographers.filter((photographer) =>
+      ? enrichedPhotographers.filter((photographer) =>
           photographer.name.toLowerCase().includes(query) ||
           String(photographer.email || '').toLowerCase().includes(query) ||
           String(photographer.city || '').toLowerCase().includes(query) ||
           String(photographer.state || '').toLowerCase().includes(query),
         )
-      : photographers;
+      : enrichedPhotographers;
     const offsite = selectedServiceCategoryGroups.find(group => group.key === photographerPickerContext?.categoryKey)?.services.filter(service => selectedServiceIds.has(String(service.id))).every(service => service.photographer_required === false);
     const filtered = showAllPhotographers || offsite
       ? searched
@@ -433,132 +442,7 @@ export function useShootEditModalController({
       }
       return comparePhotographerDistance(first, second);
     });
-  }, [photographerSearchQuery, photographers, photographerAvailability, showAllPhotographers, sortBy, selectedServiceCategoryGroups, photographerPickerContext, selectedServiceIds]);
-  useEffect(() => {
-    const availabilityDateValue = scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '';
-    if (!isOpen || photographers.length === 0 || !availabilityDateValue) {
-      setPhotographerAvailability({});
-      return;
-    }
-    const abortController = new AbortController();
-    const fetchAvailability = async () => {
-      setIsLoadingPhotographerAvailability(true);
-      try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-        if (token) headers.Authorization = `Bearer ${token}`;
-        const requestAddress = address || shootDetails?.address || '';
-        const requestCity = city || shootDetails?.city || '';
-        const requestState = state || shootDetails?.state || '';
-        const requestZip = zip || shootDetails?.zip || '';
-        const shootRecord = shootDetails as (typeof shootDetails & {
-          latitude?: number;
-          longitude?: number;
-          location?: { latitude?: number; longitude?: number };
-        }) | null;
-        let shootLatLng = toValidMapCoordinates(
-          shootRecord?.location?.latitude ?? shootRecord?.latitude,
-          shootRecord?.location?.longitude ?? shootRecord?.longitude,
-        );
-        if (!shootLatLng && requestAddress && requestCity && requestState) {
-          try {
-            const geocoded = await getCoordinatesFromAddress(requestAddress, requestCity, requestState, requestZip || '');
-            if (geocoded) shootLatLng = { lat: geocoded.lat, lng: geocoded.lon };
-          } catch {
-            // Fail open
-          }
-        }
-        if (shootLatLng) setBookingJobCoords(shootLatLng);
-        const response = await fetchDurationAwareAvailability(API_ROUTES.photographerAvailability.forBooking, {
-          method: 'POST',
-          headers,
-          signal: abortController.signal,
-          body: JSON.stringify({
-            date: availabilityDateValue,
-            time: scheduledTime || undefined,
-            shoot_address: requestAddress,
-            shoot_city: requestCity,
-            shoot_state: requestState,
-            shoot_zip: requestZip || '',
-            ...(shootLatLng
-              ? { shoot_latitude: shootLatLng.lat, shoot_longitude: shootLatLng.lng }
-              : {}),
-            photographer_ids: photographersRef.current.map((photographer) => Number(photographer.id)).filter(Number.isFinite),
-          }),
-        }, JSON.parse(availabilityDurationKey));
-        if (!response.ok) {
-          // Degrade: keep photographer list selectable without timeline enrichment.
-          console.warn('[ShootEditModal] forBooking failed', response.status);
-          setPhotographerAvailability({});
-          return;
-        }
-        const json = await response.json() as { data?: Array<Partial<Photographer> & {
-          net_available_slots?: AvailabilitySlot[];
-          availability_slots?: AvailabilitySlot[];
-          unavailable_slots?: AvailabilitySlot[];
-          booked_slots?: Array<AvailabilitySlot & { status?: string; shoot_id?: number }>;
-          shoots_count_today?: number;
-          distance_from?: 'home' | 'previous_shoot';
-          previous_shoot_id?: number;
-        }>; job?: Record<string, unknown> | null };
-        const enrichedPhotographers = Array.isArray(json.data) ? json.data : [];
-        const topLevelJob = json.job && typeof json.job === 'object' ? json.job : null;
-        const nextAvailability: PhotographerAvailabilityMap = {};
-        const enrichedById = new Map(enrichedPhotographers.map((item) => [String(item.id), item]));
-        setPhotographers((current) => current.map((photographer) => {
-          const enriched = enrichedById.get(String(photographer.id));
-          if (!enriched) return photographer;
-          const parsedDistance = typeof enriched.distance === 'number'
-            ? enriched.distance
-            : enriched.distance
-              ? Number.parseFloat(String(enriched.distance))
-              : undefined;
-          const netAvailableSlots = enriched.net_available_slots || enriched.availability_slots || [];
-          nextAvailability[String(photographer.id)] = netAvailableSlots.map((slot) => ({
-            start_time: slot.start_time,
-            end_time: slot.end_time,
-          }));
-          const milesToJob = typeof (enriched as { miles_to_job?: number }).miles_to_job === 'number'
-            ? (enriched as { miles_to_job?: number }).miles_to_job
-            : typeof (enriched as { milesToJob?: number }).milesToJob === 'number'
-              ? (enriched as { milesToJob?: number }).milesToJob
-              : Number.isFinite(parsedDistance as number) ? (parsedDistance as number) : undefined;
-          const enrichedRecord = enriched as Partial<Photographer> & {
-            map?: Record<string, unknown> | null;
-            job?: Record<string, unknown> | null;
-            miles_to_job?: number | null;
-            milesToJob?: number | null;
-          };
-          return {
-            ...photographer,
-            distance: Number.isFinite(parsedDistance as number) ? parsedDistance : (Number.isFinite(milesToJob as number) ? milesToJob : undefined),
-            miles_to_job: Number.isFinite(milesToJob as number) ? (milesToJob as number) : (photographer.miles_to_job ?? null),
-            map: enrichedRecord.map === null ? null : (enrichedRecord.map ?? photographer.map ?? null),
-            job: enrichedRecord.job === null ? null : (enrichedRecord.job ?? topLevelJob ?? photographer.job ?? null),
-            distanceFrom: Number.isFinite(parsedDistance as number) ? enriched.distance_from : 'home',
-            previousShootId: enriched.previous_shoot_id,
-            availabilitySlots: enriched.availability_slots || [],
-            unavailableSlots: enriched.unavailable_slots || [],
-            ...travelAvailabilityMetadata(enriched),
-            bookedSlots: enriched.booked_slots || [],
-            netAvailableSlots,
-            shootsCountToday: enriched.shoots_count_today,
-          };
-        }));
-        const beJob = readBookingJobCoords(json);
-        if (beJob) setBookingJobCoords(beJob);
-        setPhotographerAvailability(nextAvailability);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') return;
-        console.error('[ShootEditModal] Failed to load photographer availability:', error);
-        setPhotographerAvailability({});
-      } finally {
-        setIsLoadingPhotographerAvailability(false);
-      }
-    };
-    fetchAvailability();
-    return () => abortController.abort();
-  }, [isOpen, photographers.length, scheduledDate, scheduledTime, address, city, state, zip, shootDetails, availabilityDurationKey]);
+  }, [photographerSearchQuery, enrichedPhotographers, photographerAvailability, showAllPhotographers, sortBy, selectedServiceCategoryGroups, photographerPickerContext, selectedServiceIds]);
   const editAvailabilityTargets = selectedServiceCategoryGroups.flatMap(group =>
     group.serviceIds.filter(id => availableServices.find(service => String(service.id) === id)?.photographer_required !== false)
       .map(id => ({ serviceId: id, photographerId: perCategoryPhotographers[group.key] || photographerId,
@@ -568,6 +452,7 @@ export function useShootEditModalController({
     : [{ serviceId: '', photographerId, date: scheduledDate ? format(scheduledDate, 'yyyy-MM-dd') : '' }]);
   useEffect(() => { setScheduleError(null); }, [scheduledTime, scheduledDate, photographerId, perCategoryPhotographers]);
   const openPhotographerPicker = (context: PhotographerPickerContext) => {
+    if (shootDetails?.canReassignPhotographer !== true) return;
     const singleCategory = selectedServiceCategoryGroups[0];
     const initialId = context?.categoryKey
       ? perCategoryPhotographers[context.categoryKey] || photographerId || ''
@@ -586,7 +471,7 @@ export function useShootEditModalController({
     setPhotographerSearchQuery('');
   };
   const handleConfirmPhotographerPicker = () => {
-    if (!pickerPhotographerId) return;
+    if (shootDetails?.canReassignPhotographer !== true || !pickerPhotographerId) return;
     if (photographerPickerContext?.categoryKey) {
       setPerCategoryPhotographers((prev) => ({
         ...prev,
@@ -607,6 +492,7 @@ export function useShootEditModalController({
     closePhotographerPicker();
   };
   const handleClearPhotographerPicker = () => {
+    if (shootDetails?.canReassignPhotographer !== true) return;
     if (photographerPickerContext?.categoryKey) {
       const nextAssignments = { ...perCategoryPhotographers };
       delete nextAssignments[photographerPickerContext.categoryKey];
@@ -1024,5 +910,5 @@ export function useShootEditModalController({
   const editTravel = { ...travel, forceSaveBusy: isSubmitting, warningChanges: buildForceSaveChanges(unitEdit.source ?? shootDetails, previewPayload, availableServices, photographers),
     onSaveWithWarning: isConfirmedEdit ? () => { void submitApproval({ notifyClient: canNotifyClient, notifyPhotographer: canNotifyPhotographer, silent: false, withWarning: true }); } : undefined };
   const unitScopeDirty = useUnitEditDirtyTracking(JSON.stringify([address, city, state, zip, scheduledDate, scheduledTime, alternateDate, alternateTime, [...selectedServiceIds], serviceQuantities, serviceSchedules, photographerId, perCategoryPhotographers, serviceEditors.serviceEditorChanges, shootNotes, companyNotes, photographerNotes, editorNotes, propertyDetails, propertySqft]), isLoading, unitEdit.activeUnitId);
-  return { ...serviceEditors, travel: editTravel, isConfirmedEdit, unitSource: unitEdit.source, unitScopeDirty, isOpen, onClose, shootId, onSaved, toast, user, isSubmitting, setIsSubmitting, isLoading, setIsLoading, shootDetails, setShootDetails, availableServices, setAvailableServices, photographers, setPhotographers, photographerPickerOpen, setPhotographerPickerOpen, photographerPickerContext, setPhotographerPickerContext, pickerPhotographerId, setPickerPhotographerId, photographerSearchQuery, setPhotographerSearchQuery, sortBy, setSortBy, showAllPhotographers, setShowAllPhotographers, expandedServiceScheduleId, setExpandedServiceScheduleId, servicesEditorOpen, setServicesEditorOpen, serviceDetachConfirmation, pendingDetachApproval, handleConfirmServiceDetach, handleCancelServiceDetach, canRemoveAllServices, userRole, isAdmin, isRep, isAdminOrRep, address, setAddress, city, setCity, state, setState, zip, setZip, scheduledDate, setScheduledDate: changeScheduledDate, scheduledTime, setScheduledTime: changeScheduledTime, alternateDate, setAlternateDate, alternateTime, setAlternateTime, selectedServiceIds, setSelectedServiceIds, serviceSchedules, setServiceSchedules, photographerId, setPhotographerId, perCategoryPhotographers, setPerCategoryPhotographers, photographerAvailability, setPhotographerAvailability, isLoadingPhotographerAvailability, setIsLoadingPhotographerAvailability, editDayAvailability, setEditDayAvailability, scheduleError, setScheduleError, shootNotes, setShootNotes, companyNotes, setCompanyNotes, photographerNotes, setPhotographerNotes, editorNotes, setEditorNotes, showInternalNotes, companyNotesOpen, setCompanyNotesOpen, photographerNotesOpen, setPhotographerNotesOpen, editorNotesOpen, setEditorNotesOpen, propertyDetails, setPropertyDetails, propertySqft, setPropertySqft, taxPercent, setTaxPercent, activeMobilePanel, setActiveMobilePanel, isDesktopLayout, clearAddressDerivedState, handleAddressSelect, getServicePrice, hasVariablePricingWithoutSqft, clientName, clientEmail, clientPhone, clientOfficePhone, clientVerified, activeDiscountType, activeDiscountValue, photographerEmail, availableServiceCategoryGroups, selectedServiceCategoryGroups, hasMultiplePhotographerCategories, resolvePhotographerDetails, filteredPhotographers, formatPhotographerLocationLabel, bookingJobCoords, isEditTimeDisabled, openPhotographerPicker, closePhotographerPicker, handleConfirmPhotographerPicker, handleClearPhotographerPicker, buildApprovalPayload, canNotifyClient, notificationPhotographerId, canNotifyPhotographer, submitApproval, handleApprove, handleApproveWithoutNotification, normalizeTimeValue, buildTimeOptions, timeOptions, setTimeOptions, minSelectableDate, scheduledDateInputValue, defaultServiceSchedule, selectedServiceRows, updateServiceSchedule, applyServiceScheduleToAll, getServiceScheduleDateLabel, getServiceScheduleTimeLabel, getServiceScheduleSummary, sortedServiceScheduleRows, selectedServicesPricing, serviceSelectionOptions, selectedServiceSelectionOptions, handleSelectedServicesChange, buildScheduledAtIso };
+  return { ...serviceEditors, travel: editTravel, isConfirmedEdit, unitSource: unitEdit.source, unitScopeDirty, isOpen, onClose, shootId, onSaved, toast, user, isSubmitting, setIsSubmitting, isLoading, setIsLoading, shootDetails, setShootDetails, availableServices, setAvailableServices, photographers: enrichedPhotographers, photographerRoster, pickerAvailability, photographerPickerOpen, setPhotographerPickerOpen, photographerPickerContext, setPhotographerPickerContext, pickerPhotographerId, setPickerPhotographerId, photographerSearchQuery, setPhotographerSearchQuery, sortBy, setSortBy, showAllPhotographers, setShowAllPhotographers, expandedServiceScheduleId, setExpandedServiceScheduleId, servicesEditorOpen, setServicesEditorOpen, serviceDetachConfirmation, pendingDetachApproval, handleConfirmServiceDetach, handleCancelServiceDetach, canRemoveAllServices, userRole, isAdmin, isRep, isAdminOrRep, address, setAddress, city, setCity, state, setState, zip, setZip, scheduledDate, setScheduledDate: changeScheduledDate, scheduledTime, setScheduledTime: changeScheduledTime, alternateDate, setAlternateDate, alternateTime, setAlternateTime, selectedServiceIds, setSelectedServiceIds, serviceSchedules, setServiceSchedules, photographerId, setPhotographerId, perCategoryPhotographers, setPerCategoryPhotographers, photographerAvailability, isLoadingPhotographerAvailability, editDayAvailability, setEditDayAvailability, scheduleError, setScheduleError, shootNotes, setShootNotes, companyNotes, setCompanyNotes, photographerNotes, setPhotographerNotes, editorNotes, setEditorNotes, showInternalNotes, companyNotesOpen, setCompanyNotesOpen, photographerNotesOpen, setPhotographerNotesOpen, editorNotesOpen, setEditorNotesOpen, propertyDetails, setPropertyDetails, propertySqft, setPropertySqft, taxPercent, setTaxPercent, activeMobilePanel, setActiveMobilePanel, isDesktopLayout, clearAddressDerivedState, handleAddressSelect, getServicePrice, hasVariablePricingWithoutSqft, clientName, clientEmail, clientPhone, clientOfficePhone, clientVerified, activeDiscountType, activeDiscountValue, photographerEmail, availableServiceCategoryGroups, selectedServiceCategoryGroups, hasMultiplePhotographerCategories, resolvePhotographerDetails, filteredPhotographers, formatPhotographerLocationLabel, bookingJobCoords, isEditTimeDisabled, openPhotographerPicker, closePhotographerPicker, handleConfirmPhotographerPicker, handleClearPhotographerPicker, buildApprovalPayload, canNotifyClient, notificationPhotographerId, canNotifyPhotographer, submitApproval, handleApprove, handleApproveWithoutNotification, normalizeTimeValue, buildTimeOptions, timeOptions, setTimeOptions, minSelectableDate, scheduledDateInputValue, defaultServiceSchedule, selectedServiceRows, updateServiceSchedule, applyServiceScheduleToAll, getServiceScheduleDateLabel, getServiceScheduleTimeLabel, getServiceScheduleSummary, sortedServiceScheduleRows, selectedServicesPricing, serviceSelectionOptions, selectedServiceSelectionOptions, handleSelectedServicesChange, buildScheduledAtIso };
 }

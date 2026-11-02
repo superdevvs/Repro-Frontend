@@ -661,6 +661,12 @@ export interface ShootData {
   canRemoveAllServices?: boolean;
   canManageBooking?: boolean;
   canManageShootActions?: boolean;
+  canEditAppointment?: boolean;
+  canReassignPhotographer?: boolean;
+  canScheduleShoot?: boolean;
+  canApproveReschedule?: boolean;
+  canRequestReschedule?: boolean;
+  canReviewRequests?: boolean;
   canAdjustShootPricing?: boolean;
   editVersion?: string;
   can_submit_raw?: boolean;

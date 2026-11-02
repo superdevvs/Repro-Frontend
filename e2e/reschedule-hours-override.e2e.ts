@@ -10,6 +10,8 @@ for (const role of ['superadmin', 'salesRep'] as const) for (const width of [144
     const fixture = await installShootDetailsWorkspaceFixture(page, baseURL, role === 'salesRep' ? 'salesRep' : 'admin', 'light', { salesRepManagement: role === 'salesRep' });
     const shoot = { ...fixture.shoot, status: 'scheduled', workflow_status: 'scheduled', address: '14718 Beaumeadow Drive', city: 'Centreville', state: 'VA', zip: '20120',
       canManageBooking: true, canManageShootActions: true,
+      canEditAppointment: true, canReassignPhotographer: true, canScheduleShoot: true,
+      canApproveReschedule: true, canReviewRequests: true, canRequestReschedule: false,
       location: { ...fixture.shoot.location, address: '14718 Beaumeadow Drive', city: 'Centreville', state: 'VA', zip: '20120' },
       scheduled_at: '2026-10-20T21:00:00Z', scheduled_instant: '2026-10-20T21:00:00Z', scheduled_date: '2026-10-20', time: '17:00',
       photographer_id: 21, service_items: [{ id: 3001, service_id: 101, duration_minutes: 35, photographer_id: 21, scheduled_at: '2026-10-20T21:00:00Z', workflow_status: 'scheduled' }],
@@ -76,7 +78,9 @@ for (const denied of ['booking', 'management', 'delivered']) test(`salesRep cann
   await page.clock.setFixedTime(new Date('2026-10-20T18:00:00Z'));
   const fixture = await installShootDetailsWorkspaceFixture(page, baseURL, 'salesRep', 'light', { salesRepManagement: true });
   const shoot = { ...fixture.shoot, status: denied === 'delivered' ? 'delivered' : 'scheduled', workflow_status: denied === 'delivered' ? 'delivered' : 'scheduled',
-    canManageBooking: denied !== 'booking', canManageShootActions: denied !== 'management' };
+    canManageBooking: denied !== 'booking', canManageShootActions: denied !== 'management',
+    canApproveReschedule: false, canRequestReschedule: false, canEditAppointment: denied === 'management',
+    canReassignPhotographer: denied === 'management', canScheduleShoot: false };
   await page.route('**/api/shoots/156', route => route.fulfill({ json: { data: shoot } }));
   await page.goto('/shoots/156');
   await expect(page.getByRole('dialog', { name: /#156/ })).toBeVisible(); await page.keyboard.press('Escape');

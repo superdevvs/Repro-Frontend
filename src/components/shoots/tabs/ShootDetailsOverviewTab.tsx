@@ -26,7 +26,6 @@ import { Switch } from '@/components/ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { ClockIcon, MapPinIcon, UserIcon, PhoneIcon, MailIcon, CameraIcon, Sun, CloudRain, Cloud, Snowflake, UserPlus, Search, ArrowUpDown, MapPin, Save, XCircle, X, Key, UserCheck, Link2, BedDouble, ShowerHead, Ruler, Check, Star } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
-import axios from 'axios';
 import { ShootData } from '@/types/shoots';
 import { WeatherInfo } from '@/services/weatherService';
 import { useToast } from '@/hooks/use-toast';
@@ -35,7 +34,6 @@ import { API_BASE_URL } from '@/config/env';
 import { useAuth } from '@/components/auth';
 import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
 import { cn } from '@/lib/utils';
-import API_ROUTES from '@/lib/api';
 import { getStateFullName } from '@/utils/stateUtils';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { getServicePricingForSqft, resolveBookedPhotographerUnitPay } from '@/utils/servicePricing';
@@ -81,7 +79,6 @@ import { useNavigate } from 'react-router-dom';
 import { HistoricalImportSummary } from '@/components/shoots/details/HistoricalImportSummary';
 import { CompReshootOverviewStrip } from '@/features/complimentary-reshoots/CompReshootOverviewStrip';
 import { isComplimentaryReshootEnabled } from '@/features/complimentary-reshoots/featureFlag';
-import { hasRestrictedSalesRepRole, isDeliveredShootForManagement } from '@/utils/shootManagementAccess';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -314,34 +311,6 @@ const mapPhotographerPickerOption = (value: unknown): PhotographerPickerOption =
   };
 };
 
-const loadPhotographerPickerOptions = async (): Promise<PhotographerPickerOption[]> => {
-  const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  try {
-    const response = await axios.get(API_ROUTES.people.adminPhotographers, { headers });
-    const data = response.data?.data || response.data || [];
-    const formatted = Array.isArray(data) ? data.map(mapPhotographerPickerOption) : [];
-    if (formatted.length > 0) {
-      return formatted;
-    }
-  } catch (error) {
-    console.warn('[ShootDetailsOverviewTab] Admin photographers endpoint failed, falling back to public list:', error);
-  }
-
-  try {
-    const response = await axios.get(API_ROUTES.people.photographers);
-    const data = response.data?.data || response.data || [];
-    return Array.isArray(data) ? data.map(mapPhotographerPickerOption) : [];
-  } catch (error) {
-    console.error('[ShootDetailsOverviewTab] Public photographers endpoint failed:', error);
-    return [];
-  }
-};
-
 export interface ShootDetailsOverviewTabProps {
   shoot: ShootData;
   isAdmin: boolean;
@@ -392,12 +361,9 @@ function ShootDetailsOverviewTabContent({
 }: ShootDetailsOverviewTabProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const canEditServicePlan = shoot.canManageBooking !== false;
-  // Service corrections do not reopen completed appointments or assignments.
-  const canEditAppointments = canEditServicePlan && !(
-    hasRestrictedSalesRepRole({ ...user, role }) &&
-    isDeliveredShootForManagement(shoot)
-  );
+  const canEditServicePlan = shoot.canManageBooking === true;
+  const canEditAppointments = canEditServicePlan && shoot.canEditAppointment === true;
+  const canReassignPhotographer = canEditAppointments && shoot.canReassignPhotographer === true;
   const tourScope = useShootUnitScope(shoot);
   const canAccessVideoTourEmbeds = canEditVideoTours(shoot, { ...user, role }, tourScope.unit?.id);
   const videoLinksShoot = tourScope.unit ? projectUnitTour(shoot, tourScope.unit) : shoot;
@@ -450,7 +416,7 @@ function ShootDetailsOverviewTabContent({
       sortBy,
       showAllPhotographers,
       isCalculatingDistances,
-      isLoadingAvailability,
+      isLoadingAvailability, photographerRoster, pickerAvailability,
     },
     actions: {
       setSelectedClientId,
@@ -510,7 +476,7 @@ function ShootDetailsOverviewTabContent({
     role,
     isEditMode,
     canEditServicePlan,
-    canEditAppointments,
+    canEditAppointments, canReassignPhotographer,
     onShootUpdate,
     onSave,
     onCancel,
@@ -922,6 +888,7 @@ function ShootDetailsOverviewTabContent({
         role={role}
         isEditMode={isEditMode && canEditServicePlan}
         canEditAppointments={canEditAppointments}
+        canReassignPhotographer={canReassignPhotographer}
         shoot={shoot}
         serviceItems={serviceItems}
         servicesList={servicesList}
@@ -1156,7 +1123,7 @@ function ShootDetailsOverviewTabContent({
 
       <OverviewPhotographerPickerDialog
         travel={travel}
-        open={assignPhotographerOpen && canEditAppointments}
+        open={assignPhotographerOpen && canReassignPhotographer}
         onOpenChange={(open) => {
           if (open) {
             setAssignPhotographerOpen(true);
@@ -1174,6 +1141,8 @@ function ShootDetailsOverviewTabContent({
         setShowAllPhotographers={setShowAllPhotographers}
         isCalculatingDistances={isCalculatingDistances}
         isLoadingAvailability={isLoadingAvailability}
+        photographerRoster={photographerRoster}
+        pickerAvailability={pickerAvailability}
         filteredAndSortedPhotographers={filteredAndSortedPhotographers}
         selectedPhotographerId={selectedPhotographerId}
         setSelectedPhotographerId={setSelectedPhotographerId}

@@ -6,9 +6,10 @@ export const hasSalesRepRole = (user?: ShootManagementUser): boolean =>
   isSalesRepRole(user?.role) || Boolean(user?.secondary_roles?.some(isSalesRepRole));
 
 export const hasRestrictedSalesRepRole = (user?: ShootManagementUser): boolean => {
-  const primary = String(user?.role ?? '').trim().toLowerCase().replace(/[_\s-]/g, '');
-  // Retain privileged staff behavior when sales rep is only an additional role.
-  return !['admin', 'superadmin', 'editingmanager'].includes(primary) &&
+  const hasOfficeRole = [user?.role, ...(user?.secondary_roles ?? [])].some(role =>
+    ['admin', 'superadmin', 'editingmanager'].includes(String(role ?? '').trim().toLowerCase().replace(/[_\s-]/g, '')));
+  // Booking restrictions follow the complete role set, as they do on the server.
+  return !hasOfficeRole &&
     hasSalesRepRole(user);
 };
 

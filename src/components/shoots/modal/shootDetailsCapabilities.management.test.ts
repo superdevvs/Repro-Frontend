@@ -9,6 +9,11 @@ const capabilities = (shoot: Partial<ShootData>) => getShootDetailsCapabilities(
   currentUserRole:'salesRep',roleFlags:roles,
 });
 describe('Rep management controls', () => {
+  it('does not infer booking edit rights from a staff role when server capabilities are missing', () => {
+    expect(capabilities({}).canAdminEdit).toBe(false);
+    expect(getShootDetailsCapabilities({ shoot: { id: 'fixture', status: 'scheduled' } as ShootData,
+      currentUserRole: 'admin', roleFlags: { ...roles, isAdmin: true, isRep: false } }).canAdminEdit).toBe(false);
+  });
   it.each([['delivered', 'scheduled'], ['scheduled', 'delivered']])('keeps workflow actions locked when status %s and workflow %s disagree', (status, workflowStatus) => {
     const result = capabilities({ status, workflowStatus, canManageBooking: true, canManageShootActions: true });
     expect(result.canAdminEdit).toBe(true);

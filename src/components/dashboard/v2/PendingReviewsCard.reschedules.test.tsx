@@ -9,6 +9,11 @@ import { PendingReviewsCard } from './PendingReviewsCard';
 
 vi.mock('@/context/RequestManagerContext', () => ({ useRequestManager: () => ({ openModal: vi.fn() }) }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
+const permissions = vi.hoisted(() => ({ manage: true, edit: true, loading: false }));
+vi.mock('@/context/PermissionsContext', () => ({ usePermissions: () => ({
+  can: (_resource: string, action: string) => action === 'manage' ? permissions.manage : permissions.edit,
+  isLoading: permissions.loading, hasError: false,
+}) }));
 vi.mock('@/components/auth/AuthProvider', () => ({
   useAuth: () => ({ role: 'admin', user: { id: 1, name: 'AJ' } }),
 }));
@@ -17,6 +22,8 @@ const request = {
   id: 11,
   shoot_id: 104,
   status: 'pending',
+  canReviewRequests: true,
+  canApproveReschedule: true,
   original_date: '2026-09-10',
   original_time: '10:00 AM',
   requested_date: '2026-09-24',
@@ -74,6 +81,7 @@ function mount() {
 describe('reschedule request dashboard queue', () => {
   beforeEach(() => {
     localStorage.setItem('authToken', 'test-token');
+    permissions.manage = true; permissions.edit = true; permissions.loading = false;
   });
   afterEach(() => {
     cleanup();
@@ -159,6 +167,48 @@ describe('reschedule request dashboard queue', () => {
     expect(screen.getByTestId('reschedule-request-11')).toHaveAttribute('data-status', 'pending');
     fireEvent.click(screen.getByLabelText('Reschedule details for 108 Example Street'));
     expect(screen.getByRole('button', { name: 'Approve reschedule' })).toBeInTheDocument();
+    client.clear();
+  });
+
+  it('allows a reviewer to reject while server appointment rights deny approval', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => response({ data: [{ ...request, canApproveReschedule: false }] })));
+    const client = mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Reschedule (1)' }));
+    fireEvent.click(screen.getByLabelText('Reschedule details for 108 Example Street'));
+    expect(screen.queryByRole('button', { name: 'Approve reschedule' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reject reschedule' })).toBeEnabled();
+    client.clear();
+  });
+
+  it('requires server request scope before showing either review decision', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => response({ data: [{ ...request, canReviewRequests: false }] })));
+    const client = mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Reschedule (1)' }));
+    fireEvent.click(screen.getByLabelText('Reschedule details for 108 Example Street'));
+    expect(screen.queryByRole('button', { name: 'Approve reschedule' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reject reschedule' })).not.toBeInTheDocument();
+    client.clear();
+  });
+
+  it('honors refreshed effective edit denials even before the queue payload refreshes', async () => {
+    permissions.edit = false;
+    vi.stubGlobal('fetch', vi.fn(async () => response({ data: [request] })));
+    const client = mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Reschedule (1)' }));
+    fireEvent.click(screen.getByLabelText('Reschedule details for 108 Example Street'));
+    expect(screen.queryByRole('button', { name: 'Approve reschedule' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reject reschedule' })).toBeEnabled();
+    client.clear();
+  });
+
+  it.each(['denied', 'loading'])('hides reviewer actions when effective management rights are %s', async mode => {
+    permissions.manage = mode !== 'denied'; permissions.loading = mode === 'loading';
+    vi.stubGlobal('fetch', vi.fn(async () => response({ data: [request] })));
+    const client = mount();
+    fireEvent.click(await screen.findByRole('button', { name: 'Reschedule (1)' }));
+    fireEvent.click(screen.getByLabelText('Reschedule details for 108 Example Street'));
+    expect(screen.queryByRole('button', { name: 'Approve reschedule' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reject reschedule' })).not.toBeInTheDocument();
     client.clear();
   });
 

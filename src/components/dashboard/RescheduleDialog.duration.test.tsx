@@ -6,10 +6,11 @@ import { RescheduleDialog } from './RescheduleDialog';
 
 const mocks = vi.hoisted(() => ({ role: 'superadmin', post: vi.fn(), fetchShoots: vi.fn() }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ role: mocks.role, user: { role: mocks.role } }) }));
+vi.mock('@/context/PermissionsContext', () => ({ usePermissions: () => ({ can: () => ['superadmin', 'admin', 'salesRep'].includes(mocks.role), isLoading: false, hasError: false }) }));
 vi.mock('@/context/shootsContextState', () => ({ useShoots: () => ({ fetchShoots: mocks.fetchShoots }) }));
 vi.mock('axios', () => ({ default: { post: mocks.post, isAxiosError: () => false } }));
 vi.mock('@/components/ui/time-select', () => ({ TimeSelect: () => <span>Time picker</span> }));
-const shoot = { id: '42', scheduled_at: '2026-10-08T10:00:00', serviceObjects: [
+const shoot = { id: '42', canApproveReschedule: true, canRequestReschedule: false, scheduled_at: '2026-10-08T10:00:00', serviceObjects: [
   { id: '10', name: 'Photos', duration_minutes: 30 }, { id: '11', name: 'Video', duration_minutes: 90 },
 ] } as unknown as ShootData;
 beforeEach(() => { mocks.role = 'superadmin'; mocks.post.mockResolvedValue({ data: { applied: true } }); localStorage.setItem('authToken', 'test'); });
@@ -38,7 +39,7 @@ describe('rescheduling service duration', () => {
   });
   it.each(['client', 'photographer', 'editor'])('keeps %s reschedule requests date/time only', async role => {
     mocks.role = role;
-    render(<RescheduleDialog shoot={shoot} isOpen onClose={vi.fn()} />);
+    render(<RescheduleDialog shoot={{ ...shoot, canApproveReschedule: false, canRequestReschedule: true }} isOpen onClose={vi.fn()} />);
     expect(screen.queryByLabelText('Shoot duration for Photos')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Submit Request' }));
     await waitFor(() => expect(mocks.post).toHaveBeenCalledOnce());

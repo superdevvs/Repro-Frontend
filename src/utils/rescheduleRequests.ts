@@ -1,25 +1,22 @@
-/**
- * Reschedule request vocabulary shared by the dialog and the review panel.
- *
- * A1.docx item 4: the client UI said "Request to reschedule" while the backend
- * applied the change on submission. Now submission and application are separate,
- * and the UI has to say which one it is doing — so the role test that decides
- * that lives here rather than being re-derived in each component.
- *
- * Mirrors `ShootRescheduleRequestController::STAFF_ROLES`.
- */
-export const RESCHEDULE_REVIEWER_ROLES = [
-  'admin',
-  'superadmin',
-  'super_admin',
-  'editing_manager',
-  // Match Hold / pending-holds office roles so sales reps see and act on the
-  // Requests → Reschedule tab the same way admin / superadmin already do.
-  'salesrep',
-  'sales_rep',
-  'rep',
-  'representative',
-] as const;
+import type { ShootData } from '@/types/shoots';
+import { isSalesRepRole } from './shootManagementAccess';
+
+export interface RescheduleViewer {
+  role?: string | null;
+  secondary_roles?: string[] | null;
+}
+
+export interface ReschedulePermissions {
+  canManageRequests: boolean;
+  canEditAppointments: boolean;
+  isLoading: boolean;
+  hasError?: boolean;
+}
+
+const hasBookingStaffRole = (viewer?: RescheduleViewer | null): boolean =>
+  [viewer?.role, ...(viewer?.secondary_roles ?? [])].some(role =>
+    ['admin', 'superadmin', 'editingmanager'].includes(String(role ?? '').trim().toLowerCase().replace(/[_\s-]/g, ''))
+      || isSalesRepRole(role));
 
 export type RescheduleRequestStatus = 'pending' | 'approved' | 'rejected';
 
@@ -39,15 +36,27 @@ export interface RescheduleRequestRecord {
   created_at?: string | null;
 }
 
-/**
- * Whether this role may reschedule outright and review others' requests.
- *
- * Anyone else submits a request that waits for review.
- */
-export const canReviewRescheduleRequests = (role?: string | null): boolean => {
-  const normalized = String(role ?? '').trim().toLowerCase();
+/** Review rights come from effective permissions, including individual denials. */
+export const canReviewRescheduleRequests = (
+  viewer: RescheduleViewer | null | undefined,
+  permissions: ReschedulePermissions,
+): boolean => !permissions.isLoading && !permissions.hasError
+  && hasBookingStaffRole(viewer) && permissions.canManageRequests;
 
-  return (RESCHEDULE_REVIEWER_ROLES as readonly string[]).includes(normalized);
+/** A reviewer may reject a request without being allowed to move its appointment. */
+export const getRescheduleAccess = (
+  shoot: Pick<ShootData, 'canApproveReschedule' | 'canRequestReschedule'>,
+  viewer: RescheduleViewer | null | undefined,
+  permissions: ReschedulePermissions,
+): 'checking' | 'unavailable' | 'apply' | 'request' | 'denied' => {
+  if (permissions.isLoading) return 'checking';
+  if (permissions.hasError) return 'unavailable';
+  if (shoot.canApproveReschedule === true && permissions.canEditAppointments
+    && canReviewRescheduleRequests(viewer, permissions)) return 'apply';
+  // Denied staff never silently fall back to submitting a client request.
+  if (shoot.canRequestReschedule === true && !hasBookingStaffRole(viewer)) return 'request';
+  if (shoot.canApproveReschedule === undefined && shoot.canRequestReschedule === undefined) return 'unavailable';
+  return 'denied';
 };
 
 export const normalizeRescheduleStatus = (

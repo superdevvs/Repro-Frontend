@@ -77,6 +77,10 @@ export async function installShootDetailsWorkspaceFixture(
     canRemoveAllServices: role === 'admin' || (role === 'salesRep' && options.salesRepManagement),
     ...(options.salesRepManagement ? { editVersion: 'a'.repeat(64) } : {}),
     canManageShootActions: role === 'admin', can_view_invoice: ['admin', 'client'].includes(role),
+    canEditAppointment: role === 'admin', canReassignPhotographer: role === 'admin',
+    canScheduleShoot: role === 'admin' || role === 'photographer' || role === 'editor',
+    canApproveReschedule: role === 'admin', canReviewRequests: role === 'admin',
+    canRequestReschedule: ['client', 'photographer', 'editor'].includes(role),
     notes: [{ id: 1, content: 'Use the lockbox by the front door.', type: 'shoot', created_at: completedAt }],
     files: [...rawFiles, ...editedFiles], tour_links: {},
   };
@@ -113,7 +117,8 @@ export async function installShootDetailsWorkspaceFixture(
     if (path === '/me/permissions') {
       const resources = ['dashboard', `dashboard-${role}`, 'shoots', 'shoot-history', 'settings'];
       const permissions = resources.map(resource => ({ resource, action: 'view' }));
-      if (options.salesRepManagement && role === 'salesRep') permissions.push({ resource: 'shoots', action: 'update' }, { resource: 'shoot-pricing', action: 'update' });
+      if (role === 'admin') permissions.push({ resource: 'shoots', action: 'update' }, { resource: 'shoots', action: 'manage' });
+      if (options.salesRepManagement && role === 'salesRep') permissions.push({ resource: 'shoots', action: 'update' }, { resource: 'shoots', action: 'manage' }, { resource: 'shoot-pricing', action: 'update' });
       return reply(route, { permissions, permissionIds: permissions.map(permission => `${permission.resource}:${permission.action}`) });
     }
     if (path === '/shoots/156') return data(route, shoot);

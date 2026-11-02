@@ -36,7 +36,7 @@ import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
 import { buildShootPath, shootPathNeedsCanonicalising } from '@/utils/shootPath';
-import { isDeliveredShootForManagement } from '@/utils/shootManagementAccess';
+import { useRescheduleAccess } from '@/hooks/useRescheduleAccess';
 
 // Import tab components
 import { ShootDetailsMediaTab } from '@/components/shoots/tabs/ShootDetailsMediaTab';
@@ -124,8 +124,8 @@ const ShootDetails: React.FC = () => {
   const isSuperAdmin = normalizedRole === 'superadmin';
   const isAdminOrSuperAdmin = isAdmin;
   const canReviewHoldRequest = isAdminOrRep && (shoot?.canManageShootActions ?? true) && isHoldRequested;
-  const canReschedule = isAdmin || Boolean(isRep && shoot?.canManageBooking && shoot.canManageShootActions
-    && !isDeliveredShootForManagement(shoot) && !['cancelled', 'canceled', 'declined'].includes(workflowStatusKey));
+  const { access: rescheduleAccess } = useRescheduleAccess(shoot ?? undefined);
+  const canReschedule = rescheduleAccess === 'apply';
   const workflowBadge = getShootDetailsWorkflowBadge(shoot?.workflowStatus || shoot?.status);
   const paymentBadge = getShootDetailsPaymentBadge(shoot);
   const shootServices = getShootDetailsServiceNames(shoot);

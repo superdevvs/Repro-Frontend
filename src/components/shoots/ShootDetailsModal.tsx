@@ -735,7 +735,7 @@ export function ShootDetailsModal({
           isAdminOrRep={isAdminOrRep}
           isRequestedStatus={isRequestedStatus}
           canAdminEdit={canAdminEdit}
-          canManageBooking={shoot.canManageBooking}
+          canManageBooking={shoot.canManageBooking} canReviewRequests={shoot.canReviewRequests} canApproveRequest={shoot.canApproveReschedule}
           isScheduledOrOnHold={isScheduledOrOnHold}
           canUserPutOnHold={canUserPutOnHold}
           canResumeFromHold={canResumeFromHold}

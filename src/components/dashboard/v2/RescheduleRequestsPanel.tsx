@@ -3,10 +3,9 @@ import { ChevronDown } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { useAuth } from '@/components/auth/AuthProvider';
+import { useRescheduleAccess } from '@/hooks/useRescheduleAccess';
 import type { RescheduleRequestsState } from '@/features/dashboard/hooks/useRescheduleRequests';
 import {
-  canReviewRescheduleRequests,
   describeRescheduleStatus,
   normalizeRescheduleStatus,
 } from '@/utils/rescheduleRequests';
@@ -46,8 +45,7 @@ const formatTime = (value: string) => {
 };
 
 export function RescheduleRequestsPanel({ requests }: { requests: RescheduleRequestsState }) {
-  const { role } = useAuth();
-  const canReview = canReviewRescheduleRequests(role);
+  const { canReview, canApprove } = useRescheduleAccess();
 
   if (requests.loading) {
     return <p role="status" className="p-3 text-sm text-muted-foreground">Loading reschedule requests...</p>;
@@ -127,8 +125,9 @@ export function RescheduleRequestsPanel({ requests }: { requests: RescheduleRequ
                 )}
               </div>
             )}
-            {isPending && canReview && (
+            {isPending && canReview && request.canReviewRequests === true && (
               <div className="flex flex-wrap gap-2">
+                {canApprove && request.canApproveReschedule === true && (
                 <Button
                   size="sm"
                   disabled={requests.actioning !== null}
@@ -136,6 +135,7 @@ export function RescheduleRequestsPanel({ requests }: { requests: RescheduleRequ
                 >
                   Approve reschedule
                 </Button>
+                )}
                 <Button
                   size="sm"
                   variant="outline"

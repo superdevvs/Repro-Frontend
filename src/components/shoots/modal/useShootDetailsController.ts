@@ -11,7 +11,7 @@ interface UseShootDetailsControllerInput {
   authRole?: string;
   shoot: ShootData | null;
   userId?: string | number | null;
-  editorUser?: VideoTourEditor;
+  editorUser?: VideoTourEditor & { secondary_roles?: string[] };
   shouldHideClientDetailsProp?: boolean;
 }
 

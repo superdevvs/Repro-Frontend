@@ -1,14 +1,20 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import type { ShootData } from '@/types/shoots';
 import { ShootDetailsSidebar } from './ShootDetailsSidebar';
 import { transformShootFromApi } from '@/context/shootNormalization';
 
-const mocks = vi.hoisted(() => ({ canMarkPaid: true }));
+const mocks = vi.hoisted(() => ({ canMarkPaid: true, canEdit: true, permissionsLoading: false, loadAssignees: vi.fn(), coordinates: vi.fn() }));
+vi.mock('@/services/shootAssignees', async importOriginal => ({
+  ...await importOriginal<typeof import('@/services/shootAssignees')>(), loadShootAssignees: mocks.loadAssignees,
+}));
+vi.mock('@/utils/distanceUtils', async importOriginal => ({
+  ...await importOriginal<typeof import('@/utils/distanceUtils')>(), getCoordinatesFromAddress: mocks.coordinates,
+}));
 vi.mock('@/hooks/usePermission', () => ({
-  usePermission: () => ({ can: () => mocks.canMarkPaid }),
+  usePermission: () => ({ can: (resource: string) => resource === 'shoots' ? mocks.canEdit : mocks.canMarkPaid, isLoading: mocks.permissionsLoading }),
 }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
 vi.mock('@/components/messaging/ManualNotificationDialog', () => ({
@@ -17,6 +23,7 @@ vi.mock('@/components/messaging/ManualNotificationDialog', () => ({
 
 const fixture = {
   id: '156',
+  canReassignPhotographer: true,
   status: 'delivered',
   scheduledDate: '2026-10-13',
   time: '10:00',
@@ -40,7 +47,11 @@ const show = (overrides: Partial<React.ComponentProps<typeof ShootDetailsSidebar
   return { onMarkPaid, onReschedule };
 };
 
-beforeEach(() => { mocks.canMarkPaid = true; });
+beforeEach(() => {
+  mocks.canMarkPaid = true; mocks.canEdit = true; mocks.permissionsLoading = false;
+  mocks.loadAssignees.mockReset().mockResolvedValue([{ id: '1136', name: 'Delmar Harrod', role: 'photographer', email: '' }]);
+  mocks.coordinates.mockReset().mockResolvedValue(null);
+});
 afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe('compact shoot record preserves allowed controls and contact privacy', () => {
@@ -116,7 +127,7 @@ describe('compact shoot record preserves allowed controls and contact privacy', 
   });
 
   it('keeps editor client and billing information absent', () => {
-    show({ isAdmin: false, isEditor: true, onReschedule: undefined });
+    show({ shoot: { ...fixture, canReassignPhotographer: false }, isAdmin: false, isEditor: true, onReschedule: undefined });
     expect(screen.queryByText('Sample Client')).not.toBeInTheDocument();
     expect(screen.queryByText('sample@example.com')).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Billing' })).not.toBeInTheDocument();
@@ -134,7 +145,7 @@ describe('compact shoot record preserves allowed controls and contact privacy', 
   it('limits a photographer to the client name and scheduled contact window', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-10-13T13:00:00Z'));
-    show({ isAdmin: false, isPhotographer: true, onReschedule: undefined });
+    show({ shoot: { ...fixture, canReassignPhotographer: false }, isAdmin: false, isPhotographer: true, onReschedule: undefined });
     expect(screen.getByText('Sample Client')).toBeInTheDocument();
     expect(screen.queryByText('sample@example.com')).not.toBeInTheDocument();
     expect(screen.queryByText('Sample Company')).not.toBeInTheDocument();
@@ -152,11 +163,50 @@ describe('compact shoot record preserves allowed controls and contact privacy', 
   });
 
   it('keeps representative contact access without adding administrative billing controls', () => {
-    show({ isAdmin: false, onReschedule: undefined });
+    show({ shoot: { ...fixture, canReassignPhotographer: false }, isAdmin: false, onReschedule: undefined });
     fireEvent.click(screen.getByText('Contact details'));
     expect(screen.getByText('sample@example.com')).toBeInTheDocument();
     expect(screen.getByText('555-123-4567')).toBeInTheDocument();
     expect(screen.queryByRole('region', { name: 'Billing' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Change Photographer' })).not.toBeInTheDocument();
+  });
+
+  it('offers reassignment to an authorized rep without adding billing access', () => {
+    show({ isAdmin: false, shoot: { ...fixture, status: 'scheduled' } });
+    expect(screen.getByRole('button', { name: 'Change Photographer' })).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Billing' })).not.toBeInTheDocument();
+  });
+
+  it.each([false, undefined])('hides reassignment when the server capability is %s even for an admin', canReassignPhotographer => {
+    show({ shoot: { ...fixture, canReassignPhotographer } });
+    expect(screen.queryByRole('button', { name: 'Change Photographer' })).not.toBeInTheDocument();
+  });
+
+  it.each(['denied', 'loading'])('hides reassignment when effective permissions are %s', state => {
+    mocks.canEdit = state !== 'denied';
+    mocks.permissionsLoading = state === 'loading';
+    show();
+    expect(screen.queryByRole('button', { name: 'Change Photographer' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the photographer searchable while optional distances are still loading', async () => {
+    mocks.coordinates.mockImplementation(() => new Promise(() => {}));
+    show();
+    fireEvent.click(screen.getByRole('button', { name: 'Change Photographer' }));
+    await waitFor(() => expect(screen.getByText('Delmar Harrod')).toBeInTheDocument());
+    expect(screen.getByRole('status')).toHaveTextContent('You can browse photographers');
+    fireEvent.change(screen.getByPlaceholderText('Search photographers...'), { target: { value: 'Delmar' } });
+    expect(screen.getByText('Delmar Harrod')).toBeInTheDocument();
+  });
+
+  it('shows a directory error and retries instead of reporting no matching names', async () => {
+    mocks.loadAssignees.mockRejectedValueOnce(new Error('Directory unavailable'));
+    show();
+    fireEvent.click(screen.getByRole('button', { name: 'Change Photographer' }));
+    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent('Unable to load photographers'));
+    expect(screen.queryByText('No photographers available.')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    await waitFor(() => expect(screen.getByText('Delmar Harrod')).toBeInTheDocument());
+    expect(mocks.loadAssignees).toHaveBeenCalledTimes(2);
   });
 });

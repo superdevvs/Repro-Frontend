@@ -71,6 +71,7 @@ export function useShootOverviewEditor({
   isEditMode = false,
   canEditServicePlan = true,
   canEditAppointments = canEditServicePlan,
+  canReassignPhotographer = shoot.canReassignPhotographer === true,
   onShootUpdate,
   onSave,
   onCancel,
@@ -132,7 +133,7 @@ export function useShootOverviewEditor({
   const [photographers, setPhotographers] = useState<PhotographerPickerOption[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'distance' | 'availability'>('distance');
-  const [showAllPhotographers, setShowAllPhotographers] = useState(false);
+  const [showAllPhotographers, setShowAllPhotographers] = useState(true);
   const [isCalculatingDistances, setIsCalculatingDistances] = useState(false);
   const [isLoadingAvailability, setIsLoadingAvailability] = useState(false);
   const safeEditPhotographers = useMemo(
@@ -279,7 +280,6 @@ export function useShootOverviewEditor({
     setServicePrices,
     setServicePhotographerPays,
     setServiceSchedules,
-    setEditPhotographers,
     canInitializeServiceSelection,
   );
 
@@ -743,13 +743,14 @@ export function useShootOverviewEditor({
     return { address, city, state, zip, latitude, longitude };
   }, [editedShoot.location, isEditMode, shoot]);
 
-  usePhotographerAssignmentOptions(
+  const photographerRoster = usePhotographerAssignmentOptions(
     assignPhotographerOpen,
     safeEditPhotographers,
     isAdminOrRep,
     isEditMode,
     setPhotographers,
     setEditPhotographers,
+    String(shoot.id),
   );
 
   const legacyScheduleShoot = shoot as ShootWithLegacyOverviewFields;
@@ -762,7 +763,7 @@ export function useShootOverviewEditor({
 
   const pickerServices = servicesList.filter(service => selectedServiceIds.includes(service.id) && normalizeShootServiceCategoryKey(deriveServiceCategoryName(service)) === photographerPickerContext?.categoryKey);
   const isOffsiteArtistPicker = pickerServices.length > 0 && pickerServices.every(service => service.photographer_required === false);
-  usePhotographerDistanceAvailability(
+  const pickerAvailability = usePhotographerDistanceAvailability(
     assignPhotographerOpen && !isOffsiteArtistPicker,
     photographers,
     isAdminOrRep,
@@ -773,6 +774,7 @@ export function useShootOverviewEditor({
     setIsCalculatingDistances,
     setIsLoadingAvailability,
     getOverviewAvailabilityDuration(servicesList, selectedServiceIds, photographerPickerContext, serviceSchedules, photographerPickerScheduleDate, photographerPickerScheduleTime, perCategoryPhotographers, photographerAssignments.groups, selectedPhotographerIdEdit, effectiveSqft, photographers.map(person => person.id)),
+    String(shoot.id),
   );
 
   const fallbackAssignedPhotographers = useMemo(() => {
@@ -808,13 +810,9 @@ export function useShootOverviewEditor({
         || photographer.state?.toLowerCase().includes(query),
       );
     }
-    const hasAvailablePhotographers = filteredPhotographers.some((photographer) =>
-      Boolean(photographer.hasAvailability || photographer.netAvailableSlots?.length),
-    );
-    if (!isOffsiteArtistPicker && !showAllPhotographers && hasAvailablePhotographers) {
-      filteredPhotographers = filteredPhotographers.filter((photographer) =>
-        Boolean(photographer.hasAvailability || photographer.netAvailableSlots?.length),
-      );
+    if (!isOffsiteArtistPicker && !showAllPhotographers) {
+      filteredPhotographers = filteredPhotographers.filter(photographer =>
+        Boolean(pickerAvailability?.byId.get(String(photographer.id))?.net_available_slots?.length));
     }
 
     filteredPhotographers.sort((first, second) => {
@@ -834,7 +832,7 @@ export function useShootOverviewEditor({
     });
 
     return filteredPhotographers;
-  }, [photographerPickerOptions, searchQuery, showAllPhotographers, sortBy, isOffsiteArtistPicker]);
+  }, [photographerPickerOptions, searchQuery, showAllPhotographers, sortBy, isOffsiteArtistPicker, pickerAvailability?.byId]);
 
   const resolvePhotographerDetails = useCallback((photographerId?: string | null) => {
     if (!photographerId) return null;
@@ -854,6 +852,7 @@ export function useShootOverviewEditor({
   }, []);
 
   const openEditPhotographerPicker = useCallback((context: Exclude<PhotographerPickerContext, null>) => {
+    if (!canReassignPhotographer) return;
     const initialSelection = context.complimentarySourceServiceId
       ? getCompServicePhotographer(context.complimentarySourceServiceId)
       : context.categoryKey
@@ -863,7 +862,7 @@ export function useShootOverviewEditor({
     setSelectedPhotographerId(initialSelection);
     setSearchQuery('');
     setAssignPhotographerOpen(true);
-  }, [getCompServicePhotographer, perCategoryPhotographers, selectedPhotographerIdEdit]);
+  }, [canReassignPhotographer, getCompServicePhotographer, perCategoryPhotographers, selectedPhotographerIdEdit]);
 
   const editModePhotographerRows = useMemo(() => {
     return getOverviewPhotographerRows({ shootPhotographer: shoot.photographer, isEditMode, selectedServiceIds, servicesList, perCategoryPhotographers,
@@ -880,7 +879,7 @@ export function useShootOverviewEditor({
   ]);
 
   const handleAssignPhotographer = useCallback(async () => {
-    if (!selectedPhotographerId || (!isEditMode && travel.blocked)) return;
+    if (!canReassignPhotographer || !selectedPhotographerId || (!isEditMode && travel.blocked)) return;
     const selectedPhotographer = resolvePhotographerDetails(selectedPhotographerId);
 
     if (isEditMode) {
@@ -962,7 +961,7 @@ export function useShootOverviewEditor({
       });
     }
   }, [
-    travel.blocked, travel.confirmSave, travel.acceptServerError, buildAssignmentPayload,
+    canReassignPhotographer, travel.blocked, travel.confirmSave, travel.acceptServerError, buildAssignmentPayload,
     closePhotographerPicker,
     editModePhotographerRows.length,
     isEditMode,
@@ -1029,6 +1028,7 @@ export function useShootOverviewEditor({
       showAllPhotographers,
       isCalculatingDistances,
       isLoadingAvailability,
+      photographerRoster, pickerAvailability,
     },
     actions: {
       setPropertyYearBuiltEdit,
@@ -1062,7 +1062,7 @@ export function useShootOverviewEditor({
       setAccessContactPhone,
       setPropertyMetricsEdit,
       setAddressInput,
-      setAssignPhotographerOpen,
+      setAssignPhotographerOpen: (open: boolean) => { if (!open || canReassignPhotographer) setAssignPhotographerOpen(open); },
       setSelectedPhotographerId,
       setSearchQuery,
       setSortBy,

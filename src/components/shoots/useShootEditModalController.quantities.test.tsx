@@ -15,6 +15,7 @@ vi.mock('@/features/shoot-units/useUnitScopedEdit', () => ({
   useUnitScopedEdit: () => ({ projectFetched: mocks.projectFetched, buildPayload: mocks.buildPayload }),
   useUnitEditDirtyTracking: () => false,
 }));
+vi.mock('@/services/api', () => ({ getApiHeaders: () => ({ Authorization: 'Bearer test' }) }));
 vi.mock('axios', () => ({ default: { get: vi.fn() } }));
 vi.mock('@/services/shootAssignees', () => ({
   loadShootAssignees: vi.fn().mockResolvedValue([{ id: '9', name: 'Photo Editor', role: 'editor', email: '' }]),

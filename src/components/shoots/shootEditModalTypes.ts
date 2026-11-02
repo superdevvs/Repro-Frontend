@@ -1,8 +1,7 @@
 import type { TravelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
-import axios from 'axios';
+import { loadSchedulingPhotographers } from '@/services/schedulingPhotographers';
 import type { ServiceDurationSource } from '@/utils/shootDuration';
 type DurationMetadata = Pick<ServiceDurationSource, 'booking_duration_default_minutes' | 'booking_duration_min_minutes' | 'booking_duration_max_minutes' | 'booking_duration_defaults'>;
-import API_ROUTES from '@/lib/api';
 import type { AddressDetails } from '@/utils/addressLookup';
 import type { PricingDiscountType } from '@/utils/pricing';
 import type { BookingAvailabilitySlot } from '@/types/availability';
@@ -176,6 +175,8 @@ export type ServiceApiRecord = DurationMetadata & {
 };
 
 export interface ShootDetails {
+  canReassignPhotographer?: boolean;
+  canEditAppointment?: boolean;
   timezone?: string | null;
   id: number;
   canRemoveAllServices?: boolean;
@@ -298,33 +299,8 @@ export const availabilityScaleStartMinutes = 8 * 60;
 export const availabilityScaleTotalMinutes = 12 * 60;
 export const availabilityScaleTickCount = 9;
 
-export const loadPhotographerOptions = async (useSchedulingRoster = false): Promise<Photographer[]> => {
-  const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-  const headers: Record<string, string> = {};
-  if (token) {
-    headers.Authorization = `Bearer ${token}`;
-  }
-
-  try {
-    const response = await axios.get(useSchedulingRoster ? API_ROUTES.people.photographers : API_ROUTES.people.adminPhotographers, { headers });
-    const data = response.data?.data || response.data || [];
-    const formatted = Array.isArray(data) ? data.map(mapPhotographerOption) : [];
-    if (formatted.length > 0) {
-      return formatted;
-    }
-  } catch (error) {
-    console.warn('[ShootEditModal] Admin photographers endpoint failed, falling back to public list:', error);
-  }
-
-  try {
-    const response = await axios.get(API_ROUTES.people.photographers);
-    const data = response.data?.data || response.data || [];
-    return Array.isArray(data) ? data.map(mapPhotographerOption) : [];
-  } catch (error) {
-    console.error('[ShootEditModal] Public photographers endpoint failed:', error);
-    return [];
-  }
-};
+export const loadPhotographerOptions = async (signal?: AbortSignal): Promise<Photographer[]> =>
+  (await loadSchedulingPhotographers(signal)).map(mapPhotographerOption);
 
 export const extractLookupPropertyDetails = (details: PropertyLookupInput | AddressDetails | null | undefined): PropertyDetails => {
   const toOptionalNumber = (value: unknown): number | undefined => {

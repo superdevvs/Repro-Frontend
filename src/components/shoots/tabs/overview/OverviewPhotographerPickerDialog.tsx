@@ -1,3 +1,6 @@
+import { PhotographerPickerCheck } from '../../PhotographerPickerCheck';
+import { pickerAvailabilityLabel, type usePhotographerPickerAvailability } from '../../usePhotographerPickerAvailability';
+import type { PickerCheckStatus } from '../../usePhotographerPickerAvailability';
 import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
 import type { TravelController } from '@/features/travel/useTravelFeasibility';
 import { Check, Search, User, X } from 'lucide-react';
@@ -47,6 +50,8 @@ type OverviewPhotographerPickerDialogProps = {
   setShowAllPhotographers: (value: boolean | ((current: boolean) => boolean)) => void;
   isCalculatingDistances: boolean;
   isLoadingAvailability: boolean;
+  photographerRoster?: { status: PickerCheckStatus; error?: string; retry: () => void };
+  pickerAvailability?: ReturnType<typeof usePhotographerPickerAvailability>;
   filteredAndSortedPhotographers: PhotographerPickerOption[];
   selectedPhotographerId: string;
   setSelectedPhotographerId: (photographerId: string) => void;
@@ -68,7 +73,7 @@ export function OverviewPhotographerPickerDialog({
   showAllPhotographers,
   setShowAllPhotographers,
   isCalculatingDistances,
-  isLoadingAvailability,
+  isLoadingAvailability, photographerRoster, pickerAvailability,
   filteredAndSortedPhotographers,
   selectedPhotographerId,
   setSelectedPhotographerId,
@@ -176,20 +181,23 @@ export function OverviewPhotographerPickerDialog({
                                   </button>
                                   <button
                                     type="button"
+                                    aria-pressed={!showAllPhotographers}
                                     onClick={() => setShowAllPhotographers((current) => !current)}
                                     className={cn(
                                       'h-8 shrink-0 rounded-full border px-2.5 text-xs font-semibold transition-colors sm:h-9 sm:px-4',
-                                      showAllPhotographers
+                                      !showAllPhotographers
                                         ? 'border-blue-500 bg-blue-600 text-white'
                                         : 'border-transparent bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60',
                                     )}
                                   >
-                                    Show All
+                                    Available only
                                   </button>
                                 </div>
                               </div>
                             </div>
                 
+                            {photographerRoster && <PhotographerPickerCheck directory {...photographerRoster} />}
+                            {pickerAvailability && photographerRoster?.status === 'ready' && <PhotographerPickerCheck {...pickerAvailability} />}
                             <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden sm:pr-2">
                               {isCalculatingDistances && filteredAndSortedPhotographers.length === 0 ? (
                                 <div className="flex items-center justify-center py-8">
@@ -206,9 +214,7 @@ export function OverviewPhotographerPickerDialog({
                                   ) : null}
                                   {filteredAndSortedPhotographers.map((photographerItem) => {
                                     const isSelected = selectedPhotographerId === photographerItem.id;
-                                    const availabilitySource = photographerItem.netAvailableSlots?.length
-                                      ? photographerItem.netAvailableSlots
-                                      : photographerItem.availabilitySlots || [];
+                                    const availabilitySource = photographerItem.netAvailableSlots || [];
                                     const distanceLabel = typeof photographerItem.distance === 'number' && Number.isFinite(photographerItem.distance)
                                       ? `${photographerItem.distance.toFixed(1)} mi`
                                       : 'Distance unavailable';
@@ -284,12 +290,13 @@ export function OverviewPhotographerPickerDialog({
                                             </div>
                 
                                             <div className="mt-2">
-                                              <PhotographerAvailabilityTimeline
+                                              <p className="mb-1 text-xs text-muted-foreground">{pickerAvailabilityLabel(pickerAvailability?.status ?? 'idle', pickerAvailability?.byId.get(String(photographerItem.id)))}</p>
+                                              {pickerAvailability?.status === 'ready' && pickerAvailability.byId.has(String(photographerItem.id)) && <PhotographerAvailabilityTimeline
                                                 availableSlots={availabilitySource}
                                                 bookedSlots={photographerItem.bookedSlots}
                                                 unavailableSlots={photographerItem.unavailableSlots}
                                                 loadingHint={isLoadingAvailability ? 'Checking availability...' : null}
-                                              />
+                                              />}
                                             </div>
                                           </div>
                                         </div>
@@ -307,7 +314,7 @@ export function OverviewPhotographerPickerDialog({
                                   ) : searchQuery ? (
                                     'No photographers found matching your search.'
                                   ) : (
-                                    'No photographers available.'
+                                    !showAllPhotographers ? 'No available photographers match. Turn off Available only to browse everyone.' : 'No photographers found.'
                                   )}
                                 </div>
                               )}

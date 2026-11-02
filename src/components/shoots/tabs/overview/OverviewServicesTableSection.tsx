@@ -41,6 +41,7 @@ const EDIT_COLUMN_WIDTHS: Record<string, number> = { Date: 148, Time: 112, 'Assi
 export type OverviewServicesTableSectionProps = {
   isEditMode: boolean;
   canEditAppointments?: boolean;
+  canReassignPhotographer?: boolean;
   shoot: ShootData;
 
   // Read-only data source (one row per item).
@@ -383,6 +384,7 @@ function renderEditRows(
   const headerCells = getHeaderCells(props);
   const showPhotographerColumn = !isPayView(props);
   const canEditAppointments = props.canEditAppointments !== false;
+  const canReassignPhotographer = canEditAppointments && props.canReassignPhotographer !== false;
   const canRemoveAllServices = Boolean(
     shoot.canRemoveAllServices ?? shoot.can_remove_all_services,
   );
@@ -501,7 +503,7 @@ function renderEditRows(
                 variant="outline"
                 size="sm"
                 data-testid="photographer-cell"
-                disabled={!canEditAppointments}
+                disabled={!canReassignPhotographer}
                 className="h-8 w-full max-w-full justify-start text-xs min-w-0"
                 onClick={() =>
                   openEditPhotographerPicker({
@@ -608,6 +610,7 @@ function renderEditRows(
                 variant="outline"
                 size="sm"
                 className="h-8 w-full max-w-full justify-start bg-background text-xs min-w-0"
+                disabled={!canReassignPhotographer}
                 onClick={() => openEditPhotographerPicker({
                   source: 'edit',
                   categoryKey,

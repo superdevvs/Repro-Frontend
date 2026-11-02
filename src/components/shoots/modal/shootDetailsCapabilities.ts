@@ -120,9 +120,8 @@ export const getShootDetailsCapabilities = ({
         !shoot.photographer?.id),
   );
   const canAdminEdit =
-    (shoot?.canManageBooking ?? true) &&
+    shoot?.canManageBooking === true &&
     Boolean(shoot) &&
-    isAdminOrRep &&
     !['cancelled', 'declined'].includes(normalizedStatus) &&
     (!isRep || ['scheduled', 'uploaded', 'editing', 'review', 'ready', 'requested', 'on_hold', 'delivered'].includes(normalizedStatus));
   const isOnHold = Boolean(

@@ -32,7 +32,7 @@ afterEach(() => {
 });
 
 const buildShoot = (withPhotographer = true) => ({
-  id: '42',
+  id: '42', canReassignPhotographer: true,
   status: 'scheduled',
   workflowStatus: 'scheduled',
   scheduledDate: '2026-09-01',

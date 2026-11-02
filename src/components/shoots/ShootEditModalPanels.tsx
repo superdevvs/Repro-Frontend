@@ -384,6 +384,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
                     variant="outline"
                     size="sm"
                     className="h-8 shrink-0 text-xs"
+                    disabled={model.shootDetails?.canReassignPhotographer !== true}
                     onClick={() =>
                       openPhotographerPicker({
                         categoryKey: group.key,
@@ -425,6 +426,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
             variant="outline"
             size="sm"
             className="h-8 shrink-0 text-xs"
+            disabled={model.shootDetails?.canReassignPhotographer !== true}
             onClick={() => openPhotographerPicker(null)}
           >
             {selectedPhotographer ? 'Edit photographer' : 'Select photographer'}

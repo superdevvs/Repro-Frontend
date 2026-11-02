@@ -43,7 +43,7 @@ import { useAvailabilityWindow } from "@/features/dashboard/hooks/useAvailabilit
 import { useHoldRequests } from "@/features/dashboard/hooks/useHoldRequests";
 import { canViewOverdueClients, useOverdueClients } from "@/features/dashboard/hooks/useOverdueClients";
 import { useRescheduleRequests } from "@/features/dashboard/hooks/useRescheduleRequests";
-import { canReviewRescheduleRequests } from "@/utils/rescheduleRequests";
+import { useRescheduleAccess } from "@/hooks/useRescheduleAccess";
 import { useSchedulingPhotographers } from "@/features/dashboard/hooks/useSchedulingPhotographers";
 import { useCancellationRequests } from "@/features/dashboard/hooks/useCancellationRequests";
 import { useClientDashboardActions } from "@/features/dashboard/hooks/useClientDashboardActions";
@@ -432,13 +432,10 @@ const Dashboard = () => {
     ["admin", "superadmin", "editing_manager", "salesRep"].includes(role),
     `${role}:${user?.id ?? "guest"}`,
   );
-  // ACL for GET /api/shoots/pending-reschedules is office reviewers (admin /
-  // superadmin / editing_manager / salesRep). Match FE canReviewRescheduleRequests
-  // — do not poll or surface the Reschedule tab for non-reviewers.
-  const canReviewReschedules = canReviewRescheduleRequests(role);
+  const { canReview: canReviewReschedules, viewerScope: rescheduleViewerScope } = useRescheduleAccess();
   const rescheduleRequests = useRescheduleRequests(
     canReviewReschedules,
-    `${role}:${user?.id ?? "guest"}`,
+    rescheduleViewerScope,
   );
   const rescheduleRequestsForUi = canReviewReschedules ? rescheduleRequests : undefined;
   const showOverdueClients = canViewOverdueClients(role);

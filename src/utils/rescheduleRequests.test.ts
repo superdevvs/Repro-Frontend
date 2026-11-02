@@ -2,16 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import {
   canReviewRescheduleRequests,
+  getRescheduleAccess,
   describeRescheduleStatus,
   normalizeRescheduleStatus,
 } from './rescheduleRequests';
 
-/**
- * A1.docx item 4. The dialog's wording is driven by this role test, so if it
- * drifts the UI starts promising something the backend will not do — which is
- * the exact defect being fixed. Kept in step with
- * `ShootRescheduleRequestController::STAFF_ROLES`.
- */
+const permissions = { canManageRequests: true, canEditAppointments: true, isLoading: false };
+
 describe('canReviewRescheduleRequests', () => {
   it.each([
     'admin',
@@ -24,27 +21,60 @@ describe('canReviewRescheduleRequests', () => {
     'rep',
     'representative',
   ])(
-    'treats %s as staff who reschedule directly',
+    'allows %s to review with an effective management grant',
     (role) => {
-      expect(canReviewRescheduleRequests(role)).toBe(true);
+      expect(canReviewRescheduleRequests({ role }, permissions)).toBe(true);
     },
   );
 
   it.each(['client', 'photographer', 'editor', ''])(
     'treats %s as request-only',
     (role) => {
-      expect(canReviewRescheduleRequests(role)).toBe(false);
+      expect(canReviewRescheduleRequests({ role }, permissions)).toBe(false);
     },
   );
 
   it('is case and whitespace insensitive', () => {
-    expect(canReviewRescheduleRequests('  Admin ')).toBe(true);
-    expect(canReviewRescheduleRequests('EDITING_MANAGER')).toBe(true);
+    expect(canReviewRescheduleRequests({ role: '  Admin ' }, permissions)).toBe(true);
+    expect(canReviewRescheduleRequests({ role: 'EDITING_MANAGER' }, permissions)).toBe(true);
   });
 
   it('treats a missing role as request-only', () => {
-    expect(canReviewRescheduleRequests(undefined)).toBe(false);
-    expect(canReviewRescheduleRequests(null)).toBe(false);
+    expect(canReviewRescheduleRequests(undefined, permissions)).toBe(false);
+    expect(canReviewRescheduleRequests(null, permissions)).toBe(false);
+  });
+
+  it.each(['client', 'editor', 'photographer'])('recognizes a secondary sales role for %s', role => {
+    expect(canReviewRescheduleRequests({ role, secondary_roles: ['sales_rep'] }, permissions)).toBe(true);
+  });
+
+  it.each(['admin', 'editing_manager', 'salesRep'])('honors an effective management denial for %s', role => {
+    expect(canReviewRescheduleRequests({ role }, { ...permissions, canManageRequests: false })).toBe(false);
+  });
+
+  it('fails closed while permissions load or fail, including superadmin', () => {
+    expect(canReviewRescheduleRequests({ role: 'superadmin' }, { ...permissions, isLoading: true })).toBe(false);
+    expect(canReviewRescheduleRequests({ role: 'superadmin' }, { ...permissions, hasError: true })).toBe(false);
+  });
+});
+
+describe('getRescheduleAccess', () => {
+  it('applies a server-authorized appointment change for a secondary sales rep', () => {
+    expect(getRescheduleAccess({ canApproveReschedule: true, canRequestReschedule: false },
+      { role: 'editor', secondary_roles: ['representative'] }, permissions)).toBe('apply');
+  });
+  it('lets a reviewer with denied edit rights reject requests without promising an immediate move', () => {
+    const deniedEdit = { ...permissions, canEditAppointments: false };
+    expect(canReviewRescheduleRequests({ role: 'salesRep' }, deniedEdit)).toBe(true);
+    expect(getRescheduleAccess({ canApproveReschedule: true, canRequestReschedule: true }, { role: 'salesRep' }, deniedEdit)).toBe('denied');
+  });
+  it('requires server appointment scope, not only a role or permission grant', () => {
+    expect(getRescheduleAccess({ canApproveReschedule: false, canRequestReschedule: false }, { role: 'admin' }, permissions)).toBe('denied');
+    expect(getRescheduleAccess({}, { role: 'admin' }, permissions)).toBe('unavailable');
+  });
+  it.each(['client', 'photographer', 'editor'])('keeps an authorized %s request pending', role => {
+    expect(getRescheduleAccess({ canApproveReschedule: false, canRequestReschedule: true }, { role }, permissions)).toBe('request');
+    expect(getRescheduleAccess({ canRequestReschedule: false }, { role }, permissions)).toBe('denied');
   });
 });
 

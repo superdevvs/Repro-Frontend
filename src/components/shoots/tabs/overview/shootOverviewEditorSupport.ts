@@ -1,20 +1,15 @@
+import { usePhotographerRoster } from '../../usePhotographerRoster';
+import { enrichPickerPhotographer, usePhotographerPickerAvailability } from '../../usePhotographerPickerAvailability';
+import { loadSchedulingPhotographers } from '@/services/schedulingPhotographers';
 import type { ServiceOption, ServiceScheduleFields, PhotographerPickerContext, AddressDetailsForLookup, PhotographerPickerOption, ClientOption } from './shootOverviewEditorTypes';
-import { travelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
-import { readBookingJobCoords } from '@/components/photographers/map/photographerMapFields';
-import { toValidMapCoordinates } from '@/components/shoots/history/shootHistoryCoordinates';
-import { fetchDurationAwareAvailability, photographerVisitDurationGroups, type PhotographerDurationGroup } from '@/utils/photographerVisitDuration';
+import { photographerVisitDurationGroups, type PhotographerDurationGroup } from '@/utils/photographerVisitDuration';
 import { normalizeShootServiceCategoryKey } from '@/utils/shootPhotographerAssignments';
-import { normalizeDayOfWeek } from './photographerAvailabilityDay';
 import type { Dispatch, SetStateAction } from 'react';
 import { useEffect } from 'react';
 import { format, isValid, parse } from 'date-fns';
-import axios from 'axios';
 import type { ShootData } from '@/types/shoots';
 import { normalizeBookingAvailabilitySlots as normalizeSlots } from '@/utils/bookingAvailabilitySlots';
 import { API_BASE_URL } from '@/config/env';
-import API_ROUTES from '@/lib/api';
-import { calculateDistance, getCoordinatesFromAddress } from '@/utils/distanceUtils';
-import { to12Hour } from '@/utils/availabilityUtils';
 import { buildNormalizedPropertyDetails } from '@/utils/addressLookup';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 import { getShootSchedule } from '@/utils/shootSchedule';
@@ -57,6 +52,7 @@ export type UseShootOverviewEditorArgs = {
   /** Service selection and quantity changes, independently of appointment controls. */
   canEditServicePlan?: boolean;
   canEditAppointments?: boolean;
+  canReassignPhotographer?: boolean;
   onShootUpdate: () => void;
   onSave?: (updates: Partial<ShootData>, onTravelFailure?: (data: unknown) => void) => void;
   onCancel?: () => void;
@@ -226,44 +222,8 @@ export const mapPhotographerPickerOption = (value: unknown): PhotographerPickerO
   };
 };
 
-const mergePhotographerPickerOption = (
-  base: PhotographerPickerOption,
-  enriched?: PhotographerPickerOption,
-): PhotographerPickerOption => ({
-  ...base,
-  ...(enriched || {}),
-  name: enriched?.name || base.name,
-  email: enriched?.email || base.email,
-  avatar: enriched?.avatar || base.avatar,
-  address: enriched?.address || base.address,
-  city: enriched?.city || base.city,
-  state: enriched?.state || base.state,
-  zip: enriched?.zip || base.zip,
-});
-
-const loadPhotographerPickerOptions = async (): Promise<PhotographerPickerOption[]> => {
-  const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-  const headers: Record<string, string> = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  try {
-    const response = await axios.get(API_ROUTES.people.adminPhotographers, { headers });
-    const data = response.data?.data || response.data || [];
-    const formatted = Array.isArray(data) ? data.map(mapPhotographerPickerOption) : [];
-    if (formatted.length > 0) return formatted;
-  } catch (error) {
-    console.warn('[ShootDetailsOverviewTab] Admin photographers endpoint failed, falling back to public list:', error);
-  }
-
-  try {
-    const response = await axios.get(API_ROUTES.people.photographers);
-    const data = response.data?.data || response.data || [];
-    return Array.isArray(data) ? data.map(mapPhotographerPickerOption) : [];
-  } catch (error) {
-    console.error('[ShootDetailsOverviewTab] Public photographers endpoint failed:', error);
-    return [];
-  }
-};
+const loadPhotographerPickerOptions = async (signal?: AbortSignal): Promise<PhotographerPickerOption[]> =>
+  (await loadSchedulingPhotographers(signal)).map(mapPhotographerPickerOption);
 
 export const toNumberOrUndefined = (value: string | number | null | undefined) => {
   if (value === null || value === undefined) return undefined;
@@ -373,7 +333,6 @@ export function useOverviewLookupData(
   setServicePrices: Dispatch<SetStateAction<Record<string, string>>>,
   setServicePhotographerPays: Dispatch<SetStateAction<Record<string, string>>>,
   setServiceSchedules: Dispatch<SetStateAction<Record<string, ServiceScheduleFields>>>,
-  setEditPhotographers: Dispatch<SetStateAction<PhotographerPickerOption[]>>,
   canInitializeServiceSelection: () => boolean,
 ) {
   useEffect(() => {
@@ -543,31 +502,14 @@ export function useOverviewLookupData(
       }
     };
 
-    const fetchPhotographers = async () => {
-      try {
-        const photographersList = await loadPhotographerPickerOptions();
-        const nextPhotographers = [...photographersList];
-        const currentPhotographer = shoot.photographer;
-        if (currentPhotographer && !nextPhotographers.some((photographer) => photographer.id === String(currentPhotographer.id))) {
-          nextPhotographers.unshift(mapPhotographerPickerOption(currentPhotographer));
-        }
-        setEditPhotographers(nextPhotographers);
-      } catch (error) {
-        console.error('Error fetching photographers:', error);
-        setEditPhotographers([]);
-      }
-    };
-
     fetchClients();
     fetchServices();
-    fetchPhotographers();
   }, [
     effectiveSqft,
     canInitializeServiceSelection,
     isEditMode,
     resolveServicePrice,
     setClients,
-    setEditPhotographers,
     setSelectedServiceIds,
     setServicePhotographerPays,
     setServicePrices,
@@ -579,389 +521,42 @@ export function useOverviewLookupData(
 
 export function usePhotographerAssignmentOptions(
   assignPhotographerOpen: boolean,
-  editPhotographers: PhotographerPickerOption[],
-  isAdminOrRep: boolean,
+  _editPhotographers: PhotographerPickerOption[],
+  _isAdminOrRep: boolean,
   isEditMode: boolean,
   setPhotographers: Dispatch<SetStateAction<PhotographerPickerOption[]>>,
   setEditPhotographers: Dispatch<SetStateAction<PhotographerPickerOption[]>>,
+  scope = '',
 ) {
+  const roster = usePhotographerRoster(assignPhotographerOpen || isEditMode, scope, loadPhotographerPickerOptions);
   useEffect(() => {
-    if (!assignPhotographerOpen) return;
-
-    if (editPhotographers.length > 0) {
-      setPhotographers((current) => current.length > 0 ? current : editPhotographers.map((photographer) => ({ ...photographer })));
-    }
-
-    if (!isAdminOrRep && !isEditMode) return;
-
-    const fetchPhotographers = async () => {
-      try {
-        const photographersList = await loadPhotographerPickerOptions();
-        if (photographersList.length > 0) {
-          setPhotographers((current) => {
-            if (current.length === 0) return photographersList;
-            const currentById = new Map(current.map((photographer) => [String(photographer.id), photographer]));
-            return photographersList.map((photographer) =>
-              mergePhotographerPickerOption(photographer, currentById.get(String(photographer.id))),
-            );
-          });
-          setEditPhotographers((current) => current.length > 0 ? current : photographersList);
-        }
-      } catch (error) {
-        console.error('Error fetching photographers:', error);
-      }
-    };
-
-    fetchPhotographers();
-  }, [assignPhotographerOpen, editPhotographers, isAdminOrRep, isEditMode, setEditPhotographers, setPhotographers]);
+    if (roster.status !== 'ready') return;
+    setPhotographers(roster.photographers);
+    setEditPhotographers(roster.photographers);
+  }, [roster.status, roster.photographers, setPhotographers, setEditPhotographers]);
+  return roster;
 }
 
 export function usePhotographerDistanceAvailability(
   assignPhotographerOpen: boolean,
   photographers: PhotographerPickerOption[],
-  isAdminOrRep: boolean,
+  _isAdminOrRep: boolean,
   getShootLocation: () => { address: string; city: string; state: string; zip: string; latitude?: number; longitude?: number },
   scheduleDate: string,
   scheduleTime: string,
   setPhotographers: Dispatch<SetStateAction<PhotographerPickerOption[]>>,
-  setIsCalculatingDistances: Dispatch<SetStateAction<boolean>>,
+  _setIsCalculatingDistances: Dispatch<SetStateAction<boolean>>,
   setIsLoadingAvailability: Dispatch<SetStateAction<boolean>>,
   durationGroups: PhotographerDurationGroup[] = [],
+  scope = '',
 ) {
-  const durationGroupsKey = JSON.stringify(durationGroups);
-  const shootLocation = getShootLocation();
-  const shootLocationKey = [
-    shootLocation.address,
-    shootLocation.city,
-    shootLocation.state,
-    shootLocation.zip,
-  ].join('|');
-  const photographerDistanceKey = photographers
-    .map((photographer) => [
-      photographer.id,
-      photographer.originAddress?.address || photographer.address || '',
-      photographer.originAddress?.city || photographer.city || '',
-      photographer.originAddress?.state || photographer.state || '',
-      photographer.originAddress?.zip || photographer.zip || '',
-    ].join('|'))
-    .join('::');
-  const photographerAvailabilityKey = photographers
-    .map((photographer) => String(photographer.id))
-    .join(',');
-
+  const check = usePhotographerPickerAvailability({ active: assignPhotographerOpen, scope, date: scheduleDate, time: scheduleTime,
+    location: getShootLocation(), photographerIds: photographers.map(person => person.id), groups: durationGroups });
   useEffect(() => {
-    const calculateDistances = async () => {
-      if (!assignPhotographerOpen) {
-        setIsCalculatingDistances(false);
-        return;
-      }
-      if (photographers.length === 0 || !shootLocation.address || !shootLocation.city || !shootLocation.state) {
-        setIsCalculatingDistances(false);
-        return;
-      }
-      if (photographers.every((photographer) => photographer.distance !== undefined)) {
-        setIsCalculatingDistances(false);
-        return;
-      }
-
-      setIsCalculatingDistances(true);
-      try {
-        const shootCoords = await getCoordinatesFromAddress(
-          shootLocation.address,
-          shootLocation.city,
-          shootLocation.state,
-          shootLocation.zip,
-        );
-        if (!shootCoords) return;
-
-        const distanceUpdates = await Promise.all(
-          photographers.map(async (photographer) => {
-            if (photographer.distance !== undefined && photographer.originAddress) {
-              return { id: photographer.id, distance: photographer.distance };
-            }
-
-            const sourceAddress = photographer.originAddress?.address || photographer.address;
-            const sourceCity = photographer.originAddress?.city || photographer.city;
-            const sourceState = photographer.originAddress?.state || photographer.state;
-            const sourceZip = photographer.originAddress?.zip || photographer.zip;
-
-            if (!sourceAddress || !sourceCity || !sourceState) {
-              return null;
-            }
-
-            const photographerCoords = await getCoordinatesFromAddress(
-              sourceAddress,
-              sourceCity,
-              sourceState,
-              sourceZip,
-            );
-            if (!photographerCoords) {
-              return null;
-            }
-
-            const distance = calculateDistance(
-              shootCoords.lat,
-              shootCoords.lon,
-              photographerCoords.lat,
-              photographerCoords.lon,
-            );
-
-            return { id: photographer.id, distance: Math.round(distance * 10) / 10 };
-          }),
-        );
-
-        const distanceById = new Map(
-          distanceUpdates
-            .filter((item): item is { id: string; distance: number } =>
-              Boolean(item && Number.isFinite(item.distance)),
-            )
-            .map((item) => [String(item.id), item.distance]),
-        );
-        if (distanceById.size === 0) return;
-
-        setPhotographers((current) => current.map((photographer) => {
-          const distance = distanceById.get(String(photographer.id));
-          return distance === undefined ? photographer : { ...photographer, distance };
-        }));
-      } catch (error) {
-        console.error('Error calculating distances:', error);
-      } finally {
-        setIsCalculatingDistances(false);
-      }
-    };
-
-    calculateDistances();
-  }, [
-    assignPhotographerOpen,
-    photographerDistanceKey,
-    setIsCalculatingDistances,
-    setPhotographers,
-    shootLocationKey,
-  ]);
-
-  useEffect(() => {
-    if (!assignPhotographerOpen) {
-      setIsLoadingAvailability(false);
-      return;
-    }
-    if (photographers.length === 0 || !shootLocation.address || !shootLocation.city || !shootLocation.state) {
-      // Do not leave a prior in-flight load stuck on the Overview spinner.
-      setIsLoadingAvailability(false);
-      return;
-    }
-
-    let cancelled = false;
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 25000);
-
-    const fetchAvailability = async () => {
-      setIsLoadingAvailability(true);
-      try {
-        const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-        const headers: Record<string, string> = {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        };
-        if (token) headers.Authorization = `Bearer ${token}`;
-
-        // Prefer for-booking (enriched slots). On 5xx/network failure, degrade to
-        // bulkIndex so the picker still lists photographers instead of hanging.
-        let availabilityList: any[] = [];
-        try {
-          let shootLat = shootLocation.latitude;
-          let shootLng = shootLocation.longitude;
-          if (
-            (typeof shootLat !== 'number' || typeof shootLng !== 'number')
-            && shootLocation.address
-            && shootLocation.city
-            && shootLocation.state
-          ) {
-            try {
-              const geocoded = await getCoordinatesFromAddress(
-                shootLocation.address,
-                shootLocation.city,
-                shootLocation.state,
-                shootLocation.zip || '',
-              );
-              if (geocoded) {
-                shootLat = geocoded.lat;
-                shootLng = geocoded.lon;
-              }
-            } catch {
-              // Fail open
-            }
-          }
-          const response = await fetchDurationAwareAvailability(API_ROUTES.photographerAvailability.forBooking, {
-            method: 'POST',
-            headers,
-            signal: controller.signal,
-            body: JSON.stringify({
-              date: scheduleDate || format(new Date(), 'yyyy-MM-dd'),
-              time: to12Hour(scheduleTime || '10:00'),
-              shoot_address: shootLocation.address,
-              shoot_city: shootLocation.city,
-              shoot_state: shootLocation.state,
-              shoot_zip: shootLocation.zip || '',
-              shoot_latitude: shootLat ?? undefined,
-              shoot_longitude: shootLng ?? undefined,
-              photographer_ids: photographers.map((photographer) => Number(photographer.id)),
-            }),
-          }, JSON.parse(durationGroupsKey));
-          if (response.ok) {
-            const json = await response.json();
-            availabilityList = Array.isArray(json.data) ? json.data : [];
-            // Stash top-level job onto each row so map readers don't depend on a parallel channel.
-            const topJob = json?.job && typeof json.job === 'object' ? json.job : null;
-            const beJob = readBookingJobCoords(json);
-            const fallbackJob = beJob || toValidMapCoordinates(shootLat, shootLng);
-            if (topJob || fallbackJob) {
-              availabilityList = availabilityList.map((row: Record<string, unknown>) => {
-                const existingJob = row.job && typeof row.job === 'object' ? row.job as Record<string, unknown> : null;
-                const mapRaw = row.map && typeof row.map === 'object' ? { ...(row.map as Record<string, unknown>) } : row.map;
-                if (mapRaw && typeof mapRaw === 'object' && !(mapRaw as Record<string, unknown>).job && fallbackJob) {
-                  (mapRaw as Record<string, unknown>).job = { lat: fallbackJob.lat, lng: fallbackJob.lng };
-                }
-                return {
-                  ...row,
-                  job: existingJob || topJob || (fallbackJob ? { lat: fallbackJob.lat, lng: fallbackJob.lng } : null),
-                  map: mapRaw,
-                };
-              });
-            }
-          } else {
-            console.warn('[OverviewPhotographerPicker] forBooking failed', response.status);
-          }
-        } catch (error) {
-          if (error instanceof DOMException && error.name === 'AbortError') throw error;
-          console.warn('[OverviewPhotographerPicker] forBooking error; falling back to bulk', error);
-        }
-        if (cancelled) return;
-        let rawAvailabilityByPhotographer: Record<string, Array<
-          NonNullable<PhotographerPickerOption['availabilitySlots']>[number] & { date?: string; day_of_week?: string | number }
-        >> = {};
-        try {
-          const bulkResponse = await fetch(API_ROUTES.photographerAvailability.bulkIndex, {
-            method: 'POST',
-            headers,
-            signal: controller.signal,
-            body: JSON.stringify({
-              photographer_ids: photographers.map((photographer) => Number(photographer.id)),
-              from_date: scheduleDate || format(new Date(), 'yyyy-MM-dd'),
-              to_date: scheduleDate || format(new Date(), 'yyyy-MM-dd'),
-            }),
-          });
-          if (bulkResponse.ok) {
-            const bulkJson = await bulkResponse.json();
-            rawAvailabilityByPhotographer = bulkJson?.data || {};
-          }
-        } catch (error) {
-          if (!(error instanceof DOMException && error.name === 'AbortError')) {
-            console.error('Error fetching raw photographer availability:', error);
-          }
-        }
-        const dateStr = scheduleDate || format(new Date(), 'yyyy-MM-dd');
-        const parsedScheduleDate = parseFlexibleDate(dateStr);
-        const dayOfWeek = parsedScheduleDate
-          ? parsedScheduleDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase()
-          : '';
-
-        setPhotographers((current) => current.map((photographer) => {
-          const match = availabilityList.find((item: any) => String(item.id) === String(photographer.id));
-          const rawSlots = rawAvailabilityByPhotographer[photographer.id] || rawAvailabilityByPhotographer[String(photographer.id)] || [];
-          const specificDateSlots = rawSlots.filter((slot) => {
-            const slotDate = slot?.date ? String(slot.date).slice(0, 10) : '';
-            return slotDate === dateStr;
-          });
-          const weeklySlots = rawSlots.filter((slot) => {
-            const slotDate = slot?.date ? String(slot.date).trim() : '';
-            if (slotDate) return false;
-            return normalizeDayOfWeek(slot?.day_of_week) === dayOfWeek;
-          });
-          const relevantSlots = specificDateSlots.length > 0 ? specificDateSlots : weeklySlots;
-          const rawAvailableSlots = relevantSlots
-            .filter((slot) => !slot.status || slot.status === 'available')
-            .map((slot) => ({
-              start_time: slot.start_time,
-              end_time: slot.end_time,
-            }));
-          if (!match) {
-            return {
-              ...photographer,
-              availabilitySlots: rawAvailableSlots.length > 0 ? rawAvailableSlots : photographer.availabilitySlots,
-              netAvailableSlots: rawAvailableSlots.length > 0 ? rawAvailableSlots : photographer.netAvailableSlots,
-              hasAvailability: rawAvailableSlots.length > 0 ? true : photographer.hasAvailability,
-            };
-          }
-          const parsedDistance = typeof match.distance === 'number'
-            ? match.distance
-            : match.distance
-            ? Number(match.distance)
-            : match.distance_miles
-            ? Number(match.distance_miles)
-            : photographer.distance;
-          const matchNetSlots = match.net_available_slots ?? photographer.netAvailableSlots;
-          const nextAvailableSlots = rawAvailableSlots.length > 0 ? rawAvailableSlots : (match.availability_slots ?? photographer.availabilitySlots);
-          const nextNetSlots = rawAvailableSlots.length > 0 ? rawAvailableSlots : matchNetSlots;
-          const matchMiles = typeof match.miles_to_job === 'number'
-            ? match.miles_to_job
-            : typeof match.milesToJob === 'number'
-              ? match.milesToJob
-              : Number.isFinite(parsedDistance) ? parsedDistance : undefined;
-          return {
-            ...photographer,
-            name: match.name || photographer.name,
-            avatar: match.avatar || match.profile_image || match.photo || photographer.avatar,
-            address: match.address || photographer.address,
-            city: match.city || photographer.city,
-            state: match.state || photographer.state,
-            zip: match.zip || photographer.zip,
-            distance: matchMiles ?? photographer.distance,
-            miles_to_job: matchMiles ?? photographer.miles_to_job ?? null,
-            map: match.map === null ? null : (match.map ? asRecord(match.map) : photographer.map ?? null),
-            job: match.job === null ? null : (match.job ? asRecord(match.job) : photographer.job ?? null),
-            distanceFrom: match.distance_from ?? match.distanceFrom ?? photographer.distanceFrom,
-            previousShootId: match.previous_shoot_id ?? match.previousShootId ?? photographer.previousShootId,
-            availabilitySlots: nextAvailableSlots,
-            netAvailableSlots: nextNetSlots,
-            ...travelAvailabilityMetadata(match),
-            bookedSlots: match.booked_slots ?? photographer.bookedSlots,
-            unavailableSlots: match.unavailable_slots ?? photographer.unavailableSlots,
-            hasAvailability: rawAvailableSlots.length > 0 || match.has_availability || photographer.hasAvailability,
-            shootsCountToday: match.shoots_count_today ?? photographer.shootsCountToday,
-          };
-        }));
-      } catch (error) {
-        if (error instanceof DOMException && error.name === 'AbortError') {
-          // Abort from cleanup/timeout: still clear loading below.
-        } else {
-          console.error('Error fetching photographer availability:', error);
-        }
-      } finally {
-        window.clearTimeout(timeoutId);
-        // Always clear — aborted runs previously left Overview Edit stuck on spinner.
-        setIsLoadingAvailability(false);
-      }
-    };
-
-    fetchAvailability();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-      window.clearTimeout(timeoutId);
-      setIsLoadingAvailability(false);
-    };
-  }, [
-    assignPhotographerOpen,
-    isAdminOrRep,
-    photographerAvailabilityKey,
-    scheduleDate,
-    scheduleTime,
-    durationGroupsKey,
-    setIsLoadingAvailability,
-    setPhotographers,
-    shootLocationKey,
-  ]);
+    setIsLoadingAvailability(check.status === 'loading');
+    setPhotographers(current => current.map(person => enrichPickerPhotographer(person, check.byId.get(person.id))));
+  }, [check.status, check.byId, setPhotographers, setIsLoadingAvailability]);
+  return check;
 }
 
 export function getOverviewAvailabilityDuration(servicesList: ServiceOption[], selectedServiceIds: string[], photographerPickerContext: PhotographerPickerContext, serviceSchedules: Record<string, ServiceScheduleFields>, photographerPickerScheduleDate: string, photographerPickerScheduleTime: string, perCategoryPhotographers: Record<string, string>, assignmentGroups: Array<{ key: string; photographer?: { id?: string | number } | null }>, selectedPhotographerIdEdit: string, effectiveSqft: number | null, photographerIds: string[]) {

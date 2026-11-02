@@ -62,8 +62,9 @@ export function ShootDetailsSidebar({
   onReschedule,
   serviceActions,
 }: ShootDetailsSidebarProps) {
-  const { can } = usePermission();
+  const { can, isLoading: permissionsLoading } = usePermission();
   const canMarkPaid = can('payments', 'mark-paid');
+  const canReassignPhotographer = !permissionsLoading && shoot.canReassignPhotographer === true && can('shoots', 'update');
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isInvoiceDialogOpen, setIsInvoiceDialogOpen] = useState(false);
@@ -99,6 +100,10 @@ export function ShootDetailsSidebar({
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'distance' | 'name'>('distance');
   const [isCalculatingDistances, setIsCalculatingDistances] = useState(false);
+  const [rosterLoading, setRosterLoading] = useState(false);
+  const [rosterError, setRosterError] = useState<string | null>(null);
+  const [rosterRevision, setRosterRevision] = useState(0);
+  const [rosterGeneration, setRosterGeneration] = useState(0);
   
   // Manual notification dialog state (Req 12.5-12.8)
   const [isManualNotificationOpen, setIsManualNotificationOpen] = useState(false);
@@ -166,11 +171,13 @@ export function ShootDetailsSidebar({
 
   // Fetch photographers for assignment
   useEffect(() => {
-    if (!assignPhotographerOpen || !isAdmin) return;
-    
+    if (!assignPhotographerOpen || !canReassignPhotographer) return;
+    const controller = new AbortController();
     const fetchPhotographers = async () => {
+      setRosterLoading(true);
+      setRosterError(null);
       try {
-        const choices = assigneesForRole(await loadShootAssignees(), 'photographer');
+        const choices = assigneesForRole(await loadShootAssignees(controller.signal), 'photographer');
         const photographersList = choices.map((p) => ({
             id: String(p.id),
             name: p.name,
@@ -181,17 +188,21 @@ export function ShootDetailsSidebar({
             state: p.state || p.metadata?.state,
             zip: p.zip || p.zipcode || p.metadata?.zip || p.metadata?.zipcode,
           }));
-        setPhotographers(photographersList);
+        if (!controller.signal.aborted) { setPhotographers(photographersList); setRosterGeneration(value => value + 1); }
       } catch (error) {
-        console.error('Error fetching photographers:', error);
+        if (!controller.signal.aborted) setRosterError('Unable to load photographers. Please retry.');
+      } finally {
+        if (!controller.signal.aborted) setRosterLoading(false);
       }
     };
     
     fetchPhotographers();
-  }, [assignPhotographerOpen, isAdmin]);
+    return () => controller.abort();
+  }, [assignPhotographerOpen, canReassignPhotographer, rosterRevision]);
 
   // Calculate distances when dialog opens and shoot location/photographers are available
   useEffect(() => {
+    let cancelled = false;
     const calculateDistances = async () => {
       if (!assignPhotographerOpen || photographers.length === 0) return;
       
@@ -211,7 +222,7 @@ export function ShootDetailsSidebar({
         );
         
         if (!shootCoords) {
-          setIsCalculatingDistances(false);
+          if (!cancelled) setIsCalculatingDistances(false);
           return;
         }
 
@@ -247,21 +258,22 @@ export function ShootDetailsSidebar({
           })
         );
 
-        setPhotographers(photographersWithDist);
+        if (!cancelled) setPhotographers(photographersWithDist);
       } catch (error) {
         console.error('Error calculating distances:', error);
       } finally {
-        setIsCalculatingDistances(false);
+        if (!cancelled) setIsCalculatingDistances(false);
       }
     };
 
     calculateDistances();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [assignPhotographerOpen, photographers.length]);
+  }, [assignPhotographerOpen, rosterGeneration]);
 
   // Filter and sort photographers
   const filteredAndSortedPhotographers = useMemo(() => {
-    let filtered = photographers;
+    let filtered = [...photographers];
 
     // Apply search filter
     if (searchQuery.trim()) {
@@ -293,7 +305,7 @@ export function ShootDetailsSidebar({
 
   // Assign photographer
   const handleAssignPhotographer = async () => {
-    if (!selectedPhotographerId) return;
+    if (!selectedPhotographerId || !canReassignPhotographer) return;
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
       const res = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
@@ -484,7 +496,7 @@ export function ShootDetailsSidebar({
           <h3 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Services &amp; team
           </h3>
-          {isAdmin && (serviceAssignments.length
+          {canReassignPhotographer && (serviceAssignments.length
             ? serviceAssignments.some(assignment => {
               const raw = assignment.raw as Record<string, unknown>;
               return serviceAllowsPhotographerAssignment({ name: assignment.serviceName, category: raw.category,
@@ -680,7 +692,7 @@ export function ShootDetailsSidebar({
       )}
 
       {/* Assign Photographer Dialog - Matching Book Shoot selector */}
-      <Dialog open={assignPhotographerOpen} onOpenChange={(open) => {
+      <Dialog open={assignPhotographerOpen && canReassignPhotographer} onOpenChange={(open) => {
         setAssignPhotographerOpen(open);
         if (!open) {
           setSearchQuery('');
@@ -728,13 +740,15 @@ export function ShootDetailsSidebar({
               </div>
             </div>
 
+            {rosterError && <div role="alert" className="mb-3 text-sm text-destructive">{rosterError} <Button type="button" variant="link" onClick={() => setRosterRevision(value => value + 1)}>Retry</Button></div>}
+            {isCalculatingDistances && <p role="status" className="mb-3 text-sm text-muted-foreground">Calculating distances… You can browse photographers.</p>}
             <div className="divide-y divide-gray-100 dark:divide-slate-800">
               {/* Scrollable content area */}
               <div className="pt-3 max-h-[48vh] overflow-y-auto pr-2">
-                {isCalculatingDistances ? (
+                {rosterLoading && photographers.length === 0 ? (
                   <div className="flex items-center justify-center py-8">
                     <Loader2 className="h-6 w-6 text-muted-foreground" />
-                    <span className="ml-2 text-sm text-muted-foreground">Calculating distances...</span>
+                    <span className="ml-2 text-sm text-muted-foreground">Loading photographers...</span>
                   </div>
                 ) : filteredAndSortedPhotographers.length > 0 ? (
                   <div className="grid gap-3">
@@ -792,7 +806,7 @@ export function ShootDetailsSidebar({
                   </div>
                 ) : (
                   <div className="text-sm text-slate-500 dark:text-slate-400 text-center py-8">
-                    {searchQuery ? 'No photographers found matching your search.' : 'No photographers available.'}
+                    {rosterError ? 'Photographer list could not be loaded.' : searchQuery ? 'No photographers found matching your search.' : 'No photographers available.'}
                   </div>
                 )}
               </div>
@@ -820,7 +834,7 @@ export function ShootDetailsSidebar({
                       handleAssignPhotographer();
                     }}
                     className="w-full"
-                    disabled={!selectedPhotographerId}
+                    disabled={!selectedPhotographerId || !canReassignPhotographer}
                   >
                     Assign
                   </Button>

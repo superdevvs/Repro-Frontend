@@ -14,6 +14,7 @@ vi.mock('@/features/shoot-units/useUnitScopedEdit', () => ({
   useUnitScopedEdit: () => ({ projectFetched: mocks.projectFetched, buildPayload: mocks.buildPayload }),
   useUnitEditDirtyTracking: () => false,
 }));
+vi.mock('@/services/api', () => ({ getApiHeaders: () => ({ Authorization: 'Bearer test' }) }));
 vi.mock('axios', () => ({ default: { get: vi.fn() } }));
 vi.mock('@/services/shootAssignees', () => ({
   loadShootAssignees: vi.fn().mockResolvedValue([{ id: '9', name: 'Photo Editor', role: 'editor', email: '' }]),
@@ -44,7 +45,7 @@ describe('editing the main shoot appointment', () => {
       { id: 81, name: 'Zillow', category: { name: '3D Tours' }, price: 100, photographer_required: true },
     ] } });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: {
-      id: 2505, status: 'requested', address: '413 Mahan Ln', scheduled_at: '2026-10-21T19:00:00Z', timezone: 'America/New_York',
+      id: 2505, canReassignPhotographer: true, status: 'requested', address: '413 Mahan Ln', scheduled_at: '2026-10-21T19:00:00Z', timezone: 'America/New_York',
       photographer_id: 1, photographer: { id: 1, name: 'Paul' },
       service_items: [{ service_id: 2, name: 'Photos', photographer_id: 1, duration_minutes: 60 },
         { service_id: 81, name: 'Zillow', photographer_id: 1, duration_minutes: 60 }],
@@ -112,7 +113,7 @@ describe('editing the main shoot appointment', () => {
     ];
     vi.mocked(axios.get).mockResolvedValue({ data: { data: services } });
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ data: {
-      id: 2402, address: '54 Blackborne Drive', scheduled_at: '2026-10-13T10:00:00', photographer_id: 1121,
+      id: 2402, canReassignPhotographer: true, address: '54 Blackborne Drive', scheduled_at: '2026-10-13T10:00:00', photographer_id: 1121,
       photographer: { id: 1121, name: 'Alaina' },
       services: services.map(service => ({ ...service,
         photographer_id: service.id === 58 ? 1125 : null,

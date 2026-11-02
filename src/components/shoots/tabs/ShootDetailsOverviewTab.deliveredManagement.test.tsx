@@ -42,7 +42,7 @@ const shoot = {
 
 function mount(role: string, status = 'delivered', secondaryRoles: string[] = [], workflowStatus = status) {
   auth.user = { ...auth.user, role, secondary_roles: secondaryRoles };
-  return render(<MemoryRouter><ShootDetailsOverviewTab shoot={{ ...shoot, status, workflowStatus }}
+  return render(<MemoryRouter><ShootDetailsOverviewTab shoot={{ ...shoot, status, workflowStatus, canEditAppointment: status === 'scheduled' && workflowStatus === 'scheduled', canReassignPhotographer: status === 'scheduled' && workflowStatus === 'scheduled' }}
     role={role} isAdmin={['admin', 'superadmin', 'editing_manager'].includes(role)} isRep
     isPhotographer={false} isEditor={false} isClient={false} isEditMode onShootUpdate={vi.fn()} />
   </MemoryRouter>);

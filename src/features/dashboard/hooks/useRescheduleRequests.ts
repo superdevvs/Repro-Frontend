@@ -25,6 +25,8 @@ export interface RescheduleRequestItem {
   reviewNotes?: string | null;
   reviewedAt?: string | null;
   approverName?: string;
+  canReviewRequests?: boolean;
+  canApproveReschedule?: boolean;
 }
 
 type RescheduleRequestResponse = {
@@ -36,6 +38,8 @@ type RescheduleRequestResponse = {
   location?: { fullAddress?: string; address?: string };
   client?: { name?: string };
   clientName?: string;
+  canReviewRequests?: boolean;
+  canApproveReschedule?: boolean;
   original_date?: string | null;
   original_time?: string | null;
   requested_date?: string | null;
@@ -95,6 +99,8 @@ const mapItem = (item: RescheduleRequestResponse): RescheduleRequestItem => {
     reviewNotes: item.review_notes ?? item.reviewNotes ?? null,
     reviewedAt: item.reviewed_at ?? item.reviewedAt ?? null,
     approverName: item.approver?.name,
+    canReviewRequests: item.canReviewRequests === true,
+    canApproveReschedule: item.canApproveReschedule === true,
   };
 };
 
@@ -136,6 +142,11 @@ export function useRescheduleRequests(enabled: boolean, viewerScope: string) {
       decision: 'approved' | 'rejected';
       shootId?: number;
     }) => {
+      if (!enabled) throw new Error('You do not have permission to review reschedule requests.');
+      const request = query.data?.find(item => item.id === id);
+      if (!request?.canReviewRequests || (decision === 'approved' && !request.canApproveReschedule)) {
+        throw new Error('You do not have permission to make this reschedule decision.');
+      }
       const response = await fetch(`${API_BASE_URL}/api/shoots/reschedule-requests/${id}`, {
         method: 'PATCH',
         headers: headers(),

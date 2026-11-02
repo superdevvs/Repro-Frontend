@@ -1,3 +1,5 @@
+import { PhotographerPickerCheck } from './PhotographerPickerCheck';
+import { pickerAvailabilityLabel } from './usePhotographerPickerAvailability';
 import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
 import { ShootUnitScopeBar } from '@/features/shoot-units/ShootUnitScope';
 import React from 'react';
@@ -36,7 +38,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
     onClose,
     isSubmitting,
     isLoading,
-    photographers,
+    photographers, photographerRoster, pickerAvailability,
     photographerPickerOpen,
     photographerPickerContext,
     pickerPhotographerId,
@@ -261,13 +263,15 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                       <Button type="button" size="sm" variant={sortBy === 'availability' ? 'default' : 'secondary'} className="h-8 shrink-0 rounded-full px-2.5 text-xs font-semibold sm:h-9 sm:px-3" onClick={() => setSortBy('availability')}>
                         Availability
                       </Button>
-                      <Button type="button" size="sm" variant={showAllPhotographers ? 'default' : 'secondary'} className="h-8 shrink-0 rounded-full px-2.5 text-xs font-semibold sm:h-9 sm:px-3" onClick={() => setShowAllPhotographers((current) => !current)}>
-                        Show All
+                      <Button type="button" size="sm" aria-pressed={!showAllPhotographers} variant={!showAllPhotographers ? 'default' : 'secondary'} className="h-8 shrink-0 rounded-full px-2.5 text-xs font-semibold sm:h-9 sm:px-3" onClick={() => setShowAllPhotographers((current) => !current)}>
+                        Available only
                       </Button>
                     </div>
                   </div>
                 </div>
 
+                <PhotographerPickerCheck directory status={photographerRoster.status} error={photographerRoster.error} retry={photographerRoster.retry} />
+                {photographerRoster.status === 'ready' && <PhotographerPickerCheck status={pickerAvailability.status} error={pickerAvailability.error} retry={pickerAvailability.retry} />}
                 <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden sm:pr-2">
                   {filteredPhotographers.length > 0 ? (
                     <div className="grid gap-2.5 sm:gap-3">
@@ -345,12 +349,13 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                                 </div>
 
                                 <div className="mt-2">
-                                  <PhotographerAvailabilityTimeline
+                                  <p className="mb-1 text-xs text-muted-foreground">{pickerAvailabilityLabel(pickerAvailability.status, pickerAvailability.byId.get(String(photographer.id)))}</p>
+                                  {pickerAvailability.status === 'ready' && pickerAvailability.byId.has(String(photographer.id)) && <PhotographerAvailabilityTimeline
                                     availableSlots={availabilitySlots}
                                     bookedSlots={bookedSlots}
                                     unavailableSlots={unavailableSlots}
                                     loadingHint={isLoadingPhotographerAvailability ? 'Loading availability...' : null}
-                                  />
+                                  />}
                                 </div>
                               </div>
 
@@ -372,7 +377,7 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                     </div>
                   ) : (
                     <div className="py-10 text-center text-sm text-muted-foreground">
-                      {photographerSearchQuery ? 'No photographers found matching your search.' : 'No photographers available.'}
+                      {!showAllPhotographers ? 'No available photographers match. Turn off Available only to browse everyone.' : photographerSearchQuery ? 'No photographers found matching your search.' : 'No photographers found.'}
                     </div>
                   )}
                 </div>

@@ -47,6 +47,8 @@ interface ShootDetailsModalActionRailProps {
   isRequestedStatus: boolean;
   canAdminEdit: boolean;
   canManageBooking?: boolean;
+  canReviewRequests?: boolean;
+  canApproveRequest?: boolean;
   isScheduledOrOnHold: boolean;
   canUserPutOnHold: boolean;
   canResumeFromHold: boolean;
@@ -122,7 +124,9 @@ export function ShootDetailsModalActionRail({
   isAdminOrRep,
   isRequestedStatus,
   canAdminEdit,
-  canManageBooking = true,
+  canManageBooking = false,
+  canReviewRequests = false,
+  canApproveRequest = false,
   isScheduledOrOnHold,
   canUserPutOnHold,
   canResumeFromHold,
@@ -187,7 +191,7 @@ export function ShootDetailsModalActionRail({
   handleGenerateShareLink,
   onClose,
 }: ShootDetailsModalActionRailProps) {
-  const canEditBooking = canAdminEdit || (canManageBooking && isAdminOrRep && isScheduledOrOnHold);
+  const canEditBooking = canAdminEdit && canManageBooking;
   const [activeDownloadControl, setActiveDownloadControl] = React.useState<
     'photographer_raw' | 'editor_raw' | 'progress' | null
   >(null);
@@ -271,9 +275,9 @@ export function ShootDetailsModalActionRail({
             </>
           ) : (
             <>
-              {isAdminOrRep && isRequestedStatus && (
+              {isRequestedStatus && (
                 <>
-                  <Button
+                  {canApproveRequest && <Button
                     variant="default"
                     size="sm"
                     className="h-7 text-xs px-3 bg-green-600 hover:bg-green-700 text-white"
@@ -284,8 +288,8 @@ export function ShootDetailsModalActionRail({
                   >
                     <Check className="h-3 w-3 mr-1" />
                     <span>Approve</span>
-                  </Button>
-                  <Button
+                  </Button>}
+                  {canReviewRequests && <Button
                     variant="outline"
                     size="sm"
                     className="h-7 text-xs px-3 text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
@@ -296,8 +300,8 @@ export function ShootDetailsModalActionRail({
                   >
                     <X className="h-3 w-3 mr-1" />
                     <span>Decline</span>
-                  </Button>
-                  <Button
+                  </Button>}
+                  {canEditBooking && <Button
                     variant="outline"
                     size="sm"
                     className="h-7 text-xs px-3"
@@ -305,7 +309,7 @@ export function ShootDetailsModalActionRail({
                   >
                     <Edit className="h-3 w-3 mr-1" />
                     <span>Modify</span>
-                  </Button>
+                  </Button>}
                 </>
               )}
               {canEditBooking && !isRequestedStatus && (
