@@ -1,3 +1,4 @@
+import type { ActiveShootWorkFields } from '@/utils/activeShootWork';
 import type { ShootData, ShootServiceObject, ShootUnit } from '@/types/shoots';
 
 export type ApiNotePayload = {
@@ -115,7 +116,7 @@ export type ApiServiceRecord = {
   [key: string]: unknown;
 };
 
-export type ApiShoot = {
+export type ApiShoot = ActiveShootWorkFields & {
   units?: ShootUnit[];
   shoot_units?: ShootUnit[];
   units_revision?: number;

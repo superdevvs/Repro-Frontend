@@ -1,3 +1,4 @@
+import type { ActiveShootWorkFields } from '@/utils/activeShootWork';
 import type { TravelAvailabilityMetadata } from '@/features/travel/availabilityMetadata';
 import { loadSchedulingPhotographers } from '@/services/schedulingPhotographers';
 import type { ServiceDurationSource } from '@/utils/shootDuration';
@@ -174,7 +175,10 @@ export type ServiceApiRecord = DurationMetadata & {
   sqftRanges?: ServiceApiRange[];
 };
 
-export interface ShootDetails {
+export interface ShootDetails extends ActiveShootWorkFields {
+  status?: string;
+  workflowStatus?: string;
+  workflow_status?: string;
   canReassignPhotographer?: boolean;
   canEditAppointment?: boolean;
   timezone?: string | null;

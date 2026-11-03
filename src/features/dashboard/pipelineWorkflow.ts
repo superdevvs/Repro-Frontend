@@ -1,3 +1,4 @@
+import { hasActiveShootWork, normalizeActiveShootWork } from '@/utils/activeShootWork';
 import type { DashboardShootSummary, DashboardWorkflow } from "@/types/dashboard";
 import {
   DELIVERED_STATUS_KEYWORDS,
@@ -108,6 +109,10 @@ const mergeById = (
     // Overview workflow payloads omit paymentStatus; overlay from full shoot summaries
     // so Delivered/Ready cards can show Paid vs Unpaid correctly.
     let merged = existing;
+    if (hasActiveShootWork(existing) || hasActiveShootWork(shoot)) {
+      merged = { ...merged, ...normalizeActiveShootWork(shoot), status: shoot.status, workflowStatus: shoot.workflowStatus,
+        scheduledLocalDate: shoot.scheduledLocalDate, startTime: shoot.startTime, timeLabel: shoot.timeLabel };
+    }
     if (existing.paymentStatus == null && shoot.paymentStatus != null) {
       merged = { ...merged, paymentStatus: shoot.paymentStatus };
     }
@@ -157,14 +162,21 @@ export const buildPipelineWorkflow = (
     return workflow ?? null;
   }
 
+  const latestById = new Map(allSummaries.map(shoot => [shoot.id, shoot]));
   const nextColumns = columns.map((column) => {
     const colKey = (column.key || "").toLowerCase();
-    const existing = Array.isArray(column.shoots) ? column.shoots : [];
+    const existing = (Array.isArray(column.shoots) ? column.shoots : []).map(shoot => {
+      const latest = latestById.get(shoot.id);
+      return latest && (hasActiveShootWork(shoot) || hasActiveShootWork(latest)) ? { ...shoot, ...latest } : shoot;
+    });
     let shoots = mergeById(existing, extrasForColumn(colKey, allSummaries));
 
     if (!isReadyPipelineColumn(colKey)) {
-      shoots = shoots.filter((shoot) => !matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS));
+      shoots = shoots.filter((shoot) => hasActiveShootWork(shoot) || !matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS));
     }
+
+    // An updated Active shoot can move stages before the cached overview refreshes.
+    shoots = shoots.filter(shoot => !hasActiveShootWork(shoot) || extrasForColumn(colKey, [shoot]).length > 0);
 
     return {
       ...column,

@@ -1,3 +1,4 @@
+import { getShootDisplayStatus } from '@/utils/activeShootWork';
 import { matchesDashboardFilters } from './dashboardFilterModel';
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { addDays, format, startOfDay } from 'date-fns';
@@ -488,7 +489,7 @@ export function useShootsTabsCardController({
     };
   };
   const renderShootCard = (shoot: DashboardShootSummary, isRequested: boolean) => {
-    const statusKey = (shoot.workflowStatus || shoot.status || '').toLowerCase();
+    const statusKey = getShootDisplayStatus(shoot).toLowerCase();
     const statusClass = STATUS_COLORS[statusKey] || STATUS_COLORS.scheduled;
     const serviceList = shoot.services.flatMap((service) => {
       const parts = service.label
@@ -556,7 +557,7 @@ export function useShootsTabsCardController({
                   statusClass,
                 )}
               >
-                <span className="truncate">{formatWorkflowStatus(shoot.workflowStatus || shoot.status)}</span>
+                <span className="truncate">{formatWorkflowStatus(getShootDisplayStatus(shoot))}</span>
               </span>
               {canShowPaymentStatus ? <ClientPaymentPill status={shoot.paymentStatus} className="max-w-[96px] truncate" /> : null}
             </div>
@@ -619,7 +620,7 @@ export function useShootsTabsCardController({
                   statusClass,
                 )}
               >
-                {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                {formatWorkflowStatus(getShootDisplayStatus(shoot))}
               </span>
               {canShowPaymentStatus ? <ClientPaymentPill status={shoot.paymentStatus} /> : null}
             </div>
@@ -657,7 +658,7 @@ export function useShootsTabsCardController({
                   statusClass,
                 )}
               >
-                {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                {formatWorkflowStatus(getShootDisplayStatus(shoot))}
               </span>
             )}
             <div className="w-20 rounded-2xl border border-border/80 bg-muted/40 dark:bg-muted/20 text-center pt-3 pb-2 shadow-sm flex-shrink-0">
@@ -684,7 +685,7 @@ export function useShootsTabsCardController({
                   statusClass,
                 )}
               >
-                {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                {formatWorkflowStatus(getShootDisplayStatus(shoot))}
               </span>
             )}
           </div>

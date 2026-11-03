@@ -1,3 +1,4 @@
+import { getShootOperationalDate, getShootOperationalTime, getShootDisplayStatus } from '@/utils/activeShootWork';
 import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import { canManageRequestedShoots } from '@/utils/requestedShootPermissions';
@@ -21,7 +22,7 @@ import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { useWeatherData } from '@/hooks/useWeatherData'
 import { formatTimeForDisplay } from '@/utils/availabilityUtils'
-import { getShootLocalDate, parseLocalYmd } from '@/utils/shootLocalDate'
+import { parseLocalYmd } from '@/utils/shootLocalDate'
 import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import { getStateFullName } from '@/utils/stateUtils'
 import { formatWorkflowStatus } from '@/utils/status'
@@ -169,7 +170,8 @@ export const ScheduledShootListRow = ({
     if (!value) return '—'
     try { return formatDatePref(value) } catch { return value ?? '—' }
   }
-  const shootLocalDate = getShootLocalDate(shoot)
+  const operationalTime = getShootOperationalTime(shoot);
+  const shootLocalDate = getShootOperationalDate(shoot)
   const weatherDate = parseLocalYmd(shootLocalDate)
   const hasWeatherDate = !Number.isNaN(weatherDate.getTime())
   const fetchedWeather = useWeatherData({
@@ -182,7 +184,7 @@ export const ScheduledShootListRow = ({
     enabled: hasWeatherDate,
   })
   // Prioritize status over workflowStatus for display, but check both
-  const displayStatus = shoot.status ?? shoot.workflowStatus ?? 'scheduled'
+  const displayStatus = getShootDisplayStatus(shoot) || 'scheduled'
   // Normalize hold_on to on_hold for config lookup
   const statusKey = displayStatus === 'hold_on' ? 'on_hold' : displayStatus
   const statusLabel = formatWorkflowStatus(displayStatus)
@@ -324,10 +326,10 @@ export const ScheduledShootListRow = ({
                 <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                 <span>{formatDisplayDateLocal(shootLocalDate)}</span>
               </div>
-              {shoot.time && shoot.time !== 'TBD' && (
+              {operationalTime && operationalTime !== 'TBD' && (
                 <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                   <Clock className="h-3.5 w-3.5 flex-shrink-0" />
-                  <span>{formatTime(shoot.time)}</span>
+                  <span>{formatTime(operationalTime)}</span>
                 </div>
               )}
               {hasWeather && (
@@ -359,10 +361,10 @@ export const ScheduledShootListRow = ({
               <CalendarIcon className="h-4 w-4 text-muted-foreground flex-shrink-0" />
               <span>{formatDisplayDateLocal(shootLocalDate)}</span>
             </div>
-            {shoot.time && shoot.time !== 'TBD' && (
+            {operationalTime && operationalTime !== 'TBD' && (
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <Clock className="h-3.5 w-3.5 flex-shrink-0" />
-                <span>{formatTime(shoot.time)}</span>
+                <span>{formatTime(operationalTime)}</span>
               </div>
             )}
             {hasWeather && (

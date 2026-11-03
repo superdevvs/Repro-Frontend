@@ -1,3 +1,4 @@
+import { hasActiveShootWork, normalizeActiveShootWork } from '@/utils/activeShootWork';
 import {
   DashboardActivityItem,
   DashboardActivityResponse,
@@ -20,14 +21,15 @@ import { streetWithAptSuite } from '@/utils/shootAddressDisplay';
 
 const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSummary => ({
   id: shoot.id,
+  ...normalizeActiveShootWork(shoot),
   completedAt: shoot.completed_at ?? null,
   deliveredAt: shoot.delivered_at ?? shoot.completed_at ?? null,
   dayLabel: shoot.day_label ?? 'Unscheduled',
-  timeLabel: shoot.time_label ?? null,
+  timeLabel: hasActiveShootWork(shoot) ? shoot.active_work_time ?? shoot.activeWorkTime ?? null : shoot.time_label ?? null,
   // The backend's start_time ISO carries the shoot's local date in its prefix;
   // extract it as the intended local calendar day so display never drifts.
-  scheduledLocalDate: extractLocalYmd(shoot.start_time) ?? null,
-  startTime: shoot.start_time ?? null,
+  scheduledLocalDate: hasActiveShootWork(shoot) ? extractLocalYmd(shoot.active_work_date ?? shoot.activeWorkDate ?? shoot.active_work_at ?? shoot.activeWorkAt) : extractLocalYmd(shoot.start_time) ?? null,
+  startTime: (hasActiveShootWork(shoot) ? shoot.active_work_at ?? shoot.activeWorkAt : null) ?? shoot.start_time ?? null,
   scheduledInstant: shoot.scheduled_instant ?? null,
   addressLine: streetWithAptSuite(shoot.address_line ?? '', shoot.property_details) || 'No address on file',
   cityStateZip: shoot.city_state_zip ?? '',

@@ -1,3 +1,4 @@
+import { getShootDisplayStatus, hasActiveShootWork } from '@/utils/activeShootWork';
 import { ShootData } from '@/types/shoots';
 import { formatServiceCount, groupServiceItems } from '@/utils/groupServiceItems';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
@@ -26,6 +27,8 @@ export const shootDetailsWorkflowBadgeMap: Record<
   string,
   { label: string; variant: WorkflowBadgeVariant; className: string }
 > = {
+  active: createWorkflowBadge('active', 'Active', 'default'),
+  edits_submitted: createWorkflowBadge('editing', 'Edits submitted', 'default'),
   requested: createWorkflowBadge('requested', 'Requested', 'secondary'),
   booked: createWorkflowBadge('booked', 'Scheduled', 'secondary'),
   scheduled: createWorkflowBadge('scheduled', 'Scheduled', 'default'),
@@ -61,6 +64,17 @@ const shootDetailsPaymentBadgeMap: Record<
   unpaid: { label: 'Unpaid', variant: 'destructive' },
   partial: { label: 'Partial', variant: 'secondary' },
 };
+
+/** Keep the overall Active label while retaining existing editor submission wording. */
+export function getShootDetailsDisplayStatus(shoot: ShootData, editorUserId?: string): string {
+  if (hasActiveShootWork(shoot)) return 'active';
+  const assignments = editorUserId ? shoot.editorAssignments?.filter(assignment =>
+    String(assignment.editorId ?? assignment.editor?.id) === editorUserId) ?? [] : [];
+  const stage = shoot.workflowStatus || shoot.status || 'booked';
+  if (assignments.length && assignments.every(assignment => assignment.ready)
+    && ['editing', 'uploaded'].includes(stage)) return 'edits_submitted';
+  return assignments.some(assignment => assignment.ready === false) ? 'editing' : getShootDisplayStatus(shoot) || 'booked';
+}
 
 export const getShootDetailsWorkflowBadge = (status?: string | null) => {
   const key = normalizeShootDetailsStatus(status);

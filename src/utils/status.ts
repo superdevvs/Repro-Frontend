@@ -5,6 +5,7 @@ const STATUS_TEXT: Record<string, string> = {
   uploaded: 'Uploaded',
   editing: 'Editing',
   delivered: 'Delivered',
+  active: 'Active',
   on_hold: 'On Hold',
   cancelled: 'Cancelled',
   canceled: 'Cancelled',

@@ -1,3 +1,4 @@
+import { normalizeActiveShootWork } from '@/utils/activeShootWork';
 import { ShootData, ShootServiceObject } from '@/types/shoots';
 import { shootsData as mockShootsData } from '@/data/shootsData';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
@@ -815,6 +816,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     compensationSummary: compReshootFields.compensationSummary,
     compensation_summary: compReshootFields.compensationSummary,
     workflowStatus: shoot.workflow_status || shoot.workflowStatus || undefined,
+    ...normalizeActiveShootWork(shoot),
     notes,
     adminIssueNotes: shoot.admin_issue_notes ?? undefined,
     isFlagged: Boolean(shoot.is_flagged),

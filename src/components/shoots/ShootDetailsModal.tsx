@@ -44,7 +44,7 @@ import { canSendShootManualNotification } from './modal/shootDetailsCapabilities
 import {
   getShootDetailsCreatedByLabel,
   getShootDetailsPaymentBadge,
-  getShootDetailsStatusBadgeInfo,
+  getShootDetailsStatusBadgeInfo, getShootDetailsDisplayStatus,
 } from './details/shootDetailsPresentation';
 import {
   ShootDetailsModalActionRail,
@@ -551,11 +551,7 @@ export function ShootDetailsModal({
     setIsEditMode(false);
   };
 
-  const ownEditorAssignments = isEditor ? shoot?.editorAssignments?.filter(assignment => String(assignment.editorId ?? assignment.editor?.id) === String(user?.id)) ?? [] : [];
-  const statusBadge = shoot ? ownEditorAssignments.length > 0 && ownEditorAssignments.every(assignment => assignment.ready)
-    && ['editing', 'uploaded'].includes(shoot.workflowStatus || shoot.status || '')
-    ? <Badge>Edits submitted</Badge>
-    : getStatusBadge(ownEditorAssignments.some(assignment => assignment.ready === false) ? 'editing' : shoot.workflowStatus || shoot.status || 'booked') : null;
+  const statusBadge = shoot ? getStatusBadge(getShootDetailsDisplayStatus(shoot, isEditor ? String(user?.id) : undefined)) : null;
   const paymentBadge = useMemo(() => {
     if (!shoot) return null;
     if (isEditor) return null;

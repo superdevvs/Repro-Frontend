@@ -1,3 +1,5 @@
+import { getShootDisplayStatus, getShootOperationalDate } from '@/utils/activeShootWork';
+import { formatWorkflowStatus } from '@/utils/status';
 import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import React, { memo, useState } from 'react'
 import { formatServiceCount, groupServiceItems } from '@/utils/groupServiceItems'
@@ -60,7 +62,7 @@ export const HistoryRow = memo(({
     totalPaid: 0,
   }
   const isPaid = isSuperAdmin ? (financials.totalPaid >= financials.totalQuote) : false
-  const statusLabel = (record.status ?? 'scheduled').replace(/_/g, ' ')
+  const statusLabel = formatWorkflowStatus(getShootDisplayStatus(record), 'Scheduled')
   const approvalNotesValue = record.notes?.approvalNotes || record.notes?.approval
   const editingNotesValue = record.notes?.editingNotes || record.notes?.editing
   const canShowApprovalNotes = Boolean(approvalNotesValue) && (isSuperAdmin || isAdmin || isEditingManager || isSalesRep)
@@ -97,13 +99,13 @@ export const HistoryRow = memo(({
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{record.scheduledDate ? formatDatePref(record.scheduledDate) : '—'}</span>
+              <span className="font-medium">{getShootOperationalDate(record) ? formatDatePref(getShootOperationalDate(record)!) : '—'}</span>
             </div>
             <Badge
               variant="outline"
               className={cn(
                 'capitalize',
-                getShootStatusBadgeClass(record.status)
+                getShootStatusBadgeClass(getShootDisplayStatus(record))
               )}
             >
               {statusLabel}

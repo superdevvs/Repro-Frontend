@@ -1,3 +1,4 @@
+import { getShootDisplayStatus } from '@/utils/activeShootWork';
 import { defaultFilters, countActiveFilters, getServiceKey, type FiltersState } from './shootsTabsCardUtils';
 import { matchesDashboardFilters } from './dashboardFilterModel';
 import { DashboardShootFilters, DashboardFilterChips } from './DashboardShootFilters';
@@ -742,7 +743,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                 </div>
               </div>
               {group.shoots.map((shoot) => {
-                const statusKey = (shoot.workflowStatus || shoot.status || '').toLowerCase();
+                const statusKey = getShootDisplayStatus(shoot).toLowerCase();
                 const statusClass = STATUS_COLORS[statusKey] || STATUS_COLORS.scheduled;
                 const isRequested = statusKey === 'requested';
                 const isEditorSubmittedUpload =
@@ -812,7 +813,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                           <div className="mt-2 flex flex-wrap items-center gap-1.5">
                             <ShootActionRequestBadges shoot={shoot} />
                             <span className={cn('rounded-full border px-2 py-0.5 text-[10px] font-semibold', statusClass)}>
-                              {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                              {formatWorkflowStatus(getShootDisplayStatus(shoot))}
                             </span>
                             {canShowPaymentStatus && <ClientPaymentPill status={shoot.paymentStatus} />}
                             {isEditorSubmittedUpload && <span className="text-[10px] text-emerald-500">Submitted for review</span>}
@@ -908,7 +909,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                               statusClass,
                             )}
                           >
-                            {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                            {formatWorkflowStatus(getShootDisplayStatus(shoot))}
                           </span>
                           {canShowPaymentStatus ? <ClientPaymentPill status={shoot.paymentStatus} /> : null}
                         </div>
@@ -950,7 +951,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                               statusClass,
                             )}
                           >
-                            {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                            {formatWorkflowStatus(getShootDisplayStatus(shoot))}
                           </span>
                         )}
                         <div className="w-20 rounded-2xl border border-border bg-background text-center pt-3 pb-2 shadow-sm flex-shrink-0">
@@ -977,7 +978,7 @@ export const UpcomingShootsCard: React.FC<UpcomingShootsCardProps> = React.memo(
                               statusClass,
                             )}
                           >
-                            {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                            {formatWorkflowStatus(getShootDisplayStatus(shoot))}
                           </span>
                         )}
                       </div>

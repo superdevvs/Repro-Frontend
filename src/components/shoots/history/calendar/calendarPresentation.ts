@@ -1,3 +1,4 @@
+import { getShootDisplayStatus } from '@/utils/activeShootWork';
 import type { CSSProperties } from 'react';
 import type { ShootData } from '@/types/shoots';
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
@@ -5,7 +6,7 @@ import { formatWorkflowStatus } from '@/utils/status';
 import type { CalendarEntry } from './calendarModel';
 
 export function calendarStatus(shoot: ShootData) {
-  const status = String(shoot.status || shoot.workflowStatus || 'scheduled').toLowerCase();
+  const status = (getShootDisplayStatus(shoot) || 'scheduled').toLowerCase();
   const tone = ['delivered', 'ready_for_client', 'admin_verified'].includes(status) ? 'teal'
     : ['editing', 'review', 'ready_for_review', 'pending_review', 'editing_uploaded'].includes(status) ? 'purple'
     : ['on_hold', 'hold_on', 'cancelled', 'canceled', 'declined'].includes(status) ? 'amber'

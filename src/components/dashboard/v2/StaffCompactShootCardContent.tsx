@@ -1,3 +1,4 @@
+import { getShootDisplayStatus } from '@/utils/activeShootWork';
 import type { ReactNode } from 'react';
 import { MapPin } from 'lucide-react';
 
@@ -62,7 +63,7 @@ export function StaffCompactShootCardContent({
             'inline-flex max-w-[76px] items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-[10px] font-semibold sm:max-w-[96px] sm:text-[11px]',
             statusClass,
           )}>
-            <span className="truncate">{formatWorkflowStatus(shoot.workflowStatus || shoot.status)}</span>
+            <span className="truncate">{formatWorkflowStatus(getShootDisplayStatus(shoot))}</span>
           </span>
           {actions}
         </div>

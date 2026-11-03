@@ -1,3 +1,4 @@
+import { getShootOperationalDate, getShootOperationalTime, getShootDisplayStatus } from '@/utils/activeShootWork';
 import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
@@ -15,7 +16,6 @@ import type { Role } from '@/components/auth/AuthProvider';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { getStateFullName } from '@/utils/stateUtils';
-import { getShootLocalDate } from '@/utils/shootLocalDate';
 import { formatWorkflowStatus } from '@/utils/status';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { normalizeImageUrl } from '@/utils/imageUrl';
@@ -45,6 +45,7 @@ interface SharedShootCardProps {
 
 const statusColors: Record<string, string> = {
   // Main status colors
+  active: 'bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800',
   requested: 'bg-sky-100 text-sky-700 border-sky-300',
   scheduled: 'bg-blue-100 text-blue-700 border-blue-200',
   booked: 'bg-blue-100 text-blue-700 border-blue-200', // Alias for scheduled
@@ -95,9 +96,9 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
   compact = false,
 }) => {
   const { formatTemperature, formatTime, formatDate } = useUserPreferences();
-  const normalizedStatus = String(shoot.workflowStatus || shoot.status || '').toLowerCase();
+  const normalizedStatus = getShootDisplayStatus(shoot).toLowerCase();
   const isPreShootStatus = normalizedStatus === 'scheduled' || normalizedStatus === 'booked' || normalizedStatus === 'requested' || normalizedStatus === 'on_hold';
-  const showScheduleStatusPill = normalizedStatus === 'requested' || normalizedStatus === 'scheduled' || normalizedStatus === 'booked';
+  const showScheduleStatusPill = normalizedStatus === 'requested' || normalizedStatus === 'scheduled' || normalizedStatus === 'booked' || normalizedStatus === 'active';
   const heroImage = hideHeroImage ? null : normalizeImageUrl(shoot.heroImage) || (!isPreShootStatus ? '/placeholder.svg' : null);
   // Get status color - check both workflowStatus and status, and handle case-insensitive lookup
   const statusKey = normalizedStatus;
@@ -166,7 +167,8 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
 
   // Format the date from the shoot's intended local calendar day so it never
   // drifts across browser timezones.
-  const shootLocalDate = getShootLocalDate(shoot);
+  const operationalTime = getShootOperationalTime(shoot);
+  const shootLocalDate = getShootOperationalDate(shoot);
   const formattedDate = shootLocalDate
     ? formatDate(shootLocalDate)
     : 'Not scheduled';
@@ -187,7 +189,7 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
           <Badge 
             className={cn('capitalize text-base font-medium px-6 py-2 rounded-full shadow-lg', statusClass)}
           >
-            {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+            {formatWorkflowStatus(getShootDisplayStatus(shoot))}
           </Badge>
         </div>
 
@@ -293,14 +295,14 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
               </p>
               <div className="mt-2 flex flex-wrap items-center gap-1.5">
                 <ShootActionRequestBadges shoot={shoot} />
-                {showScheduleStatusPill && (
+                {showScheduleStatusPill && (!heroImage || normalizedStatus !== 'active') && (
                   <Badge
                     className={cn(
                       'inline-flex w-fit rounded-md border px-2.5 py-0.5 text-xs font-semibold capitalize',
                       statusClass,
                     )}
                   >
-                    {formatWorkflowStatus(shoot.workflowStatus || shoot.status)}
+                    {formatWorkflowStatus(getShootDisplayStatus(shoot))}
                   </Badge>
                 )}
                 {canShowPaymentStatus && (
@@ -314,10 +316,10 @@ export const SharedShootCard: React.FC<SharedShootCardProps> = ({
                 <Calendar className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
                 <span className="font-medium">{formattedDate}</span>
               </div>
-              {shoot.time && shoot.time !== 'TBD' && (
+              {operationalTime && operationalTime !== 'TBD' && (
                 <div className="flex items-center gap-2">
                   <Clock className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
-                  <span className="font-medium">{formatTime(shoot.time)}</span>
+                  <span className="font-medium">{formatTime(operationalTime)}</span>
                 </div>
               )}
               {shoot.payment?.totalQuote && (isSuperAdmin || isClient) && (

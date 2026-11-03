@@ -1,6 +1,6 @@
+import { getShootDisplayStatus, getShootOperationalDate, getShootOperationalTime } from '@/utils/activeShootWork';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { ShootHistoryDateList } from '@/components/shoots/history/ShootHistoryDateList'
-import { getShootLocalDate } from '@/utils/shootLocalDate'
 import { ShootEmptyState } from '@/components/shoots/ShootEmptyState';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
@@ -302,11 +302,11 @@ const ShootHistory: React.FC = () => {
         return {
           id: shoot.id,
           title: shouldHideClientDetails && !canViewVideoEditorClientContext(shoot) ? address : shoot.client.name,
-          subtitle: `${formatDisplayDatePref(shoot.scheduledDate)}${shoot.time ? ` · ${formatTime(shoot.time)}` : ''}`,
+          subtitle: `${formatDisplayDatePref(getShootOperationalDate(shoot))}${getShootOperationalTime(shoot) ? ` · ${formatTime(getShootOperationalTime(shoot))}` : ''}`,
           address,
           coords,
           imageUrl: resolveShootThumbnail(shoot, 'thumb'),
-          status: shoot.workflowStatus || shoot.status,
+          status: getShootDisplayStatus(shoot),
           actionRequests: shoot,
           onOpen: () => handleShootSelect(shoot),
         }
@@ -446,7 +446,7 @@ const ShootHistory: React.FC = () => {
     }
 
     return (
-      <ShootHistoryDateList dates={filteredOperationalData.map(getShootLocalDate)}>
+      <ShootHistoryDateList dates={filteredOperationalData.map(getShootOperationalDate)}>
         {filteredOperationalData.map((shoot) => (
           <ScheduledShootListRow 
             key={shoot.id} 
@@ -558,7 +558,7 @@ const ShootHistory: React.FC = () => {
     }
 
     return (
-      <ShootHistoryDateList dates={filteredOperationalData.map(getShootLocalDate)}>
+      <ShootHistoryDateList dates={filteredOperationalData.map(getShootOperationalDate)}>
         {filteredOperationalData.map((shoot) => (
           <CompletedShootListRow
             key={shoot.id}
@@ -640,7 +640,7 @@ const ShootHistory: React.FC = () => {
     }
 
     return (
-      <ShootHistoryDateList dates={filteredOperationalData.map(getShootLocalDate)}>
+      <ShootHistoryDateList dates={filteredOperationalData.map(getShootOperationalDate)}>
         {filteredOperationalData.map((shoot) => (
           <HoldOnShootCard 
             key={shoot.id} 
@@ -714,7 +714,7 @@ const ShootHistory: React.FC = () => {
     }
 
     return (
-      <ShootHistoryDateList dates={filteredOperationalData.map(getShootLocalDate)}>
+      <ShootHistoryDateList dates={filteredOperationalData.map(getShootOperationalDate)}>
         {filteredOperationalData.map((shoot) => (
           <CompletedShootListRow
             key={shoot.id}
@@ -853,7 +853,7 @@ const ShootHistory: React.FC = () => {
 
     // List view (default)
     return (
-      <ShootHistoryDateList dates={paginatedRecords.map(record => getShootLocalDate(record))}>
+      <ShootHistoryDateList dates={paginatedRecords.map(record => getShootOperationalDate(record))}>
         {paginatedRecords.map((record) => (
           <HistoryRow 
             isSalesRep={isSalesRep}

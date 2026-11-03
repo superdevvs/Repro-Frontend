@@ -5,7 +5,6 @@ import { assertReviewedLock, assertRuntimeSource, isReviewedAdvisory, reviewedPa
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const allowedAdvisory = 'GHSA-qwww-vcr4-c8h2';
-const buildOnlyAdvisory = 'GHSA-vfj7-8cjw-p6xm';
 const buildOnlyPackages = new Set([
   'braces', 'micromatch', 'fast-glob', 'chokidar', 'tailwindcss', 'lovable-tagger',
   'typescript-eslint', '@typescript-eslint/eslint-plugin', '@typescript-eslint/parser',
@@ -69,17 +68,9 @@ for (const file of sourceFiles) {
   assertRuntimeSource(path.relative(projectRoot, file), readFileSync(file, 'utf8'));
 }
 
-// Temporary exposure-based review, not a general high-severity exception.
-// These tools consume repository-controlled build patterns only. See the review
-// and the complementary Rollup module-graph guard in vite.config.ts.
-if (Date.now() >= Date.parse('2026-11-03T00:00:00Z')) {
-  throw new Error('Build-only braces advisory review expired; upgrade or reassess exposure.');
-}
-for (const [name, version] of [['braces', '3.0.3'], ['micromatch', '4.0.8']]) {
-  if (packageLock.packages?.[`node_modules/${name}`]?.version !== version) {
-    throw new Error(`Build-only advisory review requires ${name} ${version}.`);
-  }
-}
+// The braces advisory was withdrawn upstream on 2026-10-23. Its exception and
+// expired review were retired, rather than renewed. Any new advisory fails the
+// normal audit below. Keep build-tool imports out of application runtime code.
 const buildToolImport = /(?:from\s*|import\s*\(|require\s*\()\s*["'](?:braces|micromatch|fast-glob|chokidar|tailwindcss|lovable-tagger|typescript-eslint|@typescript-eslint\/[^/"']+)(?:\/[^"']*)?["']/;
 for (const file of sourceFiles) {
   if (buildToolImport.test(readFileSync(file, 'utf8'))) {
@@ -152,9 +143,8 @@ for (const packageName of Object.keys(vulnerabilities)) {
   }
   for (const id of ids) {
     const routerAllowed = id === allowedAdvisory && ['react-router', 'react-router-dom'].includes(packageName);
-    const buildAllowed = id === buildOnlyAdvisory && buildOnlyPackages.has(packageName);
     const reviewedGlobAllowed = isReviewedAdvisory(packageName, id);
-    if (!routerAllowed && !buildAllowed && !reviewedGlobAllowed) {
+    if (!routerAllowed && !reviewedGlobAllowed) {
       unexpected.push(`${packageName}: ${id}`);
     }
   }
@@ -167,7 +157,7 @@ if (unexpected.length > 0) {
 // The approved packages are an upper bound, not an exact expectation: anything
 // outside this set is unreviewed and must fail, but an empty report means the
 // advisory has cleared upstream and is strictly better than the reviewed state.
-const approvedPackages = new Set(['react-router', 'react-router-dom', ...buildOnlyPackages, ...reviewedPackages]);
+const approvedPackages = new Set(['react-router', 'react-router-dom', ...reviewedPackages]);
 const affectedPackages = Object.keys(vulnerabilities).sort();
 const unapprovedPackages = affectedPackages.filter((name) => !approvedPackages.has(name));
 
@@ -187,7 +177,7 @@ if (affectedPackages.length === 0) {
 } else {
   console.log(
     'Audit policy passed with only explicitly reviewed, exposure-constrained advisories. ' +
-      `Router ${allowedRouterVersion} is SPA-only; braces is restricted to repository-controlled build tools until 2026-11-03. ` +
+      `Router ${allowedRouterVersion} is SPA-only. ` +
       `The separately reviewed glob/minimatch build-tool scope expires ${reviewExpiresAt}. ` +
       'Use npm run audit:raw to view the non-zero upstream report.',
   );

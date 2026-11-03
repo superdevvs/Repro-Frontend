@@ -1,3 +1,4 @@
+import { getShootOperationalDate, getShootOperationalTime, getShootDisplayStatus } from '@/utils/activeShootWork';
 import React, { memo, useState } from 'react'
 import axios from 'axios'
 import { Button } from '@/components/ui/button'
@@ -15,7 +16,6 @@ import { useTheme } from '@/hooks/useTheme'
 import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { formatTimeForDisplay } from '@/utils/availabilityUtils'
-import { getShootLocalDate } from '@/utils/shootLocalDate'
 import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import { getCheckoutLaunchToastCopy, openCheckoutLink } from '@/utils/checkoutLaunch'
 import { getStateFullName } from '@/utils/stateUtils'
@@ -136,7 +136,8 @@ export const ShootListRow = ({
     if (!value) return '—'
     try { return formatDatePref(value) } catch { return value ?? '—' }
   }
-  const rawStatusValue = shoot.workflowStatus ?? shoot.status ?? ''
+  const operationalTime = getShootOperationalTime(shoot);
+  const rawStatusValue = getShootDisplayStatus(shoot)
   const statusLabel = formatWorkflowStatus(rawStatusValue)
   const normalizedStatusValue = String(rawStatusValue).toLowerCase()
   const isCancelledStatus = normalizedStatusValue === 'cancelled' || normalizedStatusValue === 'canceled'
@@ -160,8 +161,8 @@ export const ShootListRow = ({
       <CardHeader className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-sm text-muted-foreground">
-            {formatDisplayDateLocal(getShootLocalDate(shoot))}
-            {shoot.time ? ` · ${formatTime(shoot.time)}` : ''}
+            {formatDisplayDateLocal(getShootOperationalDate(shoot))}
+            {shoot.time ? ` · ${formatTime(operationalTime)}` : ''}
           </p>
           <h3 className="text-lg font-bold leading-tight text-primary">
             {shoot.location.fullAddress}

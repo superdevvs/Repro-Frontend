@@ -1,3 +1,4 @@
+import { getShootDisplayStatus } from '@/utils/activeShootWork';
 import { useMemo } from 'react'
 import { AutoExpandingTab } from '@/components/ui/auto-expanding-tabs'
 import {
@@ -40,7 +41,7 @@ export function useShootHistoryViewState({
   holdTotal,
 }: UseShootHistoryViewStateArgs) {
   const tabsConfig: AutoExpandingTab[] = useMemo(() => {
-    const statusKey = (shoot: ShootData) => (shoot.workflowStatus || shoot.status || '').toLowerCase()
+    const statusKey = (shoot: ShootData) => getShootDisplayStatus(shoot).toLowerCase()
     const matchesTab = (shoot: ShootData, tab: ActiveOperationalTab) =>
       (STATUS_FILTERS_BY_TAB[tab] ?? []).some((allowed) => statusKey(shoot).includes(allowed))
 

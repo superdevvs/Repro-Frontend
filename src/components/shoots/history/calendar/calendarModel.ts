@@ -1,3 +1,4 @@
+import { getShootOperationalDate, getShootOperationalTime, hasActiveShootWork } from '@/utils/activeShootWork';
 import type { ShootData } from '@/types/shoots';
 import { getShootSchedule } from '@/utils/shootSchedule';
 
@@ -94,7 +95,7 @@ export function getCompactCalendarPeriodLabel(date: string, view: CalendarViewMo
 }
 
 export function getShootCalendarDate(shoot: ShootData): string | null {
-  const { date } = getShootSchedule(shoot);
+  const date = hasActiveShootWork(shoot) ? getShootOperationalDate(shoot) : getShootSchedule(shoot).date;
   return isCalendarDate(date) ? date : null;
 }
 
@@ -106,7 +107,7 @@ export function buildCalendarEntries(shoots: ShootData[]): CalendarEntry[] {
     seen.add(key);
     return true;
   }).map(shoot => {
-    const schedule = getShootSchedule(shoot);
+    const schedule = hasActiveShootWork(shoot) ? { date: getShootOperationalDate(shoot), time: getShootOperationalTime(shoot) } : getShootSchedule(shoot);
     const time = schedule.time || null;
     const [hour, minute] = time ? time.split(':').map(Number) : [];
     return { shoot, date: isCalendarDate(schedule.date) ? schedule.date : null, time, minutes: time ? hour * 60 + minute : null };

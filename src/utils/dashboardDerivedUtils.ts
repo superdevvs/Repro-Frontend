@@ -1,3 +1,4 @@
+import { getShootOperationalDate, getShootOperationalTime, hasActiveShootWork, normalizeActiveShootWork } from '@/utils/activeShootWork';
 import { format, startOfDay, differenceInCalendarDays, parse, parseISO, isValid } from "date-fns";
 
 import type {
@@ -300,7 +301,7 @@ export const isCanceledSummary = (summary: DashboardShootSummary) =>
   matchesStatus(summary, CANCELED_STATUS_KEYWORDS);
 
 // Active working statuses should NOT be considered "on hold" even if flagged
-const ACTIVE_WORKING_STATUSES = ["editing", "uploaded", "review", "in_progress", "scheduled", "booked"];
+const ACTIVE_WORKING_STATUSES = ["active", "editing", "uploaded", "review", "in_progress", "scheduled", "booked"];
 
 export const isOnHoldRecord = (record: ClientShootRecord) => {
   const statusKey = (record.summary.workflowStatus || record.summary.status || "").toLowerCase();
@@ -427,7 +428,10 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
   // The WeakMap cache helps with performance but we want fresh data when shoot updates
   // Note: WeakMap keys are object references, so updated shoots (new objects) won't hit cache
 
-  const start = parseShootDateTime(shoot);
+  const originalStart = parseShootDateTime(shoot);
+  const activeAt = hasActiveShootWork(shoot) ? shoot.activeWorkAt ?? shoot.active_work_at : null;
+  const activeStart = activeAt ? new Date(activeAt) : null;
+  const start = activeStart && !Number.isNaN(activeStart.getTime()) ? activeStart : originalStart;
   const location = shoot.location || { address: "No address", city: "", state: "", zip: "" };
 
   const paymentStatus = getDashboardPaymentStatus(shoot);
@@ -435,20 +439,21 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
   // The intended LOCAL calendar day drives all date display so it never drifts
   // across browser timezones. `start` (the absolute instant) is kept only for
   // chronological sorting.
-  const scheduledLocalDate = getShootLocalDate(shoot);
+  const scheduledLocalDate = getShootOperationalDate(shoot);
   const localDay = scheduledLocalDate ? parseLocalYmd(scheduledLocalDate) : null;
 
   const summary: DashboardShootSummary = {
+    ...normalizeActiveShootWork(shoot),
     photographerDisplayName: getShootPhotographerDisplayName(shoot),
     id: toNumericId(shoot.id, `${location.address}-${shoot.scheduledDate}`),
     completedAt: shoot.completedDate ?? null,
     deliveredAt: shoot.deliveredAt ?? null,
     dayLabel: getDayLabel(localDay ?? start),
-    timeLabel: shoot.time || (start ? format(start, "h:mm a") : null),
+    timeLabel: hasActiveShootWork(shoot) ? getShootOperationalTime(shoot) || null : shoot.time || (start ? format(start, "h:mm a") : null),
     scheduledLocalDate,
     scheduleTimezone: shoot.scheduleTimezone || shoot.schedule_timezone || shoot.timezone || null,
     startTime: start ? start.toISOString() : null,
-    scheduledInstant: shoot.scheduledInstant ?? shoot.scheduled_instant ?? null,
+    scheduledInstant: activeAt ?? shoot.scheduledInstant ?? shoot.scheduled_instant ?? null,
     addressLine: streetWithAptSuite(location.address || "", getShootPropertyDetails(shoot)) || "No address on file",
     cityStateZip: [location.city, getStateFullName(location.state), location.zip].filter(Boolean).join(", "),
     status: shoot.status || null,
@@ -534,7 +539,7 @@ export const sortByStartDesc = (a: DashboardShootSummary, b: DashboardShootSumma
   -sortByStartAsc(a, b);
 
 const deliveryTimestamp = (shoot: DashboardShootSummary): number => {
-  for (const value of [shoot.deliveredAt, shoot.completedAt, shoot.deliveryDeadline, shoot.startTime]) {
+  for (const value of [shoot.activeWorkCompletedAt, shoot.active_work_completed_at, shoot.deliveredAt, shoot.completedAt, shoot.deliveryDeadline, shoot.startTime]) {
     const timestamp = value ? Date.parse(value) : NaN;
     if (Number.isFinite(timestamp)) return timestamp;
   }
@@ -553,7 +558,7 @@ export const filterUpcomingShoots = (shoots: DashboardShootSummary[], userRole?:
 
       if (STAFF_QUEUE_ROLES.has(normalizedRole)) {
         if (statusKey === "archived" || matchesStatus(shoot, [...CANCELED_STATUS_KEYWORDS, ...DECLINED_STATUS_KEYWORDS, ...REQUESTED_STATUS_KEYWORDS])) return false;
-        const pendingEditorWork = normalizedRole === "editor" && STAFF_DELIVERED_STATUSES.has(statusKey)
+        const pendingEditorWork = hasActiveShootWork(shoot) || normalizedRole === "editor" && STAFF_DELIVERED_STATUSES.has(statusKey)
           && shoot.hasPendingEditorWork === true;
         return pendingEditorWork || !STAFF_DELIVERED_STATUSES.has(statusKey);
       }
@@ -584,7 +589,7 @@ export const filterUpcomingShoots = (shoots: DashboardShootSummary[], userRole?:
       // This includes scheduled, uploaded, editing, review statuses
       if (userRole === "photographer" || userRole === "editor") {
         // Only exclude delivered/finalized shoots
-        if (matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
+        if (!hasActiveShootWork(shoot) && matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
           return false;
         }
         // Exclude canceled, declined, requested
@@ -598,7 +603,7 @@ export const filterUpcomingShoots = (shoots: DashboardShootSummary[], userRole?:
       }
 
       // For other roles: Exclude delivered/finalized shoots (these should not appear in dashboard)
-      if (matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
+      if (!hasActiveShootWork(shoot) && matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
         return false;
       }
 
@@ -615,7 +620,7 @@ export const filterUpcomingShoots = (shoots: DashboardShootSummary[], userRole?:
       // Check if it's a legacy "completed" that maps to delivered
       if (statusKey.includes("completed") || statusKey.includes("editing_complete")) {
         // Only exclude if it's also marked as delivered/admin_verified
-        if (matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
+        if (!hasActiveShootWork(shoot) && matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
           // It's both completed and delivered - exclude it
           return false;
         }
@@ -642,17 +647,18 @@ export const filterCompletedShoots = (shoots: DashboardShootSummary[]) =>
       const statusKey = getStatusKey(shoot);
       // Include uploaded, editing, or legacy completed (if not delivered)
       return (
+        hasActiveShootWork(shoot) ||
         statusKey.includes("uploaded") ||
         statusKey.includes("editing") ||
         (statusKey.includes("completed") && !matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS))
-      ) && !matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS);
+      ) && (hasActiveShootWork(shoot) || !matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS));
     })
     .sort(sortByStartDesc);
 
 export const filterDeliveredShoots = (shoots: DashboardShootSummary[], userRole?: string) =>
-  shoots.filter((shoot) => STAFF_QUEUE_ROLES.has(normalizeDashboardRole(userRole))
+  shoots.filter((shoot) => !hasActiveShootWork(shoot) && (STAFF_QUEUE_ROLES.has(normalizeDashboardRole(userRole))
     ? STAFF_DELIVERED_STATUSES.has(getStatusKey(shoot)) && !(normalizeDashboardRole(userRole) === "editor" && shoot.hasPendingEditorWork)
-    : matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)).sort(sortByDeliveryDesc);
+    : matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS))).sort(sortByDeliveryDesc);
 
 export const filterScheduledShoots = (shoots: DashboardShootSummary[]) =>
   shoots
@@ -660,7 +666,7 @@ export const filterScheduledShoots = (shoots: DashboardShootSummary[]) =>
       if (matchesStatus(shoot, [...CANCELED_STATUS_KEYWORDS, ...DECLINED_STATUS_KEYWORDS, ...REQUESTED_STATUS_KEYWORDS])) {
         return false;
       }
-      if (matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
+      if (!hasActiveShootWork(shoot) && matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
         return false;
       }
       if (matchesStatus(shoot, UPLOADED_STATUS_KEYWORDS)) {
@@ -676,10 +682,10 @@ export const filterUploadedShoots = (shoots: DashboardShootSummary[]) =>
       if (matchesStatus(shoot, [...CANCELED_STATUS_KEYWORDS, ...DECLINED_STATUS_KEYWORDS, ...REQUESTED_STATUS_KEYWORDS])) {
         return false;
       }
-      if (matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
+      if (!hasActiveShootWork(shoot) && matchesStatus(shoot, DELIVERED_STATUS_KEYWORDS)) {
         return false;
       }
-      return matchesStatus(shoot, UPLOADED_STATUS_KEYWORDS);
+      return (hasActiveShootWork(shoot) && getStatusKey(shoot) === "active") || matchesStatus(shoot, UPLOADED_STATUS_KEYWORDS);
     })
     .sort(sortByStartDesc);
 
@@ -742,6 +748,23 @@ export const buildIssuesFromShoots = (
 
 export const isAssignmentMatch = (shoot: ShootData, user: UserData | null, role: "photographer" | "editor") => {
   if (!user) return false;
+  if (hasActiveShootWork(shoot)) {
+    const metadata = user.metadata as Record<string, unknown> | undefined;
+    const ids = new Set([user.id, metadata?.[`${role}Id`]].filter(value => value != null).map(String));
+    const name = String(user.name ?? '').trim().toLowerCase();
+    const items = [...(shoot.serviceItems ?? []), ...(shoot.service_items ?? []), ...(shoot.serviceObjects ?? [])];
+    return items.some(item => {
+      const workflow = String(item.workflow_status ?? item.workflowStatus ?? '').toLowerCase();
+      const delivery = String(item.delivery_status ?? item.deliveryStatus ?? '').toLowerCase();
+      if (item.is_deliverable === false || ['delivered', 'cancelled'].includes(workflow)
+        || ['delivered', 'cancelled'].includes(delivery)) return false;
+      const person = role === 'photographer' ? item.photographer : item.editor;
+      const assignedIds = role === 'photographer' ? [item.photographer_id, person?.id]
+        : [item.editor_id, item.resolved_editor_id, person?.id, item.video_editor_id, item.videoEditorId];
+      return assignedIds.some(id => id != null && ids.has(String(id)))
+        || Boolean(name && String(person?.name ?? '').trim().toLowerCase() === name);
+    });
+  }
   if (role === "editor") {
     return shootHasEditorAssignment(shoot, user);
   }

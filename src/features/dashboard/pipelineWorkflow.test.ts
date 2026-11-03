@@ -150,3 +150,30 @@ describe("isEditingShoot", () => {
     expect(isEditingShoot(shoot({ workflowStatus: "ready", status: "ready" }))).toBe(false);
   });
 });
+
+
+describe('additional-work pipeline refresh', () => {
+  it('moves a cached delivered card into active work exactly once', () => {
+    const delivered = shoot({ status: 'delivered', workflowStatus: 'delivered' });
+    const active = shoot({ status: 'active', workflowStatus: 'active', hasActiveWork: true, displayStatus: 'active' });
+    const workflow = { columns: [
+      { key: 'uploaded', label: 'Photos Uploaded', accent: '#0ea5e9', count: 0, shoots: [] },
+      { key: 'ready', label: 'Ready / Delivered', accent: '#22c55e', count: 1, shoots: [delivered] },
+    ] };
+    const result = buildPipelineWorkflow(workflow, [active]);
+    expect(result?.columns.find(column => column.key === 'uploaded')?.shoots).toEqual([active]);
+    expect(result?.columns.find(column => column.key === 'ready')?.shoots).toEqual([]);
+  });
+
+  it('removes a completed additional-work cycle from stale work columns', () => {
+    const active = shoot({ status: 'active', workflowStatus: 'editing', hasActiveWork: true, displayStatus: 'active' });
+    const delivered = shoot({ status: 'delivered', workflowStatus: 'delivered', hasActiveWork: false, displayStatus: 'delivered' });
+    const workflow = { columns: [
+      { key: 'editing', label: 'Editing', accent: '#a855f7', count: 1, shoots: [active] },
+      { key: 'ready', label: 'Ready / Delivered', accent: '#22c55e', count: 0, shoots: [] },
+    ] };
+    const result = buildPipelineWorkflow(workflow, [delivered]);
+    expect(result?.columns.find(column => column.key === 'editing')?.shoots).toEqual([]);
+    expect(result?.columns.find(column => column.key === 'ready')?.shoots).toEqual([delivered]);
+  });
+});

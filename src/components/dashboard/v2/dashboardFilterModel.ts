@@ -1,3 +1,4 @@
+import { getShootDisplayStatus } from '@/utils/activeShootWork';
 import type { DashboardShootSummary } from '@/types/dashboard';
 import { formatWorkflowStatus } from '@/utils/status';
 import { canFilterByPhotographer, normalizeDashboardRole } from '@/utils/dashboardFilterPermissions';
@@ -7,7 +8,7 @@ export const dashboardStatusOptions = [
   ['requested', 'Requested'], ['scheduled', 'Scheduled'], ['confirmed', 'Confirmed'],
   ['in_field', 'In field'], ['uploading', 'Uploading'], ['uploaded', 'Uploaded'],
   ['editing', 'Editing'], ['review', 'Review'], ['ready', 'Ready'],
-  ['delivered', 'Delivered'], ['on_hold', 'On hold'], ['cancelled', 'Cancelled'], ['declined', 'Declined'],
+  ['active', 'Active'], ['delivered', 'Delivered'], ['on_hold', 'On hold'], ['cancelled', 'Cancelled'], ['declined', 'Declined'],
 ].map(([value, label]) => ({ value, label }));
 
 // Match the labels already used on shoot cards, including historical API values.
@@ -16,7 +17,7 @@ export function matchesDashboardStatus(status: string, selected: string[]) {
 }
 
 export function matchesDashboardFilters(shoot: DashboardShootSummary, filters: FiltersState, role?: string) {
-  if (!matchesDashboardStatus(shoot.workflowStatus || shoot.status || '', filters.statuses)) return false;
+  if (!matchesDashboardStatus(getShootDisplayStatus(shoot), filters.statuses)) return false;
   if (filters.client !== 'all' && (shoot.clientName || '').toLowerCase() !== filters.client.toLowerCase()) return false;
   const address = filters.address.trim().toLowerCase();
   if (address && !`${shoot.addressLine} ${shoot.cityStateZip}`.toLowerCase().includes(address)) return false;

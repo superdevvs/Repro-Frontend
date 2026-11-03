@@ -1,3 +1,4 @@
+import { getShootDisplayStatus, getShootOperationalDate, getShootOperationalTime, hasActiveShootWork } from '@/utils/activeShootWork';
 import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import React, { memo, useState } from 'react'
@@ -211,7 +212,9 @@ export const CompletedShootListRow = ({
   const isPaid = paymentSummary.paymentStatus === 'paid'
   const balanceDue = paymentSummary.balance
   const hasPendingPayment = isClient && balanceDue > 0.01 && paymentSummary.paymentStatus !== 'paid'
-  const statusValue = shoot.workflowStatus ?? shoot.status ?? ''
+  const operationalTime = getShootOperationalTime(shoot);
+  const active = hasActiveShootWork(shoot);
+  const statusValue = getShootDisplayStatus(shoot)
   const statusLabel = formatWorkflowStatus(statusValue)
   const editingNotes = getEditingNotes(shoot.notes)
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
@@ -295,12 +298,12 @@ export const CompletedShootListRow = ({
               <ShootActionRequestBadges shoot={shoot} />
               <span className="flex items-center gap-1.5">
                 <CalendarIcon className="h-3.5 w-3.5" />
-                <span>{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate, !shoot.completedDate)}</span>
+                <span>{formatDisplayDateLocal(active ? getShootOperationalDate(shoot) : shoot.completedDate || shoot.scheduledDate, active || !shoot.completedDate)}</span>
               </span>
-              {shoot.time && shoot.time !== 'TBD' && (
+              {operationalTime && operationalTime !== 'TBD' && (
                 <span className="flex items-center gap-1.5">
                   <Clock className="h-3.5 w-3.5" />
-                  <span>{formatTime(shoot.time)}</span>
+                  <span>{formatTime(operationalTime)}</span>
                 </span>
               )}
             </div>
@@ -421,12 +424,12 @@ export const CompletedShootListRow = ({
             <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground flex-shrink-0 min-[1180px]:justify-end min-[1180px]:gap-3 min-[1180px]:text-sm">
               <div className="flex items-center gap-2">
                 <CalendarIcon className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
-                <span className="font-medium">{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate, !shoot.completedDate)}</span>
+                <span className="font-medium">{formatDisplayDateLocal(active ? getShootOperationalDate(shoot) : shoot.completedDate || shoot.scheduledDate, active || !shoot.completedDate)}</span>
               </div>
-              {shoot.time && shoot.time !== 'TBD' && (
+              {operationalTime && operationalTime !== 'TBD' && (
                 <div className="flex items-center gap-2">
                   <Clock className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
-                  <span className="font-medium">{formatTime(shoot.time)}</span>
+                  <span className="font-medium">{formatTime(operationalTime)}</span>
                 </div>
               )}
               {canShowPaymentStatus && (

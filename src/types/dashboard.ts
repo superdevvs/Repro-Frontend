@@ -1,3 +1,4 @@
+import type { ActiveShootWorkFields } from '@/utils/activeShootWork';
 export interface DashboardStatsResponse {
   total_shoots: number;
   scheduled_today: number;
@@ -59,7 +60,7 @@ export interface DashboardIssueResponse {
   updated_at?: string | null;
 }
 
-export interface DashboardShootSummaryResponse {
+export interface DashboardShootSummaryResponse extends ActiveShootWorkFields {
   id: number;
   completed_at?: string | null;
   delivered_at?: string | null;
@@ -228,7 +229,7 @@ export interface DashboardClientRequest {
   updatedAt?: string | null;
 }
 
-export interface DashboardShootSummary {
+export interface DashboardShootSummary extends ActiveShootWorkFields {
   photographerDisplayName?: string;
   /** Open only the media explicitly assigned through editing dispatches. */
   hasScopedEditingTasks?: boolean;

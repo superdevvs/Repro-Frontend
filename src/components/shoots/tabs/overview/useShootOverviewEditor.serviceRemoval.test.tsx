@@ -66,6 +66,24 @@ const shoot = {
 } as unknown as ShootData;
 
 describe('useShootOverviewEditor service mutation payload', () => {
+
+  it('keeps explicitly billing-only additions out of new production work', async () => {
+    const onSave = vi.fn();
+    const deliveredShoot = { ...shoot, status: 'delivered', workflowStatus: 'delivered' } as ShootData;
+    const { result } = renderHook(() => useShootOverviewEditor({
+      shoot: deliveredShoot, isAdmin: false, role: 'salesRep', isEditMode: true,
+      canEditServicePlan: true, canEditAppointments: false, onSave, onShootUpdate: vi.fn(), toast: vi.fn(),
+    }));
+    await waitFor(() => expect(result.current.state.selectedServiceIds).toEqual(['10', '11']));
+    act(() => {
+      result.current.actions.toggleServiceSelection('12');
+      result.current.actions.setServiceChangeIntent('billing_correction');
+    });
+    expect(result.current.state.hasNewServices).toBe(true);
+    await act(async () => { await result.current.actions.handleSave(); });
+    expect(onSave.mock.calls[0][0]).toMatchObject({ service_change_intent: 'billing_correction' });
+  });
+
   it('keeps toolbar registration stable and saves the latest rep service selection', async () => {
     const onSave = vi.fn();
     let registrations = 0;
@@ -109,6 +127,7 @@ describe('useShootOverviewEditor service mutation payload', () => {
     expect(onSave).toHaveBeenCalledTimes(1);
     const payload = onSave.mock.calls[0][0];
     expect(payload.service_items).toEqual([{ service_id: 10, quantity: 3 }, { service_id: 12 }]);
+    expect(payload.service_change_intent).toBe('new_work');
     expect(payload.services).toEqual([{ id: 10, quantity: 3 }, { id: 12 }]);
     expect(payload).not.toHaveProperty('adminAdjustedTotalQuote');
     expect(payload).not.toHaveProperty('admin_adjusted_total_quote');

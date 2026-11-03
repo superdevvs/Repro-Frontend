@@ -1,3 +1,5 @@
+import { canChooseServiceChangeIntent, type ServiceChangeIntent } from '@/utils/activeShootWork';
+import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { useOverviewTravel } from '@/features/travel/useOverviewTravel';
 import { useOverviewEditActionRegistration } from './useOverviewEditActionRegistration';
 import { buildForceSaveChanges } from '@/features/travel/forceSaveChanges';
@@ -101,6 +103,9 @@ export function useShootOverviewEditor({
   const [perCategoryPopoverOpen, setPerCategoryPopoverOpen] = useState<Record<string, boolean>>({});
   const [servicesList, setServicesList] = useState<ServiceOption[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [serviceChangeIntent, setServiceChangeIntent] = useState<ServiceChangeIntent>('new_work');
+  const hasNewServices = canChooseServiceChangeIntent(shoot) && selectedServiceIds.some(id =>
+    !getShootServiceItems(shoot).some(item => String(item.serviceId) === id));
   const serviceSelectionTouchedRef = useRef(false);
   const servicePlanTouchedRef = useRef(false);
   const [servicePrices, setServicePrices] = useState<Record<string, string>>({});
@@ -261,6 +266,7 @@ export function useShootOverviewEditor({
 
   useEffect(() => {
     serviceSelectionTouchedRef.current = false;
+    setServiceChangeIntent('new_work');
     setServiceQuantityChanges({});
   }, [isEditMode, shoot.id]);
 
@@ -495,6 +501,7 @@ export function useShootOverviewEditor({
       return;
     }
 
+    if (hasNewServices && !hasComplimentaryServices) updates.service_change_intent = serviceChangeIntent;
     const complimentaryServiceOptions = canEditAppointments ? buildCompServicePayload() : null;
     if (complimentaryServiceOptions) {
       updates.complimentary_service_options = complimentaryServiceOptions;
@@ -507,6 +514,8 @@ export function useShootOverviewEditor({
   }, [
     accessContactName,
     accessContactPhone,
+    hasNewServices,
+    serviceChangeIntent,
     canEditServicePlan,
     canEditAppointments,
     buildCompServicePayload,
@@ -1001,6 +1010,8 @@ export function useShootOverviewEditor({
       servicePhotographerPays,
       serviceSchedules,
       serviceDialogOpen,
+      serviceChangeIntent,
+      hasNewServices,
       servicePanelCategory,
       serviceModalSearch,
       isCompServiceMode,
@@ -1045,6 +1056,7 @@ export function useShootOverviewEditor({
       applyServiceScheduleToAll,
       applyCompServiceScheduleToAll,
       setServiceDialogOpen,
+      setServiceChangeIntent,
       setServicePanelCategory,
       setServiceModalSearch,
       setCompServiceMode,

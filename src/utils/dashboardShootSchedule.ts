@@ -1,3 +1,4 @@
+import { hasActiveShootWork, type ActiveShootWorkFields } from '@/utils/activeShootWork';
 import { format } from 'date-fns';
 import type { DashboardShootSummary } from '@/types/dashboard';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
@@ -7,7 +8,7 @@ import { getShootStartInstantMs } from '@/utils/clientContactVisibility';
 
 type DashboardSchedule = Partial<Pick<DashboardShootSummary,
   'scheduledLocalDate' | 'timeLabel' | 'startTime'
->>;
+>> & ActiveShootWorkFields;
 
 /** Prefer the server-resolved instant for timed windows, with the older API fallback. */
 export const getDashboardShootStartInstantMs = (
@@ -122,6 +123,10 @@ export const getDashboardShootDisplayDate = (shoot: DashboardSchedule): Date | n
 };
 
 export const getDashboardShootDisplayTime = (shoot: DashboardSchedule): string | null => {
+  if (hasActiveShootWork(shoot)) {
+    const appointmentTime = shoot.activeWorkTime ?? shoot.active_work_time;
+    return appointmentTime ? getShootSchedule({ time: appointmentTime }).time || null : null;
+  }
   // Summary labels take priority; legacy start_time is a wall-clock fallback.
   return getShootSchedule({ time: shoot.timeLabel, scheduled_at: shoot.startTime }).time || null;
 };

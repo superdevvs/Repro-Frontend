@@ -33,6 +33,7 @@ type ShootSaveUpdates = Omit<Partial<ShootData>, 'photographer' | 'services'> & 
   service_photographers?: unknown[];
   expected_units_revision?: number;
   complimentary_service_options?: Record<string, unknown>;
+  service_change_intent?: import('@/utils/activeShootWork').ServiceChangeIntent;
 };
 
 const asRecord = (value: unknown): Record<string, unknown> =>
@@ -157,6 +158,7 @@ export function useShootDetailsModalSave({
         const normalizedTime = normalizeNullableString(updates.time);
         payload.time = normalizedTime ? to24Hour(normalizedTime) ?? normalizedTime : normalizedTime;
       }
+      if (hasOwn(updates, 'service_change_intent')) payload.service_change_intent = updates.service_change_intent;
       if (hasOwn(updates, 'status')) payload.status = updates.status;
       if (hasOwn(updates, 'workflowStatus')) payload.workflow_status = updates.workflowStatus;
       

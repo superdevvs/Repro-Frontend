@@ -1,3 +1,4 @@
+import { getShootDisplayStatus } from '@/utils/activeShootWork';
 import React, { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { format } from 'date-fns';
@@ -29,7 +30,8 @@ const REVIEW_STATUSES = new Set(['ready']);
 const REVIEW_ROLES = new Set(['admin', 'superadmin', 'editing_manager']);
 
 function cardStatus(shoot: DashboardShootSummary, role: string) {
-  const value = (shoot.workflowStatus || shoot.status || '').toLowerCase();
+  const value = getShootDisplayStatus(shoot).toLowerCase();
+  if (value === 'active') return { label: 'Active', tone: 'neutral' };
   if (role === 'editor' && shoot.hasPendingEditorWork) return { label: 'Editing in progress', tone: 'editing' };
   if (REVIEW_STATUSES.has(value)) return { label: 'Ready to finalize', tone: 'ready' };
   if (['scheduled', 'booked', 'confirmed', 'raw_upload_pending'].includes(value)) {

@@ -1,3 +1,4 @@
+import { ServiceChangeIntentControl } from './ServiceChangeIntentControl';
 import React from 'react';
 import { ShootPropertyAccessFields } from './ShootPropertyAccessFields';
 import { format } from 'date-fns';
@@ -33,6 +34,9 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
     setExpandedServiceScheduleId,
     servicesEditorOpen,
     setServicesEditorOpen,
+    hasNewServices,
+    serviceChangeIntent,
+    setServiceChangeIntent,
     canRemoveAllServices,
     isAdminOrRep,
     address,
@@ -646,6 +650,7 @@ export function createShootEditModalPanels(model: ReturnType<typeof useShootEdit
           </div>
         </div>
 
+        {hasNewServices && <div className="mt-3"><ServiceChangeIntentControl value={serviceChangeIntent} onChange={setServiceChangeIntent} /></div>}
         <ServiceSelectionDialog
           open={servicesEditorOpen}
           onOpenChange={setServicesEditorOpen}

@@ -1,3 +1,4 @@
+import type { ActiveShootWorkFields } from '@/utils/activeShootWork';
 
 export type BracketMode = 3 | 5 | null;
 
@@ -441,7 +442,7 @@ export interface PendingPaymentIntent {
   notes?: string | null;
 }
 
-export interface ShootData {
+export interface ShootData extends ActiveShootWorkFields {
   units_revision?: number;
   units?: ShootUnit[];
   shoot_units?: ShootUnit[];
@@ -816,7 +817,7 @@ export interface ShootHistoryFinancials {
   lastPaymentType?: string | null;
 }
 
-export interface ShootHistoryRecord {
+export interface ShootHistoryRecord extends ActiveShootWorkFields {
   id: number;
   canViewVideoEditorContext?: boolean;
   can_view_video_editor_context?: boolean;

@@ -72,6 +72,7 @@ type OverviewServicePayload = Omit<OverviewServiceItemPayload, 'service_id'> & {
 // The save endpoint accepts service and photographer request shapes that are
 // distinct from the display-oriented fields on `ShootData`.
 export type ShootOverviewUpdatePayload = Omit<Partial<ShootData>, 'service_items' | 'services'> & {
+  service_change_intent?: import('@/utils/activeShootWork').ServiceChangeIntent;
   service_items?: OverviewServiceItemPayload[];
   services?: OverviewServicePayload[];
   service_photographers?: Array<{ service_id: number; photographer_id: number }>;

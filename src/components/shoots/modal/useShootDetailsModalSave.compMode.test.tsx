@@ -59,12 +59,14 @@ describe('useShootDetailsModalSave comp forwarding', () => {
     }));
     await act(async () => {
       await result.current.handleSaveChanges({
+        service_change_intent: 'billing_correction',
         service_items: [{ service_id: 10, quantity: 3 }, { service_id: 12, quantity: 2 }],
         services: [{ id: 10, quantity: 3 }, { id: 12, quantity: 2 }],
       } as never, { notifyClient: false, notifyPhotographer: false });
     });
+    expect(vi.mocked(submitShootServiceMutation).mock.calls.at(-1)?.[0].payload).toHaveProperty('service_change_intent', 'billing_correction');
     expect(submitShootServiceMutation).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
-      payload: { services: [{ id: 10, quantity: 3 }, { id: 12, quantity: 2 }],
+      payload: { service_change_intent: 'billing_correction', services: [{ id: 10, quantity: 3 }, { id: 12, quantity: 2 }],
         service_items: [{ service_id: 10, quantity: 3 }, { service_id: 12, quantity: 2 }],
         notify_client: false, notify_photographer: false, expected_edit_version: 'version-1' },
     }));

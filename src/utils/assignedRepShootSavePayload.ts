@@ -10,6 +10,7 @@ export const ASSIGNED_REP_SHOOT_SAVE_KEYS = [
   'scheduled_date',
   'scheduled_at',
   'time',
+  'service_change_intent',
   'services',
   'service_items',
   'service_lines',

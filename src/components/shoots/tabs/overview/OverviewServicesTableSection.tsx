@@ -1,3 +1,5 @@
+import type { ServiceChangeIntent } from '@/utils/activeShootWork';
+import { ServiceChangeIntentControl } from '@/components/shoots/ServiceChangeIntentControl';
 import { useState } from 'react';
 import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { getServicePricingForSqft } from '@/utils/servicePricing';
@@ -40,6 +42,8 @@ const EDIT_COLUMN_WIDTHS: Record<string, number> = { Date: 148, Time: 112, 'Assi
 
 export type OverviewServicesTableSectionProps = {
   isEditMode: boolean;
+  serviceChangeIntent?: ServiceChangeIntent;
+  onServiceChangeIntentChange?: (intent: ServiceChangeIntent) => void;
   canEditAppointments?: boolean;
   canReassignPhotographer?: boolean;
   shoot: ShootData;
@@ -308,6 +312,9 @@ export function OverviewServicesTableSection(
           </tbody>
         </table>
       </div>}
+      {isEditMode && props.serviceChangeIntent && props.onServiceChangeIntentChange && !complimentary?.enabled && (
+        <div className="mt-2"><ServiceChangeIntentControl value={props.serviceChangeIntent} onChange={props.onServiceChangeIntentChange} /></div>
+      )}
       {isEditMode && (
         <ServiceSelectionDialog
           open={serviceDialogOpen}

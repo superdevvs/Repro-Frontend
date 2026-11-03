@@ -1,3 +1,4 @@
+import { getShootDisplayStatus, getShootOperationalDate, getShootOperationalTime, hasActiveShootWork } from '@/utils/activeShootWork';
 import { canSendShootToEditing } from '@/utils/shootEditingEligibility';
 import { getShootPhotographerDisplayName } from '@/utils/shootPhotographerAssignments';
 import { getShootDetailsServiceNames } from '@/components/shoots/details/shootDetailsPresentation';
@@ -215,7 +216,9 @@ export const CompletedAlbumCard = ({
   const isPaid = paymentSummary.paymentStatus === 'paid'
   const balanceDue = paymentSummary.balance
   const hasPendingPayment = isClient && balanceDue > 0.01 && paymentSummary.paymentStatus !== 'paid'
-  const statusValue = shoot.workflowStatus ?? shoot.status ?? ''
+  const operationalTime = getShootOperationalTime(shoot);
+  const active = hasActiveShootWork(shoot);
+  const statusValue = getShootDisplayStatus(shoot)
   const statusLabel = formatWorkflowStatus(statusValue)
   const editingNotes = getEditingNotes(shoot.notes)
   const canShowEditingNotes = Boolean(editingNotes) && (isSuperAdmin || isAdmin || isEditingManager || isEditor)
@@ -248,6 +251,7 @@ export const CompletedAlbumCard = ({
             // Get status color based on status value
             const statusKey = statusValue.toLowerCase();
             const getStatusColor = () => {
+              if (statusKey === 'active') return 'bg-cyan-600 text-white';
               if (statusKey.includes('requested')) return 'bg-blue-500 text-white';
               if (statusKey.includes('scheduled') || statusKey.includes('booked')) return 'bg-blue-500 text-white';
               if (statusKey.includes('uploaded') || statusKey.includes('completed') || statusKey.includes('photos_uploaded') || statusKey.includes('raw_uploaded')) return 'bg-indigo-500 text-white';
@@ -397,12 +401,12 @@ export const CompletedAlbumCard = ({
           <div className="flex flex-col items-start gap-1 text-xs text-muted-foreground flex-shrink-0 min-[1180px]:items-end min-[1180px]:text-sm">
             <div className="flex items-center gap-2">
               <CalendarIcon className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
-              <span className="font-medium">{formatDisplayDateLocal(shoot.completedDate || shoot.scheduledDate, !shoot.completedDate)}</span>
+              <span className="font-medium">{formatDisplayDateLocal(active ? getShootOperationalDate(shoot) : shoot.completedDate || shoot.scheduledDate, active || !shoot.completedDate)}</span>
             </div>
-            {shoot.time && shoot.time !== 'TBD' && (
+            {operationalTime && operationalTime !== 'TBD' && (
               <div className="flex items-center gap-2">
                 <Clock className="h-3.5 w-3.5 min-[1180px]:h-4 min-[1180px]:w-4" />
-                <span className="font-medium">{formatTime(shoot.time)}</span>
+                <span className="font-medium">{formatTime(operationalTime)}</span>
               </div>
             )}
             {shoot.payment?.totalQuote && (isSuperAdmin || isAdmin) && (

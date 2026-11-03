@@ -1,3 +1,4 @@
+import { getShootDisplayStatus, normalizeActiveShootWork } from '@/utils/activeShootWork';
 import { format } from 'date-fns'
 import type { ShootActionRequestFields } from '@/utils/shootActionRequests'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
@@ -97,6 +98,7 @@ export const HISTORY_ALLOWED_ROLES = new Set([
 export const DEFAULT_GEO_CENTER = { lat: 39.8283, lng: -98.5795 }
 
 const STATUS_BADGE_CLASSES: Record<string, string> = {
+  active: 'bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800',
   requested: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-800',
   scheduled: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
   booked: 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800',
@@ -142,8 +144,9 @@ const currencyFormatter = new Intl.NumberFormat('en-US', {
 
 export const STATUS_FILTERS_BY_TAB: Record<ActiveOperationalTab, string[]> = {
   scheduled: ['scheduled', 'requested', 'booked'],
-  completed: ['uploaded', 'editing', 'review', 'qc', 'in_progress', 'raw_issue'],
+  completed: ['active', 'uploaded', 'editing', 'review', 'qc', 'in_progress', 'raw_issue'],
   editing: [
+    'active',
     'uploaded',
     'editing',
     'review',
@@ -218,6 +221,7 @@ export const isFeaturedTabShoot = (
 ) => isFeaturedShoot(shoot) || isFeaturedPendingShoot(shoot)
 
 export const EDITOR_ACTIVE_STATUS_KEYS = [
+  'active',
   'uploaded',
   'editing',
   'start_editing',
@@ -257,7 +261,7 @@ const normalizeStatusValue = (value: unknown) =>
 
 export const getOperationalStatusKey = (
   shoot: Pick<ShootData, 'workflowStatus' | 'status'>,
-) => normalizeStatusValue(shoot.workflowStatus || shoot.status)
+) => normalizeStatusValue(getShootDisplayStatus(shoot))
 
 export const isEditorActiveOperationalShoot = (
   shoot: Pick<ShootData, 'workflowStatus' | 'status'>,
@@ -665,6 +669,7 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     services: serviceValues,
     status: toStringValue(item.status ?? item.workflow_status),
     workflowStatus: toStringValue(item.workflow_status ?? item.workflowStatus ?? item.status),
+    ...normalizeActiveShootWork(item),
     notes: resolvedNotes as ShootData['notes'],
     payment: {
       totalQuote: paymentSummary.totalQuote,

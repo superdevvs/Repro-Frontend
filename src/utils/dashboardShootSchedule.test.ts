@@ -123,3 +123,19 @@ describe('dashboard booked schedule display', () => {
     expect(getDashboardShootStartInstantMs({})).toBeNull();
   });
 });
+
+
+describe('active work appointment clock', () => {
+  it('shows only the date when Active work is anchored to its added-at timestamp', () => {
+    const summary = { hasActiveWork: true, scheduledLocalDate: '2026-11-06', activeWorkTime: null,
+      startTime: '2026-11-06T13:47:00Z', timeLabel: null };
+    expect(getDashboardShootDisplayTime(summary)).toBeNull();
+    expect(formatDashboardShootSchedule(summary)).toBe('Nov 6');
+  });
+  it('uses the server-resolved outstanding appointment time when one exists', () => {
+    const summary = { hasActiveWork: true, scheduledLocalDate: '2026-11-04', activeWorkTime: '15:45',
+      startTime: '2026-11-04T20:45:00Z', timeLabel: '13:30' };
+    expect(getDashboardShootDisplayTime(summary)).toBe('15:45');
+    expect(formatDashboardShootSchedule(summary)).toBe('Nov 4 • 3:45 PM');
+  });
+});

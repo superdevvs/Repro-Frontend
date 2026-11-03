@@ -88,9 +88,11 @@ test('both shipped renderer build configurations keep the module-graph gate', ()
   }
 });
 
-test('audit still scans CJS/MJS runtime source and preserves the unrelated braces cutoff', () => {
+test('audit scans CJS/MJS runtime source and grants no exception for the withdrawn braces advisory', () => {
   const audit = readFileSync(new URL('scripts/audit-with-policy.mjs', root), 'utf8');
   assert.match(audit, /sourceExtensions[^\n]*'\.cjs'[^\n]*'\.mjs'/);
   assert.match(audit, /assertRuntimeSource\(path\.relative/);
-  assert.match(audit, /2026-11-03T00:00:00Z/);
+  assert.doesNotMatch(audit, /const buildOnlyAdvisory\s*=/);
+  assert.doesNotMatch(audit, /buildAllowed/);
+  assert.match(audit, /withdrawn upstream on 2026-10-23/);
 });

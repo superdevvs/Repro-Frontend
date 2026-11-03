@@ -30,6 +30,7 @@ export type TabType = string;
 
 export const STATUS_COLORS: Record<string, string> = {
   // Main statuses with distinct colors
+  active: 'bg-cyan-100 text-cyan-800 border-cyan-200 dark:bg-cyan-950/40 dark:text-cyan-300 dark:border-cyan-800',
   requested: 'bg-blue-100 text-blue-700 border-blue-300',
   scheduled: 'bg-blue-100 text-blue-700 border-blue-200',
   booked: 'bg-blue-100 text-blue-700 border-blue-200', // Alias for scheduled

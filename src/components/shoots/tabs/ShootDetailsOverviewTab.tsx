@@ -390,6 +390,8 @@ function ShootDetailsOverviewTabContent({
       serviceQuantities,
       serviceSchedules,
       serviceDialogOpen,
+      serviceChangeIntent,
+      hasNewServices,
       servicePanelCategory,
       serviceModalSearch,
       isCompServiceMode,
@@ -424,6 +426,7 @@ function ShootDetailsOverviewTabContent({
       setSelectedPhotographerIdEdit,
       setPerCategoryPhotographers,
       setServiceDialogOpen,
+      setServiceChangeIntent,
       setServicePanelCategory,
       setServiceModalSearch,
       setCompServiceMode,
@@ -911,6 +914,8 @@ function ShootDetailsOverviewTabContent({
         getReadonlyServiceDisplayPrice={getServiceDisplayPrice}
         formatServiceLabel={formatServiceLabel}
         serviceDialogOpen={serviceDialogOpen}
+        serviceChangeIntent={hasNewServices ? serviceChangeIntent : undefined}
+        onServiceChangeIntentChange={setServiceChangeIntent}
         setServiceDialogOpen={setServiceDialogOpen}
         serviceModalSearch={serviceModalSearch}
         setServiceModalSearch={setServiceModalSearch}

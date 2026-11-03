@@ -1,3 +1,4 @@
+import { getShootDisplayStatus, hasActiveShootWork } from '@/utils/activeShootWork';
 import React from "react";
 import { format, parseISO } from "date-fns";
 import { Calendar, CreditCard, Download, Ghost, Image as ImageIcon } from "lucide-react";
@@ -45,17 +46,19 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
   // it never drifts across browser timezones (the instant is kept only for sort).
   const scheduledLocalDate = summary.scheduledLocalDate ?? getShootLocalDate(data);
   const completedDate = data.completedDate ? parseISO(data.completedDate) : null;
-  const dateLabel = variant === "completed" && completedDate
+  const dateLabel = !hasActiveShootWork(data) && variant === "completed" && completedDate
     ? formatDate(completedDate)
     : scheduledLocalDate
       ? formatDate(scheduledLocalDate)
       : "Date TBD";
-  const timeLabel = formatTime(getDashboardShootDisplayTime({ ...summary, timeLabel: summary.timeLabel || data.time }) || (variant === "completed" ? "Delivered" : "Time TBD"));
+  const displayTime = getDashboardShootDisplayTime({ ...summary, timeLabel: summary.timeLabel || (hasActiveShootWork(data) ? null : data.time) });
+  const timeLabel = hasActiveShootWork(data) && !displayTime ? null
+    : formatTime(displayTime || (variant === "completed" ? "Delivered" : "Time TBD"));
   const serviceNames = getShootDetailsServiceNames(data);
   const services = serviceNames.length ? serviceNames : groupServiceItems(summary.services, service => service.label)
     .map(group => formatServiceCount(group.label, group.count));
   const instructions = getSpecialInstructions(data);
-  const statusLabel = formatWorkflowStatus(summary.workflowStatus || summary.status);
+  const statusLabel = formatWorkflowStatus(getShootDisplayStatus(summary));
   const weatherLabel = summary.temperature || "—";
   const photographerLabel = data.photographer?.name ? `${data.photographer.name}${data.photographer.avatar ? "" : ""}` : "Assigning";
 
@@ -119,7 +122,7 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
                 </h3>
                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                   <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
-                  <span>{dateLabel} &middot; {timeLabel}</span>
+                  <span>{dateLabel}{timeLabel ? <> &middot; {timeLabel}</> : null}</span>
                 </div>
               </div>
 
@@ -153,7 +156,7 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] sm:text-[11px] h-6 px-2.5 font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
-                  Delivered
+                  {hasActiveShootWork(data) ? 'Active' : 'Delivered'}
                 </Badge>
                 {data.isGhostVisibleForUser ? (
                   <Badge className="bg-slate-500/10 text-slate-600 border-slate-500/20 hover:bg-slate-500/15 text-[10px] sm:text-[11px] h-6 px-2.5 font-semibold">
@@ -202,7 +205,7 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
       <div className="flex flex-wrap items-start justify-between gap-3 sm:gap-4">
         <div className="flex-1 min-w-0">
           <p className="text-xs sm:text-sm text-muted-foreground">
-            {dateLabel} • {timeLabel}
+            {dateLabel}{timeLabel ? ` • ${timeLabel}` : ''}
           </p>
           <div
             role="button"

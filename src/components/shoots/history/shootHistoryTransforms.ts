@@ -1,3 +1,4 @@
+import { normalizeActiveShootWork } from '@/utils/activeShootWork';
 import { getStateFullName } from '@/utils/stateUtils'
 import { normalizeShootActionRequests } from '@/utils/shootActionRequests'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
@@ -567,7 +568,9 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
 
   return {
     id: String(shootId),
+    ...normalizeActiveShootWork(item),
     scheduledDate: toStringValue(item.scheduled_date ?? item.scheduledDate),
+    timezone: toOptionalString(item.timezone) ?? null,
     time: toStringValue(item.time, 'TBD'),
     propertySlug: toStringValue(item.property_slug ?? item.propertySlug),
     canViewVideoEditorContext: (item.can_view_video_editor_context ?? item.canViewVideoEditorContext) === true,
