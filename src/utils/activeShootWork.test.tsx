@@ -69,6 +69,21 @@ describe('additional work visibility', () => {
     expect(isAssignmentMatch(shoot, { id: '3' } as UserData, 'editor')).toBe(true);
   });
 
+  it.each([
+    ['pending', 'delivered', true],
+    ['delivered', 'not_started', true],
+    ['delivered', 'delivered', false],
+    ['cancelled', 'not_started', false],
+    ['pending', 'cancelled', false],
+  ] as const)('keeps Active assignments consistent for workflow=%s, delivery=%s', (workflow, delivery, expected) => {
+    const shoot = { ...mapShootApiToShootData(api), serviceItems: [{
+      service_id: '2', workflow_status: workflow, delivery_status: delivery,
+      photographer_id: '21', editor_id: '31', is_deliverable: true,
+    }] } as ShootData;
+    expect(isAssignmentMatch(shoot, { id: '21' } as UserData, 'photographer')).toBe(expected);
+    expect(isAssignmentMatch(shoot, { id: '31' } as UserData, 'editor')).toBe(expected);
+  });
+
   it('preserves the client delivered-service path while another service is unfinished', () => {
     const shoot = { ...mapShootApiToShootData(api), serviceItems: [
       { service_id: '43', name: 'Drone', is_deliverable: true, delivery_status: 'delivered',

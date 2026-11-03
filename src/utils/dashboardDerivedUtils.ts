@@ -756,8 +756,8 @@ export const isAssignmentMatch = (shoot: ShootData, user: UserData | null, role:
     return items.some(item => {
       const workflow = String(item.workflow_status ?? item.workflowStatus ?? '').toLowerCase();
       const delivery = String(item.delivery_status ?? item.deliveryStatus ?? '').toLowerCase();
-      if (item.is_deliverable === false || ['delivered', 'cancelled'].includes(workflow)
-        || ['delivered', 'cancelled'].includes(delivery)) return false;
+      if ((item.is_deliverable ?? item.isDeliverable) === false || workflow === 'cancelled' || delivery === 'cancelled'
+        || (workflow === 'delivered' && delivery === 'delivered')) return false;
       const person = role === 'photographer' ? item.photographer : item.editor;
       const assignedIds = role === 'photographer' ? [item.photographer_id, person?.id]
         : [item.editor_id, item.resolved_editor_id, person?.id, item.video_editor_id, item.videoEditorId];
