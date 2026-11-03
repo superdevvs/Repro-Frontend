@@ -94,6 +94,7 @@ export const useAdminDashboardMetrics = ({
   overviewStats = null,
   overviewLoading = false,
   holdRequestCount = 0,
+  aryeoRequestCount = 0,
   rescheduleRequestCount = 0,
   cancellationRequestCount,
   clientRequests,
@@ -109,6 +110,7 @@ export const useAdminDashboardMetrics = ({
   > | null;
   overviewLoading?: boolean;
   holdRequestCount?: number;
+  aryeoRequestCount?: number;
   rescheduleRequestCount?: number;
   cancellationRequestCount: number;
   clientRequests: DashboardClientRequest[];
@@ -124,8 +126,8 @@ export const useAdminDashboardMetrics = ({
     editingRequests,
   );
   const totalAdminPendingRequestCount = useMemo(
-    () => activeClientRequestCount + activeEditingRequestCount + cancellationRequestCount + holdRequestCount + rescheduleRequestCount,
-    [activeClientRequestCount, activeEditingRequestCount, cancellationRequestCount, holdRequestCount, rescheduleRequestCount],
+    () => activeClientRequestCount + activeEditingRequestCount + cancellationRequestCount + holdRequestCount + rescheduleRequestCount + aryeoRequestCount,
+    [activeClientRequestCount, activeEditingRequestCount, cancellationRequestCount, holdRequestCount, rescheduleRequestCount, aryeoRequestCount],
   );
 
   const monthStatValue = useCallback(

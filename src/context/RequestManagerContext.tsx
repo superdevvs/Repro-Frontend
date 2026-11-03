@@ -3,7 +3,7 @@ import { DashboardClientRequest } from '@/types/dashboard';
 
 type RequestManagerShootOpenResult = 'opened' | 'missing' | 'unhandled';
 
-export type RequestCategoryId = 'client' | 'editing' | 'cancellation' | 'hold' | 'reschedule' | 'overdue';
+export type RequestCategoryId = 'client' | 'editing' | 'cancellation' | 'hold' | 'reschedule' | 'overdue' | 'aryeo';
 export interface RequestManagerCategory {
   id: RequestCategoryId;
   label: string;

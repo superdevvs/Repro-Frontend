@@ -1,6 +1,7 @@
 import type { HoldRequestsState } from "@/features/dashboard/hooks/useHoldRequests";
 import type { RescheduleRequestsState } from "@/features/dashboard/hooks/useRescheduleRequests";
 import type { OverdueClientsState } from "@/features/dashboard/hooks/useOverdueClients";
+import type { AryeoRequestsState } from '@/features/dashboard/hooks/useAryeoRequests';
 import React, { Suspense, lazy, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, CheckCircle2, MessageCircle, Users } from "lucide-react";
@@ -42,6 +43,7 @@ const LazyCompletedShootsCard = lazy(() =>
 );
 
 interface SalesDashboardViewProps {
+  aryeoRequests?: AryeoRequestsState;
   overdueClients?: OverdueClientsState;
   availablePhotographerIds: number[];
   availabilityError: string | null;
@@ -86,6 +88,7 @@ interface SalesDashboardViewProps {
 }
 
 export const SalesDashboardView = ({
+  aryeoRequests,
   overdueClients,
   availablePhotographerIds,
   availabilityError,
@@ -133,10 +136,11 @@ export const SalesDashboardView = ({
     ['open', 'in-progress', 'in_progress'].includes(request.status),
   ).length;
   const pendingRequestCount = pendingReviews.length + clientRequestCount + cancellationShoots.length + studioRevisions.activeCount
-    + (holdRequests?.shoots.length ?? 0) + (rescheduleRequests?.pendingCount ?? 0) + (overdueClients?.total ?? 0);
+    + (holdRequests?.shoots.length ?? 0) + (rescheduleRequests?.pendingCount ?? 0) + (overdueClients?.total ?? 0) + (aryeoRequests?.pendingCount ?? 0);
   const salesRepRequestsCard = (
     <div id="requests-queue" data-onboarding-target="salesrep-requests">
       <PendingReviewsCard
+        aryeoRequests={aryeoRequests}
         overdueClients={overdueClients}
         reviews={pendingReviews}
         issues={[]}

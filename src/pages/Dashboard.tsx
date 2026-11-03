@@ -40,10 +40,7 @@ import { DevProfiler } from "@/features/dashboard/components/DevProfiler";
 import { useDashboardSections } from "@/features/dashboard/components/DashboardSections";
 import { resolveDashboardRoleState } from "@/features/dashboard/roleState";
 import { useAvailabilityWindow } from "@/features/dashboard/hooks/useAvailabilityWindow";
-import { useHoldRequests } from "@/features/dashboard/hooks/useHoldRequests";
-import { canViewOverdueClients, useOverdueClients } from "@/features/dashboard/hooks/useOverdueClients";
-import { useRescheduleRequests } from "@/features/dashboard/hooks/useRescheduleRequests";
-import { useRescheduleAccess } from "@/hooks/useRescheduleAccess";
+import { useDashboardRequestQueues } from '@/features/dashboard/hooks/useDashboardRequestQueues';
 import { useSchedulingPhotographers } from "@/features/dashboard/hooks/useSchedulingPhotographers";
 import { useCancellationRequests } from "@/features/dashboard/hooks/useCancellationRequests";
 import { useClientDashboardActions } from "@/features/dashboard/hooks/useClientDashboardActions";
@@ -428,19 +425,8 @@ const Dashboard = () => {
     toast,
   });
 
-  const holdRequests = useHoldRequests(
-    ["admin", "superadmin", "editing_manager", "salesRep"].includes(role),
-    `${role}:${user?.id ?? "guest"}`,
-  );
-  const { canReview: canReviewReschedules, viewerScope: rescheduleViewerScope } = useRescheduleAccess();
-  const rescheduleRequests = useRescheduleRequests(
-    canReviewReschedules,
-    rescheduleViewerScope,
-  );
-  const rescheduleRequestsForUi = canReviewReschedules ? rescheduleRequests : undefined;
-  const showOverdueClients = canViewOverdueClients(role);
-  const overdueClients = useOverdueClients(showOverdueClients, `${role}:${user?.id ?? "guest"}`);
-  const overdueClientsForUi = showOverdueClients ? overdueClients : undefined;
+  const { holdRequests, aryeoRequests, aryeoRequestsForUi, rescheduleRequests, rescheduleRequestsForUi, overdueClients, overdueClientsForUi } =
+    useDashboardRequestQueues(role, user?.id, canViewCurrentDashboard);
   const schedulingPhotographers = useSchedulingPhotographers(role === "salesRep", `${role}:${user?.id ?? "guest"}`);
 
   const openSupportEmail = useCallback(
@@ -495,6 +481,7 @@ const Dashboard = () => {
     overviewStats: data?.stats ?? null,
     overviewLoading: loading && !data,
     holdRequestCount: holdRequests.shoots.length,
+    aryeoRequestCount: aryeoRequests.pendingCount,
     rescheduleRequestCount: rescheduleRequests.pendingCount,
     cancellationRequestCount,
     clientRequests,
@@ -567,11 +554,12 @@ const Dashboard = () => {
     editingRequests.filter((request) => request.status !== 'completed').length + studioRevisions.activeCount +
     holdRequests.shoots.length +
     rescheduleRequests.pendingCount +
+    aryeoRequests.pendingCount +
     (Array.isArray(data?.pendingReviews) ? data.pendingReviews.length : 0);
   const adminRequestIndicatorCount =
     clientRequests.filter((request) => String(request.status ?? '').toLowerCase() !== 'dismissed').length +
     editingRequests.filter((request) => request.status !== 'completed').length + studioRevisions.activeCount +
-    cancellationShoots.length + holdRequests.shoots.length + rescheduleRequests.pendingCount + overdueClients.total;
+    cancellationShoots.length + holdRequests.shoots.length + rescheduleRequests.pendingCount + overdueClients.total + aryeoRequests.pendingCount;
 
   const [approvalModalShoot, setApprovalModalShoot] = useState<DashboardShootSummary | null>(null);
   const [declineModalShoot, setDeclineModalShoot] = useState<DashboardShootSummary | null>(null);
@@ -586,6 +574,7 @@ const Dashboard = () => {
     renderPipelineSection,
     renderShootsTabsCard,
   } = useDashboardSections({
+    aryeoRequests: aryeoRequestsForUi,
     holdRequests,
     rescheduleRequests: rescheduleRequestsForUi,
     overdueClients: overdueClientsForUi,
@@ -777,6 +766,7 @@ const Dashboard = () => {
       return (
         <Suspense fallback={<DashboardViewFallback />}>
           <SalesDashboardView
+            aryeoRequests={aryeoRequestsForUi}
             availablePhotographerIds={availablePhotographerIds}
             availabilityError={schedulingPhotographers.error?.message || availabilityError}
             availabilityLoading={schedulingPhotographers.isLoading || availabilityLoading}

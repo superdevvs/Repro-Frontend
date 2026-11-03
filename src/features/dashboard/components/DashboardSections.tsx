@@ -6,6 +6,7 @@ import React, { Suspense, lazy } from "react";
 import { cn } from "@/lib/utils";
 import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard";
 import { PendingReviewsCard } from "@/components/dashboard/v2/PendingReviewsCard";
+import type { AryeoRequestsState } from '@/features/dashboard/hooks/useAryeoRequests';
 import { UpcomingShootsCardSkeleton } from "@/components/dashboard/v2/UpcomingShootsCardSkeleton";
 import { PendingReviewsCardSkeleton } from "@/components/dashboard/v2/PendingReviewsCardSkeleton";
 import { CompletedShootsCardSkeleton } from "@/components/dashboard/v2/CompletedShootsCardSkeleton";
@@ -53,6 +54,7 @@ const LazyEditingRequestsCard = lazy(() =>
 type PipelineFilter = "today" | "this_week" | "month";
 
 interface DashboardSectionsParams {
+  aryeoRequests?: AryeoRequestsState;
   overdueClients?: OverdueClientsState;
   assignPhotographers: DashboardPhotographerSummary[];
   availablePhotographerIds: number[];
@@ -105,6 +107,7 @@ interface DashboardSectionsParams {
 }
 
 export const useDashboardSections = ({
+  aryeoRequests,
   overdueClients,
   assignPhotographers,
   availablePhotographerIds,
@@ -195,6 +198,8 @@ export const useDashboardSections = ({
     ) : (
       <div id="requests-queue">
         <PendingReviewsCard
+          aryeoRequests={aryeoRequests}
+          canManageAryeo={isAdminExperience}
           overdueClients={overdueClients}
           reviews={pendingReviews}
           issues={[]}

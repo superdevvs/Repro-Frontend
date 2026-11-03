@@ -7,7 +7,7 @@ import { ClientRequestManagerContent } from './ClientRequestManagerContent';
 import { EditingRequestsContent } from './EditingRequestsContent';
 import { useStudioRevisionRequests } from '@/context/studioRevisionRequestsState';
 
-const icons = { client: MessageSquare, editing: Pencil, cancellation: XCircle, hold: PauseCircle, reschedule: CalendarClock, overdue: CircleAlert };
+const icons = { client: MessageSquare, editing: Pencil, cancellation: XCircle, hold: PauseCircle, reschedule: CalendarClock, overdue: CircleAlert, aryeo: Inbox };
 const descriptions: Record<RequestCategoryId, string> = {
   client: 'Review client feedback and follow each request through to resolution.',
   editing: 'Review editing requests and open their full brief to coordinate the team.',
@@ -15,6 +15,7 @@ const descriptions: Record<RequestCategoryId, string> = {
   hold: 'Review requested holds and choose who should receive an update.',
   reschedule: 'Review schedule changes. Expand a request to see its reason and decision history.',
   overdue: 'Review outstanding balances and expand a client to see their overdue shoots.',
+  aryeo: 'New Aryeo requests appear automatically. Review matching and open the shoot for delivery.',
 };
 
 export function RequestManagerModal() {

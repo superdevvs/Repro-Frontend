@@ -1,4 +1,6 @@
 import { HoldRequestsPanel } from './HoldRequestsPanel';
+import { AryeoRequestsPanel } from './AryeoRequestsPanel';
+import type { AryeoRequestsState } from '@/features/dashboard/hooks/useAryeoRequests';
 import { RescheduleRequestsPanel } from './RescheduleRequestsPanel';
 import { OverdueClientsPanel } from './OverdueClientsPanel';
 import type { OverdueClientsState } from '@/features/dashboard/hooks/useOverdueClients';
@@ -22,11 +24,13 @@ import { API_BASE_URL } from '@/config/env';
 import { useToast } from '@/hooks/use-toast';
 import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 
-type RequestsTab = 'client' | 'editing' | 'cancellation' | 'hold' | 'reschedule' | 'overdue';
+type RequestsTab = 'client' | 'editing' | 'cancellation' | 'hold' | 'reschedule' | 'overdue' | 'aryeo';
 
 export type CancellationShootItem = DashboardCancellationItem;
 
 interface PendingReviewsCardProps {
+  aryeoRequests?: AryeoRequestsState;
+  canManageAryeo?: boolean;
   managerMode?: boolean;
   initialCategory?: RequestsTab;
   overdueClients?: OverdueClientsState;
@@ -107,6 +111,8 @@ const isWithinResolvedGracePeriod = (request: DashboardClientRequest) => {
 
 export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo((props) => {
  const {
+  aryeoRequests,
+  canManageAryeo = false,
   managerMode = false,
   initialCategory = 'client',
   overdueClients,
@@ -239,13 +245,16 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
   if (overdueClients) {
     tabs.push({ id: 'overdue', label: 'Overdue', count: overdueClients.total });
   }
+  if (aryeoRequests) {
+    tabs.push({ id: 'aryeo', label: 'Aryeo', count: aryeoRequests.pendingCount });
+  }
 
   const contentRef = useRef<(category: RequestsTab) => React.ReactNode>(() => null);
   contentRef.current = (category) => <PendingReviewsCard {...props} managerMode initialCategory={category} />;
   const clientRequestsRef = useRef(clientRequests);
   clientRequestsRef.current = clientRequests;
   const categorySignature = tabs.map(({ id, label, count }) => `${id}:${label}:${count}`).join('|');
-  const contentSignature = JSON.stringify([clientRequests, editingRequests, editingRequestsLoading, clientRequestsLoading, cancellationShoots, issues, holdRequests?.shoots, holdRequests?.loading, holdRequests?.error, holdRequests?.actioning, rescheduleRequests?.requests, rescheduleRequests?.loading, rescheduleRequests?.error, rescheduleRequests?.actioning, overdueClients?.clients, overdueClients?.page, overdueClients?.loading, overdueClients?.error]);
+  const contentSignature = JSON.stringify([aryeoRequests, clientRequests, editingRequests, editingRequestsLoading, clientRequestsLoading, cancellationShoots, issues, holdRequests?.shoots, holdRequests?.loading, holdRequests?.error, holdRequests?.actioning, rescheduleRequests?.requests, rescheduleRequests?.loading, rescheduleRequests?.error, rescheduleRequests?.actioning, overdueClients?.clients, overdueClients?.page, overdueClients?.loading, overdueClients?.error]);
   useEffect(() => {
     if (managerMode || !registerCategories) return;
     const categories = categorySignature.split('|').map((entry) => {
@@ -342,6 +351,7 @@ export const PendingReviewsCard: React.FC<PendingReviewsCardProps> = React.memo(
 
         {showContent && (
           <>
+            {activeTab === 'aryeo' && aryeoRequests && <AryeoRequestsPanel requests={aryeoRequests} canManage={canManageAryeo} />}
             {activeTab === 'overdue' && overdueClients && <OverdueClientsPanel overdue={overdueClients} />}
 
             {activeTab === 'hold' && holdRequests && <HoldRequestsPanel requests={holdRequests} />}
