@@ -201,3 +201,61 @@ test('Everywhere opens complete results and preserves the selected result type',
   await expect(page).toHaveURL(/search=Different/);
   await expect(page).not.toHaveURL(/page=2/);
 });
+
+for (const width of [1440, 390]) for (const theme of ['light', 'dark']) test(`Search speed: animated results at ${width}px in ${theme}`, async ({ page, baseURL }) => {
+  await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+  await fixture(page, baseURL);
+  await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/search?**', async route => {
+    await pending;
+    await route.fulfill({ json: { groups: [{ scope: 'shoots', label: 'Shoots', hasMore: false, results: [{ type: 'shoots', id: '1447', title: 'Shoot #1447', subtitle: '1447 Main Street', destination: '/shoots/1447' }] }] } });
+  });
+  await page.goto('/search?search=1447');
+  await expect(page.getByRole('status')).toContainText('Searching your workspaces');
+  await expect(page.locator('.search-progress-track > div')).toHaveCSS('animation-name', 'search-progress-travel');
+  await page.screenshot({ path: path.join(output, `search-loading-${width}-${theme}.png`) });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await expect(page.locator('.search-progress-track > div')).toHaveCSS('animation-name', 'none');
+  release();
+  await expect(page.getByRole('link', { name: 'Shoot #1447 1447 Main Street' })).toBeVisible();
+  await expect(page.locator('.search-progress')).toHaveCount(0);
+});
+
+test('Search speed: panel and full page reuse a request and recent searches rerun', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page, baseURL);
+  await page.addInitScript(() => localStorage.setItem('theme', 'dark'));
+  let calls = 0;
+  let release!: () => void;
+  const pending = new Promise<void>(resolve => { release = resolve; });
+  await page.route('**/api/search?**', async route => {
+    calls++;
+    await pending;
+    await route.fulfill({ json: { groups: [{ scope: 'shoots', label: 'Shoots', hasMore: false, results: [{ type: 'shoots', id: '1447', title: 'Shoot #1447', subtitle: '1447 Main Street', destination: '/shoots/1447' }] }] } });
+  });
+  await page.goto('/accounts');
+  await page.getByRole('searchbox', { name: 'Search Accounts', exact: true }).click();
+  await page.getByRole('button', { name: 'Everywhere', exact: true }).click();
+  await page.getByRole('combobox').fill('1447');
+  await expect(page.getByRole('status')).toContainText('Searching');
+  await page.screenshot({ path: path.join(output, 'search-panel-loading-mobile-dark.png') });
+  release();
+  await expect(page.getByRole('button', { name: 'Preview Shoot #1447' })).toBeVisible();
+  await page.getByText('Show all matches', { exact: true }).click();
+  await expect(page.getByRole('link', { name: 'Shoot #1447 1447 Main Street' })).toBeVisible();
+  expect(calls).toBe(1);
+  await page.getByRole('searchbox', { name: 'Search Everywhere', exact: true }).click();
+  await page.getByRole('button', { name: 'Clear search', exact: true }).click();
+  const recent = page.getByRole('region', { name: 'Recent searches' }).last();
+  await expect(recent).toContainText('1447');
+  await page.screenshot({ path: path.join(output, 'search-recent-mobile-dark.png') });
+  await recent.getByRole('option', { name: 'Search again for 1447 in Everywhere' }).click();
+  await expect(page.getByRole('button', { name: 'Preview Shoot #1447' })).toBeVisible();
+  expect(calls).toBe(1);
+  await page.getByRole('button', { name: 'Clear search', exact: true }).click();
+  await recent.getByRole('button', { name: 'Remove 1447 from recent searches' }).click();
+  await expect(page.getByRole('dialog').getByRole('region', { name: 'Recent searches' })).toHaveCount(0);
+});

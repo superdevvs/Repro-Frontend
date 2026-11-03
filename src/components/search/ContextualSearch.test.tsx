@@ -45,7 +45,7 @@ function setup(initial = '/accounts?role=client') {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
   return render(<QueryClientProvider client={client}><MemoryRouter initialEntries={[initial]}><ContextualSearchProvider><Workspace /></ContextualSearchProvider></MemoryRouter></QueryClientProvider>);
 }
-afterEach(() => { cleanup(); vi.clearAllMocks(); });
+afterEach(() => { cleanup(); vi.clearAllMocks(); window.localStorage.clear(); });
 
 describe('contextual header and page integration', () => {
   it('live filters the page, preserves its filters, and restores results when cleared', async () => {
@@ -89,6 +89,33 @@ describe('contextual header and page integration', () => {
     await screen.findByPlaceholderText('Search accounts…');
     await waitFor(() => expect(screen.getByTestId('page-query').textContent).toBe('Acme'));
     expect(screen.getByTestId('location').textContent).toContain('account=42');
+  });
+
+  it('shows local matches immediately and only remembers a committed search', async () => {
+    const user = userEvent.setup(); setup();
+    await user.type(await screen.findByPlaceholderText('Search accounts…'), 'Acme');
+    expect(screen.getByRole('button', { name: 'Preview Acme Agent' })).toBeTruthy();
+    expect(screen.queryByText('Searching…')).toBeNull();
+    expect(window.localStorage.length).toBe(0);
+    await user.click(screen.getByRole('option', { name: 'Show matches in Accounts' }));
+    await user.click(screen.getByRole('button', { name: 'Open search' }));
+    await user.click(screen.getByRole('button', { name: 'Clear search' }));
+    expect(screen.getByRole('region', { name: 'Recent searches' })).toBeTruthy();
+    await user.click(screen.getByRole('option', { name: 'Search again for Acme in Accounts' }));
+    expect(screen.getByTestId('page-query').textContent).toBe('Acme');
+  });
+
+  it('does not rerun the selected recent search when its remove button is activated with Enter', async () => {
+    const user = userEvent.setup(); setup();
+    await user.type(await screen.findByPlaceholderText('Search accounts…'), 'Acme');
+    await user.click(screen.getByRole('option', { name: 'Show matches in Accounts' }));
+    await user.click(screen.getByRole('button', { name: 'Open search' }));
+    await user.click(screen.getByRole('button', { name: 'Clear search' }));
+    screen.getByRole('button', { name: 'Remove Acme from recent searches' }).focus();
+    await user.keyboard('{Enter}');
+    expect(screen.queryByRole('region', { name: 'Recent searches' })).toBeNull();
+    expect(screen.getByTestId('page-query').textContent).toBe('');
+    expect(screen.getByPlaceholderText('Search accounts…')).toBeTruthy();
   });
 
   it('retains legacy inputs while the feature is disabled', async () => {

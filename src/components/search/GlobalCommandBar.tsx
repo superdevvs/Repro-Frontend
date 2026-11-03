@@ -10,6 +10,10 @@ import { LegacyGlobalCommandBar } from './LegacyGlobalCommandBar';
 import { useContextualSearch } from './searchContext';
 import { searchNavigation } from './searchNavigation';
 import { searchResultState } from './searchResultState';
+import { contextualSearchQueryOptions } from './searchQueryOptions';
+import { SearchProgress } from './SearchProgress';
+import { RecentSearches } from './RecentSearches';
+import { useRecentSearches, type RecentSearchEntry } from './useRecentSearches';
 import type { SearchResult } from './searchTypes';
 
 export function GlobalCommandBar(props: { open: boolean; onOpenChange: (open: boolean) => void }) {
@@ -19,6 +23,7 @@ export function GlobalCommandBar(props: { open: boolean; onOpenChange: (open: bo
 
 function ContextualCommandBar({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const search = useContextualSearch()!;
+  const recent = useRecentSearches(search.identity);
   const navigate = useNavigate();
   const [everywhere, setEverywhere] = useState(false);
   const [globalQuery, setGlobalQuery] = useState('');
@@ -29,7 +34,7 @@ function ContextualCommandBar({ open, onOpenChange }: { open: boolean; onOpenCha
   const isGlobal = everywhere || !current || pageGlobal;
   const query = isGlobal && !pageGlobal ? globalQuery : current!.query;
   const [debounced, setDebounced] = useState(query.trim());
-  useEffect(() => { const timer = window.setTimeout(() => setDebounced(query.trim()), 250); return () => clearTimeout(timer); }, [query]);
+  useEffect(() => { const timer = window.setTimeout(() => setDebounced(query.trim()), 150); return () => clearTimeout(timer); }, [query]);
   useEffect(() => { setPreview(null); }, [query, current?.id, isGlobal]);
   useEffect(() => { setPreview(null); setGlobalQuery(''); setEverywhere(false); }, [search.identity]);
   useEffect(() => { if (!open) setEverywhere(false); }, [open]);
@@ -45,30 +50,41 @@ function ContextualCommandBar({ open, onOpenChange }: { open: boolean; onOpenCha
   const filters = isGlobal ? {} : current.filters ?? {};
   const local = !isGlobal && current.results !== undefined;
   const results = useQuery({
-    queryKey: ['contextual-search', search.identity, scope, debounced, filters],
-    queryFn: ({ signal }) => contextualSearch.search(scope, debounced, filters, 1, signal),
+    ...contextualSearchQueryOptions(search.identity, scope, query, filters),
     enabled: open && !!debounced && query.trim() === debounced && !local,
-    staleTime: 0, retry: false,
   });
   const detail = useQuery({
-    queryKey: ['contextual-search-preview', search.identity, preview?.type, preview?.id, debounced, filters],
-    queryFn: ({ signal }) => contextualSearch.preview(preview!.type, preview!.id, debounced, filters, signal),
+    queryKey: ['contextual-search-preview', search.identity, preview?.type, preview?.id, query.trim(), filters],
+    queryFn: ({ signal }) => contextualSearch.preview(preview!.type, preview!.id, query.trim(), filters, signal),
     enabled: !!preview && (!local || preview.type === 'accounts') && preview.type !== 'navigation', retry: false, staleTime: 0,
   });
   const navigation = searchNavigation(search.scopes, query).slice(0, 6);
   const groups = local ? [{ scope, label: current.label, results: current.results!.slice(0, 8), hasMore: current.results!.length > 8, error: undefined }]
-    : query.trim() === debounced ? results.data?.groups ?? [] : [];
-  const busy = !!query.trim() && (query.trim() !== debounced || (local ? current.loading : results.isFetching));
+    : results.data?.groups ?? [];
+  const busy = !!query.trim() && (local ? current.loading : !results.data && (query.trim() !== debounced || results.isFetching));
   const failed = local ? current.error : results.isError;
   const setQuery = (value: string) => isGlobal && !pageGlobal ? setGlobalQuery(value.slice(0, 200)) : search.setQuery(value);
   const openResult = (result: SearchResult) => {
+    if (result.type !== 'navigation') recent.remember(query, scope, isGlobal ? 'Everywhere' : current.label);
     onOpenChange(false);
     if (!isGlobal && result.type !== 'navigation' && current.onResultOpen) current.onResultOpen(result);
     else navigate(result.destination, { state: searchResultState(result) });
   };
   const showAll = (type?: string) => {
+    recent.remember(query, type ?? scope, type ? search.scopes.find(item => item.id === type)?.label ?? type : isGlobal ? 'Everywhere' : current.label);
     if (isGlobal) { onOpenChange(false); navigate(`/search?search=${encodeURIComponent(query)}${type ? `&scope=${encodeURIComponent(type)}` : ''}`); }
     else { onOpenChange(false); requestAnimationFrame(() => document.querySelector<HTMLElement>('main')?.focus()); }
+  };
+  const repeatSearch = (entry: RecentSearchEntry) => {
+    recent.remember(entry.query, entry.scope, entry.label);
+    if (current && !pageGlobal && entry.scope === current.scope) {
+      setEverywhere(false);
+      search.setQuery(entry.query);
+    } else if (entry.scope !== 'everywhere' && search.scopes.some(item => item.id === entry.scope && !item.local)) {
+      onOpenChange(false);
+      navigate(`/search?search=${encodeURIComponent(entry.query)}&scope=${encodeURIComponent(entry.scope)}`);
+    } else if (pageGlobal) search.setQuery(entry.query);
+    else { setEverywhere(true); setGlobalQuery(entry.query); }
   };
   const expanded = detail.data ?? preview;
   return <><Dialog open={open} onOpenChange={onOpenChange}>
@@ -82,11 +98,12 @@ function ContextualCommandBar({ open, onOpenChange }: { open: boolean; onOpenCha
       </div>
       {!isGlobal && Object.keys(filters).length > 0 && <p className="border-b px-4 py-2 text-xs text-muted-foreground">Current page filters apply. Use Everywhere to search other workspaces.</p>}
       <Command shouldFilter={false} className="min-h-0 flex-1">
-        <div className="relative"><CommandInput placeholder={`Search ${isGlobal ? 'everywhere' : current.label.toLowerCase()}…`} value={query} onValueChange={setQuery} maxLength={200} autoFocus />{query && <button className="absolute right-3 top-3" aria-label="Clear search" onClick={() => setQuery('')}><X className="h-4 w-4" /></button>}</div>
-        <CommandList className="max-h-none flex-1 overflow-y-auto sm:max-h-[50dvh]">
-          {busy && <p role="status" className="p-4 text-sm text-muted-foreground">Searching…</p>}
+        <div className="relative"><CommandInput className="pr-10" placeholder={`Search ${isGlobal ? 'everywhere' : current.label.toLowerCase()}…`} value={query} onValueChange={setQuery} maxLength={200} autoFocus />{query && <button className="absolute right-1 top-0 flex h-11 w-11 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:ring-ring" aria-label="Clear search" onKeyDown={event => event.stopPropagation()} onClick={() => setQuery('')}><X className="h-4 w-4" /></button>}</div>
+        <CommandList aria-busy={Boolean(busy)} className="max-h-none flex-1 overflow-y-auto sm:max-h-[50dvh]">
+          {busy && <SearchProgress compact />}
           {failed && <div role="alert" className="p-4 text-sm">Search could not load. {local ? 'Refresh the page to retry.' : <button className="underline" onClick={() => void results.refetch()}>Retry</button>}</div>}
           {!!query.trim() && <CommandGroup><CommandItem value="show-all-results" onSelect={() => showAll()}><Search className="mr-2 h-4 w-4" />{isGlobal ? 'Show all matches' : `Show matches in ${current.label}`}</CommandItem></CommandGroup>}
+          {!query.trim() && <RecentSearches command entries={recent.entries} onSelect={repeatSearch} onRemove={recent.remove} onClear={recent.clear} />}
           {!busy && groups.map(group => <CommandGroup key={group.scope} heading={group.label}>
             {group.error && <p role="alert" className="px-2 py-3 text-sm text-muted-foreground">This workspace could not be searched. Other results are available.</p>}
             {group.results.map(result => <CommandItem key={`${result.type}:${result.id}`} value={`${result.type}:${result.id}`} onSelect={() => openResult(result)} className="gap-3 py-3">
@@ -95,7 +112,7 @@ function ContextualCommandBar({ open, onOpenChange }: { open: boolean; onOpenCha
             </CommandItem>)}
             {group.hasMore && <CommandItem value={`more:${group.scope}`} onSelect={() => showAll(group.scope)}>Show more {group.label.toLowerCase()} matches</CommandItem>}
           </CommandGroup>)}
-          {!busy && !failed && query.trim() && !groups.some(group => group.results.length || group.error) && <p role="status" className="p-4 text-sm text-muted-foreground">No matches {isGlobal ? 'in your permitted workspaces' : 'with the current page filters'}.</p>}
+          {!busy && !failed && query.trim() && (local || results.data) && !groups.some(group => group.results.length || group.error) && <p role="status" className="p-4 text-sm text-muted-foreground">No matches {isGlobal ? 'in your permitted workspaces' : 'with the current page filters'}.</p>}
           {navigation.length > 0 && <CommandGroup heading="Pages and sections">{navigation.map(result => <CommandItem key={result.id} value={`navigation:${result.id}`} onSelect={() => openResult(result)}>{result.title}</CommandItem>)}</CommandGroup>}
         </CommandList>
       </Command>

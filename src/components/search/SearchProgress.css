@@ -1,0 +1,15 @@
+.search-progress-icon { animation: search-progress-glow 2s ease-in-out infinite; }
+.search-progress-lens { animation: search-progress-scan 2.4s ease-in-out infinite; }
+.search-progress-track > div { animation: search-progress-travel 1.6s ease-in-out infinite; }
+.search-progress-placeholder { animation: search-progress-breathe 1.8s ease-in-out infinite; }
+.search-progress-dots i { width: 4px; height: 4px; border-radius: 50%; background: hsl(var(--primary)); animation: search-progress-breathe 1.2s ease-in-out infinite; }
+.search-progress-dots i:nth-child(2) { animation-delay: .15s; }
+.search-progress-dots i:nth-child(3) { animation-delay: .3s; }
+@keyframes search-progress-glow { 0%, 100% { box-shadow: 0 0 0 0 hsl(var(--primary) / 0); } 50% { box-shadow: 0 0 0 5px hsl(var(--primary) / .07); } }
+@keyframes search-progress-scan { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(1.5px, -1.5px); } 65% { transform: translate(-1.5px, 1px); } }
+@keyframes search-progress-travel { 0% { transform: translateX(-110%); } 100% { transform: translateX(410%); } }
+@keyframes search-progress-breathe { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .search-progress *, .search-progress-icon, .search-progress-lens { animation: none !important; }
+  .search-progress-track > div { width: 100%; opacity: .45; }
+}
