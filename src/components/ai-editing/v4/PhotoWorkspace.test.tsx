@@ -16,6 +16,23 @@ const makeProps = (): V4WorkspaceProps => ({
 beforeEach(() => { vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(null); });
 afterEach(() => { cleanup(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 describe('photo generation scope and selected versions', () => {
+  it('shows saved and awaiting photos separately and resumes the accepted recipe', async () => {
+    const props = makeProps();
+    props.workspace.media.push({ id: 'b', name: 'Interior', kind: 'image', url: '/b.jpg', thumbnailUrl: '/b-thumb.jpg' });
+    props.workspace.config.frames.push({ mediaId: 'b', duration: 5, method: 'fit' });
+    props.workspace.status = 'failed';
+    props.workspace.operationReceipt = { id: 'operation', type: 'generate', requestId: 'existing-request' };
+    props.workspace.outputs = [{ id: 'a-v1', mediaId: 'a', version: 1, status: 'completed', kind: 'image', url: '/edited.jpg', thumbnailUrl: '/edited-thumb.jpg' }];
+    const { container } = render(<PhotoWorkspace {...props} />);
+    expect(screen.getByRole('button', { name: 'Needs review 1' })).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Awaiting edit 1' }));
+    expect(screen.getByRole('button', { name: 'Open Interior' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Open Exterior' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'All 2' }));
+    expect(container.querySelector('.v4-media-card img')).toHaveAttribute('src', '/edited-thumb.jpg');
+    fireEvent.click(screen.getByRole('button', { name: 'Resume remaining photos' }));
+    await waitFor(() => expect(props.onGenerate).toHaveBeenCalledWith(props.workspace.config));
+  });
   it('opens custom instructions on demand and preserves drafts through closing and failed refinement', async () => {
     const props = makeProps();
     props.workspace.outputs = [{ id: 'a-v1', mediaId: 'a', version: 1, status: 'completed', kind: 'image', url: '/edited.jpg' }];

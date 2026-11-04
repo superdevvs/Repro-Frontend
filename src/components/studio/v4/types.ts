@@ -20,6 +20,7 @@ export interface V4Workspace {
   version?: number;
   generation?: { phase: 'submitting' | 'generating' | 'rendering'; total: number; submitted: number; completed: number } | null;
   generationScope?: { mediaIds: string[] | null; completedMediaIds: string[] } | null;
+  operationReceipt?: { id: string; type: string | null; requestId: string | null } | null;
   id: string; name: string; presetId: string; media: V4Media[]; config: V4Config;
   status: 'draft' | 'preparing' | 'ready' | 'generating' | 'completed' | 'failed' | 'cancelled';
   progress: number | null; error: string | null; outputs: V4Output[]; preparedFrames: V4PreparedFrame[];

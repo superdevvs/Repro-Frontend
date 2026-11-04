@@ -28,6 +28,23 @@ describe('Studio shoot picker', () => {
   const photo = (id: number, overrides: Partial<SourceMedia> = {}): SourceMedia => ({ id, shootId: 42, filename: `IMG${id}.CR3`, mimeType: 'image/x-canon-cr3', mediaType: 'raw', fileSize: 1024, workflowStage: 'todo', workflow: 'photo-enhancement', previewUrl: `/preview/${id}`, thumbnailUrl: `/thumb/${id}`, bracketGroup: 1, sequence: id, shootServiceId: 10, ...overrides });
   const merged = { id: 'hdr:one', stackFileIds: [1, 2, 3], shootId: 42, name: 'IMG1-HDR.jpg', kind: 'image' as const, url: '/hdr/one', thumbnailUrl: '/hdr/one' };
 
+  it('includes the complete original shoot without merging or selecting individual photos', async () => {
+    sources.getShootMedia.mockResolvedValue([photo(1), photo(2), photo(3), photo(4, { workflowStage: 'completed', mediaType: 'image' })]);
+    const initial = { ...props(), preset: findPreset('full-shoot') };
+    render(<MediaPicker {...initial} initialShoot={shoot} />);
+    expect(await screen.findByText('The complete shoot is included')).toBeVisible();
+    await waitFor(() => expect(screen.getByText('3 included')).toBeVisible());
+    expect(sources.mergeHdr).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Select all' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tablist', { name: 'Photo source' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Use full shoot' }));
+    expect(initial.onSelect).toHaveBeenCalledWith([
+      expect.objectContaining({ id: 'file:1', fileId: 1, kind: 'raw' }),
+      expect.objectContaining({ id: 'file:2', fileId: 2, kind: 'raw' }),
+      expect.objectContaining({ id: 'file:3', fileId: 3, kind: 'raw' }),
+    ], shoot.address);
+  });
+
   it('combines shoot context, source tabs, and actions in one header without a sidebar or descriptions', async () => {
     sources.getShootMedia.mockResolvedValue([photo(1, { stackingEnabled: false })]);
     render(<MediaPicker {...props()} initialShoot={shoot} />);

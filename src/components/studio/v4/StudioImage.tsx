@@ -64,7 +64,7 @@ function release(src: string, entry: CachedImage) {
 }
 
 /** Authenticated source files use a short-lived object URL; credentials never enter URLs. */
-export const StudioImage = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLImageElement>>(function StudioImage({ src = '', onLoad, loading = 'lazy', ...props }, ref) {
+export const StudioImage = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLImageElement>>(function StudioImage({ src = '', onLoad, onError, loading = 'lazy', ...props }, ref) {
   const { user, role, originalUser, isImpersonating } = useAuth();
   const scope = `${localStorage.getItem('authToken') || localStorage.getItem('token') || ''}:${user?.id || ''}:${role}:${isImpersonating ? originalUser?.id : ''}`;
   const protectedImage = isProtectedStudioImage(src);
@@ -72,8 +72,9 @@ export const StudioImage = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLIm
   const [failed, setFailed] = useState(false);
   const [inView, setInView] = useState(loading === 'eager');
   const element = useRef<HTMLImageElement | null>(null);
+  useEffect(() => { setFailed(false); }, [src]);
   useEffect(() => {
-    if (loading === 'eager' || !('IntersectionObserver' in window)) { setInView(true); return; }
+    if (loading === 'eager' || typeof IntersectionObserver !== 'function') { setInView(true); return; }
     const observer = new IntersectionObserver(entries => { if (entries.some(entry => entry.isIntersecting)) { setInView(true); observer.disconnect(); } }, { rootMargin: '200px' });
     if (element.current) observer.observe(element.current);
     return () => observer.disconnect();
@@ -87,5 +88,5 @@ export const StudioImage = forwardRef<HTMLImageElement, ImgHTMLAttributes<HTMLIm
   }, [src, protectedImage, scope, inView]);
   const cached = resolved?.source === src && resolved.scope === scope;
   const ready = !protectedImage || cached;
-  return <img {...props} loading={loading} decoding="async" data-preview-state={failed ? 'failed' : ready ? 'ready' : 'loading'} ref={node => { element.current = node; if (typeof ref === 'function') ref(node); else if (ref) ref.current = node; }} src={protectedImage ? cached ? resolved.url : failed ? unavailableImage : emptyImage : src || emptyImage} aria-busy={!ready && !failed} title={failed ? 'Preview unavailable. Try refreshing the workspace.' : props.title} onLoad={ready ? onLoad : undefined} />;
+  return <img {...props} loading={inView ? 'eager' : loading} decoding="async" data-preview-state={failed ? 'failed' : ready ? 'ready' : 'loading'} ref={node => { element.current = node; if (typeof ref === 'function') ref(node); else if (ref) ref.current = node; }} src={failed ? unavailableImage : protectedImage ? cached ? resolved.url : emptyImage : src || emptyImage} aria-busy={!ready && !failed} title={failed ? 'Preview unavailable. Try refreshing the workspace.' : props.title} onLoad={ready ? onLoad : undefined} onError={event => { if (!failed) { setFailed(true); onError?.(event); } }} />;
 });
