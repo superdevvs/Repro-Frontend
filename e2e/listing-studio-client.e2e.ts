@@ -67,6 +67,12 @@ for (const viewport of [{ width: 1728, height: 1117 }, { width: 1440, height: 90
     await expect(page.getByTestId('before-after-control')).toHaveValue('50');
     await expect.poll(() => page.locator('.v4-photo-image-frame > img').evaluate((n: HTMLImageElement) => n.naturalWidth > 1 && n.getBoundingClientRect().height > 120 && n.getBoundingClientRect().width > 200)).toBe(true);
     await noOverflow(page); await capture(page, `result-${viewport.width}`);
+    if (viewport.width < 768) {
+      await page.getByRole('button', { name: 'Edit settings', exact: true }).click();
+      await expect(page.getByRole('dialog').getByRole('region', { name: 'Included AI revisions' })).toBeVisible();
+      await expect(page.getByRole('dialog').getByRole('textbox', { name: 'What would you like to change?' })).toBeEnabled();
+      await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click();
+    }
     expect(state.requests.filter(r => r.method !== 'GET')).toEqual([]);
   });
 }
