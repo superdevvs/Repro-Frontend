@@ -53,7 +53,7 @@ for (const plan of ['Starter', 'Pro', 'Studio']) {
     expect(checkouts[0].key).toMatch(/^[0-9a-f-]{36}$/);
   });
 }
-for (const width of [1440, 390]) {
+for (const width of [1440, 390, 320]) {
   test(`visible plans, recovery and authoritative subscription return at ${width}px`, async ({ page, baseURL }) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1050 });
     const state = await install(page, baseURL); await page.goto('/listing-studio/claim?checkout=returned');
@@ -74,6 +74,7 @@ for (const width of [1440, 390]) {
     await page.getByRole('button', { name: 'Retry plans' }).click();
     await expect(page.getByText('Your Pro plan is ready')).toBeVisible();
     await expect(page.getByText('Your subscription confirmation email has been sent.')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     await page.getByRole('button', { name: 'View monthly plans', exact: true }).click();
     await capture(page, `claim-active-${width}`);
     await page.getByRole('button', { name: 'Manage subscription & invoices', exact: true }).click();
