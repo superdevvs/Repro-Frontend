@@ -1,0 +1,29 @@
+.search-dialog.search-dialog {
+  left: calc(var(--shoot-vleft, 0px) + var(--shoot-vw, 100vw) / 2);
+  top: calc(var(--shoot-vtop, 0px) + var(--shoot-vh, 100dvh) / 2);
+  width: min(960px, calc(var(--shoot-vw, 100vw) - 48px));
+  max-width: none;
+  height: min(680px, calc(var(--shoot-vh, 100dvh) - 64px));
+  max-height: calc(var(--shoot-vh, 100dvh) - 64px);
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  border-radius: 24px;
+  box-shadow: 0 24px 80px rgb(0 0 0 / 30%);
+}
+
+.search-dialog.search-dialog[data-search-short='true'] {
+  height: calc(var(--shoot-vh, 100dvh) - 16px);
+  max-height: calc(var(--shoot-vh, 100dvh) - 16px);
+}
+
+.search-dialog.search-dialog[data-search-layout='phone'] {
+  width: var(--shoot-vw, 100vw);
+  height: var(--shoot-vh, 100dvh);
+  max-height: var(--shoot-vh, 100dvh);
+  border-radius: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .search-dialog.search-dialog { animation: none; }
+}

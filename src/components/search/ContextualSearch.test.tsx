@@ -18,6 +18,7 @@ vi.mock('@/services/contextualSearch', () => ({ contextualSearch: api }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: '1' }, role: 'admin', isAuthenticated: true }) }));
 vi.mock('@/hooks/usePermission', () => ({ usePermission: () => ({ permissionIds: ['accounts-view'] }) }));
 vi.mock('@/services/api', () => ({ getImpersonatedUserId: () => null }));
+vi.mock('./LegacyGlobalCommandBar', () => ({ LegacyGlobalCommandBar: ({ open }: { open: boolean }) => open ? <div role="dialog" aria-label="Commands">Command actions</div> : null }));
 
 Element.prototype.scrollIntoView = vi.fn();
 Element.prototype.hasPointerCapture = vi.fn(() => false);
@@ -75,12 +76,12 @@ describe('contextual header and page integration', () => {
   it('keeps an Everywhere query separate from the applied page filter', async () => {
     const user = userEvent.setup(); setup();
     await user.type(await screen.findByPlaceholderText('Search accounts…'), 'Acme');
-    await user.click(screen.getByRole('button', { name: 'Everywhere' }));
+    await user.click(screen.getByRole('tab', { name: 'All' }));
     const global = await screen.findByPlaceholderText('Search everywhere…');
     await user.clear(global); await user.type(global, 'Lane');
     expect(screen.getByTestId('page-query').textContent).toBe('Acme');
     await waitFor(() => expect(api.search).toHaveBeenCalledWith('everywhere', 'Lane', {}, 1, expect.any(AbortSignal)));
-    await user.click(screen.getByRole('button', { name: 'Search Accounts' }));
+    await user.click(screen.getByRole('tab', { name: 'This page' }));
     expect((screen.getByPlaceholderText('Search accounts…') as HTMLInputElement).value).toBe('Acme');
   });
 
@@ -89,6 +90,35 @@ describe('contextual header and page integration', () => {
     await screen.findByPlaceholderText('Search accounts…');
     await waitFor(() => expect(screen.getByTestId('page-query').textContent).toBe('Acme'));
     expect(screen.getByTestId('location').textContent).toContain('account=42');
+  });
+
+  it('opens Commands with Enter without activating the highlighted search result', async () => {
+    const user = userEvent.setup(); setup();
+    await user.type(await screen.findByPlaceholderText('Search accounts…'), 'Acme');
+    screen.getByRole('button', { name: 'Commands' }).focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('dialog', { name: 'Commands' })).toBeTruthy();
+    expect(window.localStorage.length).toBe(0);
+    expect(screen.getByTestId('location').textContent).not.toContain('account=42');
+  });
+
+  it('switches remote categories without changing the applied page query or showing unrelated page suggestions', async () => {
+    const user = userEvent.setup(); setup();
+    await user.type(await screen.findByPlaceholderText('Search accounts…'), 'Acme');
+    await user.click(screen.getByRole('tab', { name: 'All' }));
+    const input = screen.getByRole('combobox');
+    await user.clear(input); await user.type(input, 'Lane');
+    await user.click(screen.getByRole('tab', { name: 'Shoots' }));
+    await waitFor(() => expect(api.search).toHaveBeenCalledWith('shoots', 'Lane', {}, 1, expect.any(AbortSignal)));
+    expect(screen.getByTestId('page-query').textContent).toBe('Acme');
+    expect((input as HTMLInputElement).value).toBe('Lane');
+    await user.clear(input);
+    expect(screen.getByRole('option', { name: 'Shoot History' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: 'Accounts' })).toBeNull();
+    await user.type(input, 'Lane');
+    await user.click(screen.getByRole('option', { name: 'Show all shoots matches' }));
+    expect(screen.getByTestId('location').textContent).toContain('scope=shoots');
+    expect(screen.getByTestId('location').textContent).toContain('search=Lane');
   });
 
   it('shows local matches immediately and only remembers a committed search', async () => {

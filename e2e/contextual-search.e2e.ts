@@ -9,7 +9,7 @@ const timestamp = '2026-10-01T09:00:00Z';
 const scopes = ['accounts', 'shoots', 'invoices', 'email', 'sms', 'support', 'calls', 'people', 'services', 'templates', 'automations', 'studio', 'listings', 'cubicasa', 'availability', 'permissions', 'settings', 'reports', 'profile', 'integrations'].map(id => ({ id, label: id }));
 const account = { id: 42, name: 'Acme Agent', email: 'agent@example.test', role: 'client', phone: '+1 (202) 555-0137', company: 'Acme Realty', company_name: 'Acme Realty', active: true, account_status: 'active', metadata: {}, email_health: { is_verified: true } };
 
-async function fixture(page: Page, baseURL: string | undefined, role = 'admin') {
+async function fixture(page: Page, baseURL: string | undefined, role = 'admin', availableScopes: { id: string; label: string; local?: boolean }[] = scopes) {
   if (!baseURL || new URL(baseURL).hostname !== '127.0.0.1') throw new Error('Loopback fixtures only.');
   const user = { id: 900517, name: 'Search Review', email: 'search-review@example.test', role, account_status: 'active', email_verified_at: timestamp, metadata: { terms_accepted_at: timestamp } };
   const requests: { path: string; method: string; query: string }[] = [];
@@ -25,7 +25,7 @@ async function fixture(page: Page, baseURL: string | undefined, role = 'admin') 
       const permissions = resources.map(resource => ({ resource, action: 'view' })).concat([{ resource: 'voice-calls', action: 'operate' }]);
       return reply({ permissions, permissionIds: permissions.map(item => `${item.resource}-${item.action}`) });
     }
-    if (p === '/search/scopes') return reply({ enabled: true, scopes });
+    if (p === '/search/scopes') return reply({ enabled: true, scopes: availableScopes });
     if (p === '/search') return reply({ groups: [] });
     if (p === '/search/accounts/42/preview') return reply({ data: { type: 'accounts', id: '42', title: 'Acme Agent', destination: '/accounts?account=42', metadata: { Company: 'Acme Realty', Phone: account.phone, Role: 'client' } } });
     if (p === '/admin/users') return reply({ users: [account] });
@@ -117,10 +117,10 @@ test('Accounts previews and filtered lists share the query without opening a rec
   await page.getByRole('button', { name: 'Preview Acme Agent' }).click();
   await expect(page.getByRole('region', { name: 'Preview Acme Agent' })).toContainText('Acme Realty');
   await expect(page).not.toHaveURL(/account=42/);
-  await page.getByRole('button', { name: 'Everywhere', exact: true }).click();
+  await page.getByRole('tab', { name: 'All', exact: true }).click();
   await page.getByRole('combobox').fill('different query');
   await expect(page).toHaveURL(/search=Acme/);
-  await page.getByRole('button', { name: 'Search Accounts', exact: true }).click();
+  await page.getByRole('tab', { name: 'This page', exact: true }).click();
   await expect(page.getByRole('combobox')).toHaveValue('Acme');
 });
 
@@ -150,7 +150,7 @@ test('Shared search cannot match invoice data when invoice sharing is disabled',
 
 test('Media search filters filenames and clearing restores the grid', async ({ page, baseURL }) => {
   const requests = await fixture(page, baseURL);
-  await page.goto('/shoots/86/acme-property');
+  await page.goto('/shoots/86/acme-property', { waitUntil: 'domcontentloaded' });
   await expect(page.getByText('Exterior.jpg', { exact: true }).first()).toBeVisible();
   const writes = requests.filter(item => item.method !== 'GET' && item.path !== '/system-telemetry/events').length;
   await page.getByRole('searchbox', { name: 'Search Shoot #86 · Raw media', exact: true }).click();
@@ -185,7 +185,7 @@ test('Everywhere opens complete results and preserves the selected result type',
   await page.route('**/api/search?**', route => route.fulfill({ status: 200, json: { groups: [{ scope: 'accounts', label: 'Accounts', hasMore: true, results: [{ type: 'accounts', id: '42', title: 'Acme Agent', destination: '/accounts?account=42' }] }] } }));
   await page.goto('/accounts');
   await page.getByRole('searchbox', { name: /Search accounts/i }).click();
-  await page.getByRole('button', { name: 'Everywhere', exact: true }).click();
+  await page.getByRole('tab', { name: 'All', exact: true }).click();
   await page.getByRole('combobox').fill('Acme');
   await expect(page.getByRole('button', { name: 'Preview Acme Agent' })).toBeVisible();
   await page.getByText('Show all matches', { exact: true }).click();
@@ -238,7 +238,7 @@ test('Search speed: panel and full page reuse a request and recent searches reru
   });
   await page.goto('/accounts');
   await page.getByRole('searchbox', { name: 'Search Accounts', exact: true }).click();
-  await page.getByRole('button', { name: 'Everywhere', exact: true }).click();
+  await page.getByRole('tab', { name: 'All', exact: true }).click();
   await page.getByRole('combobox').fill('1447');
   await expect(page.getByRole('status')).toContainText('Searching');
   await page.screenshot({ path: path.join(output, 'search-panel-loading-mobile-dark.png') });
@@ -258,4 +258,167 @@ test('Search speed: panel and full page reuse a request and recent searches reru
   await page.getByRole('button', { name: 'Clear search', exact: true }).click();
   await recent.getByRole('button', { name: 'Remove 1447 from recent searches' }).click();
   await expect(page.getByRole('dialog').getByRole('region', { name: 'Recent searches' })).toHaveCount(0);
+});
+
+for (const [width, theme] of [[1440, 'light'], [1440, 'dark'], [390, 'dark']] as const) test(`Bottom search categories stay visible while results scroll at ${width}px in ${theme}`, async ({ page, baseURL }) => {
+  await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await fixture(page, baseURL);
+  await page.addInitScript(theme => localStorage.setItem('theme', theme), theme);
+  const searches: { scope: string; query: string }[] = [];
+  await page.route('**/api/search?**', route => {
+    const url = new URL(route.request().url());
+    const scope = url.searchParams.get('scope') ?? 'everywhere';
+    const query = url.searchParams.get('q') ?? '';
+    searches.push({ scope, query });
+    return route.fulfill({ json: { groups: [{ scope: 'shoots', label: 'Shoots', hasMore: true,
+      results: Array.from({ length: 24 }, (_, index) => ({ type: 'shoots', id: String(index + 1), title: `Shoot result ${query} ${index + 1}`, subtitle: 'Visible search result', destination: `/shoots/${index + 1}` })),
+    }] } });
+  });
+  await page.goto('/accounts?role=client');
+  await page.getByRole('searchbox', { name: 'Search Accounts', exact: true }).click();
+  const input = page.getByRole('combobox');
+  await input.fill('Acme');
+  await page.getByRole('tab', { name: 'All', exact: true }).click();
+  await expect(input).toHaveValue('Acme');
+  await input.fill('1447');
+  await expect(page.getByRole('button', { name: 'Preview Shoot result 1447 1', exact: true })).toBeVisible();
+  await page.getByRole('tab', { name: /^shoots$/i }).click();
+  await expect(input).toHaveValue('1447');
+  await expect.poll(() => searches.filter(item => item.scope === 'shoots' && item.query === '1447').length).toBe(1);
+  await page.getByRole('tab', { name: 'All', exact: true }).click();
+  await expect(page.getByRole('tab', { name: 'All', exact: true })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.getByRole('button', { name: 'Preview Shoot result 1447 1', exact: true })).toBeVisible();
+  expect(searches.filter(item => item.scope === 'everywhere' && item.query === '1447')).toHaveLength(1);
+  await expect(page).toHaveURL(/search=Acme/);
+  await expect(page).toHaveURL(/role=client/);
+
+  const dialog = page.getByRole('dialog');
+  const footer = dialog.getByRole('tablist', { name: 'Search categories' });
+  const list = dialog.locator('[cmdk-list]');
+  await expect(footer).toBeVisible();
+  await list.evaluate(element => { element.scrollTop = 0; });
+  await page.screenshot({ path: path.join(output, `search-bottom-categories-${width}-${theme}-top.png`) });
+  const before = await footer.boundingBox();
+  expect(before).not.toBeNull();
+  expect(await list.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true);
+  await list.evaluate(element => { element.scrollTop = element.scrollHeight; });
+  await expect.poll(() => list.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+  const after = await footer.boundingBox();
+  const bounds = await dialog.boundingBox();
+  expect(after).not.toBeNull(); expect(bounds).not.toBeNull();
+  expect(Math.abs(after!.y - before!.y)).toBeLessThan(1);
+  expect(after!.y + after!.height).toBeLessThanOrEqual(bounds!.y + bounds!.height + 1);
+  expect(bounds!.y + bounds!.height - after!.y - after!.height).toBeLessThanOrEqual(20);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: path.join(output, `search-bottom-categories-${width}-${theme}.png`) });
+
+  await page.getByRole('tab', { name: 'This page', exact: true }).click();
+  await expect(input).toHaveValue('Acme');
+  await expect(page.getByRole('button', { name: 'Preview Acme Agent' })).toBeVisible();
+});
+
+test('Bottom search categories fit above a mobile keyboard and preserve input focus', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await fixture(page, baseURL);
+  await page.addInitScript(() => {
+    localStorage.setItem('theme', 'dark');
+    const viewport = Object.assign(new EventTarget(), { width: 390, height: 844, offsetLeft: 0, offsetTop: 0, pageLeft: 0, pageTop: 0, scale: 1 });
+    Object.defineProperty(window, 'visualViewport', { configurable: true, value: viewport });
+  });
+  await page.goto('/accounts');
+  await page.getByRole('searchbox', { name: 'Search Accounts', exact: true }).click();
+  const input = page.getByRole('combobox');
+  await input.fill('1447');
+  await page.evaluate(() => {
+    const viewport = window.visualViewport as unknown as { height: number; offsetTop: number; dispatchEvent: (event: Event) => boolean };
+    viewport.height = 350; viewport.offsetTop = 30;
+    viewport.dispatchEvent(new Event('resize')); viewport.dispatchEvent(new Event('scroll'));
+  });
+  const dialog = page.getByRole('dialog');
+  const footer = dialog.getByRole('tablist', { name: 'Search categories' });
+  await expect.poll(async () => { const bounds = await footer.boundingBox(); return bounds ? bounds.y + bounds.height : Infinity; }).toBeLessThanOrEqual(381);
+  const bounds = await dialog.boundingBox();
+  expect(bounds).not.toBeNull();
+  expect(bounds!.y).toBeGreaterThanOrEqual(29);
+  expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(381);
+  await page.getByRole('tab', { name: 'All', exact: true }).click();
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue('1447');
+  await expect(footer).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+  await page.screenshot({ path: path.join(output, 'search-bottom-categories-mobile-keyboard-dark.png') });
+});
+
+test('Bottom category search drops page filters and Show all opens the selected scope', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page, baseURL);
+  const searches: { scope: string; query: string; filters: unknown }[] = [];
+  await page.route('**/api/search?**', route => {
+    const url = new URL(route.request().url());
+    searches.push({ scope: url.searchParams.get('scope') ?? '', query: url.searchParams.get('q') ?? '', filters: JSON.parse(url.searchParams.get('filters') ?? '{}') });
+    return route.fulfill({ json: { groups: [{ scope: 'shoots', label: 'Shoots', hasMore: false, results: [{ type: 'shoots', id: '1447', title: 'Selected shoot result', destination: '/shoots/1447' }] }] } });
+  });
+  await page.goto('/shoots/86/acme-property');
+  await page.getByRole('searchbox', { name: 'Search Shoot #86 · Raw media', exact: true }).click();
+  const input = page.getByRole('combobox');
+  await input.fill('Kitchen');
+  await expect(page.getByRole('button', { name: 'Preview Kitchen Final.jpg' })).toBeVisible();
+  await page.getByRole('tab', { name: /^shoots$/i }).click();
+  await input.fill('1447');
+  await expect(page.getByRole('button', { name: 'Preview Selected shoot result' })).toBeVisible();
+  const selected = searches.filter(item => item.scope === 'shoots' && item.query === '1447');
+  expect(selected).toHaveLength(1);
+  expect(selected[0].filters).toEqual({});
+  await expect(page).toHaveURL(/search=Kitchen/);
+  await page.getByRole('option').filter({ hasText: /^Show all/ }).first().click();
+  await expect(page).toHaveURL(/\/search\?/);
+  expect(new URL(page.url()).searchParams.get('scope')).toBe('shoots');
+  expect(new URL(page.url()).searchParams.get('search')).toBe('1447');
+  await expect(page.getByRole('link', { name: 'Selected shoot result' })).toBeVisible();
+  expect(searches.filter(item => item.scope === 'shoots' && item.query === '1447')).toHaveLength(1);
+  await page.getByRole('searchbox', { name: /^Search shoots$/i }).click();
+  await page.getByRole('button', { name: 'Clear search', exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('option', { name: /^Search again for 1447 in shoots$/i })).toBeVisible();
+});
+
+test('Bottom All category preserves a new query when returning to global result URLs', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page, baseURL);
+  await page.route('**/api/search?**', route => {
+    const query = new URL(route.request().url()).searchParams.get('q') ?? '';
+    return route.fulfill({ json: { groups: [{ scope: 'shoots', label: 'Shoots', hasMore: false,
+      results: [{ type: 'shoots', id: '1447', title: `Remote ${query}`, destination: '/shoots/1447' }],
+    }] } });
+  });
+  await page.goto('/search?search=Acme');
+  await page.getByRole('searchbox', { name: 'Search Everywhere', exact: true }).click();
+  const input = page.getByRole('combobox');
+  await expect(input).toHaveValue('Acme');
+  await page.getByRole('tab', { name: /^shoots$/i }).click();
+  await input.fill('Lane');
+  await expect(page).toHaveURL(/search=Acme/);
+  await page.getByRole('tab', { name: 'All', exact: true }).click();
+  await expect(input).toHaveValue('Lane');
+  await expect(page).toHaveURL(/search=Lane/);
+  expect(new URL(page.url()).searchParams.get('scope')).not.toBe('shoots');
+  await expect(page.getByRole('button', { name: 'Preview Remote Lane', exact: true })).toBeVisible();
+});
+
+test('Bottom categories and page suggestions include only permitted server scopes', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await fixture(page, baseURL, 'client', [{ id: 'shoots', label: 'Shoots' }, { id: 'support', label: 'Support' }, { id: 'profile', label: 'Profile', local: true }]);
+  await page.goto('/search');
+  await page.getByRole('searchbox', { name: 'Search Everywhere', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  const categories = dialog.getByRole('tablist', { name: 'Search categories' });
+  await expect(categories.getByRole('tab', { name: 'All', exact: true })).toBeVisible();
+  await expect(categories.getByRole('tab', { name: 'Shoots', exact: true })).toBeVisible();
+  await expect(categories.getByRole('tab', { name: 'Support', exact: true })).toBeVisible();
+  await expect(categories.getByRole('tab', { name: /^accounts$/i })).toHaveCount(0);
+  await expect(categories.getByRole('tab', { name: /^email$/i })).toHaveCount(0);
+  await expect(categories.getByRole('tab', { name: /^profile$/i })).toHaveCount(0);
+  await dialog.getByRole('combobox').fill('Accounts');
+  await expect(dialog.getByRole('option', { name: 'Accounts', exact: true })).toHaveCount(0);
 });
