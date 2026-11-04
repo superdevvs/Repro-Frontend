@@ -1,3 +1,5 @@
+import { rememberStudioClaimCheckoutReturn } from './listingStudioClaimCheckout';
+
 export const LISTING_STUDIO_CLAIM_PATH = '/listing-studio/claim';
 const STORAGE_KEY = 'listing-studio.pending-claim';
 let memoryToken: string | null = null;
@@ -6,6 +8,7 @@ let memoryToken: string | null = null;
 export function captureListingStudioClaimLocation(): void {
   if (window.location.pathname !== LISTING_STUDIO_CLAIM_PATH) return;
   if (window.location.hash) rememberListingStudioClaim(window.location.hash);
+  rememberStudioClaimCheckoutReturn(window.location.search);
   if (window.location.hash || window.location.search) {
     window.history.replaceState(window.history.state, '', LISTING_STUDIO_CLAIM_PATH);
   }

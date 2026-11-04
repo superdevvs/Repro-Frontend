@@ -6,6 +6,7 @@ import { LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
 import { forgetListingStudioClaim, readListingStudioClaim } from '@/lib/listingStudioClaim';
 import { normalizeApiError, type PublicApiError } from '@/services/apiError';
 import { claimListingStudioTrials, downloadListingStudioTrial, getListingStudioTrials, type ListingStudioTrial } from '@/services/listingStudioTrials';
+import { ListingStudioClaimPlans } from '@/components/listing-studio/ListingStudioClaimPlans';
 
 const labels = { staging: 'Virtual staging', decluttering: 'Digital decluttering', grass: 'Green grass', twilight: 'Digital twilight' };
 const terminalClaimErrors = new Set(['claim_expired', 'claim_conflict', 'trial_allowance_used', 'trial_expired']);
@@ -19,19 +20,21 @@ const claimMessages: Record<string, string> = {
 
 export default function ListingStudioClaim() {
   const { user, isImpersonating, logout } = useAuth();
+  const plans = useRef<HTMLDivElement>(null);
   return <main className="dashboard-viewport overflow-y-auto overscroll-y-contain bg-background px-4 py-8 text-foreground sm:px-6 sm:py-12">
-    <div className="mx-auto max-w-3xl space-y-8">
+    <div className="mx-auto max-w-6xl space-y-7">
       <nav className="flex flex-wrap items-center justify-between gap-3" aria-label="Listing Studio navigation">
         <a href={LISTING_STUDIO_WEBSITE_URL} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" />Back to Listing Studio</a>
         <Button variant="ghost" size="sm" onClick={logout}>Switch account</Button>
       </nav>
-      <header className="space-y-3 border-b pb-7">
+      <header className="space-y-3 border-b pb-6">
         <p className="flex items-center gap-2 text-sm font-medium text-primary"><Sparkles className="h-4 w-4" />REPro · Listing Studio</p>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Your edited photos</h1>
         <p className="max-w-xl text-sm leading-6 text-muted-foreground">Save your finished edits to your account and download the full-size photos.</p>
+        {user?.role === 'client' && !isImpersonating && <div className="flex flex-wrap gap-3 pt-2"><Button onClick={() => plans.current?.scrollIntoView({ block: 'start' })}>View monthly plans<ArrowLeft className="ml-2 h-4 w-4 rotate-180" /></Button><Button variant="outline" asChild><a href="/listing-studio">Open dashboard Studio</a></Button></div>}
       </header>
       {user?.role === 'client' && !isImpersonating
-        ? <ClaimWorkspace key={user.id} />
+        ? <div key={user.id} className="space-y-8"><ClaimWorkspace /><div ref={plans} className="scroll-mt-6"><ListingStudioClaimPlans accountId={String(user.id)} /></div></div>
         : <section className="space-y-2 rounded-2xl border bg-card p-6"><h2 className="font-semibold">Use your client account</h2><p className="text-sm text-muted-foreground">Sign in with your own active client account to save and download your edited photos.</p></section>}
     </div>
   </main>;

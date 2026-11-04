@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
   auth: { user: { id: '41', role: 'client', email_verification: { required: true, verified: false } }, isImpersonating: false },
 }));
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => mocks.auth }));
+vi.mock('@/components/listing-studio/ListingStudioClaimPlans', () => ({ ListingStudioClaimPlans: () => <section aria-label="Monthly editing plans">Plan choices</section> }));
 vi.mock('@/services/listingStudioTrials', () => ({ claimListingStudioTrials: mocks.claim, getListingStudioTrials: mocks.get, downloadListingStudioTrial: mocks.download }));
 const token = 'b'.repeat(64);
 const trial = { id: 'trial-1', service: 'staging', status: 'completed', progress: 100, previewAvailable: true, downloadAvailable: true, createdAt: '', completedAt: '', expiresAt: null, error: null, errorCode: null };

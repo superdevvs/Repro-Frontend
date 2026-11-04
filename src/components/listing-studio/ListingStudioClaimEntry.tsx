@@ -1,15 +1,17 @@
 import { useEffect, useLayoutEffect, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { LISTING_STUDIO_CLAIM_PATH, rememberListingStudioClaim } from '@/lib/listingStudioClaim';
+import { rememberStudioClaimCheckoutReturn } from '@/lib/listingStudioClaimCheckout';
 
 /** Capture before ProtectedRoute can put the return destination in a login URL. */
 export function ListingStudioClaimEntry({ children }: { children: ReactNode }) {
   const { hash, search } = useLocation();
   const navigate = useNavigate();
   useLayoutEffect(() => {
+    rememberStudioClaimCheckoutReturn(search);
     if (!hash) return;
     rememberListingStudioClaim(hash);
-  }, [hash]);
+  }, [hash, search]);
 
   // A handoff never accepts query-string credentials or arbitrary return URLs.
   useEffect(() => {
