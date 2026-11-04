@@ -59,6 +59,11 @@ export interface StudioOrder {
     revisionFulfillment: { status: 'queued' | 'assigned' | 'in_progress' | 'delivered' | 'cancelled'; deliveredAt: string | null } | null;
   };
   actions: { canCheckout: boolean; canDownload: boolean; canRequestRevision: boolean; canCancel: boolean };
+  aiRevisions?: {
+    limit: number; used: number; remaining: number; canRequest: boolean;
+    active: { id: string; number: number; status: 'queued' | 'processing' | 'needs_attention'; progress: number | null; error: string | null } | null;
+    versions: { id: string; number: number; createdAt: string | null }[];
+  };
 }
 export interface StudioPagination { page: number; perPage: number; total: number; hasMore: boolean }
 export interface StudioOrdersPage { orders: StudioOrder[]; pagination: StudioPagination }

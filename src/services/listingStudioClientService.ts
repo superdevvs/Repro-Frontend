@@ -26,12 +26,15 @@ export const listingStudioClient = {
     return (await apiClient.post<Envelope<StudioCheckout>>(`${root}/subscription-checkout`, { planCode }, idempotency(key))).data.data;
   },
   async billingPortal() { return (await apiClient.post<Envelope<StudioCheckout>>(`${root}/billing-portal`)).data.data; },
-  preview(id: string, variant: 'original' | 'result', signal?: AbortSignal) {
-    return studioImageBlob(`${orderPath(id)}/preview`, { variant }, signal);
+  async aiRevision(id: string, instructions: string, key: string) {
+    return (await apiClient.post<Envelope<{ order: StudioOrder; revisionId: string }>>(`${orderPath(id)}/ai-revisions`, { instructions }, idempotency(key))).data.data;
+  },
+  preview(id: string, variant: 'original' | 'result', signal?: AbortSignal, version?: string) {
+    return studioImageBlob(`${orderPath(id)}/preview`, version ? { variant, version } : { variant }, signal);
   },
   uploadPreview(id: string, signal?: AbortSignal) { return studioImageBlob(`${root}/uploads/${encodeURIComponent(id)}/preview`, undefined, signal); },
-  async download(order: Pick<StudioOrder, 'id' | 'service'>) {
-    const blob = await studioImageBlob(`${orderPath(order.id)}/download`);
+  async download(order: Pick<StudioOrder, 'id' | 'service'>, version?: string) {
+    const blob = await studioImageBlob(`${orderPath(order.id)}/download`, version ? { version } : undefined);
     saveStudioBlob(blob, `listing-studio-${order.service}`);
   },
 };

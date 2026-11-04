@@ -1,37 +1,45 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useStudioOrderBalanceRefresh } from '@/hooks/useStudioOrderBalanceRefresh';
-import { Download, ImageIcon, Loader2, Plus, Users } from 'lucide-react';
+import { Download, ImageIcon, Loader2, Plus, Search, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { listingStudioClient } from '@/services/listingStudioClientService';
 import { downloadListingStudioTrial, getListingStudioTrials, type ListingStudioTrial } from '@/services/listingStudioTrials';
 import { normalizeApiError } from '@/services/apiError';
 import type { StudioCatalog, StudioOrder } from '@/types/listingStudioClient';
 import type { StudioRevisionSource } from './StudioNewEdit';
 import { StudioOrderPanel } from './StudioOrderPanel';
+import { StudioOrderCard } from './StudioOrderCard';
 import { studioDate, studioIsActive, studioLabels, studioStatusLabels } from './studioPresentation';
 
-export function StudioPhotos({ accountId, catalog, selectedOrderId, onSelectOrder, onRevision, onNewEdit, onCheckout, checkoutBusy }: {
+export function StudioPhotos({ accountId, catalog, selectedOrderId, onSelectOrder, onRevision, onNewEdit, onCheckout, checkoutBusy, onBack }: {
   accountId: string; catalog: StudioCatalog; selectedOrderId: string | null; onSelectOrder: (id: string) => void;
   onRevision: (source: StudioRevisionSource) => void; onNewEdit: () => void;
   onCheckout: (order: StudioOrder) => void; checkoutBusy: boolean;
+  onBack: () => void;
 }) {
   const [page, setPage] = useState(1); const [downloading, setDownloading] = useState<string | null>(null); const [error, setError] = useState('');
-  const orders = useQuery({ queryKey: ['studio-client', accountId, 'orders', page], queryFn: () => listingStudioClient.orders(page), refetchInterval: query => query.state.data?.orders.some(order => studioIsActive(order.item.status)) ? 10000 : false });
+  const [search, setSearch] = useState(''); const [filter, setFilter] = useState('all');
+  const orders = useQuery({ queryKey: ['studio-client', accountId, 'orders', page], queryFn: () => listingStudioClient.orders(page), refetchInterval: query => query.state.data?.orders.some(order => studioIsActive(order.item.status) || order.aiRevisions?.active) ? 10000 : false });
   const trials = useQuery({ queryKey: ['studio-client', accountId, 'trials'], queryFn: getListingStudioTrials });
   useStudioOrderBalanceRefresh(accountId, orders.data?.orders);
   const downloadTrial = async (trial: ListingStudioTrial) => {
     if (downloading) return; setDownloading(trial.id); setError('');
     try { await downloadListingStudioTrial(trial); } catch (failure) { setError(normalizeApiError(failure).message); } finally { setDownloading(null); }
   };
+  if (selectedOrderId) return <StudioOrderPanel key={selectedOrderId} accountId={accountId} orderId={selectedOrderId} onRevision={onRevision} onCheckout={onCheckout} checkoutBusy={checkoutBusy} presentation="canvas" onBack={onBack} onNewEdit={onNewEdit} catalog={catalog} />;
+  const visible = orders.data?.orders.filter(order => (filter === 'all' || (filter === 'active' ? studioIsActive(order.item.status) || order.aiRevisions?.active : order.item.status === filter && !(filter === 'completed' && order.aiRevisions?.active))) && `${studioLabels[order.service]} ${studioStatusLabels[order.item.status]} ${order.aiRevisions?.active ? 'AI revision' : ''} ${studioDate(order.createdAt)}`.toLowerCase().includes(search.toLowerCase()));
   return <div className="space-y-6">
-    <div className="flex items-center justify-between gap-3"><h2 className="text-lg font-semibold">Your photo projects</h2><Button variant="outline" size="sm" onClick={onNewEdit}><Plus className="mr-2 h-4 w-4" />New edit</Button></div>
+    <div className="flex items-center justify-between gap-3"><div><h1 className="text-2xl font-semibold sm:text-[28px]">My edits</h1><p className="mt-3 text-sm text-muted-foreground">Your uploads, work in progress and finished photos, all in one place.</p></div><Button size="sm" onClick={onNewEdit}><Plus className="mr-2 h-4 w-4" />New edit</Button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div className="relative w-full sm:max-w-md"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input aria-label="Search your edits" placeholder="Search by service or status" value={search} onChange={event => setSearch(event.target.value)} className="h-11 rounded-xl pl-10" /></div><div className="flex flex-wrap gap-1" aria-label="Filter edits">{[['all', 'All edits'], ['completed', 'Ready'], ['active', 'In progress'], ['awaiting_funding', 'Awaiting payment']].map(([value, label]) => <button type="button" key={value} aria-pressed={filter === value} onClick={() => setFilter(value)} className={`rounded-full px-3 py-2 text-xs ${filter === value ? 'bg-muted text-foreground' : 'text-muted-foreground'}`}>{label}</button>)}</div></div>
     <div className={selectedOrderId ? 'grid items-start gap-5 xl:grid-cols-[minmax(260px,0.65fr)_1.35fr]' : ''}>
       <div className="space-y-4">
         {orders.isPending && <p role="status" className="flex items-center gap-2 rounded-2xl border p-6 text-sm"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />Loading your projects…</p>}
         {orders.isError && <div role="alert" className="space-y-3 rounded-2xl border p-6 text-sm"><p>Your projects could not be loaded.</p><Button variant="outline" size="sm" onClick={() => void orders.refetch()}>Try again</Button></div>}
         {orders.data?.orders.length === 0 && <div className="space-y-3 rounded-2xl border border-dashed p-8 text-center"><ImageIcon className="mx-auto h-8 w-8 text-muted-foreground" /><h3 className="font-medium">Your next listing starts here</h3><p className="text-sm leading-6 text-muted-foreground">Create an edit to save its progress and finished photo in your workspace.</p><Button onClick={onNewEdit}>Choose a photo</Button></div>}
-        <div className={selectedOrderId ? 'grid gap-3' : 'grid gap-3 sm:grid-cols-2 xl:grid-cols-3'}>{orders.data?.orders.map(order => <button key={order.id} type="button" onClick={() => onSelectOrder(order.id)} className={`flex min-w-0 items-start gap-3 rounded-2xl border p-4 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${selectedOrderId === order.id ? 'border-primary bg-primary/5' : 'bg-card'}`}><span className="rounded-xl bg-primary/10 p-3 text-primary"><ImageIcon className="h-5 w-5" /></span><span className="min-w-0 space-y-1"><span className="block text-sm font-medium">{studioLabels[order.service]}</span><span className="block text-xs text-muted-foreground">{order.kind === 'human_revision' ? 'Team revision · ' : ''}{studioDate(order.createdAt)}</span><span className="block text-xs font-medium">{studioStatusLabels[order.item.status]}</span></span></button>)}</div>
+        {visible?.length === 0 && Boolean(orders.data?.orders.length) && <p role="status" className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">No edits match this search on this page.</p>}
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 xl:gap-5">{visible?.map(order => <StudioOrderCard key={order.id} accountId={accountId} order={order} onSelect={() => onSelectOrder(order.id)} />)}</div>
         {orders.data && (page > 1 || orders.data.pagination.hasMore) && <nav aria-label="Project pages" className="flex items-center justify-between gap-3"><Button variant="outline" size="sm" disabled={page === 1 || orders.isFetching} onClick={() => setPage(value => value - 1)}>Previous</Button><span className="text-xs text-muted-foreground">Page {page}</span><Button variant="outline" size="sm" disabled={!orders.data.pagination.hasMore || orders.isFetching} onClick={() => setPage(value => value + 1)}>Next</Button></nav>}
       </div>
       {selectedOrderId && <StudioOrderPanel key={selectedOrderId} accountId={accountId} orderId={selectedOrderId} onRevision={onRevision} onCheckout={onCheckout} checkoutBusy={checkoutBusy} />}

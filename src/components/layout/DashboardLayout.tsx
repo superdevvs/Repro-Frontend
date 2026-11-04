@@ -69,7 +69,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const isSupportWorkspace = location.pathname === '/messaging/email/inbox' && isSupportInbox(location.search);
   const isCallsWorkspace = location.pathname === '/calls' || location.pathname.startsWith('/calls/');
   const useCompactShell = isMobile || (isDashboardRoute && isCompactDashboardShell);
-  const isStudioWorkspace = location.pathname === '/ai-editing' && new URLSearchParams(location.search).has('workspace');
+  const isClientStudioWorkspace = location.pathname === '/listing-studio' && user?.role === 'client' && !isImpersonating
+    && (new URLSearchParams(location.search).get('edit') === '1' || new URLSearchParams(location.search).has('order'));
+  const isStudioWorkspace = (location.pathname === '/ai-editing' && new URLSearchParams(location.search).has('workspace')) || isClientStudioWorkspace;
   const fillSms =
     (location.pathname === '/messaging/sms' || location.pathname === '/messaging/email/compose')
     && isCompactDashboardShell;
@@ -94,7 +96,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
   const lockCompactDashboard = useCompactShell && isDashboardRoute;
   const lockMainScroll =
     isCallsWorkspace || isSupportWorkspace || lockCompactDashboard || isStudioWorkspace || fillSms || lockWorkflowEditor || fillDesktopCalendar;
-  const contentPadding = useCompactShell
+  const contentPadding = isClientStudioWorkspace ? 'p-0' : useCompactShell
     ? `${isStudioWorkspace || fillSms ? 'p-0' : 'px-3 pt-1.5'} ${compactBottomInset > 0 || lockCompactDashboard ? '' : 'pb-20'}`
     : fillSms
       ? 'p-0'
@@ -109,7 +111,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
     : undefined;
   const shouldHideFooter =
     hideFooter || isCallsWorkspace || isSupportWorkspace || lockCompactDashboard || fillDesktopCalendar ||
-    location.pathname === '/ai-editing' ||
+    location.pathname === '/ai-editing' || location.pathname === '/listing-studio' ||
     location.pathname.startsWith('/chat-with-reproai') ||
     location.pathname === '/messaging/sms' ||
     location.pathname === '/messaging/email/compose' ||

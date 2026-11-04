@@ -9,6 +9,7 @@ import { normalizeApiError } from '@/services/apiError';
 import { listingStudioClient } from '@/services/listingStudioClientService';
 import type { StudioAccount, StudioCatalog, StudioFundingMethod, StudioOrder, StudioQuote, StudioService, StudioSource, StudioUpload } from '@/types/listingStudioClient';
 import { studioLabels, studioMoney } from './studioPresentation';
+import { StudioNewEditCanvas } from './StudioNewEditCanvas';
 
 export interface StudioRevisionSource { source: StudioSource; service: StudioService }
 interface Props {
@@ -16,16 +17,17 @@ interface Props {
   onCreated: (order: StudioOrder) => void; onCancelRevision: () => void;
   api?: Pick<typeof listingStudioClient, 'upload' | 'quote' | 'createOrder'>;
   forClient?: { name: string };
+  presentation?: 'default' | 'canvas'; initialFile?: File; initialService?: StudioService; onBack?: () => void;
 }
 const definitivePurchaseErrors = new Set(['quote_expired', 'quote_stale', 'insufficient_credits', 'source_unavailable', 'service_unavailable', 'validation_error', 'validation_failed']);
 const selectClass = 'h-11 w-full rounded-lg border bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50';
 
-export function StudioNewEdit({ accountId, account, catalog, revision, onCreated, onCancelRevision, api = listingStudioClient, forClient }: Props) {
-  const [service, setService] = useState<StudioService>(revision?.service ?? 'staging');
+export function StudioNewEdit({ accountId, account, catalog, revision, onCreated, onCancelRevision, api = listingStudioClient, forClient, presentation = 'default', initialFile, initialService, onBack }: Props) {
+  const [service, setService] = useState<StudioService>(revision?.service ?? initialService ?? 'staging');
   const [roomType, setRoomType] = useState(catalog.stagingOptions.defaults.roomType);
   const [style, setStyle] = useState(catalog.stagingOptions.defaults.style);
   const [instructions, setInstructions] = useState('');
-  const [file, setFile] = useState<File | null>(null);
+  const [file, setFile] = useState<File | null>(initialFile ?? null);
   const [preview, setPreview] = useState('');
   const [upload, setUpload] = useState<StudioUpload | null>(null);
   const [quote, setQuote] = useState<StudioQuote | null>(null);
@@ -107,6 +109,8 @@ export function StudioNewEdit({ accountId, account, catalog, revision, onCreated
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     <Button disabled={busy} onClick={() => void purchase()}><RefreshCw className="mr-2 h-4 w-4" />{busy ? step : 'Check existing request'}</Button>
   </section>;
+
+  if (presentation === 'canvas' && !revision) return <StudioNewEditCanvas account={account} catalog={catalog} file={file} preview={preview} service={service} roomType={roomType} style={style} quote={quote} funding={funding} busy={busy} step={step} error={error} available={available} onBack={onBack ?? onCancelRevision} onFile={chooseFile} onService={value => { setService(value); invalidate(); }} onRoom={value => { setRoomType(value); invalidate(); }} onStyle={value => { setStyle(value); invalidate(); }} onFunding={setFunding} onReview={() => void review()} onPurchase={() => void purchase()} />;
 
   return <section className="grid gap-6 rounded-2xl border bg-card p-5 sm:p-6 lg:grid-cols-[1fr_0.85fr]">
     <div className="space-y-5">

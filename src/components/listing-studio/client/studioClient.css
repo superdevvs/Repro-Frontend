@@ -1,0 +1,9 @@
+.studio-client-page{font-family:Inter,system-ui,sans-serif}
+.studio-client-canvas>.v4-editor{flex:1;border-radius:0;border:0}
+.studio-client-canvas .v4-editor-body{grid-template-columns:minmax(0,1fr) 352px}
+.studio-client-canvas .v4-editor-inspector{display:flex;flex-direction:column}
+.studio-client-canvas .v4-editor-inspector>div{flex:1}
+.studio-client-canvas .v4-photo-comparison{height:100%;min-height:220px}
+.studio-client-canvas .v4-editor-settings-content{overflow-y:auto}
+@media(min-width:768px) and (max-width:1100px){.studio-client-canvas .v4-editor-body{grid-template-columns:minmax(0,1fr) 300px}}
+@media(max-width:767px){.studio-client-canvas .v4-editor-inspector{display:none}.studio-client-canvas .v4-editor-mobile-actions{overflow-x:auto}.studio-client-canvas .v4-editor-mobile-actions>button{white-space:normal;height:auto;min-height:44px}.studio-client-canvas .v4-editor-stage{min-height:200px}.studio-client-canvas .v4-editor-filmstrip{flex-basis:84px}.studio-client-canvas .v4-photo-comparison{min-height:180px}}

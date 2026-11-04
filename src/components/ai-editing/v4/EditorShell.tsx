@@ -11,6 +11,7 @@ interface EditorShellProps {
   subtitle: string;
   shootLabel: string;
   onBack: () => void;
+  backLabel?: string;
   onChangeSource?: () => void;
   modeControl?: ReactNode;
   actions: ReactNode;
@@ -24,11 +25,11 @@ interface EditorShellProps {
 }
 
 /** The existing dashboard owns global navigation; this is the single local editor tier. */
-export function EditorShell({ compact = false, title, subtitle, shootLabel, onBack, onChangeSource, modeControl, actions, mobileContent, inspector, inspectorFooter, filmstrip, children, error, status }: EditorShellProps) {
+export function EditorShell({ compact = false, title, subtitle, shootLabel, onBack, backLabel = 'Back to AI editing', onChangeSource, modeControl, actions, mobileContent, inspector, inspectorFooter, filmstrip, children, error, status }: EditorShellProps) {
   return (
     <section className={`v4-editor${compact ? ' v4-editor-compact' : ''}`} aria-label={`${title} workspace`}>
       <header className="v4-editor-toolbar">
-        <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to AI editing"><ArrowLeft /></Button>
+        <Button variant="ghost" size="icon" onClick={onBack} aria-label={backLabel}><ArrowLeft /></Button>
         {compact ? <span className="v4-editor-source-label">{shootLabel}</span> : onChangeSource ? <Button variant="outline" className="v4-editor-source" onClick={onChangeSource}><span>{shootLabel}</span><ChevronDown /></Button> : <span className="v4-editor-source-label">{shootLabel}</span>}
         <div className={`v4-editor-heading${compact ? ' sr-only' : ''}`}><h1>{title}</h1>{!compact && <p>{subtitle}</p>}</div>
         <div className="v4-editor-mode">{modeControl}</div>

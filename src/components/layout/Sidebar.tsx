@@ -28,6 +28,7 @@ export function Sidebar({ className }: SidebarProps) {
   const location = useLocation();
   const sidebarRef = useRef<HTMLDivElement>(null);
   const [tabletExpanded, setTabletExpanded] = useState(false);
+  const [studioExpanded, setStudioExpanded] = useState(false);
   const [isNarrowDesktop, setIsNarrowDesktop] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < SMALL_DESKTOP_BREAKPOINT,
   );
@@ -36,7 +37,7 @@ export function Sidebar({ className }: SidebarProps) {
     const stored = window.localStorage.getItem(SIDEBAR_COLLAPSED_STORAGE_KEY);
     return stored === null ? null : stored === 'true';
   });
-  const { role, logout } = useAuth();
+  const { role, logout, isImpersonating } = useAuth();
 
   // Track whether the viewport is below the small-desktop breakpoint.
   useEffect(() => {
@@ -51,7 +52,10 @@ export function Sidebar({ className }: SidebarProps) {
 
   // Tablet expansion is temporary and must not overwrite the desktop preference.
   const isTabletNavigation = !isMobile && (isNarrowDesktop || isTouchViewport);
-  const isCollapsed = isTabletNavigation ? !tabletExpanded : (manualCollapsedPref ?? false);
+  const clientStudioEditor = !isTabletNavigation && role === 'client' && !isImpersonating && location.pathname === '/listing-studio'
+    && (new URLSearchParams(location.search).has('order') || new URLSearchParams(location.search).get('edit') === '1');
+  const isCollapsed = clientStudioEditor ? !studioExpanded : isTabletNavigation ? !tabletExpanded : (manualCollapsedPref ?? false);
+  useEffect(() => { setStudioExpanded(false); }, [clientStudioEditor]);
 
   useEffect(() => {
     setTabletExpanded(false);
@@ -108,6 +112,7 @@ export function Sidebar({ className }: SidebarProps) {
 
   // Tablet toggles are transient; desktop toggles keep the saved preference.
   const toggleCollapse = () => {
+    if (clientStudioEditor) { setStudioExpanded(value => !value); return; }
     if (isTabletNavigation) {
       setTabletExpanded(expanded => !expanded);
       return;

@@ -1,0 +1,35 @@
+import { useState } from 'react';
+import { CreditCard, Download, RefreshCw, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { InspectorFact } from '@/components/ai-editing/v4/EditorShell';
+import type { StudioCatalog, StudioOrder } from '@/types/listingStudioClient';
+import { StudioPhotoCanvas } from './StudioPhotoCanvas';
+import { StudioAiRevisions } from './StudioAiRevisions';
+import { useStudioPreview } from './useStudioPreview';
+import { studioDate, studioLabels, studioMoney, studioStatusLabels } from './studioPresentation';
+import type { StudioRevisionSource } from './StudioNewEdit';
+
+export function StudioOrderCanvas(p: { accountId: string; order: StudioOrder; catalog?: StudioCatalog; fundingCopy: string; downloading: boolean; cancelling: boolean; checkoutBusy: boolean; error: string;
+  onBack: () => void; onNewEdit: () => void; onRefresh: () => void; onUpdated: (order: StudioOrder) => void; onDownload: (version?: string) => void; onCheckout: () => void; onCancel: () => void; onRevision: (source: StudioRevisionSource) => void;
+}) {
+  const { order } = p; const [attempt, setAttempt] = useState(0); const [version, setVersion] = useState('');
+  const original = useStudioPreview(p.accountId, order.id, 'original', order.item.source.originalPreviewAvailable, attempt);
+  const result = useStudioPreview(p.accountId, order.id, 'result', order.item.previewAvailable, attempt + (order.aiRevisions?.versions.length ?? 0) * 100, version || undefined);
+  const revision = order.aiRevisions?.active; const working = ['queued', 'processing'].includes(order.item.status) || Boolean(revision && ['queued', 'processing'].includes(revision.status) && !version);
+  const progress = revision?.progress ?? order.item.progress;
+  const title = working ? revision ? `Revising your photo · ${revision.number} of 3` : studioStatusLabels[order.item.status] : order.item.status === 'completed' ? 'Your photo is ready' : studioStatusLabels[order.item.status];
+  const previewError = original.failed || result.failed;
+  const savedVersion = version ? order.aiRevisions?.versions.find(item => item.id === version) : order.aiRevisions?.versions.at(-1);
+  const teamPrice = p.catalog?.services.find(item => item.id === order.service)?.revisionBasePriceCents;
+  const download = <Button data-variant="primary" disabled={p.downloading} onClick={() => p.onDownload(version || undefined)}><Download className="mr-2 h-4 w-4" />{p.downloading ? 'Downloading…' : 'Download full resolution'}</Button>;
+  return <StudioPhotoCanvas key={order.id} title={title} subtitle={`${studioLabels[order.service]} · 1 photo`} name={studioLabels[order.service]} original={original.url} result={result.url} versionNumber={(savedVersion?.number ?? 0) + 1} working={working} progress={progress && progress > 0 ? progress : null} status={working ? 'Your request is saved' : order.item.status === 'completed' ? 'Saved' : ''} error={p.error || (previewError ? 'A preview could not be loaded. Your saved versions are unchanged.' : '')} onBack={p.onBack} onRefresh={p.onRefresh} actions={<><Button variant="outline" onClick={p.onNewEdit}>New edit</Button>{order.actions.canDownload ? download : order.actions.canCheckout ? <Button data-variant="primary" disabled={p.checkoutBusy} onClick={p.onCheckout}>Pay {studioMoney(order.pricing.totalPriceCents)} securely</Button> : <Button variant="outline" onClick={p.onRefresh}>Refresh progress</Button>}</>} inspector={<div className="flex min-h-full flex-col gap-5"><div className="flex items-center justify-between border-b pb-4"><h2 className="text-lg font-semibold">{studioStatusLabels[order.item.status]}</h2><Button variant="ghost" size="icon" aria-label="Refresh order" onClick={p.onRefresh}><RefreshCw className="h-4 w-4" /></Button></div>
+    <div className="space-y-3"><h2 className="text-xl font-semibold">{studioLabels[order.service]}</h2><p className="text-xs leading-5 text-muted-foreground">{studioDate(order.createdAt)} · {order.kind === 'human_revision' ? 'Team revision' : 'AI photo edit'}</p><InspectorFact label="Order total" value={studioMoney(order.pricing.totalPriceCents)} /><InspectorFact label="Payment" value={p.fundingCopy} /></div>
+    {order.aiRevisions && order.aiRevisions.versions.length > 1 && <div className="space-y-2"><label htmlFor="studio-saved-version" className="text-xs text-muted-foreground">Saved version</label><select id="studio-saved-version" className="h-10 w-full rounded-lg border px-3 text-xs" value={version} onChange={event => setVersion(event.target.value)}><option value="">Latest saved version</option>{order.aiRevisions.versions.map(v => <option key={v.id} value={v.id}>{v.number === 0 ? 'Initial edit' : `AI revision ${v.number}`}</option>)}</select></div>}
+    {working && <p role="status" className="rounded-xl bg-muted/40 p-4 text-xs leading-5 text-muted-foreground">Your edit is saved. You can leave this page and return to My edits. We’ll keep the same request while it finishes.</p>}
+    {order.item.status === 'needs_attention' && <p role="status" className="text-xs leading-5 text-muted-foreground">{['payment_review', 'payment_refunded'].includes(order.item.error?.code ?? '') ? 'This order is on hold because of its payment or refund status. No new edit will start while it is on hold.' : 'We’re checking this existing edit. Your previous versions remain available.'}</p>}
+    {order.item.error && <p role="alert" className="text-xs text-destructive">{order.item.error.message}</p>}{previewError && <Button size="sm" variant="outline" onClick={() => setAttempt(value => value + 1)}>Reload preview</Button>}
+    {order.item.status === 'completed' && <StudioAiRevisions accountId={p.accountId} order={order} onUpdated={p.onUpdated} />}
+    {order.actions.canRequestRevision && <section className="mt-auto space-y-2 rounded-xl border p-4"><h2 className="text-sm font-semibold">Prefer a human editor?</h2><p className="text-xs leading-5 text-muted-foreground">Optional team revision{teamPrice !== undefined ? ` · from ${studioMoney(teamPrice)}` : ''}. Your plan discount and exact price are shown before you confirm.</p><Button variant="link" className="h-auto p-0 text-xs" onClick={() => p.onRevision({ source: { kind: 'paid_item', id: order.item.id }, service: order.service })}><Users className="mr-2 h-3.5 w-3.5" />Request team revision</Button></section>}
+    <div className="mt-auto space-y-3 pt-3 [&>button]:w-full">{order.actions.canDownload && download}{order.actions.canCheckout && <Button disabled={p.checkoutBusy || p.cancelling} onClick={p.onCheckout}><CreditCard className="mr-2 h-4 w-4" />{p.checkoutBusy ? 'Opening checkout…' : `Pay ${studioMoney(order.pricing.totalPriceCents)} securely`}</Button>}{order.actions.canCancel && <Button variant="outline" disabled={p.cancelling || p.checkoutBusy} onClick={p.onCancel}>{p.cancelling ? 'Cancelling…' : 'Cancel unpaid order'}</Button>}<Button variant="outline" onClick={p.onNewEdit}>Start another edit</Button><p className="text-[11px] text-muted-foreground">Private download · Original file preserved</p></div>
+  </div>} />;
+}

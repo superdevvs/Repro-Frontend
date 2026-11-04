@@ -5,9 +5,10 @@ import { CheckCircle2, CreditCard, Download, ImageIcon, Loader2, RefreshCw, User
 import { Button } from '@/components/ui/button';
 import { normalizeApiError } from '@/services/apiError';
 import { listingStudioClient } from '@/services/listingStudioClientService';
-import type { StudioOrder } from '@/types/listingStudioClient';
+import type { StudioCatalog, StudioOrder } from '@/types/listingStudioClient';
 import type { StudioRevisionSource } from './StudioNewEdit';
 import { studioDate, studioIsActive, studioLabels, studioMoney, studioStatusLabels } from './studioPresentation';
+import { StudioOrderCanvas } from './StudioOrderCanvas';
 
 function StudioOrderComparison({ accountId, order }: { accountId: string; order: StudioOrder }) {
   const [images, setImages] = useState<{ original?: string; result?: string }>({});
@@ -38,23 +39,24 @@ function StudioOrderComparison({ accountId, order }: { accountId: string; order:
   </div>;
 }
 
-export function StudioOrderPanel({ accountId, orderId, onRevision, onCheckout, checkoutBusy }: {
+export function StudioOrderPanel({ accountId, orderId, onRevision, onCheckout, checkoutBusy, presentation = 'default', onBack, onNewEdit, catalog }: {
   accountId: string; orderId: string; onRevision: (source: StudioRevisionSource) => void;
   onCheckout: (order: StudioOrder) => void; checkoutBusy: boolean;
+  presentation?: 'default' | 'canvas'; onBack?: () => void; onNewEdit?: () => void; catalog?: StudioCatalog;
 }) {
   const queryClient = useQueryClient();
   const query = useQuery({
     queryKey: ['studio-client', accountId, 'order', orderId], queryFn: () => listingStudioClient.order(orderId),
-    refetchInterval: query => query.state.data && studioIsActive(query.state.data.item.status) ? 8000 : false,
+    refetchInterval: query => query.state.data && (studioIsActive(query.state.data.item.status) || Boolean(query.state.data.aiRevisions?.active)) ? 8000 : false,
   });
   const [downloading, setDownloading] = useState(false); const [cancelling, setCancelling] = useState(false); const [error, setError] = useState(''); const downloadLock = useRef(false); const cancelLock = useRef(false);
   const order = query.data;
   useStudioOrderBalanceRefresh(accountId, order ? [order] : undefined);
   if (query.isPending) return <p role="status" className="flex items-center gap-2 rounded-2xl border p-6 text-sm"><Loader2 className="h-4 w-4 animate-spin motion-reduce:animate-none" />Loading your photo…</p>;
   if (!order) return <div role="alert" className="space-y-3 rounded-2xl border p-6"><p className="text-sm">This order could not be loaded.</p><Button variant="outline" onClick={() => void query.refetch()}>Try again</Button></div>;
-  const download = async () => {
+  const download = async (version?: string) => {
     if (downloadLock.current) return; downloadLock.current = true; setDownloading(true); setError('');
-    try { await listingStudioClient.download(order); } catch (failure) { setError(normalizeApiError(failure).message); }
+    try { await listingStudioClient.download(order, version); } catch (failure) { setError(normalizeApiError(failure).message); }
     finally { downloadLock.current = false; setDownloading(false); }
   };
   const cancel = async () => {
@@ -70,6 +72,8 @@ export function StudioOrderPanel({ accountId, orderId, onRevision, onCheckout, c
   const fundingCopy = order.funding.method === 'credits'
     ? order.funding.status === 'reserved' ? `${studioMoney(order.funding.reservedCreditCents)} credit reserved` : order.funding.status === 'settled' ? `${studioMoney(order.funding.capturedCreditCents)} credit used` : order.funding.status === 'released' ? 'Reserved credit released' : order.funding.status.replaceAll('_', ' ')
     : order.funding.status === 'settled' ? `${studioMoney(order.funding.paidAmountCents)} paid by card` : order.funding.status === 'refunded' ? `${studioMoney(order.funding.refundedAmountCents)} refunded` : order.funding.status === 'partially_refunded' ? `${studioMoney(order.funding.refundedAmountCents)} partially refunded` : order.funding.status.replaceAll('_', ' ');
+
+  if (presentation === 'canvas') return <StudioOrderCanvas accountId={accountId} order={order} catalog={catalog} fundingCopy={fundingCopy} downloading={downloading} cancelling={cancelling} checkoutBusy={checkoutBusy} error={error} onBack={onBack ?? (() => undefined)} onNewEdit={onNewEdit ?? (() => undefined)} onRefresh={() => void query.refetch()} onUpdated={updated => { queryClient.setQueryData(['studio-client', accountId, 'order', order.id], updated); void queryClient.invalidateQueries({ queryKey: ['studio-client', accountId, 'orders'] }); }} onDownload={version => void download(version)} onCheckout={() => onCheckout(order)} onCancel={() => void cancel()} onRevision={onRevision} />;
 
   return <article className="space-y-5 rounded-2xl border bg-card p-5 sm:p-6">
     <header className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="text-lg font-semibold">{studioLabels[order.service]}{order.kind === 'human_revision' ? ' · Team revision' : ''}</h2><p className="mt-1 text-xs text-muted-foreground">{studioDate(order.createdAt)}</p></div><Button variant="ghost" size="sm" disabled={query.isFetching} onClick={() => void query.refetch()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button></header>

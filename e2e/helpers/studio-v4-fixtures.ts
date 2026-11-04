@@ -42,11 +42,11 @@ export interface StudioFixtures {
   denyShoot: boolean;
 }
 
-export async function installStudioFixtures(page: Page, baseURL: string | undefined, initial: V4Workspace[] = [], role: 'admin' | 'superadmin' = 'admin'): Promise<StudioFixtures> {
+export async function installStudioFixtures(page: Page, baseURL: string | undefined, initial: V4Workspace[] = [], role: 'admin' | 'superadmin' | 'client' = 'admin'): Promise<StudioFixtures> {
   if (!baseURL || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(baseURL).hostname)) {
     throw new Error('Mocked Studio tests require a loopback E2E_BASE_URL; they must never target a deployed app.');
   }
-  const testUser = { ...user, role };
+  const testUser = { ...user, role, ...(role === 'client' ? { name: 'Shubham soni', email: 'studio-client@example.test', email_verified_at: '2026-01-01T00:00:00Z' } : {}) };
   const state: StudioFixtures = {
     requests: [], unexpectedStudioRequests: [], workspaces: new Map(initial.map(w => [w.id, structuredClone(w)])),
     failures: { create: 0, update: 0, generate: 0, poll: 0, revise: 0, download: 0 }, denyShoot: false,
