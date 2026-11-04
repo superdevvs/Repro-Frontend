@@ -1,9 +1,10 @@
+import { useId, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { useRequestManager } from '@/context/RequestManagerContext';
-import type { AryeoRequestsState } from '@/features/dashboard/hooks/useAryeoRequests';
+import { useAryeoRequests, type AryeoRequestsState } from '@/features/dashboard/hooks/useAryeoRequests';
 
 const labels: Record<string, string> = {
   matched: 'Matched', unmatched: 'Needs matching', queued: 'Queued', running: 'Processing',
@@ -16,23 +17,44 @@ const dateLabel = (value: string) => {
 };
 
 export function AryeoRequestsPanel({ requests, canManage = false }: { requests: AryeoRequestsState; canManage?: boolean }) {
-  const navigate = useNavigate();
-  const { closeModal } = useRequestManager();
+  const [olderScope, setOlderScope] = useState<string | null>(null);
+  const olderId = useId();
+  const showOlder = olderScope === requests.viewerScope;
   return <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-2" data-testid="dashboard-aryeo-requests-panel">
     <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
       <p className="text-xs text-muted-foreground">New requests refresh automatically.</p>
-      <div className="flex flex-wrap gap-1">
-        <Button variant="ghost" size="sm" onClick={() => requests.setHistory(!requests.history)}>{requests.history ? 'Pending requests' : 'Delivered history'}</Button>
-        <Button variant="outline" size="sm" onClick={requests.refresh}>Refresh</Button>
-      </div>
+      <Button variant="outline" size="sm" onClick={requests.refresh}>Refresh</Button>
     </div>
     {requests.connections.map(connection => <p key={connection.id} className="break-words text-xs text-muted-foreground">
       {connection.name}: {connection.online ? 'Connected' : 'Offline'}
       {!connection.processingEnabled ? ' · Delivery paused' : !connection.executorReady ? ' · Delivery worker unavailable' : ' · Delivery available'}
     </p>)}
+    <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+      <AryeoRequestsList requests={requests} canManage={canManage} />
+      <div className="border-t border-border/60 pt-2">
+        <Button variant="ghost" size="sm" className="w-full justify-start" aria-expanded={showOlder} aria-controls={olderId}
+          onClick={() => setOlderScope(showOlder ? null : requests.viewerScope)}>{showOlder ? 'Hide older requests' : 'View older requests'}</Button>
+        {showOlder && <section id={olderId} aria-label="Older delivered Aryeo requests" className="mt-2 space-y-2">
+          <h3 className="text-xs font-semibold text-muted-foreground">Delivered requests</h3>
+          <OlderAryeoRequests key={requests.viewerScope} viewerScope={requests.viewerScope} canManage={canManage} />
+        </section>}
+      </div>
+    </div>
+  </div>;
+}
+
+function OlderAryeoRequests({ viewerScope, canManage }: { viewerScope: string; canManage: boolean }) {
+  const requests = useAryeoRequests(true, viewerScope, true);
+  return <AryeoRequestsList requests={requests} canManage={canManage} />;
+}
+
+function AryeoRequestsList({ requests, canManage }: { requests: AryeoRequestsState; canManage: boolean }) {
+  const navigate = useNavigate();
+  const { closeModal } = useRequestManager();
+  return <div className="space-y-2">
     {requests.loading ? <p role="status" className="p-3 text-sm text-muted-foreground">Loading Aryeo requests...</p>
       : requests.error ? <div role="alert" className="p-3 text-sm">{requests.error}</div>
-        : <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+        : <div className="space-y-2">
           {!requests.requests.length && <EmptyState icon="clear" title={requests.history ? 'No delivered Aryeo requests.' : 'No pending Aryeo requests.'} size="compact" />}
           {requests.requests.map(request => <article key={request.id} className="space-y-2 rounded-xl border border-border/60 bg-muted/20 p-3" data-testid={`aryeo-request-${request.id}`}>
             <div className="flex items-start justify-between gap-2">

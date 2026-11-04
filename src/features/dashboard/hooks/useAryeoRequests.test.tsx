@@ -50,9 +50,9 @@ describe('Aryeo request discovery view', () => {
   it('shows fetch failures and reloads the selected delivered history', async () => {
     const fetcher = vi.fn().mockResolvedValueOnce({ ok: false }).mockResolvedValue(response(12));
     vi.stubGlobal('fetch', fetcher);
-    const { result } = renderHook(() => useAryeoRequests(true, 'admin:1'), { wrapper: wrapper() });
+    const { result, rerender } = renderHook(({ history }) => useAryeoRequests(true, 'admin:1', history), { wrapper: wrapper(), initialProps: { history: false } });
     await waitFor(() => expect(result.current.error).toContain('Unable to load'));
-    act(() => result.current.setHistory(true));
+    rerender({ history: true });
     await waitFor(() => expect(result.current.requests[0]?.id).toBe(12));
     expect(fetcher).toHaveBeenLastCalledWith(expect.stringContaining('history=1'), expect.anything());
   });

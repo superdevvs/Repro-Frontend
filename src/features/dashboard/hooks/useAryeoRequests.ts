@@ -26,10 +26,10 @@ export function canViewAryeoRequests(role: string) {
   return ['admin', 'superadmin', 'editingmanager', 'salesrep', 'rep', 'representative'].includes(role.toLowerCase().replace(/[_\s-]/g, ''));
 }
 
-export function useAryeoRequests(enabled: boolean, viewerScope: string) {
+export function useAryeoRequests(enabled: boolean, viewerScope: string, history = false) {
   const queryClient = useQueryClient();
-  const [selection, setSelection] = useState({ scope: viewerScope, page: 1, history: false });
-  const { page, history } = selection.scope === viewerScope ? selection : { page: 1, history: false };
+  const [selection, setSelection] = useState({ scope: viewerScope, page: 1, history });
+  const page = selection.scope === viewerScope && selection.history === history ? selection.page : 1;
   const query = useQuery({
     queryKey: ['aryeoRequests', viewerScope, page, history],
     enabled,
@@ -52,6 +52,7 @@ export function useAryeoRequests(enabled: boolean, viewerScope: string) {
   }, [enabled, queryClient, viewerScope]);
 
   return {
+    viewerScope,
     requests: enabled ? query.data?.data ?? [] : [],
     pendingCount: enabled ? query.data?.meta.pendingCount ?? 0 : 0,
     total: enabled ? query.data?.meta.total ?? 0 : 0,
@@ -63,7 +64,6 @@ export function useAryeoRequests(enabled: boolean, viewerScope: string) {
     history,
     refresh: () => { if (enabled) void query.refetch(); },
     setPage: (next: number) => { if (enabled) setSelection({ scope: viewerScope, history, page: Math.max(1, next) }); },
-    setHistory: (next: boolean) => { if (enabled) setSelection({ scope: viewerScope, history: next, page: 1 }); },
   };
 }
 
