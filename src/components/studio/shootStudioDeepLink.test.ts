@@ -5,6 +5,7 @@ import { buildShootStudioHref, readShootStudioEntry } from './shootStudioDeepLin
 describe('shoot Studio entry links', () => {
   it.each([
     ['images', 'listing-ready'],
+    ['images', 'decluttering'],
     ['videos', 'walkthrough'],
   ] as const)('round trips a %s entry without changing the authorized record contract', (media, presetId) => {
     const href = buildShootStudioHref({ shootId: ' 42 ', media, presetId });

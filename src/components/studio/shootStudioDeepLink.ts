@@ -6,6 +6,7 @@ const presetMedia = {
   'listing-ready': 'images',
   'color-correction': 'images',
   twilight: 'images',
+  decluttering: 'images',
   'green-grass': 'images',
   'sky-replacement': 'images',
   'perspective-correction': 'images',

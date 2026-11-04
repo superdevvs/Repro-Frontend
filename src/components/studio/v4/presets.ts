@@ -2,13 +2,14 @@ import type { V4Config, V4Media, V4Preset } from './types';
 
 export const V4_PRESETS: V4Preset[] = [
   { id: 'listing-ready', name: 'Listing ready', description: 'Balanced light. Natural color. Every photo ready.', kind: 'image', tag: 'Most used', icon: 'sparkles', color: 'workflow-photo-enhancement', workflow: 'photo-enhancement' },
-  { id: 'twilight', name: 'Day to twilight', description: 'Warm windows and a beautiful evening sky.', kind: 'image', tag: 'Popular', icon: 'moon', color: 'workflow-twilight', workflow: 'twilight' },
+  { id: 'twilight', name: 'Day to twilight', description: 'Pink-orange sunset skies and warm window lighting.', kind: 'image', tag: 'Popular', icon: 'moon', color: 'workflow-twilight', workflow: 'twilight' },
   { id: 'virtual-staging', name: 'Virtual staging', description: 'Add furniture, remove what is there, or do both.', kind: 'image', tag: 'New', icon: 'sofa', color: 'workflow-photo-enhancement', workflow: 'photo-enhancement' },
+  { id: 'decluttering', name: 'Decluttering', description: 'Clear loose clutter. Keep furniture and decor.', kind: 'image', tag: 'New', icon: 'sparkles', color: 'hero-before', workflow: 'photo-enhancement' },
+  { id: 'green-grass', name: 'Green grass', description: 'Restore a lush green lawn within its existing boundaries.', kind: 'image', tag: 'New', icon: 'leaf', color: 'selected-shoot', workflow: 'photo-enhancement' },
   { id: 'walkthrough', name: 'Walkthrough', description: 'Smooth, drone-like motion through the property.', kind: 'video', tag: 'Popular', icon: 'video', color: 'workflow-listing-video', workflow: 'reel-generator' },
   { id: 'color-correction', name: 'Color correction', description: 'True whites, balanced exposure, crisp detail.', kind: 'image', tag: 'Most used', icon: 'sliders', color: 'hero-before', workflow: 'photo-enhancement' },
   { id: 'full-shoot', name: 'Full shoot edit', description: 'A consistent professional finish, across a shoot.', kind: 'image', tag: 'Batch', icon: 'layers', color: 'workflow-batch-ai-jobs', workflow: 'photo-enhancement' },
   { id: 'upscale', name: 'Upscale', description: 'Increase photo resolution with Autoenhance.', kind: 'image', tag: 'Resolution', icon: 'maximize', color: 'workflow-batch-ai-jobs', workflow: 'photo-enhancement' },
-  { id: 'green-grass', name: 'Green grass', description: 'Refresh the lawn while keeping its texture.', kind: 'image', tag: 'New', icon: 'leaf', color: 'selected-shoot', workflow: 'photo-enhancement' },
   { id: 'sky-replacement', name: 'Sky replacement', description: 'A natural sky, matched to the property light.', kind: 'image', tag: 'New', icon: 'cloud', color: 'workflow-twilight', workflow: 'photo-enhancement' },
   { id: 'perspective-correction', name: 'Perspective correction', description: 'Straighten verticals while preserving the room.', kind: 'image', tag: 'New', icon: 'scan', color: 'hero-after', workflow: 'photo-enhancement' },
   { id: 'property-reel', name: 'Property reel', description: 'Turn your best rooms into a property story.', kind: 'video', tag: 'Most used', icon: 'film', color: 'workflow-reel-generator', workflow: 'reel-generator' },
