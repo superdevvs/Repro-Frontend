@@ -131,3 +131,20 @@ test('a failed AI revision keeps the saved photo available and explains the outc
   await expect(page.getByRole('button', { name: 'Request AI revision · 2 remaining' })).toBeEnabled();
   expect(state.requests.filter(request => request.method !== 'GET')).toEqual([]);
 });
+
+test('mobile review keeps preset and payment radios independent from the desktop inspector', async ({ page, baseURL }) => {
+  const state = await install(page, baseURL); await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/listing-studio');
+  await page.getByLabel('Upload your listing photo').setInputFiles(resolve('public/studio-assets/listing-studio/staging.png'));
+  await page.getByRole('button', { name: 'Edit settings', exact: true }).click();
+  const dialog = page.getByRole('dialog');
+  for (const service of ['Decluttering', 'Green grass', 'Digital twilight', 'Virtual staging']) {
+    const radio = dialog.getByRole('radio', { name: new RegExp(service) });
+    await dialog.getByText(service, { exact: true }).click(); await expect(radio).toBeChecked();
+  }
+  await expect(dialog.getByRole('combobox', { name: 'Room', exact: true })).toHaveValue('living');
+  await dialog.getByRole('button', { name: 'Review price', exact: true }).click();
+  const credit = dialog.getByRole('radio', { name: /Editing credit/ }); const card = dialog.getByRole('radio', { name: 'Pay by card', exact: true });
+  await expect(credit).toBeChecked(); await card.check(); await expect(card).toBeChecked(); await credit.check(); await expect(credit).toBeChecked();
+  expect(state.requests.filter(request => request.path === 'client/orders' && request.method === 'POST')).toEqual([]);
+});
