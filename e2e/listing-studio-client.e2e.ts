@@ -120,3 +120,14 @@ test('three used AI revisions disable new requests and preserve previous version
   await expect(page.getByRole('button', { name: 'Compare', exact: true })).toHaveAttribute('aria-pressed', 'true');
   expect(state.requests.filter(request => request.method !== 'GET')).toEqual([]);
 });
+
+test('a failed AI revision keeps the saved photo available and explains the outcome', async ({ page, baseURL }) => {
+  const state = await install(page, baseURL);
+  state.order.aiRevisions = { ...state.order.aiRevisions!, used: 1, remaining: 2 };
+  await page.goto(`/listing-studio?tab=photos&order=${state.order.id}`);
+  await expect(page.getByRole('alert')).toContainText('Your latest AI revision could not be completed.');
+  await expect(page.getByRole('button', { name: 'Download full resolution', exact: true }).first()).toBeEnabled();
+  await page.getByRole('textbox', { name: 'What would you like to change?' }).fill('A softer sunset glow.');
+  await expect(page.getByRole('button', { name: 'Request AI revision · 2 remaining' })).toBeEnabled();
+  expect(state.requests.filter(request => request.method !== 'GET')).toEqual([]);
+});
