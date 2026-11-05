@@ -195,9 +195,9 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
           <form onSubmit={form.handleSubmit(handleSubmit)} className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 sm:px-0 sm:py-2">
               <div className="space-y-3 sm:space-y-8">
-            <div className="grid gap-4 md:grid-cols-[260px,1fr]">
+            <div className="grid items-start gap-5 md:grid-cols-[220px_minmax(0,1fr)]">
               <div className="min-w-0 space-y-4">
-              <div className="flex flex-row items-center gap-3 sm:flex-col sm:gap-3">
+              <div className="flex flex-row items-center gap-3 md:flex-col md:gap-3">
                 <ImageUpload
                   initialImage={avatarUrl}
                   onChange={(url) => {
@@ -291,7 +291,7 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
               )}
               {isClientRole && !initialData && <p className="text-xs text-muted-foreground">Save the account to add its brokerage logo.</p>}
               </div>
-              <div className="space-y-2.5 sm:space-y-4">
+              <div className="min-w-0 space-y-2.5 sm:space-y-4">
                 <div className="grid grid-cols-2 gap-2.5 sm:gap-4">
                   <FormField
                     control={form.control}
@@ -440,8 +440,6 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
                     </>
                   )}
                 </div>
-              </div>
-            </div>
             <div className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-2">
               <FormField
                 control={form.control}
@@ -566,6 +564,8 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
                   )}
                 </>
               )}
+            </div>
+              </div>
             </div>
             <AccountInsuranceFields controller={controller} />
             {isSalesRep && (

@@ -123,7 +123,25 @@ test('account summary links to the logo editor under the profile photo', async (
   await summary.getByRole('button', { name: 'Change logo' }).click();
   const editor = page.getByRole('dialog', { name: 'Update account details', exact: true });
   await expect(editor.getByRole('region', { name: 'Brokerage logo' }).getByRole('button', { name: 'Replace logo' })).toBeVisible();
+  const company = await editor.getByRole('textbox', { name: 'Company', exact: true }).boundingBox();
+  const firstName = await editor.getByRole('textbox', { name: 'First Name', exact: true }).boundingBox();
+  const logo = await editor.getByRole('region', { name: 'Brokerage logo' }).boundingBox();
+  const officeVisibility = await editor.getByRole('switch', { name: 'Show office phone on branded tour' }).locator('..').locator('..').boundingBox();
+  expect(company && firstName && logo && officeVisibility).toBeTruthy();
+  expect(company!.x).toBeCloseTo(firstName!.x, 0);
+  expect(company!.x).toBeGreaterThan(logo!.x + logo!.width);
+  expect(company!.y - (officeVisibility!.y + officeVisibility!.height)).toBeLessThan(60);
   await screenshot(page, 'desktop-account-editor');
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileEditor = page.getByRole('dialog', { name: 'Update account', exact: true });
+  await expect(mobileEditor.getByRole('region', { name: 'Brokerage logo' }).getByRole('button', { name: 'Replace logo' })).toBeVisible();
+  const mobileDialog = await mobileEditor.boundingBox();
+  for (const name of ['First Name', 'Last Name', 'Company', 'License number']) {
+    const field = await mobileEditor.getByRole('textbox', { name, exact: true }).boundingBox();
+    expect(field!.x).toBeGreaterThanOrEqual(mobileDialog!.x);
+    expect(field!.x + field!.width).toBeLessThanOrEqual(mobileDialog!.x + mobileDialog!.width);
+  }
+  await screenshot(page, 'phone-account-editor');
 });
 
 test('unassigned rep sees the logo without a management shortcut or upload controls', async ({ page, baseURL }) => {
