@@ -19,9 +19,10 @@ export function MediaMarkDeliveryPanel({ plan, mode, onModeChange, selected, onS
     <div className="mark-component-list">{plan.components.map(component => {
       const Icon = kindIcons[component.kind] ?? FileCheck2;
       const enabled = deliveryComponentSelectable(component, mode);
+      const preservedLegacyDelivery = component.kind === 'legacy' && (component.resolved || component.status === 'delivered');
       return <div key={component.id} className={`mark-component ${selected.includes(component.id) ? 'is-selected' : ''}`}>
         <label><input type="checkbox" checked={selected.includes(component.id)} disabled={!enabled} onChange={() => onSelect(component.id)} aria-label={`${component.label} — ${component.service_name || `Service ${component.shoot_service_id}`}`} /><span className="mark-component-icon"><Icon /></span><span className="min-w-0 flex-1"><strong>{component.label}</strong><small>{component.service_name || `Service #${component.shoot_service_id}`}{component.unit_id ? ` · Unit ${component.unit_id}` : ''}</small></span><span className={`mark-status mark-status-${component.status}`}>{component.status === 'delivered' && <Check />} {component.status}</span></label>
-        <div className="mark-component-detail"><span>{component.output_count ?? component.file_ids.length} {component.kind === 'video' ? 'video' : component.kind === 'photo' ? 'photo' : 'output'}{(component.output_count ?? component.file_ids.length) === 1 ? '' : 's'}</span>{component.reason && !component.resolved && <p><AlertCircle />{component.reason}</p>}
+        <div className="mark-component-detail"><span>{preservedLegacyDelivery ? 'Previous delivery preserved.' : <>{component.output_count ?? component.file_ids.length} {component.kind === 'video' ? 'video' : component.kind === 'photo' ? 'photo' : 'output'}{(component.output_count ?? component.file_ids.length) === 1 ? '' : 's'}</>}</span>{component.reason && !component.resolved && <p><AlertCircle />{component.reason}</p>}
           {component.external_url && <a href={component.external_url} target="_blank" rel="noopener noreferrer">Review provider delivery <ExternalLink /></a>}
         </div>
       </div>;
