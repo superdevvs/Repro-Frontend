@@ -279,6 +279,7 @@ export function resolveUploadServiceTargets(
   actor: UploadActor | null | undefined,
   uploadType: 'raw' | 'edited',
   lanes: UploadLane[] = [UPLOAD_LANE_PHOTO],
+  options: { includeClosed?: boolean } = {},
 ): UploadServiceTarget[] {
   const shootWithAssignmentAliases = shoot as ShootData & {
     photographerId?: string | number | null;
@@ -312,6 +313,11 @@ export function resolveUploadServiceTargets(
       // falling back to the catalogue id, which addressed the wrong row.
       const pivotId = readPivotId(item);
       if (!pivotId) return false;
+      if ((item.is_deliverable ?? item.isDeliverable) === false || item.is_invoice_adjustment || item.isInvoiceAdjustment) return false;
+      const workflow = String(item.workflow_status ?? item.workflowStatus ?? '').toLowerCase();
+      const delivery = String(item.delivery_status ?? item.deliveryStatus ?? '').toLowerCase();
+      if (workflow === 'cancelled' || delivery === 'cancelled') return false;
+      if (!options.includeClosed && workflow === 'delivered' && delivery === 'delivered') return false;
 
       // Capability next, and it applies to every role. An admin is not exempt: the
       // question is whether the service can receive this media at all, not who is

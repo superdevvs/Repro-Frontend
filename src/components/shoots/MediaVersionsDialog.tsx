@@ -101,9 +101,9 @@ function MediaVersionsDialog({ request, onClose }: { request: MediaVersionReques
       {!versions.length && <p className="text-sm text-muted-foreground">No replacements yet. The current image will be kept when its first replacement is published.</p>}
       {versions.map(version => <article key={version.id} className="flex gap-3 rounded-lg border p-3">
         {version.preview_url && <StudioImage src={version.preview_url} alt={version.filename ?? 'Saved edit'} className="h-20 w-28 rounded object-cover" />}
-        <div className="min-w-0 flex-1 space-y-2"><p className="text-sm font-medium">{version.version ? `Version ${version.version}` : 'Returned edit'} · {version.status}</p>
+        <div className="min-w-0 flex-1 space-y-2"><p className="text-sm font-medium">{version.version ? `Version ${version.version}` : 'Returned edit'} · <span className={version.error_code === 'delivery_review_required' ? 'rounded-md bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300' : undefined}>{version.error_code === 'delivery_review_required' ? 'Review' : version.status}</span></p>
           <p className="text-xs text-muted-foreground">{new Date(version.created_at).toLocaleString()}</p>
-          {version.error && <p className="text-sm">{version.error}</p>}
+          {version.error_code === 'delivery_review_required' ? <p className="text-xs leading-relaxed text-muted-foreground">This returned edit needs staff delivery review. The current delivered image stays available. Review the preview, then choose Replace latest to approve this version or Save as copy to keep it separate.</p> : version.error && <p className="text-sm">{version.error}</p>}
           <div className="flex flex-wrap gap-2">
             {version.status === 'archived' && <Button size="sm" variant="outline" disabled={busy} onClick={() => void act(version, 'restore')}>Restore as new version</Button>}
             {['conflict', 'alternative'].includes(version.status) && <>

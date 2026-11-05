@@ -7,7 +7,6 @@ import {
 } from './shootDetailsTypes';
 import { getHoldNotificationAvailability } from '../details/useHoldNotifications';
 import {
-  canFinaliseShoot,
   isFastForwardFinalise as isNoMediaFinalise,
 } from '@/utils/shootFinalize';
 
@@ -91,7 +90,9 @@ export const getShootDetailsCapabilities = ({
     isAdmin &&
     !isDelivered &&
     isNoMediaFinalise(shoot);
-  const canFinalise = isAdmin && !isDelivered && canFinaliseShoot(shoot);
+  // Opens a read-only delivery review. The server plan owns the available
+  // component actions; aggregate photo counts cannot establish readiness.
+  const canFinalise = isAdmin && !isDelivered && !isCancelledOrDeclined;
   // Drives the "Finalize (fast-forward)" label and the allow_no_media_delivery
   // request flag.
   const isFastForwardFinalise = canFastForwardFinalise;

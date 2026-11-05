@@ -11,8 +11,7 @@ import {
   finalizeRawUploadQueue,
 } from '@/services/shootMediaService';
 import { blurActiveElement } from '../dialogFocusUtils';
-import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
-import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
+import { openMediaMark } from '../tabs/media/mark/mediaMarkEvents';
 import { useShootMutationRefresh } from '@/hooks/useShootMutationRefresh';
 import { buildResumeSchedulePayload, shootNeedsResumeScheduleDialog, type ResumeSchedulePayload } from '@/utils/shootResumeSchedule';
 import { getShootUnits } from '@/features/shoot-units/shootUnitData';
@@ -66,7 +65,7 @@ export function useShootDetailsModalWorkflow({
   const [cancelWithoutNotification, setCancelWithoutNotification] = useState(false);
   const [isCancellingShoot, setIsCancellingShoot] = useState(false);
   const [isSendingToEditing, setIsSendingToEditing] = useState(false);
-  const [isFinalising, setIsFinalising] = useState(false);
+  const [isFinalising] = useState(false);
   const [isSubmittingRaw, setIsSubmittingRaw] = useState(false);
   const [isSubmittingEdits, setIsSubmittingEdits] = useState(false);
   const [isApprovingEditingReview, setIsApprovingEditingReview] = useState(false);
@@ -123,24 +122,7 @@ export function useShootDetailsModalWorkflow({
 
   const handleFinalise = async () => {
     if (!shoot || isFinalising) return;
-
-    try {
-      setIsFinalising(true);
-      // Progress toast, polling and outcome copy all live in the shared
-      // finalize runner so every entry point behaves identically.
-      await finalizeShootWithProgressToast({
-        shootId: shoot.id,
-        shootLabel: shoot.location?.address,
-        body: buildFinalizeRequestBody(shoot, 'admin_verified'),
-        fetchShoot: refreshShoot,
-        onRefresh: () => {
-          void refreshShoot();
-          refreshShootMutations(shoot.id);
-        },
-      });
-    } finally {
-      setIsFinalising(false);
-    }
+    openMediaMark({ shootId: shoot.id, shootLabel: shoot.location?.address, initialTab: 'delivery', onChanged: () => { void refreshShoot(); refreshShootMutations(shoot.id); } });
   };
 
   const handleMarkOnHoldClick = () => {

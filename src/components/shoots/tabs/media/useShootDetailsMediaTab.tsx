@@ -526,11 +526,11 @@ export function useShootDetailsMediaTab({
 
   // Load files using React Query hooks for deduplication and caching
   const rawFilesEnabled = Boolean(shoot.id) && !isClient;
-  const { data: rawFilesData = [], isLoading: rawLoading } = useScopedShootFiles(fullShoot, activeUnitId, 'raw', {
+  const { data: rawFilesData = [], allData: allRawFiles = [], isLoading: rawLoading } = useScopedShootFiles(fullShoot, activeUnitId, 'raw', {
     enabled: rawFilesEnabled,
     cacheKey: shootFilesCacheKey,
   });
-  const { data: editedFilesData = [], isLoading: editedLoading } = useScopedShootFiles(fullShoot, activeUnitId, 'edited', {
+  const { data: editedFilesData = [], allData: allEditedFiles = [], isLoading: editedLoading } = useScopedShootFiles(fullShoot, activeUnitId, 'edited', {
     refetchInterval: ['editing', 'review'].includes(String(fullShoot.status)) ? 5000 : false,
     enabled: Boolean(shoot.id),
     includeHidden: true,
@@ -1337,6 +1337,7 @@ export function useShootDetailsMediaTab({
         shoot={shoot}
         toast={toast}
         queryClient={queryClient}
+        unassignedFiles={(displayTab === 'uploaded' ? allRawFiles : allEditedFiles).filter(file => !(file.shoot_service_id ?? file.shootServiceId))}
         onShootUpdate={onShootUpdate}
         clientEditedMediaTabs={clientEditedMediaTabs}
         editedMediaTab={editedMediaTab}

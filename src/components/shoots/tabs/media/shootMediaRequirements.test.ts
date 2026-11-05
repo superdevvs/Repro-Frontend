@@ -43,7 +43,7 @@ describe('staff media requirements and completion time', () => {
   });
   it('counts legacy sources without service attribution', () => {
     const r = getShootMediaRequirements(shoot, Array.from({ length: 8 }, (_, i) => file(i, 0)));
-    expect(r).toMatchObject({ saved: 8, missing: 127 });
+    expect(r).toMatchObject({ saved: 8, missing: 135 });
     expect(r.unassigned).toBe(8);
   });
   it('scopes photographer requirements to the same assigned services as the gallery', () => {

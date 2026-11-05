@@ -531,8 +531,8 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                 ? `${iguidePackageLabel}${offlinePackage.originalFilename ? ` · ${offlinePackage.originalFilename}` : ''}`
                 : 'No tour or offline package'}
             icon={<Home className="h-4 w-4" />}
-            status={<ProviderStatus kind={iguideSync.url || (visibleOfflinePackage && offlinePackage.status === 'ready') ? 'ready' : visibleOfflinePackage ? packageStatusKind : 'empty'}>
-              {iguideSync.url ? 'Ready' : visibleOfflinePackage ? iguidePackageLabel : 'Not set'}
+            status={<ProviderStatus kind={iguideSync.url ? 'empty' : (visibleOfflinePackage && offlinePackage.status === 'ready') ? 'ready' : visibleOfflinePackage ? packageStatusKind : 'empty'}>
+              {iguideSync.url ? 'Linked' : visibleOfflinePackage ? iguidePackageLabel : 'Not set'}
             </ProviderStatus>}
             open={openProvider === 'iguide'}
             onToggle={(id) => setOpenProvider((current) => current === id ? null : id)}

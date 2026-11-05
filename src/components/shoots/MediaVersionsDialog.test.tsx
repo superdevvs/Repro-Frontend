@@ -38,3 +38,14 @@ it('restoration retries preserve the reviewed version and display explicit confl
   fireEvent.click(screen.getByRole('button', { name: 'Restore as new version' }));
   await waitFor(() => expect(api.post).toHaveBeenCalledTimes(2)); expect(api.post.mock.calls[1][1]).toEqual(body);
 });
+it('labels receipt-bound returned edits Review and keeps staff resolution bound to the current version', async () => {
+  api.get.mockResolvedValue({ data: { data: [{ id: 'review-v2', status: 'conflict', error_code: 'delivery_review_required', error: 'Delivery review required', version: 2, created_at: '2026-11-05' }], current_version: 1 } });
+  render(<MemoryRouter><MediaVersionsDialogHost /></MemoryRouter>);
+  act(() => openMediaVersions({ shootId: 8, fileId: 12, name: 'Kitchen.jpg' }));
+  await screen.findByText('Review');
+  expect(screen.queryByText('conflict')).not.toBeInTheDocument();
+  expect(screen.getByText(/current delivered image stays available/)).toBeVisible();
+  expect(screen.getByRole('button', { name: 'Save as copy' })).toBeVisible();
+  fireEvent.click(screen.getByRole('button', { name: 'Replace latest (v1)' }));
+  await waitFor(() => expect(api.post).toHaveBeenCalledWith('/shoots/8/media-versions/review-v2/resolve', { choice: 'replace_latest', expected_latest_version: 1 }));
+});

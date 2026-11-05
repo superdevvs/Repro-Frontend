@@ -1,9 +1,9 @@
 import type { Dispatch, ReactNode, SetStateAction } from 'react';
-import { AlertCircle, ChevronDown, ChevronUp, Download, FileIcon, LayoutGrid, List, MoreHorizontal, Trash2, Upload } from 'lucide-react';
+import { AlertCircle, ChevronDown, ChevronUp, Download, Tag, LayoutGrid, List, MoreHorizontal, Trash2, Upload } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MediaSortControl } from './MediaSortControl';
 import { RawDownloadBatches } from './RawDownloadBatches';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -46,6 +46,7 @@ interface ShootMediaHeaderProps {
   handleGenerateShareLink: (shareAll?: boolean) => Promise<void>;
   handleEditorDownloadRaw: (downloadAll?: boolean) => Promise<void>;
   canMarkSelectedFiles: boolean;
+  onOpenMark?: () => void;
   canDownload: boolean;
   isAdmin: boolean;
   handleReclassify: (type: ReclassifyMediaType, fileIdsOverride?: Array<string | number>) => Promise<void>;
@@ -67,8 +68,8 @@ export function ShootMediaHeader({
   isExpanded, onToggleExpand, mediaViewMode, toggleMediaViewMode, sortMenuOpen, setSortMenuOpen,
   sortOrder, isDragMode, sortSaveStatus, changeSortOrder, toggleDragMode, showUploadTab,
   selectedFiles, setRequestManagerOpen, downloading, handleDownload, handleGenerateShareLink,
-  handleEditorDownloadRaw, canMarkSelectedFiles, canDownload, isAdmin, handleReclassify,
-  markMenuOptions, canDelete, handleDeleteFiles,
+  handleEditorDownloadRaw, canMarkSelectedFiles, canDownload, isAdmin,
+  canDelete, handleDeleteFiles, onOpenMark,
   canBatchRename = false, batchRenameEnabled = false, onOpenBatchRename,
   presentationActions,
   canCreateRequest = true,
@@ -223,6 +224,7 @@ export function ShootMediaHeader({
                 {selectedFiles.size}<span className="sr-only min-[360px]:not-sr-only"> selected</span>
               </span>
               {presentationActions}
+              {(canMarkSelectedFiles || isAdmin) && onOpenMark && <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 text-xs" onClick={onOpenMark}><Tag className="h-3.5 w-3.5" /><span className="hidden min-[380px]:inline">Mark</span><span className="min-[380px]:hidden sr-only">Mark selected media</span></Button>}
               {canDownload && (
                 isEditor && displayTab === 'uploaded' ? (
                   <Button
@@ -279,20 +281,7 @@ export function ShootMediaHeader({
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" collisionPadding={12}>
                     <DropdownMenuLabel>{selectedFiles.size} selected</DropdownMenuLabel>
-                    {canMarkSelectedFiles && (
-                      <DropdownMenuSub>
-                        <DropdownMenuSubTrigger className="min-h-10">
-                          <FileIcon className="mr-2 h-4 w-4" />Mark as
-                        </DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent collisionPadding={12}>
-                          {markMenuOptions.map(option => (
-                            <DropdownMenuItem key={option.value} className="min-h-10" onClick={() => handleReclassify(option.value)}>
-                              {option.label}
-                            </DropdownMenuItem>
-                          ))}
-                        </DropdownMenuSubContent>
-                      </DropdownMenuSub>
-                    )}
+                    {(canMarkSelectedFiles || isAdmin) && onOpenMark && <DropdownMenuItem className="min-h-10" onSelect={onOpenMark}><Tag className="mr-2 h-4 w-4" />Mark media…</DropdownMenuItem>}
                     {isClient && canCreateRequest && (
                       <DropdownMenuItem className="min-h-10" onClick={() => setRequestManagerOpen(true)}>
                         <AlertCircle className="mr-2 h-4 w-4" />Create request

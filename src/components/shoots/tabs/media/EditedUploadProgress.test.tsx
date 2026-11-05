@@ -26,7 +26,7 @@ afterEach(() => {
 describe('edited upload transfer progress', () => {
   it('reuses the scoped attempt key when retrying an uncertain network result', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><EditedUploadSection shoot={{ id: '163', services: [] } as ShootData} onUploadComplete={vi.fn()} /></QueryClientProvider>);
+    render(<QueryClientProvider client={client}><EditedUploadSection shoot={{ id: '163', services: [], serviceItems: [{ id: '71', shoot_service_id: '701', name: 'Photo and video work', upload_intake_type: 'photo_video', photographer_id: '989', requires_editing: true }] } as ShootData} onUploadComplete={vi.fn()} /></QueryClientProvider>);
     fireEvent.change(screen.getByTestId('edited-upload-input'), {
       target: { files: [new File(['photo'], 'retry.jpg', { type: 'image/jpeg' })] },
     });
@@ -47,7 +47,7 @@ describe('edited upload transfer progress', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     vi.spyOn(client, 'invalidateQueries').mockResolvedValue(undefined);
     const complete = vi.fn();
-    render(<QueryClientProvider client={client}><EditedUploadSection shoot={{ id: '164', services: [] } as ShootData} onUploadComplete={complete} /></QueryClientProvider>);
+    render(<QueryClientProvider client={client}><EditedUploadSection shoot={{ id: '164', services: [], serviceItems: [{ id: '71', shoot_service_id: '701', name: 'Photo and video work', upload_intake_type: 'photo_video', photographer_id: '989', requires_editing: true }] } as ShootData} onUploadComplete={complete} /></QueryClientProvider>);
     const files = ['a.jpg', 'b.jpg'].map((name) => new File(['photo'], name, { type: 'image/jpeg' }));
     fireEvent.change(screen.getByTestId('edited-upload-input'), { target: { files } });
     vi.mocked(uploadMediaRequest)
@@ -76,7 +76,7 @@ describe('edited upload transfer progress', () => {
   it('keeps successful confirmations and never finalizes a failed parallel batch', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const complete = vi.fn();
-    render(<QueryClientProvider client={client}><EditedUploadSection isEditor shoot={{ id: '160', services: [] } as ShootData} onUploadComplete={complete} /></QueryClientProvider>);
+    render(<QueryClientProvider client={client}><EditedUploadSection isEditor shoot={{ id: '160', services: [], serviceItems: [{ id: '71', shoot_service_id: '701', name: 'Photo and video work', upload_intake_type: 'photo_video', photographer_id: '989', requires_editing: true }] } as ShootData} onUploadComplete={complete} /></QueryClientProvider>);
     const files = [1, 2, 3, 4].map((id) => new File(['photo'], `${id}.jpg`, { type: 'image/jpeg' }));
     fireEvent.change(screen.getByTestId('edited-upload-input'), { target: { files } });
     const resolvers: Array<(result: Awaited<ReturnType<typeof uploadMediaRequest>>) => void> = [];
@@ -103,7 +103,7 @@ describe('edited upload transfer progress', () => {
   it('reports byte-level progress while a video is still transferring (not stuck at 0%)', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     vi.spyOn(client, 'invalidateQueries').mockResolvedValue(undefined);
-    const shoot = { id: '160', services: [], location: { address: 'Edited Video QA' } } as ShootData;
+    const shoot = { id: '160', services: [], serviceItems: [{ id: '71', shoot_service_id: '701', name: 'Photo and video work', upload_intake_type: 'photo_video', photographer_id: '989', requires_editing: true }], location: { address: 'Edited Video QA' } } as ShootData;
     render(
       <QueryClientProvider client={client}>
         <EditedUploadSection shoot={shoot} onUploadComplete={vi.fn()} />
@@ -148,7 +148,7 @@ describe('edited upload transfer progress', () => {
   it('emits per-file size and progress for concurrent edited uploads', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     vi.spyOn(client, 'invalidateQueries').mockResolvedValue(undefined);
-    const shoot = { id: '161', services: [], location: { address: 'Edited Multi QA' } } as ShootData;
+    const shoot = { id: '161', services: [], serviceItems: [{ id: '71', shoot_service_id: '701', name: 'Photo and video work', upload_intake_type: 'photo_video', photographer_id: '989', requires_editing: true }], location: { address: 'Edited Multi QA' } } as ShootData;
     render(
       <QueryClientProvider client={client}>
         <EditedUploadSection shoot={shoot} onUploadComplete={vi.fn()} />
@@ -200,7 +200,7 @@ describe('edited upload transfer progress', () => {
     const onConsumed = vi.fn();
     const files = ['saved.jpg', 'retry.jpg'].map((name) => new File(['abc'], name, { type: 'image/jpeg' }));
     render(<QueryClientProvider client={client}>
-      <EditedUploadSection shoot={{ id: '162', services: [] } as unknown as ShootData}
+      <EditedUploadSection shoot={{ id: '162', services: [], serviceItems: [{ id: '71', shoot_service_id: '701', name: 'Photo and video work', upload_intake_type: 'photo_video', photographer_id: '989', requires_editing: true }] } as unknown as ShootData}
         stagedDrop={{ files, type: 'edited' }} onStagedDropConsumed={onConsumed} onUploadComplete={onComplete} />
     </QueryClientProvider>);
     expect(onConsumed).toHaveBeenCalledOnce();

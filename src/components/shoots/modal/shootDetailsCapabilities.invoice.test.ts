@@ -78,7 +78,7 @@ describe('shoot no-media finalisation capability gating', () => {
     }
   });
 
-  it('honors the role-specific server denial for editing managers', () => {
+  it('keeps legacy no-media delivery denied while allowing the manager to review the current delivery plan', () => {
     const capabilities = capabilitiesFor({
       workflowStatus: 'ready',
       rawPhotoCount: 0,
@@ -86,7 +86,7 @@ describe('shoot no-media finalisation capability gating', () => {
       can_finalize_no_media: false,
     }, 'editing_manager');
 
-    expect(capabilities.canFinalise).toBe(false);
+    expect(capabilities.canFinalise).toBe(true);
     expect(capabilities.canFastForwardFinalise).toBe(false);
   });
 

@@ -2,13 +2,14 @@ import { describe, expect, it } from 'vitest';
 import type { ShootData } from '@/types/shoots';
 import { getShootDetailsCapabilities } from './shootDetailsCapabilities';
 
-const capabilitiesFor = (role: string) => getShootDetailsCapabilities({
+const capabilitiesFor = (role: string, editedPhotoCount = 29) => getShootDetailsCapabilities({
   shoot: {
     id: 86,
     status: 'scheduled',
     workflowStatus: 'scheduled',
     rawPhotoCount: 0,
-    editedPhotoCount: 29,
+    editedPhotoCount,
+    canFinalizeNoMedia: false,
   } as unknown as ShootData,
   currentUserRole: role,
   roleFlags: {
@@ -36,6 +37,12 @@ describe('scheduled shoot with directly uploaded edits', () => {
   it('keeps the delivery action hidden for other roles', () => {
     for (const role of ['client', 'rep', 'photographer', 'editor']) {
       expect(capabilitiesFor(role).canFinalise).toBe(false);
+    }
+  });
+  it('keeps delivery review reachable for a Scheduled provider-only shoot with no uploaded files', () => {
+    for (const role of ['admin', 'superadmin', 'editing_manager']) {
+      expect(capabilitiesFor(role, 0).canFinalise).toBe(true);
+      expect(capabilitiesFor(role, 0).canFastForwardFinalise).toBe(false);
     }
   });
 });

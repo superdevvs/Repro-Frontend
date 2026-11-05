@@ -34,6 +34,7 @@ export interface ShootDetailsMediaTabViewProps {
   role?: string;
   presentationRole?: string;
   mediaRequirements?: ShootMediaRequirements;
+  unassignedFiles?: MediaFile[];
   stagedDrop?: StagedMediaDrop;
   onStagedDropConsumed?: () => void;
   downloadPopup: DownloadPopupState;

@@ -243,9 +243,7 @@ export function StagedGroupCard({
                         made it possible to sidestep that with one click — the endpoint then
                         answers 422 anyway once more than one service is assigned. Admins keep
                         it as a deliberate escape hatch for legacy and reference uploads. */}
-                    {normalizedRole !== 'photographer' && (
-                      <option value="">General / Unassigned</option>
-                    )}
+                    <option value="" disabled>Choose a booked service</option>
                     {serviceTargets.map((target) => (
                       <option key={target.id} value={target.id}>{target.label}</option>
                     ))}

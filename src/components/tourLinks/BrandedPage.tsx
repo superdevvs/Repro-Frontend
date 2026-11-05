@@ -365,6 +365,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
   }
 
   const fullAddress = [shoot?.address, shoot?.city, shoot?.state, shoot?.zip].filter(Boolean).join(', ');
+  const tourOnly = heroSlides.length === 0 && Boolean(iguideUrl || matterportUrl || zillow3dUrl);
 
   return (
     <div className="branded-tour-page fixed inset-0 overflow-auto bg-background text-foreground font-sans">
@@ -389,8 +390,8 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
       </nav>
       {/* Hero — Ken Burns slideshow */}
       <div className="p-2.5">
-        <div className="rounded-2xl overflow-hidden relative h-[calc(100vh-110px)] md:h-[calc(100vh-120px)] min-h-[500px] md:min-h-[500px]">
-          {heroSlides.length > 0 ? (
+        <div className={tourOnly ? 'rounded-2xl overflow-hidden relative bg-card pt-16 pb-5' : 'rounded-2xl overflow-hidden relative h-[calc(100vh-110px)] md:h-[calc(100vh-120px)] min-h-[500px] md:min-h-[500px]'}>
+          {tourOnly ? <><div className="mx-auto max-w-6xl px-6 mb-5"><p className="text-[10px] uppercase tracking-[.2em] text-primary font-semibold">Property tour</p><h1 className="mt-2 text-2xl md:text-4xl font-bold tracking-tight">{shoot?.address || 'Explore the property'}</h1><p className="mt-2 text-sm text-muted-foreground">Open the linked provider tour to check its current availability.</p></div><Public3dTourViewer autoplay={tourSettings.autoplay} matterportUrl={matterportUrl} zillowUrl={zillow3dUrl} iguideInlineUrl={iguideUrl} iguideOpenUrl={iguideOpenUrl} className="mt-0" heading={iguideUrl ? 'iGuide property tour' : '3D property tour'} /></> : heroSlides.length > 0 ? (
             <AnimatePresence mode="sync">
               <motion.img
                 key={heroIndex}
@@ -409,10 +410,10 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
               <EmptyState icon="photos" title={<>No Image Available</>} size="compact" />
             </div>
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent z-[1]" />
+          {!tourOnly && <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent z-[1]" />}
 
           {/* Address on hero — mobile only (desktop address is in the overlap section) */}
-          <div className="absolute bottom-4 left-0 right-0 px-4 z-[2] md:hidden">
+          <div className={tourOnly ? 'hidden' : 'absolute bottom-4 left-0 right-0 px-4 z-[2] md:hidden'}>
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
               <h1 className="text-xl font-extrabold text-white tracking-tight drop-shadow-lg leading-tight">
                 {shoot?.address || 'Property Tour'}
@@ -433,11 +434,11 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
       </div>
 
       {/* ===== DESKTOP: Overlapping agent photo + address on hero + name below ===== */}
-      <div className="hidden md:block relative z-10 max-w-6xl mx-auto px-6 -mt-32">
+      <div className={`hidden md:block relative z-10 max-w-6xl mx-auto px-6 ${tourOnly ? 'mt-6' : '-mt-32'}`}>
         {/* Row 1: Photo + Address (on hero gradient, white text) */}
         <div className="flex items-end gap-5">
           {shoot?.client_name && (
-            <div className="shrink-0" style={{ marginBottom: '-90px' }}>
+            <div className="shrink-0" style={{ marginBottom: tourOnly ? '0' : '-90px' }}>
               {shoot.client_avatar ? (
                 <img src={shoot.client_avatar} alt={shoot.client_name} className="w-[180px] h-[220px] rounded-lg object-cover border-4 border-background" />
               ) : (
@@ -448,7 +449,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
             </div>
           )}
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="min-w-0 pb-5">
-            <h1 className="text-4xl font-bold text-white tracking-tight drop-shadow-lg leading-tight">
+            <h1 className={`text-4xl font-bold tracking-tight leading-tight ${tourOnly ? 'text-foreground' : 'text-white drop-shadow-lg'}`}>
               {shoot?.address || 'Property Tour'}
             </h1>
             {(() => {
@@ -457,7 +458,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
               const addressLower = (shoot?.address || '').toLowerCase();
               const alreadyInAddress = parts.length > 0 && parts.every(p => addressLower.includes((p as string).toLowerCase()));
               return !alreadyInAddress && subLine.trim() ? (
-                <p className="text-white/80 text-lg mt-1 drop-shadow">{shoot?.city}{shoot?.state ? `, ${shoot.state}` : ''} {shoot?.zip}</p>
+                <p className={`text-lg mt-1 ${tourOnly ? 'text-muted-foreground' : 'text-white/80 drop-shadow'}`}>{shoot?.city}{shoot?.state ? `, ${shoot.state}` : ''} {shoot?.zip}</p>
               ) : null;
             })()}
           </motion.div>
@@ -678,13 +679,13 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
       )}
 
       {/* 3D Tour */}
-      <Public3dTourViewer
+      {!tourOnly && <Public3dTourViewer
         zillowUrl={zillow3dUrl}
         autoplay={tourSettings.autoplay}
         matterportUrl={matterportUrl}
         iguideInlineUrl={iguideUrl}
         iguideOpenUrl={iguideOpenUrl}
-      />
+      />}
 
       {/* Floor Plans */}
       {/* Floor Plans */}

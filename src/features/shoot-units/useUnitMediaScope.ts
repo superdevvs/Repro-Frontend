@@ -14,5 +14,5 @@ export function useUnitMediaScope(fullShoot: ShootData) {
 export function useScopedShootFiles(shoot: ShootData, unitId: string | null, type: Parameters<typeof useShootFiles>[1], options: Parameters<typeof useShootFiles>[2]) {
   const query = useShootFiles(shoot.id, type, options);
   const data = useMemo(() => query.data ? filterUnitFiles(query.data, shoot, unitId) : undefined, [query.data, shoot, unitId]);
-  return { ...query, data };
+  return { ...query, data, allData: query.data };
 }

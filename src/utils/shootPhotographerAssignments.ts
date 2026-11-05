@@ -1,5 +1,6 @@
 import { ShootServiceObject, ShootServicePhotographer } from '@/types/shoots';
 import { serviceAllowsPhotographerAssignment } from './photographerAssignment';
+import { hasActiveShootWork, type ActiveShootWorkFields } from './activeShootWork';
 
 type RawServiceAssignment = ShootServiceObject | Record<string, unknown>;
 type AssignmentSource = {
@@ -223,16 +224,22 @@ export type AssignedShootPhotographer = {
 
 /** Preview current service assignees without treating a stale primary as another assignment. */
 export const getShootPhotographerDisplayName = (
-  shoot: AssignmentSource & { serviceItems?: unknown[] | null },
+  shoot: AssignmentSource & ActiveShootWorkFields & { serviceItems?: unknown[] | null },
 ): string => {
   const serviceItems = shoot.serviceItems?.filter(
     (item): item is Record<string, unknown> => item !== null && typeof item === 'object',
   );
-  const assignments = getShootPhotographerAssignments(
-    serviceItems?.length ? { ...shoot, serviceObjects: serviceItems } : shoot,
-  );
+  const active = hasActiveShootWork(shoot);
+  const source = serviceItems?.length ? serviceItems : getServiceAssignmentSource(shoot);
+  const outstanding = active ? source.filter(item => {
+    const line = item as Record<string, unknown>;
+    const workflow = String(line.workflow_status ?? line.workflowStatus ?? '').toLowerCase();
+    const delivery = String(line.delivery_status ?? line.deliveryStatus ?? '').toLowerCase();
+    return (line.is_deliverable ?? line.isDeliverable) !== false && workflow !== 'cancelled' && delivery !== 'cancelled' && !(workflow === 'delivered' && delivery === 'delivered');
+  }) : source;
+  const assignments = getShootPhotographerAssignments({ ...shoot, serviceObjects: outstanding, ...(active ? { services: [], photographer: null } : {}) });
   const names = [...new Set(assignments.map((item) => item.photographer?.name).filter(Boolean))];
-  return names.length ? names.join(' · ') : shoot.photographer?.name || 'Unassigned';
+  return names.length ? names.join(' · ') : active ? 'Unassigned' : shoot.photographer?.name || 'Unassigned';
 };
 
 /**

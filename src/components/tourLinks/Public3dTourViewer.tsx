@@ -143,6 +143,7 @@ export function Public3dTourViewer({
         </div>
       </div>
 
+      {activeProvider === 'iguide' && activeSource && <p className="mb-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">The provider tour may still be processing. Open iGuide in a new tab to check its readiness. A linked tour does not confirm that the provider has published its content.</p>}
       <div className={cn(
         'relative w-full overflow-hidden rounded-2xl border border-border/40 bg-muted/20 shadow-lg',
         activeProvider === 'zillow' ? 'aspect-[3/4] min-h-[360px] sm:aspect-video sm:min-h-0' : 'aspect-video',

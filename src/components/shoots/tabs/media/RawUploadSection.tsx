@@ -38,7 +38,6 @@ import {
   parseUploadLimitsResponse,
   parseUploadIssues,
   parseCanonicalUploadResponse,
-  pickNextUploadServiceId,
   resolveExpectedRawCount,
   resolveUploadLanesForFiles,
   resolveUploadLaneForFile,
@@ -123,18 +122,14 @@ export function RawUploadSection({
     () => shootServices.some((service) => /video/i.test(String(service))),
     [shootServices],
   );
-  /** Service targets must support every staged MIME lane. */
-  const stagedLanes = useMemo(
-    () => resolveUploadLanesForFiles(groups.flatMap((group) => group.files)),
-    [groups],
-  );
+  /** Groups retain independent photo/video targets; validate each before sending. */
   const serviceTargets = useMemo(
-    () => resolveUploadServiceTargets(shoot, user, 'raw', stagedLanes),
-    [shoot, stagedLanes, user],
+    () => [...new Map(['photo', 'video'].flatMap(lane => resolveUploadServiceTargets(shoot, user, 'raw', [lane as 'photo' | 'video'])).map(target => [target.id, target])).values()],
+    [shoot, user],
   );
-  const uploadBlockReason = rawUploadBlockReason(shoot, user);
+  const uploadBlockReason = rawUploadBlockReason(shoot, user) || (!serviceTargets.length ? 'No outstanding booked service accepts these uploads. Review Overview or keep references in Additional files.' : null);
   const normalizedRole = String(user?.role || '').toLowerCase();
-  const requiresServiceSelection = normalizedRole === 'photographer' && serviceTargets.length > 1;
+  const requiresServiceSelection = true;
   const selectedTarget = useMemo(
     () => serviceTargets.find((target) => target.id === selectedServiceId) ?? null,
     [selectedServiceId, serviceTargets],
@@ -183,7 +178,7 @@ export function RawUploadSection({
     return labels;
   }, [serviceTargets]);
   const resolveServiceLabel = useCallback(
-    (serviceId: string) => (serviceId ? serviceLabelById.get(serviceId) ?? `Service #${serviceId}` : 'General / Unassigned'),
+    (serviceId: string) => (serviceId ? serviceLabelById.get(serviceId) ?? `Service #${serviceId}` : 'Choose a service'),
     [serviceLabelById],
   );
   const uploadedCount = stagedFileCount;
@@ -267,11 +262,7 @@ export function RawUploadSection({
       if (stillValid) return;
     }
 
-    const nextServiceId = pickNextUploadServiceId(
-      serviceTargets,
-      uploadedCountsByServiceId,
-      bracketOverrides,
-    );
+    const nextServiceId = serviceTargets.length === 1 ? serviceTargets[0].id : '';
     setSelectedServiceId((currentServiceId) => (
       currentServiceId === nextServiceId ? currentServiceId : nextServiceId
     ));
@@ -307,6 +298,11 @@ export function RawUploadSection({
     }
 
     setGroups((currentGroups) => {
+      const chooseTarget = (files: File[], existing: string) => {
+        if (existing) return existing;
+        const compatible = serviceTargets.filter(target => resolveUploadLanesForFiles(files).every(lane => lane === 'photo' ? target.supportsPhotoIntake : target.supportsVideoIntake));
+        return compatible.length === 1 ? compatible[0].id : '';
+      };
       const targetId = openGroupId && currentGroups.some((group) => group.id === openGroupId)
         ? openGroupId
         : null;
@@ -314,13 +310,13 @@ export function RawUploadSection({
       if (targetId) {
         return currentGroups.map((group) => (
           group.id === targetId
-            ? addFilesToStagedGroup(group, validation.acceptedFiles, classifyByFilename)
+            ? addFilesToStagedGroup({ ...group, serviceId: chooseTarget([...group.files, ...validation.acceptedFiles], group.serviceId) }, validation.acceptedFiles, classifyByFilename)
             : group
         ));
       }
 
       const created = addFilesToStagedGroup(
-        createStagedUploadGroup(selectedServiceId),
+        createStagedUploadGroup(chooseTarget(validation.acceptedFiles, selectedServiceId)),
         validation.acceptedFiles,
         classifyByFilename,
       );
@@ -367,11 +363,8 @@ export function RawUploadSection({
   const addAnotherServiceGroup = () => {
     const stagedServiceIds = new Set(groups.map((group) => group.serviceId));
     const ordered = [...serviceTargets].sort(compareUploadServiceTargets);
-    const firstUnstaged = ordered.find((target) => !stagedServiceIds.has(target.id));
-
-    const nextServiceId = firstUnstaged
-      ? firstUnstaged.id
-      : pickNextUploadServiceId(serviceTargets, uploadedCountsByServiceId, bracketOverrides);
+    const unstaged = ordered.filter((target) => !stagedServiceIds.has(target.id));
+    const nextServiceId = unstaged.length === 1 ? unstaged[0].id : '';
     const created = createStagedUploadGroup(nextServiceId);
     setGroups((currentGroups) => [...currentGroups, created]);
     setOpenGroupId(created.id);
@@ -418,8 +411,13 @@ export function RawUploadSection({
     if (filesInPlans.length === 0) {
       return;
     }
+    const invalidPlan = plansForUpload.find(plan => {
+      const target = serviceTargets.find(item => item.id === plan.serviceId);
+      return !target || !resolveUploadLanesForFiles(plan.files).every(lane => lane === 'photo' ? target.supportsPhotoIntake : target.supportsVideoIntake);
+    });
+    if (invalidPlan) { toast({ title: 'Choose a compatible service', description: 'Each upload group needs an outstanding booked service that accepts its photo or video files. Use Additional files for references.', variant: 'destructive' }); return; }
 
-    const unavailable = rawUploadBlockReason(shoot, user, filesInPlans);
+    const unavailable = plansForUpload.map(plan => rawUploadBlockReason(shoot, user, plan.files)).find(Boolean);
     if (unavailable) {
       toast({ title: 'Upload blocked', description: unavailable, variant: 'destructive' });
       return;
@@ -494,10 +492,11 @@ export function RawUploadSection({
           const speedTracker = createUploadTransferTracker(fileSizes);
           const fileProgresses = flatFiles.map(() => 0);
           const uploadedFileObjects = new Set<File>();
+          const attemptContext = (plan: UploadGroupPlan, file: File, index: number) => JSON.stringify([String(shoot.id), 'raw', plan.serviceId, resolveUploadLaneForFile(file), plan.bracketMode, getQueueClassification(file, index, plan.classifications), noteValue]);
           // Allocate even unsent identities now: a paused batch must resume at its
           // original bracket positions, including across multiple service groups.
           plans.forEach((plan) => plan.files.forEach((file, index) => {
-            ensureUploadAttemptIdentity(file, plan.uploadBatchId, index, plan.files.length);
+            ensureUploadAttemptIdentity(file, plan.uploadBatchId, index, plan.files.length, attemptContext(plan, file, index));
             rememberUploadFileContext(file, { serviceId: plan.serviceId, bracketMode: plan.bracketMode });
           }));
           const uploadOne = async (plan: UploadGroupPlan, file: File, index: number) => {
@@ -506,7 +505,7 @@ export function RawUploadSection({
               // Replays the original identity for a file that has already been
               // attempted, so a retry reuses its first batch id, index and total
               // and the backend resolves the same bracket offset for it.
-              const identity = ensureUploadAttemptIdentity(file, plan.uploadBatchId, index, plan.files.length);
+              const identity = ensureUploadAttemptIdentity(file, plan.uploadBatchId, index, plan.files.length, attemptContext(plan, file, index));
               // Recorded so a retry can repeat this attempt instead of reading a
               // dropdown that has since auto-advanced to another service.
               rememberUploadFileContext(file, {
@@ -923,7 +922,7 @@ export function RawUploadSection({
                   bracketOptions={buildBracketOptionsForService(group.serviceId)}
                   onBracketChange={(mode) => setServiceBracketMode(group.serviceId, mode)}
                   isPhotoService={groupTarget ? groupTarget.isPhotoService : true}
-                  serviceTargets={serviceTargets}
+                  serviceTargets={serviceTargets.filter(target => resolveUploadLanesForFiles(group.files).every(lane => lane === 'photo' ? target.supportsPhotoIntake : target.supportsVideoIntake))}
                   requiresServiceSelection={requiresServiceSelection}
                   normalizedRole={normalizedRole}
                   onToggleOpen={() => setOpenGroupId(group.id === openGroupId ? null : group.id)}

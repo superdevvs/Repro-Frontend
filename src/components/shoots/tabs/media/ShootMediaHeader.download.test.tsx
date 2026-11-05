@@ -127,13 +127,13 @@ describe('expandable selection actions', () => {
     const options = {
       ...props(), isEditor: false, isAdmin: true, canMarkSelectedFiles: true, canDelete: true,
       markMenuOptions: [{ label: 'Main photos', value: 'photos' as const }],
+      onOpenMark: vi.fn(),
     };
     render(<ShootMediaHeader {...options} />);
     await user.click(screen.getByRole('button', { name: 'More selected file actions' }));
-    act(() => screen.getByRole('menuitem', { name: 'Mark as' }).focus());
-    await user.keyboard('{ArrowRight}');
-    await user.click(await screen.findByRole('menuitem', { name: 'Main photos' }));
-    expect(options.handleReclassify).toHaveBeenCalledExactlyOnceWith('photos');
+    await user.click(screen.getByRole('menuitem', { name: 'Mark media…' }));
+    expect(options.onOpenMark).toHaveBeenCalledTimes(1);
+    expect(options.handleReclassify).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: 'More selected file actions' }));
     await user.click(screen.getByRole('menuitem', { name: /Delete 1 selected file/ }));

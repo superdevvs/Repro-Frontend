@@ -839,6 +839,7 @@ function ShootDetailsOverviewTabContent({
   return (
     <div className="space-y-2">
       <HistoricalImportSummary shoot={shoot} />
+      {!isEditMode && iguideTourUrl && <a href={iguideTourUrl} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-primary hover:bg-primary/10"><span className="flex items-center gap-3"><Link2 className="h-5 w-5" /><span><strong className="block text-sm">Open iGuide</strong><span className="block text-[11px] text-muted-foreground">{iguideFloorplans.length ? `${iguideFloorplans.length} floorplan${iguideFloorplans.length === 1 ? '' : 's'} · ` : ''}Check tour availability with the provider</span></span></span><Link2 className="h-4 w-4" /></a>}
       <CompReshootOverviewStrip
         shoot={shoot}
         role={role}

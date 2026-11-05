@@ -1,4 +1,5 @@
 import { Progress } from '@/components/ui/progress';
+import { getServiceProgress } from './serviceProgress';
 import {
   Tooltip,
   TooltipContent,
@@ -33,14 +34,11 @@ const scheduleFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 const getProgressValue = (item: NormalizedShootServiceItem) => {
-  const delivery = String(item.deliveryStatus || '').toLowerCase();
-  const workflow = String(item.workflowStatus || '').toLowerCase();
-
-  if (delivery === 'cancelled' || workflow === 'cancelled') return 100;
-  if (delivery === 'delivered' || workflow === 'delivered') return 100;
-  if (delivery === 'ready' || workflow === 'ready') return 75;
-  if (workflow === 'in_progress') return 50;
-  if (workflow === 'scheduled' || item.scheduledAt) return 25;
+  const code = getServiceProgress(item)?.code;
+  if (code === 'cancelled' || code === 'delivered') return 100;
+  if (code === 'ready') return 75;
+  if (['in_editing', 'drafting', 'processing'].includes(code ?? '')) return 50;
+  if (item.scheduledAt) return 25;
   return 8;
 };
 
@@ -159,7 +157,7 @@ export function OverviewServiceProgressSection({
   }
 
   const timelineProgress = getTimelineProgress(serviceItems);
-  const deliveredCount = serviceItems.filter((item) => getProgressValue(item) === 100 && item.isDeliverable).length;
+  const deliveredCount = serviceItems.filter((item) => getServiceProgress(item)?.code === 'delivered' && item.isDeliverable).length;
   const deliverableCount = serviceItems.filter((item) => item.isDeliverable).length || serviceItems.length;
   const sortedItems = [...serviceItems].sort((a, b) => {
     const left = parseSchedule(a.scheduledAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;

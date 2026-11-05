@@ -11,11 +11,11 @@ export const canSeeUploadSummaries = (role?: string | null, isClient = false) =>
 export function getShootMediaRequirements(shoot: ShootData, rawFiles: MediaFile[], photographer?: { id?: string | number; role: string }) {
   // Read the booked contract in the gallery's scope. Sales reps can read these
   // counts without gaining the uploader's separate mutation permissions.
-  const targets = resolveUploadServiceTargets(shoot, photographer ?? { role: 'admin' }, 'raw');
+  const targets = resolveUploadServiceTargets(shoot, photographer ?? { role: 'admin' }, 'raw', undefined, { includeClosed: true });
   const photos = rawFiles.filter(file => (String(file.fileType ?? '').startsWith('image/')
     || /\.(jpe?g|png|webp|heic|heif|tiff?|nef|cr2|cr3|arw|dng|raf|rw2|orf|pef|srw|3fr|iiq)$/i.test(file.filename ?? '')
     || isPreviewableImage(file))
-    && !file.isExtra && file.media_type !== 'extra');
+    && !file.isExtra && file.media_type !== 'extra' && file.media_type !== 'floorplan');
   const expected = photographer && !targets.length ? 0 : resolveExpectedRawCount(shoot, targets);
   const exact = targets.length ? isExpectedRawCountExact(targets) : expected > 0;
   const finalCount = targets.reduce((sum, target) => sum + (target.photoCount ?? 0), 0);
@@ -27,7 +27,7 @@ export function getShootMediaRequirements(shoot: ShootData, rawFiles: MediaFile[
   }, 0) : Math.max(0, expected - photos.length);
   // Older uploads may predate service attribution. Count those sources without
   // letting oversupply on a known service fill another service's requirement.
-  const missing = targets.length ? Math.max(0, deficits - photos.filter(file => !file.shoot_service_id).length) : deficits;
+  const missing = deficits;
   const services = targets.map(target => {
     const required = resolveUploadServiceExpectedCount(target);
     const saved = photos.filter(file => String(file.shoot_service_id ?? '') === target.id).length;
@@ -35,7 +35,7 @@ export function getShootMediaRequirements(shoot: ShootData, rawFiles: MediaFile[
       rawPerFinal: target.photoCount && required !== null ? required / target.photoCount : null,
       missing: required === null ? null : Math.max(0, required - saved) };
   });
-  const videoServices = resolveUploadServiceTargets(shoot, photographer ?? { role: 'admin' }, 'raw', [UPLOAD_LANE_VIDEO])
+  const videoServices = resolveUploadServiceTargets(shoot, photographer ?? { role: 'admin' }, 'raw', [UPLOAD_LANE_VIDEO], { includeClosed: true })
     .map(target => ({ id: target.id, label: target.label }));
   const breakdown = targets.map(target => {
     const needed = resolveUploadServiceExpectedCount(target);

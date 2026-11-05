@@ -18,6 +18,7 @@ import { MediaPresentationSelectionActions } from './MediaPresentationSelectionA
 import { canInteractWithMediaFile, canManageMediaVisibility, canReorderMediaFile, canUseMediaDownload } from './mediaPresentationPermissions';
 import { canShowIguideMedia } from './iguideMediaVisibility';
 import './shootDetailsMediaWorkspace.css';
+import { openMediaMark } from './mark/mediaMarkEvents';
 
 export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
   const {
@@ -119,7 +120,9 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     toggleFilesHidden, onSetHero,
   } = props;
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const canMarkSelectedFiles = !isClient && (!isEditor || displayTab === 'edited') && ![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && file.can_interact === false);
+  const [unassignedOnly, setUnassignedOnly] = useState(false);
+  const unassignedFiles = props.unassignedFiles ?? [];
+  const canMarkSelectedFiles = ['admin', 'superadmin', 'super_admin', 'editing_manager', 'photographer', 'editor'].includes(String(role)) && !isClient && (!isEditor || displayTab === 'edited') && ![...rawFiles, ...editedFiles, ...unassignedFiles].some(file => selectedFiles.has(file.id) && file.can_interact === false);
   const showIguideMedia = canShowIguideMedia({
     iguideUrl,
     isAdmin,
@@ -310,6 +313,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
         handleGenerateShareLink={handleGenerateShareLink}
         handleEditorDownloadRaw={handleEditorDownloadRaw}
         canMarkSelectedFiles={canMarkSelectedFiles}
+        onOpenMark={() => openMediaMark({ shootId: shoot.id, shootLabel: shoot.location?.address, files: [...new Map([...rawFiles, ...editedFiles, ...unassignedFiles].filter(file => selectedFiles.has(file.id)).map(file => [String(file.id), file])).values()], allowType: canMarkSelectedFiles, onChanged: () => { setSelectedFiles(new Set()); onShootUpdate(); } })}
         canDownload={canDownload && ![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && !canUseMediaDownload(file, presentationRole))}
         presentationActions={<MediaPresentationSelectionActions files={displayTab === 'edited' ? editedFiles : rawFiles} selectedFiles={selectedFiles} role={presentationRole} onToggleHidden={toggleFilesHidden} onSetHero={onSetHero} />}
         canCreateRequest={![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && !canInteractWithMediaFile(file, presentationRole))}
@@ -322,6 +326,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
         batchRenameEnabled={batchRenameEnabled}
         onOpenBatchRename={onOpenBatchRename}
       />
+      {!isClient && (isAdmin || unassignedFiles.length > 0) && activeSubTab !== 'upload' && <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2"><Button size="sm" variant={unassignedOnly ? 'default' : 'outline'} className="h-7 gap-2 rounded-full text-[11px]" onClick={() => { setUnassignedOnly(value => !value); setSelectedFiles(new Set()); }}>Unassigned <span className="tabular-nums">{unassignedFiles.length}</span></Button>{unassignedOnly && <span className="text-[10px] text-muted-foreground">Across all units · Choose files, then Mark → Service</span>}</div>}
       {/* Content - Compact Overview-style layout */}
       <div className="flex-1 min-h-0 flex flex-col bg-background">
         {!isClient && activeShootUploads.length > 0 && (
@@ -340,7 +345,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
             ))}
           </div>
         )}
-        {activeSubTab === 'upload' ? (
+        {unassignedOnly && activeSubTab !== 'upload' ? renderMediaGridPane(unassignedFiles, 'No unassigned files', 'Every saved file in this collection has a service assignment.') : activeSubTab === 'upload' ? (
           /* Upload Tab Content */
           <div key="upload" className="flex-1 min-h-0 overflow-y-auto p-2.5" data-testid="media-upload-scroll-owner">
             <div className="border rounded-lg bg-card p-3 pb-6 flex min-h-full flex-col">

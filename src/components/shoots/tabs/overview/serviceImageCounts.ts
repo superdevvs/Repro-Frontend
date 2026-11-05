@@ -9,6 +9,7 @@ export const canSeeServiceImageCounts = (role?: string, isClient = false) => !is
 export function countServicePhotos(files: MediaFile[], id: string): number {
   return files.filter(file => String(file.shoot_service_id ?? file.shootServiceId ?? '') === id
     && !file.isExtra && file.media_type !== 'extra'
+    && file.media_type !== 'floorplan'
     && (isPreviewableImage(file) || String(file.fileType ?? '').startsWith('image/')
       || /\.(jpe?g|png|webp|heic|heif|tiff?|nef|cr2|cr3|arw|dng|raf|rw2|orf|pef|srw|3fr|iiq)$/i.test(file.filename))).length;
 }

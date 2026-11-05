@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle2, ChevronDown, Download, Eye, EyeOff, Pencil, Play, Tag, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { openMediaMark } from './mark/mediaMarkEvents';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { MediaEditingMenuItems } from '../../MediaEditingMenu';
 import { canShowMediaEditingActions } from './mediaEditingPermissions';
@@ -15,11 +16,12 @@ export function MediaViewerActions({ model }: { model: MediaViewerModel }) {
   const { role } = useAuth();
   const [open, setOpen] = useState(false);
   const closeOnEscape = (event: KeyboardEvent) => { event.preventDefault(); event.stopPropagation(); setOpen(false); };
-  const { currentFile, canSetHero, canMarkAs, viewerMarkMenuOptions, canDownloadSingleMedia, onDownloadSingle,
+  const { currentFile, canSetHero, canMarkAs, canDownloadSingleMedia, onDownloadSingle,
     downloadingFileIds, onToggleHidden, canShowRenameFilename, renameApiEnabled, renamingFilename,
     canDeleteCurrentFile, deletingFile, slideshowAvailable, canRequestModification } = model;
   const downloading = downloadingFileIds.has(String(currentFile.id));
-  if (!(canSetHero || canMarkAs || (canDownloadSingleMedia && onDownloadSingle) || onToggleHidden || canShowRenameFilename || canDeleteCurrentFile || slideshowAvailable || canRequestModification || canShowMediaEditingActions(currentFile, model.shoot?.id, role))) return null;
+  const canOpenMark = canMarkAs || ['admin', 'superadmin', 'super_admin', 'editing_manager'].includes(String(role)) && currentFile.can_interact !== false;
+  if (!(canSetHero || canOpenMark || (canDownloadSingleMedia && onDownloadSingle) || onToggleHidden || canShowRenameFilename || canDeleteCurrentFile || slideshowAvailable || canRequestModification || canShowMediaEditingActions(currentFile, model.shoot?.id, role))) return null;
   return <DropdownMenu open={open} onOpenChange={setOpen}>
     <DropdownMenuTrigger asChild>
       <Button variant="ghost" className="media-viewer-actions" aria-label="Image actions">Actions <ChevronDown className="h-3.5 w-3.5" /></Button>
@@ -30,12 +32,7 @@ export function MediaViewerActions({ model }: { model: MediaViewerModel }) {
     }}>
       <DropdownMenuLabel className="media-viewer-menu-label">Image actions</DropdownMenuLabel>
       {canSetHero && <DropdownMenuItem className={itemClass} onSelect={model.handleSetHeroImage}><CheckCircle2 />Make hero</DropdownMenuItem>}
-      {canMarkAs && <DropdownMenuSub>
-        <DropdownMenuSubTrigger className={itemClass}><Tag />Mark as</DropdownMenuSubTrigger>
-        <DropdownMenuSubContent className="media-viewer-menu media-viewer-submenu" onEscapeKeyDown={closeOnEscape}>
-          {viewerMarkMenuOptions.map(option => <DropdownMenuItem key={option.value} className={itemClass} onSelect={() => { void model.handleMarkAs(option.value); }}>{option.label}</DropdownMenuItem>)}
-        </DropdownMenuSubContent>
-      </DropdownMenuSub>}
+      {canOpenMark && model.shoot && <DropdownMenuItem className={itemClass} onSelect={() => { setOpen(false); model.onClose(); setTimeout(() => openMediaMark({ shootId: model.shoot!.id, shootLabel: model.shoot?.location?.address, files: [currentFile], allowType: canMarkAs, onChanged: model.onShootUpdate }), 0); }}><Tag />Mark media…</DropdownMenuItem>}
       {canDownloadSingleMedia && onDownloadSingle && <DropdownMenuItem className={itemClass} disabled={downloading} aria-busy={downloading} onSelect={() => model.handleDownloadSingle(currentFile.id)}>
         {downloading ? <InlineSpinner aria-hidden="true" /> : <Download />}{downloading ? 'Downloading…' : 'Download'}
       </DropdownMenuItem>}

@@ -34,6 +34,9 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { toast } from '@/components/ui/use-toast';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
+import { RobbieUploadTargetDialog, type RobbieUploadChoice } from '@/components/ai/RobbieUploadTargetDialog';
+import { getRobbieUploadTargets } from './robbieUploadTargets';
+import { resolveUploadLaneForFile } from '@/components/shoots/tabs/media/uploadIntakeLanes';
 import { isRobbieHelpOnlyRole, isSupportQuestion, roleHelpPrompts } from '@/services/supportKnowledge';
 
 import { ChatWithReproAiView } from './ChatWithReproAiView';
@@ -126,6 +129,7 @@ const ChatWithReproAi = () => {
   const [overviewShootTab, setOverviewShootTab] = useState<ShootModalTab>('overview');
   const [pendingUploadFiles, setPendingUploadFiles] = useState<File[]>([]);
   const [pendingUploadId, setPendingUploadId] = useState<string | null>(null);
+  const [uploadChoice, setUploadChoice] = useState<RobbieUploadChoice | null>(null);
   
   const userName = user?.name || user?.email?.split('@')[0] || 'there';
 
@@ -433,7 +437,7 @@ const ChatWithReproAi = () => {
     }
   }, [message, sessionId, viewMode, pageContext, user?.role, getIntentFromSuggestion, helpOnly, setGuidesOpen, getGuideContext, clearGuideContext]);
 
-  const startConfirmedRobbieUpload = useCallback((action: AiActionPayload) => {
+  const startConfirmedRobbieUpload = useCallback(async (action: AiActionPayload) => {
     if (helpOnly) return;
     const shootId = typeof action?.shootId === 'string' || typeof action?.shootId === 'number'
       ? action.shootId
@@ -447,6 +451,16 @@ const ChatWithReproAi = () => {
       });
       return;
     }
+
+    let targetId: string;
+    try {
+      const targets = await getRobbieUploadTargets(shootId, files, { id: user?.id, role: user?.role || '' });
+      const requested = String(action.shoot_service_id ?? '');
+      if (requested && !targets.some(target => target.id === requested)) throw new Error('This service is no longer available. Review the shoot before uploading.');
+      if (!requested && targets.length > 1) { setUploadChoice({ action, targets }); return; }
+      targetId = requested || targets[0]?.id;
+      if (!targetId) throw new Error('No compatible outstanding booked service accepts these files. Review the Media upload service picker.');
+    } catch (error) { toast({ title: 'Choose an upload service', description: error instanceof Error ? error.message : 'The target could not be checked.', variant: 'destructive' }); return; }
 
     const apiHeaders = getApiHeaders();
     const authHeader = apiHeaders.Authorization;
@@ -479,6 +493,8 @@ const ChatWithReproAi = () => {
             const formData = new FormData();
             formData.append('files[]', file);
             formData.append('upload_type', 'raw');
+            formData.append('shoot_service_id', targetId);
+            formData.append('upload_lane', resolveUploadLaneForFile(file));
             formData.append('upload_batch_id', uploadBatchId);
             formData.append('upload_batch_total', String(files.length));
             formData.append('upload_batch_index', String(index));
@@ -554,7 +570,7 @@ const ChatWithReproAi = () => {
       title: 'Robbie upload started',
       description: `${files.length} file${files.length === 1 ? '' : 's'} uploading to shoot #${shootId}.`,
     });
-  }, [handleSendMessage, trackUpload, helpOnly]);
+  }, [handleSendMessage, trackUpload, helpOnly, user?.id, user?.role]);
 
   const handleUploadFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     if (helpOnly) return;
@@ -821,7 +837,7 @@ const ChatWithReproAi = () => {
   const isRobbieHome = tabMode === 'chat' && viewMode === 'home';
 
   return (
-    <ChatWithReproAiView
+    <><ChatWithReproAiView
       {...{
         isRobbieHome,
         helpOnly,
@@ -882,7 +898,7 @@ const ChatWithReproAi = () => {
         setOverviewShootId,
         overviewShootTab,
       }}
-    />
+    /><RobbieUploadTargetDialog key={uploadChoice ? String(uploadChoice.action.shootId) : 'closed'} choice={uploadChoice} onClose={() => setUploadChoice(null)} onChoose={id => { if (!uploadChoice) return; const action = { ...uploadChoice.action, shoot_service_id: id }; setUploadChoice(null); void startConfirmedRobbieUpload(action); }} /></>
   );
 };
 

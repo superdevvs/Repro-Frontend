@@ -10,6 +10,7 @@ import {
   type FinalizeProgressStage,
 } from '@/services/finalizeShootService';
 import { FinalizeProgressToastContent } from './FinalizeProgressToastContent';
+import { getDeliveryPlan } from '@/services/mediaMarkService';
 
 export type FinalizeOutcome =
   | { status: 'completed'; warnings: string[] }
@@ -47,7 +48,7 @@ const TOAST_COPY = {
   running: 'Running background processes…',
   title: 'Finalizing shoot',
   doneTitle: 'Finalize complete',
-  doneDescription: 'The shoot is delivered and the client has been notified.',
+  doneDescription: 'The selected work is delivered. Other unfinished requirements remain in progress.',
   warningsTitle: 'Finalized with warnings',
   failedTitle: 'Finalize failed',
   pendingTitle: 'Still processing',
@@ -215,6 +216,13 @@ const executeFinalize = async (
     emit(null);
 
     try {
+      const componentIds = Array.isArray(body?.component_ids) ? body.component_ids.map(String) : [];
+      if (componentIds.length) {
+        const delivery = await getDeliveryPlan(shootId);
+        if (componentIds.every(id => delivery.components.some(component => component.id === id && component.status === 'delivered'))) { refresh(); return { status: 'completed', warnings: [] }; }
+        await delay(FALLBACK_POLL_MS);
+        continue;
+      }
       const shoot = await (fetchShoot ? fetchShoot() : fetchShootForFinalizeFallback(shootId));
       const outcome = readFinalizeOutcomeFromShoot(shoot);
 

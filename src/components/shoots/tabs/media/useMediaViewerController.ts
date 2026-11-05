@@ -732,7 +732,7 @@ export function useMediaViewerController({
   const effectiveDownload = canUseMediaDownload(currentFile, presentationRole);
   const canInteractCurrentFile = canInteractWithMediaFile(currentFile, presentationRole);
   // Same gate as grid Mark menu (passed from tab); images only — videos stay unmarked here.
-  const canMarkAs = Boolean(canReclassify && onReclassify && shoot && isImg && !isVid);
+  const canMarkAs = Boolean(canReclassify && onReclassify && shoot && isImg && !isVid && canInteractCurrentFile && ['admin', 'superadmin', 'super_admin', 'editing_manager', 'photographer', 'editor'].includes(String(role)));
   const viewerMarkMenuOptions = markMenuOptions;
   const handleMarkAs = async (nextType: ReclassifyMediaType) => {
     if (!currentFile || !onReclassify || !canMarkAs) return;

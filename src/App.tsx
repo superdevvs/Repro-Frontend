@@ -2,6 +2,7 @@ import '@/services/api'; // Register auth/impersonation interceptors before dash
 import { initializeDashboardInstall } from '@/hooks/useDashboardInstall';
 import { ShootEditingDialogHost } from '@/components/shoots/ShootEditingDialog';
 import { MediaVersionsDialogHost } from '@/components/shoots/MediaVersionsDialog';
+import { MediaMarkDialogHost } from '@/components/shoots/tabs/media/mark/MediaMarkDialog';
 import { PageLoadingOverlay } from '@/components/layout/PageLoadingOverlay';
 import { usePageLoading } from '@/hooks/use-page-loading';
 
@@ -821,6 +822,7 @@ function App() {
                         <UploadProvider>
                           <ShootEditingDialogHost />
                           <MediaVersionsDialogHost />
+                          <MediaMarkDialogHost />
                           <SystemTelemetryProvider>
                             <RealtimeBridge />
                             <FirstLoginLegalAgreementPrompt />

@@ -43,9 +43,10 @@ export function MediaTileBadges({ file, variant = 'grid' }: MediaTileBadgesProps
   const isExtra = Boolean(file.isExtra);
   const isHero = Boolean(file.is_cover) && !isExtra;
   const isAiEdited = canViewAiEditStatus(role) && Boolean(file.is_ai_edited || file.isAiEdited);
+  const isUnassigned = ['admin', 'superadmin', 'super_admin', 'editing_manager'].includes(String(role)) && !(file.shoot_service_id ?? file.shootServiceId);
   const treatment = TREATMENT_BADGES[String(file.treatment ?? '')] ?? null;
 
-  if (!isExtra && !isHero && !isAiEdited && !treatment) {
+  if (!isExtra && !isHero && !isAiEdited && !treatment && !isUnassigned) {
     return null;
   }
 
@@ -59,6 +60,7 @@ export function MediaTileBadges({ file, variant = 'grid' }: MediaTileBadgesProps
 
   return (
     <>
+      {isUnassigned && <div className="absolute bottom-1 left-1 z-[4] rounded bg-amber-950/85 px-1.5 py-0.5 text-[8px] font-medium text-amber-50">Unassigned</div>}
       {isExtra && (
         <div className={`absolute ${cornerClass} z-[3] rounded bg-orange-500 font-medium text-white ${labelClass}`}>
           EXTRA

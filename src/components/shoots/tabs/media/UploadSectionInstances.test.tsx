@@ -13,7 +13,7 @@ vi.mock('@/context/UploadContext', () => ({ useUpload: () => ({ trackUpload: moc
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: '999', role: 'admin' } }) }));
 afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.clearAllMocks(); });
 
-const shoot = { id: '101', services: [], location: { address: 'Synthetic QA fixture' } } as ShootData;
+const shoot = { id: '101', services: [], serviceItems: [{ id: '71', shoot_service_id: '701', name: 'Property photos', upload_intake_type: 'photo', requires_editing: true }], location: { address: 'Synthetic QA fixture' } } as ShootData;
 
 describe('simultaneous upload panels for the same shoot', () => {
   it.each([
@@ -38,7 +38,7 @@ describe('simultaneous upload panels for the same shoot', () => {
     expect(visibleBrowse).toHaveBeenCalledOnce();
     expect(hiddenBrowse).not.toHaveBeenCalled();
     expect(visibleInput.id).not.toBe(hiddenInput.id);
-    expect(visible.querySelector('label')?.control).toBe(visibleInput);
+    expect(visible.querySelector<HTMLLabelElement>(`label[for="${visibleInput.id}"]`)?.control).toBe(visibleInput);
 
     await user.upload(visibleInput, new File(['first'], 'first-image.jpg', { type: 'image/jpeg' }));
     expect(within(visible).getByText('first-image.jpg')).toBeVisible();

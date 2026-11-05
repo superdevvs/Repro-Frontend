@@ -17,4 +17,12 @@ describe('shoot preview photographers', () => {
     expect(getShootPhotographerDisplayName({ services: ['HDR'], photographer: { name: 'Darryl Felton' } })).toBe('Darryl Felton');
     expect(getShootPhotographerDisplayName({ services: ['HDR'] })).toBe('Unassigned');
   });
+  it('shows only outstanding artists on an Active card, including mixed stale delivery flags', () => {
+    expect(getShootPhotographerDisplayName({ hasActiveWork: true, photographer: { id: '1', name: 'Harrison' }, serviceItems: [
+      { name: 'Drone', workflow_status: 'delivered', delivery_status: 'delivered', photographer: { id: '1', name: 'Harrison' } },
+      { name: 'HDR', workflow_status: 'pending', delivery_status: 'delivered', photographer: { id: '2', name: 'Lee' } },
+      { name: 'Cancelled', workflow_status: 'cancelled', photographer: { id: '3', name: 'Other' } },
+    ] })).toBe('Lee');
+    expect(getShootPhotographerDisplayName({ hasActiveWork: true, photographer: { name: 'Harrison' }, serviceItems: [] })).toBe('Unassigned');
+  });
 });

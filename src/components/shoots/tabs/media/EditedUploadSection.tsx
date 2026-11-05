@@ -101,7 +101,7 @@ export function EditedUploadSection({
     () => resolveEligibleUploadServices(shoot, user, 'edited'),
     [shoot, user],
   );
-  const requiresServiceSelection = eligibleServices.length > 1;
+  const requiresServiceSelection = true;
 
   const expectedCount = useMemo(() => resolveExpectedFinalCount(shoot), [shoot]);
   const existingCounts = useMemo(() => getExistingMediaTypeCounts(editedFiles), [editedFiles]);
@@ -196,7 +196,7 @@ export function EditedUploadSection({
     if (requiresServiceSelection && !selectedServiceId) {
       toast({
         title: 'Choose a service',
-        description: 'Select the editing service item for this upload batch.',
+        description: eligibleServices.length ? 'Select the booked service for this upload batch.' : 'No outstanding booked service is available. Review the service plan or use reference files instead.',
         variant: 'destructive',
       });
       return;
@@ -614,6 +614,7 @@ export function EditedUploadSection({
 
   return (
     <div className="flex min-h-full flex-col space-y-4">
+      {!eligibleServices.length && <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">No outstanding booked service is available for edited uploads. Review the services in Overview before uploading.</p>}
       {eligibleServices.length > 0 && (
         <label className="block space-y-1.5">
           <span className="text-sm font-medium text-foreground">Service for this batch</span>
@@ -624,7 +625,7 @@ export function EditedUploadSection({
             aria-label="Service for edited upload batch"
           >
             <option value="">
-              Select editing service
+              Select booked service
             </option>
             {eligibleServices.map((service) => (
               <option key={service.id} value={service.id}>{service.label}</option>

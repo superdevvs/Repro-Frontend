@@ -34,7 +34,7 @@ export function getServiceProgress(item: NormalizedShootServiceItem): ServicePro
     const workflow = item.workflowStatus?.toLowerCase();
     const delivery = item.deliveryStatus?.toLowerCase();
     if (workflow === 'cancelled' || delivery === 'cancelled') code = 'cancelled';
-    else if (workflow === 'delivered' || delivery === 'delivered' || item.source.delivered_at || item.source.deliveredAt) code = 'delivered';
+    else if (workflow === 'delivered' && delivery === 'delivered') code = 'delivered';
     else if (workflow === 'ready' || delivery === 'ready') code = 'ready';
     else if (workflow === 'in_progress') code = 'in_editing';
     else code = 'pending';

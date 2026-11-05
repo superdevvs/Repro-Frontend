@@ -25,6 +25,9 @@ describe('service progress', () => {
   it('does not treat prototype keys or unknown API codes as valid statuses', () => {
     expect(getServiceProgress(item({ progress_status: 'constructor' }))?.code).toBe('pending');
   });
+  it('keeps new work pending despite a stale delivery flag and original timestamp', () => {
+    expect(getServiceProgress(item({ workflow_status: 'pending', delivery_status: 'delivered', delivered_at: '2026-11-03T12:00:00Z' }))?.code).toBe('pending');
+  });
   it('omits operational badges for invoice adjustments', () => {
     expect(getServiceProgress(item({ is_invoice_adjustment: true }))).toBeNull();
   });

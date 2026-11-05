@@ -21,7 +21,7 @@ const accepted = (name: string, id: number) => ({ ok: true as const, status: 200
 describe('raw batch interruption recovery', () => {
   it('counts only confirmed files in this batch, independently of saved media and refreshes', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const shoot = { id: '98', services: [] } as ShootData;
+    const shoot = { id: '98', services: [], serviceItems: [{ id: '71', shoot_service_id: '701', name: 'Photo and video work', upload_intake_type: 'photo_video', photographer_id: '989', requires_editing: true }] } as ShootData;
     const saved = Array.from({ length: 100 }, (_, id) => ({ id: String(id), filename: `saved-${id}.CR3` } as MediaFile));
     const panel = (rawFiles: MediaFile[]) => <QueryClientProvider client={client}><RawUploadSection shoot={shoot} rawFiles={rawFiles} onUploadComplete={vi.fn()} /></QueryClientProvider>;
     const { rerender } = render(panel(saved));
@@ -52,7 +52,7 @@ describe('raw batch interruption recovery', () => {
   it('waits for an in-flight confirmation after a parallel failure and retains unsent work', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const complete = vi.fn();
-    render(<QueryClientProvider client={client}><RawUploadSection shoot={{ id: '98', services: [] } as ShootData} onUploadComplete={complete} /></QueryClientProvider>);
+    render(<QueryClientProvider client={client}><RawUploadSection shoot={{ id: '98', services: [], serviceItems: [{ id: '71', shoot_service_id: '701', name: 'Photo and video work', upload_intake_type: 'photo_video', photographer_id: '989', requires_editing: true }] } as ShootData} onUploadComplete={complete} /></QueryClientProvider>);
     const files = [1, 2, 3, 4].map((id) => new File(['1234567890'], `${id}.CR3`));
     fireEvent.change(screen.getByTestId('raw-upload-input'), { target: { files } });
     vi.mocked(prepareRawUploadBatch).mockResolvedValueOnce(2);
@@ -73,7 +73,7 @@ describe('raw batch interruption recovery', () => {
 
   it('prepares separate photo and video reservations within one staged service', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    render(<QueryClientProvider client={client}><RawUploadSection shoot={{ id: '98', services: [] } as ShootData} onUploadComplete={vi.fn()} /></QueryClientProvider>);
+    render(<QueryClientProvider client={client}><RawUploadSection shoot={{ id: '98', services: [], serviceItems: [{ id: '71', shoot_service_id: '701', name: 'Photo and video work', upload_intake_type: 'photo_video', photographer_id: '989', requires_editing: true }] } as ShootData} onUploadComplete={vi.fn()} /></QueryClientProvider>);
     const files = [new File(['raw'], '1.CR3'), new File(['video'], '2.mp4', { type: 'video/mp4' }), new File(['raw'], '3.CR3')];
     fireEvent.change(screen.getByTestId('raw-upload-input'), { target: { files } });
     vi.mocked(uploadMediaRequest).mockImplementation(async ({ body }) => accepted((body.get('files[]') as File).name, 1));
@@ -87,7 +87,7 @@ describe('raw batch interruption recovery', () => {
 
   it('keeps the running selection compact and restores file controls after an interruption', async () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-    const shoot = { id: '98', services: [], location: { address: 'Upload QA' } } as ShootData;
+    const shoot = { id: '98', services: [], serviceItems: [{ id: '71', shoot_service_id: '701', name: 'Photo and video work', upload_intake_type: 'photo_video', photographer_id: '989', requires_editing: true }], location: { address: 'Upload QA' } } as ShootData;
     render(<QueryClientProvider client={client}><RawUploadSection shoot={shoot} onUploadComplete={vi.fn()} /></QueryClientProvider>);
     fireEvent.change(screen.getByTestId('raw-upload-input'), { target: { files: [new File(['raw'], 'pending.CR3')] } });
     expect(screen.getByRole('button', { name: 'Remove this service group' })).toBeVisible();
@@ -113,7 +113,7 @@ describe('raw batch interruption recovery', () => {
     // An offline cache refresh must not hold the failure UI open forever.
     vi.spyOn(client, 'invalidateQueries').mockReturnValue(new Promise(() => {}));
     const complete = vi.fn();
-    const shoot = { id: '98', services: [], location: { address: 'Upload QA' } } as ShootData;
+    const shoot = { id: '98', services: [], serviceItems: [{ id: '71', shoot_service_id: '701', name: 'Photo and video work', upload_intake_type: 'photo_video', photographer_id: '989', requires_editing: true }], location: { address: 'Upload QA' } } as ShootData;
     render(<QueryClientProvider client={client}><RawUploadSection shoot={shoot} onUploadComplete={complete} /></QueryClientProvider>);
     const files = ['first.CR3', 'second.CR3', 'third.CR3'].map((name) => new File(['1234567890'], name));
     fireEvent.change(screen.getByTestId('raw-upload-input'), { target: { files } });
