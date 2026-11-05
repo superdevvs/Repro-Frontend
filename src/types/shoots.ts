@@ -443,6 +443,8 @@ export interface PendingPaymentIntent {
 }
 
 export interface ShootData extends ActiveShootWorkFields {
+  /** Positive after a manual media arrangement has been saved on the server. */
+  mediaOrderVersion?: number;
   units_revision?: number;
   units?: ShootUnit[];
   shoot_units?: ShootUnit[];

@@ -568,6 +568,7 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
 
   return {
     id: String(shootId),
+    mediaOrderVersion: toOptionalNumberValue(item.media_order_version ?? item.mediaOrderVersion),
     ...normalizeActiveShootWork(item),
     scheduledDate: toStringValue(item.scheduled_date ?? item.scheduledDate),
     timezone: toOptionalString(item.timezone) ?? null,

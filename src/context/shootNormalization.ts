@@ -772,6 +772,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     units: normalizeShootUnits(shoot),
     shoot_units: normalizeShootUnits(shoot),
     units_revision: shoot.units_revision,
+    mediaOrderVersion: toOptionalNumber(shoot.media_order_version ?? shoot.mediaOrderVersion),
     servicePresentation,
     service_presentation: servicePresentation,
     editorAssignments,

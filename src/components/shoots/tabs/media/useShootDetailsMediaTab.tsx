@@ -1,4 +1,6 @@
-import { createMediaOrderSaveQueue } from './mediaOrderSaveQueue';
+import { createMediaOrderSaveDeduplicator, enqueueShootMediaOrderSave } from './mediaOrderSaveQueue';
+import { usePendingMediaOrderFlush } from './usePendingMediaOrderFlush';
+import { useMediaOrderState } from './useMediaOrderState';
 import type { StagedMediaDrop } from './stagedMediaDrop';
 import { ShootMediaEmptyState } from './ShootMediaEmptyState';
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
@@ -46,10 +48,6 @@ import { useShootMediaSelectionState } from './useShootMediaSelectionState';
 import { useShootMediaDerivedData } from './useShootMediaDerivedData';
 import {
   buildManualBaselineIds,
-  DEFAULT_MEDIA_SORT,
-  hasSavedManualOrder,
-  mediaSortStorageKey,
-  normalizeManualOrder,
   sortMediaFiles,
   type MediaSortOrder,
 } from './mediaSort';
@@ -364,16 +362,6 @@ export function useShootDetailsMediaTab({
       shootHasVideoService,
     ],
   );
-  const [sortOrder, setSortOrderRaw] = useState<MediaSortOrder>(() => {
-    try {
-      const saved = localStorage.getItem(mediaSortStorageKey(shoot.id));
-      if (saved && ['name', 'date', 'time', 'manual'].includes(saved)) return saved as MediaSortOrder;
-    } catch {
-      // Ignore unavailable localStorage and fall back to the default sort mode.
-    }
-    return DEFAULT_MEDIA_SORT;
-  });
-  const [manualOrder, setManualOrder] = useState<string[]>([]);
   // Whether tiles are draggable right now. Separate from `sortOrder` because
   // stopping the drag interaction must not throw away the manual arrangement:
   // the grid stays in manual order, it just stops accepting drags.
@@ -383,7 +371,8 @@ export function useShootDetailsMediaTab({
   const sortSavedResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasPendingManualOrder = useRef(false);
   const latestManualOrder = useRef('');
-  const saveQueue = useRef(createMediaOrderSaveQueue());
+  const mediaOrderMounted = useRef(true);
+  const pendingOrderSave = useRef(createMediaOrderSaveDeduplicator<boolean | undefined>());
   const [mediaViewMode, setMediaViewMode] = useState<'list' | 'grid'>(() => {
     try { return (localStorage.getItem('media-view-mode') as 'list' | 'grid') || 'list'; } catch { return 'list'; }
   });
@@ -579,8 +568,6 @@ export function useShootDetailsMediaTab({
     }
   }, [editedFilesData]);
 
-  // Restore manual order from saved sort_order when files load
-  const lastSortFingerprint = useRef('');
   const getAllFiles = useCallback(
     () => [...rawFiles, ...clientVisibleEditedFiles],
     [clientVisibleEditedFiles, rawFiles],
@@ -589,59 +576,16 @@ export function useShootDetailsMediaTab({
     () => (isClient ? [...clientVisibleEditedFiles] : [...rawFiles, ...clientVisibleEditedFiles]).filter(file => canReorderMediaFile(file, presentationRole)),
     [clientVisibleEditedFiles, isClient, rawFiles, presentationRole],
   );
-  useEffect(() => {
-    const sortableFiles = getSortableFiles();
-    if (sortableFiles.length === 0) return;
-    // Only restore a saved arrangement while manual sort is the active mode.
-    // This effect used to run under every sort, pre-filling `manualOrder` from
-    // whatever `sort_order` values happened to be on the files, which is why
-    // switching to Manual visibly reshuffled the grid.
-    if (sortOrder !== 'manual') {
-      return;
-    }
-    if (hasPendingManualOrder.current || manualOrder.length > 0) {
-      return;
-    }
-    if (hasSavedManualOrder(sortableFiles)) {
-      const newOrder = buildManualBaselineIds(sortableFiles, DEFAULT_MEDIA_SORT);
-      // Only update if the order fingerprint changed (avoids infinite loops)
-      const fingerprint = newOrder.join(',');
-      if (fingerprint !== lastSortFingerprint.current) {
-        lastSortFingerprint.current = fingerprint;
-        setManualOrder(newOrder);
-      }
-    }
-  }, [getSortableFiles, manualOrder.length, sortOrder]);
-
-  useEffect(() => {
-    const sortableFiles = getSortableFiles();
-    if (sortableFiles.length === 0) {
-      if (manualOrder.length > 0) {
-        setManualOrder([]);
-      }
-      return;
-    }
-
-    const normalizedOrder = normalizeManualOrder(manualOrder, sortableFiles);
-    const currentFingerprint = manualOrder.join(',');
-    const normalizedFingerprint = normalizedOrder.join(',');
-    if (normalizedFingerprint !== currentFingerprint) {
-      setManualOrder(normalizedOrder);
-    }
-  }, [getSortableFiles, manualOrder]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(mediaSortStorageKey(shoot.id), sortOrder);
-    } catch {
-      // Ignore unavailable localStorage and keep the in-memory selection active.
-    }
-  }, [shoot.id, sortOrder]);
+  const orderingFiles = useMemo(() => getAllFiles(), [getAllFiles]);
+  const { sortOrder, setSortOrder: setSortOrderRaw, manualOrder, setManualOrder, acceptSavedOrder } =
+    useMediaOrderState(shoot.id, orderingFiles, hasPendingManualOrder,
+      Number(fullShoot.mediaOrderVersion ?? 0) > 0 || (displayTab === 'edited' &&
+        (Boolean(fullShoot.completedDate) || ['completed', 'delivered', 'finalized'].includes(String(fullShoot.status)))));
 
   useEffect(() => { latestManualOrder.current = manualOrder.join(','); }, [manualOrder]);
 
   const persistManualOrder = useCallback(
-    async (nextOrder: string[]) => {
+    (nextOrder: string[]) => pendingOrderSave.current(nextOrder.join(','), async () => {
       const sortableFiles = getSortableFiles();
       const sortableFileIds = new Set(sortableFiles.map((file) => file.id));
       const numericFileIds = nextOrder
@@ -653,12 +597,14 @@ export function useShootDetailsMediaTab({
         return;
       }
 
-      setSortSaveStatus('saving');
+      if (mediaOrderMounted.current) setSortSaveStatus('saving');
+      const headers = getApiHeaders();
 
       try {
-        const response = await saveQueue.current(() => fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files/reorder`, {
+        const response = await enqueueShootMediaOrderSave(shoot.id, () => fetch(`${API_BASE_URL}/api/shoots/${shoot.id}/files/reorder`, {
           method: 'PATCH',
-          headers: getApiHeaders(),
+          headers,
+          keepalive: true,
           body: JSON.stringify({ file_ids: numericFileIds }),
         }));
 
@@ -667,12 +613,17 @@ export function useShootDetailsMediaTab({
           throw new Error(errorData.message || 'Failed to save file order');
         }
 
-        // A newer drag is still pending; its queued save owns the visible state.
-        if (latestManualOrder.current !== nextOrder.join(',')) return false;
+        // A reopened pane can be using these queries while this old save completes.
+        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
+        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
+        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
+
+        // A closed pane or newer drag must not receive an older save's UI state.
+        if (!mediaOrderMounted.current || latestManualOrder.current !== nextOrder.join(',')) return false;
 
         // 1-based, matching what the server persists, so the local copy and a
         // subsequent refetch agree on positions.
-        const orderMap = new Map(nextOrder.map((id, index) => [id, index + 1]));
+        const orderMap = new Map(numericFileIds.map((id, index) => [String(id), index + 1]));
         const applyOrder = (files: MediaFile[]) =>
           files.map((file) =>
             orderMap.has(file.id) ? { ...file, sort_order: orderMap.get(file.id) ?? file.sort_order ?? 0 } : file,
@@ -682,16 +633,13 @@ export function useShootDetailsMediaTab({
           setRawFiles((prev) => applyOrder(prev));
         }
         setEditedFiles((prev) => applyOrder(prev));
-        lastSortFingerprint.current = nextOrder.join(',');
         hasPendingManualOrder.current = false;
+        acceptSavedOrder();
 
         setSortSaveStatus('saved');
-        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'raw'] });
-        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'edited'] });
-        queryClient.invalidateQueries({ queryKey: ['shootFiles', shoot.id, 'all'] });
         return true;
       } catch (error: unknown) {
-        if (latestManualOrder.current !== nextOrder.join(',')) return false;
+        if (!mediaOrderMounted.current || latestManualOrder.current !== nextOrder.join(',')) return false;
         setSortSaveStatus('error');
         toast({
           title: 'Sort order update failed',
@@ -700,9 +648,17 @@ export function useShootDetailsMediaTab({
         });
         return false;
       }
-    },
-    [getSortableFiles, isClient, queryClient, shoot.id, toast],
+    }),
+    [acceptSavedOrder, getSortableFiles, isClient, queryClient, shoot.id, toast],
   );
+
+  const flushPendingManualOrder = useCallback(() => {
+    if (sortSaveTimerRef.current) clearTimeout(sortSaveTimerRef.current);
+    if (hasPendingManualOrder.current && latestManualOrder.current) {
+      void persistManualOrder(latestManualOrder.current.split(','));
+    }
+  }, [persistManualOrder]);
+  usePendingMediaOrderFlush(flushPendingManualOrder, mediaOrderMounted);
 
   useEffect(() => {
     if (sortOrder !== 'manual' || manualOrder.length === 0) {
@@ -772,7 +728,6 @@ export function useShootDetailsMediaTab({
       // Entering manual mode should not immediately persist and refresh the parent list.
       // We only want to save after the user actually reorders files.
       setManualOrder(nextManualOrder);
-      lastSortFingerprint.current = nextManualOrder.join(',');
       hasPendingManualOrder.current = false;
     }
 
@@ -783,7 +738,7 @@ export function useShootDetailsMediaTab({
     // Clear the selection on any sort change: a selection carried over from a
     // different order would drag files the user is no longer looking at.
     setSelectedFiles(new Set());
-  }, [getSortableFiles, manualOrder, persistManualOrder, setSelectedFiles, sortOrder]);
+  }, [getSortableFiles, manualOrder, persistManualOrder, setManualOrder, setSelectedFiles, setSortOrderRaw, sortOrder]);
 
   /**
    * Turn dragging on or off without leaving manual order.
@@ -814,7 +769,7 @@ export function useShootDetailsMediaTab({
       latestManualOrder.current = nextGlobalOrder.join(',');
       setManualOrder(nextGlobalOrder);
     },
-    [getSortableFiles, manualOrder],
+    [getSortableFiles, manualOrder, setManualOrder],
   );
 
   const {

@@ -117,6 +117,8 @@ export type ApiServiceRecord = {
 };
 
 export type ApiShoot = ActiveShootWorkFields & {
+  media_order_version?: number | string | null;
+  mediaOrderVersion?: number | string | null;
   units?: ShootUnit[];
   shoot_units?: ShootUnit[];
   units_revision?: number;
