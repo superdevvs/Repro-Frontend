@@ -3,6 +3,7 @@ import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
 import { Public3dTourViewer } from './Public3dTourViewer';
+import { normalizePublicZillowTourUrl } from './publicZillowTour';
 import {
   normalizePublicTourUrl,
   resolvePublicIguideSources,
@@ -41,6 +42,7 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
   const [message, setMessage] = useState('Opening the 3D walkthrough…');
   const [missing, setMissing] = useState(false);
   const [inlineIguide, setInlineIguide] = useState<PublicIguideSources | null>(null);
+  const [inlineZillow, setInlineZillow] = useState('');
 
   const fallbackPath = variant === 'mls' ? '/tour/mls' : '/tour/branded';
   const fallbackUrl = shootId
@@ -77,7 +79,7 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
             ? firstUrl(payload.matterport_url, links.matterport_mls)
             : firstUrl(payload.matterport_url, links.matterport_branded, links.matterport),
           iguide: iguideSources.inlineUrl,
-          zillow: variant === 'mls' ? '' : firstUrl(links.zillow_3d),
+          zillow: variant === 'mls' || payload.locked ? '' : normalizePublicZillowTourUrl(links.zillow_3d),
         };
         const resolvedProvider = provider || (
           providerTargets.iguide ? 'iguide'
@@ -98,6 +100,12 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
           return;
         }
 
+        if (resolvedProvider === 'zillow') {
+          setInlineZillow(target);
+          setMessage('');
+          return;
+        }
+
         window.location.replace(target);
       } catch (error) {
         if ((error as Error).name !== 'AbortError') {
@@ -115,7 +123,7 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
     return <NotFound />;
   }
 
-  if (inlineIguide) {
+  if (inlineIguide || inlineZillow) {
     return (
       <main className="dark min-h-screen bg-[#060a0e] px-4 py-8 text-white sm:px-6">
         <div className="mx-auto max-w-6xl">
@@ -123,11 +131,12 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
             <img src="/REPRO-HQ.png" alt="R/E Pro Photos" className="mx-auto mb-7 w-52 max-w-full" />
           )}
           <Public3dTourViewer
-            iguideInlineUrl={inlineIguide.inlineUrl}
-            iguideOpenUrl={inlineIguide.openUrl}
-            initialProvider="iguide"
+            iguideInlineUrl={inlineIguide?.inlineUrl}
+            iguideOpenUrl={inlineIguide?.openUrl}
+            zillowUrl={inlineZillow}
+            initialProvider={inlineZillow ? 'zillow' : 'iguide'}
             showUnavailable
-            heading="iGUIDE 3D Tour"
+            heading={inlineZillow ? 'Zillow 3D Tour' : 'iGUIDE 3D Tour'}
             className="mt-0 max-w-none px-0"
           />
           <div className="mt-5 text-center">

@@ -20,6 +20,16 @@ const payload = {
 };
 
 describe('Landor media tabs', () => {
+  it('offers a 3D tab with an embedded Zillow walkthrough when it is the only media', () => {
+    const url = 'https://www.zillow.com/view-imx/example?wl=true';
+    const data = normalizePublicTourData({ tour_links: { zillow_3d: url } }, 'branded');
+    expect(hasLandorMedia(data)).toBe(true);
+    const { container } = render(<LandorMedia data={data} />);
+    expect(screen.getByRole('tab', { name: '3D tour' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTitle('Zillow 3D tour')).toHaveAttribute('src', url);
+    expect(container.querySelector('a[href*="zillow.com"]')).toBeNull();
+  });
+
   it.each(['branded', 'mls', 'generic-mls'] as const)('keeps the %s gallery in saved order instead of moving the cover first', variant => {
     const photos = ['https://media.test/first.jpg', 'https://media.test/second.jpg', 'https://media.test/cover.jpg'];
     const data = normalizePublicTourData({ ...payload, photos, hero_photos: [photos[2]] }, variant);

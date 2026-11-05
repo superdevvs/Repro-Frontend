@@ -1,6 +1,7 @@
 import { publicGalleryPhotos } from '../publicGalleryPhotos';
 import type { PublicTourData } from '../publicTourData';
 import { normalizePublicTourUrl } from '../publicIguideModel';
+import { normalizePublicZillowTourUrl } from '../publicZillowTour';
 import { homeifyEmbedUrl } from '../homeify/homeifyMediaUtils';
 import { uniqueTourMediaUrls } from '../tourMediaEmbedUrl';
 
@@ -16,7 +17,7 @@ export function getLandorMedia(data: PublicTourData) {
   ].some((value) => Boolean(normalizePublicTourUrl(value))));
   const videos = data.locked ? [] : uniqueTourMediaUrls([data.videoLink, ...data.videos]).map((video) => homeifyEmbedUrl(video)).filter(Boolean);
   const embeds = data.locked ? [] : data.embeds.map((embed) => ({ ...embed, url: homeifyEmbedUrl(embed.value) })).filter((embed) => Boolean(embed.url));
-  const hasProviders = !data.locked && Boolean(normalizePublicTourUrl(data.iguide.inlineUrl) || normalizePublicTourUrl(data.matterportUrl));
+  const hasProviders = !data.locked && Boolean(normalizePublicTourUrl(data.iguide.inlineUrl) || normalizePublicTourUrl(data.matterportUrl) || normalizePublicZillowTourUrl(data.zillowUrl));
   const available: { id: LandorMediaTab; label: string }[] = [
     ...(photos.length ? [{ id: 'photos' as const, label: 'Photos' }] : []),
     ...(floorplans.length ? [{ id: 'plans' as const, label: 'Plans' }] : []),

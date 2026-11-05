@@ -24,6 +24,14 @@ const propertyPayload = {
 };
 
 describe('Homeify property tour', () => {
+  it('includes navigation and an inline viewer for a Zillow-only walkthrough', () => {
+    const url = 'https://www.zillow.com/view-imx/example?wl=true';
+    const { container } = render(<HomeifyTour data={normalizePublicTourData({ shoot: propertyPayload.shoot, tour_links: { zillow_3d: url } }, 'branded')} />);
+    expect(screen.getByTitle('Zillow 3D tour')).toHaveAttribute('src', url);
+    expect(screen.getAllByRole('link', { name: '3D tour' }).length).toBeGreaterThan(0);
+    expect(container.querySelector('a[href*="zillow.com"]')).toBeNull();
+  });
+
   it('renders the real property fields, gallery order, and floorplan preview', () => {
     const { container } = render(<HomeifyTour data={normalizePublicTourData(propertyPayload, 'branded')} />);
     expect(screen.getByRole('heading', { name: '123 Oak Street', level: 1 })).toBeInTheDocument();

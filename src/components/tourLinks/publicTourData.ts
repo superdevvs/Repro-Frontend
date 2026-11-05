@@ -10,6 +10,7 @@ import {
   type PublicTourVariant,
 } from './publicIguideModel';
 import { filterVirtualTourEmbeds, uniqueTourMediaUrls } from './tourMediaEmbedUrl';
+import { normalizePublicZillowTourUrl } from './publicZillowTour';
 
 type RecordValue = Record<string, unknown>;
 type PropertyValue = string | number | null;
@@ -86,6 +87,7 @@ export interface PublicTourData {
   videoPosterUrl: string;
   floorplans: TourFloorplan[];
   matterportUrl: string;
+  zillowUrl: string;
   iguide: PublicIguideSources;
   embeds: PublicTourEmbed[];
   featuredEmbedId: string;
@@ -250,6 +252,7 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
   const iguide = resolvePublicIguideSources(locked ? {} : root, variant);
   const matterportUrl = locked ? '' : normalizePublicTourUrl(canonicalSource(root, 'matterport_url',
     branded ? text(links.matterport_branded, links.matterport) : links.matterport_mls));
+  const zillowUrl = !locked && branded ? normalizePublicZillowTourUrl(links.zillow_3d) : '';
   return {
     variant, shoot, branding,
     propertyDetails: {
@@ -268,7 +271,7 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
     heroSlides: Array.from(new Set([...heroPhotos, ...photos])),
     videos, videoLink,
     videoPosterUrl: locked || videoRestricted ? '' : normalizePublicTourUrl(text(root.video_poster_url, root.video_thumbnail_url)),
-    floorplans, matterportUrl, iguide,
+    floorplans, matterportUrl, zillowUrl, iguide,
     embeds: virtualTourEmbeds,
     featuredEmbedId,
     tourSettings: {
@@ -278,7 +281,7 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
     tourStyle: text(root.tour_style, links.tour_style) || 'default', tourPalette: text(root.tour_palette, links.tour_palette) || 'repro', showGarage, locked,
     lockedMessage: locked ? text(root.message) || 'Payment required to unlock this tour.' : '',
     empty: !locked && !shoot && !photos.length && !heroPhotos.length && !videos.length && !videoLink
-      && !floorplans.length && !virtualTourEmbeds.length && !iguide.inlineUrl && !matterportUrl,
+      && !floorplans.length && !virtualTourEmbeds.length && !iguide.inlineUrl && !matterportUrl && !zillowUrl,
     analytics: { shootId, tourType: variant === 'generic-mls' ? 'generic_mls' : variant },
   };
 }

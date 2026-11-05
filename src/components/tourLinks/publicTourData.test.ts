@@ -21,6 +21,19 @@ describe('public tour endpoint selection', () => {
 });
 
 describe('normalizePublicTourData', () => {
+  it('retains a Zillow-only branded walkthrough even when listing videos are restricted', () => {
+    const url = 'https://www.zillow.com/view-imx/example?wl=true';
+    const payload = { video_access_restricted: true, tour_links: { zillow_3d: url } };
+    const branded = normalizePublicTourData(payload, 'branded');
+    expect(branded.zillowUrl).toBe(url);
+    expect(branded.empty).toBe(false);
+    expect(normalizePublicTourData({ ...payload, locked: true }, 'branded').zillowUrl).toBe('');
+    for (const variant of ['mls', 'generic-mls'] as const) {
+      expect(normalizePublicTourData(payload, variant).zillowUrl).toBe('');
+      expect(normalizePublicTourData(payload, variant).empty).toBe(true);
+    }
+  });
+
   it('keeps only visible rendition metadata and falls back for older payloads', () => {
     const result = normalizePublicTourData({ photos: ['/web.jpg'], photo_renditions: [
       { url: '/web.jpg', thumbnail_url: '/thumb.jpg', grid_url: '/grid.jpg', web_url: '/web.jpg' },

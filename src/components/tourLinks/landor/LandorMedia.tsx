@@ -52,7 +52,7 @@ export function LandorMedia({ data }: { data: PublicTourData }) {
         </Tabs.Content>}
 
         {(hasProviders || embeds.length > 0) && <Tabs.Content className="landor-media-panel" value="tour">
-          {hasProviders && <Public3dTourViewer sectionId="landor-tour" heading="Explore in 3D" iguideInlineUrl={data.iguide.inlineUrl} iguideOpenUrl={data.iguide.openUrl} matterportUrl={data.matterportUrl} autoplay={data.tourSettings.autoplay} />}
+          {hasProviders && <Public3dTourViewer sectionId="landor-tour" heading="Explore in 3D" iguideInlineUrl={data.iguide.inlineUrl} iguideOpenUrl={data.iguide.openUrl} matterportUrl={data.matterportUrl} zillowUrl={data.zillowUrl} autoplay={data.tourSettings.autoplay} />}
           {embeds.map((embed) => <section className="landor-embedded-tour" key={embed.id}>
             <div className="landor-section-heading"><h3>{embed.title}</h3><a className="landor-media-external" href={embed.url} target="_blank" rel="noopener noreferrer" onClick={() => track(embed.url)}>Open tour <ArrowUpRight size={16} aria-hidden="true" /></a></div>
             <LandorVideo url={embed.url} title={embed.title} autoplay={data.tourSettings.autoplay} />

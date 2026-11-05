@@ -10,6 +10,49 @@ afterEach(() => {
 });
 
 describe('Public3dTourViewer', () => {
+  it('embeds Zillow with its original viewing options, mobile height, and no external link', () => {
+    const url = 'https://www.zillow.com/view-imx/example?wl=true&initialViewType=pano';
+    const { container } = render(<Public3dTourViewer zillowUrl={url} autoplay />);
+    const frame = screen.getByTitle('Zillow 3D tour');
+    expect(frame).toHaveAttribute('src', url);
+    expect(frame).toHaveAttribute('allowfullscreen');
+    expect(frame).toHaveAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+    expect(container.querySelector('section > div.relative')).toHaveClass('aspect-[3/4]', 'min-h-[360px]', 'sm:aspect-video');
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    fireEvent.load(frame);
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('keeps all three providers selectable and removes the external link when Zillow is selected', async () => {
+    const user = userEvent.setup();
+    render(<Public3dTourViewer iguideInlineUrl="https://viewer.test/iguide" matterportUrl="https://viewer.test/matterport" zillowUrl="https://www.zillow.com/view-3d-home/example" />);
+    expect(screen.getAllByRole('tab')).toHaveLength(3);
+    await user.click(screen.getByRole('tab', { name: 'Zillow' }));
+    expect(screen.getByTitle('Zillow 3D tour')).toHaveAttribute('src', 'https://www.zillow.com/view-3d-home/example');
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Matterport' }));
+    expect(screen.getByTitle('Matterport 3D tour')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Open in new tab' })).toBeInTheDocument();
+    expect(document.querySelectorAll('iframe')).toHaveLength(1);
+  });
+
+  it('retries a failed Zillow embed without offering an external destination', () => {
+    vi.useFakeTimers();
+    render(<Public3dTourViewer zillowUrl="https://www.zillow.com/view-imx/example" />);
+    const frame = screen.getByTitle('Zillow 3D tour');
+    act(() => vi.advanceTimersByTime(15_000));
+    expect(screen.getByText('Retry to reload the walkthrough here.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry viewer' }));
+    expect(screen.getByTitle('Zillow 3D tour')).not.toBe(frame);
+    expect(screen.getByRole('status')).toHaveTextContent('Loading Zillow');
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('does not render a non-Zillow source as a Zillow walkthrough', () => {
+    const { container } = render(<Public3dTourViewer zillowUrl="https://www.zillow.com.evil.test/view-imx/example" />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it('embeds iGUIDE in-page and exposes its separate open URL', () => {
     render(
       <Public3dTourViewer

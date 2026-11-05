@@ -19,6 +19,7 @@ import { FloorplanSection } from './FloorplanSection';
 import { TourStatsGrid } from './TourStatsGrid';
 import { TourAboutSection } from './TourAboutSection';
 import { Public3dTourViewer } from './Public3dTourViewer';
+import { normalizePublicZillowTourUrl } from './publicZillowTour';
 import { resolvePublicEmbedSources, resolvePublicIguideSources } from './publicIguideModel';
 import { normalizePublicTourData, normalizePublicPhotoRenditions } from './publicTourData';
 import { publicTourImageSource } from './shared/publicTourImage';
@@ -162,8 +163,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
         setPhotos(Array.isArray(data?.photos) ? data.photos : []);
         setHeroPhotos(Array.isArray(data?.hero_photos) ? data.hero_photos : []);
         setVideos(data?.historical_import && Array.isArray(data?.videos) ? data.videos : []);
-        const zillow = data?.tour_links?.zillow_3d;
-        setZillow3dUrl(typeof zillow === 'string' && zillow.startsWith('https://www.zillow.com/') ? zillow : null);
+        setZillow3dUrl(normalizePublicZillowTourUrl(data?.tour_links?.zillow_3d) || null);
         if (data?.video_link || data?.tour_links?.video_link) setVideoLink(data.video_link || data.tour_links?.video_link);
         if (data?.shoot) setShoot(data.shoot);
         if (data?.branding) setBranding(data.branding);
@@ -380,7 +380,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
         {hasVideo && (
           <a href="#video" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Videos</a>
         )}
-        {(matterportUrl || iguideUrl) && (
+        {(matterportUrl || iguideUrl || zillow3dUrl) && (
           <a href="#tour" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">3D Tour</a>
         )}
         {floorplans.length > 0 && (
@@ -677,13 +677,9 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
         </section>
       )}
 
-      {zillow3dUrl && <section className="max-w-6xl mx-auto px-6 mt-10" aria-label="Zillow 3D tour">
-        <h2 className="text-2xl font-bold text-foreground mb-4">Zillow 3D Tour</h2>
-        <a href={zillow3dUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">Open Zillow 3D tour</a>
-      </section>}
-
       {/* 3D Tour */}
       <Public3dTourViewer
+        zillowUrl={zillow3dUrl}
         autoplay={tourSettings.autoplay}
         matterportUrl={matterportUrl}
         iguideInlineUrl={iguideUrl}

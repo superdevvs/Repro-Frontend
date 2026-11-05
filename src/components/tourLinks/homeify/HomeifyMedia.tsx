@@ -18,11 +18,11 @@ function MediaFrame({ value, title, autoplay, poster }: { value: string; title: 
 export function HomeifyMedia({ data }: { data: PublicTourData }) {
   const videos = uniqueTourMediaUrls([data.videoLink, ...data.videos]).map((video) => homeifyEmbedUrl(video)).filter(Boolean);
   const embeds = data.embeds.map((embed) => ({ ...embed, url: homeifyEmbedUrl(embed.value) })).filter((embed) => Boolean(embed.url));
-  const hasProviders = Boolean(data.iguide.inlineUrl || data.matterportUrl);
+  const hasProviders = Boolean(data.iguide.inlineUrl || data.matterportUrl || data.zillowUrl);
   const track = (type: string, url: string) => { if (data.analytics.shootId !== null) trackLinkClick(data.analytics.shootId, data.analytics.tourType, type, url); };
   return <>
     {videos.length > 0 && <section className="homeify-panel" id="video"><div className="homeify-panel-heading"><h2>Experience the home</h2><span className="homeify-subtle">Property video</span></div><div className="homeify-media-stack">{videos.map((video, index) => <MediaFrame key={video} value={video} title={`Property video ${index + 1}`} poster={data.videoPosterUrl || data.heroSlides[0]} autoplay={index === 0 && data.tourSettings.autoplay} />)}</div></section>}
-    {hasProviders && <div className="homeify-panel homeify-shared-media"><Public3dTourViewer sectionId="tour" heading="Step inside" iguideInlineUrl={data.iguide.inlineUrl} iguideOpenUrl={data.iguide.openUrl} matterportUrl={data.matterportUrl} autoplay={data.tourSettings.autoplay} /></div>}
+    {hasProviders && <div className="homeify-panel homeify-shared-media"><Public3dTourViewer sectionId="tour" heading="Step inside" iguideInlineUrl={data.iguide.inlineUrl} iguideOpenUrl={data.iguide.openUrl} matterportUrl={data.matterportUrl} zillowUrl={data.zillowUrl} autoplay={data.tourSettings.autoplay} /></div>}
     {embeds.map((embed, index) => {
       return <section className="homeify-panel" id={!hasProviders && index === 0 ? 'tour' : `tour-embed-${index}`} key={embed.id}><div className="homeify-panel-heading"><h2>{embed.title}</h2><a className="homeify-text-link" href={embed.url} target="_blank" rel="noreferrer" onClick={() => track('embed', embed.url)}>Open tour <ExternalLink size={14} /></a></div><MediaFrame value={embed.url} title={embed.title} autoplay={data.tourSettings.autoplay} /></section>;
     })}

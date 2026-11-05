@@ -4,8 +4,9 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { normalizePublicTourUrl, preparePublicIguideEmbedUrl } from './publicIguideModel';
+import { normalizePublicZillowTourUrl } from './publicZillowTour';
 
-type TourProvider = 'iguide' | 'matterport';
+type TourProvider = 'iguide' | 'matterport' | 'zillow';
 
 type Public3dTourViewerProps = {
   autoplay?: boolean;
@@ -15,6 +16,7 @@ type Public3dTourViewerProps = {
   iguideOpenUrl?: string | null;
   initialProvider?: TourProvider;
   matterportUrl?: string | null;
+  zillowUrl?: string | null;
   sectionId?: string;
   showUnavailable?: boolean;
 };
@@ -22,6 +24,7 @@ type Public3dTourViewerProps = {
 const providerLabel: Record<TourProvider, string> = {
   iguide: 'iGUIDE',
   matterport: 'Matterport',
+  zillow: 'Zillow',
 };
 
 const addAutoplay = (value: string, autoplay: boolean) => {
@@ -45,6 +48,7 @@ export function Public3dTourViewer({
   iguideOpenUrl,
   initialProvider = 'iguide',
   matterportUrl,
+  zillowUrl,
   sectionId = 'tour',
   showUnavailable = false,
 }: Public3dTourViewerProps) {
@@ -52,13 +56,15 @@ export function Public3dTourViewer({
     const iguideInline = normalizePublicTourUrl(iguideInlineUrl);
     const iguideOpen = normalizePublicTourUrl(iguideOpenUrl) || iguideInline;
     const matterport = normalizePublicTourUrl(matterportUrl);
+    const zillow = normalizePublicZillowTourUrl(zillowUrl);
     return {
       iguide: iguideInline ? { inline: preparePublicIguideEmbedUrl(iguideInline), open: iguideOpen } : null,
       matterport: matterport ? { inline: matterport, open: matterport } : null,
+      zillow: zillow ? { inline: zillow, open: '' } : null,
     };
-  }, [iguideInlineUrl, iguideOpenUrl, matterportUrl]);
+  }, [iguideInlineUrl, iguideOpenUrl, matterportUrl, zillowUrl]);
   const availableProviders = useMemo(
-    () => (['iguide', 'matterport'] as const).filter((provider) => Boolean(sources[provider])),
+    () => (['iguide', 'matterport', 'zillow'] as const).filter((provider) => Boolean(sources[provider])),
     [sources],
   );
   const preferredProvider = availableProviders.includes(initialProvider)
@@ -98,7 +104,7 @@ export function Public3dTourViewer({
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-bold text-foreground">{heading}</h2>
         <div className="flex flex-wrap items-center gap-2">
-          {availableProviders.length === 2 && (
+          {availableProviders.length > 1 && (
             <div
               className="inline-flex rounded-full border border-border/60 bg-muted/40 p-1"
               role="tablist"
@@ -137,17 +143,20 @@ export function Public3dTourViewer({
         </div>
       </div>
 
-      <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-border/40 bg-muted/20 shadow-lg">
+      <div className={cn(
+        'relative w-full overflow-hidden rounded-2xl border border-border/40 bg-muted/20 shadow-lg',
+        activeProvider === 'zillow' ? 'aspect-[3/4] min-h-[360px] sm:aspect-video sm:min-h-0' : 'aspect-video',
+      )}>
         {activeSource?.inline ? (
           <>
             <iframe
               key={`${activeProvider}-${frameRevision}-${activeSource.inline}`}
-              src={activeProvider === 'iguide' ? activeSource.inline : addAutoplay(activeSource.inline, autoplay)}
-              className={cn('h-full w-full border-0 transition-opacity duration-200', frameState === 'ready' ? 'opacity-100' : 'opacity-0')}
+              src={activeProvider === 'matterport' ? addAutoplay(activeSource.inline, autoplay) : activeSource.inline}
+              className={cn('absolute inset-0 h-full w-full border-0 transition-opacity duration-200', frameState === 'ready' ? 'opacity-100' : 'opacity-0')}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; vr; xr-spatial-tracking"
               allowFullScreen
               loading="lazy"
-              referrerPolicy="no-referrer"
+              referrerPolicy={activeProvider === 'zillow' ? 'strict-origin-when-cross-origin' : 'no-referrer'}
               title={`${providerLabel[activeProvider]} 3D tour`}
               onLoad={() => setFrameState('ready')}
               onError={() => setFrameState('error')}
@@ -163,7 +172,7 @@ export function Public3dTourViewer({
                 <div>
                   <p className="text-sm font-medium text-card-foreground">Tour viewer unavailable</p>
                   <p className="mt-1 max-w-md text-xs text-muted-foreground">
-                    Retry here or open the tour in a new tab.
+                    {activeSource.open ? 'Retry here or open the tour in a new tab.' : 'Retry to reload the walkthrough here.'}
                   </p>
                 </div>
                 <Button type="button" variant="outline" size="sm" onClick={retry}>

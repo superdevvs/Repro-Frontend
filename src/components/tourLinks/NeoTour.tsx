@@ -12,6 +12,7 @@ import { sanitizeTourEmbedHtml } from './videoControlRestrictions';
 import { filterVirtualTourEmbeds, getTourMediaEmbedUrl } from './tourMediaEmbedUrl';
 import { PropertyInfoSummary } from './PropertyInfoSummary';
 import { Public3dTourViewer } from './Public3dTourViewer';
+import { normalizePublicZillowTourUrl } from './publicZillowTour';
 import {
   resolvePublicEmbedSources,
   resolvePublicIguideSources,
@@ -78,6 +79,7 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
   const [floorplans, setFloorplans] = useState<string[]>([]);
   const [matterportUrl, setMatterportUrl] = useState<string | null>(null);
+  const [zillowUrl, setZillowUrl] = useState<string | null>(null);
   const [iguideUrl, setIguideUrl] = useState<string | null>(null);
   const [iguideOpenUrl, setIguideOpenUrl] = useState<string | null>(null);
   const [embeds, setEmbeds] = useState<Array<{ id: string; title: string; branded: string; mls: string }>>([]);
@@ -155,6 +157,8 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
         if (data?.shoot) setShoot(data.shoot);
         if (data?.property_details) setPropertyDetails(data.property_details);
         if (data?.matterport_url) setMatterportUrl(data.matterport_url);
+        setZillowUrl(publicTourVariant === 'branded' && !data?.locked
+          ? normalizePublicZillowTourUrl(data?.tour_links?.zillow_3d) || null : null);
         const iguideSources = resolvePublicIguideSources(data, publicTourVariant);
         setIguideUrl(iguideSources.inlineUrl || null);
         setIguideOpenUrl(iguideSources.openUrl || null);
@@ -412,9 +416,10 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
       )}
 
       {/* 3D Tour Section - Show first if available */}
-      {(matterportUrl || iguideUrl) && (
+      {(matterportUrl || iguideUrl || zillowUrl) && (
         <div className="dark relative min-h-screen overflow-hidden border-b border-blue-500/20 bg-slate-950 pt-24">
           <Public3dTourViewer
+            zillowUrl={zillowUrl}
             autoplay={tourSettings.autoplay}
             matterportUrl={matterportUrl}
             iguideInlineUrl={iguideUrl}

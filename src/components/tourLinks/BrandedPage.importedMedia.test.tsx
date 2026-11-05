@@ -33,13 +33,15 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('historical branded tour media', () => {
-  it('keeps the primary video once and exposes imported additional video and the Zillow link', async () => {
+  it('keeps the primary video once and embeds Zillow beside imported additional video', async () => {
     fetchMock.mockResolvedValue({ ok: true, json: async () => payload });
     const { container } = render(<BrandedPage />);
     expect(await screen.findByRole('heading', { name: 'Video Tour' })).toBeInTheDocument();
     expect(Array.from(container.querySelectorAll('video')).map(video => video.getAttribute('src'))).toEqual([primary, second]);
     expect(screen.getByLabelText('Property video 1')).toHaveAttribute('src', second);
-    expect(screen.getByRole('link', { name: 'Open Zillow 3D tour' })).toHaveAttribute('href', payload.tour_links.zillow_3d);
+    expect(screen.getByTitle('Zillow 3D tour')).toHaveAttribute('src', payload.tour_links.zillow_3d);
+    expect(container.querySelector('a[href*="zillow.com"]')).toBeNull();
+    expect(screen.getByRole('link', { name: '3D Tour' })).toHaveAttribute('href', '#tour');
   });
 
   it('does not enable additional uploaded videos for ordinary tours or accept a lookalike Zillow host', async () => {
@@ -48,6 +50,7 @@ describe('historical branded tour media', () => {
     expect(await screen.findByRole('heading', { name: 'Video Tour' })).toBeInTheDocument();
     expect(Array.from(container.querySelectorAll('video')).map(video => video.getAttribute('src'))).toEqual([primary]);
     expect(screen.queryByRole('link', { name: 'Open Zillow 3D tour' })).not.toBeInTheDocument();
+    expect(screen.queryByTitle('Zillow 3D tour')).not.toBeInTheDocument();
   });
 
   it('does not repeat the primary film when imported playback URLs use different controls', async () => {
@@ -62,7 +65,15 @@ describe('historical branded tour media', () => {
     const { container } = render(<BrandedPage />);
     expect(await screen.findByText('Tour Locked')).toBeInTheDocument();
     expect(container.querySelector('video')).not.toBeInTheDocument();
+    expect(container.querySelector('iframe')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Open Zillow 3D tour' })).not.toBeInTheDocument();
+  });
+
+  it('keeps Zillow available when an unfinished service restricts only listing videos', async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ ...payload, video_access_restricted: true, videos: [], video_link: null }) });
+    render(<BrandedPage />);
+    expect(await screen.findByTitle('Zillow 3D tour')).toHaveAttribute('src', payload.tour_links.zillow_3d);
+    expect(screen.queryByRole('heading', { name: 'Video Tour' })).not.toBeInTheDocument();
   });
 
   it('retains property navigation and both clickable contact numbers with lot details', async () => {
