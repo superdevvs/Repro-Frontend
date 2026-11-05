@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ImageUpload } from "@/components/profile/ImageUpload";
+import { BrokerageLogoCard } from "@/components/profile/BrokerageLogoCard";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { toast } from "@/lib/sonner-toast";
 import { Separator } from "@/components/ui/separator";
@@ -286,10 +287,13 @@ export function ClientProfile() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="flex flex-col items-center sm:flex-row sm:items-start gap-6">
-              <ImageUpload 
-                onChange={handleAvatarChange}
-                initialImage={formData.avatar}
-              />
+              <div className="w-full space-y-4 sm:w-56 sm:shrink-0">
+                <ImageUpload
+                  onChange={handleAvatarChange}
+                  initialImage={formData.avatar}
+                />
+                {user?.id && <BrokerageLogoCard userId={user.id} company={formData.company} disabled={isSubmitting} />}
+              </div>
               <div className="space-y-4 flex-1">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">

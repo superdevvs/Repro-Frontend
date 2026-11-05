@@ -16,6 +16,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } f
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useToast } from '@/hooks/use-toast';
 import { ImageUpload } from '@/components/profile/ImageUpload';
+import { BrokerageLogoCard } from '@/components/profile/BrokerageLogoCard';
 import { usePermission } from '@/hooks/usePermission';
 import { IntegrationsSettingsContent } from '@/pages/IntegrationsSettings';
 import { ToursSection } from '@/components/integrations/sections/ToursSection';
@@ -297,7 +298,7 @@ const Settings = () => {
         `${API_BASE_URL}/api/users/${userId}/branding`,
         {
           branding: {
-            logo: brandLogo || null,
+            ...(!(role === 'client' || clientIdFromUrl) ? { logo: brandLogo || null } : {}),
             banner: brandBanner || null,
             primary_color: primaryColor,
             secondary_color: secondaryColor,
@@ -475,6 +476,9 @@ const Settings = () => {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
+                    {role === 'client' && user?.id && (
+                      <BrokerageLogoCard userId={user.id} company={user.company} disabled={isSaving} />
+                    )}
                     <div className="space-y-2">
                       <div className="space-y-2">
                         <label htmlFor="name" className="text-sm font-medium">
@@ -669,6 +673,7 @@ const Settings = () => {
 
             <SettingsBrandingTab
               portfolioUserId={clientIdFromUrl || user?.id}
+              brokerageLogoUserId={role === 'client' || clientIdFromUrl ? clientIdFromUrl || user?.id : undefined}
               onSubmit={handleSaveBranding}
               brandLogo={brandLogo}
               onLogoChange={handleLogoChange}

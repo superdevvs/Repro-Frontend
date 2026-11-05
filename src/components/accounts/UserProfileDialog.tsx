@@ -27,6 +27,7 @@ import { format } from "date-fns";
 import { ShootData } from "@/types/shoots";
 import type { RepDetails } from "@/types/auth";
 import { EmailHealthBadge } from "@/components/accounts/EmailHealthBadge";
+import { BrokerageLogoCard } from "@/components/profile/BrokerageLogoCard";
 import { canResendUserVerification } from "@/utils/emailHealth";
 import { photographerAddressVisibility } from "@/utils/photographerAddressVisibility";
 import type { ResendVerificationResult } from "@/hooks/useResendVerificationEmail";
@@ -267,10 +268,13 @@ export function UserProfileDialog({
                     </div>
                   )}
                   
-                  {user.company && (
+                  {(user.company || user.role === 'client') && (
                     <div>
                       <p className="text-sm text-muted-foreground">Company</p>
-                      <p className="font-medium">{user.company}</p>
+                      <p className="font-medium">{user.company || 'Not added'}</p>
+                      {open && user.role === 'client' && (
+                        <BrokerageLogoCard userId={user.id} company={user.company} variant="summary" onEdit={onEdit} />
+                      )}
                     </div>
                   )}
 

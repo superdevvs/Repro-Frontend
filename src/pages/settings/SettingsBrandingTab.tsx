@@ -2,6 +2,7 @@ import type { FormEventHandler } from 'react';
 import { ExternalLink } from 'lucide-react';
 
 import { BrandingImageUpload } from '@/components/profile/BrandingImageUpload';
+import { BrokerageLogoCard } from '@/components/profile/BrokerageLogoCard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,6 +28,7 @@ const HERO_IMAGES = [
 
 interface SettingsBrandingTabProps {
   portfolioUserId?: string | number;
+  brokerageLogoUserId?: string | number;
   onSubmit: FormEventHandler<HTMLFormElement>;
   brandLogo: string;
   onLogoChange: (url: string) => void;
@@ -56,6 +58,7 @@ interface SettingsBrandingTabProps {
 
 export function SettingsBrandingTab({
   portfolioUserId,
+  brokerageLogoUserId,
   onSubmit,
   brandLogo,
   onLogoChange,
@@ -110,17 +113,23 @@ export function SettingsBrandingTab({
           <form onSubmit={onSubmit} className="space-y-4">
             <div className="grid gap-6 md:grid-cols-2">
               <div className="space-y-4">
-                <h3 className="text-lg font-medium">Company Logo</h3>
-                <p className="text-sm text-muted-foreground">
-                  This logo will appear on your invoices and client communications.
-                </p>
-                <BrandingImageUpload
-                  onChange={onLogoChange}
-                  initialImage={brandLogo}
-                  aspectRatio="1/1"
-                  maxWidth={200}
-                  helperText="Recommended size: 200x200px (square)"
-                />
+                {brokerageLogoUserId ? (
+                  <BrokerageLogoCard userId={brokerageLogoUserId} />
+                ) : (
+                  <>
+                    <h3 className="text-lg font-medium">Company Logo</h3>
+                    <p className="text-sm text-muted-foreground">
+                      This logo will appear on your invoices and client communications.
+                    </p>
+                    <BrandingImageUpload
+                      onChange={onLogoChange}
+                      initialImage={brandLogo}
+                      aspectRatio="1/1"
+                      maxWidth={200}
+                      helperText="Recommended size: 200x200px (square)"
+                    />
+                  </>
+                )}
               </div>
               <div className="space-y-4">
                 <h3 className="text-lg font-medium">About Image</h3>

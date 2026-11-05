@@ -19,6 +19,7 @@ vi.mock('@/contexts/UserPreferencesContext', () => ({ useUserPreferences: () => 
   preferences: { temperatureUnit: 'fahrenheit', timeFormat: '12h' }, setTemperatureUnit: vi.fn(), setTimeFormat: vi.fn(),
 }) }));
 vi.mock('@/components/profile/ImageUpload', () => ({ ImageUpload: () => null }));
+vi.mock('@/components/profile/BrokerageLogoCard', () => ({ BrokerageLogoCard: () => null }));
 vi.mock('@/components/profile/ProfileActivityCard', () => ({ ProfileActivityCard: () => null }));
 vi.mock('@/components/profile/ProfileSecurityCard', () => ({ ProfileSecurityCard: () => null }));
 vi.mock('@/hooks/useEditorDashboardQueue', () => ({ useEditorDashboardQueue: () => ({
