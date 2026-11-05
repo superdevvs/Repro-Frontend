@@ -4,6 +4,7 @@ import { usePageLoading } from '@/hooks/use-page-loading';
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { BRAND_EMAIL } from "@/config/brand";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useShoots } from "@/context/shootsContextState";
@@ -434,7 +435,7 @@ const Dashboard = () => {
       const fallback = () =>
         toast({
           title: "Contact support",
-          description: "Please email support@reprohq.com.",
+          description: `Please email ${BRAND_EMAIL}.`,
         });
 
       if (typeof window === "undefined") {
@@ -445,7 +446,7 @@ const Dashboard = () => {
       const params = new URLSearchParams();
       if (subject) params.set("subject", subject);
       if (body) params.set("body", body);
-      window.location.href = `mailto:support@reprohq.com${
+      window.location.href = `mailto:${BRAND_EMAIL}${
         params.toString() ? `?${params.toString()}` : ""
       }`;
     },

@@ -38,6 +38,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BRAND_EMAIL } from "@/config/brand";
 
 export type QuickActionIconKey =
   | "check"
@@ -169,7 +170,7 @@ const QUICK_ACTION_PRESET_GROUPS: Array<{
         id: "contact-support",
         label: "Contact support",
         description: "Send a message to ops.",
-        url: "mailto:support@reprophotos.com",
+        url: `mailto:${BRAND_EMAIL}`,
         icon: "mail",
         accent: getAccentValue("Rose"),
       },
