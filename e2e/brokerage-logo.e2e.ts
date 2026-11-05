@@ -128,9 +128,24 @@ test('account summary links to the logo editor under the profile photo', async (
   const logo = await editor.getByRole('region', { name: 'Brokerage logo' }).boundingBox();
   const officeVisibility = await editor.getByRole('switch', { name: 'Show office phone on branded tour' }).locator('..').locator('..').boundingBox();
   expect(company && firstName && logo && officeVisibility).toBeTruthy();
-  expect(company!.x).toBeCloseTo(firstName!.x, 0);
-  expect(company!.x).toBeGreaterThan(logo!.x + logo!.width);
-  expect(company!.y - (officeVisibility!.y + officeVisibility!.height)).toBeLessThan(60);
+  // Lower fields reclaim the full width once both the identity controls and
+  // top contact fields end, without leaving a tall gap beside either column.
+  const identityBottom = logo!.y + logo!.height;
+  const contactBottom = officeVisibility!.y + officeVisibility!.height;
+  expect(company!.x).toBeCloseTo(logo!.x, 0);
+  expect(company!.width).toBeGreaterThan(firstName!.width);
+  expect(company!.y - Math.max(identityBottom, contactBottom)).toBeGreaterThan(0);
+  expect(company!.y - Math.max(identityBottom, contactBottom)).toBeLessThan(60);
+  expect(Math.abs(identityBottom - contactBottom)).toBeLessThan(64);
+  const city = await editor.getByRole('textbox', { name: 'City', exact: true }).boundingBox();
+  const zip = await editor.getByRole('textbox', { name: 'Zip Code', exact: true }).boundingBox();
+  const lastName = await editor.getByRole('textbox', { name: 'Last Name', exact: true }).boundingBox();
+  const stateField = await editor.getByRole('combobox').filter({ hasText: 'Select state' }).boundingBox();
+  const license = await editor.getByRole('textbox', { name: 'License number', exact: true }).boundingBox();
+  expect(city!.y).toBeCloseTo(zip!.y, 0);
+  expect(city!.x).toBeCloseTo(company!.x, 0);
+  expect(zip!.x + zip!.width).toBeCloseTo(lastName!.x + lastName!.width, 0);
+  expect(stateField!.x).toBeCloseTo(license!.x, 0);
   await screenshot(page, 'desktop-account-editor');
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileEditor = page.getByRole('dialog', { name: 'Update account', exact: true });
