@@ -1,4 +1,5 @@
 import { getShootOperationalDate, getShootOperationalTime, hasActiveShootWork, normalizeActiveShootWork } from '@/utils/activeShootWork';
+import { shootAutoDeliveryFields } from '@/utils/shootAutoDelivery';
 import { format, startOfDay, differenceInCalendarDays, parse, parseISO, isValid } from "date-fns";
 
 import type {
@@ -443,6 +444,7 @@ export const shootDataToSummary = (shoot: ShootData): DashboardShootSummary => {
   const localDay = scheduledLocalDate ? parseLocalYmd(scheduledLocalDate) : null;
 
   const summary: DashboardShootSummary = {
+    ...shootAutoDeliveryFields(shoot),
     ...normalizeActiveShootWork(shoot),
     photographerDisplayName: getShootPhotographerDisplayName(shoot),
     id: toNumericId(shoot.id, `${location.address}-${shoot.scheduledDate}`),

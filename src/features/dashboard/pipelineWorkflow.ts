@@ -1,4 +1,5 @@
 import { hasActiveShootWork, normalizeActiveShootWork } from '@/utils/activeShootWork';
+import { shootAutoDeliveryFields } from '@/utils/shootAutoDelivery';
 import type { DashboardShootSummary, DashboardWorkflow } from "@/types/dashboard";
 import {
   DELIVERED_STATUS_KEYWORDS,
@@ -109,6 +110,7 @@ const mergeById = (
     // Overview workflow payloads omit paymentStatus; overlay from full shoot summaries
     // so Delivered/Ready cards can show Paid vs Unpaid correctly.
     let merged = existing;
+    if (shoot.autoDelivery || shoot.auto_delivery) merged = { ...merged, ...shootAutoDeliveryFields(shoot) };
     if (hasActiveShootWork(existing) || hasActiveShootWork(shoot)) {
       merged = { ...merged, ...normalizeActiveShootWork(shoot), status: shoot.status, workflowStatus: shoot.workflowStatus,
         scheduledLocalDate: shoot.scheduledLocalDate, startTime: shoot.startTime, timeLabel: shoot.timeLabel };

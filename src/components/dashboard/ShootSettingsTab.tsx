@@ -22,6 +22,7 @@ import { API_BASE_URL } from '@/config/env';
 
 import { PaymentDialog, type InvoicePaymentCompletePayload } from "@/components/invoices/PaymentDialog";
 import { ShootAutoEditSettings } from '@/components/dashboard/ShootAutoEditSettings';
+import { ShootAutoDeliverySettings } from '@/components/dashboard/ShootAutoDeliverySettings';
 import { finalizeShootWithProgressToast } from "@/components/shoots/finalize/finalizeShootWithProgressToast";
 import { formatPaymentMethod } from '@/utils/paymentUtils';
 import { getImageUrl, normalizeImageUrl } from '@/utils/imageUrl';
@@ -887,6 +888,7 @@ export function ShootSettingsTab({
   // ---------- render ----------
   return (
     <div className="space-y-6 w-full">
+      {(shoot.autoDelivery ?? shoot.auto_delivery)?.available && (shoot.autoDelivery ?? shoot.auto_delivery)?.can_manage && <ShootAutoDeliverySettings key={`${shoot.id}:${auth.user?.id ?? ''}:${role}`} shoot={shoot} onUpdate={onUpdate} />}
       {canManageFeaturedShoot && (() => {
         const featuredAvailable = ['ready', 'delivered'].includes(normalizedStatus);
         const featuredDisabled = !featuredAvailable || savingToggleKey === 'is_featured'

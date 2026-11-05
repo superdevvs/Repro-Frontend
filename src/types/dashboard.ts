@@ -1,4 +1,5 @@
 import type { ActiveShootWorkFields } from '@/utils/activeShootWork';
+import type { ShootAutoDelivery } from '@/types/shoots';
 export interface DashboardStatsResponse {
   total_shoots: number;
   scheduled_today: number;
@@ -61,6 +62,8 @@ export interface DashboardIssueResponse {
 }
 
 export interface DashboardShootSummaryResponse extends ActiveShootWorkFields {
+  auto_delivery?: ShootAutoDelivery;
+  autoDelivery?: ShootAutoDelivery;
   id: number;
   completed_at?: string | null;
   delivered_at?: string | null;
@@ -230,6 +233,8 @@ export interface DashboardClientRequest {
 }
 
 export interface DashboardShootSummary extends ActiveShootWorkFields {
+  auto_delivery?: ShootAutoDelivery;
+  autoDelivery?: ShootAutoDelivery;
   photographerDisplayName?: string;
   /** Open only the media explicitly assigned through editing dispatches. */
   hasScopedEditingTasks?: boolean;

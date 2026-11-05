@@ -1,4 +1,5 @@
 import { hasActiveShootWork, normalizeActiveShootWork } from '@/utils/activeShootWork';
+import { shootAutoDeliveryFields } from '@/utils/shootAutoDelivery';
 import {
   DashboardActivityItem,
   DashboardActivityResponse,
@@ -20,6 +21,7 @@ import { extractLocalYmd } from '@/utils/shootLocalDate';
 import { streetWithAptSuite } from '@/utils/shootAddressDisplay';
 
 const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSummary => ({
+  ...shootAutoDeliveryFields(shoot),
   id: shoot.id,
   ...normalizeActiveShootWork(shoot),
   completedAt: shoot.completed_at ?? null,

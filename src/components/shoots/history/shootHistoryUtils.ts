@@ -1,4 +1,5 @@
 import { getShootDisplayStatus, normalizeActiveShootWork } from '@/utils/activeShootWork';
+import { shootAutoDeliveryFields } from '@/utils/shootAutoDelivery';
 import { format } from 'date-fns'
 import type { ShootActionRequestFields } from '@/utils/shootActionRequests'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
@@ -670,6 +671,7 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     status: toStringValue(item.status ?? item.workflow_status),
     workflowStatus: toStringValue(item.workflow_status ?? item.workflowStatus ?? item.status),
     ...normalizeActiveShootWork(item),
+    ...shootAutoDeliveryFields(item),
     notes: resolvedNotes as ShootData['notes'],
     payment: {
       totalQuote: paymentSummary.totalQuote,

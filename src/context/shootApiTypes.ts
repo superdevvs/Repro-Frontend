@@ -1,5 +1,5 @@
 import type { ActiveShootWorkFields } from '@/utils/activeShootWork';
-import type { ShootData, ShootServiceObject, ShootUnit } from '@/types/shoots';
+import type { ShootAutoDelivery, ShootData, ShootServiceObject, ShootUnit } from '@/types/shoots';
 
 export type ApiNotePayload = {
   shootNotes?: string;
@@ -117,6 +117,8 @@ export type ApiServiceRecord = {
 };
 
 export type ApiShoot = ActiveShootWorkFields & {
+  auto_delivery?: ShootAutoDelivery | null;
+  autoDelivery?: ShootAutoDelivery | null;
   media_order_version?: number | string | null;
   mediaOrderVersion?: number | string | null;
   units?: ShootUnit[];

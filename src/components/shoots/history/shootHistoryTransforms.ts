@@ -1,4 +1,5 @@
 import { normalizeActiveShootWork } from '@/utils/activeShootWork';
+import { shootAutoDeliveryFields } from '@/utils/shootAutoDelivery';
 import { getStateFullName } from '@/utils/stateUtils'
 import { normalizeShootActionRequests } from '@/utils/shootActionRequests'
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary'
@@ -568,6 +569,7 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
 
   return {
     id: String(shootId),
+    ...shootAutoDeliveryFields(item),
     mediaOrderVersion: toOptionalNumberValue(item.media_order_version ?? item.mediaOrderVersion),
     ...normalizeActiveShootWork(item),
     scheduledDate: toStringValue(item.scheduled_date ?? item.scheduledDate),

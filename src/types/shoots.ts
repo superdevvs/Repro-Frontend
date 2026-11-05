@@ -442,7 +442,16 @@ export interface PendingPaymentIntent {
   notes?: string | null;
 }
 
+export interface ShootAutoDelivery {
+  enabled: boolean;
+  available: boolean;
+  can_manage: boolean;
+  reason?: string;
+}
+
 export interface ShootData extends ActiveShootWorkFields {
+  autoDelivery?: ShootAutoDelivery;
+  auto_delivery?: ShootAutoDelivery;
   /** Positive after a manual media arrangement has been saved on the server. */
   mediaOrderVersion?: number;
   units_revision?: number;
@@ -820,6 +829,8 @@ export interface ShootHistoryFinancials {
 }
 
 export interface ShootHistoryRecord extends ActiveShootWorkFields {
+  autoDelivery?: ShootAutoDelivery;
+  auto_delivery?: ShootAutoDelivery;
   id: number;
   canViewVideoEditorContext?: boolean;
   can_view_video_editor_context?: boolean;

@@ -1,4 +1,5 @@
 import { normalizeActiveShootWork } from '@/utils/activeShootWork';
+import { shootAutoDeliveryFields } from '@/utils/shootAutoDelivery';
 import { ShootData, ShootServiceObject } from '@/types/shoots';
 import { shootsData as mockShootsData } from '@/data/shootsData';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
@@ -714,6 +715,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
 
   return {
     id: String(shoot.id),
+    ...shootAutoDeliveryFields(shoot),
     scheduledDate: schedule.date,
     time: schedule.time,
     timezone: typeof shoot.timezone === 'string' ? shoot.timezone : null,
