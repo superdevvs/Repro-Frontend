@@ -18,6 +18,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescript
 import { trackTelemetryBlocker } from '@/features/system-overview/telemetryClient';
 import { fetchCurrentUserProfile } from '@/utils/userProfileClient';
 import { dismissDashboardInstallSuggestion, startDashboardInstallSuggestion } from '@/hooks/useDashboardInstallSuggestion';
+import { canImpersonateAccount } from '@/utils/impersonation';
 
 // Define the Role type via shared types
 export type Role = UserRole;
@@ -524,6 +525,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const impersonate = useCallback((targetUser: UserData) => {
     const currentUser = userRef.current;
     if (!currentUser) return;
+    const actor = originalUserRef.current ?? currentUser;
+    if (!canImpersonateAccount(normalizeRole(actor.role), targetUser)) return;
 
     // Bump the epoch so any in-flight async work (refreshUser, fetches, etc.)
     // that captured an earlier epoch will silently discard its result.
@@ -534,7 +537,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     refreshAbortRef.current?.abort();
     refreshAbortRef.current = null;
 
-    // Store current (admin) user as original BEFORE anything else
+    // Store the original actor before changing the effective user.
     if (!isImpersonatingRef.current) {
       const adminSnapshot = { ...currentUser };
       localStorage.setItem('originalUser', JSON.stringify(adminSnapshot));
@@ -564,8 +567,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setUser(updatedUserData);
     setRole(roleToUse);
 
-    // Keep the real admin token — the backend middleware uses it to authenticate
-    // the admin, then swaps to the impersonated user via the header.
+    // Keep the actor's token so the backend can authorize each impersonated request.
     syncSessionForUser(updatedUserData, roleToUse);
     
     console.log(`Impersonating user: ${targetUser.name} (${targetUser.email}), id=${updatedUserData.id}, epoch=${impersonationEpochRef.current}`);

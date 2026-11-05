@@ -64,6 +64,7 @@ import { endOfMonth, isWithinInterval, startOfMonth } from 'date-fns';
 import { HorizontalLoader } from '@/components/ui/horizontal-loader';
 import { usePermission } from '@/hooks/usePermission';
 import { useResendVerificationEmail } from '@/hooks/useResendVerificationEmail';
+import { useAccountImpersonation } from '@/hooks/useAccountImpersonation';
 
 type UserType = UserData & {
   role: Role;
@@ -89,7 +90,8 @@ export default function Accounts() {
   const [repFilter, setRepFilter] = useState<'all' | 'unassigned' | string>('all');
   const [accountSort, setAccountSort] = useState<AccountSort>(null);
   const { toast } = useToast();
-  const { user: currentUser, role: currentUserRole, impersonate, logout } = useAuth();
+  const { user: currentUser, role: currentUserRole, logout } = useAuth();
+  const handleImpersonate = useAccountImpersonation();
   const { can } = usePermission();
   const [isNewAccountOpen, setIsNewAccountOpen] = useState(false);
   const [showInteractionCloud, setShowInteractionCloud] = useState(true);
@@ -911,16 +913,6 @@ export default function Accounts() {
   const handleResetPassword = (user) => {
     setSelectedUser(user);
     setResetPasswordDialogOpen(true);
-  };
-
-  const handleImpersonate = (user) => {
-    impersonate(user);
-    toast({
-      title: "Impersonating user",
-      description: `You are now viewing the dashboard as ${user.name}.`,
-    });
-    // Use React Router navigate to avoid full page reload which destroys state
-    navigate('/dashboard');
   };
 
   const handleManageNotifications = (user) => {

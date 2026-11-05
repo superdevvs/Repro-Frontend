@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { User, Role } from "@/components/auth/AuthProvider";
 import { useAuth } from "@/components/auth";
+import { canImpersonateAccount } from '@/utils/impersonation';
 import { readOfficePhone } from "@/utils/officePhone";
 import { getAvatarUrl } from "@/utils/defaultAvatars";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -150,7 +151,7 @@ export function AccountCard({
           </div>
           
           <DropdownMenu>
-            <DropdownMenuTrigger className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenuTrigger aria-label={`Actions for ${user.name}`} className="p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors" onClick={(e) => e.stopPropagation()}>
               <MoreVertical className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
@@ -215,7 +216,7 @@ export function AccountCard({
                   <Mail className="mr-2 h-4 w-4" /> Resend verification
                 </DropdownMenuItem>
               )}
-              {canManageAccounts && (
+              {canImpersonateAccount(viewerRole, user) && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={(e) => {
@@ -224,6 +225,10 @@ export function AccountCard({
                   }}>
                     <LogIn className="mr-2 h-4 w-4" /> Login as User
                   </DropdownMenuItem>
+                </>
+              )}
+              {canManageAccounts && (
+                <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={(e) => { 
                     e.stopPropagation();

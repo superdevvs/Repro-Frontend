@@ -124,6 +124,8 @@ export interface UserData {
   createdAt?: string;
   isActive?: boolean;
   metadata?: UserMetadata;
+  /** Server-authorized impersonation capability for the Accounts viewer. */
+  can_impersonate?: boolean;
   email_health?: EmailHealth;
   email_verification?: {
     enrolled: boolean;

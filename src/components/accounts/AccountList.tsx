@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { User, Role } from "@/components/auth/AuthProvider";
+import { canImpersonateAccount } from '@/utils/impersonation';
 import { readOfficePhone } from "@/utils/officePhone";
 import { useAuth } from "@/components/auth";
 import { Camera, ExternalLink, Trash2, LogIn, UserPlus, ShieldCheck, ArrowLeftRight, Mail, SlidersHorizontal } from "lucide-react";
@@ -198,7 +199,7 @@ export function AccountList({
               <TableCell>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0" aria-label={`Actions for ${user.name}`}>
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
@@ -236,12 +237,16 @@ export function AccountList({
                         <Mail className="mr-2 h-4 w-4" /> Resend verification
                       </DropdownMenuItem>
                     )}
-                    {canManageAccounts && (
+                    {canImpersonateAccount(viewerRole, user) && (
                       <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => onImpersonate(user)}>
                           <LogIn className="mr-2 h-4 w-4" /> Login as User
                         </DropdownMenuItem>
+                      </>
+                    )}
+                    {canManageAccounts && (
+                      <>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => onResetPassword(user)}>
                           Reset Password
