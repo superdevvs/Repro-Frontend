@@ -7,6 +7,7 @@ import { useShootUnitScope } from '@/features/shoot-units/useShootUnitScope';
 import { getUnitVisitDefaults, projectShootForUnit } from '@/features/shoot-units/shootUnitData';
 import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { buildUnitScopedUpdate } from '@/features/shoot-units/unitMutations';
+import { isFinancialOnlyService, serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
 import { type SqftRange } from '@/utils/servicePricing';
 import { getBookedServiceQuantities, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
@@ -50,6 +51,8 @@ interface Service {
   pricing_type?: 'fixed' | 'variable';
   sqft_ranges?: SqftRange[];
   photographer_required?: boolean;
+  financial_only?: boolean;
+  allows_photographer_assignment?: boolean;
   allow_multiple?: boolean;
 }
 
@@ -130,6 +133,9 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
 
   const adaptUnitPayload = (input: Record<string, unknown>) => unitScope.isMultiUnit && unitScope.activeUnitId ? buildUnitScopedUpdate(shoot, unitScope.activeUnitId, input) : input;
   const buildServicePayload = () => {
+      const selectedService = services.find(service => String(service.id) === selectedServiceId);
+      const feeOnly = isFinancialOnlyService(selectedService);
+      const recipient = unitVisit?.photographerId ?? scopedShoot.photographer?.id;
       const existingServiceEntries = getExistingServiceEntries();
       const bookedQuantities = getBookedServiceQuantities(scopedShoot);
       
@@ -164,10 +170,10 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
         photographer_id?: number;
       } = {
         id: Number(selectedServiceId),
-        quantity: services.find(service => String(service.id) === selectedServiceId)?.allow_multiple ? normalizeBookingQuantity(quantity) : 1,
+        quantity: selectedService?.allow_multiple ? normalizeBookingQuantity(quantity) : 1,
         photographer_pay: photographerPay ? parseFloat(photographerPay) : null,
-        scheduled_at: buildScheduledAtIso(scheduleDate, scheduleTime),
-        ...(unitVisit?.photographerId && services.find(service => String(service.id) === selectedServiceId)?.photographer_required !== false ? { photographer_id: Number(unitVisit.photographerId) } : {}),
+        scheduled_at: feeOnly ? null : buildScheduledAtIso(scheduleDate, scheduleTime),
+        ...(recipient && serviceAllowsPhotographerAssignment(selectedService) ? { photographer_id: Number(recipient) } : {}),
       };
       if (customPrice.trim() !== '') {
         newService.price = parseFloat(customPrice);
@@ -327,7 +333,9 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
                 onChange={(e) => setPhotographerPay(e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            {isFinancialOnlyService(services.find(service => String(service.id) === selectedServiceId)) ? (
+              <p className="text-sm text-muted-foreground">No visit required for this fee.</p>
+            ) : <div className="grid grid-cols-2 gap-3">
               <div className="space-y-2">
                 <Label htmlFor="serviceScheduleDate">Schedule Date</Label>
                 <Input
@@ -352,7 +360,7 @@ export function AddServiceDialog({ shoot, onShootUpdate }: AddServiceDialogProps
                   </SelectContent>
                 </Select>
               </div>
-            </div>
+            </div>}
           </div>
 
           <TravelFeasibilityPanel travel={travel} />

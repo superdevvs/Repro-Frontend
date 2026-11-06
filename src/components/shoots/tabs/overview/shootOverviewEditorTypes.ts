@@ -17,6 +17,8 @@ export type ServiceOption = ServiceDurationSource & {
   category?: { id?: string; name?: string } | string | null;
   photographer_pay?: number | null;
   photographer_required?: boolean;
+  financial_only?: boolean;
+  allows_photographer_assignment?: boolean;
   requires_editing?: boolean;
   upload_intake_type?: string | null;
   editing_lanes?: string[];

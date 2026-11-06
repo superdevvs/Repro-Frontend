@@ -223,6 +223,8 @@ export interface ShootServiceObject {
   duration_minutes?: number | null;
   shoot_duration_minutes?: number | null;
   photographer_required?: boolean;
+  financial_only?: boolean;
+  allows_photographer_assignment?: boolean;
   allow_multiple?: boolean;
   shoot_unit_id?: string | number | null;
   shootUnitId?: string | number | null;

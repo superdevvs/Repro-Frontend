@@ -1,5 +1,6 @@
 import { canChooseServiceChangeIntent, type ServiceChangeIntent } from '@/utils/activeShootWork';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
+import { serviceRequiresPhotographer } from '@/utils/photographerAssignment';
 import { useOverviewTravel } from '@/features/travel/useOverviewTravel';
 import { useOverviewEditActionRegistration } from './useOverviewEditActionRegistration';
 import { buildForceSaveChanges } from '@/features/travel/forceSaveChanges';
@@ -36,6 +37,7 @@ import {
   formatEditableValue,
   formatTimeForInput,
   mapPhotographerPickerOption,
+  normalizeOverviewServiceOption,
   useOverviewLookupData,
   usePhotographerAssignmentOptions,
   usePhotographerDistanceAvailability, getOverviewAvailabilityDuration,
@@ -381,24 +383,13 @@ export function useShootOverviewEditor({
       schedules[serviceId] = withServiceDurationSnapshot(buildServiceScheduleFields(scheduledAt, shoot.timezone), item);
       const serviceName = item.name ?? item.service_name ?? item.serviceName;
       if (serviceName) {
-        fallbackServices.push({
+        const service = normalizeOverviewServiceOption({
+          ...item,
           id: serviceId,
           name: String(serviceName),
-          price: Number(item.price ?? item.subtotal ?? 0) || 0,
-          pricing_type: item.pricing_type === 'variable' ? 'variable' : 'fixed',
-          allow_multiple: item.allow_multiple === true,
-          sqft_ranges: Array.isArray(item.sqft_ranges) ? item.sqft_ranges : [],
-          category: item.category || null,
-          photographer_required: item.photographer_required !== false && item.photographer_required !== 0 && item.photographer_required !== '0',
-          requires_editing: item.requires_editing !== false && item.requires_editing !== 0 && item.requires_editing !== '0',
-          upload_intake_type: typeof item.upload_intake_type === 'string' ? item.upload_intake_type : null,
-          editing_lanes: Array.isArray(item.editing_lanes) ? item.editing_lanes.map(String) : undefined,
-          description: typeof item.description === 'string' ? item.description : '',
-          photographer_pay: item.photographer_pay != null ? Number(item.photographer_pay) : null,
-          duration: item.duration != null ? Number(item.duration) : null,
-          duration_minutes: item.duration_minutes != null ? Number(item.duration_minutes) : null,
-          shoot_duration_minutes: item.shoot_duration_minutes != null ? Number(item.shoot_duration_minutes) : null,
+          price: item.price ?? item.subtotal ?? 0,
         });
+        if (service) fallbackServices.push(service);
       }
     });
 
@@ -771,7 +762,7 @@ export function useShootOverviewEditor({
     || '10:00';
 
   const pickerServices = servicesList.filter(service => selectedServiceIds.includes(service.id) && normalizeShootServiceCategoryKey(deriveServiceCategoryName(service)) === photographerPickerContext?.categoryKey);
-  const isOffsiteArtistPicker = pickerServices.length > 0 && pickerServices.every(service => service.photographer_required === false);
+  const isOffsiteArtistPicker = pickerServices.length > 0 && pickerServices.every(service => !serviceRequiresPhotographer(service));
   const pickerAvailability = usePhotographerDistanceAvailability(
     assignPhotographerOpen && !isOffsiteArtistPicker,
     photographers,

@@ -257,7 +257,7 @@ export const extractLookupPropertyDetails = (details: AddressDetailsForLookup) =
         : {},
   });
 
-const normalizeServiceOption = (value: unknown): ServiceOption | null => {
+export const normalizeOverviewServiceOption = (value: unknown): ServiceOption | null => {
   const service = asRecord(value);
   if (service.id === null || service.id === undefined || typeof service.name !== 'string') return null;
   const rawRanges = service.sqft_ranges ?? service.sqftRanges;
@@ -299,6 +299,8 @@ const normalizeServiceOption = (value: unknown): ServiceOption | null => {
     duration_minutes: optionalNumber(service.duration_minutes) ?? null,
     shoot_duration_minutes: optionalNumber(service.shoot_duration_minutes) ?? null,
     photographer_required: service.photographer_required !== false && service.photographer_required !== 0 && service.photographer_required !== '0',
+    financial_only: service.financial_only === true || service.financial_only === 1 || service.financial_only === '1',
+    allows_photographer_assignment: service.allows_photographer_assignment === true,
     requires_editing: service.requires_editing !== false && service.requires_editing !== 0 && service.requires_editing !== '0',
     upload_intake_type: optionalString(service.upload_intake_type),
     editing_lanes: Array.isArray(service.editing_lanes) ? service.editing_lanes.map(String) : undefined,
@@ -386,7 +388,7 @@ export function useOverviewLookupData(
         if (!response.ok) return;
         const json: unknown = await response.json();
         const servicesData = responseItems(json)
-          .map(normalizeServiceOption)
+          .map(normalizeOverviewServiceOption)
           .filter((service): service is ServiceOption => service !== null);
 
         const allRawServiceItems = Array.isArray(shoot.serviceItems)
@@ -423,10 +425,21 @@ export function useOverviewLookupData(
           const rawServiceId = service.service_id ?? service.serviceId ?? service.id;
           if (rawServiceId === null || rawServiceId === undefined) return;
           const serviceId = String(rawServiceId);
-          if (mergedServicesById.has(serviceId)) return;
+          const catalogService = mergedServicesById.get(serviceId);
+          if (catalogService) {
+            // Booked classification is a snapshot; later catalog changes must
+            // not turn a historical visit into a newly added fee.
+            if (Object.hasOwn(service, 'financial_only')) mergedServicesById.set(serviceId, {
+              ...catalogService,
+              financial_only: service.financial_only === true || service.financial_only === 1 || service.financial_only === '1',
+              photographer_required: service.photographer_required !== false && service.photographer_required !== 0 && service.photographer_required !== '0',
+              allows_photographer_assignment: service.allows_photographer_assignment === true,
+            });
+            return;
+          }
           const serviceName = service.name ?? service.service_name ?? service.serviceName;
           if (!serviceName) return;
-          const normalizedService = normalizeServiceOption({
+          const normalizedService = normalizeOverviewServiceOption({
             ...service,
             id: serviceId,
             name: String(serviceName),

@@ -22,6 +22,8 @@ export function syncDraftServiceDurations(services: ServicePackage[], catalog: S
     const current = byId.get(service.id);
     if (!current) return service;
     const timing = {
+      financial_only: current.financial_only,
+      allows_photographer_assignment: current.allows_photographer_assignment,
       shoot_duration_minutes: current.shoot_duration_minutes,
       booking_duration_default_minutes: current.booking_duration_default_minutes,
       booking_duration_min_minutes: current.booking_duration_min_minutes,

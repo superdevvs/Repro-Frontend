@@ -20,11 +20,18 @@ export interface AssignableService {
   name: string;
   category?: AssignableServiceCategory | null;
   photographer_required?: boolean | null;
+  financial_only?: boolean | null;
+  allows_photographer_assignment?: boolean | null;
+}
+
+export function isFinancialOnlyService(service?: { financial_only?: unknown } | null): boolean {
+  return service?.financial_only === true || service?.financial_only === 1 || service?.financial_only === '1';
 }
 
 export function serviceRequiresPhotographer(
-  service?: Pick<AssignableService, 'photographer_required'> & { category?: unknown; name?: unknown } | null,
+  service?: Pick<AssignableService, 'photographer_required' | 'financial_only'> & { category?: unknown; name?: unknown } | null,
 ): boolean {
+  if (isFinancialOnlyService(service)) return false;
   const category = typeof service?.category === 'string' ? service.category
     : service?.category && typeof service.category === 'object' && 'name' in service.category ? String(service.category.name) : '';
   if (category.trim().toLowerCase().replace(/s$/, '') === 'digital enhancement') return false;
@@ -35,12 +42,12 @@ export function serviceRequiresPhotographer(
   return service?.photographer_required !== false;
 }
 
-/** Travel payouts may have an assignee without creating another on-site visit. */
+/** Fees may have a payout recipient without creating another on-site visit. */
 export function serviceAllowsPhotographerAssignment(
-  service?: Pick<AssignableService, 'photographer_required'> & { name?: unknown; category?: unknown } | null,
+  service?: Pick<AssignableService, 'photographer_required' | 'financial_only' | 'allows_photographer_assignment'> & { name?: unknown; category?: unknown } | null,
 ): boolean {
   const name = typeof service?.name === 'string' ? service.name.toLowerCase() : '';
-  return serviceRequiresPhotographer(service)
+  return service?.allows_photographer_assignment === true || isFinancialOnlyService(service) || serviceRequiresPhotographer(service)
     || name.includes('travel fee');
 }
 
@@ -139,11 +146,11 @@ export function requiresPerServiceAssignment(
 }
 
 export function resolveServicePhotographerId(
-  service: Pick<AssignableService, 'id' | 'photographer_required'>,
+  service: Pick<AssignableService, 'id' | 'photographer_required' | 'financial_only' | 'allows_photographer_assignment'>,
   servicePhotographers: Record<string, string> | null | undefined,
   photographer?: string | null,
 ): string | null {
-  if (!serviceRequiresPhotographer(service)) {
+  if (!serviceAllowsPhotographerAssignment(service)) {
     return null;
   }
 
@@ -151,14 +158,14 @@ export function resolveServicePhotographerId(
 }
 
 export function buildServicePhotographerAssignments(
-  selectedServices: ReadonlyArray<Pick<AssignableService, 'id' | 'photographer_required'>>,
+  selectedServices: ReadonlyArray<Pick<AssignableService, 'id' | 'photographer_required' | 'financial_only' | 'allows_photographer_assignment'>>,
   servicePhotographers: Record<string, string> | null | undefined,
 ): Array<{ service_id: string; photographer_id: string }> | undefined {
   const assignments = Object.entries(servicePhotographers ?? {})
     .filter(([serviceId, photographerId]) => {
       if (!photographerId) return false;
       const service = selectedServices.find((item) => String(item.id) === String(serviceId));
-      return Boolean(service) && serviceRequiresPhotographer(service);
+      return Boolean(service) && serviceAllowsPhotographerAssignment(service);
     })
     .map(([serviceId, photographerId]) => ({
       service_id: serviceId,

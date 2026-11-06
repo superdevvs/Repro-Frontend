@@ -1,7 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { transformShootFromApi } from './shootNormalization';
 import { getUnitServiceLines, projectShootForUnit } from '@/features/shoot-units/shootUnitData';
+import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
 describe('unit-aware shoot normalization', () => {
+  it.each([1143, null])('keeps a financial fee recipient %s and classification through API reload', photographerId => {
+    const fee = { id: 90, service_id: 90, shoot_service_id: 6200, shoot_unit_id: 15, name: 'Onsite Cancellation/hold fee',
+      financial_only: true, allows_photographer_assignment: true, photographer_required: false,
+      price: 60, duration_minutes: 0, photographer_id: photographerId, scheduled_at: null };
+    const shoot = transformShootFromApi({ id: 5944, serviceItems: [fee], services: [fee] });
+    expect(shoot.serviceItems?.[0]).toMatchObject({ financial_only: true, allows_photographer_assignment: true,
+      photographer_id: photographerId == null ? null : String(photographerId), duration_minutes: 0 });
+    expect(shoot.serviceObjects?.[0]).toMatchObject({ financial_only: true, allows_photographer_assignment: true });
+    expect(getShootPhotographerAssignmentGroups(shoot).groups[0].photographer?.id).toBe(photographerId == null ? undefined : String(photographerId));
+  });
   it('retains revision, common areas, and duplicate catalog lines with separate ownership', () => {
     const shoot = transformShootFromApi({ id: 12, units_revision: 7, units: [{ id: 1, client_key: 'u1', label: '101', kind: 'unit', sqft: 900, beds: 1, baths: 1 }, { id: 2, client_key: 'u2', label: 'Lobby', kind: 'common_area', sqft: 200, beds: 0, baths: 0 }], service_lines: [
       { shoot_service_id: 90, service_id: 5, shoot_unit_id: 1, name: 'Photos', price: 150 },

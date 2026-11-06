@@ -1,7 +1,8 @@
 import type { ShootData } from '@/types/shoots';
 import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { resolveServiceShootDuration } from '@/utils/shootDuration';
-import { serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
+import { isFinancialOnlyService, serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
+import { overviewServiceRecipient } from './overviewServiceRecipient';
 import { getSavedServiceDuration } from './shootOverviewDurations';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 import { buildShootScheduleTimestamp, findServiceScheduleTimestamp } from '@/utils/shootScheduleSubmission';
@@ -79,6 +80,7 @@ export function applyOverviewServicePayload({
   };
   const existingScheduleByServiceId = new Map<string, ServiceScheduleFields>();
   const existingDurationByServiceId = new Map<string, number>();
+  const existingByServiceId = new Map<string, LegacyServiceItemRecord>();
   [
     ...((legacyShoot.serviceItems as LegacyServiceItemRecord[] | undefined) || []),
     ...((legacyShoot.service_items as LegacyServiceItemRecord[] | undefined) || []),
@@ -86,6 +88,7 @@ export function applyOverviewServicePayload({
   ].filter((item) => !isInvoiceAdjustmentServiceItem(item)).forEach((item) => {
     if (!item || typeof item !== 'object') return;
     const serviceId = item.service_id ?? item.serviceId ?? item.id;
+    if (serviceId != null && !existingByServiceId.has(String(serviceId))) existingByServiceId.set(String(serviceId), item);
     const duration = getSavedServiceDuration(item);
     if (serviceId != null && duration !== undefined && !existingDurationByServiceId.has(String(serviceId))) {
       existingDurationByServiceId.set(String(serviceId), duration);
@@ -97,6 +100,8 @@ export function applyOverviewServicePayload({
 
   const serviceItems = selectedServiceIds.map((serviceId) => {
     const service = servicesList.find(option => option.id === serviceId);
+    const financialOnly = isFinancialOnlyService(service);
+    const existingDuration = existingDurationByServiceId.get(serviceId);
     const savedSchedule: ServiceScheduleFields = serviceSchedules[serviceId] || orderSchedule;
     const existingSchedule = existingScheduleByServiceId.get(serviceId);
     const schedule = existingSchedule
@@ -106,10 +111,10 @@ export function applyOverviewServicePayload({
       : savedSchedule;
     const item: OverviewServiceItemPayload = {
       service_id: Number(serviceId),
-      duration_minutes: resolveServiceShootDuration(servicesList.find(service => service.id === serviceId) ?? {}, effectiveSqft,
-        savedSchedule.duration_minutes ?? existingDurationByServiceId.get(serviceId)),
+      duration_minutes: financialOnly && !existingByServiceId.has(serviceId) ? 0
+        : resolveServiceShootDuration(service ?? {}, effectiveSqft, savedSchedule.duration_minutes ?? existingDuration),
       // An empty service date is intentionally kept unscheduled.
-      scheduled_at: schedule.date ? buildShootScheduleTimestamp(schedule.date, schedule.time,
+      scheduled_at: financialOnly && !(Number(existingDuration) > 0) ? null : schedule.date ? buildShootScheduleTimestamp(schedule.date, schedule.time,
         shoot.timezone, findServiceScheduleTimestamp(shoot, serviceId)) : null,
     };
     const explicitPrice = servicePrices[serviceId];
@@ -147,7 +152,10 @@ export function applyOverviewServicePayload({
     const service = servicesList.find((option) => option.id === serviceId);
     if (!service || !serviceAllowsPhotographerAssignment(service)) return [];
     const categoryKey = deriveServiceCategoryName(service).trim().toLowerCase().replace(/s$/, '');
-    const photographerId = perCategoryPhotographers[categoryKey];
+    const photographerId = isFinancialOnlyService(service)
+      ? overviewServiceRecipient(categoryKey, perCategoryPhotographers, String(updates.photographer?.id ?? shoot.photographer?.id ?? ''),
+        true, existingByServiceId.get(serviceId))
+      : perCategoryPhotographers[categoryKey];
     return photographerId ? [{ service_id: Number(serviceId), photographer_id: Number(photographerId) }] : [];
   });
 }

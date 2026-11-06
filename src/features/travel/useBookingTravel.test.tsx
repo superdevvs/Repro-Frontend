@@ -17,6 +17,17 @@ const browserTimezone = (timeZone: string) => {
   });
 };
 describe('booking preview uses the booked service itinerary', () => {
+  it('keeps capture travel checks when an optional fee has a payee and no visit', async () => {
+    const service_lines = [
+      { unit_client_key: 'a', service_id: '90', duration_minutes: 0, scheduled_at: null, photographer_id: '1143' },
+      { unit_client_key: 'a', service_id: '6', duration_minutes: 15, scheduled_at: '2026-10-05T13:00:00Z', photographer_id: '9' },
+    ];
+    renderHook(() => useBookingTravel({ ...base, unitPayload: () => ({ service_lines }) }));
+    const payload = await run();
+    expect(payload.photographer_id).toBe('9');
+    expect(payload.scheduled_at).toBe('2026-10-05T13:00:00.000Z');
+    expect(payload.service_lines).toEqual(service_lines);
+  });
   it('checks a manual-address booking with no property metadata using the same omitted field as submission', async () => {
     vi.stubGlobal('fetch', vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body));

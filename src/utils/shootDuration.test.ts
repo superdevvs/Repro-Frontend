@@ -17,6 +17,13 @@ describe('duration defaults and preservation', () => {
     expect(resolveServiceShootDuration({ pricing_type: 'variable', shoot_duration_minutes: 60, sqft_ranges: [{ sqft_from: 0, sqft_to: 2000, duration: 15 }] }, 1000)).toBe(15);
     expect(resolveServiceShootDuration({ photographer_required: false, shoot_duration_minutes: 0 })).toBe(0);
   });
+  it('keeps new financial fees out of visit totals while preserving positive booked snapshots', () => {
+    const fee = { id: '90', photographer_required: true, financial_only: true, shoot_duration_minutes: 60 };
+    expect(resolveServiceShootDuration(fee)).toBe(0);
+    expect(sumServiceShootDurations([fee, { id: '3', shoot_duration_minutes: 60 }])).toBe(60);
+    expect(resolveServiceShootDuration({ ...fee, duration_minutes: 30 })).toBe(30);
+    expect(resolveServiceShootDuration(fee, null, 45)).toBe(45);
+  });
   it('sums distinct capture services once, treats packages as one SKU and never caps visit totals', () => {
     const exterior = { id: '6', shoot_duration_minutes: 15 };
     expect(sumServiceShootDurations([exterior, exterior, { id: '7', shoot_duration_minutes: 30 }])).toBe(45);

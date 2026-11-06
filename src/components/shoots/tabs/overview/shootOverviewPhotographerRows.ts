@@ -1,5 +1,6 @@
 import type { ShootData } from '@/types/shoots';
-import { serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
+import { isFinancialOnlyService, serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
+import { overviewServiceRecipient } from './overviewServiceRecipient';
 import { normalizeShootServiceCategoryKey, type ShootPhotographerAssignmentGroup } from '@/utils/shootPhotographerAssignments';
 import { deriveServiceCategoryName } from './shootOverviewEditorSupport';
 import type { ServiceOption } from './shootOverviewEditorTypes';
@@ -27,7 +28,8 @@ export function getOverviewPhotographerRows({ shootPhotographer, isEditMode, sel
     const name = deriveServiceCategoryName(service);
     const key = normalizeShootServiceCategoryKey(name);
     const existing = groups.find(group => group.key === key);
-    const selectedId = perCategoryPhotographers[key] ?? existing?.photographer?.id ?? selectedPhotographerId ?? '';
+    const selectedId = overviewServiceRecipient(key, perCategoryPhotographers, selectedPhotographerId,
+      isFinancialOnlyService(service), existing?.services[0]?.raw);
     rows.set(key, { key, name, photographer: selectedId ? resolvePhotographer(String(selectedId)) || existing?.photographer || null : null });
   });
   return Array.from(rows.values());

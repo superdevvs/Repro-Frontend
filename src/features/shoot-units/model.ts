@@ -1,7 +1,7 @@
 import { v4 as uuid } from 'uuid';
 import type { ShootUnit } from '@/types/shoots';
 import { type ServicePackage, toBackendTime, resolveSelectedServicePrice } from '@/pages/bookShootModel';
-import { serviceRequiresPhotographer } from '@/utils/photographerAssignment';
+import { isFinancialOnlyService, serviceAllowsPhotographerAssignment, serviceRequiresPhotographer } from '@/utils/photographerAssignment';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { getServiceUnitId, getUnitKey, normalizeShootUnits } from './shootUnitData';
@@ -13,6 +13,8 @@ export type UnitLineDraft = {
   client_key: string; shoot_service_id?: string | number; unit_client_key: string;
   service_id: string; price?: number; date?: string; time?: string; photographer_id?: string;
   duration_minutes?: number; quantity?: number;
+  financial_only?: boolean;
+  photographer_required?: boolean;
 };
 export type UnitScheduleDefault = { date?: string; time?: string; photographer_id?: string; duration_minutes?: number };
 export type MultiUnitDraft = {
@@ -67,7 +69,7 @@ export function summarizeUnitServices(draft: MultiUnitDraft, catalog: ServicePac
       price: total, total_price: total }] : [];
   });
 }
-export type ResolvedUnitLine = UnitLineDraft & { scheduled_date: string; start_time: string; photographer_id: string; duration: number; end_time: string };
+export type ResolvedUnitLine = UnitLineDraft & { scheduled_date: string; start_time: string; photographer_id: string; duration: number; end_time: string; financial_only?: boolean };
 export function unitServiceDuration(service: ServicePackage, unit: ShootUnit): number {
   return resolveServiceShootDuration(service, unit.sqft);
 }
@@ -99,15 +101,19 @@ export function resolveUnitSchedule(draft: MultiUnitDraft, catalog: ServicePacka
   const lines: ResolvedUnitLine[] = [];
   const hhmm = (minutes: number) => `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
   for (const unit of draft.units) for (const line of draft.lines.filter(item => item.unit_client_key === unit.client_key)) {
-    const service = catalog.find(item => item.id === line.service_id);
+    const currentService = catalog.find(item => item.id === line.service_id);
+    const service = currentService && line.financial_only !== undefined ? { ...currentService, financial_only: line.financial_only,
+      photographer_required: line.photographer_required ?? currentService.photographer_required } : currentService;
     if (!service) { errors.push(`${unit.label}: service is no longer available.`); continue; }
     const defaults = draft.defaults[line.service_id] ?? {};
     const date = line.date || defaults.date || fallback.date || '';
     const time = toBackendTime(line.time || defaults.time || fallback.time).slice(0, 5);
-    const photographerId = line.photographer_id || defaults.photographer_id || fallback.photographer_id || '';
+    const photographerId = line.shoot_service_id && isFinancialOnlyService(service) && line.photographer_id === ''
+      ? '' : line.photographer_id || defaults.photographer_id || fallback.photographer_id || '';
     const required = serviceRequiresPhotographer(service);
-    const duration = resolveServiceShootDuration(service, unit.sqft, line.duration_minutes ?? defaults.duration_minutes);
-    if (!date || !time) errors.push(`${unit.label} / ${service.name}: choose a date and time.`);
+    const financialOnly = isFinancialOnlyService(service);
+    const duration = financialOnly && !line.shoot_service_id ? 0 : resolveServiceShootDuration(service, unit.sqft, line.duration_minutes ?? defaults.duration_minutes);
+    if (!financialOnly && (!date || !time)) errors.push(`${unit.label} / ${service.name}: choose a date and time.`);
     if (required && !photographerId) errors.push(`${unit.label} / ${service.name}: choose a photographer.`);
     if (required && !(duration > 0)) errors.push(`${unit.label} / ${service.name}: service duration is missing; update the service catalogue.`);
     const key = `${photographerId}:${date}`;
@@ -120,7 +126,7 @@ export function resolveUnitSchedule(draft: MultiUnitDraft, catalog: ServicePacka
     const prior = occupied.get(key) ?? [];
     if (required && prior.some(block => block.unitKey !== unit.client_key && start < block.end && end > block.start)) errors.push(`${unit.label} / ${service.name}: overlaps another unit assigned to this photographer.`);
     if (required) { occupied.set(key, [...prior, { start, end, unitKey: unit.client_key }]); cursors.set(key, Math.max(cursors.get(key) ?? 0, end)); }
-    lines.push({ ...line, duration_minutes: duration, scheduled_date: date, start_time: hhmm(start), end_time: hhmm(end), photographer_id: required ? photographerId : '', duration: required ? duration : 0 });
+    lines.push({ ...line, ...(financialOnly ? { financial_only: true } : {}), duration_minutes: duration, scheduled_date: date, start_time: hhmm(start), end_time: hhmm(end), photographer_id: serviceAllowsPhotographerAssignment(service) ? photographerId : '', duration: required ? duration : 0 });
   }
   return { lines, errors: [...new Set(errors)], totalMinutes: lines.reduce((sum, line) => sum + line.duration, 0) };
 }
@@ -131,7 +137,8 @@ export function buildUnitPayload(draft: MultiUnitDraft, resolved: ResolvedUnitLi
       const unit = draft.units.find(item => item.client_key === line.unit_client_key)!;
       return { ...(line.shoot_service_id ? { shoot_service_id: line.shoot_service_id } : {}), client_key: line.client_key,
         unit_client_key: line.unit_client_key, ...(unit.id ? { shoot_unit_id: unit.id } : {}), service_id: line.service_id,
-        scheduled_at: buildShootScheduleTimestamp(line.scheduled_date, line.start_time, timezone), photographer_id: line.photographer_id || null,
+        scheduled_at: line.financial_only && !(line.shoot_service_id && Number(line.duration_minutes) > 0)
+          ? null : buildShootScheduleTimestamp(line.scheduled_date, line.start_time, timezone), photographer_id: line.photographer_id || null,
         quantity: normalizeBookingQuantity(line.quantity),
         duration_minutes: line.duration_minutes ?? line.duration, is_deliverable: true as const };
     }),
@@ -152,7 +159,10 @@ export function hydrateUnitDraft(value: unknown): MultiUnitDraft {
       shoot_service_id: (line.shoot_service_id ?? line.shootServiceId) as string | number | undefined,
       quantity: normalizeBookingQuantity(line.quantity),
       ...(line.price !== null && line.price !== undefined ? { price: Number(line.price) } : {}), date: schedule.date || undefined, time: schedule.time || undefined,
-      photographer_id: String(line.photographer_id ?? line.resolved_photographer_id ?? ''),
+      photographer_id: String(isFinancialOnlyService(line) && Object.hasOwn(line, 'photographer_id')
+        ? line.photographer_id ?? '' : line.photographer_id ?? line.resolved_photographer_id ?? ''),
+      ...(typeof line.financial_only === 'boolean' ? { financial_only: line.financial_only } : {}),
+      ...(typeof line.photographer_required === 'boolean' ? { photographer_required: line.photographer_required } : {}),
       ...(Number(line.duration_minutes ?? line.duration) > 0 ? { duration_minutes: Number(line.duration_minutes ?? line.duration) } : {}) }];
   });
   return { enabled: true, units, lines, activeUnitKey: units[0].client_key, defaults: {} };

@@ -12,6 +12,46 @@ function draft(count = 2): MultiUnitDraft {
   return value;
 }
 describe('multi-unit booking identity, pricing and occupied time', () => {
+  it('keeps an optional financial fee payee without creating another visit or requiring a time', () => {
+    const fee = { id: '90', name: 'Onsite Cancellation/hold fee', description: '', price: 60,
+      financial_only: true, photographer_required: true, shoot_duration_minutes: 60 };
+    const value = setUnitServices(draft(1), 'u0', ['90']);
+    const result = resolveUnitSchedule(value, [fee], { photographer_id: '1143' });
+    expect(result.errors).toEqual([]);
+    expect(result.totalMinutes).toBe(0);
+    expect(buildUnitPayload(value, result.lines).service_lines[0]).toMatchObject({
+      service_id: '90', photographer_id: '1143', scheduled_at: null, duration_minutes: 0,
+    });
+  });
+  it('preserves a historical booked visit when today\'s catalog classifies new sales as financial', () => {
+    const fee = { id: '90', name: 'Onsite Cancellation/hold fee', description: '', price: 60,
+      financial_only: true, photographer_required: false, shoot_duration_minutes: 0 };
+    const value = hydrateUnitDraft({ units: [{ id: 15, client_key: 'unit-15', label: '1', kind: 'unit' }], service_items: [{
+      service_id: 90, shoot_service_id: 6200, shoot_unit_id: 15, client_key: 'unit-15:90',
+      financial_only: false, photographer_required: true, duration_minutes: 60,
+      photographer_id: '1143', scheduled_at: '2026-11-06T15:00:00Z',
+    }], timezone: 'America/New_York' });
+    const result = resolveUnitSchedule(value, [fee], {});
+    expect(result.errors).toEqual([]);
+    expect(result.totalMinutes).toBe(60);
+    expect(buildUnitPayload(value, result.lines, 'America/New_York').service_lines[0]).toMatchObject({
+      photographer_id: '1143', duration_minutes: 60, scheduled_at: '2026-11-06T15:00:00.000Z',
+    });
+  });
+  it.each([0, 60])('preserves an existing financial fee with no recipient and a %s-minute snapshot', duration => {
+    const fee = { id: '90', name: 'Cancellation fee', description: '', price: 60,
+      financial_only: true, photographer_required: false, shoot_duration_minutes: 0 };
+    const value = hydrateUnitDraft({ units: [{ id: 15, client_key: 'unit-15', label: '1', kind: 'unit' }], service_items: [{
+      service_id: 90, shoot_service_id: 6200, shoot_unit_id: 15, client_key: 'unit-15:90',
+      financial_only: true, photographer_required: false, duration_minutes: duration,
+      photographer_id: null, resolved_photographer_id: '1143', scheduled_at: duration ? '2026-11-06T15:00:00Z' : null,
+    }], timezone: 'America/New_York' });
+    const result = resolveUnitSchedule(value, [fee], { photographer_id: '1143', date: '2026-11-06', time: '10:00' });
+    expect(result.errors).toEqual([]);
+    expect(buildUnitPayload(value, result.lines, 'America/New_York').service_lines[0]).toMatchObject({
+      photographer_id: null, duration_minutes: duration, scheduled_at: duration ? '2026-11-06T15:00:00.000Z' : null,
+    });
+  });
   it('books two exterior units as one30-minute visit with one15-minute gap outside it', () => {
     const value = copyMissingServices(draft(), 'u0', ['u1']);
     const exterior = [{ ...catalog[0], pricing_type: 'fixed' as const, shoot_duration_minutes: 15 }];

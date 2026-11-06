@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import { toBackendTime, type ServicePackage } from '@/pages/bookShootModel';
 import { resolveBookingTimezone } from '@/pages/bookShootTimezone';
 import { buildBookShootServiceSchedule } from '@/pages/bookShootServiceSchedule';
-import { resolveServicePhotographerId } from '@/utils/photographerAssignment';
+import { isFinancialOnlyService, resolveServicePhotographerId, serviceRequiresPhotographer } from '@/utils/photographerAssignment';
 import { resolveServiceShootDuration, serviceDurationLimits } from '@/utils/shootDuration';
 import { buildShootScheduleTimestamp } from '@/utils/shootScheduleSubmission';
 import { useTravelFeasibility } from './useTravelFeasibility';
@@ -32,14 +32,15 @@ export function useBookingTravel(options: Options) {
   const day = date ? format(date, 'yyyy-MM-dd') : '';
   const primary = bookingPrimarySchedule(selectedServices, serviceSchedules, date, time, photographer, servicePhotographers);
   const unitData = unitPayload ? safelyBuildTravelPayload(() => unitPayload(timezone)) : null;
-  const unitLines = Array.isArray(unitData?.service_lines) ? unitData.service_lines as Array<{ photographer_id?: string | number | null; scheduled_at?: string }> : [];
-  const unitPrimary = unitLines.find(line => line.photographer_id) ?? unitLines[0];
+  const unitLines = Array.isArray(unitData?.service_lines) ? unitData.service_lines as Array<{ photographer_id?: string | number | null; scheduled_at?: string; duration_minutes?: number }> : [];
+  const captureLines = unitLines.filter(line => line.photographer_id && Number(line.duration_minutes) > 0);
+  const unitPrimary = captureLines[0] ?? unitLines[0];
   const unitClock = unitPrimary ? getShootSchedule({ scheduled_at: unitPrimary.scheduled_at, timezone }) : null;
   const scheduledTime = toBackendTime(unitClock?.time ?? primary.time);
   const scheduledDay = unitClock?.date ?? primary.date;
-  const hasCapture = unitPayload ? unitLines.some(line => line.photographer_id) : selectedServices.some(service => service.photographer_required !== false);
-  const completeRows = unitPayload ? unitLines.length > 0 && unitLines.every(line => line.scheduled_at)
-    : selectedServices.every(service => (serviceSchedules[service.id]?.date ?? day) && (serviceSchedules[service.id]?.time ?? time));
+  const hasCapture = unitPayload ? captureLines.length > 0 : selectedServices.some(serviceRequiresPhotographer);
+  const completeRows = unitPayload ? captureLines.length > 0 && captureLines.every(line => line.scheduled_at)
+    : selectedServices.filter(serviceRequiresPhotographer).every(service => (serviceSchedules[service.id]?.date ?? day) && (serviceSchedules[service.id]?.time ?? time));
   const payload = safelyBuildTravelPayload(() => active && hasCapture && completeRows && scheduledDay && scheduledTime && address ? {
     ...(shootId ? { shoot_id: shootId } : {}), client_id: clientId, address, city, state, zip,
     ...(propertyDetails ? { property_details: propertyDetails } : {}), timezone, photographer_id: unitPrimary?.photographer_id ?? primary.photographer,
@@ -52,7 +53,7 @@ export function useBookingTravel(options: Options) {
       duration_minutes: resolveServiceShootDuration(service, sqft, serviceSchedules[service.id]?.duration_minutes),
       booking_duration_min_minutes: serviceDurationLimits(service).minMinutes, booking_duration_max_minutes: serviceDurationLimits(service).maxMinutes,
       photographer_id: resolveServicePhotographerId(service, servicePhotographers, photographer),
-      scheduled_at: buildBookShootServiceSchedule(service.id, serviceSchedules, day, time, { ...source, timezone }),
+      scheduled_at: isFinancialOnlyService(service) ? null : buildBookShootServiceSchedule(service.id, serviceSchedules, day, time, { ...source, timezone }),
     })) }),
   } : null);
   return useTravelFeasibility({ payload, requestedOnly, initialNotifications: options.initialNotifications, onNotificationsChange: options.onNotificationsChange, notificationsSupported: !requestedOnly, onScheduleChange: unitPayload ? undefined : options.onScheduleChange });

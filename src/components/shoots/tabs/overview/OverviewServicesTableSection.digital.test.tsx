@@ -37,6 +37,18 @@ function options(): OverviewServicesTableSectionProps {
 }
 
 describe('requirement-aware overview assignments', () => {
+  it('shows a cancellation fee payee without date or time visit controls', () => {
+    const props = options();
+    render(<OverviewServicesTableSection {...props} servicesList={[{
+      id: '90', name: 'Onsite Cancellation/hold fee', category: 'Cancellation/Hold',
+      photographer_required: true, financial_only: true, requires_editing: true,
+    }]} selectedServiceIds={['90']} />);
+    expect(screen.getByText('No visit required')).toBeInTheDocument();
+    expect(screen.getByTestId('photographer-cell')).toHaveTextContent('Ivan');
+    expect(screen.queryByText('Select date')).toBeNull();
+    expect(screen.queryByText('Select time')).toBeNull();
+    expect(screen.queryByRole('combobox', { name: /Editor for/ })).toBeNull();
+  });
   it.each([false, true])('shows digital editor selectors with no inherited photographer (mobile=%s)', async isMobile => {
     mobile.value = isMobile;
     const changed = vi.fn();

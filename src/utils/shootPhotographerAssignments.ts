@@ -1,5 +1,5 @@
 import { ShootServiceObject, ShootServicePhotographer } from '@/types/shoots';
-import { serviceAllowsPhotographerAssignment } from './photographerAssignment';
+import { isFinancialOnlyService, serviceAllowsPhotographerAssignment } from './photographerAssignment';
 import { hasActiveShootWork, type ActiveShootWorkFields } from './activeShootWork';
 
 type RawServiceAssignment = ShootServiceObject | Record<string, unknown>;
@@ -104,6 +104,8 @@ export const getShootPhotographerAssignments = (
     const allowsPhotographer = serviceAllowsPhotographerAssignment({
       name: String(rawService.name ?? rawService.service_name ?? ''), category: rawService.category,
       photographer_required: rawService.photographer_required !== false && rawService.photographer_required !== 0 && rawService.photographer_required !== '0',
+      financial_only: rawService.financial_only === true || rawService.financial_only === 1 || rawService.financial_only === '1',
+      allows_photographer_assignment: rawService.allows_photographer_assignment === true,
     });
     const categoryName =
       (rawService.category &&
@@ -114,8 +116,11 @@ export const getShootPhotographerAssignments = (
       (typeof rawService.category_name === 'string' && rawService.category_name) ||
       'Other';
 
+    const financialRecipient = isFinancialOnlyService(rawService) && Object.hasOwn(rawService, 'photographer_id');
     const photographerId =
-      rawService.resolved_photographer_id != null
+      financialRecipient
+        ? rawService.photographer_id == null ? undefined : String(rawService.photographer_id)
+        : rawService.resolved_photographer_id != null
         ? String(rawService.resolved_photographer_id)
         : rawService.photographer_id != null
         ? String(rawService.photographer_id)
@@ -129,11 +134,11 @@ export const getShootPhotographerAssignments = (
         ? String((rawService.photographer as Record<string, unknown>).id)
         : undefined;
 
-    const photographer =
+    const photographer = financialRecipient && !photographerId ? null :
       normalizePhotographer(
-        rawService.resolved_photographer ?? rawService.photographer,
+        financialRecipient ? rawService.photographer : rawService.resolved_photographer ?? rawService.photographer,
         photographerId,
-        typeof rawService.resolved_photographer_name === 'string'
+        !financialRecipient && typeof rawService.resolved_photographer_name === 'string'
           ? rawService.resolved_photographer_name
           : typeof rawService.photographer_name === 'string'
           ? rawService.photographer_name

@@ -1,3 +1,5 @@
+import { isFinancialOnlyService } from './photographerAssignment';
+
 export const DEFAULT_SHOOT_DURATION_MINUTES = 60;
 export const MIN_SHOOT_DURATION_MINUTES = 5;
 export const MAX_SHOOT_DURATION_MINUTES = 300;
@@ -6,6 +8,7 @@ export const BOOKING_TRAVEL_BUFFER_MINUTES = 15;
 export type ServiceDurationSource = {
   duration_minutes?: number | null; shoot_duration_minutes?: number | null;
   photographer_required?: boolean | null;
+  financial_only?: boolean | null;
   pricing_type?: string; sqft_ranges?: Array<{ sqft_from: number; sqft_to: number; duration?: number | null }>;
   booking_duration_default_minutes?: number | null;
   booking_duration_min_minutes?: number | null;
@@ -31,7 +34,7 @@ export function resolveShootDuration(...values: unknown[]): number {
 
 export function resolveServiceShootDuration(service: ServiceDurationSource, sqft?: number | null, override?: number | null): number {
   if (Number(override) > 0 || Number(service.duration_minutes) > 0) return resolveShootDuration(override, service.duration_minutes);
-  if (service.photographer_required === false) return 0;
+  if (isFinancialOnlyService(service) || service.photographer_required === false) return 0;
   const durationTiers = service.booking_duration_tiers ?? (service.pricing_type === 'variable' ? service.sqft_ranges : undefined);
   const tier = sqft ? durationTiers?.find(range => sqft >= range.sqft_from && sqft <= range.sqft_to) : undefined;
   return resolveShootDuration(override, service.duration_minutes, tier?.duration, service.shoot_duration_minutes,
@@ -42,6 +45,6 @@ export function resolveServiceShootDuration(service: ServiceDurationSource, sqft
 export function sumServiceShootDurations(services: Array<ServiceDurationSource & { id: string | number }>, sqft?: number | null,
   overrides: Record<string, { duration_minutes?: number }> = {}): number {
   const unique = new Map(services.map(service => [String(service.id), service]));
-  return [...unique.values()].filter(service => service.photographer_required !== false)
+  return [...unique.values()].filter(service => !isFinancialOnlyService(service) && service.photographer_required !== false)
     .reduce((total, service) => total + resolveServiceShootDuration(service, sqft, overrides[String(service.id)]?.duration_minutes), 0);
 }

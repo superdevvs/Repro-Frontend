@@ -27,7 +27,8 @@ import type {
 } from './useShootOverviewEditor';
 import type { ComplimentarySourceServiceOption } from './useComplimentaryServiceMode';
 import { CompServiceModeControls } from '@/features/complimentary-reshoots/CompServiceModeControls';
-import { serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
+import { isFinancialOnlyService, serviceAllowsPhotographerAssignment } from '@/utils/photographerAssignment';
+import { overviewServiceRecipient } from './overviewServiceRecipient';
 import { ServiceEditorSelect } from '@/components/shoots/ServiceEditorSelect';
 import { serviceEditorLane } from '@/components/shoots/serviceEditorEligibility';
 import type { ShootAssignee } from '@/services/shootAssignees';
@@ -440,9 +441,11 @@ function renderEditRows(
       const schedule: ServiceScheduleFields = serviceSchedules[serviceId] ?? DEFAULT_ROW_SCHEDULE;
       const categoryName = deriveServiceCategoryName(service);
       const categoryKey = normalizeShootServiceCategoryKey(categoryName);
-      const isBookedService = props.serviceItems.some(item => String(item.serviceId ?? item.source.service_id ?? item.source.id) === String(serviceId));
+      const bookedService = props.serviceItems.find(item => String(item.serviceId ?? item.source.service_id ?? item.source.id) === String(serviceId));
+      const isBookedService = Boolean(bookedService);
+      const noVisitRequired = isFinancialOnlyService(service) && !(isBookedService && Number(schedule.duration_minutes) > 0);
       const photographer = canEditAppointments || isBookedService ? resolvePhotographerDetails(
-        perCategoryPhotographers[categoryKey] ?? selectedPhotographerIdEdit,
+        overviewServiceRecipient(categoryKey, perCategoryPhotographers, selectedPhotographerIdEdit, isFinancialOnlyService(service), bookedService?.source),
       ) : null;
       const allowsPhotographer = serviceAllowsPhotographerAssignment(service);
 
@@ -474,14 +477,14 @@ function renderEditRows(
             </button>
           </td>
           <td className="col-span-2 col-start-1 row-start-2 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
-            {canEditAppointments ? <ServiceDatePicker
+            {noVisitRequired ? <span className="text-xs text-muted-foreground">No visit required</span> : canEditAppointments ? <ServiceDatePicker
               value={schedule.date}
               onChange={(value) => updateServiceSchedule(serviceId, 'date', value)}
               triggerClassName="h-8 w-full rounded-lg min-w-0"
             /> : <span className="text-xs text-muted-foreground">{schedule.date || NOT_ASSIGNED}</span>}
           </td>
           <td className="col-span-2 col-start-3 row-start-2 block min-w-0 py-1 [@container(min-width:48rem)]:table-cell [@container(min-width:48rem)]:py-1.5 [@container(min-width:48rem)]:pr-2">
-            {canEditAppointments ? <div className="flex flex-col items-stretch gap-0.5">
+            {noVisitRequired ? <span className="text-xs text-muted-foreground">—</span> : canEditAppointments ? <div className="flex flex-col items-stretch gap-0.5">
               <ServiceTimePicker
                 value={schedule.time}
                 options={buildServiceTimeOptions(schedule.time)}

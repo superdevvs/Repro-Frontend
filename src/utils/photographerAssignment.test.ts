@@ -32,6 +32,17 @@ const svc = (
 });
 
 describe('optional photographer payouts', () => {
+  it('allows a financial fee recipient without requiring a photographer or specialty assignment', () => {
+    const fee = { ...svc('90', 'Onsite Cancellation/hold fee', 'Cancellation/Hold'), financial_only: true };
+    expect(serviceAllowsPhotographerAssignment(fee)).toBe(true);
+    expect(serviceRequiresPhotographer(fee)).toBe(false);
+    expect(selectedServicesRequirePhotographer([fee])).toBe(false);
+    expect(photographerAssignmentIssue([fee], null, {})).toBeNull();
+    expect(buildAssignmentGroups([fee])).toEqual([]);
+    expect(resolveServicePhotographerId(fee, {}, '1143')).toBe('1143');
+    expect(buildServicePhotographerAssignments([fee], { '90': '1143' })).toEqual([{ service_id: '90', photographer_id: '1143' }]);
+    expect(serviceRequiresPhotographer({ ...fee, financial_only: false })).toBe(true);
+  });
   it('accepts older service records without a name', () => {
     expect(serviceAllowsPhotographerAssignment({})).toBe(true);
     expect(serviceAllowsPhotographerAssignment({ photographer_required: false })).toBe(false);

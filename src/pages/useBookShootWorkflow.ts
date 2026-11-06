@@ -537,7 +537,10 @@ export const useBookShootWorkflow = ({
             allow_multiple: Boolean(pkg.allow_multiple),
             photographer_required: serviceRequiresPhotographer({
               photographer_required: pkg.photographer_required as boolean | null | undefined,
+              financial_only: pkg.financial_only === true || pkg.financial_only === 1 || pkg.financial_only === '1',
             }),
+            financial_only: pkg.financial_only === true || pkg.financial_only === 1 || pkg.financial_only === '1',
+            allows_photographer_assignment: pkg.allows_photographer_assignment === true,
             photographer_pay: pkg.photographer_pay === null || pkg.photographer_pay === undefined
               ? null
               : Number(pkg.photographer_pay),
