@@ -38,7 +38,7 @@ function SelectAllControl({ files, selectedFiles, onSelectAll }: Pick<MediaGridL
 
 export function MediaGridLayout(props: MediaGridLayoutProps) {
   const {
-    viewMode, canSelect, isClient, files, selectedFiles, onSelectAll, showMultiSortHint,
+    viewMode, canSelect, files, selectedFiles, onSelectAll, showMultiSortHint,
     isManualSortEnabled, sensors, onManualSortEnd, visibleRegularIds, regularFiles,
     regularStacks, extraFiles, renderFileCard, renderStackCard, renderSortableFileCard,
     renderFileRow, renderSortableFileRow,
@@ -80,22 +80,19 @@ export function MediaGridLayout(props: MediaGridLayoutProps) {
   }
 
   return (
-    <div className="space-y-2">
-      <div className="shoot-media-list-header hidden sm:flex items-center gap-3 px-2 py-1 text-[10px] text-muted-foreground font-medium border-b">
-        {canSelect && files.length > 0 && <div className="w-4 flex-shrink-0"><SelectAllControl files={files} selectedFiles={selectedFiles} onSelectAll={onSelectAll} /></div>}
-        <div className="w-28 flex-shrink-0">Preview</div>
-        <div className="flex-1">Filename</div>
-        {!isClient && <><div className="w-36 flex-shrink-0" aria-hidden="true" /><div className="w-20 flex-shrink-0" aria-hidden="true" /></>}
-        <div className="w-6 flex-shrink-0" />
-      </div>
+    <div className="shoot-media-list space-y-2">
+      {canSelect && files.length > 0 && <div className="flex items-center gap-2 px-1 py-1 text-muted-foreground">
+        <SelectAllControl files={files} selectedFiles={selectedFiles} onSelectAll={onSelectAll} />
+        <span className="text-[10px]">{selectedFiles.size > 0 ? `${selectedFiles.size} selected` : 'Select all'}</span>
+      </div>}
       {showMultiSortHint && <div className="px-2 text-[11px] text-muted-foreground">Select multiple images, then drag one to move the group.</div>}
       {isManualSortEnabled ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onManualSortEnd}>
           <SortableContext items={visibleRegularIds} strategy={verticalListSortingStrategy}>
-            <div className="space-y-1">{regularFiles.map(renderSortableFileRow)}</div>
+            <div className="space-y-2">{regularFiles.map(renderSortableFileRow)}</div>
           </SortableContext>
         </DndContext>
-      ) : <div className="space-y-1">{regularFiles.map((file, index) => renderFileRow(file, index, false))}</div>}
+      ) : <div className="space-y-2">{regularFiles.map((file, index) => renderFileRow(file, index, false))}</div>}
       {extraFiles.length > 0 && (
         <>
           <div className="flex items-center gap-2 py-2">
@@ -103,7 +100,7 @@ export function MediaGridLayout(props: MediaGridLayoutProps) {
             <span className="text-xs font-medium text-orange-600 dark:text-orange-400 px-2">Extras ({extraFiles.length})</span>
             <div className="flex-1 h-px bg-orange-500/30" />
           </div>
-          <div className="space-y-1">{extraFiles.map((file, index) => renderFileRow(file, index, true))}</div>
+          <div className="space-y-2">{extraFiles.map((file, index) => renderFileRow(file, index, true))}</div>
         </>
       )}
     </div>

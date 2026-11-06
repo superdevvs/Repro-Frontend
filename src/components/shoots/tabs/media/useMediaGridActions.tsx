@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Textarea } from '@/components/ui/textarea';
 import type { MediaFile } from '@/hooks/useShootFiles';
 import { getDisplayMediaFilename } from './mediaPreviewUtils';
+import { MediaListActionsDrawer } from './MediaListActionsDrawer';
 
 interface UseMediaGridActionsOptions {
   canInteractSingleMedia: boolean;
@@ -174,5 +175,24 @@ export function useMediaGridActions({
     );
   };
 
-  return { getLatestCommentText, renderCommentAction, renderSingleMediaActions, renderDownloadAction, renderPresentationActions };
+  const renderListMediaActions = (file: MediaFile, previewUrl?: string) => {
+    const canInteract = canInteractSingleMedia && canInteractWithFile?.(file) !== false;
+    const canDownload = typeof canDownloadSingleMedia === 'function' ? canDownloadSingleMedia(file) : canDownloadSingleMedia;
+    const showFavorite = canInteract && Boolean(onToggleFavorite);
+    const showComment = canInteract && Boolean(onAddComment);
+    const showDownload = canDownload && Boolean(onDownloadSingle);
+    const showHero = Boolean(onSetHero && canSetHero?.(file));
+    const showVisibility = canToggleHidden(file);
+    if (!showFavorite && !showComment && !showDownload && !showHero && !showVisibility) return null;
+    return <MediaListActionsDrawer key={file.id} file={file} previewUrl={previewUrl}
+      downloading={downloadingFileIds?.has(String(file.id)) ?? false}
+      onToggleFavorite={showFavorite ? () => onToggleFavorite?.(file.id) : undefined}
+      onAddComment={showComment ? comment => onAddComment?.(file.id, comment) : undefined}
+      onDownload={showDownload ? () => onDownloadSingle?.(file.id) : undefined}
+      onSetHero={showHero ? () => onSetHero?.(file.id) : undefined}
+      onToggleHidden={showVisibility ? () => toggleFileHidden?.(file.id, !file.is_hidden) : undefined}
+    />;
+  };
+
+  return { getLatestCommentText, renderCommentAction, renderSingleMediaActions, renderDownloadAction, renderPresentationActions, renderListMediaActions };
 }

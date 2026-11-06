@@ -5,6 +5,7 @@ import type { MediaSortOrder } from './mediaSort';
 
 export interface MediaGridProps {
   files: MediaFile[];
+  shootAddress?: string;
   onFileClick: (index: number, sortedFiles: MediaFile[]) => void;
   selectedFiles: Set<string>;
   onSelectionChange: (fileId: string | string[]) => void;

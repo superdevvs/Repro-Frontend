@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Checkbox } from '@/components/ui/checkbox';
-import { CheckCircle2, ChevronLeft, ChevronRight, Circle, GripVertical, Heart, Image as ImageIcon, MessageSquare, Play } from 'lucide-react';
+import { ChevronLeft, ChevronRight, GripVertical, Image as ImageIcon, MessageSquare, Play } from 'lucide-react';
 import { type MediaFile } from '@/hooks/useShootFiles';
 import { isRawFile } from '@/services/rawPreviewService';
 import VideoThumbnail from '../../VideoThumbnail';
@@ -18,18 +18,17 @@ import { SortableMediaItem } from './SortableMediaItem';
 import { useMediaGridDragAndDrop } from './useMediaGridDragAndDrop';
 import { useMediaGridActions } from './useMediaGridActions';
 import {
-  formatMediaDateTime,
-  formatMediaFileSize,
   getGridPreviewMediaClassName,
   getHiddenMediaClassName,
-  getMediaResolution,
   hasDisplayableStillThumbnail,
 } from './mediaGridPresentation';
 import { HiddenMediaOverlay } from './HiddenMediaOverlay';
 import { MediaGridLayout } from './MediaGridLayout';
+import { MediaListRow } from './MediaListRow';
 
 export function MediaGrid({ 
-  files, 
+  files,
+  shootAddress,
   onFileClick, 
   selectedFiles, 
   onSelectionChange,
@@ -145,9 +144,8 @@ export function MediaGrid({
   const showMultiSortHint = isManualSortEnabled && selectedFiles.size > 1;
   const {
     getLatestCommentText,
-    renderCommentAction,
     renderSingleMediaActions,
-    renderDownloadAction, renderPresentationActions,
+    renderListMediaActions,
   } = useMediaGridActions({
     canInteractSingleMedia,
     canInteractWithFile,
@@ -590,328 +588,40 @@ export function MediaGrid({
     );
   };
 
-  // List view row renderer
-  const renderFileRow = (file: MediaFile, index: number, isExtraSection: boolean = false) => {
-    const isSelected = selectedFiles.has(file.id);
+  const renderListFileRow = (file: MediaFile, isExtraSection = false, dragHandle?: React.ReactNode, sorting = false) => {
     const isVid = isVideo?.(file) ?? false;
-    const isRaw = isRawFile(file.filename);
-    const imageUrl = getImageUrl(file, 'thumb');
-    const ext = file.filename.split('.').pop()?.toUpperCase();
-    const displayFilename = getDisplayMediaFilename(file) || file.filename;
+    const thumbSrc = getImageUrl(file, 'grid') || getLegacyThumb(file);
     const videoThumbSrc = isVid ? (getMediaVideoUrl(file) || getImageUrl(file, 'original')) : '';
-    const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
-    const isDragging = draggedId === file.id;
-    const isDragOver = dragOverId === file.id;
-    const latestCommentText = getLatestCommentText(file);
+    const hasProcessedThumb = !isRawFile(file.filename) || Boolean(file.thumbnail_path || file.web_path);
+    const hasStillPreview = hasDisplayableStillThumbnail(thumbSrc, videoThumbSrc, isVid, hasProcessedThumb);
+    const actualIndex = sortedFiles.findIndex(candidate => candidate.id === file.id);
 
-    const hasProcessedThumb = isRaw 
-      ? !!(file.thumbnail_path || file.web_path)
-      : true;
-    const thumbSrc = imageUrl || getLegacyThumb(file);
-    const hasDisplayableImage = hasDisplayableStillThumbnail(
-      thumbSrc,
-      videoThumbSrc,
-      isVid,
-      hasProcessedThumb,
-    );
-
-    return (
-      <div
-        key={file.id}
-        draggable={isManualSortEnabled && !isExtraSection}
-        onDragStart={(e) => handleDragStart(e, file.id)}
-        onDragOver={(e) => handleDragOver(e, file.id)}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleDrop(e, file.id)}
-        onDragEnd={handleDragEnd}
-        className={`shoot-media-list-row flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border cursor-pointer transition-all group hover:bg-muted/50 ${
-          file.has_open_request ? 'border-orange-500' : isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
-        } ${isExtraSection ? 'opacity-90' : ''} ${isDragging ? 'opacity-50' : ''} ${isDragOver ? 'ring-2 ring-blue-500 border-blue-500' : ''} ${isManualSortEnabled && !isExtraSection ? 'cursor-grab active:cursor-grabbing' : ''}`}
-        onClick={() => {
-          onFileClick(actualIndex, sortedFiles);
-        }}
-      >
-        {/* Selection indicator - moved to left */}
-        {canSelect && (!canSelectFile || canSelectFile(file)) && (
-          <div 
-            className="flex-shrink-0 cursor-pointer"
-            role="checkbox"
-            aria-label={`Select ${displayFilename}`}
-            aria-checked={isSelected}
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); onSelectionChange(file.id); }
-            }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelectionChange(file.id);
-            }}
-          >
-            {isSelected ? (
-              <CheckCircle2 className="h-5 w-5 text-primary" />
-            ) : (
-              <Circle className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
-            )}
-          </div>
-        )}
-
-        {/* Thumbnail - wide aspect ratio */}
-        <div className="shoot-media-list-preview relative w-24 h-16 sm:w-32 sm:h-20 flex-shrink-0 rounded overflow-hidden border bg-muted/40">
-          {hasDisplayableImage ? (
-            <img
-              src={thumbSrc}
-              alt={displayFilename}
-              className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
-              loading="lazy"
-              draggable={false}
-              onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                const fallback = e.currentTarget.parentElement?.querySelector('.file-fallback') as HTMLElement;
-                if (fallback) fallback.style.display = 'flex';
-              }}
-            />
-          ) : isVid ? (
-            <VideoThumbnail
-              src={videoThumbSrc}
-              alt={file.filename}
-              className={`relative z-[1] w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
-            />
-          ) : null}
-          <div 
-            className="file-fallback w-full h-full items-center justify-center bg-muted absolute inset-0"
-            style={{ display: !hasDisplayableImage ? 'flex' : 'none' }}
-          >
-            <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
-              {isVid ? <Play className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
-              <span className="text-[8px] font-semibold uppercase">{ext || 'FILE'}</span>
-            </div>
-          </div>
-          {isVid && (
-            <div className="absolute inset-0 z-[2] flex items-center justify-center pointer-events-none">
-              <div className="bg-black/50 rounded-full p-0.5">
-                <Play className="h-3 w-3 text-white fill-white" />
-              </div>
-            </div>
-          )}
-          <MediaTileBadges file={file} variant="list" />
-          {Number(file.comment_count ?? 0) > 0 && (
-            <div className="absolute bottom-1 left-1 bg-white/90 text-slate-900 text-[9px] px-1 py-0.5 rounded-full font-medium flex items-center gap-1">
-              <MessageSquare className="h-2.5 w-2.5" />
-              {file.comment_count}
-            </div>
-          )}
-          {file.is_hidden && <HiddenMediaOverlay />}
-        </div>
-
-        {/* Filename - takes remaining space */}
-        <div className="shoot-media-list-filename flex-1 min-w-0">
-          <p className="text-xs font-medium truncate" title={displayFilename}>
-            {displayFilename}
-          </p>
-          {renderScanStatus && (() => {
-            const node = renderScanStatus(file);
-            return node ? <div className="mt-1">{node}</div> : null;
-          })()}
-          {latestCommentText && (
-            <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
-              {latestCommentText}
-            </p>
-          )}
-          {!isClient && (
-            <p className="shoot-media-list-mobile-date text-[10px] text-muted-foreground sm:hidden">
-              {formatMediaDateTime(file.captured_at || file.created_at)}
-            </p>
-          )}
-        </div>
-
-        {!isClient && (
-          <>
-            {/* Shot Time - fixed width on right */}
-            <div className="shoot-media-list-date hidden sm:block w-36 flex-shrink-0 text-right">
-              <p className="text-[10px] text-muted-foreground">Shot Time</p>
-              <p className="text-xs">{formatMediaDateTime(file.captured_at || file.created_at)}</p>
-            </div>
-
-            {/* Size - fixed width on right */}
-            <div className="shoot-media-list-size hidden sm:block w-20 flex-shrink-0 text-right">
-              <p className="text-[10px] text-muted-foreground">Size</p>
-              <p className="text-xs">{formatMediaFileSize(file.fileSize)}</p>
-            </div>
-          </>
-        )}
-
-        {/* Hide/Unhide toggle */}
-        <div className="shoot-media-list-actions flex items-center gap-1 flex-shrink-0">
-          {canInteractSingleMedia && canInteractWithFile?.(file) !== false && onToggleFavorite && (
-            <button
-              className={`h-7 w-7 rounded-full flex items-center justify-center ${file.is_favorite ? 'bg-red-500/15 text-red-500' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleFavorite(file.id);
-              }}
-              title={file.is_favorite ? 'Unlike image' : 'Like image'}
-            >
-              <Heart className={`h-3.5 w-3.5 ${file.is_favorite ? 'fill-current' : ''}`} />
-            </button>
-          )}
-          {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-          {renderDownloadAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-          {renderPresentationActions(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-        </div>
-      </div>
-    );
+    return <MediaListRow key={file.id} file={file} shootAddress={shootAddress}
+      selected={selectedFiles.has(file.id)} canSelect={canSelect && canSelectFile?.(file) !== false}
+      onSelect={() => onSelectionChange(file.id)} onOpen={() => onFileClick(actualIndex, sortedFiles)}
+      previewUrl={thumbSrc} srcSet={getSrcSet(file)} hasStillPreview={hasStillPreview}
+      isVideo={isVid} videoUrl={videoThumbSrc} isClient={isClient}
+      latestComment={getLatestCommentText(file)} scanStatus={renderScanStatus?.(file)}
+      actions={renderListMediaActions(file, hasStillPreview ? thumbSrc : undefined)}
+      dragHandle={dragHandle} isDragging={sorting} isExtra={isExtraSection} />;
   };
 
-  const renderSortableFileRow = (file: MediaFile, index: number) => {
-    const isSelected = selectedFiles.has(file.id);
-    const isVid = isVideo?.(file) ?? false;
-    const isRaw = isRawFile(file.filename);
-    const imageUrl = getImageUrl(file, 'thumb');
-    const ext = file.filename.split('.').pop()?.toUpperCase();
-    const displayFilename = getDisplayMediaFilename(file) || file.filename;
-    const videoThumbSrc = isVid ? (getMediaVideoUrl(file) || getImageUrl(file, 'original')) : '';
-    const actualIndex = sortedFiles.findIndex(f => f.id === file.id);
-    const hasProcessedThumb = isRaw ? !!(file.thumbnail_path || file.web_path) : true;
-    const thumbSrc = imageUrl || getLegacyThumb(file);
-    const hasDisplayableImage = hasDisplayableStillThumbnail(
-      thumbSrc,
-      videoThumbSrc,
-      isVid,
-      hasProcessedThumb,
-    );
-    const latestCommentText = getLatestCommentText(file);
+  const renderFileRow = (file: MediaFile, _index: number, isExtraSection = false) =>
+    renderListFileRow(file, isExtraSection);
 
-    return (
-      <SortableMediaItem key={file.id} id={file.id} disabled={canReorderFile?.(file) === false}>
-        {({ attributes, listeners, isDragging }) => (
-          <div
-            className={`shoot-media-list-row flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg border transition-all group select-none ${
-              file.has_open_request ? 'border-orange-500' : isSelected ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border'
-            } ${isDragging ? 'opacity-60 shadow-lg bg-muted/50' : ''}`}
-            onClick={() => onFileClick(actualIndex, sortedFiles)}
-          >
-            {canSelect && (!canSelectFile || canSelectFile(file)) && (
-              <div
-                className="flex-shrink-0 cursor-pointer"
-                role="checkbox"
-                aria-label={`Select ${displayFilename}`}
-                aria-checked={isSelected}
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); onSelectionChange(file.id); }
-                }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectionChange(file.id);
-                }}
-              >
-                {isSelected ? (
-                  <CheckCircle2 className="h-5 w-5 text-primary" />
-                ) : (
-                  <Circle className="h-5 w-5 text-muted-foreground hover:text-foreground transition-colors" />
-                )}
-              </div>
-            )}
-
-            <div
-              {...attributes}
-              {...listeners}
-              className="flex-shrink-0 h-7 w-7 rounded-full bg-muted text-muted-foreground flex items-center justify-center cursor-grab active:cursor-grabbing"
-              onClick={(e) => e.stopPropagation()}
-              title="Drag to reorder"
-            >
-              <GripVertical className="h-4 w-4" />
-            </div>
-
-            <div className="shoot-media-list-preview relative w-24 h-16 sm:w-32 sm:h-20 flex-shrink-0 rounded overflow-hidden border bg-muted/40">
-              {hasDisplayableImage ? (
-                <img
-                  src={thumbSrc}
-                  alt={displayFilename}
-                  className={`w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
-                  loading="lazy"
-                  draggable={false}
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    const fallback = e.currentTarget.parentElement?.querySelector('.file-fallback') as HTMLElement;
-                    if (fallback) fallback.style.display = 'flex';
-                  }}
-                />
-              ) : isVid ? (
-                <VideoThumbnail
-                  src={videoThumbSrc}
-                  alt={displayFilename}
-                  className={`relative z-[1] w-full h-full object-cover transition-all duration-200 ${getHiddenMediaClassName(file)}`}
-                />
-              ) : null}
-              <div
-                className="file-fallback w-full h-full items-center justify-center bg-muted absolute inset-0"
-                style={{ display: !hasDisplayableImage ? 'flex' : 'none' }}
-              >
-                <div className="flex flex-col items-center gap-0.5 text-muted-foreground">
-                  {isVid ? <Play className="h-4 w-4" /> : <ImageIcon className="h-4 w-4" />}
-                  <span className="text-[8px] font-semibold uppercase">{ext || 'FILE'}</span>
-                </div>
-              </div>
-              <MediaTileBadges file={file} variant="list" />
-              {file.is_hidden && <HiddenMediaOverlay />}
-            </div>
-
-            <div className="shoot-media-list-filename flex-1 min-w-0">
-              <p className="text-xs font-medium truncate" title={displayFilename}>
-                {displayFilename}
-              </p>
-              {renderScanStatus && (() => {
-                const node = renderScanStatus(file);
-                return node ? <div className="mt-1">{node}</div> : null;
-              })()}
-              {latestCommentText && (
-                <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
-                  {latestCommentText}
-                </p>
-              )}
-              {!isClient && (
-                <p className="shoot-media-list-mobile-date text-[10px] text-muted-foreground sm:hidden">
-                  {formatMediaDateTime(file.captured_at || file.created_at)}
-                </p>
-              )}
-            </div>
-
-            {!isClient && (
-              <>
-                <div className="shoot-media-list-date hidden sm:block w-36 flex-shrink-0 text-right">
-                  <p className="text-[10px] text-muted-foreground">Shot Time</p>
-                  <p className="text-xs">{formatMediaDateTime(file.captured_at || file.created_at)}</p>
-                </div>
-                <div className="shoot-media-list-size hidden sm:block w-20 flex-shrink-0 text-right">
-                  <p className="text-[10px] text-muted-foreground">Size</p>
-                  <p className="text-xs">{formatMediaFileSize(file.fileSize)}</p>
-                </div>
-              </>
-            )}
-
-            <div className="shoot-media-list-actions flex items-center gap-1 flex-shrink-0">
-              {canInteractSingleMedia && canInteractWithFile?.(file) !== false && onToggleFavorite && (
-                <button
-                  className={`h-7 w-7 rounded-full flex items-center justify-center ${file.is_favorite ? 'bg-red-500/15 text-red-500' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleFavorite(file.id);
-                  }}
-                  title={file.is_favorite ? 'Unlike image' : 'Like image'}
-                >
-                  <Heart className={`h-3.5 w-3.5 ${file.is_favorite ? 'fill-current' : ''}`} />
-                </button>
-              )}
-              {renderCommentAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-              {renderDownloadAction(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-              {renderPresentationActions(file, 'h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted')}
-            </div>
-          </div>
-        )}
-      </SortableMediaItem>
-    );
-  };
+  const renderSortableFileRow = (file: MediaFile) => (
+    <SortableMediaItem key={file.id} id={file.id} disabled={canReorderFile?.(file) === false}>
+      {({ attributes, listeners, isDragging }) => renderListFileRow(file, false,
+        canReorderFile?.(file) === false ? undefined : (
+          <button {...attributes} {...listeners} type="button"
+            className="flex h-8 w-8 touch-none items-center justify-center rounded-md bg-black/55 text-white shadow-sm backdrop-blur-sm outline-none focus-visible:ring-2 focus-visible:ring-primary active:cursor-grabbing"
+            aria-label={`Drag to reorder ${getDisplayMediaFilename(file) || file.filename}`}
+            title="Drag to reorder" onClick={event => event.stopPropagation()}>
+            <GripVertical className="h-4 w-4" />
+          </button>
+        ), isDragging)}
+    </SortableMediaItem>
+  );
 
   return (
     <MediaGridLayout

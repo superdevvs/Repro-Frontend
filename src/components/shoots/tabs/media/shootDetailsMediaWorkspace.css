@@ -144,54 +144,45 @@
   flex-shrink: 0;
 }
 
-@container shoot-media (max-width: 699px) {
+/* List cards keep the preview and tools in the same row at every pane width. */
+.shoot-media-list-row {
+  display: grid;
+  grid-template-columns: clamp(84px, 30%, 180px) minmax(0, 1fr) 36px;
+  align-items: stretch;
+  gap: 10px;
+  min-width: 0;
+  min-height: 104px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.shoot-media-list-preview {
+  min-width: 0;
+  min-height: 88px;
+}
+
+.shoot-media-list-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Badge positions belong to grid thumbnails; list cards group them with details
+   so the thumbnail checkbox and drag handle always have clear space. */
+.shoot-media-list-badges > div {
+  position: static;
+  padding: 2px 5px;
+  font-size: 8px;
+  line-height: 1.2;
+}
+
+@container shoot-media (max-width: 359px) {
   .shoot-media-list-row {
-    flex-wrap: wrap;
+    grid-template-columns: minmax(74px, 30%) minmax(0, 1fr) 32px;
     gap: 8px;
-    min-width: 0;
-    padding: 8px;
-  }
-
-  .shoot-media-list-preview {
-    width: 56px;
-    height: 44px;
-  }
-
-  .shoot-media-list-filename {
-    min-width: 0;
-    align-self: center;
-  }
-
-  .shoot-media-list-filename > p:first-child {
-    white-space: normal;
-    overflow-wrap: anywhere;
-    text-overflow: clip;
-    line-height: 1.5;
-  }
-
-  .shoot-media-list-header,
-  .shoot-media-list-date,
-  .shoot-media-list-size {
-    display: none;
-  }
-
-  .shoot-media-list-mobile-date {
-    display: block;
-    margin-top: 3px;
-    line-height: 1.5;
-  }
-
-  .shoot-media-list-actions {
-    flex-basis: 100%;
-    min-width: 0;
-    flex-wrap: wrap;
-    justify-content: flex-end;
-    gap: 5px;
-  }
-
-  .shoot-media-list-actions > button {
-    min-width: 32px;
-    min-height: 32px;
+    padding: 6px;
+    min-height: 100px;
   }
 }
 

@@ -549,6 +549,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                             unifyForManualSort={isDragMode}
                             renderGrid={(paneFiles) => (
                               <MediaGrid
+                                shootAddress={shoot.location?.fullAddress || shoot.location?.address}
                                 files={paneFiles}
                                 onFileClick={(index, sorted) => openViewer(index, sorted, 'uploaded')}
                                 selectedFiles={selectedFiles}
@@ -736,6 +737,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                             unifyForManualSort={isDragMode}
                             renderGrid={(paneFiles) => (
                               <MediaGrid
+                                shootAddress={shoot.location?.fullAddress || shoot.location?.address}
                                 files={paneFiles}
                                 onFileClick={(index, sorted) => openViewer(index, sorted, 'edited')}
                                 selectedFiles={selectedFiles}

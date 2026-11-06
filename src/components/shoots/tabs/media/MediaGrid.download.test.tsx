@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MediaFile } from '@/hooks/useShootFiles';
 import { MediaGrid } from './MediaGrid';
 
@@ -13,10 +13,26 @@ const props = {
   getImageUrl: () => '/photo.jpg', getSrcSet: () => '', isImage: () => true,
   canDownloadSingleMedia: true, canInteractSingleMedia: true,
 };
-afterEach(cleanup);
+beforeEach(() => {
+  vi.stubGlobal('matchMedia', (media: string) => ({ matches: false, media, onchange: null,
+    addListener: vi.fn(), removeListener: vi.fn(), addEventListener: vi.fn(), removeEventListener: vi.fn(), dispatchEvent: vi.fn() }));
+});
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+function finishDrawerClose(drawer: HTMLElement) {
+  expect(drawer.getAttribute('data-state')).toBe('closed');
+  // jsdom does not emit the browser's CSS animation completion events.
+  for (const [element, animationName] of [[document.querySelector('[data-vaul-overlay]'), 'fadeOut'], [drawer, 'slideToBottom']] as const) {
+    if (!element) continue;
+    const event = new Event('animationend', { bubbles: true });
+    Object.defineProperty(event, 'animationName', { value: animationName });
+    fireEvent(element, event);
+  }
+}
 
 describe('media grid file download buttons', () => {
-  it.each(['grid', 'list'] as const)('keeps only the active %s file disabled with a compact spinner inside its button', (viewMode) => {
+  it('keeps only the active grid file disabled with a compact spinner inside its button', () => {
+    const viewMode = 'grid';
     const onDownloadSingle = vi.fn();
     const { rerender } = render(<MediaGrid {...props} viewMode={viewMode} onDownloadSingle={onDownloadSingle} downloadingFileIds={new Set(['a'])} />);
     const buttons = screen.getAllByRole('button', { name: 'Download image' });
@@ -37,6 +53,31 @@ describe('media grid file download buttons', () => {
     expect((readyButton as HTMLButtonElement).disabled).toBe(false);
     expect(readyButton.querySelector('svg.animate-spin')).toBeNull();
     expect(readyButton.querySelector('image[href^="/brand/re/"]')).toBeNull();
+  });
+
+  it('keeps file downloads in the list drawer and updates busy state for the correct file', async () => {
+    const onDownloadSingle = vi.fn();
+    const { rerender } = render(<MediaGrid {...props} viewMode="list" onDownloadSingle={onDownloadSingle} downloadingFileIds={new Set(['a'])} />);
+    expect(screen.queryByRole('button', { name: 'Download image' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Media actions for first.jpg' }));
+    const busy = await screen.findByRole('button', { name: 'Download image' });
+    expect((busy as HTMLButtonElement).disabled).toBe(true);
+    expect(busy.getAttribute('aria-busy')).toBe('true');
+    expect(busy.querySelector('svg.animate-spin')).not.toBeNull();
+    fireEvent.click(busy);
+    expect(onDownloadSingle).not.toHaveBeenCalled();
+    rerender(<MediaGrid {...props} viewMode="list" onDownloadSingle={onDownloadSingle} downloadingFileIds={new Set()} />);
+    const ready = screen.getByRole('button', { name: 'Download image' });
+    expect((ready as HTMLButtonElement).disabled).toBe(false);
+    expect(ready.getAttribute('aria-busy')).toBe('false');
+    expect(ready.querySelector('svg.animate-spin')).toBeNull();
+    const drawer = screen.getByRole('dialog');
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    finishDrawerClose(drawer);
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+    fireEvent.click(screen.getByRole('button', { name: 'Media actions for extra.jpg' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Download image' }));
+    expect(onDownloadSingle).toHaveBeenCalledExactlyOnceWith('b');
   });
 
   it('shows a permitted grid download without granting comment or favorite controls', () => {

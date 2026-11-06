@@ -1096,6 +1096,7 @@ export function useShootDetailsMediaTab({
     const renderGrid = (paneFiles: MediaFile[]) => (
           <MediaGrid
             files={paneFiles}
+            shootAddress={shoot.location?.fullAddress || shoot.location?.address}
             onFileClick={(index, sorted) => openViewerWithSource(index, sorted, displayTab)}
             selectedFiles={selectedFiles}
             onSelectionChange={toggleSelection}
