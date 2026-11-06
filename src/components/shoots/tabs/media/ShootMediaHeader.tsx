@@ -204,26 +204,26 @@ export function ShootMediaHeader({
       </div>
       
       {/* A single action row is shared by mobile and desktop. Secondary actions expand into a menu. */}
-      {((!isEditor && (rawFiles.length > 0 || editedFiles.length > 0)) || selectedFiles.size > 0) && (
+      {selectedFiles.size > 0 && (
         <div className="shoot-media-selection-toolbar mb-1.5 flex shrink-0 flex-nowrap items-center gap-1 border-b py-1.5" role="group" aria-label="Media actions">
-          {!isEditor && (rawFiles.length > 0 || editedFiles.length > 0) && (
-            <MediaSortControl
-              open={sortMenuOpen}
-              onOpenChange={setSortMenuOpen}
-              sortOrder={sortOrder}
-              isDragMode={isDragMode}
-              sortSaveStatus={sortSaveStatus}
-              changeSortOrder={changeSortOrder}
-              toggleDragMode={toggleDragMode}
-              compact={sortOrder === 'manual' && selectedFiles.size > 0}
-            />
-          )}
           {selectedFiles.size > 0 && (
             <>
               <span className="min-w-0 flex-1 truncate pr-1 text-xs font-medium tabular-nums text-muted-foreground" title={`${selectedFiles.size} selected`}>
                 {selectedFiles.size}<span className="sr-only min-[360px]:not-sr-only"> selected</span>
               </span>
               {presentationActions}
+              {!isEditor && (rawFiles.length > 0 || editedFiles.length > 0) && (
+                <MediaSortControl
+                  open={sortMenuOpen}
+                  onOpenChange={setSortMenuOpen}
+                  sortOrder={sortOrder}
+                  isDragMode={isDragMode}
+                  sortSaveStatus={sortSaveStatus}
+                  changeSortOrder={changeSortOrder}
+                  toggleDragMode={toggleDragMode}
+                  compact
+                />
+              )}
               {(canMarkSelectedFiles || isAdmin) && onOpenMark && <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 text-xs" onClick={onOpenMark}><Tag className="h-3.5 w-3.5" /><span className="hidden min-[380px]:inline">Mark</span><span className="min-[380px]:hidden sr-only">Mark selected media</span></Button>}
               {canDownload && (
                 isEditor && displayTab === 'uploaded' ? (

@@ -406,6 +406,9 @@ export function useShootDetailsMediaTab({
     toggleSelection,
     clearSelection,
   } = useShootMediaSelectionState({ onSelectionChange });
+  const sortSelectionScope = `${shoot.id}:${activeUnitId ?? ''}:${displayTab}`;
+  const latestSortSelection = useRef({ count: selectedFiles.size, scope: sortSelectionScope });
+  latestSortSelection.current = { count: selectedFiles.size, scope: sortSelectionScope };
   // A search change must not leave an invisible selection available for bulk actions.
   useEffect(() => { clearSelection(); }, [effectiveMediaQuery, clearSelection]);
   const [viewerSourceTab, setViewerSourceTab] = useState<'uploaded' | 'edited'>('uploaded');
@@ -661,6 +664,15 @@ export function useShootDetailsMediaTab({
   usePendingMediaOrderFlush(flushPendingManualOrder, mediaOrderMounted);
 
   useEffect(() => {
+    if (selectedFiles.size > 0) return;
+    if (!isDragMode) return;
+    // Selection actions disappear together. Finish any pending write before the
+    // drag controls disappear, retaining the draft if that write needs a retry.
+    setIsDragMode(false);
+    flushPendingManualOrder();
+  }, [flushPendingManualOrder, isDragMode, selectedFiles.size]);
+
+  useEffect(() => {
     if (sortOrder !== 'manual' || manualOrder.length === 0) {
       return;
     }
@@ -714,10 +726,12 @@ export function useShootDetailsMediaTab({
   }, []);
 
   const changeSortOrder = useCallback(async (nextSortOrder: MediaSortOrder) => {
+    if (latestSortSelection.current.count === 0) return;
     if (hasPendingManualOrder.current) {
       if (sortSaveTimerRef.current) clearTimeout(sortSaveTimerRef.current);
       if (!await persistManualOrder(manualOrder)) return;
     }
+    if (latestSortSelection.current.count === 0 || latestSortSelection.current.scope !== sortSelectionScope) return;
     // Switching into manual restores the saved arrangement when there is one, so
     // going Manual -> Time -> Manual returns to the arrangement rather than
     // discarding it. With nothing saved the baseline is exactly the order on
@@ -735,10 +749,9 @@ export function useShootDetailsMediaTab({
     // Picking Manual from the menu arms dragging in that one action; picking any
     // other sort disarms it.
     setIsDragMode(nextSortOrder === 'manual');
-    // Clear the selection on any sort change: a selection carried over from a
-    // different order would drag files the user is no longer looking at.
-    setSelectedFiles(new Set());
-  }, [getSortableFiles, manualOrder, persistManualOrder, setManualOrder, setSelectedFiles, setSortOrderRaw, sortOrder]);
+    // Selections track file IDs, so changing their order keeps the same files
+    // selected and leaves the selection-only Save action available.
+  }, [getSortableFiles, manualOrder, persistManualOrder, setManualOrder, setSortOrderRaw, sortOrder, sortSelectionScope]);
 
   /**
    * Turn dragging on or off without leaving manual order.
@@ -748,17 +761,18 @@ export function useShootDetailsMediaTab({
    * just made - the label contradicted the grid.
    */
   const toggleDragMode = useCallback(async () => {
-    if (sortOrder !== 'manual') {
+    if (sortOrder !== 'manual' || latestSortSelection.current.count === 0) {
       return;
     }
 
-    if (isDragMode && hasPendingManualOrder.current) {
+    const finishReordering = isDragMode || sortSaveStatus === 'error';
+    if (finishReordering && hasPendingManualOrder.current) {
       if (sortSaveTimerRef.current) clearTimeout(sortSaveTimerRef.current);
       if (!await persistManualOrder(manualOrder)) return;
     }
-    setIsDragMode((current) => !current);
-    setSelectedFiles(new Set());
-  }, [isDragMode, manualOrder, persistManualOrder, setSelectedFiles, sortOrder]);
+    if (latestSortSelection.current.count === 0 || latestSortSelection.current.scope !== sortSelectionScope) return;
+    setIsDragMode(!finishReordering);
+  }, [isDragMode, manualOrder, persistManualOrder, sortOrder, sortSaveStatus, sortSelectionScope]);
 
   const handleManualOrderChange = useCallback(
     (contextFiles: MediaFile[], nextContextOrder: string[], separateExtras = true) => {
@@ -994,11 +1008,13 @@ export function useShootDetailsMediaTab({
     isDelivered, isSubmittedForReview, displayTab,
   });
   const displayFiles = displayTab === 'edited' ? clientVisibleEditedFiles : rawFiles;
+  const unassignedFiles = isClient ? [] : (displayTab === 'uploaded' ? allRawFiles : allEditedFiles)
+    .filter(file => !(file.shoot_service_id ?? file.shootServiceId));
   const editorRestrictedToEditedTab = isEditor;
   const canUploadInDisplayTab = showUploadTab && (!editorRestrictedToEditedTab || displayTab === 'edited');
   const canDeleteInDisplayTab = canDeleteMediaSelection(selectedFiles, displayFiles, canDeleteFile);
   const canSelectFile = (file: MediaFile) => (canDownload && canDownloadMediaFileInActiveTab(file)) || canDeleteFile(file) || canManageMediaVisibility(file, presentationRole);
-  const canSelectInDisplayTab = displayFiles.some(canSelectFile);
+  const canSelectInDisplayTab = displayFiles.some(canSelectFile) || unassignedFiles.some(canSelectFile);
   const activeShootUploads = useMemo(
     () => uploads.filter((upload) => upload.shootId === String(shoot.id) && upload.status === 'uploading'),
     [shoot.id, uploads],
@@ -1292,7 +1308,7 @@ export function useShootDetailsMediaTab({
         shoot={shoot}
         toast={toast}
         queryClient={queryClient}
-        unassignedFiles={(displayTab === 'uploaded' ? allRawFiles : allEditedFiles).filter(file => !(file.shoot_service_id ?? file.shootServiceId))}
+        unassignedFiles={unassignedFiles}
         onShootUpdate={onShootUpdate}
         clientEditedMediaTabs={clientEditedMediaTabs}
         editedMediaTab={editedMediaTab}

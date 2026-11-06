@@ -1,4 +1,4 @@
-import { ArrowUpDown, Check, GripVertical } from 'lucide-react';
+import { ArrowUpDown, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import {
@@ -30,21 +30,6 @@ export function MediaSortControl({
 
   return (
     <div className="flex shrink-0 items-center gap-1">
-      {sortOrder === 'manual' && (
-        <Button
-          variant={isDragMode ? 'default' : 'outline'}
-          size="sm"
-          className="h-9 shrink-0 gap-1.5 px-2 text-xs sm:h-8"
-          onClick={toggleDragMode}
-          disabled={sortSaveStatus === 'saving'}
-          aria-label={isDragMode ? 'Save media order' : 'Start reordering media'}
-          aria-pressed={isDragMode}
-          title={isDragMode ? 'Done reordering — keep this order' : 'Drag to reorder media'}
-        >
-          {isDragMode ? <Check /> : <GripVertical />}
-          {isDragMode ? (sortSaveStatus === 'error' ? 'Retry save' : 'Save order') : 'Reorder'}
-        </Button>
-      )}
       <DropdownMenu open={open} onOpenChange={onOpenChange}>
         <DropdownMenuTrigger asChild>
           <Button
@@ -69,6 +54,21 @@ export function MediaSortControl({
           </DropdownMenuRadioGroup>
         </DropdownMenuContent>
       </DropdownMenu>
+      {(isDragMode || sortSaveStatus === 'error') && (
+        <Button
+          variant="default"
+          size="sm"
+          className={`h-9 shrink-0 text-xs sm:h-8 ${compact ? 'w-9 gap-0 px-0 sm:w-auto sm:gap-1.5 sm:px-2' : 'gap-1.5 px-2'}`}
+          onClick={toggleDragMode}
+          disabled={sortSaveStatus === 'saving'}
+          aria-label="Save media order"
+          aria-busy={sortSaveStatus === 'saving'}
+          title={sortSaveStatus === 'error' ? 'Retry saving media order' : 'Save media order'}
+        >
+          {sortSaveStatus === 'saving' ? <InlineSpinner aria-hidden="true" /> : <Check />}
+          <span className={compact ? 'hidden sm:inline' : undefined}>{sortSaveStatus === 'error' ? 'Retry save' : 'Save order'}</span>
+        </Button>
+      )}
       <span className={compact ? "sr-only" : "max-w-32 text-xs text-muted-foreground"} role="status">
         {sortSaveStatus === 'saving' ? 'Saving media order' : sortSaveStatus === 'saved' ? 'Saved' : sortSaveStatus === 'error' ? 'Not saved - retry Save order' : ''}
       </span>

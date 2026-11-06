@@ -1,18 +1,15 @@
-import React, { useState } from 'react';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import React, { useEffect, useState } from 'react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Progress } from '@/components/ui/progress';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { EditedUploadSection, RawUploadSection } from './MediaUploadSections';
 import { UploadProgressCard } from './MediaUploadPanels';
 import { MediaGrid } from './MediaGrid';
 import { MediaServiceSections } from './MediaServiceSections';
 import { IguideMediaPanel } from './IguideMediaPanel';
 import { getPhotographerEditedMediaMlsLink } from '@/utils/shootTourData';
-import { AlertCircle, ArrowUpDown, Check, ChevronDown, ChevronRight, ChevronUp, CloudUpload, Download, ExternalLink, FileIcon, GripVertical, LayoutGrid, List, Trash2, Upload, X } from 'lucide-react';
+import { AlertCircle, CloudUpload, Download, ExternalLink, FileIcon, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
-import type { ShootDetailsMediaTabViewProps } from './shootDetailsMediaTabViewTypes';
+import type { MediaSubTab, ShootDetailsMediaTabViewProps } from './shootDetailsMediaTabViewTypes';
 import { ShootMediaHeader } from './ShootMediaHeader';
 import { MediaPresentationSelectionActions } from './MediaPresentationSelectionActions';
 import { canInteractWithMediaFile, canManageMediaVisibility, canReorderMediaFile, canUseMediaDownload } from './mediaPresentationPermissions';
@@ -120,8 +117,39 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     toggleFilesHidden, onSetHero,
   } = props;
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
-  const [unassignedOnly, setUnassignedOnly] = useState(false);
+  const [unassignedScope, setUnassignedScope] = useState<string | null>(null);
   const unassignedFiles = props.unassignedFiles ?? [];
+  const mediaScope = `${shoot.id}:${displayTab}`;
+  const selectionIsEmpty = selectedFiles.size === 0;
+  useEffect(() => {
+    setSortMenuOpen(false);
+  }, [selectionIsEmpty, mediaScope, activeSubTab]);
+  const hasUnassignedFiles = !isClient && unassignedFiles.length > 0;
+  const unassignedOnly = hasUnassignedFiles && activeSubTab !== 'upload' && unassignedScope === mediaScope;
+  useEffect(() => {
+    setUnassignedScope(null);
+  }, [mediaScope, activeSubTab, hasUnassignedFiles]);
+
+  const changeCategory = (value: string, setCategory: (category: MediaSubTab) => void) => {
+    if (value === 'unassigned' || unassignedOnly) setSelectedFiles(new Set());
+    setUnassignedScope(value === 'unassigned' ? mediaScope : null);
+    if (value !== 'unassigned') setCategory(value as MediaSubTab);
+  };
+  const renderCategoryTabs = (tabs: Array<{ id: MediaSubTab; label: string }>, selected: MediaSubTab) => (
+    <div className="shoot-media-categories sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
+      <div className="min-w-0 overflow-x-auto">
+        <TabsList aria-label="Media categories" className="flex h-auto w-max items-center justify-start gap-1.5 rounded-none bg-transparent p-0">
+          {[...tabs, ...(hasUnassignedFiles ? [{ id: 'unassigned', label: `Unassigned (${unassignedFiles.length})` }] : [])].map(tab => {
+            const active = unassignedOnly ? tab.id === 'unassigned' : tab.id === selected;
+            return <TabsTrigger key={tab.id} value={tab.id} title={tab.id === 'unassigned' ? 'Files without a service assignment across all units' : undefined}
+              className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap data-[state=active]:shadow-none ${active ? 'bg-primary text-primary-foreground font-medium data-[state=active]:bg-primary data-[state=active]:text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}>
+              {tab.label}
+            </TabsTrigger>;
+          })}
+        </TabsList>
+      </div>
+    </div>
+  );
   const canMarkSelectedFiles = ['admin', 'superadmin', 'super_admin', 'editing_manager', 'photographer', 'editor'].includes(String(role)) && !isClient && (!isEditor || displayTab === 'edited') && ![...rawFiles, ...editedFiles, ...unassignedFiles].some(file => selectedFiles.has(file.id) && file.can_interact === false);
   const showIguideMedia = canShowIguideMedia({
     iguideUrl,
@@ -326,7 +354,6 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
         batchRenameEnabled={batchRenameEnabled}
         onOpenBatchRename={onOpenBatchRename}
       />
-      {!isClient && (isAdmin || unassignedFiles.length > 0) && activeSubTab !== 'upload' && <div className="flex flex-wrap items-center justify-between gap-2 border-b px-3 py-2"><Button size="sm" variant={unassignedOnly ? 'default' : 'outline'} className="h-7 gap-2 rounded-full text-[11px]" onClick={() => { setUnassignedOnly(value => !value); setSelectedFiles(new Set()); }}>Unassigned <span className="tabular-nums">{unassignedFiles.length}</span></Button>{unassignedOnly && <span className="text-[10px] text-muted-foreground">Across all units · Choose files, then Mark → Service</span>}</div>}
       {/* Content - Compact Overview-style layout */}
       <div className="flex-1 min-h-0 flex flex-col bg-background">
         {!isClient && activeShootUploads.length > 0 && (
@@ -345,7 +372,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
             ))}
           </div>
         )}
-        {unassignedOnly && activeSubTab !== 'upload' ? renderMediaGridPane(unassignedFiles, 'No unassigned files', 'Every saved file in this collection has a service assignment.') : activeSubTab === 'upload' ? (
+        {activeSubTab === 'upload' ? (
           /* Upload Tab Content */
           <div key="upload" className="flex-1 min-h-0 overflow-y-auto p-2.5" data-testid="media-upload-scroll-owner">
             <div className="border rounded-lg bg-card p-3 pb-6 flex min-h-full flex-col">
@@ -436,7 +463,9 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
             
             {/* Uploaded Media Tab - Hidden for clients */}
             {!isClient && displayTab === 'uploaded' && (
-              <div
+              <Tabs
+                value={unassignedOnly ? 'unassigned' : uploadedMediaTab}
+                onValueChange={value => changeCategory(value, setUploadedMediaTab)}
                 className="flex-1 relative"
                 style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}
                 onDragEnter={(e) => handleTabDragEnter(e, 'uploaded')}
@@ -463,96 +492,31 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                     <Progress value={directUploadProgress} className="h-1.5" />
                   </div>
                 )}
-                {/* Sub-tabs for Photos/Videos/iGuide/Floorplans */}
-                <div className="shoot-media-categories sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex items-center gap-1.5 overflow-x-auto">
-                      {!isVideoOnlyEditor && (
-                      <button
-                        onClick={() => setUploadedMediaTab('photos')}
-                        className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'photos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                      >
-                        Photos ({uploadedPhotos.length})
-                      </button>
-                      )}
-                      {!isPhotoOnlyEditor && (isVideoOnlyEditor || shootHasVideoService || uploadedVideos.length > 0) && (
-                        <button
-                          onClick={() => setUploadedMediaTab('videos')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'videos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Video ({uploadedVideos.length})
-                        </button>
-                      )}
-                      {showIguideMedia && !isVideoOnlyEditor && (
-                        <button
-                          onClick={() => setUploadedMediaTab('iguide')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'iguide' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          iGUIDE
-                        </button>
-                      )}
-                      {!isEditor && (uploadedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
-                        <button
-                          onClick={() => setUploadedMediaTab('floorplans')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'floorplans' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Floor Plans ({uploadedFloorplans.length + iguideFloorplans.length})
-                        </button>
-                      )}
-                      {!isVideoOnlyEditor && uploadedVirtualStaging.length > 0 && (
-                        <button
-                          onClick={() => setUploadedMediaTab('virtualStaging')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'virtualStaging' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Virtual Staging ({uploadedVirtualStaging.length})
-                        </button>
-                      )}
-                      {!isVideoOnlyEditor && uploadedGreenGrass.length > 0 && (
-                        <button
-                          onClick={() => setUploadedMediaTab('greenGrass')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'greenGrass' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Green Grass ({uploadedGreenGrass.length})
-                        </button>
-                      )}
-                      {!isVideoOnlyEditor && uploadedTwilight.length > 0 && (
-                        <button
-                          onClick={() => setUploadedMediaTab('twilight')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'twilight' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Twilight ({uploadedTwilight.length})
-                        </button>
-                      )}
-                      {!isVideoOnlyEditor && uploadedDrone.length > 0 && (
-                        <button
-                          onClick={() => setUploadedMediaTab('drone')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'drone' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Drone ({uploadedDrone.length})
-                        </button>
-                      )}
-                      {!isVideoOnlyEditor && uploadedExtras.length > 0 && (
-                        <button
-                          onClick={() => setUploadedMediaTab('extras')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${uploadedMediaTab === 'extras' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Extras ({uploadedExtras.length})
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
+                {renderCategoryTabs([
+                  ...(!isVideoOnlyEditor ? [{ id: 'photos' as const, label: `Photos (${uploadedPhotos.length})` }] : []),
+                  ...(!isPhotoOnlyEditor && (isVideoOnlyEditor || shootHasVideoService || uploadedVideos.length > 0) ? [{ id: 'videos' as const, label: `Video (${uploadedVideos.length})` }] : []),
+                  ...(showIguideMedia && !isVideoOnlyEditor ? [{ id: 'iguide' as const, label: 'iGUIDE' }] : []),
+                  ...(!isEditor && (uploadedFloorplans.length > 0 || iguideFloorplans.length > 0) ? [{ id: 'floorplans' as const, label: `Floor Plans (${uploadedFloorplans.length + iguideFloorplans.length})` }] : []),
+                  ...(!isVideoOnlyEditor ? [
+                    ...(uploadedVirtualStaging.length > 0 ? [{ id: 'virtualStaging' as const, label: `Virtual Staging (${uploadedVirtualStaging.length})` }] : []),
+                    ...(uploadedGreenGrass.length > 0 ? [{ id: 'greenGrass' as const, label: `Green Grass (${uploadedGreenGrass.length})` }] : []),
+                    ...(uploadedTwilight.length > 0 ? [{ id: 'twilight' as const, label: `Twilight (${uploadedTwilight.length})` }] : []),
+                    ...(uploadedDrone.length > 0 ? [{ id: 'drone' as const, label: `Drone (${uploadedDrone.length})` }] : []),
+                    ...(uploadedExtras.length > 0 ? [{ id: 'extras' as const, label: `Extras (${uploadedExtras.length})` }] : []),
+                  ] : []),
+                ], uploadedMediaTab)}
+
                 {/* Sub-tab content */}
-                <div className="shoot-media-pane" style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
-                  {uploadedMediaTab === 'photos' &&
+                <TabsContent value={unassignedOnly ? 'unassigned' : uploadedMediaTab} className="shoot-media-pane m-0" style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
+                  {unassignedOnly && renderMediaGridPane(unassignedFiles, 'No unassigned files', 'Every saved file in this collection has a service assignment.')}
+                  {!unassignedOnly && uploadedMediaTab === 'photos' &&
                     renderMediaGridPane(
                       uploadedPhotos,
                       'No uploaded files yet',
                       `${shootHasVideoService ? 'Upload property photos and videos to get started.' : 'Upload property photos to get started.'} Our AI will automatically analyze assets for quality and categorization.`, 'Upload Files', true, true,
                     )}
                   
-                  {uploadedMediaTab === 'videos' &&
+                  {!unassignedOnly && uploadedMediaTab === 'videos' &&
                     renderMediaGridPane(
                       uploadedVideos,
                       'No uploaded videos yet',
@@ -560,7 +524,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                       'Upload Videos',
                     )}
                   
-                  {uploadedMediaTab === 'iguide' && showIguideMedia && (
+                  {!unassignedOnly && uploadedMediaTab === 'iguide' && showIguideMedia && (
                     <IguideMediaPanel
                       iguideUrl={iguideUrl}
                       iguideSync={iguideSync}
@@ -572,7 +536,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                     />
                   )}
                   
-                  {uploadedMediaTab === 'floorplans' && (uploadedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
+                  {!unassignedOnly && uploadedMediaTab === 'floorplans' && (uploadedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
                     <div className="h-full overflow-y-auto">
                       {/* Uploaded floorplan images */}
                       {uploadedFloorplans.length > 0 && (
@@ -647,35 +611,35 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                     </div>
                   )}
 
-                  {uploadedMediaTab === 'virtualStaging' &&
+                  {!unassignedOnly && uploadedMediaTab === 'virtualStaging' &&
                     renderMediaGridPane(
                       uploadedVirtualStaging,
                       'No virtual staging files yet',
                       'Upload files marked as VS to keep virtual staging assets grouped separately from standard photos.',
                     )}
 
-                  {uploadedMediaTab === 'greenGrass' &&
+                  {!unassignedOnly && uploadedMediaTab === 'greenGrass' &&
                     renderMediaGridPane(
                       uploadedGreenGrass,
                       'No green grass files yet',
                       'Upload files marked as GG to keep green grass edits grouped separately from standard photos.',
                     )}
 
-                  {uploadedMediaTab === 'twilight' &&
+                  {!unassignedOnly && uploadedMediaTab === 'twilight' &&
                     renderMediaGridPane(
                       uploadedTwilight,
                       'No twilight files yet',
                       'Upload files marked as TW to keep twilight edits grouped separately from standard photos.',
                     )}
 
-                  {uploadedMediaTab === 'drone' &&
+                  {!unassignedOnly && uploadedMediaTab === 'drone' &&
                     renderMediaGridPane(
                       uploadedDrone,
                       'No drone files yet',
                       'Upload files marked as DR to keep drone deliverables grouped separately from the main gallery.',
                     )}
 
-                  {uploadedMediaTab === 'extras' &&
+                  {!unassignedOnly && uploadedMediaTab === 'extras' &&
                     renderMediaGridPane(
                       uploadedExtras,
                       'No extra files yet',
@@ -683,13 +647,15 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                       'Upload Extras',
                       false,
                     )}
-                </div>
-              </div>
+                </TabsContent>
+              </Tabs>
             )}
 
             {/* Edited Media Tab - Hidden for photographers (they use MLS link) */}
             {!isPhotographer && displayTab === 'edited' && (
-              <div
+              <Tabs
+                value={unassignedOnly ? 'unassigned' : editedMediaTab}
+                onValueChange={value => changeCategory(value, setEditedMediaTab)}
                 className="flex-1 relative"
                 style={{ minHeight: 0, display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}
                 onDragEnter={(e) => handleTabDragEnter(e, 'edited')}
@@ -716,97 +682,29 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                     <Progress value={directUploadProgress} className="h-1.5" />
                   </div>
                 )}
-                {!isClient && (
-                  <div className="shoot-media-categories sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 overflow-x-auto">
-                        {(
-                        <button
-                          onClick={() => setEditedMediaTab('photos')}
-                          className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'photos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                        >
-                          Photos ({editedPhotos.length})
-                        </button>
-                        )}
-                        {!isPhotoOnlyEditor && (isVideoOnlyEditor || shootHasVideoService || editedVideos.length > 0) && (
-                          <button
-                            onClick={() => setEditedMediaTab('videos')}
-                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'videos' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                          >
-                            Video ({editedVideos.length})
-                          </button>
-                        )}
-                        {showIguideMedia && !isVideoOnlyEditor && (
-                          <button
-                            onClick={() => setEditedMediaTab('iguide')}
-                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'iguide' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                          >
-                          iGUIDE
-                          </button>
-                        )}
-                        {!isEditor && (editedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
-                          <button
-                            onClick={() => setEditedMediaTab('floorplans')}
-                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'floorplans' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                          >
-                            Floor Plans ({editedFloorplans.length + iguideFloorplans.length})
-                          </button>
-                        )}
-                        {editedVirtualStaging.length > 0 && (
-                          <button
-                            onClick={() => setEditedMediaTab('virtualStaging')}
-                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'virtualStaging' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                          >
-                            Virtual Staging ({editedVirtualStaging.length})
-                          </button>
-                        )}
-                        {editedGreenGrass.length > 0 && (
-                          <button
-                            onClick={() => setEditedMediaTab('greenGrass')}
-                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'greenGrass' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                          >
-                            Green Grass ({editedGreenGrass.length})
-                          </button>
-                        )}
-                        {editedTwilight.length > 0 && (
-                          <button
-                            onClick={() => setEditedMediaTab('twilight')}
-                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'twilight' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                          >
-                            Twilight ({editedTwilight.length})
-                          </button>
-                        )}
-                        {editedDrone.length > 0 && (
-                          <button
-                            onClick={() => setEditedMediaTab('drone')}
-                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'drone' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                          >
-                            Drone ({editedDrone.length})
-                          </button>
-                        )}
-                        {editedExtras.length > 0 && (
-                          <button
-                            onClick={() => setEditedMediaTab('extras')}
-                            className={`text-xs px-3 py-1.5 rounded-full transition-all whitespace-nowrap ${editedMediaTab === 'extras' ? 'bg-primary text-primary-foreground font-medium' : 'bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground'}`}
-                          >
-                            Extras ({editedExtras.length})
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                )}
-                
+                {!isClient && renderCategoryTabs([
+                  { id: 'photos', label: `Photos (${editedPhotos.length})` },
+                  ...(!isPhotoOnlyEditor && (isVideoOnlyEditor || shootHasVideoService || editedVideos.length > 0) ? [{ id: 'videos' as const, label: `Video (${editedVideos.length})` }] : []),
+                  ...(showIguideMedia && !isVideoOnlyEditor ? [{ id: 'iguide' as const, label: 'iGUIDE' }] : []),
+                  ...(!isEditor && (editedFloorplans.length > 0 || iguideFloorplans.length > 0) ? [{ id: 'floorplans' as const, label: `Floor Plans (${editedFloorplans.length + iguideFloorplans.length})` }] : []),
+                  ...(editedVirtualStaging.length > 0 ? [{ id: 'virtualStaging' as const, label: `Virtual Staging (${editedVirtualStaging.length})` }] : []),
+                  ...(editedGreenGrass.length > 0 ? [{ id: 'greenGrass' as const, label: `Green Grass (${editedGreenGrass.length})` }] : []),
+                  ...(editedTwilight.length > 0 ? [{ id: 'twilight' as const, label: `Twilight (${editedTwilight.length})` }] : []),
+                  ...(editedDrone.length > 0 ? [{ id: 'drone' as const, label: `Drone (${editedDrone.length})` }] : []),
+                  ...(editedExtras.length > 0 ? [{ id: 'extras' as const, label: `Extras (${editedExtras.length})` }] : []),
+                ], editedMediaTab)}
+
                 {/* Sub-tab content */}
-                <div className="shoot-media-pane" style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
-                  {editedMediaTab === 'photos' &&
+                <TabsContent value={unassignedOnly ? 'unassigned' : editedMediaTab} className="shoot-media-pane m-0" style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden' }}>
+                  {unassignedOnly && renderMediaGridPane(unassignedFiles, 'No unassigned files', 'Every saved file in this collection has a service assignment.')}
+                  {!unassignedOnly && editedMediaTab === 'photos' &&
                     renderMediaGridPane(
                       editedPhotos,
                       'No edited files yet',
                       'Upload edited photos and videos to get started. Our AI will automatically analyze assets for quality and categorization.', 'Upload Files', true, true,
                     )}
                   
-                  {editedMediaTab === 'videos' &&
+                  {!unassignedOnly && editedMediaTab === 'videos' &&
                     renderMediaGridPane(
                       editedVideos,
                       'No edited videos yet',
@@ -814,7 +712,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                       'Upload Videos',
                     )}
                   
-                  {editedMediaTab === 'iguide' && showIguideMedia && (
+                  {!unassignedOnly && editedMediaTab === 'iguide' && showIguideMedia && (
                     <IguideMediaPanel
                       iguideUrl={iguideUrl}
                       iguideSync={iguideSync}
@@ -826,7 +724,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                     />
                   )}
                   
-                  {editedMediaTab === 'floorplans' && (editedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
+                  {!unassignedOnly && editedMediaTab === 'floorplans' && (editedFloorplans.length > 0 || iguideFloorplans.length > 0) && (
                     <div className="h-full overflow-y-auto">
                       {/* Edited floorplan images */}
                       {editedFloorplans.length > 0 && (
@@ -900,35 +798,35 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                     </div>
                   )}
 
-                  {editedMediaTab === 'virtualStaging' &&
+                  {!unassignedOnly && editedMediaTab === 'virtualStaging' &&
                     renderMediaGridPane(
                       editedVirtualStaging,
                       'No virtual staging files yet',
                       'Files marked as VS will appear here so virtual staging deliverables stay separated from the main gallery.',
                     )}
 
-                  {editedMediaTab === 'greenGrass' &&
+                  {!unassignedOnly && editedMediaTab === 'greenGrass' &&
                     renderMediaGridPane(
                       editedGreenGrass,
                       'No green grass files yet',
                       'Files marked as GG will appear here so green grass edits stay separated from the main gallery.',
                     )}
 
-                  {editedMediaTab === 'twilight' &&
+                  {!unassignedOnly && editedMediaTab === 'twilight' &&
                     renderMediaGridPane(
                       editedTwilight,
                       'No twilight files yet',
                       'Files marked as TW will appear here so twilight deliverables stay separated from the main gallery.',
                     )}
 
-                  {editedMediaTab === 'drone' &&
+                  {!unassignedOnly && editedMediaTab === 'drone' &&
                     renderMediaGridPane(
                       editedDrone,
                       'No drone files yet',
                       'Files marked as DR will appear here so drone deliverables stay separated from the main gallery.',
                     )}
 
-                  {editedMediaTab === 'extras' &&
+                  {!unassignedOnly && editedMediaTab === 'extras' &&
                     renderMediaGridPane(
                       editedExtras,
                       'No extra files yet',
@@ -936,8 +834,8 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                       'Upload Extras',
                       false,
                     )}
-                </div>
-              </div>
+                </TabsContent>
+              </Tabs>
             )}
           </div>
         )}

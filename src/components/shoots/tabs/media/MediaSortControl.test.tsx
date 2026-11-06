@@ -23,3 +23,12 @@ it('keeps retry feedback on the compact save button', () => {
   expect(screen.getByRole('button', { name: 'Save media order' })).toHaveTextContent('Retry save');
   expect(screen.getByRole('status')).toHaveClass('sr-only');
 });
+
+it('offers a failed save for retry after dragging has stopped', () => {
+  const save = vi.fn();
+  render(<MediaSortControl open={false} onOpenChange={vi.fn()} sortOrder="manual" isDragMode={false}
+    sortSaveStatus="error" changeSortOrder={vi.fn()} toggleDragMode={save} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Save media order' }));
+  expect(save).toHaveBeenCalledOnce();
+  expect(screen.getByRole('button', { name: 'Save media order' })).toHaveTextContent('Retry save');
+});
