@@ -56,6 +56,24 @@ describe('compact service rows', () => {
     expect(screen.getByLabelText(`${services[1].name}: Cancelled`)).toHaveAttribute('data-tone', 'neutral');
     expect(screen.queryByText('Delivered')).not.toBeInTheDocument();
   });
+  it.each(['admin', 'client'])('shows a travel fee as Applied without delivery styling or image counts for %s', role => {
+    mount(role, { ...shoot, serviceItems: [{ ...services[1], name: 'Travel Fee', upload_intake_type: 'none',
+      is_deliverable: false, progress_status: 'not_applicable', workflow_status: 'pending', delivery_status: 'not_started' }] });
+    const row = screen.getByTestId('service-summary-12');
+    const badge = within(row).getByLabelText('Travel Fee: Applied');
+    expect(badge).toHaveAttribute('data-tone', 'neutral');
+    expect(badge.querySelector('svg')).toBeInTheDocument();
+    expect(within(row).queryByText('Pending')).not.toBeInTheDocument();
+    expect(within(row).queryByText('Delivered')).not.toBeInTheDocument();
+    expect(within(row).queryByLabelText('Image counts')).not.toBeInTheDocument();
+    expect(mocks.files.mock.calls.every(call => call[2].enabled === false)).toBe(true);
+  });
+  it.each(['pending', 'processing'])('keeps real floor-plan work %s without media intake', progress_status => {
+    mount('admin', { ...shoot, serviceItems: [{ ...services[2], name: 'Floor Plan', is_deliverable: true, progress_status }] });
+    const row = within(screen.getByTestId('service-summary-13'));
+    expect(row.getByLabelText(`Floor Plan: ${progress_status === 'pending' ? 'Pending' : 'Processing'}`)).toBeVisible();
+    expect(row.queryByText('Applied')).not.toBeInTheDocument();
+  });
   it('displays the complete Showcase waiting label beside an unassigned assignee', () => {
     mount('admin', { ...shoot, serviceItems: [{ ...services[2], progress_status: 'awaiting_assets' }] });
     expect(screen.getByLabelText(`${services[2].name}: Awaiting links & floor plans`)).toBeVisible();

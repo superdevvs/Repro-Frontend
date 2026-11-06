@@ -6,7 +6,7 @@ const item = (attributes = {}) => normalizeShootServiceItem({ id: '1', name: 'Ph
 
 describe('service progress', () => {
   it.each([
-    ['pending', 'Pending'], ['received', 'Received'], ['in_editing', 'In editing'],
+    ['applied', 'Applied'], ['pending', 'Pending'], ['received', 'Received'], ['in_editing', 'In editing'],
     ['drafting', 'Drafting'], ['processing', 'Processing'], ['awaiting_assets', 'Awaiting links & floor plans'],
     ['ready', 'Ready'], ['delivered', 'Delivered'], ['cancelled', 'Cancelled'],
     ['on_hold', 'On hold'], ['needs_attention', 'Needs attention'],
@@ -28,7 +28,25 @@ describe('service progress', () => {
   it('keeps new work pending despite a stale delivery flag and original timestamp', () => {
     expect(getServiceProgress(item({ workflow_status: 'pending', delivery_status: 'delivered', delivered_at: '2026-11-03T12:00:00Z' }))?.code).toBe('pending');
   });
+  it.each([
+    { progress_status: 'not_applicable' },
+    { progressStatus: 'not_applicable' },
+    { is_deliverable: false },
+    { isDeliverable: false, progress_status: 'pending' },
+  ])('shows Applied for a financial service using the booked API classification %j', attributes => {
+    expect(getServiceProgress(item({ name: 'Travel Fee', ...attributes }))).toEqual({ code: 'applied', label: 'Applied', tone: 'neutral' });
+  });
+  it.each([
+    { workflow_status: 'cancelled', progress_status: 'not_applicable' },
+    { delivery_status: 'cancelled', progress_status: 'not_applicable' },
+    { progress_status: 'cancelled' },
+  ])('preserves cancellation for a non-deliverable service %j', attributes => {
+    expect(getServiceProgress(item({ is_deliverable: false, ...attributes }))?.code).toBe('cancelled');
+  });
+  it.each(['pending', 'processing'])('preserves %s for real floor-plan work without media intake', progress_status => {
+    expect(getServiceProgress(item({ name: 'Floor Plan', upload_intake_type: 'none', is_deliverable: true, progress_status }))?.code).toBe(progress_status);
+  });
   it('omits operational badges for invoice adjustments', () => {
-    expect(getServiceProgress(item({ is_invoice_adjustment: true }))).toBeNull();
+    expect(getServiceProgress(item({ is_invoice_adjustment: true, is_deliverable: false, progress_status: 'not_applicable' }))).toBeNull();
   });
 });
