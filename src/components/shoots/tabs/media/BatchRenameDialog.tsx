@@ -10,7 +10,10 @@ import { previewBatchRenameFilenames } from '@/features/media-filename-rename/ba
 import type { BatchRenameMode } from '@/services/shootMediaService';
 import { getDisplayMediaFilename } from './mediaPreviewUtils';
 
+const isValidPreviewName = (name: string) => Boolean(name) && new TextEncoder().encode(name).length <= 255;
+
 export interface BatchRenameSubmitPayload {
+  fileIds?: string[];
   mode: BatchRenameMode;
   value?: string;
   find?: string;
@@ -54,31 +57,44 @@ export function BatchRenameDialog({
     [selectedFiles],
   );
 
-  const previewNames = useMemo(
-    () =>
-      previewBatchRenameFilenames(currentNames, {
-        mode,
-        value,
-        find,
-        replace,
-        start: Number(start),
-        digits: Number(digits) || 2,
-        separator,
-        number_action: numberAction,
-        number_position: numberPosition,
-      }),
-    [currentNames, digits, find, mode, numberAction, numberPosition, replace, separator, start, value],
-  );
+  const usesSequence = mode === 'sequence' || (mode === 'numbering' && numberAction === 'renumber');
+  const previewNames = useMemo(() => {
+    const input = {
+      mode,
+      value,
+      find,
+      replace,
+      start: Number(start),
+      digits: Number(digits) || 2,
+      separator,
+      number_action: numberAction,
+      number_position: numberPosition,
+    };
+    if (!usesSequence) return previewBatchRenameFilenames(currentNames, input);
+    // The server numbers only submitted files. Skipped entries must not consume
+    // a position, otherwise the saved sequence would disagree with its preview.
+    let acceptedCount = 0;
+    return currentNames.map(filename => {
+      const [name] = previewBatchRenameFilenames([filename], { ...input, start: Number(start) + acceptedCount });
+      if (isValidPreviewName(name)) acceptedCount++;
+      return name;
+    });
+  }, [currentNames, digits, find, mode, numberAction, numberPosition, replace, separator, start, usesSequence, value]);
 
-  const canSubmit =
-    apiEnabled &&
-    selectedFiles.length > 0 &&
-    !submitting &&
-    (mode !== 'replace' || Boolean(find.trim())) &&
-    (!['prefix', 'suffix'].includes(mode) || Boolean(value.trim())) &&
-    (!(mode === 'sequence' || (mode === 'numbering' && numberAction === 'renumber')) ||
-      (Number.isInteger(Number(start)) && Number(start) >= 0 && Number.isInteger(Number(digits)) && Number(digits) >= 1 && Number(digits) <= 10)) &&
-    previewNames.every((name) => Boolean(name) && new TextEncoder().encode(name).length <= 255);
+  const usesValue = mode === 'prefix' || mode === 'suffix' || usesSequence;
+  const usesSeparator = usesSequence || (mode === 'numbering' && numberAction === 'move');
+  const previewEntries = previewNames.map((name, index) => ({
+    id: String(selectedFiles[index].id), original: currentNames[index], name,
+    valid: isValidPreviewName(name),
+  }));
+  const validEntries = previewEntries.filter(entry => entry.valid);
+  const skippedEntries = previewEntries.filter(entry => !entry.valid);
+  const inputError = mode === 'replace' && !find.trim() ? 'Enter the text to find.'
+    : (mode === 'prefix' || mode === 'suffix') && !value.trim() ? `Enter a ${mode} to add to the filenames.`
+    : usesSequence && (!start.trim() || !Number.isInteger(Number(start)) || Number(start) < 0) ? 'Enter a whole starting number of zero or more.'
+    : usesSequence && (!digits.trim() || !Number.isInteger(Number(digits)) || Number(digits) < 1 || Number(digits) > 10) ? 'Enter a digit count between 1 and 10.'
+    : null;
+  const canSubmit = apiEnabled && validEntries.length > 0 && !submitting && !inputError;
 
   const handleSubmit = async () => {
     if (!canSubmit) return;
@@ -86,15 +102,16 @@ export function BatchRenameDialog({
     setError(null);
     try {
       await onSubmit({
+        fileIds: validEntries.map(entry => entry.id),
         mode,
-        value: value || undefined,
+        value: usesValue ? value || undefined : undefined,
         find: mode === 'replace' ? find : undefined,
         replace: mode === 'replace' ? replace : undefined,
-        start: mode === 'sequence' || mode === 'numbering' ? Number(start) : undefined,
-        digits: mode === 'sequence' || mode === 'numbering' ? Number(digits) : undefined,
-        separator: mode === 'sequence' || mode === 'numbering' ? separator : undefined,
+        start: usesSequence ? Number(start) : undefined,
+        digits: usesSequence ? Number(digits) : undefined,
+        separator: usesSeparator ? separator : undefined,
         number_action: mode === 'numbering' ? numberAction : undefined,
-        number_position: mode === 'numbering' ? numberPosition : undefined,
+        number_position: mode === 'numbering' && numberAction !== 'remove' ? numberPosition : undefined,
       });
       onOpenChange(false);
     } catch (failure) {
@@ -204,6 +221,16 @@ export function BatchRenameDialog({
             </div>
           )}
 
+          {skippedEntries.length > 0 && !inputError && (
+            <div role="status" className="min-w-0 space-y-2 rounded-xl border border-amber-500/40 bg-amber-500/10 p-3 text-xs">
+              <p className="font-medium">{skippedEntries.length} file{skippedEntries.length === 1 ? '' : 's'} will be skipped because {skippedEntries.length === 1 ? 'its' : 'their'} new filename is empty or too long.</p>
+              <ul className="max-h-24 overflow-y-auto space-y-1 [overflow-wrap:anywhere]">
+                {skippedEntries.map(entry => <li key={entry.id}>{entry.original || '(missing filename)'}</li>)}
+              </ul>
+              <p>{validEntries.length > 0 ? 'The other files can be renamed. Skipped files will stay selected.' : 'No files can be renamed with this pattern.'} Rename skipped files individually to give them a valid name.</p>
+            </div>
+          )}
+
           <div className="min-w-0 rounded-xl border bg-muted/30 p-3">
             <p className="mb-1 text-xs font-medium text-muted-foreground">Preview (first {Math.min(5, previewNames.length)})</p>
             <ul className="max-h-52 min-w-0 space-y-2 overflow-y-auto text-xs">
@@ -218,13 +245,15 @@ export function BatchRenameDialog({
         </div>
 
         {error && <p role="alert" className="break-words text-xs text-destructive">{error}</p>}
+        {inputError && <p role="status" className="text-xs text-muted-foreground">{inputError}</p>}
 
         <DialogFooter className="shrink-0 gap-2">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button type="button" onClick={() => { void handleSubmit(); }} disabled={!canSubmit} title={apiEnabled ? 'Apply rename' : 'Batch rename is not live yet'}>
-            {submitting ? 'Renaming…' : apiEnabled ? 'Rename selected' : 'Not available yet'}
+          <Button type="button" onClick={() => { void handleSubmit(); }} disabled={!canSubmit} title={apiEnabled ? inputError || 'Apply rename' : 'Batch rename is not live yet'}>
+            {submitting ? 'Renaming…' : !apiEnabled ? 'Not available yet' : skippedEntries.length > 0 && validEntries.length > 0
+              ? `Rename ${validEntries.length} file${validEntries.length === 1 ? '' : 's'}` : 'Rename selected'}
           </Button>
         </DialogFooter>
       </DialogContent>

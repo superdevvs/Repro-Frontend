@@ -247,7 +247,10 @@ export function createShootMediaRenameActions({
         });
       }
 
-      setSelectedFiles(new Set());
+      const updatedIds = new Set(updated.map(item => String(item.id)));
+      // Keep skipped/failed files and selections made while this request was in
+      // flight. Only the server-confirmed updates have finished their work.
+      setSelectedFiles(current => new Set([...current].filter(id => !updatedIds.has(String(id)))));
     } catch (error: unknown) {
       setRawFiles(previousRawFiles);
       setEditedFiles(previousEditedFiles);
