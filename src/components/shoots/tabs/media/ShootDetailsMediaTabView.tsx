@@ -10,7 +10,10 @@ import { getPhotographerEditedMediaMlsLink } from '@/utils/shootTourData';
 import { AlertCircle, CloudUpload, Download, ExternalLink, FileIcon, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import type { MediaSubTab, ShootDetailsMediaTabViewProps } from './shootDetailsMediaTabViewTypes';
-import { ShootMediaHeader } from './ShootMediaHeader';
+import { ShootMediaHeader, type ShootMediaHeaderProps } from './ShootMediaHeader';
+import { MediaSelectionActions } from './MediaSelectionActions';
+import { hasMediaPresentationSelectionActions } from './mediaPresentationSelectionState';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { MediaPresentationSelectionActions } from './MediaPresentationSelectionActions';
 import { canInteractWithMediaFile, canManageMediaVisibility, canReorderMediaFile, canUseMediaDownload } from './mediaPresentationPermissions';
 import { canShowIguideMedia } from './iguideMediaVisibility';
@@ -117,13 +120,15 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     toggleFilesHidden, onSetHero,
   } = props;
   const [sortMenuOpen, setSortMenuOpen] = useState(false);
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
+  const inlineDesktopActions = isDesktop && !isClient && activeSubTab !== 'upload' && (displayTab === 'uploaded' || !isPhotographer);
   const [unassignedScope, setUnassignedScope] = useState<string | null>(null);
   const unassignedFiles = props.unassignedFiles ?? [];
   const mediaScope = `${shoot.id}:${displayTab}`;
   const selectionIsEmpty = selectedFiles.size === 0;
   useEffect(() => {
     setSortMenuOpen(false);
-  }, [selectionIsEmpty, mediaScope, activeSubTab]);
+  }, [selectionIsEmpty, mediaScope, activeSubTab, isDesktop]);
   const hasUnassignedFiles = !isClient && unassignedFiles.length > 0;
   const unassignedOnly = hasUnassignedFiles && activeSubTab !== 'upload' && unassignedScope === mediaScope;
   useEffect(() => {
@@ -136,8 +141,8 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     if (value !== 'unassigned') setCategory(value as MediaSubTab);
   };
   const renderCategoryTabs = (tabs: Array<{ id: MediaSubTab; label: string }>, selected: MediaSubTab) => (
-    <div className="shoot-media-categories sticky top-0 z-10 px-2.5 py-1.5 border-b bg-background" style={{ flexShrink: 0 }}>
-      <div className="min-w-0 overflow-x-auto">
+    <div className="shoot-media-categories sticky top-0 z-10 flex min-w-0 items-center gap-3 border-b bg-background px-2.5 py-1.5" style={{ flexShrink: 0 }} role="group" aria-label="Media categories and actions">
+      <div className="shoot-media-category-tabs min-w-0 flex-1 overflow-x-auto">
         <TabsList aria-label="Media categories" className="flex h-auto w-max items-center justify-start gap-1.5 rounded-none bg-transparent p-0">
           {[...tabs, ...(hasUnassignedFiles ? [{ id: 'unassigned', label: `Unassigned (${unassignedFiles.length})` }] : [])].map(tab => {
             const active = unassignedOnly ? tab.id === 'unassigned' : tab.id === selected;
@@ -148,6 +153,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
           })}
         </TabsList>
       </div>
+      {inlineDesktopActions && selectedFiles.size > 0 && <div className="shoot-media-category-actions ml-auto shrink-0"><MediaSelectionActions {...headerProps} desktop /></div>}
     </div>
   );
   const canMarkSelectedFiles = ['admin', 'superadmin', 'super_admin', 'editing_manager', 'photographer', 'editor'].includes(String(role)) && !isClient && (!isEditor || displayTab === 'edited') && ![...rawFiles, ...editedFiles, ...unassignedFiles].some(file => selectedFiles.has(file.id) && file.can_interact === false);
@@ -253,6 +259,38 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     </div>
   );
 
+  const presentationSelectionProps = {
+    files: displayTab === 'edited' ? editedFiles : rawFiles,
+    selectedFiles, role: presentationRole, onToggleHidden: toggleFilesHidden, onSetHero,
+  };
+  const headerProps: ShootMediaHeaderProps = {
+    shootId: shoot.id,
+    visibleFileCount: displayTab === 'uploaded' ? rawUploadsCount : editedFiles.length,
+    isClient, rawFiles, editedFiles, activeSubTab, displayTab, defaultTab,
+    setActiveSubTab, setDisplayTab, isPhotographer, isEditor,
+    renderClientEditedCategoryTabs, renderEditedTab, renderRawUploadsTab,
+    isExpanded, onToggleExpand, mediaViewMode, toggleMediaViewMode,
+    sortMenuOpen, setSortMenuOpen, sortOrder, isDragMode, sortSaveStatus,
+    changeSortOrder, toggleDragMode, showUploadTab, selectedFiles,
+    setRequestManagerOpen, downloading, handleDownload, handleGenerateShareLink,
+    handleEditorDownloadRaw, canMarkSelectedFiles,
+    onOpenMark: () => openMediaMark({
+      shootId: shoot.id, shootLabel: shoot.location?.address,
+      files: [...new Map([...rawFiles, ...editedFiles, ...unassignedFiles]
+        .filter(file => selectedFiles.has(file.id)).map(file => [String(file.id), file])).values()],
+      allowType: canMarkSelectedFiles,
+      onChanged: () => { setSelectedFiles(new Set()); onShootUpdate(); },
+    }),
+    canDownload: canDownload && ![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && !canUseMediaDownload(file, presentationRole)),
+    presentationActions: <MediaPresentationSelectionActions {...presentationSelectionProps} />,
+    presentationMenuActions: <MediaPresentationSelectionActions {...presentationSelectionProps} variant="menu" />,
+    hasPresentationMenuActions: hasMediaPresentationSelectionActions(presentationSelectionProps),
+    canCreateRequest: ![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && !canInteractWithMediaFile(file, presentationRole)),
+    isAdmin, handleReclassify, markMenuOptions, canDelete, handleDeleteFiles,
+    canBatchRename, batchRenameEnabled, onOpenBatchRename,
+    desktop: isDesktop, hideSelectionActions: inlineDesktopActions,
+  };
+
   return (
     <div className="shoot-media-workspace flex flex-col h-full min-h-0 bg-background px-1 sm:px-0" style={{ height: '100%', minHeight: '100%' }}>
       {/* Download progress popup */}
@@ -306,54 +344,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
           </div>
         </div>
       )}
-      <ShootMediaHeader
-        shootId={shoot.id}
-        visibleFileCount={displayTab === 'uploaded' ? rawUploadsCount : editedFiles.length}
-        isClient={isClient}
-        rawFiles={rawFiles}
-        editedFiles={editedFiles}
-        activeSubTab={activeSubTab}
-        displayTab={displayTab}
-        defaultTab={defaultTab}
-        setActiveSubTab={setActiveSubTab}
-        setDisplayTab={setDisplayTab}
-        isPhotographer={isPhotographer}
-        isEditor={isEditor}
-        renderClientEditedCategoryTabs={renderClientEditedCategoryTabs}
-        renderEditedTab={renderEditedTab}
-        renderRawUploadsTab={renderRawUploadsTab}
-        isExpanded={isExpanded}
-        onToggleExpand={onToggleExpand}
-        mediaViewMode={mediaViewMode}
-        toggleMediaViewMode={toggleMediaViewMode}
-        sortMenuOpen={sortMenuOpen}
-        setSortMenuOpen={setSortMenuOpen}
-        sortOrder={sortOrder}
-        isDragMode={isDragMode}
-        sortSaveStatus={sortSaveStatus}
-        changeSortOrder={changeSortOrder}
-        toggleDragMode={toggleDragMode}
-        showUploadTab={showUploadTab}
-        selectedFiles={selectedFiles}
-        setRequestManagerOpen={setRequestManagerOpen}
-        downloading={downloading}
-        handleDownload={handleDownload}
-        handleGenerateShareLink={handleGenerateShareLink}
-        handleEditorDownloadRaw={handleEditorDownloadRaw}
-        canMarkSelectedFiles={canMarkSelectedFiles}
-        onOpenMark={() => openMediaMark({ shootId: shoot.id, shootLabel: shoot.location?.address, files: [...new Map([...rawFiles, ...editedFiles, ...unassignedFiles].filter(file => selectedFiles.has(file.id)).map(file => [String(file.id), file])).values()], allowType: canMarkSelectedFiles, onChanged: () => { setSelectedFiles(new Set()); onShootUpdate(); } })}
-        canDownload={canDownload && ![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && !canUseMediaDownload(file, presentationRole))}
-        presentationActions={<MediaPresentationSelectionActions files={displayTab === 'edited' ? editedFiles : rawFiles} selectedFiles={selectedFiles} role={presentationRole} onToggleHidden={toggleFilesHidden} onSetHero={onSetHero} />}
-        canCreateRequest={![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && !canInteractWithMediaFile(file, presentationRole))}
-        isAdmin={isAdmin}
-        handleReclassify={handleReclassify}
-        markMenuOptions={markMenuOptions}
-        canDelete={canDelete}
-        handleDeleteFiles={handleDeleteFiles}
-        canBatchRename={canBatchRename}
-        batchRenameEnabled={batchRenameEnabled}
-        onOpenBatchRename={onOpenBatchRename}
-      />
+      <ShootMediaHeader {...headerProps} />
       {/* Content - Compact Overview-style layout */}
       <div className="flex-1 min-h-0 flex flex-col bg-background">
         {!isClient && activeShootUploads.length > 0 && (

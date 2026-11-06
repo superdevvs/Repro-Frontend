@@ -45,6 +45,15 @@
   flex: 0 1 auto;
 }
 
+.shoot-details-workspace .shoot-media-primary-controls.shoot-media-client-primary-controls {
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+}
+
+.shoot-media-client-primary-controls > .shoot-media-client-categories {
+  min-width: 0;
+}
+
 .shoot-details-workspace .shoot-media-legacy-tab {
   display: none;
 }
@@ -98,8 +107,7 @@
   padding: 0 0 14px;
 }
 
-.shoot-details-workspace .shoot-media-categories > div > div {
-  max-width: 100%;
+.shoot-details-workspace .shoot-media-category-tabs > [role="tablist"] {
   padding-bottom: 2px;
 }
 
