@@ -74,6 +74,7 @@ export interface ShootDetailsMediaTabViewProps {
   handleGenerateShareLink: (shareAll?: boolean) => Promise<void>;
   handleEditorDownloadRaw: (downloadAll?: boolean) => Promise<void>;
   canDelete: boolean;
+  hasDeletableFiles?: boolean;
   canDownload: boolean;
   isAdmin: boolean;
   handleReclassify: (type: ReclassifyMediaType) => Promise<void>;

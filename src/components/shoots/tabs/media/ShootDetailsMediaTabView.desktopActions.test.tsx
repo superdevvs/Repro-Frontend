@@ -112,12 +112,43 @@ describe('desktop media selection action placement', () => {
     expect(options.handleEditorDownloadRaw).not.toHaveBeenCalled();
   });
 
-  it('keeps the desktop category row and hides all selection actions when nothing is selected', () => {
-    render(<StatefulView options={{ ...props(), selectedFiles: new Set() }} />);
-    expect(screen.getByRole('tablist', { name: 'Media categories' })).toBeVisible();
-    expect(screen.queryByRole('group', { name: 'Media actions' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Choose media sort order' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Delete selected files' })).not.toBeInTheDocument();
+  it.each(['uploaded', 'edited'] as const)('keeps desktop %s actions visible without selection, allows sorting and disables selection-only actions', async collection => {
+    const user = userEvent.setup();
+    // The real hook denies deleting an empty selection even for an administrator.
+    const options = { ...props(), displayTab: collection, activeSubTab: collection, selectedFiles: new Set<string>(), canDelete: false, hasDeletableFiles: true };
+    const { rerender } = render(<StatefulView options={options} />);
+    const categoryBar = screen.getByRole('group', { name: 'Media categories and actions' });
+    expect(within(categoryBar).getByRole('tablist', { name: 'Media categories' })).toBeVisible();
+    const actions = within(categoryBar).getByRole('group', { name: 'Media actions' });
+    expect(screen.getAllByRole('group', { name: 'Media actions' })).toHaveLength(1);
+    const sort = within(actions).getByRole('button', { name: 'Choose media sort order' });
+    const mark = within(actions).getByRole('button', { name: 'Mark' });
+    const remove = within(actions).getByRole('button', { name: 'Delete selected files' });
+    const more = within(actions).getByRole('button', { name: 'More selected file actions' });
+    expect(sort).toBeEnabled();
+    expect(mark).toBeDisabled();
+    expect(remove).toBeDisabled();
+    expect(more).toBeDisabled();
+    await user.click(mark);
+    await user.click(remove);
+    await user.click(more);
+    expect(mocks.openMark).not.toHaveBeenCalled();
+    expect(options.handleDeleteFiles).not.toHaveBeenCalled();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    await user.click(sort);
+    await user.click(screen.getByRole('menuitemradio', { name: 'File Name' }));
+    expect(options.changeSortOrder).toHaveBeenCalledExactlyOnceWith('name');
+    rerender(<StatefulView options={{ ...options, selectedFiles: new Set([photo.id]), canDelete: true }} />);
+    expect(within(categoryBar).getByRole('button', { name: 'Mark' })).toBeEnabled();
+    expect(within(categoryBar).getByRole('button', { name: 'Delete selected files' })).toBeEnabled();
+    expect(within(categoryBar).getByRole('button', { name: 'More selected file actions' })).toBeEnabled();
+    await user.click(within(categoryBar).getByRole('button', { name: 'More selected file actions' }));
+    expect(screen.getByRole('menu')).toBeVisible();
+    rerender(<StatefulView options={options} />);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(within(categoryBar).getByRole('button', { name: 'More selected file actions' })).toBeDisabled();
+    rerender(<StatefulView options={{ ...options, selectedFiles: new Set([photo.id]), canDelete: true }} />);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
   });
 
   it('places desktop client actions once at the end of their Header category row without granting staff controls', async () => {
@@ -148,6 +179,33 @@ describe('desktop media selection action placement', () => {
     expect(screen.queryByRole('button', { name: 'Delete selected files' })).not.toBeInTheDocument();
   });
 
+  it('continues hiding all mobile actions without a selection while desktop actions stay visible after resizing', () => {
+    desktop = false;
+    render(<StatefulView options={{ ...props(), selectedFiles: new Set(), canDelete: false, hasDeletableFiles: true }} />);
+    expect(screen.getByRole('tablist', { name: 'Media categories' })).toBeVisible();
+    expect(screen.queryByRole('group', { name: 'Media actions' })).not.toBeInTheDocument();
+    resizeDesktop(true);
+    const categoryBar = screen.getByRole('group', { name: 'Media categories and actions' });
+    expect(within(categoryBar).getAllByRole('group', { name: 'Media actions' })).toHaveLength(1);
+    expect(within(categoryBar).getByRole('button', { name: 'Choose media sort order' })).toBeEnabled();
+    expect(within(categoryBar).getByRole('button', { name: 'Mark' })).toBeDisabled();
+    resizeDesktop(false);
+    expect(screen.queryByRole('group', { name: 'Media actions' })).not.toBeInTheDocument();
+  });
+
+  it('keeps desktop client sorting visible without selection while More is disabled and staff actions remain absent', () => {
+    render(<StatefulView options={{ ...props(), role: 'client', isClient: true, isAdmin: false, canDelete: false,
+      selectedFiles: new Set(), activeSubTab: 'edited', displayTab: 'edited' }} />);
+    const photos = screen.getByRole('button', { name: 'Photos (1)' });
+    const primaryRow = photos.closest('.shoot-media-primary-controls') as HTMLElement;
+    const actions = within(primaryRow).getByRole('group', { name: 'Media actions' });
+    expect(screen.getAllByRole('group', { name: 'Media actions' })).toHaveLength(1);
+    expect(within(actions).getByRole('button', { name: 'Choose media sort order' })).toBeEnabled();
+    expect(within(actions).getByRole('button', { name: 'More selected file actions' })).toBeDisabled();
+    expect(within(actions).queryByRole('button', { name: 'Mark' })).not.toBeInTheDocument();
+    expect(within(actions).queryByRole('button', { name: 'Delete selected files' })).not.toBeInTheDocument();
+  });
+
   it('moves one live set of controls across desktop and mobile while keeping pending Save available', async () => {
     const user = userEvent.setup();
     const options = { ...props(), isDragMode: true, sortSaveStatus: 'error' as const };
@@ -171,6 +229,13 @@ describe('desktop media selection action placement', () => {
     expect(screen.getByRole('group', { name: 'Media actions' })).toBeVisible();
     expect(screen.getByRole('button', { name: 'Choose media sort order' })).toBeVisible();
     expect(screen.getByText('Upload controls')).toBeVisible();
+  });
+
+  it('does not add an empty action strip to the desktop Upload screen', () => {
+    render(<StatefulView options={{ ...props(), activeSubTab: 'upload', selectedFiles: new Set(), canDelete: false, hasDeletableFiles: true }} />);
+    expect(screen.getByText('Upload controls')).toBeVisible();
+    expect(screen.queryByRole('group', { name: 'Media categories and actions' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Media actions' })).not.toBeInTheDocument();
   });
 
   it('keeps the photographer Header fallback when the Edited lane has no in-app category bar', () => {

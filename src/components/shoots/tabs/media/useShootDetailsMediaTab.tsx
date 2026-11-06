@@ -13,6 +13,7 @@ import { useAuth } from '@/components/auth/AuthProvider';
 import { canAccessOverviewVideoEmbedsOnShoot, isPhotoOnlyEditorOnShoot, isVideoOnlyEditorOnShoot } from '@/utils/shootEditorAssignments';
 import { canDeleteMediaFile, canDeleteMediaSelection } from './mediaDeletePermissions';
 import { useToast } from '@/hooks/use-toast';
+import { useMediaQuery } from '@/hooks/use-media-query';
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 // FileUploader import removed - using RawUploadSection and EditedUploadSection instead
@@ -159,6 +160,7 @@ export function useShootDetailsMediaTab({
   onDisplayTabChange,
 }: ShootDetailsMediaTabProps) {
   const { shoot, activeUnitId } = useUnitMediaScope(fullShoot);
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
   const contextualSearch = useContextualSearch();
   const [mediaQuery, setMediaQuery] = useState('');
   const effectiveMediaQuery = bindContextualSearch && contextualSearch?.enabled ? mediaQuery : '';
@@ -407,8 +409,8 @@ export function useShootDetailsMediaTab({
     clearSelection,
   } = useShootMediaSelectionState({ onSelectionChange });
   const sortSelectionScope = `${shoot.id}:${activeUnitId ?? ''}:${displayTab}`;
-  const latestSortSelection = useRef({ count: selectedFiles.size, scope: sortSelectionScope });
-  latestSortSelection.current = { count: selectedFiles.size, scope: sortSelectionScope };
+  const latestSortSelection = useRef({ count: selectedFiles.size, scope: sortSelectionScope, desktop: isDesktop });
+  latestSortSelection.current = { count: selectedFiles.size, scope: sortSelectionScope, desktop: isDesktop };
   // A search change must not leave an invisible selection available for bulk actions.
   useEffect(() => { clearSelection(); }, [effectiveMediaQuery, clearSelection]);
   const [viewerSourceTab, setViewerSourceTab] = useState<'uploaded' | 'edited'>('uploaded');
@@ -663,14 +665,18 @@ export function useShootDetailsMediaTab({
   }, [persistManualOrder]);
   usePendingMediaOrderFlush(flushPendingManualOrder, mediaOrderMounted);
 
+  const previousSortContext = useRef({ scope: sortSelectionScope, desktop: isDesktop, flush: flushPendingManualOrder });
   useEffect(() => {
-    if (selectedFiles.size > 0) return;
-    if (!isDragMode) return;
-    // Selection actions disappear together. Finish any pending write before the
-    // drag controls disappear, retaining the draft if that write needs a retry.
+    const previous = previousSortContext.current;
+    const contextChanged = previous.scope !== sortSelectionScope || previous.desktop !== isDesktop;
+    previousSortContext.current = { scope: sortSelectionScope, desktop: isDesktop, flush: flushPendingManualOrder };
+    if (!contextChanged && (isDesktop || selectedFiles.size > 0 || !isDragMode)) return;
+    // Desktop sorting works without a selection. Leaving its lane/breakpoint,
+    // or losing the mobile selection, still finishes the current drag session.
+    // Use the previous context's writer so a shoot switch saves to that shoot.
     setIsDragMode(false);
-    flushPendingManualOrder();
-  }, [flushPendingManualOrder, isDragMode, selectedFiles.size]);
+    (contextChanged ? previous.flush : flushPendingManualOrder)();
+  }, [flushPendingManualOrder, isDesktop, isDragMode, selectedFiles.size, sortSelectionScope]);
 
   useEffect(() => {
     if (sortOrder !== 'manual' || manualOrder.length === 0) {
@@ -726,12 +732,14 @@ export function useShootDetailsMediaTab({
   }, []);
 
   const changeSortOrder = useCallback(async (nextSortOrder: MediaSortOrder) => {
-    if (latestSortSelection.current.count === 0) return;
+    const isCurrentContext = () => latestSortSelection.current.scope === sortSelectionScope
+      && latestSortSelection.current.desktop === isDesktop && (isDesktop || latestSortSelection.current.count > 0);
+    if (!isCurrentContext()) return;
     if (hasPendingManualOrder.current) {
       if (sortSaveTimerRef.current) clearTimeout(sortSaveTimerRef.current);
       if (!await persistManualOrder(manualOrder)) return;
     }
-    if (latestSortSelection.current.count === 0 || latestSortSelection.current.scope !== sortSelectionScope) return;
+    if (!isCurrentContext()) return;
     // Switching into manual restores the saved arrangement when there is one, so
     // going Manual -> Time -> Manual returns to the arrangement rather than
     // discarding it. With nothing saved the baseline is exactly the order on
@@ -750,8 +758,8 @@ export function useShootDetailsMediaTab({
     // other sort disarms it.
     setIsDragMode(nextSortOrder === 'manual');
     // Selections track file IDs, so changing their order keeps the same files
-    // selected and leaves the selection-only Save action available.
-  }, [getSortableFiles, manualOrder, persistManualOrder, setManualOrder, setSortOrderRaw, sortOrder, sortSelectionScope]);
+    // selected and leaves the mobile selection-only Save action available.
+  }, [getSortableFiles, isDesktop, manualOrder, persistManualOrder, setManualOrder, setSortOrderRaw, sortOrder, sortSelectionScope]);
 
   /**
    * Turn dragging on or off without leaving manual order.
@@ -761,7 +769,9 @@ export function useShootDetailsMediaTab({
    * just made - the label contradicted the grid.
    */
   const toggleDragMode = useCallback(async () => {
-    if (sortOrder !== 'manual' || latestSortSelection.current.count === 0) {
+    const isCurrentContext = () => latestSortSelection.current.scope === sortSelectionScope
+      && latestSortSelection.current.desktop === isDesktop && (isDesktop || latestSortSelection.current.count > 0);
+    if (sortOrder !== 'manual' || !isCurrentContext()) {
       return;
     }
 
@@ -770,9 +780,9 @@ export function useShootDetailsMediaTab({
       if (sortSaveTimerRef.current) clearTimeout(sortSaveTimerRef.current);
       if (!await persistManualOrder(manualOrder)) return;
     }
-    if (latestSortSelection.current.count === 0 || latestSortSelection.current.scope !== sortSelectionScope) return;
+    if (!isCurrentContext()) return;
     setIsDragMode(!finishReordering);
-  }, [isDragMode, manualOrder, persistManualOrder, sortOrder, sortSaveStatus, sortSelectionScope]);
+  }, [isDesktop, isDragMode, manualOrder, persistManualOrder, sortOrder, sortSaveStatus, sortSelectionScope]);
 
   const handleManualOrderChange = useCallback(
     (contextFiles: MediaFile[], nextContextOrder: string[], separateExtras = true) => {
@@ -1275,6 +1285,7 @@ export function useShootDetailsMediaTab({
         handleGenerateShareLink={handleGenerateShareLink}
         handleEditorDownloadRaw={handleEditorDownloadRaw}
         canDelete={canDeleteInDisplayTab}
+        hasDeletableFiles={displayFiles.some(canDeleteFile)}
         canDownload={canDownload}
         isAdmin={isAdmin}
         handleReclassify={handleReclassify}

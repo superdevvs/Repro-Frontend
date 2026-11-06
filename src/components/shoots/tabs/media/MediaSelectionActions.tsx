@@ -25,6 +25,7 @@ export interface MediaSelectionActionsProps {
   canMarkSelectedFiles: boolean;
   onOpenMark?: () => void;
   canDelete: boolean;
+  hasDeletableFiles?: boolean;
   handleDeleteFiles: () => Promise<void>;
   canDownload: boolean;
   downloading: boolean;
@@ -41,18 +42,20 @@ export interface MediaSelectionActionsProps {
 
 export function MediaSelectionActions({ selectedFiles, isClient, isEditor, isAdmin, displayTab, rawFiles, editedFiles,
   sortMenuOpen, setSortMenuOpen, sortOrder, isDragMode, sortSaveStatus, changeSortOrder, toggleDragMode,
-  canMarkSelectedFiles, onOpenMark, canDelete, handleDeleteFiles, canDownload, downloading,
+  canMarkSelectedFiles, onOpenMark, canDelete, hasDeletableFiles = canDelete, handleDeleteFiles, canDownload, downloading,
   handleDownload, handleEditorDownloadRaw, presentationActions, presentationMenuActions,
   hasPresentationMenuActions = Boolean(presentationMenuActions), canCreateRequest = true, setRequestManagerOpen, desktop = false,
 }: MediaSelectionActionsProps) {
-  if (selectedFiles.size === 0) return null;
+  const hasSelection = selectedFiles.size > 0;
+  if (!desktop && !hasSelection) return null;
   const canMark = (canMarkSelectedFiles || isAdmin) && Boolean(onOpenMark);
   const canRequest = isClient && canCreateRequest;
   const hasMore = desktop ? canDownload || hasPresentationMenuActions || canRequest : canMarkSelectedFiles || canRequest || canDelete;
   const sortControl = !isEditor && (rawFiles.length > 0 || editedFiles.length > 0) && <MediaSortControl
     open={sortMenuOpen} onOpenChange={setSortMenuOpen} sortOrder={sortOrder} isDragMode={isDragMode}
     sortSaveStatus={sortSaveStatus} changeSortOrder={changeSortOrder} toggleDragMode={toggleDragMode} compact />;
-  const markButton = canMark && <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 text-xs" onClick={onOpenMark}>
+  const markButton = canMark && <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 text-xs" onClick={onOpenMark}
+    disabled={!hasSelection} title={hasSelection ? 'Mark selected media' : 'Select media to mark'}>
     <Tag className="h-3.5 w-3.5" />
     <span className={desktop ? undefined : 'hidden min-[380px]:inline'}>Mark</span>
     {!desktop && <span className="min-[380px]:hidden sr-only">Mark selected media</span>}
@@ -83,8 +86,9 @@ export function MediaSelectionActions({ selectedFiles, isClient, isEditor, isAdm
     {desktop ? <>
       {sortControl}
       {markButton}
-      {canDelete && <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 text-xs text-destructive hover:text-destructive"
-        aria-label="Delete selected files" title={`Delete ${selectedFiles.size} selected file${selectedFiles.size === 1 ? '' : 's'}`}
+      {(canDelete || (!hasSelection && hasDeletableFiles)) && <Button size="sm" variant="outline" className="h-8 shrink-0 gap-1.5 text-xs text-destructive hover:text-destructive"
+        disabled={!hasSelection || !canDelete}
+        aria-label="Delete selected files" title={hasSelection ? `Delete ${selectedFiles.size} selected file${selectedFiles.size === 1 ? '' : 's'}` : 'Select media to delete'}
         onClick={() => void handleDeleteFiles()}><Trash2 className="h-3.5 w-3.5" />Delete</Button>}
     </> : <>
       {presentationActions}
@@ -106,9 +110,9 @@ export function MediaSelectionActions({ selectedFiles, isClient, isEditor, isAdm
         </DropdownMenuContent>
       </DropdownMenu>)}
     </>}
-    {hasMore && <DropdownMenu>
-      <DropdownMenuTrigger asChild><Button size="icon" variant="outline" className="h-9 w-9 shrink-0 gap-0 sm:h-8 sm:w-8"
-        aria-label="More selected file actions" title="More actions" aria-busy={desktop && downloading}>
+    {hasMore && <DropdownMenu key={hasSelection ? 'selected' : 'empty'}>
+      <DropdownMenuTrigger disabled={!hasSelection} asChild><Button size="icon" variant="outline" className="h-9 w-9 shrink-0 gap-0 sm:h-8 sm:w-8"
+        disabled={!hasSelection} aria-label="More selected file actions" title={hasSelection ? 'More actions' : 'Select media for more actions'} aria-busy={desktop && downloading}>
         {desktop && downloading ? <InlineSpinner aria-hidden="true" /> : <MoreHorizontal />}
       </Button></DropdownMenuTrigger>
       <DropdownMenuContent align="end" collisionPadding={12}>

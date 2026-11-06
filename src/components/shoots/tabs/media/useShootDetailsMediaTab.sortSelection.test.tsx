@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   edited: [{ id: '3', filename: '03.jpg' }],
   emptyUnit: false,
   allRaw: null as MediaFile[] | null,
+  desktop: false,
   uploads: [],
   toast: vi.fn(),
   queryClient: { invalidateQueries: vi.fn() },
@@ -18,6 +19,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ user: { id: 99, role: 'superadmin' } }) }));
 vi.mock('@/context/UploadContext', () => ({ useUpload: () => ({ uploads: mocks.uploads, trackUpload: vi.fn() }) }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: mocks.toast }) }));
+vi.mock('@/hooks/use-media-query', () => ({ useMediaQuery: () => mocks.desktop }));
 vi.mock('@tanstack/react-query', async importOriginal => ({
   ...await importOriginal<typeof import('@tanstack/react-query')>(),
   useQueryClient: () => mocks.queryClient,
@@ -44,7 +46,7 @@ const success = () => new Response('{}', { status: 200 });
 const failure = () => new Response('{"message":"Offline"}', { status: 503 });
 
 function setup() {
-  const hook = renderHook(() => useShootDetailsMediaTab(options));
+  const hook = renderHook(supplied => useShootDetailsMediaTab(supplied), { initialProps: options });
   const controls = () => {
     const view = Children.toArray(hook.result.current.props.children)
       .find(child => isValidElement(child) && 'changeSortOrder' in (child.props as object));
@@ -61,11 +63,114 @@ beforeEach(() => {
   mocks.queryClient.invalidateQueries.mockClear();
   mocks.emptyUnit = false;
   mocks.allRaw = null;
+  mocks.desktop = false;
   vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => success()));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('selection-scoped media sorting', () => {
+  it('reports potential Delete capability separately from an actionable selection', () => {
+    const view = setup();
+    expect(view.controls().hasDeletableFiles).toBe(true);
+    expect(view.controls().canDelete).toBe(false);
+    view.select(['1']);
+    expect(view.controls().canDelete).toBe(true);
+    view.select([]);
+    expect(view.controls().hasDeletableFiles).toBe(true);
+    expect(view.controls().canDelete).toBe(false);
+    view.rerender({ ...options, role: 'editor', isEditor: true, isAdmin: false });
+    expect(view.controls().hasDeletableFiles).toBe(false);
+  });
+
+  it('sorts, drags, and saves on desktop without selecting images', async () => {
+    mocks.desktop = true;
+    const view = setup();
+    await act(async () => view.controls().changeSortOrder('name'));
+    expect(view.controls().sortOrder).toBe('name');
+    await act(async () => view.controls().changeSortOrder('manual'));
+    expect(view.controls().isDragMode).toBe(true);
+    view.drag();
+    await act(async () => view.controls().toggleDragMode());
+    expect(view.controls().selectedFiles.size).toBe(0);
+    expect(view.controls().isDragMode).toBe(false);
+    expect(view.controls().sortSaveStatus).toBe('saved');
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toEqual({ file_ids: [2, 1, 3] });
+  });
+
+  it('retains and retries a failed desktop save without a selection', async () => {
+    mocks.desktop = true;
+    vi.mocked(fetch).mockImplementationOnce(async () => failure());
+    const view = setup();
+    await act(async () => view.controls().changeSortOrder('manual'));
+    view.drag();
+    await act(async () => view.controls().toggleDragMode());
+    expect(view.controls().sortSaveStatus).toBe('error');
+    expect(view.controls().manualOrder).toEqual(['2', '1', '3']);
+    expect(view.controls().isDragMode).toBe(true);
+    await act(async () => view.controls().toggleDragMode());
+    expect(view.controls().sortSaveStatus).toBe('saved');
+    expect(view.controls().isDragMode).toBe(false);
+    expect(view.controls().selectedFiles.size).toBe(0);
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it('continues desktop manual sorting when its image selection is cleared', async () => {
+    mocks.desktop = true;
+    const view = setup();
+    view.select(['1']);
+    await act(async () => view.controls().changeSortOrder('manual'));
+    view.select([]);
+    expect(view.controls().isDragMode).toBe(true);
+    expect(fetch).not.toHaveBeenCalled();
+    await act(async () => view.controls().toggleDragMode());
+    expect(view.controls().isDragMode).toBe(false);
+  });
+
+  it.each(['lane', 'breakpoint'] as const)('flushes a pending desktop drag and blocks an outdated async sort after a %s change', async target => {
+    mocks.desktop = true;
+    let finish!: (response: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const view = setup();
+    await act(async () => view.controls().changeSortOrder('manual'));
+    view.drag();
+    let changing!: Promise<void>;
+    act(() => { changing = view.controls().changeSortOrder('name') as unknown as Promise<void>; });
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    if (target === 'lane') act(() => view.controls().setDisplayTab('edited'));
+    else { mocks.desktop = false; view.rerender(options); }
+    expect(view.controls().isDragMode).toBe(false);
+    await act(async () => { finish(success()); await changing; });
+    expect(view.controls().sortOrder).toBe('manual');
+    expect(view.controls().isDragMode).toBe(false);
+    expect(fetch).toHaveBeenCalledOnce();
+    expect(JSON.parse(vi.mocked(fetch).mock.calls[0][1]!.body as string)).toEqual({ file_ids: [2, 1, 3] });
+  });
+
+  it('keeps mobile sort changes unavailable without a selection', async () => {
+    const view = setup();
+    await act(async () => view.controls().changeSortOrder('name'));
+    expect(view.controls().sortOrder).toBe('time');
+    await act(async () => view.controls().changeSortOrder('manual'));
+    expect(view.controls().sortOrder).toBe('time');
+    expect(view.controls().isDragMode).toBe(false);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('flushes a closing shoot draft through its original writer before the new shoot can accept drags', async () => {
+    mocks.desktop = true;
+    let finish!: (response: Response) => void;
+    vi.mocked(fetch).mockImplementationOnce(() => new Promise(resolve => { finish = resolve; }));
+    const view = setup();
+    await act(async () => view.controls().changeSortOrder('manual'));
+    view.drag();
+    view.rerender({ ...options, shoot: { ...shoot, id: '6000' } });
+    await waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+    expect(String(vi.mocked(fetch).mock.calls[0][0])).toContain('/api/shoots/5933/files/reorder');
+    expect(view.controls().isDragMode).toBe(false);
+    await act(async () => { finish(success()); });
+    expect(fetch).toHaveBeenCalledOnce();
+  });
+
   it.each([
     { label: 'selectable unassigned media', assigned: false, allowed: true, retained: true },
     { label: 'unassigned media without permissions', assigned: false, allowed: false, retained: false },

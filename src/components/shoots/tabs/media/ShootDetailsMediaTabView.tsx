@@ -153,7 +153,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
           })}
         </TabsList>
       </div>
-      {inlineDesktopActions && selectedFiles.size > 0 && <div className="shoot-media-category-actions ml-auto shrink-0"><MediaSelectionActions {...headerProps} desktop /></div>}
+      {inlineDesktopActions && <div className="shoot-media-category-actions ml-auto shrink-0"><MediaSelectionActions {...headerProps} desktop /></div>}
     </div>
   );
   const canMarkSelectedFiles = ['admin', 'superadmin', 'super_admin', 'editing_manager', 'photographer', 'editor'].includes(String(role)) && !isClient && (!isEditor || displayTab === 'edited') && ![...rawFiles, ...editedFiles, ...unassignedFiles].some(file => selectedFiles.has(file.id) && file.can_interact === false);
@@ -286,9 +286,9 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     presentationMenuActions: <MediaPresentationSelectionActions {...presentationSelectionProps} variant="menu" />,
     hasPresentationMenuActions: hasMediaPresentationSelectionActions(presentationSelectionProps),
     canCreateRequest: ![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && !canInteractWithMediaFile(file, presentationRole)),
-    isAdmin, handleReclassify, markMenuOptions, canDelete, handleDeleteFiles,
+    isAdmin, handleReclassify, markMenuOptions, canDelete, hasDeletableFiles: props.hasDeletableFiles, handleDeleteFiles,
     canBatchRename, batchRenameEnabled, onOpenBatchRename,
-    desktop: isDesktop, hideSelectionActions: inlineDesktopActions,
+    desktop: isDesktop, hideSelectionActions: inlineDesktopActions || (isDesktop && activeSubTab === 'upload' && selectionIsEmpty),
   };
 
   return (

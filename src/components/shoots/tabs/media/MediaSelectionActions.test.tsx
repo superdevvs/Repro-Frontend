@@ -69,15 +69,48 @@ describe('desktop media selection actions', () => {
     expect(options.handleDownload).not.toHaveBeenCalled();
   });
 
-  it('hides the entire group without a selection and respects denied primary and secondary capabilities', () => {
+  it('keeps desktop sorting available and disables selection actions until files are selected', async () => {
+    const user = userEvent.setup();
     const options = props();
-    const view = render(<MediaSelectionActions {...options} selectedFiles={new Set()} isDragMode />);
+    const view = render(<MediaSelectionActions {...options} selectedFiles={new Set()} canDelete={false} hasDeletableFiles />);
+    expect(screen.getByRole('group', { name: 'Media actions' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Choose media sort order' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Mark' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Delete selected files' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'More selected file actions' })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Mark' }));
+    await user.click(screen.getByRole('button', { name: 'Delete selected files' }));
+    await user.click(screen.getByRole('button', { name: 'More selected file actions' }));
+    expect(options.onOpenMark).not.toHaveBeenCalled();
+    expect(options.handleDeleteFiles).not.toHaveBeenCalled();
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    view.rerender(<MediaSelectionActions {...options} />);
+    expect(screen.getByRole('button', { name: 'Mark' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'Delete selected files' })).toBeEnabled();
+    expect(screen.getByRole('button', { name: 'More selected file actions' })).toBeEnabled();
+  });
+
+  it('keeps the mobile group hidden without a selection and respects denied capabilities', () => {
+    const options = props();
+    const view = render(<MediaSelectionActions {...options} selectedFiles={new Set()} desktop={false} isDragMode />);
     expect(screen.queryByRole('group', { name: 'Media actions' })).not.toBeInTheDocument();
     view.rerender(<MediaSelectionActions {...options} canMarkSelectedFiles={false} canDelete={false} canDownload={false}
       hasPresentationMenuActions={false} presentationMenuActions={<DropdownMenuItem>Unavailable</DropdownMenuItem>} />);
     expect(screen.queryByRole('button', { name: 'Mark' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Delete selected files' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'More selected file actions' })).not.toBeInTheDocument();
+  });
+
+  it('closes an open More menu when the selection clears', async () => {
+    const user = userEvent.setup();
+    const options = props();
+    const view = render(<MediaSelectionActions {...options} />);
+    await user.click(screen.getByRole('button', { name: 'More selected file actions' }));
+    expect(screen.getByRole('menuitem', { name: /MLS Optimized/ })).toBeVisible();
+    view.rerender(<MediaSelectionActions {...options} selectedFiles={new Set()} canDelete={false} hasDeletableFiles />);
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'More selected file actions' })).toBeDisabled();
+    expect(options.handleDownload).not.toHaveBeenCalled();
   });
 
   it('keeps Save available during manual sorting and sends eligible clients through the existing request action', async () => {
