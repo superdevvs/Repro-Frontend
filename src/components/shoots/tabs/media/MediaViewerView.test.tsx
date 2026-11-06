@@ -1,9 +1,10 @@
 import '@testing-library/jest-dom/vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MediaViewer } from './MediaViewer';
 import type { MediaFile } from '@/hooks/useShootFiles';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
 // jsdom omits this browser API used by the lightbox's zoom-centering effect.
 Object.defineProperty(HTMLElement.prototype, 'scrollTo', { configurable: true, writable: true, value: vi.fn() });
@@ -90,6 +91,45 @@ describe('Focus glass media viewer', () => {
     expect(apiGet).not.toHaveBeenCalled();
     await user.click(screen.getByRole('menuitem', { name: 'Request modification' }));
     expect(await screen.findByRole('textbox', { name: 'Modification request' })).toBeVisible();
+  });
+  it('lets Rename take focus and submit a new basename from Actions without closing the viewer', async () => {
+    const user = userEvent.setup();
+    const rename = vi.fn(async () => ({ ok: true as const }));
+    render(<MediaViewer {...base} onRenameFilename={rename} />);
+    await user.click(screen.getByRole('button', { name: 'Image actions' }));
+    const renameItem = screen.getByRole('menuitem', { name: 'Rename filename' });
+    expect(renameItem).not.toHaveAttribute('data-disabled');
+    await user.click(renameItem);
+    const input = await screen.findByRole('textbox', { name: 'New filename' });
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input).toHaveValue('photo-1');
+    await user.clear(input);
+    await user.type(input, 'Kitchen windows');
+    const composer = screen.getByRole('dialog', { name: 'Rename filename' });
+    await user.click(within(composer).getByRole('button', { name: 'Save name' }));
+    await waitFor(() => expect(rename).toHaveBeenCalledExactlyOnceWith('1', 'Kitchen windows'));
+    expect(screen.queryByRole('dialog', { name: 'Rename filename' })).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Media Viewer' })).toBeVisible();
+    expect(base.onClose).not.toHaveBeenCalled();
+  });
+  it('closes only the Rename composer on Escape when the viewer is inside the shoot dialog', async () => {
+    const user = userEvent.setup();
+    const closeShoot = vi.fn();
+    render(<Dialog open onOpenChange={closeShoot}><DialogContent><DialogTitle>Shoot details</DialogTitle><DialogDescription>Property media</DialogDescription><MediaViewer {...base} /></DialogContent></Dialog>);
+    await user.click(screen.getByRole('button', { name: 'Image actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Rename filename' }));
+    const input = await screen.findByRole('textbox', { name: 'New filename' });
+    await waitFor(() => expect(input).toHaveFocus());
+    await user.type(input, ' unsaved');
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Rename filename' })).not.toBeInTheDocument());
+    expect(screen.getByRole('dialog', { name: 'Media Viewer' })).toBeVisible();
+    expect(base.onClose).not.toHaveBeenCalled();
+    expect(closeShoot).not.toHaveBeenCalled();
+    expect(base.onRenameFilename).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Image actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Rename filename' }));
+    expect(await screen.findByRole('textbox', { name: 'New filename' })).toHaveValue('photo-1');
   });
   it('lets comments contain zoom shortcuts and arrows without moving the image', async () => {
     const user = userEvent.setup();

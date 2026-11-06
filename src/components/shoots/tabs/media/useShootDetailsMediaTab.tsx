@@ -440,19 +440,6 @@ export function useShootDetailsMediaTab({
   }, [clearSelection, displayTab]);
 
   useEffect(() => {
-    if (!viewerOpen || viewerFiles.length === 0) {
-      return;
-    }
-
-    const allFiles = [...rawFiles, ...clientVisibleEditedFiles];
-    const nextViewerFiles = viewerFiles.map((file) => allFiles.find((candidate) => candidate.id === file.id) ?? file);
-    const hasChanged = nextViewerFiles.some((file, index) => file !== viewerFiles[index]);
-    if (hasChanged) {
-      setViewerFiles(nextViewerFiles);
-    }
-  }, [clientVisibleEditedFiles, rawFiles, setViewerFiles, viewerFiles, viewerOpen]);
-
-  useEffect(() => {
     if (typeof window === 'undefined') return;
     const handleOpenUpload = (event: Event) => {
       const detail = (event as CustomEvent<{ shootId?: string | number; displayTab?: 'uploaded' | 'edited' }>).detail;
@@ -530,6 +517,8 @@ export function useShootDetailsMediaTab({
     includeHidden: true,
     cacheKey: shootFilesCacheKey,
   });
+  const unassignedFiles = useMemo(() => isClient ? [] : (displayTab === 'uploaded' ? allRawFiles : allEditedFiles)
+    .filter(file => !(file.shoot_service_id ?? file.shootServiceId)), [allEditedFiles, allRawFiles, displayTab, isClient]);
 
   const mergeUniqueFiles = (baseFiles: MediaFile[], extraFiles: MediaFile[]): MediaFile[] => {
     if (extraFiles.length === 0) return baseFiles;
@@ -796,6 +785,18 @@ export function useShootDetailsMediaTab({
     [getSortableFiles, manualOrder, setManualOrder],
   );
 
+  const renameFiles = useMemo(() => {
+    // Unassigned is intentionally shoot-wide, including files outside the active
+    // unit. Assigned sibling-unit files are never added to this selection pool.
+    // The current query row wins over a local copy when permissions refresh.
+    return [...new Map([...rawFiles, ...clientVisibleEditedFiles, ...unassignedFiles]
+      .map(file => [String(file.id), file])).values()];
+  }, [clientVisibleEditedFiles, rawFiles, unassignedFiles]);
+  useEffect(() => {
+    if (!viewerOpen || viewerFiles.length === 0) return;
+    const nextViewerFiles = viewerFiles.map(file => renameFiles.find(candidate => candidate.id === file.id) ?? file);
+    if (nextViewerFiles.some((file, index) => file !== viewerFiles[index])) setViewerFiles(nextViewerFiles);
+  }, [renameFiles, setViewerFiles, viewerFiles, viewerOpen]);
   const {
     handleDirectDrop,
     handleTabDragEnter,
@@ -832,6 +833,7 @@ export function useShootDetailsMediaTab({
     setDisplayTab,
     rawFiles,
     editedFiles: isClient ? clientVisibleEditedFiles : editedFiles,
+    renameFiles,
     setRawFiles,
     setEditedFiles,
     showUploadTab,
@@ -847,9 +849,14 @@ export function useShootDetailsMediaTab({
   const isSuperadmin = normalizedRole === 'superadmin';
   const isSalesRep = isSalesRepRole(role);
   const canInteractSingleMedia = isClient || isSalesRep || ['admin', 'superadmin', 'editing_manager'].includes(normalizedRole);
+  const selectedFilesForRename = useMemo(() => {
+    const byId = new Map(renameFiles.map(file => [String(file.id), file]));
+    return [...selectedFiles].map(id => byId.get(String(id))).filter((file): file is MediaFile => Boolean(file));
+  }, [renameFiles, selectedFiles]);
   const canRenameFilename =
     !isClient &&
-    ![...rawFiles, ...editedFiles].some(file => selectedFiles.has(file.id) && file.can_interact === false) &&
+    selectedFilesForRename.length === selectedFiles.size &&
+    selectedFilesForRename.every(file => file.can_interact !== false) &&
     (
       isAdmin ||
       isSuperadmin ||
@@ -865,10 +872,6 @@ export function useShootDetailsMediaTab({
     setShowAiEditDialog,
     setBatchRenameOpen,
   });
-  const selectedFilesForRename = useMemo(
-    () => [...rawFiles, ...(isClient ? clientVisibleEditedFiles : editedFiles)].filter((file) => selectedFiles.has(file.id)),
-    [clientVisibleEditedFiles, editedFiles, isClient, rawFiles, selectedFiles],
-  );
   const {
     prompt: postRenamePrompt,
     plan: postRenamePlan,
@@ -1018,8 +1021,6 @@ export function useShootDetailsMediaTab({
     isDelivered, isSubmittedForReview, displayTab,
   });
   const displayFiles = displayTab === 'edited' ? clientVisibleEditedFiles : rawFiles;
-  const unassignedFiles = isClient ? [] : (displayTab === 'uploaded' ? allRawFiles : allEditedFiles)
-    .filter(file => !(file.shoot_service_id ?? file.shootServiceId));
   const editorRestrictedToEditedTab = isEditor;
   const canUploadInDisplayTab = showUploadTab && (!editorRestrictedToEditedTab || displayTab === 'edited');
   const canDeleteInDisplayTab = canDeleteMediaSelection(selectedFiles, displayFiles, canDeleteFile);
@@ -1350,7 +1351,7 @@ export function useShootDetailsMediaTab({
       <BatchRenameDialog
         open={batchRenameOpen}
         onOpenChange={setBatchRenameOpen}
-        selectedFiles={[...rawFiles, ...editedFiles].filter((file) => selectedFiles.has(file.id))}
+        selectedFiles={selectedFilesForRename}
         apiEnabled={MEDIA_BATCH_RENAME_API_ENABLED}
         onSubmit={handleBatchRenameFilenames}
       />

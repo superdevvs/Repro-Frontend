@@ -56,6 +56,7 @@ export function useShootMediaActions({
   setDisplayTab,
   rawFiles,
   editedFiles,
+  renameFiles,
   setRawFiles,
   setEditedFiles,
   showUploadTab,
@@ -718,7 +719,7 @@ export function useShootMediaActions({
 
 
   const { handleRenameFilename, handleBatchRenameFilenames } = createShootMediaRenameActions({
-    shoot, rawFiles, editedFiles, selectedFiles, setSelectedFiles,
+    shoot, rawFiles, editedFiles, renameFiles, selectedFiles, setSelectedFiles,
     setRawFiles, setEditedFiles, queryClient, onShootUpdate, toast, updateSingleFile,
   });
 

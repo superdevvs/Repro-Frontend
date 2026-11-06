@@ -6,14 +6,14 @@ import { validateMediaFilenameInput } from '@/features/media-filename-rename/fil
 import type { UseShootMediaActionsParams } from './shootMediaActionTypes';
 
 type RenameActionParams = Pick<UseShootMediaActionsParams,
-  'shoot' | 'rawFiles' | 'editedFiles' | 'selectedFiles' | 'setSelectedFiles'
+  'shoot' | 'rawFiles' | 'editedFiles' | 'renameFiles' | 'selectedFiles' | 'setSelectedFiles'
   | 'setRawFiles' | 'setEditedFiles' | 'queryClient' | 'onShootUpdate' | 'toast'
 > & {
   updateSingleFile: (fileId: string, updater: (file: MediaFile) => MediaFile) => void;
 };
 
 export function createShootMediaRenameActions({
-  shoot, rawFiles, editedFiles, selectedFiles, setSelectedFiles,
+  shoot, rawFiles, editedFiles, renameFiles = [...rawFiles, ...editedFiles], selectedFiles, setSelectedFiles,
   setRawFiles, setEditedFiles, queryClient, onShootUpdate, toast, updateSingleFile,
 }: RenameActionParams) {
   const handleRenameFilename = async (fileId: string, nextFilename: string) => {
@@ -26,8 +26,9 @@ export function createShootMediaRenameActions({
       return { ok: false as const };
     }
 
-    const targetFile = [...rawFiles, ...editedFiles].find((file) => file.id === fileId);
-    if (!targetFile) {
+    const targetFile = renameFiles.find((file) => String(file.id) === String(fileId));
+    if (!targetFile || targetFile.can_interact === false) {
+      toast({ title: 'Rename unavailable', description: 'This file is no longer available for rename.', variant: 'destructive' });
       return { ok: false as const };
     }
 
@@ -133,6 +134,13 @@ export function createShootMediaRenameActions({
         variant: 'destructive',
       });
       return;
+    }
+
+    const filesById = new Map(renameFiles.map(file => [String(file.id), file]));
+    if (fileIds.some(id => !filesById.has(id) || filesById.get(id)?.can_interact === false)) {
+      const message = 'One or more selected files are no longer available for rename. Select the files again.';
+      toast({ title: 'Rename unavailable', description: message, variant: 'destructive' });
+      throw new Error(message);
     }
 
     if (payload.mode === 'replace' && !String(payload.find || '').trim()) {

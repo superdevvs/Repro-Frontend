@@ -53,6 +53,8 @@ export interface UseShootMediaActionsParams {
   setDisplayTab: Dispatch<SetStateAction<'uploaded' | 'edited'>>;
   rawFiles: MediaFile[];
   editedFiles: MediaFile[];
+  /** Scoped library plus the current lane's Unassigned files available for rename. */
+  renameFiles?: MediaFile[];
   setRawFiles: Dispatch<SetStateAction<MediaFile[]>>;
   setEditedFiles: Dispatch<SetStateAction<MediaFile[]>>;
   showUploadTab: boolean;

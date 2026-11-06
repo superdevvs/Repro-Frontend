@@ -1,17 +1,20 @@
-import { Children, isValidElement, type ReactElement } from 'react';
+import { Children, isValidElement, type ComponentProps, type ReactElement } from 'react';
 import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MediaFile } from '@/hooks/useShootFiles';
 import type { ShootData } from '@/types/shoots';
 import type { ShootDetailsMediaTabViewProps } from './shootDetailsMediaTabViewTypes';
 import { useShootDetailsMediaTab } from './useShootDetailsMediaTab';
+import { BatchRenameDialog } from './BatchRenameDialog';
 
 const mocks = vi.hoisted(() => ({
   raw: [{ id: '1', filename: '01.jpg' }, { id: '2', filename: '02.jpg' }],
   edited: [{ id: '3', filename: '03.jpg' }],
   emptyUnit: false,
   allRaw: null as MediaFile[] | null,
+  allEdited: null as MediaFile[] | null,
   desktop: false,
+  renameFiles: [] as MediaFile[],
   uploads: [],
   toast: vi.fn(),
   queryClient: { invalidateQueries: vi.fn() },
@@ -28,12 +31,15 @@ vi.mock('@/features/shoot-units/useUnitMediaScope', () => ({
   useUnitMediaScope: (shoot: ShootData) => ({ shoot, activeUnitId: mocks.emptyUnit ? 'unit-1' : null }),
   useScopedShootFiles: (_shoot: ShootData, _unitId: null, lane: string) => ({
     data: mocks.emptyUnit ? [] : lane === 'raw' ? mocks.raw : mocks.edited,
-    allData: lane === 'raw' ? mocks.allRaw ?? mocks.raw : mocks.edited,
+    allData: lane === 'raw' ? mocks.allRaw ?? mocks.raw : mocks.allEdited ?? mocks.edited,
     isLoading: false,
   }),
 }));
 vi.mock('@/services/autoenhanceService', () => ({ autoenhanceService: { getEditingTypes: async () => [] } }));
-vi.mock('./useShootMediaActions', () => ({ markMenuOptions: [], useShootMediaActions: () => ({}) }));
+vi.mock('./useShootMediaActions', () => ({ markMenuOptions: [], useShootMediaActions: (options: { renameFiles?: MediaFile[] }) => {
+  mocks.renameFiles = options.renameFiles ?? [];
+  return {};
+} }));
 vi.mock('./usePostRenameBatchPrompt', () => ({ usePostRenameBatchPrompt: () => ({}) }));
 vi.mock('./useShootFileScanStatusRenderer', () => ({ useShootFileScanStatusRenderer: () => () => null }));
 vi.mock('./ShootDetailsMediaTabView', () => ({ ShootDetailsMediaTabView: () => null }));
@@ -54,7 +60,22 @@ function setup() {
   };
   const select = (ids: string[]) => act(() => controls().setSelectedFiles(new Set(ids)));
   const drag = () => act(() => controls().handleManualOrderChange(mocks.raw as MediaFile[], ['2', '1']));
-  return { ...hook, controls, select, drag };
+  const renameDialog = () => {
+    const dialog = Children.toArray(hook.result.current.props.children)
+      .find(child => isValidElement(child) && child.type === BatchRenameDialog);
+    return (dialog as ReactElement<ComponentProps<typeof BatchRenameDialog>>).props;
+  };
+  const openRailRename = () => {
+    const event = new CustomEvent('shoot-media-rename-open', { detail: { shootId: shoot.id }, cancelable: true });
+    act(() => { window.dispatchEvent(event); });
+    return event.defaultPrevented;
+  };
+  const viewer = () => {
+    const dialog = Children.toArray(hook.result.current.props.children)
+      .find(child => isValidElement(child) && 'viewerFiles' in (child.props as object));
+    return (dialog as ReactElement<{ viewerFiles: MediaFile[]; viewerOpen: boolean }>).props;
+  };
+  return { ...hook, controls, select, drag, renameDialog, openRailRename, viewer };
 }
 
 beforeEach(() => {
@@ -63,10 +84,89 @@ beforeEach(() => {
   mocks.queryClient.invalidateQueries.mockClear();
   mocks.emptyUnit = false;
   mocks.allRaw = null;
+  mocks.allEdited = null;
   mocks.desktop = false;
+  mocks.renameFiles = [];
   vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => success()));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+describe('Unassigned media rename selection', () => {
+  it.each(['uploaded', 'edited'] as const)('opens batch rename with shoot-wide %s unassigned files when the active unit is empty', lane => {
+    mocks.emptyUnit = true;
+    const unassigned = [{ id: '90', filename: 'unassigned.jpg', can_interact: true }];
+    if (lane === 'uploaded') mocks.allRaw = unassigned;
+    else mocks.allEdited = unassigned;
+    const view = setup();
+    if (lane === 'edited') act(() => view.controls().setDisplayTab('edited'));
+    view.select(['90']);
+    expect(view.controls().canBatchRename).toBe(true);
+    expect(view.openRailRename()).toBe(true);
+    expect(view.renameDialog().open).toBe(true);
+    expect(view.renameDialog().selectedFiles.map(file => file.id)).toEqual(['90']);
+    expect(mocks.renameFiles.map(file => file.id)).toEqual(['90']);
+  });
+
+  it('refreshes an open Unassigned viewer from the confirmed all-unit query row', () => {
+    mocks.emptyUnit = true;
+    const original = { id: '90', filename: 'original.jpg', can_interact: true };
+    mocks.allRaw = [original];
+    const view = setup();
+    act(() => view.controls().openViewer(0, [original], 'uploaded'));
+    expect(view.viewer().viewerFiles[0].filename).toBe('original.jpg');
+    mocks.allRaw = [{ ...original, filename: 'confirmed-new-name.jpg', media_revision: 4 }];
+    view.rerender(options);
+    expect(view.viewer().viewerOpen).toBe(true);
+    expect(view.viewer().viewerFiles[0].filename).toBe('confirmed-new-name.jpg');
+    expect(view.viewer().viewerFiles[0].media_revision).toBe(4);
+  });
+
+  it('deduplicates scoped and unassigned rows while keeping selection order for the batch preview', () => {
+    mocks.allRaw = [mocks.raw[0], { id: '90', filename: 'unassigned.jpg' }];
+    const view = setup();
+    view.select(['90', '1']);
+    expect(view.controls().canBatchRename).toBe(true);
+    expect(view.renameDialog().selectedFiles.map(file => file.id)).toEqual(['90', '1']);
+    expect(mocks.renameFiles.filter(file => file.id === '1')).toHaveLength(1);
+  });
+
+  it('does not resolve assigned sibling-unit or unknown IDs into a rename request', () => {
+    mocks.allRaw = [{ id: '91', filename: 'sibling-unit.jpg', shoot_service_id: 7, can_interact: true }];
+    const view = setup();
+    view.select(['1', '91']);
+    expect(view.controls().canBatchRename).toBe(false);
+    expect(view.openRailRename()).toBe(false);
+    expect(view.renameDialog().open).toBe(false);
+    expect(mocks.renameFiles.some(file => file.id === '91')).toBe(false);
+    view.select(['1', 'unknown']);
+    expect(view.controls().canBatchRename).toBe(false);
+    expect(view.openRailRename()).toBe(false);
+  });
+
+  it('uses refreshed Unassigned permissions over a stale scoped copy', () => {
+    mocks.allRaw = [{ ...mocks.raw[0], can_interact: true }];
+    const view = setup();
+    view.select(['1']);
+    expect(view.controls().canBatchRename).toBe(true);
+    mocks.allRaw = [{ ...mocks.raw[0], can_interact: false }];
+    view.rerender(options);
+    expect(view.controls().canBatchRename).toBe(false);
+    expect(view.openRailRename()).toBe(false);
+    expect(mocks.renameFiles.find(file => file.id === '1')?.can_interact).toBe(false);
+  });
+
+  it('denies rename for an Unassigned file that may be downloaded but cannot be changed', () => {
+    mocks.emptyUnit = true;
+    mocks.allRaw = [{ id: '90', filename: 'read-only.jpg', can_download: true, can_interact: false,
+      can_delete: false, can_manage_visibility: false }];
+    const view = setup();
+    view.select(['90']);
+    expect([...view.controls().selectedFiles]).toEqual(['90']);
+    expect(view.controls().canBatchRename).toBe(false);
+    expect(view.openRailRename()).toBe(false);
+    expect(view.renameDialog().open).toBe(false);
+  });
+});
 
 describe('selection-scoped media sorting', () => {
   it('reports potential Delete capability separately from an actionable selection', () => {
