@@ -81,19 +81,22 @@ export function Public3dTourViewer({
   const [frameState, setFrameState] = useState<'error' | 'loading' | 'ready'>('loading');
   const [frameRevision, setFrameRevision] = useState(0);
   const frameContainer = useRef<HTMLDivElement>(null);
-  const [canStartLoading, setCanStartLoading] = useState(() => typeof IntersectionObserver === 'undefined');
+  const frameKey = `${activeProvider}-${frameRevision}-${activeSource?.inline ?? ''}`;
+  const [visibleFrame, setVisibleFrame] = useState<string | null>(null);
+  const canStartLoading = typeof IntersectionObserver === 'undefined' || visibleFrame === frameKey;
 
   useEffect(() => {
+    setVisibleFrame(null);
     if (!activeSource?.inline || !frameContainer.current || typeof IntersectionObserver === 'undefined') return;
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((entry) => entry.isIntersecting)) {
-        setCanStartLoading(true);
+        setVisibleFrame(frameKey);
         observer.disconnect();
       }
     }, { rootMargin: '300px' });
     observer.observe(frameContainer.current);
     return () => observer.disconnect();
-  }, [activeSource?.inline]);
+  }, [activeSource?.inline, frameKey]);
 
   useEffect(() => {
     if (activeSource?.inline) setFrameState('loading');
@@ -168,7 +171,7 @@ export function Public3dTourViewer({
         {activeSource?.inline ? (
           <>
             <iframe
-              key={`${activeProvider}-${frameRevision}-${activeSource.inline}`}
+              key={frameKey}
               src={activeProvider === 'matterport' ? addAutoplay(activeSource.inline, autoplay) : activeSource.inline}
               className={cn('absolute inset-0 h-full w-full border-0 transition-opacity duration-200', frameState === 'ready' ? 'opacity-100' : 'opacity-0')}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; gyroscope; picture-in-picture; vr; xr-spatial-tracking"

@@ -119,12 +119,12 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
     
     const windowHeight = window.innerHeight;
     const sections = [
+      { id: 'floorplan' as SectionId, ref: floorplanRef },
+      { id: 'embeds' as SectionId, ref: embedsRef },
       { id: 'header' as SectionId, ref: headerRef },
       { id: 'gallery' as SectionId, ref: galleryRef },
       { id: 'details' as SectionId, ref: detailsRef },
-      { id: 'embeds' as SectionId, ref: embedsRef },
       { id: 'video' as SectionId, ref: videoRef },
-      { id: 'floorplan' as SectionId, ref: floorplanRef },
       { id: 'contact' as SectionId, ref: contactRef },
     ];
 

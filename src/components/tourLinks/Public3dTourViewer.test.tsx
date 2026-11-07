@@ -74,6 +74,40 @@ describe('Public3dTourViewer', () => {
     expect(screen.queryByText('Tour viewer unavailable')).not.toBeInTheDocument();
   });
 
+  it('requires fresh viewport eligibility for a changed source and each retry', () => {
+    vi.useFakeTimers();
+    const entered: Array<() => void> = [];
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: IntersectionObserverCallback) {
+        entered.push(() => callback([{ isIntersecting: true } as IntersectionObserverEntry], this as unknown as IntersectionObserver));
+      }
+      observe = vi.fn();
+      disconnect = vi.fn();
+    });
+    const { rerender } = render(<Public3dTourViewer zillowUrl="https://www.zillow.com/view-imx/first" />);
+    act(() => entered[0]());
+    fireEvent.load(screen.getByTitle('Zillow 3D tour'));
+
+    rerender(<Public3dTourViewer zillowUrl="https://www.zillow.com/view-imx/second" />);
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(screen.queryByText('Tour viewer unavailable')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Loading Zillow');
+    // Returning to a previously visible URL also starts a fresh loading attempt.
+    rerender(<Public3dTourViewer zillowUrl="https://www.zillow.com/view-imx/first" />);
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(screen.queryByText('Tour viewer unavailable')).not.toBeInTheDocument();
+    act(() => entered[entered.length - 1]());
+    act(() => vi.advanceTimersByTime(15_000));
+    expect(screen.getByText('Tour viewer unavailable')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry viewer' }));
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(screen.queryByText('Tour viewer unavailable')).not.toBeInTheDocument();
+    act(() => entered[entered.length - 1]());
+    act(() => vi.advanceTimersByTime(15_000));
+    expect(screen.getByText('Tour viewer unavailable')).toBeInTheDocument();
+  });
+
   it('embeds an interactive floorplan in place with no external destination', () => {
     render(<Public3dTourViewer zillowUrl="https://www.zillow.com/view-imx/example?wl=true" zillowView="floorplan" />);
     expect(screen.getByTitle('Zillow interactive floor plan')).toHaveAttribute('src', 'https://www.zillow.com/view-imx/example?wl=true&initialViewType=floorplan');
