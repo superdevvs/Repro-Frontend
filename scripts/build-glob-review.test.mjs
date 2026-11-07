@@ -2,42 +2,25 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
-import { assertReviewedLock, assertRuntimeSource, isReviewedAdvisory, reviewedBuildGlobGuard, reviewedVersions, reviewExpiresAt } from './build-glob-review.mjs';
+import { assertRuntimeSource, reviewedBuildGlobGuard } from './build-glob-review.mjs';
 
 const root = new URL('../', import.meta.url);
-const reviewedLock = () => ({ packages: Object.fromEntries(Object.entries(reviewedVersions).map(([location, version]) => [location, { version }])) });
-const reviewedDate = Date.parse('2026-10-31T00:00:00Z');
 const chunk = (id) => ({ 'app.js': { type: 'chunk', modules: { [id]: {} } } });
 
-test('only the reviewed advisory/package pairs qualify', () => {
-  assert.equal(isReviewedAdvisory('glob', 'GHSA-3g3m-2fjr-6pw4'), true);
-  assert.equal(isReviewedAdvisory('minimatch', 'GHSA-g3hv-75wg-m249'), true);
-  assert.equal(isReviewedAdvisory('minimatch', 'GHSA-3g3m-2fjr-6pw4'), false);
-  assert.equal(isReviewedAdvisory('glob', 'GHSA-new-unreviewed-advisory'), false);
-  assert.equal(isReviewedAdvisory('customer-api', 'GHSA-g3hv-75wg-m249'), false);
+test('the affected build tools resolve patched minimatch with their existing API', () => {
+  const require = createRequire(import.meta.url);
+  for (const owner of ['@electron/universal', '@typescript-eslint/typescript-estree', 'app-builder-lib']) {
+    const fromOwner = createRequire(require.resolve(owner));
+    assert.equal(fromOwner('minimatch/package.json').version, '11.0.5', owner);
+    const { minimatch, Minimatch } = fromOwner('minimatch');
+    assert.equal(minimatch('assets/.config.json', '*.json', { dot: true, matchBase: true }), true, owner);
+    assert.equal(new Minimatch('assets/**', { dot: true }).match('assets/.config.json'), true, owner);
+  }
 });
 
-test('review expires at the explicit cutoff and rejects an invalid clock', () => {
-  assert.doesNotThrow(() => assertReviewedLock(reviewedLock(), reviewedDate));
-  assert.throws(() => assertReviewedLock(reviewedLock(), Date.parse(reviewExpiresAt)), /expired/);
-  assert.throws(() => assertReviewedLock(reviewedLock(), Number.NaN), /expired/);
-});
-
-test('version changes, new nested installations, and missing reviewed packages fail closed', () => {
-  const changed = reviewedLock();
-  changed.packages['node_modules/minimatch'].version = '3.1.6';
-  assert.throws(() => assertReviewedLock(changed, reviewedDate), /Unreviewed/);
-  const added = reviewedLock();
-  added.packages['node_modules/new-tool/node_modules/minimatch'] = { version: '3.1.5' };
-  assert.throws(() => assertReviewedLock(added, reviewedDate), /Unreviewed/);
-  const removed = reviewedLock();
-  delete removed.packages['node_modules/glob'];
-  assert.throws(() => assertReviewedLock(removed, reviewedDate), /Unreviewed/);
-});
-
-test('current lock exactly matches the reviewed dependency tree', () => {
+test('the lock keeps glob out of Sucrase and uses the patched follow-redirects', () => {
   const lock = JSON.parse(readFileSync(new URL('package-lock.json', root), 'utf8'));
-  assertReviewedLock(lock, reviewedDate);
+  assert.equal(lock.packages['node_modules/sucrase'].dependencies.glob, undefined);
   assert.equal(lock.packages['node_modules/follow-redirects'].version, '1.16.2');
 });
 
@@ -88,11 +71,11 @@ test('both shipped renderer build configurations keep the module-graph gate', ()
   }
 });
 
-test('audit scans CJS/MJS runtime source and grants no exception for the withdrawn braces advisory', () => {
+test('audit scans CJS/MJS runtime source and leaves the retired build advisories unapproved', () => {
   const audit = readFileSync(new URL('scripts/audit-with-policy.mjs', root), 'utf8');
   assert.match(audit, /sourceExtensions[^\n]*'\.cjs'[^\n]*'\.mjs'/);
   assert.match(audit, /assertRuntimeSource\(path\.relative/);
   assert.doesNotMatch(audit, /const buildOnlyAdvisory\s*=/);
   assert.doesNotMatch(audit, /buildAllowed/);
-  assert.match(audit, /withdrawn upstream on 2026-10-23/);
+  assert.doesNotMatch(audit, /GHSA-(?:vfj7-8cjw-p6xm|3g3m-2fjr-6pw4|g3hv-75wg-m249)/);
 });

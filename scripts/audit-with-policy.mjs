@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { assertReviewedLock, assertRuntimeSource, isReviewedAdvisory, reviewedPackages, reviewExpiresAt } from './build-glob-review.mjs';
+import { assertRuntimeSource } from './build-glob-review.mjs';
 
 const projectRoot = path.resolve(import.meta.dirname, '..');
 const allowedAdvisory = 'GHSA-qwww-vcr4-c8h2';
@@ -63,7 +63,6 @@ const collectSourceFiles = (directory) => {
 collectSourceFiles(path.join(projectRoot, 'src'));
 collectSourceFiles(path.join(projectRoot, 'packages'));
 
-assertReviewedLock(packageLock);
 for (const file of sourceFiles) {
   assertRuntimeSource(path.relative(projectRoot, file), readFileSync(file, 'utf8'));
 }
@@ -143,8 +142,7 @@ for (const packageName of Object.keys(vulnerabilities)) {
   }
   for (const id of ids) {
     const routerAllowed = id === allowedAdvisory && ['react-router', 'react-router-dom'].includes(packageName);
-    const reviewedGlobAllowed = isReviewedAdvisory(packageName, id);
-    if (!routerAllowed && !reviewedGlobAllowed) {
+    if (!routerAllowed) {
       unexpected.push(`${packageName}: ${id}`);
     }
   }
@@ -154,21 +152,7 @@ if (unexpected.length > 0) {
   throw new Error(`npm audit found unapproved advisories:\n${unexpected.map((item) => `- ${item}`).join('\n')}`);
 }
 
-// The approved packages are an upper bound, not an exact expectation: anything
-// outside this set is unreviewed and must fail, but an empty report means the
-// advisory has cleared upstream and is strictly better than the reviewed state.
-const approvedPackages = new Set(['react-router', 'react-router-dom', ...reviewedPackages]);
-const affectedPackages = Object.keys(vulnerabilities).sort();
-const unapprovedPackages = affectedPackages.filter((name) => !approvedPackages.has(name));
-
-if (unapprovedPackages.length > 0) {
-  throw new Error(
-    `Only the explicitly reviewed Router and build-tool packages are covered; ` +
-      `also affected: ${unapprovedPackages.join(', ')}`,
-  );
-}
-
-if (affectedPackages.length === 0) {
+if (Object.keys(vulnerabilities).length === 0) {
   console.log(
     `Audit policy passed. npm reports no vulnerabilities: ${allowedAdvisory} is no longer ` +
       `flagged for Router ${allowedRouterVersion}. The exception in this script is now dormant ` +
@@ -176,9 +160,7 @@ if (affectedPackages.length === 0) {
   );
 } else {
   console.log(
-    'Audit policy passed with only explicitly reviewed, exposure-constrained advisories. ' +
-      `Router ${allowedRouterVersion} is SPA-only. ` +
-      `The separately reviewed glob/minimatch build-tool scope expires ${reviewExpiresAt}. ` +
+    `Audit policy passed with the reviewed SPA-only Router ${allowedRouterVersion} exception. ` +
       'Use npm run audit:raw to view the non-zero upstream report.',
   );
 }
