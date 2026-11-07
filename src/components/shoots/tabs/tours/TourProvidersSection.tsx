@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import './tourProviders.css';
 import { Box, Check, ChevronDown, Copy, Download, Edit3, ExternalLink, FileArchive, Home, MapPinned, MoreHorizontal, RefreshCw, Share2, Trash2, UploadCloud, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -14,6 +14,9 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { normalizePublicZillowTourUrl } from '@/components/tourLinks/publicZillowTour';
+import { useZillowVisibility, type ZillowVisibilityOptions } from './useZillowVisibility';
 import { useToast } from '@/hooks/use-toast';
 import type {
   NormalizedIguideOfflinePackage,
@@ -52,7 +55,7 @@ interface TourProvidersSectionProps {
   iguideLineId?: string;
   cancelEdit3D: () => void;
   confirmDelete3D: (key: Managed3DLinkKey) => void | Promise<void>;
-  copyLink: (key: string) => void;
+  copyLink: (key: string, resolvedUrl?: string) => void;
   createCubicasaOrderButton?: React.ReactNode;
   cubicasaExternalIdInput?: string;
   cubicasaOrderIdInput?: string;
@@ -86,6 +89,7 @@ interface TourProvidersSectionProps {
   showMatterportSection: boolean;
   show3dTours: boolean;
   showZillowSection: boolean;
+  zillowOptions?: ZillowVisibilityOptions;
   startEdit3D: (key: Managed3DLinkKey) => void;
   syncCubicasaNow?: () => void | Promise<void>;
   syncIguideNow?: () => void | Promise<void>;
@@ -311,6 +315,14 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
     visibleMatterportKeys,
   } = props;
   const { toast } = useToast();
+  const zillowId = useId();
+  const { visibility: zillowVisibility, saving: savingZillowVisibility, saveVisibility } = useZillowVisibility(
+    shootId, unitId, props.zillowOptions, onShootUpdate,
+  );
+  const showPublicZillow = zillowVisibility.show_zillow_on_branded;
+  const savedZillowUrl = !showPublicZillow && props.zillowOptions?.canManage && props.zillowOptions.canOpenSavedLink
+    ? normalizePublicZillowTourUrl(tourLinks.zillow_3d)
+    : '';
   const [openProvider, setOpenProvider] = useState<ProviderId | null>(
     isAdmin && iguideSync.offlinePackage.exists ? 'iguide' : null,
   );
@@ -399,11 +411,17 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
     const items: React.ReactNode[] = [];
     if (index > 0) items.push(<DropdownMenuSeparator key={`${key}-separator`} />);
     items.push(<DropdownMenuLabel key={`${key}-label`} className="text-[10px] uppercase text-muted-foreground">{label}</DropdownMenuLabel>);
-    if (url) {
+    const canSharePublicLink = key !== 'zillow_3d' || showPublicZillow;
+    const savedUrl = key === 'zillow_3d' ? savedZillowUrl : '';
+    if (url && (canSharePublicLink || savedUrl)) {
       items.push(
-        <DropdownMenuItem key={`${key}-copy`} onSelect={() => copyLink(key)}>
-          <Copy className="mr-2 h-3.5 w-3.5" />Copy link
+        <DropdownMenuItem key={`${key}-copy`} onSelect={() => savedUrl ? copyLink(key, savedUrl) : copyLink(key)}>
+          <Copy className="mr-2 h-3.5 w-3.5" />{savedUrl ? 'Copy saved link' : 'Copy link'}
         </DropdownMenuItem>,
+      );
+    }
+    if (url && canSharePublicLink) {
+      items.push(
         <DropdownMenuItem key={`${key}-share`} onSelect={() => shareLink(key)}>
           <Share2 className="mr-2 h-3.5 w-3.5" />Share link
         </DropdownMenuItem>,
@@ -773,18 +791,39 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
             status={<ProviderStatus kind={tourLinks.zillow_3d ? 'ready' : 'empty'}>{tourLinks.zillow_3d ? 'Ready' : 'Not set'}</ProviderStatus>}
             open={openProvider === 'zillow'}
             onToggle={(id) => setOpenProvider((current) => current === id ? null : id)}
-            action={tourLinks.zillow_3d ? (
-              <Button size="sm" className="h-8 shrink-0 px-3 text-xs" onClick={() => openLink('zillow_3d')}>
+            action={tourLinks.zillow_3d && (showPublicZillow || savedZillowUrl) ? (
+              <Button size="sm" className="h-8 shrink-0 px-3 text-xs" onClick={() => {
+                if (savedZillowUrl) window.open(savedZillowUrl, '_blank', 'noopener,noreferrer');
+                else openLink('zillow_3d');
+              }}>
                 <ExternalLink className="mr-1 h-3.5 w-3.5" />Open
               </Button>
-            ) : isAdmin ? (
+            ) : isAdmin && !tourLinks.zillow_3d ? (
               <Button size="sm" variant="outline" className="h-8 shrink-0 px-3 text-xs" onClick={() => startEdit3D('zillow_3d')}>
                 Add link
               </Button>
             ) : undefined}
-            menu={<ProviderMenu label="Zillow 3D">{linkMenuItems([{ key: 'zillow_3d', label: 'Tour link' }])}</ProviderMenu>}
+            menu={isAdmin || (tourLinks.zillow_3d && (showPublicZillow || savedZillowUrl))
+              ? <ProviderMenu label="Zillow 3D">{linkMenuItems([{ key: 'zillow_3d', label: 'Tour link' }])}</ProviderMenu>
+              : undefined}
           >
             <LinkEditor {...props} isAdmin={isAdmin} linkKey="zillow_3d" label="Zillow 3D Home Tour" />
+            {props.zillowOptions?.canManage && (
+              <div className="mt-3 space-y-2 border-t pt-3" aria-busy={savingZillowVisibility}>
+                <p className="text-xs font-medium">Public tour visibility</p>
+                <p className="text-[11px] text-muted-foreground">Your saved Zillow link stays in the dashboard. MLS pages require an unbranded link.</p>
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor={`${zillowId}-branded`} className="text-xs">Show on Branded</Label>
+                  <Switch id={`${zillowId}-branded`} checked={zillowVisibility.show_zillow_on_branded} disabled={savingZillowVisibility}
+                    onCheckedChange={(value) => void saveVisibility('show_zillow_on_branded', value)} />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor={`${zillowId}-mls`} className="text-xs">Show on MLS</Label>
+                  <Switch id={`${zillowId}-mls`} checked={zillowVisibility.show_zillow_on_mls} disabled={savingZillowVisibility}
+                    onCheckedChange={(value) => void saveVisibility('show_zillow_on_mls', value)} />
+                </div>
+              </div>
+            )}
           </ProviderRow>
         )}
       </div>

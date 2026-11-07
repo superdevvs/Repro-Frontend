@@ -34,6 +34,7 @@ export function ShootDetailsTourTabView(props: any) {
     showMatterportSection,
     showIguideSection,
     showZillowSection,
+    zillowOptions,
     publicVideoLinkConfigs,
     editingVideoLinkKey,
     videoLinkValue,
@@ -124,6 +125,7 @@ export function ShootDetailsTourTabView(props: any) {
       showMatterportSection={showMatterportSection}
       showIguideSection={showIguideSection}
       showZillowSection={showZillowSection}
+      zillowOptions={zillowOptions}
       visibleMatterportKeys={visibleMatterportKeys}
       visibleIguideKeys={visibleIguideKeys}
       tourLinks={tourLinks}

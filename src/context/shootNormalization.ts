@@ -878,6 +878,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
         ? shoot.previewImages.filter((image: unknown): image is string => typeof image === 'string' && Boolean(image))
         : undefined,
     media: shoot.media || undefined,
+    can_manage_zillow_visibility: shoot.can_manage_zillow_visibility === true,
     tourLinks: shoot.tour_links || undefined,
     iguideTourUrl: shoot.iguide_tour_url || undefined,
     iguideFloorplans: shoot.iguide_floorplans || undefined,

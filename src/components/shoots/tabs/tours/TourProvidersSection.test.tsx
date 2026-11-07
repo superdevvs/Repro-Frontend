@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { getNormalizedIguideSync } from '@/utils/shootTourData';
 import { TourProvidersSection } from './TourProvidersSection';
@@ -39,6 +39,62 @@ const baseProps = (): Props => ({
 });
 
 describe('TourProvidersSection', () => {
+
+  it('lets an authorized client hide one public page before adding a unit Zillow link', async () => {
+    const props = {
+      ...baseProps(), isAdmin: false, isClientView: true, unitId: 6,
+      zillowOptions: { canManage: true, canOpenSavedLink: true, showOnBranded: true, showOnMls: true },
+    };
+    const fetch = vi.fn(async () => ({
+      ok: true, json: async () => ({ data: { show_zillow_on_branded: true, show_zillow_on_mls: false } }),
+    }));
+    vi.stubGlobal('fetch', fetch);
+    try {
+      render(<TourProvidersSection {...props} />);
+      const zillow = within(screen.getByTestId('tour-provider-zillow'));
+      fireEvent.click(zillow.getByRole('button', { name: /^Zillow 3D (Not set|Ready)/ }));
+      fireEvent.click(zillow.getByRole('switch', { name: 'Show on MLS' }));
+
+      await waitFor(() => expect(zillow.getByRole('switch', { name: 'Show on MLS' }).getAttribute('aria-checked')).toBe('false'));
+      expect(zillow.getByRole('switch', { name: 'Show on Branded' }).getAttribute('aria-checked')).toBe('true');
+      expect(fetch).toHaveBeenCalledWith(expect.stringContaining('/api/shoots/21/zillow-visibility'), expect.objectContaining({
+        method: 'PATCH', body: JSON.stringify({ show_zillow_on_mls: false, unit_id: 6 }),
+      }));
+      expect(props.onShootUpdate).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('opens a hidden Zillow URL directly only when private access is allowed', () => {
+    const url = 'https://www.zillow.com/view-imx/example-tour';
+    const props = {
+      ...baseProps(), isAdmin: false, isClientView: true, tourLinks: { zillow_3d: url },
+      zillowOptions: { canManage: true, canOpenSavedLink: true, showOnBranded: false, showOnMls: false },
+    };
+    const open = vi.spyOn(window, 'open').mockImplementation(() => null);
+    try {
+      const { rerender } = render(<TourProvidersSection {...props} />);
+      const zillow = within(screen.getByTestId('tour-provider-zillow'));
+      fireEvent.click(zillow.getByRole('button', { name: 'Open' }));
+      expect(open).toHaveBeenCalledWith(url, '_blank', 'noopener,noreferrer');
+      expect(props.openLink).not.toHaveBeenCalled();
+
+      fireEvent.keyDown(zillow.getByRole('button', { name: 'Zillow 3D actions' }), { key: 'Enter' });
+      expect(screen.queryByRole('menuitem', { name: 'Share link' })).toBeNull();
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Copy saved link' }));
+      expect(props.copyLink).toHaveBeenCalledWith('zillow_3d', url);
+
+      rerender(<TourProvidersSection {...props} zillowOptions={{ ...props.zillowOptions, canOpenSavedLink: false }} />);
+      expect(zillow.queryByRole('button', { name: 'Open' })).toBeNull();
+      rerender(<TourProvidersSection {...props} zillowOptions={{ ...props.zillowOptions, canManage: false }} />);
+      expect(zillow.queryByRole('button', { name: 'Open' })).toBeNull();
+      fireEvent.click(zillow.getByRole('button', { name: /^Zillow 3D (Not set|Ready)/ }));
+      expect(zillow.queryByRole('switch', { name: 'Show on Branded' })).toBeNull();
+    } finally {
+      open.mockRestore();
+    }
+  });
   it('keeps only one provider disclosure open at a time', () => {
     render(<TourProvidersSection {...baseProps()} />);
     const matterport = screen.getByTestId('tour-provider-matterport');

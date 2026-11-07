@@ -677,6 +677,7 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     primaryAction: primaryAction ?? undefined,
     files: toArrayValue<ShootFileData>(item.files),
     tourPurchased: toBooleanValue(item.tourPurchased ?? item.tour_purchased),
+    can_manage_zillow_visibility: item.can_manage_zillow_visibility === true,
     tourLinks: (item.tour_links ?? item.tourLinks) as ShootData['tourLinks'],
     // Featured-shoot fields — required so the Shoot History "Featured" tab can
     // identify featured/pending shoots (isFeaturedTabShoot). Without these the

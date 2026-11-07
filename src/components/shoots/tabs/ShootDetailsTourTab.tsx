@@ -391,7 +391,7 @@ export function ShootDetailsTourContent({
   const showTourSettings = !videoOnly && (!isClientView || canManageRealtor);
   const tourSettingsRealtorOnly = isClientView;
   const showPropertyInfo = !videoOnly && Boolean(isAdmin || isClientView);
-  const show3dTours = !isClientView || hasMatterportLinks || hasIguideLinks || hasZillow3dLink;
+  const show3dTours = !isClientView || hasMatterportLinks || hasIguideLinks || hasZillow3dLink || shoot.can_manage_zillow_visibility === true;
   const matterportKeys = ['matterport_branded', 'matterport_mls'] as const;
   const iguideKeys = ['iguide_branded', 'iguide_mls'] as const;
   const publicVideoLinkConfigs: Array<{ key: ManagedVideoLinkKey; label: string; placeholder: string }> = [
@@ -419,7 +419,7 @@ export function ShootDetailsTourContent({
     : iguideKeys;
   const showMatterportSection = !isClientView || visibleMatterportKeys.length > 0;
   const showIguideSection = !isClientView || visibleIguideKeys.length > 0;
-  const showZillowSection = !isClientView || hasZillow3dLink;
+  const showZillowSection = !isClientView || hasZillow3dLink || shoot.can_manage_zillow_visibility === true;
   const getTourUrl = (type: string): string => buildTourUrl(typeof window !== 'undefined' ? window.location.origin : '', shoot?.id || '', type, tourLinks, unitId);
   const getSavedTourLinksFromResponse = (payload: unknown): Record<string, string> => {
     const payloadRecord = asRecord(payload);
@@ -626,9 +626,9 @@ export function ShootDetailsTourContent({
     const nextFeaturedId = embedId === featuredEmbedId ? '' : featuredEmbedId;
     await persistEmbeds(nextEmbeds, nextFeaturedId);
   };
-  const copyLink = (type: string) => {
+  const copyLink = (type: string, resolvedUrl?: string) => {
     try {
-      const url = getTourUrl(type);
+      const url = resolvedUrl ?? getTourUrl(type);
       if (!url) {
         toast({
           title: 'Error',
@@ -1311,7 +1311,7 @@ export function ShootDetailsTourContent({
       shootId={shoot.id}
       onShootUpdate={onShootUpdate}
       isClientView={isClientView}
-      isClientReleaseLocked={isClientReleaseLocked}
+      zillowOptions={{ canManage: shoot.can_manage_zillow_visibility === true, canOpenSavedLink: !isClientReleaseLocked, showOnBranded: sourceTourLinks.show_zillow_on_branded !== false, showOnMls: sourceTourLinks.show_zillow_on_mls !== false }}
       onShowAnalytics={onShowAnalytics}
       getTourUrl={getTourUrl}
       copyLink={copyLink}

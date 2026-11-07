@@ -729,6 +729,7 @@ const ShootDetails: React.FC = () => {
                             isAdmin={isAdmin}
                             isRep={isRep}
                             isClient={isClient}
+                            isClientReleaseLocked={clientReleaseAccess.isClientReleaseLocked}
                             onShootUpdate={loadShoot}
                           />
                         </React.Suspense>
