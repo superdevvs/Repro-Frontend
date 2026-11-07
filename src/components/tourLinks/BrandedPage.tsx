@@ -19,7 +19,7 @@ import { FloorplanSection } from './FloorplanSection';
 import { TourStatsGrid } from './TourStatsGrid';
 import { TourAboutSection } from './TourAboutSection';
 import { Public3dTourViewer } from './Public3dTourViewer';
-import { normalizePublicZillowTourUrl } from './publicZillowTour';
+import { resolvePublicZillowSources } from './publicZillowTour';
 import { resolvePublicEmbedSources, resolvePublicIguideSources } from './publicIguideModel';
 import { normalizePublicTourData, normalizePublicPhotoRenditions } from './publicTourData';
 import { publicTourImageSource } from './shared/publicTourImage';
@@ -86,7 +86,6 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
   const [photos, setPhotos] = useState<string[]>([]);
   const [heroPhotos, setHeroPhotos] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
-  const [zillow3dUrl, setZillow3dUrl] = useState<string | null>(null);
   const [videoLink, setVideoLink] = useState<string | null>(null);
   const [shoot, setShoot] = useState<ShootData | null>(null);
   const [branding, setBranding] = useState<BrandingData | null>(null);
@@ -109,6 +108,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
   const [heroIndex, setHeroIndex] = useState(0);
   const [lockedMessage, setLockedMessage] = useState<string | null>(null);
   const [rawPayload, setRawPayload] = useState<unknown>(null);
+  const { tourUrl: zillow3dUrl, floorplanUrl: zillowFloorplanUrl } = resolvePublicZillowSources(rawPayload, 'branded');
   const photoRenditions = useMemo(() => normalizePublicPhotoRenditions(rawPayload, photos), [rawPayload, photos]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -163,7 +163,6 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
         setPhotos(Array.isArray(data?.photos) ? data.photos : []);
         setHeroPhotos(Array.isArray(data?.hero_photos) ? data.hero_photos : []);
         setVideos(data?.historical_import && Array.isArray(data?.videos) ? data.videos : []);
-        setZillow3dUrl(normalizePublicZillowTourUrl(data?.tour_links?.zillow_3d) || null);
         if (data?.video_link || data?.tour_links?.video_link) setVideoLink(data.video_link || data.tour_links?.video_link);
         if (data?.shoot) setShoot(data.shoot);
         if (data?.branding) setBranding(data.branding);
@@ -384,7 +383,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
         {(matterportUrl || iguideUrl || zillow3dUrl) && (
           <a href="#tour" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">3D Tour</a>
         )}
-        {floorplans.length > 0 && (
+        {(floorplans.length > 0 || zillowFloorplanUrl) && (
           <a href="#floorplan" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Floor Plans</a>
         )}
       </nav>
@@ -689,7 +688,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
 
       {/* Floor Plans */}
       {/* Floor Plans */}
-      <FloorplanSection floorplans={floorplans} />
+      <FloorplanSection floorplans={floorplans} zillowUrl={zillowFloorplanUrl} />
 
       {/* Map + Contact Section — side by side, equal width */}
       <section id="contact" className="max-w-6xl mx-auto px-6 mt-12 mb-12">

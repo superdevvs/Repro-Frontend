@@ -25,7 +25,7 @@ export function HomeifyTour({ data }: { data: PublicTourData }) {
   const hasContact = data.variant === 'branded' && Boolean(shoot?.client_name || shoot?.client_email || shoot?.client_phone || shoot?.office_phone || data.tourSettings.realtor_info);
   const has3d = Boolean(data.iguide.inlineUrl || data.matterportUrl || data.zillowUrl || data.embeds.some((embed) => homeifyEmbedUrl(embed.value)));
   const hasVideo = [...data.videos, data.videoLink].some((value) => value && homeifyEmbedUrl(value));
-  const hasPlans = data.floorplans.some((plan) => Boolean(plan.image || plan.preview_url || plan.previewImages?.length || plan.preview_images?.length || plan.web_url || plan.thumbnail_url));
+  const hasPlans = Boolean(data.zillowFloorplanUrl) || data.floorplans.some((plan) => Boolean(plan.image || plan.preview_url || plan.previewImages?.length || plan.preview_images?.length || plan.web_url || plan.thumbnail_url));
   const price = formatTourPrice(property.price);
   const brandName = data.variant === 'branded' ? shoot?.client_company : '';
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;

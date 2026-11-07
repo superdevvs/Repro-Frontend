@@ -3,7 +3,7 @@ import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { useEffect, useMemo, useState } from 'react';
 import { API_BASE_URL } from '@/config/env';
 import { Public3dTourViewer } from './Public3dTourViewer';
-import { normalizePublicZillowTourUrl } from './publicZillowTour';
+import { resolvePublicZillowSources } from './publicZillowTour';
 import {
   normalizePublicTourUrl,
   resolvePublicIguideSources,
@@ -79,7 +79,7 @@ export const Public3dRedirect = ({ variant }: Public3dRedirectProps) => {
             ? firstUrl(payload.matterport_url, links.matterport_mls)
             : firstUrl(payload.matterport_url, links.matterport_branded, links.matterport),
           iguide: iguideSources.inlineUrl,
-          zillow: variant === 'mls' || payload.locked ? '' : normalizePublicZillowTourUrl(links.zillow_3d),
+          zillow: resolvePublicZillowSources(payload, variant).tourUrl,
         };
         const resolvedProvider = provider || (
           providerTargets.iguide ? 'iguide'

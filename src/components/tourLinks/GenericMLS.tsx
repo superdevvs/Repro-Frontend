@@ -15,6 +15,7 @@ import { restrictedVideoProps, sanitizeTourEmbedHtml } from './videoControlRestr
 import { filterVirtualTourEmbeds, getTourMediaEmbedUrl } from './tourMediaEmbedUrl';
 import { formatTourPrice, normalizeTourDescription } from './tourDisplayUtils';
 import { FloorplanSection } from './FloorplanSection';
+import { resolvePublicZillowSources } from './publicZillowTour';
 import { TourStatsGrid } from './TourStatsGrid';
 import { TourAboutSection } from './TourAboutSection';
 import { Public3dTourViewer } from './Public3dTourViewer';
@@ -74,6 +75,7 @@ export function GenericMLS() {
   const [shootId, setShootId] = useState<number | null>(null);
   const [lockedMessage, setLockedMessage] = useState<string | null>(null);
   const [rawPayload, setRawPayload] = useState<unknown>(null);
+  const { tourUrl: zillow3dUrl, floorplanUrl: zillowFloorplanUrl } = resolvePublicZillowSources(rawPayload, 'generic-mls');
   const photoRenditions = useMemo(() => normalizePublicPhotoRenditions(rawPayload, photos), [rawPayload, photos]);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -349,10 +351,10 @@ export function GenericMLS() {
             {hasVideo && (
               <a href="#video" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Videos</a>
             )}
-            {(matterportUrl || iguideUrl) && (
+            {(matterportUrl || iguideUrl || zillow3dUrl) && (
               <a href="#tour" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">3D Tour</a>
             )}
-            {floorplans.length > 0 && (
+            {(floorplans.length > 0 || zillowFloorplanUrl) && (
               <a href="#floorplan" className="px-2.5 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors whitespace-nowrap">Floor Plans</a>
             )}
           </nav>
@@ -499,12 +501,13 @@ export function GenericMLS() {
       <Public3dTourViewer
         autoplay={tourSettings.autoplay}
         matterportUrl={matterportUrl}
+        zillowUrl={zillow3dUrl}
         iguideInlineUrl={iguideUrl}
         iguideOpenUrl={iguideOpenUrl}
       />
 
       {/* Floor Plans */}
-      <FloorplanSection floorplans={floorplans} />
+      <FloorplanSection floorplans={floorplans} zillowUrl={zillowFloorplanUrl} />
 
       {/* Footer */}
       <footer className="py-6 px-6 mt-10 border-t border-border/40 bg-muted/20">

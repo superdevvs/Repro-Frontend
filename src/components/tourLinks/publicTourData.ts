@@ -10,7 +10,7 @@ import {
   type PublicTourVariant,
 } from './publicIguideModel';
 import { filterVirtualTourEmbeds, uniqueTourMediaUrls } from './tourMediaEmbedUrl';
-import { normalizePublicZillowTourUrl } from './publicZillowTour';
+import { resolvePublicZillowSources } from './publicZillowTour';
 
 type RecordValue = Record<string, unknown>;
 type PropertyValue = string | number | null;
@@ -88,6 +88,7 @@ export interface PublicTourData {
   floorplans: TourFloorplan[];
   matterportUrl: string;
   zillowUrl: string;
+  zillowFloorplanUrl: string;
   iguide: PublicIguideSources;
   embeds: PublicTourEmbed[];
   featuredEmbedId: string;
@@ -252,7 +253,8 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
   const iguide = resolvePublicIguideSources(locked ? {} : root, variant);
   const matterportUrl = locked ? '' : normalizePublicTourUrl(canonicalSource(root, 'matterport_url',
     branded ? text(links.matterport_branded, links.matterport) : links.matterport_mls));
-  const zillowUrl = !locked && branded ? normalizePublicZillowTourUrl(links.zillow_3d) : '';
+  const zillow = resolvePublicZillowSources(locked ? {} : root, variant);
+  const zillowUrl = zillow.tourUrl;
   return {
     variant, shoot, branding,
     propertyDetails: {
@@ -271,7 +273,7 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
     heroSlides: Array.from(new Set([...heroPhotos, ...photos])),
     videos, videoLink,
     videoPosterUrl: locked || videoRestricted ? '' : normalizePublicTourUrl(text(root.video_poster_url, root.video_thumbnail_url)),
-    floorplans, matterportUrl, zillowUrl, iguide,
+    floorplans, matterportUrl, zillowUrl, zillowFloorplanUrl: zillow.floorplanUrl, iguide,
     embeds: virtualTourEmbeds,
     featuredEmbedId,
     tourSettings: {

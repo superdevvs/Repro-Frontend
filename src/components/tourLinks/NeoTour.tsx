@@ -12,7 +12,8 @@ import { sanitizeTourEmbedHtml } from './videoControlRestrictions';
 import { filterVirtualTourEmbeds, getTourMediaEmbedUrl } from './tourMediaEmbedUrl';
 import { PropertyInfoSummary } from './PropertyInfoSummary';
 import { Public3dTourViewer } from './Public3dTourViewer';
-import { normalizePublicZillowTourUrl } from './publicZillowTour';
+import { FloorplanSection } from './FloorplanSection';
+import { resolvePublicZillowSources } from './publicZillowTour';
 import {
   resolvePublicEmbedSources,
   resolvePublicIguideSources,
@@ -67,7 +68,7 @@ interface WeatherInfo {
   humidity?: number | string;
 }
 
-type SectionId = 'header' | 'gallery' | 'details' | 'embeds' | 'video' | 'contact';
+type SectionId = 'header' | 'gallery' | 'details' | 'embeds' | 'video' | 'floorplan' | 'contact';
 
 export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
   const [photoRenditions, setPhotoRenditions] = useState<PublicTourPhotoRenditions>({});
@@ -77,7 +78,8 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
   const [videoLink, setVideoLink] = useState<string | null>(null);
   const [shoot, setShoot] = useState<ShootData | null>(null);
   const [propertyDetails, setPropertyDetails] = useState<PropertyDetails | null>(null);
-  const [floorplans, setFloorplans] = useState<string[]>([]);
+  const [floorplans, setFloorplans] = useState<unknown[]>([]);
+  const [zillowFloorplanUrl, setZillowFloorplanUrl] = useState('');
   const [matterportUrl, setMatterportUrl] = useState<string | null>(null);
   const [zillowUrl, setZillowUrl] = useState<string | null>(null);
   const [iguideUrl, setIguideUrl] = useState<string | null>(null);
@@ -106,6 +108,7 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
   const embedsRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLDivElement>(null);
   const contactRef = useRef<HTMLDivElement>(null);
+  const floorplanRef = useRef<HTMLDivElement>(null);
   
   const { scrollY } = useScroll();
   const [scrollProgress, setScrollProgress] = useState(0);
@@ -121,6 +124,7 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
       { id: 'details' as SectionId, ref: detailsRef },
       { id: 'embeds' as SectionId, ref: embedsRef },
       { id: 'video' as SectionId, ref: videoRef },
+      { id: 'floorplan' as SectionId, ref: floorplanRef },
       { id: 'contact' as SectionId, ref: contactRef },
     ];
 
@@ -157,14 +161,15 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
         if (data?.shoot) setShoot(data.shoot);
         if (data?.property_details) setPropertyDetails(data.property_details);
         if (data?.matterport_url) setMatterportUrl(data.matterport_url);
-        setZillowUrl(publicTourVariant === 'branded' && !data?.locked
-          ? normalizePublicZillowTourUrl(data?.tour_links?.zillow_3d) || null : null);
+        const zillow = resolvePublicZillowSources(data, publicTourVariant);
+        setZillowUrl(zillow.tourUrl || null);
+        setZillowFloorplanUrl(zillow.floorplanUrl);
         const iguideSources = resolvePublicIguideSources(data, publicTourVariant);
         setIguideUrl(iguideSources.inlineUrl || null);
         setIguideOpenUrl(iguideSources.openUrl || null);
         if (data?.floorplans || data?.iguide_floorplans) {
           const fps = data.floorplans || data.iguide_floorplans || [];
-          setFloorplans(Array.isArray(fps) ? fps.map((f: any) => typeof f === 'string' ? f : f.url || f.path) : []);
+          setFloorplans(Array.isArray(fps) ? fps : []);
         }
 
         const rawEmbeds = Array.isArray(data?.tour_links?.embeds) ? data.tour_links.embeds : [];
@@ -216,6 +221,7 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
       embeds: embedsRef,
       video: videoRef,
       contact: contactRef,
+      floorplan: floorplanRef,
     };
     refs[id].current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -384,6 +390,7 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
               { id: 'details' as SectionId, label: 'Details' },
               ...(orderedEmbeds.length > 0 ? [{ id: 'embeds' as SectionId, label: 'Embeds' }] : []),
               ...(videoLink ? [{ id: 'video' as SectionId, label: 'Video' }] : []),
+              ...(floorplans.length || zillowFloorplanUrl ? [{ id: 'floorplan' as SectionId, label: 'Floor Plans' }] : []),
               { id: 'contact' as SectionId, label: 'Contact' },
             ].map((item) => (
               <button
@@ -435,6 +442,10 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
             </motion.div>
           </div>
         </div>
+      )}
+
+      {(floorplans.length > 0 || zillowFloorplanUrl) && (
+        <div className="dark" ref={floorplanRef}><FloorplanSection floorplans={floorplans} zillowUrl={zillowFloorplanUrl} /></div>
       )}
 
       {/* Embed Section */}

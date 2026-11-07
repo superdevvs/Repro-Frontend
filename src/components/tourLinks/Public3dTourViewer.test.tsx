@@ -7,6 +7,7 @@ import { Public3dTourViewer } from './Public3dTourViewer';
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.unstubAllGlobals();
 });
 
 describe('Public3dTourViewer', () => {
@@ -51,6 +52,33 @@ describe('Public3dTourViewer', () => {
   it('does not render a non-Zillow source as a Zillow walkthrough', () => {
     const { container } = render(<Public3dTourViewer zillowUrl="https://www.zillow.com.evil.test/view-imx/example" />);
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('keeps the loading timeout paused until a lazy viewer reaches the viewport', () => {
+    vi.useFakeTimers();
+    let enterViewport = () => {};
+    vi.stubGlobal('IntersectionObserver', class {
+      constructor(callback: IntersectionObserverCallback) {
+        enterViewport = () => callback([{ isIntersecting: true } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
+      }
+      observe = vi.fn();
+      disconnect = vi.fn();
+    });
+    render(<Public3dTourViewer zillowUrl="https://www.zillow.com/view-imx/example" />);
+    act(() => vi.advanceTimersByTime(60_000));
+    expect(screen.queryByText('Tour viewer unavailable')).not.toBeInTheDocument();
+    act(() => enterViewport());
+    act(() => vi.advanceTimersByTime(15_000));
+    expect(screen.getByText('Tour viewer unavailable')).toBeInTheDocument();
+    fireEvent.load(screen.getByTitle('Zillow 3D tour'));
+    expect(screen.queryByText('Tour viewer unavailable')).not.toBeInTheDocument();
+  });
+
+  it('embeds an interactive floorplan in place with no external destination', () => {
+    render(<Public3dTourViewer zillowUrl="https://www.zillow.com/view-imx/example?wl=true" zillowView="floorplan" />);
+    expect(screen.getByTitle('Zillow interactive floor plan')).toHaveAttribute('src', 'https://www.zillow.com/view-imx/example?wl=true&initialViewType=floorplan');
+    expect(screen.getByRole('region', { name: 'Interactive floor plan' })).toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
   it('embeds iGUIDE in-page and exposes its separate open URL', () => {

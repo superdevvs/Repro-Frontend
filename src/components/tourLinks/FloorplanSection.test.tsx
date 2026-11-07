@@ -46,6 +46,18 @@ function expectDownloadGesturesBlocked(image: HTMLElement) {
 }
 
 describe('FloorplanSection', () => {
+  it('falls back to the validated interactive model when no image previews are available', () => {
+    render(<FloorplanSection floorplans={[]} zillowUrl="https://www.zillow.com/view-imx/example?wl=true" />)
+    expect(screen.getByTitle('Zillow interactive floor plan')).toBeInTheDocument()
+    expect(screen.queryByRole('link')).not.toBeInTheDocument()
+  })
+
+  it('keeps existing image previews ahead of the interactive fallback', () => {
+    render(<FloorplanSection floorplans={floorplans} zillowUrl="https://www.zillow.com/view-imx/example" />)
+    expect(screen.getByRole('img')).toHaveAttribute('src', PREVIEW_URL)
+    expect(screen.queryByTitle('Zillow interactive floor plan')).not.toBeInTheDocument()
+  })
+
   it('does not visibly render a floorplan label or filename', () => {
     renderSection()
 

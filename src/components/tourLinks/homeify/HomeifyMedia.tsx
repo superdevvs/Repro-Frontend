@@ -26,6 +26,6 @@ export function HomeifyMedia({ data }: { data: PublicTourData }) {
     {embeds.map((embed, index) => {
       return <section className="homeify-panel" id={!hasProviders && index === 0 ? 'tour' : `tour-embed-${index}`} key={embed.id}><div className="homeify-panel-heading"><h2>{embed.title}</h2><a className="homeify-text-link" href={embed.url} target="_blank" rel="noreferrer" onClick={() => track('embed', embed.url)}>Open tour <ExternalLink size={14} /></a></div><MediaFrame value={embed.url} title={embed.title} autoplay={data.tourSettings.autoplay} /></section>;
     })}
-    {data.floorplans.length > 0 && <div className="homeify-floorplans"><FloorplanSection floorplans={data.floorplans} /></div>}
+    {(data.floorplans.length > 0 || data.zillowFloorplanUrl) && <div className="homeify-floorplans"><FloorplanSection floorplans={data.floorplans} zillowUrl={data.zillowFloorplanUrl} /></div>}
   </>;
 }

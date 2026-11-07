@@ -21,7 +21,7 @@ function LandorVideo({ url, title, autoplay, poster }: { url: string; title: str
 /** One accessible media panel, populated only with the property's published assets. */
 export function LandorMedia({ data }: { data: PublicTourData }) {
   const [selected, setSelected] = useState<LandorMediaTab>('photos');
-  const { photos, floorplans, videos, embeds, hasProviders, available } = getLandorMedia(data);
+  const { photos, floorplans, zillowFloorplan, videos, embeds, hasProviders, available } = getLandorMedia(data);
   const active = available.some((tab) => tab.id === selected) ? selected : available[0]?.id;
   const track = (url: string) => {
     if (data.analytics.shootId !== null) trackLinkClick(data.analytics.shootId, data.analytics.tourType, 'embed', url);
@@ -43,8 +43,8 @@ export function LandorMedia({ data }: { data: PublicTourData }) {
           <LandorGallery photos={photos} photoRenditions={data.photoRenditions} address={data.shoot?.address || 'Property'} shootId={data.analytics.shootId ?? undefined} tourType={data.analytics.tourType} />
         </Tabs.Content>}
 
-        {floorplans.length > 0 && <Tabs.Content className="landor-media-panel" value="plans">
-          <FloorplanSection floorplans={floorplans} />
+        {(floorplans.length > 0 || zillowFloorplan) && <Tabs.Content className="landor-media-panel" value="plans">
+          <FloorplanSection floorplans={floorplans} zillowUrl={zillowFloorplan} />
         </Tabs.Content>}
 
         {videos.length > 0 && <Tabs.Content className="landor-media-panel" value="video">

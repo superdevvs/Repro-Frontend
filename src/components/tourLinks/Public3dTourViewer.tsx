@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ExternalLink, RefreshCw } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { normalizePublicTourUrl, preparePublicIguideEmbedUrl } from './publicIguideModel';
-import { normalizePublicZillowTourUrl } from './publicZillowTour';
+import { normalizePublicZillowTourUrl, preparePublicZillowFloorplanUrl } from './publicZillowTour';
 
 type TourProvider = 'iguide' | 'matterport' | 'zillow';
 
@@ -17,6 +17,7 @@ type Public3dTourViewerProps = {
   initialProvider?: TourProvider;
   matterportUrl?: string | null;
   zillowUrl?: string | null;
+  zillowView?: 'pano' | 'floorplan';
   sectionId?: string;
   showUnavailable?: boolean;
 };
@@ -49,6 +50,7 @@ export function Public3dTourViewer({
   initialProvider = 'iguide',
   matterportUrl,
   zillowUrl,
+  zillowView = 'pano',
   sectionId = 'tour',
   showUnavailable = false,
 }: Public3dTourViewerProps) {
@@ -56,13 +58,14 @@ export function Public3dTourViewer({
     const iguideInline = normalizePublicTourUrl(iguideInlineUrl);
     const iguideOpen = normalizePublicTourUrl(iguideOpenUrl) || iguideInline;
     const matterport = normalizePublicTourUrl(matterportUrl);
-    const zillow = normalizePublicZillowTourUrl(zillowUrl);
+    const zillow = zillowView === 'floorplan'
+      ? preparePublicZillowFloorplanUrl(zillowUrl) : normalizePublicZillowTourUrl(zillowUrl);
     return {
       iguide: iguideInline ? { inline: preparePublicIguideEmbedUrl(iguideInline), open: iguideOpen } : null,
       matterport: matterport ? { inline: matterport, open: matterport } : null,
       zillow: zillow ? { inline: zillow, open: '' } : null,
     };
-  }, [iguideInlineUrl, iguideOpenUrl, matterportUrl, zillowUrl]);
+  }, [iguideInlineUrl, iguideOpenUrl, matterportUrl, zillowUrl, zillowView]);
   const availableProviders = useMemo(
     () => (['iguide', 'matterport', 'zillow'] as const).filter((provider) => Boolean(sources[provider])),
     [sources],
@@ -77,16 +80,30 @@ export function Public3dTourViewer({
   const activeSource = sources[activeProvider];
   const [frameState, setFrameState] = useState<'error' | 'loading' | 'ready'>('loading');
   const [frameRevision, setFrameRevision] = useState(0);
+  const frameContainer = useRef<HTMLDivElement>(null);
+  const [canStartLoading, setCanStartLoading] = useState(() => typeof IntersectionObserver === 'undefined');
+
+  useEffect(() => {
+    if (!activeSource?.inline || !frameContainer.current || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) {
+        setCanStartLoading(true);
+        observer.disconnect();
+      }
+    }, { rootMargin: '300px' });
+    observer.observe(frameContainer.current);
+    return () => observer.disconnect();
+  }, [activeSource?.inline]);
 
   useEffect(() => {
     if (activeSource?.inline) setFrameState('loading');
   }, [activeProvider, activeSource?.inline, frameRevision]);
 
   useEffect(() => {
-    if (!activeSource?.inline || frameState !== 'loading') return undefined;
+    if (!canStartLoading || !activeSource?.inline || frameState !== 'loading') return undefined;
     const timeoutId = window.setTimeout(() => setFrameState('error'), 15_000);
     return () => window.clearTimeout(timeoutId);
-  }, [activeProvider, activeSource?.inline, frameRevision, frameState]);
+  }, [activeProvider, activeSource?.inline, canStartLoading, frameRevision, frameState]);
 
   if (!activeSource && !showUnavailable) return null;
 
@@ -98,10 +115,10 @@ export function Public3dTourViewer({
   return (
     <section
       id={sectionId}
-      className={cn('mx-auto mt-10 max-w-6xl px-6', className)}
-      aria-label="3D tour"
+      className={cn('public-tour-viewer mx-auto mt-10 max-w-6xl px-6', className)}
+      aria-label={zillowView === 'floorplan' ? 'Interactive floor plan' : '3D tour'}
     >
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div className="public-tour-viewer-header mb-4 flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-2xl font-bold text-foreground">{heading}</h2>
         <div className="flex flex-wrap items-center gap-2">
           {availableProviders.length > 1 && (
@@ -144,7 +161,7 @@ export function Public3dTourViewer({
       </div>
 
       {activeProvider === 'iguide' && activeSource && <p className="mb-3 rounded-lg border border-border/60 bg-muted/30 px-3 py-2 text-xs leading-relaxed text-muted-foreground">The provider tour may still be processing. Open iGuide in a new tab to check its readiness. A linked tour does not confirm that the provider has published its content.</p>}
-      <div className={cn(
+      <div ref={frameContainer} className={cn(
         'relative w-full overflow-hidden rounded-2xl border border-border/40 bg-muted/20 shadow-lg',
         activeProvider === 'zillow' ? 'aspect-[3/4] min-h-[360px] sm:aspect-video sm:min-h-0' : 'aspect-video',
       )}>
@@ -158,7 +175,7 @@ export function Public3dTourViewer({
               allowFullScreen
               loading="lazy"
               referrerPolicy={activeProvider === 'zillow' ? 'strict-origin-when-cross-origin' : 'no-referrer'}
-              title={`${providerLabel[activeProvider]} 3D tour`}
+              title={activeProvider === 'zillow' && zillowView === 'floorplan' ? 'Zillow interactive floor plan' : `${providerLabel[activeProvider]} 3D tour`}
               onLoad={() => setFrameState('ready')}
               onError={() => setFrameState('error')}
             />

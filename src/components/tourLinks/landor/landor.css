@@ -295,3 +295,6 @@
 .landor-masonry-card:hover .landor-gallery-zoom,.landor-masonry-card:focus-visible .landor-gallery-zoom{opacity:1;transform:none}
 @media(max-width:991px){.landor-masonry{columns:2}.landor-masonry-section{margin-top:45px}}
 @media(max-width:600px){.landor-masonry{columns:1}.landor-masonry-section{margin-top:35px;padding-top:30px}.landor-masonry-heading{font-size:25px!important;margin-bottom:22px!important}.landor-masonry-card{border-radius:14px;margin-bottom:16px}.landor-masonry-card .landor-gallery-zoom{opacity:1;transform:none}.landor-gallery-progress{margin-top:18px}}
+
+.landor-media-panel .public-tour-viewer h2{color:var(--landor-ink,#000)}
+.landor-media-panel .public-tour-viewer-header a{background:var(--landor-surface,#fff);color:var(--landor-ink,#000);border-color:#d4d4d4}

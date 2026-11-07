@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Maximize2 } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Public3dTourViewer } from './Public3dTourViewer';
+import { preparePublicZillowFloorplanUrl } from './publicZillowTour';
 
 /**
  * Public tour "Floor Plans" section.
@@ -78,7 +80,7 @@ interface ActivePreview {
   alt: string;
 }
 
-export function FloorplanSection({ floorplans }: { floorplans: unknown }) {
+export function FloorplanSection({ floorplans, zillowUrl }: { floorplans: unknown; zillowUrl?: string }) {
   const [failed, setFailed] = useState<Record<number, boolean>>({});
   const [activePreview, setActivePreview] = useState<ActivePreview | null>(null);
 
@@ -97,7 +99,11 @@ export function FloorplanSection({ floorplans }: { floorplans: unknown }) {
     .filter((x): x is PreviewItem => x !== null);
 
   const visible = candidates.filter((_, i) => !failed[i]);
-  if (visible.length === 0) return null;
+  if (visible.length === 0) {
+    return preparePublicZillowFloorplanUrl(zillowUrl)
+      ? <Public3dTourViewer zillowUrl={zillowUrl} zillowView="floorplan" heading="Floor Plans" sectionId="floorplan" />
+      : null;
+  }
 
   return (
     <>

@@ -18,13 +18,15 @@ export function getLandorMedia(data: PublicTourData) {
   const videos = data.locked ? [] : uniqueTourMediaUrls([data.videoLink, ...data.videos]).map((video) => homeifyEmbedUrl(video)).filter(Boolean);
   const embeds = data.locked ? [] : data.embeds.map((embed) => ({ ...embed, url: homeifyEmbedUrl(embed.value) })).filter((embed) => Boolean(embed.url));
   const hasProviders = !data.locked && Boolean(normalizePublicTourUrl(data.iguide.inlineUrl) || normalizePublicTourUrl(data.matterportUrl) || normalizePublicZillowTourUrl(data.zillowUrl));
+  const zillowFloorplan = data.locked ? '' : data.zillowFloorplanUrl;
   const available: { id: LandorMediaTab; label: string }[] = [
     ...(photos.length ? [{ id: 'photos' as const, label: 'Photos' }] : []),
     ...(floorplans.length ? [{ id: 'plans' as const, label: 'Plans' }] : []),
     ...(videos.length ? [{ id: 'video' as const, label: 'Video' }] : []),
     ...(hasProviders || embeds.length ? [{ id: 'tour' as const, label: '3D tour' }] : []),
+    ...(!floorplans.length && zillowFloorplan ? [{ id: 'plans' as const, label: 'Plans' }] : []),
   ];
-  return { photos, floorplans, videos, embeds, hasProviders, available };
+  return { photos, floorplans, zillowFloorplan, videos, embeds, hasProviders, available };
 }
 
 export const hasLandorMedia = (data: PublicTourData): boolean => getLandorMedia(data).available.length > 0;
