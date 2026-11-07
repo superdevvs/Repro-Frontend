@@ -1,5 +1,9 @@
 import type { AutomationRule, AutomationRun } from '@/types/messaging';
 
+export function smsNeedsAttention(run: AutomationRun) {
+  return run.sms_delivery?.status === 'failed' || run.sms_delivery?.status === 'blocked';
+}
+
 const timestamp = (value?: string | null): number | null => {
   if (!value?.trim()) return null;
   const result = Date.parse(value);
@@ -27,8 +31,8 @@ export function orderAutomationRuns(runs: AutomationRun[]) {
   });
 }
 
-export function getAutomationHealth(automation: AutomationRule) {
-  const runs = orderAutomationRuns(automation.recent_runs ?? []);
+export function getAutomationHealth(automation: AutomationRule, role?: string) {
+  const runs = role === 'superadmin' ? orderAutomationRuns(automation.recent_runs ?? []) : [];
   const run = runs[0] ?? null;
   const configurationIssue = automation.validation_state?.valid === false
     ? automation.validation_state.errors?.find((error) => error.trim())
@@ -51,6 +55,7 @@ export function getAutomationHealth(automation: AutomationRule) {
     failed,
     runChronologyKnown,
     updatedSinceFailedRun,
-    needsAttention: Boolean(configurationIssue) || (failed && !updatedSinceFailedRun),
+    // Editing the workflow does not repair messages already rejected by a carrier.
+    needsAttention: Boolean(configurationIssue) || (failed && !updatedSinceFailedRun) || runs.some(smsNeedsAttention),
   };
 }

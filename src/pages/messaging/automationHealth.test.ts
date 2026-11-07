@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { AutomationRule, AutomationRun } from '@/types/messaging';
-import { getAutomationHealth, runTimestamp } from './automationHealth';
+import { getAutomationHealth as healthForRole, runTimestamp } from './automationHealth';
+
+const getAutomationHealth = (automation: AutomationRule) => healthForRole(automation, 'superadmin');
 
 const oldTime = '2026-09-15T13:00:04Z';
 const editedAt = '2026-09-27T04:59:11Z';
@@ -18,6 +20,24 @@ const rule = (changes: Partial<AutomationRun> = {}, ruleChanges: Partial<Automat
 }) as AutomationRule;
 
 describe('automation configuration health and run chronology', () => {
+  it.each([undefined, 'client', 'admin', 'photographer', 'editing_manager', 'sales_rep'])('ignores cached failure history for %s', (role) => {
+    expect(healthForRole(rule({}, { updated_at: oldTime }), role)).toMatchObject({
+      run: null, runs: [], failed: false, needsAttention: false,
+    });
+  });
+
+  it('keeps carrier failures visible even when execution completed and the workflow was edited later', () => {
+    const sms_delivery: NonNullable<AutomationRun['sms_delivery']> = {
+      status: 'failed', total: 1, failed: 1, delivered: 0, blocked: 0, pending: 0, unknown: 0,
+      errors: ['SMS was blocked by a spam filter.'], updated_at: oldTime,
+    };
+    expect(getAutomationHealth(rule({ status: 'completed', error_message: null, sms_delivery })))
+      .toMatchObject({ failed: false, updatedSinceFailedRun: false, needsAttention: true });
+    const success = { ...run, id: 858, status: 'completed' as const, completed_at: newTime, updated_at: newTime };
+    expect(getAutomationHealth(rule({}, { recent_runs: [success, { ...run, status: 'completed', sms_delivery }] })))
+      .toMatchObject({ needsAttention: true });
+  });
+
   it('keeps the repaired reminder failure as history without claiming successful delivery', () => {
     expect(getAutomationHealth(rule())).toMatchObject({
       configurationIssue: null, failed: true, updatedSinceFailedRun: true, needsAttention: false,

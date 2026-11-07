@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { useAuth } from '@/components/auth/AuthProvider';
+import { AutomationSmsDelivery } from '../AutomationSmsDelivery';
+import { smsNeedsAttention } from '../automationHealth';
 import { useQueryClient } from '@tanstack/react-query';
 import { TemplateWorkspaceDialog as TemplateEditorDialog } from '@/components/messaging/templates/TemplateWorkspaceDialog';
 import { AutomationSmsSenderField } from '@/components/messaging/automations/AutomationSmsSenderField';
@@ -65,6 +68,7 @@ export function AutomationWorkflowInspectorPanel({
   onDeleteSelectedNode,
   updateNode,
 }: AutomationWorkflowInspectorPanelProps) {
+  const { role } = useAuth();
   const [editingTemplate, setEditingTemplate] = useState<MessageTemplate | null>(null);
   const queryClient = useQueryClient();
   const conditionRules = getConditionRules(selectedRawNode);
@@ -85,7 +89,7 @@ export function AutomationWorkflowInspectorPanel({
   };
 
   return (
-    <div className="space-y-3 lg:grid lg:h-full lg:min-h-0 lg:grid-rows-[minmax(0,1fr)_minmax(0,0.6fr)] lg:gap-3 lg:space-y-0">
+    <div className={`space-y-3 lg:grid lg:h-full lg:min-h-0 ${role === 'superadmin' ? 'lg:grid-rows-[minmax(0,1fr)_minmax(0,0.6fr)]' : 'lg:grid-rows-1'} lg:gap-3 lg:space-y-0`}>
       {editingTemplate && <TemplateEditorDialog template={editingTemplate} open onClose={() => setEditingTemplate(null)}
         onSuccess={() => {
           setEditingTemplate(null);
@@ -882,7 +886,7 @@ export function AutomationWorkflowInspectorPanel({
         )}
       </Card>
 
-      <Card className="p-4 lg:min-h-0 lg:overflow-y-auto" tabIndex={0} role="region" aria-label="Recent automation runs">
+      {role === 'superadmin' && <Card className="p-4 lg:min-h-0 lg:overflow-y-auto" tabIndex={0} role="region" aria-label="Recent automation runs">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="font-semibold">Recent Runs</h2>
@@ -900,19 +904,22 @@ export function AutomationWorkflowInspectorPanel({
                   <div className="font-medium">Run #{run.id}</div>
                   <Badge
                     className={
-                      run.status === 'completed'
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : run.status === 'failed'
-                          ? 'bg-red-100 text-red-800'
-                          : run.status === 'waiting'
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-blue-100 text-blue-800'
+                      smsNeedsAttention(run)
+                        ? 'bg-amber-100 text-amber-800'
+                        : run.status === 'completed'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : run.status === 'failed'
+                            ? 'bg-red-100 text-red-800'
+                            : run.status === 'waiting'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-blue-100 text-blue-800'
                     }
                   >
-                    {run.status}
+                    {smsNeedsAttention(run) ? 'Delivery needs attention' : run.status}
                   </Badge>
                 </div>
                 <div className="mt-2 text-xs text-muted-foreground">Started {formatDateTime(run.started_at)}</div>
+                <AutomationSmsDelivery run={run} />
                 {run.error_message && (
                   <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-2 text-xs text-red-700">{run.error_message}</div>
                 )}
@@ -920,7 +927,7 @@ export function AutomationWorkflowInspectorPanel({
             ))
           )}
         </div>
-      </Card>
+      </Card>}
     </div>
   );
 }

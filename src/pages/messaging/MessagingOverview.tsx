@@ -1,4 +1,5 @@
 import { EmptyState } from '@/components/ui/empty-state';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { usePageLoading } from '@/hooks/use-page-loading';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
@@ -109,6 +110,7 @@ function LatestPanelSkeleton() {
 }
 
 export default function MessagingOverview() {
+  const { role } = useAuth();
   const { data: overview, isLoading: overviewLoading } = useQuery({
     queryKey: ['messaging-overview'],
     queryFn: getMessagingOverview,
@@ -134,7 +136,7 @@ export default function MessagingOverview() {
     { title: 'Scheduled', value: overview?.total_scheduled || 0, icon: Clock, color: 'text-sky-500 dark:text-sky-300', bgColor: 'bg-sky-100/70 dark:bg-sky-500/15' },
     { title: 'Failed', value: overview?.total_failed_today || 0, icon: AlertCircle, color: 'text-rose-500 dark:text-rose-300', bgColor: 'bg-rose-100/70 dark:bg-rose-500/15' },
     { title: 'Unread SMS', value: overview?.unread_sms_count || 0, icon: MessageSquare, color: 'text-purple-500 dark:text-purple-300', bgColor: 'bg-purple-100/70 dark:bg-purple-500/15' },
-  ];
+  ].filter((stat) => stat.title !== 'Failed' || role === 'superadmin');
 
   const quickLinks = [
     { title: 'Compose Email', description: 'Send a new email message', icon: Mail, href: '/messaging/email/compose', color: 'text-blue-600' },

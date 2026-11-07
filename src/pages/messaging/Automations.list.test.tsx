@@ -11,9 +11,11 @@ import { buildSimpleWorkflowFromDraft } from '@/components/messaging/automations
 import { createDefaultDraft } from '@/components/messaging/automations/automationEditorModel';
 
 const mocks = vi.hoisted(() => ({
+  role: 'superadmin',
   getAutomations: vi.fn(),
   navigate: vi.fn(),
 }));
+vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ role: mocks.role }) }));
 
 vi.mock('@/services/messaging', () => ({
   getAutomations: mocks.getAutomations,
@@ -79,8 +81,19 @@ const failedRun: AutomationRun = {
 
 describe('automations by the job', () => {
   afterEach(() => {
+    mocks.role = 'superadmin';
     cleanup();
     vi.clearAllMocks();
+  });
+
+  it('hides cached run failures and attention badges from admins', async () => {
+    mocks.role = 'admin';
+    mocks.getAutomations.mockResolvedValue([{ ...booking, recent_runs: [failedRun] }]);
+    renderPage();
+    expect(await screen.findByRole('heading', { name: 'Booking confirmation' })).toBeInTheDocument();
+    expect(screen.queryByText(/Last run|Previous run|View run history/)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Run needs attention')).not.toBeInTheDocument();
+    expect(screen.queryByText(failedRun.error_message!)).not.toBeInTheDocument();
   });
 
   it('groups live automations and keeps system and custom actions', async () => {

@@ -196,6 +196,17 @@ export interface AutomationRun {
   created_at: string;
   updated_at: string;
   steps?: AutomationRunStep[];
+  sms_delivery?: {
+    status: 'delivered' | 'failed' | 'blocked' | 'pending' | 'unknown';
+    total: number;
+    delivered: number;
+    failed: number;
+    blocked: number;
+    pending: number;
+    unknown: number;
+    errors: string[];
+    updated_at?: string | null;
+  };
 }
 
 export interface MessageChannelConfig {
@@ -572,14 +583,15 @@ export interface MessagingBadgeCounts {
 
 export interface MessagingOverview {
   total_sent_today: number;
-  total_failed_today: number;
+  total_failed_today?: number;
+  sms_failed_today?: number;
   total_scheduled: number;
   unread_sms_count: number;
   unread_email_count?: number;
   unread_call_count?: number;
   unread_total?: number;
   unread_counts?: MessagingBadgeCounts;
-  recent_activity: Message[];
+  recent_activity: Array<Omit<Message, 'status'> & { status?: MessageStatus }>;
   active_automations: number;
   delivery_rate?: number | null;
   average_response_time?: string | null;

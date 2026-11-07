@@ -1,4 +1,5 @@
 import { PageSearch } from '@/components/search/PageSearch';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { pageSearchResults } from '@/components/search/pageSearchResults';
 import { EmptyState } from '@/components/ui/empty-state';
 import { usePageLoading } from '@/hooks/use-page-loading';
@@ -87,7 +88,8 @@ function JobRow({
   onRun: (automation: AutomationRule) => void;
   runningId?: number | null;
 }) {
-  const health = getAutomationHealth(automation);
+  const { role } = useAuth();
+  const health = getAutomationHealth(automation, role);
   const issue = health.configurationIssue;
   const sends = automation.workflow_definition_json?.nodes?.length ? getPrimaryActionSummary(automation) : automation.template?.name || getPrimaryActionSummary(automation);
 
@@ -170,6 +172,7 @@ function JobRow({
 }
 
 export default function Automations() {
+  const { role } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -229,12 +232,12 @@ export default function Automations() {
         ...group,
         total: inMoment.length,
         on: inMoment.filter((automation) => automation.is_active).length,
-        needsFix: inMoment.some((automation) => Boolean(getAutomationHealth(automation).configurationIssue)),
-        needsAttention: inMoment.some((automation) => getAutomationHealth(automation).needsAttention),
+        needsFix: inMoment.some((automation) => Boolean(getAutomationHealth(automation, role).configurationIssue)),
+        needsAttention: inMoment.some((automation) => getAutomationHealth(automation, role).needsAttention),
         matched,
       };
     });
-  }, [automations, needle]);
+  }, [automations, needle, role]);
   const selected = grouped.find((group) => group.id === moment) ?? grouped[0];
   const elsewhere = needle
     ? grouped.filter((group) => group.id !== selected.id && group.matched.length > 0)

@@ -1,5 +1,7 @@
 import type { AutomationRun } from '@/types/messaging';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { runTimestamp } from './automationHealth';
+import { AutomationSmsDelivery } from './AutomationSmsDelivery';
 
 function RunDate({ run }: { run: AutomationRun }) {
   const date = runTimestamp(run);
@@ -13,6 +15,8 @@ export function AutomationRunHistory({ runs, updatedSinceFailedRun, runChronolog
   updatedSinceFailedRun: boolean;
   runChronologyKnown: boolean;
 }) {
+  const { role } = useAuth();
+  if (role !== 'superadmin') return null;
   const run = runs[0];
   if (!run) return null;
   const currentFailure = run.status === 'failed' && !updatedSinceFailedRun;
@@ -23,6 +27,7 @@ export function AutomationRunHistory({ runs, updatedSinceFailedRun, runChronolog
   return (
     <div className={`mt-2 text-xs ${currentFailure ? 'text-amber-800 dark:text-amber-400' : 'text-muted-foreground'}`}>
       <p>{label} · <RunDate run={run} /></p>
+      <AutomationSmsDelivery run={run} />
       {updatedSinceFailedRun && <p className="mt-1">Updated since this failed run; awaiting next run.</p>}
       <details className="mt-1">
         <summary className="w-fit cursor-pointer underline underline-offset-2">View run history</summary>
@@ -30,6 +35,7 @@ export function AutomationRunHistory({ runs, updatedSinceFailedRun, runChronolog
           {runs.map((item) => (
             <li key={item.id}>
               <p>Run #{item.id} · {item.status} · <RunDate run={item} /></p>
+              <AutomationSmsDelivery run={item} />
               {(item.status === 'failed' || item.error_message) && (
                 <p className="mt-1 break-words">{item.error_message || 'This run failed without an error message.'}</p>
               )}
