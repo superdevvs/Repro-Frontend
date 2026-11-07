@@ -3,8 +3,9 @@ import { LoginForm } from '@/components/auth/LoginForm';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/components/auth';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import { getLoginReturnPath } from '@/components/auth/loginReturn';
+import { AppPreloader } from '@/app/AppPreloader';
 
 const LOGIN_SLIDES = [
   '/login-slides/slide (1).jpg',
@@ -47,22 +48,22 @@ const markImageReady = async (
 };
 
 const Index = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  const { search } = useLocation();
+  if (isLoading) return <AppPreloader />;
+  if (isAuthenticated) {
+    return <><AppPreloader /><Navigate to={getLoginReturnPath(search)} replace /></>;
+  }
+  return <LoginPage />;
+};
+
+const LoginPage = () => {
   const isMobile = useIsMobile();
-  const { isAuthenticated } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-  const loginReturnPath = getLoginReturnPath(location.search);
   const [activeTab, setActiveTab] = useState<string>('login');
   const [loadedImages, setLoadedImages] = useState<Record<string, boolean>>({});
   const [displayIndex, setDisplayIndex] = useState(0);
   const [pendingIndex, setPendingIndex] = useState<number | null>(null);
   const [desktopGradientVisible, setDesktopGradientVisible] = useState(false);
-
-  useEffect(() => {
-    if (isAuthenticated) {
-      navigate(loginReturnPath, { replace: true });
-    }
-  }, [isAuthenticated, loginReturnPath, navigate]);
 
   useEffect(() => {
     const html = document.documentElement;

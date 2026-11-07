@@ -3,7 +3,8 @@ import { initializeDashboardInstall } from '@/hooks/useDashboardInstall';
 import { ShootEditingDialogHost } from '@/components/shoots/ShootEditingDialog';
 import { MediaVersionsDialogHost } from '@/components/shoots/MediaVersionsDialog';
 import { MediaMarkDialogHost } from '@/components/shoots/tabs/media/mark/MediaMarkDialog';
-import { PageLoadingOverlay } from '@/components/layout/PageLoadingOverlay';
+import { AppPreloader } from '@/app/AppPreloader';
+import { DashboardStartupBoundary } from '@/features/dashboard/components/DashboardStartupBoundary';
 import { usePageLoading } from '@/hooks/use-page-loading';
 
 import { registerShootHistoryRefresh, registerShootListRefresh, registerInvoicesRefresh } from '@/realtime/realtimeRefreshBus';
@@ -13,7 +14,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, Outlet, matchPath, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "./components/auth";
 import { LoginRedirect } from './components/auth/LoginRedirect';
 import { ListingStudioClaimEntry } from './components/listing-studio/ListingStudioClaimEntry';
@@ -139,12 +140,6 @@ const queryClient = new QueryClient({
   },
 });
 
-const FullScreenSpinner = () => (
-  <div className="relative h-screen h-dvh bg-background">
-    <PageLoadingOverlay />
-  </div>
-);
-
 const DashboardRouteFallback = () => {
   usePageLoading(true);
   const location = useLocation();
@@ -187,11 +182,13 @@ const DashboardShell = () => {
   const lockAvailabilityMain = useMediaQuery('(min-width: 1280px)');
 
   return (
-    <DashboardLayout className={getDashboardLayoutClassName(location.pathname, { lockAvailabilityMain })}>
-      <Suspense fallback={<DashboardRouteFallback />}>
-        <Outlet />
-      </Suspense>
-    </DashboardLayout>
+    <DashboardStartupBoundary active={Boolean(matchPath('/dashboard', location.pathname))}>
+      <DashboardLayout className={getDashboardLayoutClassName(location.pathname, { lockAvailabilityMain })}>
+        <Suspense fallback={<DashboardRouteFallback />}>
+          <Outlet />
+        </Suspense>
+      </DashboardLayout>
+    </DashboardStartupBoundary>
   );
 };
 
@@ -213,7 +210,7 @@ const RobbieRouteTracker = () => {
 // Protected route component
 const ProtectedRoute = ({
   children,
-  loadingFallback = <FullScreenSpinner />,
+  loadingFallback = <AppPreloader />,
 }: {
   children: JSX.Element;
   loadingFallback?: React.ReactNode;
@@ -227,7 +224,7 @@ const ProtectedRoute = ({
 
   // Silently redirect to login - no toast notification needed
   if (!isAuthenticated) {
-    return <LoginRedirect />;
+    return <><AppPreloader /><LoginRedirect /></>;
   }
 
   return children;
@@ -391,7 +388,7 @@ const AppRoutes = () => {
   const location = useLocation();
 
   return (
-    <Suspense fallback={<FullScreenSpinner />}>
+    <Suspense fallback={<AppPreloader />}>
       <AnimatePresence mode="wait">
       <Routes location={location}>
       <Route path="/" element={

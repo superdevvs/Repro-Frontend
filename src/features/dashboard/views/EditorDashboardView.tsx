@@ -1,4 +1,5 @@
-import React, { Suspense, lazy, useState } from "react";
+import React, { lazy, useState } from "react";
+import { DashboardSectionSuspense } from "@/features/dashboard/components/DashboardStartupBoundary";
 import { useNavigate } from "react-router-dom";
 import { CheckCircle2, ListChecks, MessageCircle } from "lucide-react";
 
@@ -17,6 +18,7 @@ import { useEditorEditingTasks } from "@/hooks/useEditorEditingTasks";
 import { mergeEditorShootQueue } from "@/utils/mergeEditorShootQueue";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { usePageLoading } from "@/hooks/use-page-loading";
 
 import { RoleDashboardLayout } from "../components/RoleDashboardLayout";
 import { DashboardOnboarding } from "../components/DashboardOnboarding";
@@ -81,6 +83,7 @@ export const EditorDashboardView = ({
     isError: freshEditorQueueError,
   } = useEditorDashboardQueue(userId ?? null, Boolean(userId));
   const taskQueue = useEditorEditingTasks(userId, user?.role === 'editor');
+  usePageLoading(freshEditorQueueLoading || taskQueue.isLoading);
   const taskShootIds = React.useMemo(() => [...new Set((taskQueue.data ?? []).map(task => String(task.shoot_id)))], [taskQueue.data]);
   const effectiveEditorUpcoming = React.useMemo(() => mergeEditorShootQueue(legacyEditorUpcoming, taskQueue.data ?? []), [legacyEditorUpcoming, taskQueue.data]);
   const selectEditorShoot = (shoot: DashboardShootSummary, weather?: WeatherInfo | null) => {
@@ -169,7 +172,7 @@ export const EditorDashboardView = ({
       icon: CheckCircle2,
       content: (
         <div data-onboarding-target="editor-delivered">
-          <Suspense fallback={<CompletedShootsCardSkeleton />}>
+          <DashboardSectionSuspense fallback={<CompletedShootsCardSkeleton />}>
             <LazyCompletedShootsCard
               shoots={effectiveEditorDelivered}
               title="Delivered edits"
@@ -178,7 +181,7 @@ export const EditorDashboardView = ({
               onSelect={onSelectShoot}
               onViewAll={() => navigate("/shoot-history?tab=delivered")}
             />
-          </Suspense>
+          </DashboardSectionSuspense>
         </div>
       ),
     },
@@ -195,7 +198,7 @@ export const EditorDashboardView = ({
         leftColumnCard={editorRawLinksCard}
         rightColumnCards={[
           <div key="delivered-edits" data-onboarding-target="editor-delivered" className="flex flex-1 min-h-0">
-            <Suspense fallback={<CompletedShootsCardSkeleton />}>
+            <DashboardSectionSuspense fallback={<CompletedShootsCardSkeleton />}>
               <LazyCompletedShootsCard
                 shoots={effectiveEditorDelivered}
                 title="Delivered edits"
@@ -205,7 +208,7 @@ export const EditorDashboardView = ({
                 onViewAll={() => navigate("/shoot-history?tab=delivered")}
                 stretch
               />
-            </Suspense>
+            </DashboardSectionSuspense>
           </div>,
           null,
         ]}

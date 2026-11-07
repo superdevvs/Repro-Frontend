@@ -1,4 +1,5 @@
-import React, { Suspense, lazy, useEffect, useState } from "react";
+import React, { lazy, useEffect, useState } from "react";
+import { DashboardSectionSuspense } from "@/features/dashboard/components/DashboardStartupBoundary";
 import { useNavigate } from "react-router-dom";
 import { Camera, CheckCircle2, MessageCircle } from "lucide-react";
 
@@ -69,7 +70,7 @@ export const PhotographerDashboardView = ({
   );
 
   const completedCard = (
-    <Suspense fallback={<CompletedShootsCardSkeleton />}>
+    <DashboardSectionSuspense fallback={<CompletedShootsCardSkeleton />}>
       <LazyCompletedShootsCard
         shoots={photographerDelivered}
         title="Completed shoots"
@@ -79,7 +80,7 @@ export const PhotographerDashboardView = ({
         onViewAll={() => navigate("/shoot-history?tab=delivered")}
         stretch
       />
-    </Suspense>
+    </DashboardSectionSuspense>
   );
 
   const requestsCard = (

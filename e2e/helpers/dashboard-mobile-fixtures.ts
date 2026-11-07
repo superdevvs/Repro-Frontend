@@ -146,6 +146,9 @@ export async function installDashboardMobileFixtures(
       permissions: permissionResources.flatMap(resource => ['view', 'create', 'update'].map(action => ({ resource, action }))),
     });
     if (path === '/dashboard/overview') return data(route, overview);
+    if (['/dashboard/aryeo-requests', '/dashboard/overdue-clients'].includes(path)) {
+      return reply(route, { data: [], meta: { total: 0, pendingCount: 0, page: 1, lastPage: 1 }, connections: [] });
+    }
     if (/^\/shoots\/\d+$/.test(path) && method === 'GET') {
       const shoot = scheduledShoots.find(item => String(item.id) === path.split('/').pop());
       return shoot ? data(route, shoot) : reply(route, { message: 'Fixture shoot not found' }, 404);

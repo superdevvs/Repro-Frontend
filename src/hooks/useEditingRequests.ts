@@ -10,7 +10,7 @@ import {
 
 export function useEditingRequests(enabled: boolean) {
   const [requests, setRequests] = useState<EditingRequest[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {

@@ -33,6 +33,7 @@ import { API_BASE_URL } from "@/config/env";
 import { usePermission } from "@/hooks/usePermission";
 import { useStudioRevisionRequests } from '@/context/studioRevisionRequestsState';
 import { useClientBilling } from "@/hooks/useClientBilling";
+import { usePageLoading } from "@/hooks/use-page-loading";
 import { emptyClientBillingSummary, toClientBillingInvoiceViewData } from "@/services/clientBillingService";
 import type { ClientBillingItem } from "@/types/clientBilling";
 import { toInvoiceViewDialogInvoice } from "@/pages/accountingPageUtils";
@@ -133,6 +134,7 @@ export const ClientDashboardView = ({
   const studioRevisions = useStudioRevisionRequests();
   const canViewClientBillingWidget = can("dashboard-client-billing", "view");
   const { data: clientBillingData, loading: clientBillingLoading } = useClientBilling();
+  usePageLoading(canViewClientBillingWidget && (!isMobile || mobileClientTab === "invoices") && clientBillingLoading);
   const [selectedClientInvoice, setSelectedClientInvoice] = useState<ClientBillingItem | null>(null);
   const clientBillingSummary = canViewClientBillingWidget
     ? clientBillingData?.summary ?? emptyClientBillingSummary

@@ -1,8 +1,9 @@
 import type { HoldRequestsState } from "@/features/dashboard/hooks/useHoldRequests";
+import { DashboardSectionSuspense } from "@/features/dashboard/components/DashboardStartupBoundary";
 import type { RescheduleRequestsState } from "@/features/dashboard/hooks/useRescheduleRequests";
 import type { OverdueClientsState } from "@/features/dashboard/hooks/useOverdueClients";
 import type { AryeoRequestsState } from '@/features/dashboard/hooks/useAryeoRequests';
-import React, { Suspense, lazy, useState } from "react";
+import React, { lazy, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Camera, CheckCircle2, MessageCircle, Users } from "lucide-react";
 
@@ -178,7 +179,7 @@ export const SalesDashboardView = ({
         data-onboarding-target="salesrep-assign"
         className="h-full flex flex-col"
       >
-        <Suspense fallback={<AssignPhotographersCardSkeleton />}>
+        <DashboardSectionSuspense fallback={<AssignPhotographersCardSkeleton />}>
           <LazyAssignPhotographersCard
             initialTab="all"
             photographers={photographers}
@@ -190,7 +191,7 @@ export const SalesDashboardView = ({
             availabilityLoading={availabilityLoading}
             availabilityError={availabilityError}
           />
-        </Suspense>
+        </DashboardSectionSuspense>
       </div>
     </ErrorBoundary>
   );
@@ -201,7 +202,7 @@ export const SalesDashboardView = ({
       data-onboarding-target="salesrep-delivered"
       className="flex flex-1 min-h-0"
     >
-      <Suspense fallback={<CompletedShootsCardSkeleton />}>
+      <DashboardSectionSuspense fallback={<CompletedShootsCardSkeleton />}>
         <LazyCompletedShootsCard
           shoots={repDelivered}
           title="Delivered shoots"
@@ -211,7 +212,7 @@ export const SalesDashboardView = ({
           onViewAll={() => navigate("/shoot-history?tab=delivered")}
           stretch
         />
-      </Suspense>
+      </DashboardSectionSuspense>
     </div>
   );
 

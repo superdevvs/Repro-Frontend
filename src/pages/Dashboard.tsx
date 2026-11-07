@@ -39,6 +39,7 @@ import { DashboardRouteSkeleton } from "@/components/layout/DashboardRouteSkelet
 import { DASHBOARD_DESCRIPTION } from "@/features/dashboard/constants";
 import { DevProfiler } from "@/features/dashboard/components/DevProfiler";
 import { useDashboardSections } from "@/features/dashboard/components/DashboardSections";
+import { DashboardSectionSuspense } from "@/features/dashboard/components/DashboardStartupBoundary";
 import { resolveDashboardRoleState } from "@/features/dashboard/roleState";
 import { useAvailabilityWindow } from "@/features/dashboard/hooks/useAvailabilityWindow";
 import { useDashboardRequestQueues } from '@/features/dashboard/hooks/useDashboardRequestQueues';
@@ -400,13 +401,6 @@ const Dashboard = () => {
     toast,
   });
 
-  usePageLoading(Boolean(
-    authLoading || permissionsLoading || shootsLoading || loading ||
-    (canLoadAvailability && availabilityLoading) ||
-    (shouldLoadEditingRequests && editingRequestsLoading) ||
-    (canViewDashboardClientRequests && clientRequestsLoading)
-  ));
-
   const openClientRequestManager = useCallback(() => {
     openModal(clientRequests);
   }, [clientRequests, openModal]);
@@ -624,6 +618,10 @@ const Dashboard = () => {
   });
 
   const salesRequestedShoots = useRequestedShoots(role === 'salesRep', `${role}:${user?.id ?? ''}`);
+  usePageLoading(canViewCurrentDashboard && (
+    shootsLoading || loading || availabilityLoading || editingRequestsLoading || clientRequestsLoading ||
+    schedulingPhotographers.isLoading || salesRequestedShoots.isLoading
+  ));
 
   const requestedShootModals = (
     <>
@@ -884,7 +882,7 @@ const Dashboard = () => {
             </div>
           )}
 
-          <Suspense fallback={<UpcomingShootsCardSkeleton />}>
+          <DashboardSectionSuspense fallback={<UpcomingShootsCardSkeleton />}>
             <EditingManagerDashboardView
               isMobile={isCompactDashboardViewport}
               mobileEditingManagerTab={mobileEditingManagerTab}
@@ -898,7 +896,7 @@ const Dashboard = () => {
               setMobileEditingManagerTab={setMobileEditingManagerTab}
               shootsCount={editingManagerShootsCount}
             />
-          </Suspense>
+          </DashboardSectionSuspense>
         </div>
       ) : (
         <Suspense fallback={<DashboardViewFallback />}>

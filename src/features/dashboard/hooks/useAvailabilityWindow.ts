@@ -15,13 +15,14 @@ export const useAvailabilityWindow = (
   }));
   const [availablePhotographerIds, setAvailablePhotographerIds] = useState<number[]>([]);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
-  const [availabilityLoading, setAvailabilityLoading] = useState<boolean>(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(canLoadAvailability);
 
   useEffect(() => {
     if (!canLoadAvailability) return;
     const token = getAuthToken(accessToken);
     if (!token) {
       setAvailabilityError("Missing auth token");
+      setAvailabilityLoading(false);
       return;
     }
     setAvailabilityLoading(true);
@@ -41,6 +42,6 @@ export const useAvailabilityWindow = (
     setAvailabilityWindow,
     availablePhotographerIds,
     availabilityError,
-    availabilityLoading,
+    availabilityLoading: canLoadAvailability && availabilityLoading,
   };
 };

@@ -1,7 +1,8 @@
 import type { HoldRequestsState } from "@/features/dashboard/hooks/useHoldRequests";
 import type { RescheduleRequestsState } from "@/features/dashboard/hooks/useRescheduleRequests";
 import type { OverdueClientsState } from "@/features/dashboard/hooks/useOverdueClients";
-import React, { Suspense, lazy } from "react";
+import React, { lazy } from "react";
+import { DashboardSectionSuspense } from "./DashboardStartupBoundary";
 
 import { cn } from "@/lib/utils";
 import { UpcomingShootsCard } from "@/components/dashboard/v2/UpcomingShootsCard";
@@ -164,7 +165,7 @@ export const useDashboardSections = ({
         </div>
       }
     >
-      <Suspense fallback={<AssignPhotographersCardSkeleton />}>
+      <DashboardSectionSuspense fallback={<AssignPhotographersCardSkeleton />}>
         <LazyAssignPhotographersCard
           photographers={assignPhotographers}
           onPhotographerSelect={setSelectedPhotographer}
@@ -176,7 +177,7 @@ export const useDashboardSections = ({
           availabilityError={availabilityError}
           showContactActions={canViewContactActions}
         />
-      </Suspense>
+      </DashboardSectionSuspense>
     </ErrorBoundary>
   );
 
@@ -234,7 +235,7 @@ export const useDashboardSections = ({
 
     const renderCompletedShootsCard = ({ stretch = false }: { stretch?: boolean } = {}) => (
     <div className={stretch ? "flex flex-1 min-h-0" : undefined}>
-      <Suspense fallback={<CompletedShootsCardSkeleton />}>
+      <DashboardSectionSuspense fallback={<CompletedShootsCardSkeleton />}>
         <LazyCompletedShootsCard
           shoots={deliveredShoots}
           stretch={stretch}
@@ -243,13 +244,13 @@ export const useDashboardSections = ({
           onViewInvoice={handleViewInvoice}
           onViewAll={() => navigate("/shoot-history?tab=delivered")}
         />
-      </Suspense>
+      </DashboardSectionSuspense>
     </div>
   );
 
   const renderEditingManagerReadyToDeliverCard = () => (
     <div id="ready-to-deliver">
-      <Suspense fallback={<CompletedShootsCardSkeleton />}>
+      <DashboardSectionSuspense fallback={<CompletedShootsCardSkeleton />}>
         <LazyCompletedShootsCard
           shoots={editingManagerReadyToDeliverShoots.slice(0, 6)}
           title="Ready to deliver"
@@ -260,14 +261,14 @@ export const useDashboardSections = ({
           onViewInvoice={handleViewInvoice}
           onViewAll={() => navigate("/shoot-history")}
         />
-      </Suspense>
+      </DashboardSectionSuspense>
     </div>
   );
 
   const renderEditingRequestsCard = () =>
     shouldLoadEditingRequests ? (
       <div id="editing-requests">
-        <Suspense fallback={<EditingRequestsCardSkeletonWrapper />}>
+        <DashboardSectionSuspense fallback={<EditingRequestsCardSkeletonWrapper />}>
           <LazyEditingRequestsCard
             requests={editingRequests}
             loading={editingRequestsLoading}
@@ -282,7 +283,7 @@ export const useDashboardSections = ({
             onUpdate={updateEditingRequest}
             onDelete={isAdminExperience ? removeEditingRequest : undefined}
           />
-        </Suspense>
+        </DashboardSectionSuspense>
       </div>
     ) : null;
 
@@ -395,7 +396,7 @@ export const useDashboardSections = ({
         }
       >
         <div className="flex min-h-0 flex-1 flex-col max-lg:flex-none max-lg:h-auto">
-          <Suspense fallback={<ProductionWorkflowBoardSkeleton />}>
+          <DashboardSectionSuspense fallback={<ProductionWorkflowBoardSkeleton />}>
             <LazyProductionWorkflowBoard
               workflow={filteredWorkflow}
               loading={loading}
@@ -404,7 +405,7 @@ export const useDashboardSections = ({
               onViewAllDelivered={() => navigate("/shoot-history?tab=delivered")}
               filter={pipelineFilter}
             />
-          </Suspense>
+          </DashboardSectionSuspense>
         </div>
       </ErrorBoundary>
     </div>

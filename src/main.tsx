@@ -2,6 +2,7 @@
 import { createRoot } from 'react-dom/client'
 import React from 'react' // Explicitly import React
 import App from './app/AppEntry'
+import { AppPreloader } from './app/AppPreloader'
 import './index.css'
 import { ThemeProvider } from './hooks/useTheme'
 import { installChunkLoadRecovery } from '@/lib/chunkLoadRecovery'
@@ -24,7 +25,7 @@ installImageContextMenuGuard()
 createRoot(rootElement).render(
   <React.StrictMode>
     <ThemeProvider>
-      <React.Suspense fallback={<div role="status" className="min-h-screen grid place-items-center">Loading…</div>}>
+      <React.Suspense fallback={<AppPreloader />}>
         <App />
       </React.Suspense>
     </ThemeProvider>

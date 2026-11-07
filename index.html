@@ -39,11 +39,13 @@
     <link rel="manifest" href="/manifest.json" />
     <script src="/brand/favicon-runtime.js?v=0bba7577c227" defer></script>
     <style>
-      .boot-loader { min-height: 100dvh; display: grid; place-items: center; background: #f8fafc; }
+      .boot-loader { position: fixed; inset: 0; z-index: 10000; display: none; place-items: center; background: #f8fafc; }
+      #root:empty + .boot-loader { display: grid; }
+      #root:has([data-app-preloader]) { visibility: hidden; }
+      #root:has([data-app-preloader]) + .boot-loader { display: grid; }
       .dark .boot-loader { background: #060a0e; }
       .boot-loader img { display: block; width: 72px; height: 72px; }
       @media (min-width: 768px) and (min-height: 600px) { .boot-loader img { width: 86.4px; height: 86.4px; } }
-      body:has(.boot-loader) { margin: 0; }
     </style>
   </head>
 
@@ -57,13 +59,12 @@
         document.documentElement.classList.add(theme);
       })();
     </script>
-    <div id="root">
-      <div class="boot-loader" role="status" aria-label="Loading R/E Pro Photos">
-        <picture>
-          <source media="(prefers-reduced-motion: reduce)" srcset="/brand/re/options/15/static.svg" />
-          <img src="/brand/re/options/15/loop.svg" width="72" height="72" alt="" />
-        </picture>
-      </div>
+    <div id="root"></div>
+    <div class="boot-loader" role="status" aria-label="Loading R/E Pro Photos">
+      <picture>
+        <source media="(prefers-reduced-motion: reduce)" srcset="/brand/re/options/15/static.svg" />
+        <img src="/brand/re/options/15/loop.svg" width="72" height="72" alt="" />
+      </picture>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -55,7 +55,7 @@ export const useDashboardRequests = ({
     useState<"new" | "ongoing">("new");
   const [selectedRequestId, setSelectedRequestId] = useState<number | null>(null);
   const [clientRequests, setClientRequests] = useState<DashboardClientRequest[]>([]);
-  const [clientRequestsLoading, setClientRequestsLoading] = useState(false);
+  const [clientRequestsLoading, setClientRequestsLoading] = useState(canViewDashboardClientRequests);
 
   const fetchClientRequests = useCallback(async () => {
     requestController.current?.abort();
