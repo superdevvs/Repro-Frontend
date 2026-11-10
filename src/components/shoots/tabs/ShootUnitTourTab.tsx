@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { canEditVideoTours } from './tours/videoTourAccess';
 import { AryeoFlowPanel } from './tours/AryeoFlowPanel';
+import { AryeoApiPanel } from './tours/AryeoApiPanel';
 
 export function ShootDetailsTourTab(props: ShootDetailsTourTabProps) {
   const { unit, isMultiUnit } = useShootUnitScope(props.shoot);
@@ -61,5 +62,6 @@ export function ShootDetailsTourTab(props: ShootDetailsTourTabProps) {
     {videoOnly && !canEditVideoLinks && <p className="text-sm text-muted-foreground">Video links can be edited only for units assigned to you.</p>}
     {!isUnitReleaseLocked && (!videoOnly || canEditVideoLinks) && <ShootDetailsTourContent key={`${unit?.id ?? 'building'}-${iguideLineId ?? ''}-${cubicasaLineId ?? ''}`} {...props} videoOnly={videoOnly} canEditVideoLinks={canEditVideoLinks} isClientReleaseLocked={unit && Number(unit.ready_service_count ?? 0) > 0 ? false : props.isClientReleaseLocked} shoot={shoot} unitId={unit?.id} iguideLineId={iguideLineId} cubicasaLineId={cubicasaLineId} />}
     {['admin', 'superadmin', 'editing_manager'].includes(String(props.editorUser?.role ?? '').toLowerCase()) && <AryeoFlowPanel key={`aryeo-${props.shoot.id}-${unit?.id ?? 'building'}`} shootId={props.shoot.id} unitId={unit?.id} />}
+    {['admin', 'superadmin', 'editing_manager'].includes(String(props.editorUser?.role ?? '').toLowerCase()) && <AryeoApiPanel key={`aryeo-api-${props.shoot.id}-${unit?.id ?? 'building'}`} shootId={props.shoot.id} unitId={unit?.id} />}
   </div>;
 }

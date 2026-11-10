@@ -22,6 +22,7 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
 import { CopilotIntegration } from '@/components/integrations/CopilotIntegration';
 import { IntegrationTabs } from '@/components/integrations/IntegrationTabs';
+import { AryeoApiIntegration } from '@/components/integrations/AryeoApiIntegration';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
 import { BRAND_NAME } from '@/config/brand';
@@ -237,7 +238,7 @@ const normalizeBrightMlsSettings = (value?: Partial<BrightMlsSettings> | null): 
 // Export the content component for use in Settings page
 export const IntegrationsSettingsContent = () => {
   const [searchParams] = useSearchParams();
-  const [integrationTab, setIntegrationTab] = useState(searchParams.get('integration') === 'copilot' ? 'copilot' : 'zillow');
+  const [integrationTab, setIntegrationTab] = useState(searchParams.get('tab') === 'aryeo' ? 'aryeo' : searchParams.get('integration') === 'copilot' ? 'copilot' : 'zillow');
   const { toast } = useToast();
 
   // Zillow/Bridge Settings
@@ -570,6 +571,7 @@ export const IntegrationsSettingsContent = () => {
     <div className="space-y-6">
         <Tabs value={integrationTab} onValueChange={setIntegrationTab} className="w-full">
             <IntegrationTabs value={integrationTab} />
+            <TabsContent value="aryeo" className="mt-6"><AryeoApiIntegration /></TabsContent>
 
             <TabsContent value="copilot" className="mt-6"><CopilotIntegration /></TabsContent>
             {/* Zillow/Bridge Settings */}
@@ -1465,7 +1467,7 @@ export const IntegrationsSettingsContent = () => {
 
           </Tabs>
 
-          {integrationTab !== 'copilot' && <div className="flex justify-end gap-4 pt-6">
+          {!['copilot', 'aryeo'].includes(integrationTab) && <div className="flex justify-end gap-4 pt-6">
             <Button variant="outline" onClick={loadSettings}>
               Reset
             </Button>

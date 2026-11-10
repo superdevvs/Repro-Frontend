@@ -20,7 +20,7 @@ type Order = {
   delivery_setup?: { can_enable: boolean; client_name: string | null; client_access_required: boolean };
   discovery: { address: string; requester_email: string | null; requester_name?: string | null; required: Record<keyof Counts, number | null> | null; source_kind?: string };
   inventory: { complete?: boolean; assets?: Asset[]; manual_delivery_receipt?: ManualReceipt; provider_status?: ProviderStatus } | null; inventory_checked_at: string | null;
-  readiness: { eligible: boolean; blockers: string[]; dashboard?: { paid: boolean; delivered: boolean; summary_required: boolean }; available: Counts; media_version: string; assets: { id: number; filename: string; type: string }[]; tours?: { id: string }[] };
+  readiness: { eligible: boolean; blockers: string[]; dashboard?: { paid: boolean; release_override?: boolean; delivered: boolean; summary_required: boolean }; available: Counts; media_version: string; assets: { id: number; filename: string; type: string }[]; tours?: { id: string }[] };
   jobs: AryeoJob[];
 };
 type Panel = {
@@ -127,7 +127,7 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
     {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
     {!panel && !error && <p className="text-sm text-muted-foreground">Checking Aryeo Flow…</p>}
     {panel && !panel.configured && <p className="text-sm text-muted-foreground">Aryeo Flow is not connected for this client yet.</p>}
-    {panel?.connections.map(c => <p key={c.id} className="text-xs text-muted-foreground">{c.name}: {c.online ? 'Online' : 'Offline'} · Last seen {date(c.last_seen_at)}{c.discovery_only ? ' · Request sync enabled · Delivery not enabled' : !c.processing_enabled || !c.shoot_enabled ? ' · Read-only' : !c.executor_ready ? ' · Worker setup required' : ''}</p>)}
+    {panel?.connections.map(c => <p key={c.id} className="text-xs text-muted-foreground">{c.name}: {c.online ? 'Online' : 'Offline'} · Last seen {date(c.last_seen_at)}{c.discovery_only ? ' · Request sync enabled · Delivery not enabled' : !c.processing_enabled || !c.shoot_enabled ? ' · Read-only' : !c.executor_ready ? ' · Waiting for Showcase executor' : ''}</p>)}
     {panel?.configured && panel.orders.length === 0 && <p className="text-sm text-muted-foreground">{panel.unmatched.length > 0 ? 'Aryeo request received. Confirm the client match below.' : panel.connections.every(c => !c.last_seen_at) ? 'Waiting for the Mac to sync Aryeo requests.' : 'No Aryeo request matched to this shoot yet.'}</p>}
     {panel?.orders.map(order => {
       const c = panel.connections.find(c => c.id === order.connection_id);
@@ -147,14 +147,14 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
       const needsSetup = Boolean(c && !c.shoot_enabled && order.delivery_setup?.can_enable && c.processing_enabled
         && !supervised && !providerOnlyDelivered && !sameDelivered && !active);
       const readyLabel = !c?.shoot_enabled ? 'Delivery setup required' : !c.processing_enabled ? 'Delivery paused'
-        : !c.online ? 'Worker offline' : !c.executor_ready ? 'Worker setup required' : 'Ready to process';
+        : !c.online ? 'Worker offline' : !c.executor_ready ? 'Waiting for Showcase executor' : 'Ready to process';
       return <div key={order.id} className="space-y-3 border-t pt-3">
         <p className="text-sm font-medium">Aryeo request received</p>
         <div className="flex flex-wrap justify-between gap-2 text-sm"><span className="min-w-0 break-all font-medium">{supervised ? `Listing ${order.listing_id}` : `Order ${order.request_id ?? 'awaiting Aryeo verification'}`}</span><span>{providerOnlyDelivered ? 'Delivered in Aryeo' : supervised ? (manualDelivered ? 'Delivered manually' : 'Manual delivery needs verification') : job?.receipt ? (job.status === 'completed' ? (sameDelivered ? 'Delivered' : 'Update available') : 'Delivered · follow-up pending') : job ? readable(job.status) : order.readiness.eligible ? readyLabel : 'Waiting'}</span></div>
         <p className="break-words text-xs text-muted-foreground">{order.discovery.address} · {order.discovery.requester_email || order.discovery.requester_name || 'Requester email pending'}{order.listing_id ? ` · Listing ${order.listing_id}` : ''}</p>
         {!order.discovery.requester_email && <p className="text-xs text-amber-700 dark:text-amber-400">Requester email needs verification before delivery.</p>}
         {supervised && <p className="text-xs text-muted-foreground">Original Aryeo request ID unavailable. {manualDelivered ? 'Delivery verified from the listing and supervised record.' : 'Supervised delivery evidence must be verified.'}</p>}
-        {order.readiness.dashboard && <p className="text-xs text-muted-foreground">Dashboard: {order.readiness.dashboard.paid ? 'Paid' : 'Awaiting payment'} · {order.readiness.dashboard.delivered ? 'Delivered' : 'Awaiting delivery'} · Summary email not required</p>}
+        {order.readiness.dashboard && <p className="text-xs text-muted-foreground">Dashboard: {order.readiness.dashboard.paid ? 'Paid' : order.readiness.dashboard.release_override ? 'Approved release override' : 'Awaiting payment'} · {order.readiness.dashboard.delivered ? 'Delivered' : 'Awaiting delivery'} · Summary email not required</p>}
         <div className="overflow-x-auto"><table className="w-full text-xs text-left"><thead><tr className="text-muted-foreground"><th className="py-2 pr-3">Media</th><th className="px-2">Requested</th><th className="px-2">Ready</th><th className="px-2">In Aryeo</th><th className="pl-2">Delivered</th></tr></thead><tbody>
           {kinds.map(kind => <tr key={kind} className="border-t"><th className="py-2 pr-3 font-medium">{labels[kind]}</th><td className="px-2">{order.discovery.required ? (order.discovery.required[kind] ?? 'Requested') : 'Unknown'}</td><td className="px-2">{order.readiness.available[kind]}</td><td className="px-2">{inventoryKnown ? remoteAssets.filter(a => a.type === kind).length : providerStatus?.counts[kind] ?? 'Unknown'}</td><td className="pl-2">{inventoryKnown ? remoteAssets.filter(a => a.type === kind && a.delivered).length : providerStatus?.delivered_counts?.[kind] ?? 'Unknown'}</td></tr>)}
         </tbody></table></div>
@@ -176,8 +176,9 @@ export function AryeoFlowPanel({ shootId, unitId }: { shootId: string | number; 
             {busy ? 'Working…' : order.delivery_setup?.client_access_required ? 'Connect client & enable delivery' : 'Enable delivery'}
           </Button>
         </div>}
+        <p className="text-xs text-muted-foreground">By processing, you confirm distribution is authorized for this requester, listing and approved media. Aryeo may send an additional customer email.</p>
         <div className="flex flex-col items-start gap-3 sm:flex-row">
-        <Button size="sm" className="shrink-0" disabled={busy || supervised || providerOnlyDelivered || !canProcess || Boolean(active) || Boolean(sameDelivered) || (!retry && !order.readiness.eligible)} onClick={() => void action(retry ? `jobs/${job.id}/retry` : `requests/${order.id}/process`)}>
+        <Button size="sm" className="shrink-0" disabled={busy || supervised || providerOnlyDelivered || !canProcess || Boolean(active) || Boolean(sameDelivered) || (!retry && !order.readiness.eligible)} onClick={() => void action(retry ? `jobs/${job.id}/retry` : `requests/${order.id}/process`, retry ? undefined : { distribution_authorized: true })}>
           {providerOnlyDelivered ? 'Delivered in Aryeo' : supervised ? (manualDelivered ? 'Delivered manually' : 'Manual delivery') : busy ? 'Working…' : active ? 'Processing…' : retry ? 'Resume unfinished steps' : sameDelivered ? 'Delivered' : order.jobs.some(j => j.receipt) ? 'Deliver update' : 'Process & deliver'}
         </Button>
         {job && <AryeoJobActivity job={job} online={Boolean(c?.online)} now={now} />}

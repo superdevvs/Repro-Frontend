@@ -3,6 +3,7 @@ import { AutoExpandingTabsList } from '@/components/ui/auto-expanding-tabs';
 
 const tabs = [
   { value: 'zillow', label: 'Zillow', icon: Home },
+  { value: 'aryeo', label: 'Aryeo delivery', icon: Layers },
   { value: 'bright_mls', label: 'Bright MLS', icon: Layers },
   { value: 'iguide', label: 'iGUIDE', icon: Settings2 },
   { value: 'mmm', label: 'MMM', icon: Building2 },
