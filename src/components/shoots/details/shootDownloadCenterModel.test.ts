@@ -17,6 +17,41 @@ const shoot = (extra: Record<string, unknown> = {}) => ({ id: '42', files: [], s
 const build = (data: ShootData, overrides: Partial<ShootDownloadCenterOptions> = {}) => buildShootDownloadCenterModel(data, { ...options, ...overrides });
 
 describe('client download checklist model', () => {
+  it('offers only downloadable files to a sales rep viewing hidden video revisions', () => {
+    const result = build(shoot({ serviceItems: [line('v', 'Social Video'), line('p', 'Photos')], files: [
+      file('old-video', 'old-video.mp4', { shoot_service_id: 'v', is_hidden: true }),
+      file('revised-video', 'revised-video.mp4', { shoot_service_id: 'v', is_hidden: true, can_download: false }),
+      file('current-video', 'current-video.mp4', { shoot_service_id: 'v', can_download: true }),
+      file('denied-visible', 'restricted.mp4', { shoot_service_id: 'v', can_download: false }),
+      file('photo', 'photo.jpg', { shoot_service_id: 'p', can_download: true }),
+      file('hidden-photo', 'hidden.jpg', { shoot_service_id: 'p', is_hidden: true, can_download: false }),
+      file('denied-plan', 'plan.pdf', { can_download: false, preview_images: ['page.jpg'] }),
+    ] }), { isClient: false, isSalesRep: true });
+
+    expect(result.editedVideos.map(item => item.fileId)).toEqual(['current-video']);
+    expect(result.wholeShootPhotoCount).toBe(1);
+    expect(result.services.map(service => service.photoCount)).toEqual([1]);
+    expect(result.floorplanPdfs).toEqual([]);
+    expect(result.floorplanJpgs).toEqual([]);
+  });
+
+  it('preserves authorized staff downloads of hidden files and legacy file payloads', () => {
+    const result = build(shoot({ files: [
+      file('staff-hidden', 'hidden.mp4', { is_hidden: true, can_download: true }),
+      file('legacy', 'legacy.mp4'),
+    ] }), { isClient: false });
+
+    expect(result.editedVideos.map(item => item.fileId)).toEqual(['staff-hidden', 'legacy']);
+  });
+
+  it('retains an explicit contractor download grant on an account with a secondary sales role', () => {
+    const result = build(shoot({ files: [
+      file('assigned', 'assigned.mp4', { is_hidden: true, can_download: true }),
+      file('denied', 'denied.mp4', { is_hidden: true, can_download: false }),
+    ] }), { isClient: false, isSalesRep: true });
+    expect(result.editedVideos.map(item => item.fileId)).toEqual(['assigned']);
+  });
+
   it('allows a paid released tour in a partial bundle while hiding pending video and blocked files', () => {
     const result = build(shoot({ serviceItems: [line('b', 'Photos, iGUIDE and Video', { delivery_status: 'pending',
       delivery_components: [{ kind: 'photo', label: 'Photos', status: 'delivered' },

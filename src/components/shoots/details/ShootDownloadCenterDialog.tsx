@@ -5,6 +5,8 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/context/AuthContext';
+import { hasRestrictedSalesRepRole } from '@/utils/shootManagementAccess';
 import { cn } from '@/lib/utils';
 import type { ShootData } from '@/types/shoots';
 import type { ShootMediaDownloadSize, ShootMediaFileDownloadOptions } from '@/utils/shootMediaDownload';
@@ -46,6 +48,8 @@ export function ShootDownloadCenterDialog({
   canDownloadWholeShoot = true, canAccessTours = true, onOpenChange, onDownloadArchive, onDownloadFile,
 }: ShootDownloadCenterDialogProps) {
   const { toast } = useToast();
+  const { user, role } = useAuth();
+  const isSalesRep = hasRestrictedSalesRepRole({ role: role || user?.role, secondary_roles: user?.secondary_roles });
   const scope = useShootUnitScope(sourceShoot ?? undefined);
   const shoot = useMemo(() => sourceShoot && scope.unit ? {
     ...projectUnitTour(sourceShoot, scope.unit),
@@ -67,10 +71,10 @@ export function ShootDownloadCenterDialog({
     }
   };
   const downloadModel = useMemo(() => buildShootDownloadCenterModel(shoot, {
-    isClient, canDownloadWholeShoot,
+    isClient, isSalesRep, canDownloadWholeShoot,
     canAccessTours: !isClient || (scope.isMultiUnit ? Number(scope.unit?.ready_service_count) > 0 : canAccessTours),
     baseUrl: window.location.origin, unitId: scope.activeUnitId,
-  }), [canAccessTours, canDownloadWholeShoot, isClient, shoot, scope.isMultiUnit, scope.unit?.ready_service_count, scope.activeUnitId]);
+  }), [canAccessTours, canDownloadWholeShoot, isClient, isSalesRep, shoot, scope.isMultiUnit, scope.unit?.ready_service_count, scope.activeUnitId]);
 
   const renderArchiveButtons = (target: DownloadTarget) => (
     <div className="grid grid-cols-2 gap-2">

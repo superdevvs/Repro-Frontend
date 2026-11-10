@@ -19,6 +19,7 @@ export type ShootDownloadItem = {
 export type LinkDownload = ShootDownloadItem;
 export type ShootDownloadCenterOptions = {
   isClient: boolean;
+  isSalesRep?: boolean;
   canDownloadWholeShoot: boolean;
   canAccessTours: boolean;
   baseUrl: string;
@@ -80,17 +81,21 @@ const isFloorplan = (file: ShootFileData, service?: NormalizedShootServiceItem) 
   return /floor[ _-]?plan|iguide|cubicasa/.test(description) && !/photo|hdr|video|drone/.test(description);
 };
 
-const isVisibleFile = (file: ShootFileData, isClient: boolean) => {
+const isVisibleFile = (file: ShootFileData, isClient: boolean, isSalesRep: boolean) => {
   const data = record(file);
   const scan = text(data.scan_status);
   if (scan && scan !== 'clean') return false;
-  if (isClient && flag(file.is_hidden)) return false;
+  // Sales reps can preview hidden files for curation, but the server denies
+  // their downloads. Honor that capability for every role in this picker.
+  if (data.can_download === false) return false;
+  // Shoot detail payloads can omit can_download. Hidden customer files still
+  // must not appear as downloads; an explicit contractor grant takes priority.
+  if (flag(file.is_hidden) && (isClient || (isSalesRep && data.can_download !== true))) return false;
   const extra = data.is_extra == null
     ? file.media_type === 'extra' || /[/\\]extra[/\\]/i.test(file.path ?? '')
     : flag(data.is_extra);
   if (extra && !flag(data.required_for_editing)) return false;
   if (!isClient) return true;
-  if (data.can_download === false) return false;
   if (/^raw$/i.test(file.file_type ?? file.fileType ?? '')) return false;
   const stage = text(file.workflow_stage ?? file.workflowStage);
   if (stage) return ready(stage);
@@ -120,7 +125,7 @@ export function buildShootDownloadCenterModel(shoot: ShootData | null | undefine
     totalItems: 0,
   };
   if (!shoot) return model;
-  const { isClient, canDownloadWholeShoot, canAccessTours, baseUrl, unitId } = options;
+  const { isClient, isSalesRep = false, canDownloadWholeShoot, canAccessTours, baseUrl, unitId } = options;
   const wholeAccess = !isClient || canDownloadWholeShoot;
   const source = record(shoot);
   const allServices = getShootServiceItems(shoot).filter(service => unitId == null || getServiceUnitId(service.source) === String(unitId));
@@ -144,7 +149,7 @@ export function buildShootDownloadCenterModel(shoot: ShootData | null | undefine
   const videoOrdered = legacyLinks || linkServices.some(service => releasedLink(service, 'video') && (/video/.test(serviceText(service))
     || ['video', 'photo_video'].includes(text(record(service.source).upload_intake_type ?? record(service.source).uploadIntakeType))));
   const files = array(shoot.files).map(value => value as ShootFileData).filter(file => {
-    if (!isVisibleFile(file, isClient)) return false;
+    if (!isVisibleFile(file, isClient, isSalesRep)) return false;
     const id = fileLineId(file);
     if (unitId != null && !eligibleIds.has(id)) return false;
     if (!wholeAccess && !eligibleIds.has(id)) return false;

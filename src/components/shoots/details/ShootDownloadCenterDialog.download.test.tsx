@@ -3,7 +3,8 @@ import '@testing-library/jest-dom/vitest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ShootData } from '@/types/shoots';
 
-const mocks = vi.hoisted(() => ({ archive: vi.fn(), raw: vi.fn(), file: vi.fn(), selection: vi.fn(), toast: vi.fn() }));
+const mocks = vi.hoisted(() => ({ archive: vi.fn(), raw: vi.fn(), file: vi.fn(), selection: vi.fn(), toast: vi.fn(), role: 'admin' }));
+vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ role: mocks.role, user: { role: mocks.role } }) }));
 vi.mock('@/utils/shootSelectedMediaDownload', () => ({ downloadShootSelectedMedia: mocks.selection }));
 vi.mock('@/utils/shootMediaDownload', () => ({
   downloadShootMediaArchive: mocks.archive, downloadShootRawFiles: mocks.raw, downloadShootMediaFile: mocks.file,
@@ -27,10 +28,31 @@ function DownloadCenter() {
     onDownloadArchive={actions.handleDownloadMedia} onDownloadFile={actions.handleDownloadFile} />;
 }
 
-beforeEach(() => { vi.clearAllMocks(); vi.spyOn(console, 'error').mockImplementation(() => {}); });
+beforeEach(() => { vi.clearAllMocks(); mocks.role = 'admin'; vi.spyOn(console, 'error').mockImplementation(() => {}); });
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('Download Center loading buttons', () => {
+  it('hides old video revisions for a rep when shoot details omit download flags', async () => {
+    mocks.role = 'salesRep';
+    const onDownloadFile = vi.fn().mockResolvedValue(undefined);
+    const data = { ...shoot, files: [
+      { id: 'old-1', filename: 'Old video 1.mp4', workflow_stage: 'completed', is_hidden: true },
+      { id: 'old-2', filename: 'Old video 2.mp4', workflow_stage: 'completed', is_hidden: true },
+      { id: 'current', filename: 'Current video.mp4', workflow_stage: 'completed', is_hidden: false },
+    ] } as ShootData;
+    const view = render(<ShootDownloadCenterDialog shoot={data} open isDownloading={false} downloadStatusMessage=""
+      onOpenChange={vi.fn()} onDownloadArchive={vi.fn()} onDownloadFile={onDownloadFile} />);
+    expect(screen.queryByRole('button', { name: 'Download Old video 1.mp4' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Download Old video 2.mp4' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Download Current video.mp4' }));
+    await waitFor(() => expect(onDownloadFile).toHaveBeenCalledWith('current', 'Current video.mp4', undefined));
+    mocks.role = 'admin';
+    view.rerender(<ShootDownloadCenterDialog shoot={data} open isDownloading={false} downloadStatusMessage=""
+      onOpenChange={vi.fn()} onDownloadArchive={vi.fn()} onDownloadFile={onDownloadFile} />);
+    expect(screen.getByRole('button', { name: 'Download Old video 1.mp4' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download Old video 2.mp4' })).toBeInTheDocument();
+  });
+
   it('downloads only the editor selected final images and keeps an unselected download photo-only', async () => {
     mocks.selection.mockResolvedValue({ mode: 'blob', waited: false });
     mocks.archive.mockResolvedValue({ mode: 'blob', waited: false });
