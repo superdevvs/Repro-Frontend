@@ -17,6 +17,18 @@ const shoot = (extra: Record<string, unknown> = {}) => ({ id: '42', files: [], s
 const build = (data: ShootData, overrides: Partial<ShootDownloadCenterOptions> = {}) => buildShootDownloadCenterModel(data, { ...options, ...overrides });
 
 describe('client download checklist model', () => {
+  it('allows a paid released tour in a partial bundle while hiding pending video and blocked files', () => {
+    const result = build(shoot({ serviceItems: [line('b', 'Photos, iGUIDE and Video', { delivery_status: 'pending',
+      delivery_components: [{ kind: 'photo', label: 'Photos', status: 'delivered' },
+        { kind: 'tour', label: 'Tour', status: 'delivered' }, { kind: 'video', label: 'Video', status: 'pending' }] })],
+      tourLinks: { iguide_branded: 'https://youriguide.com/ready', video_branded: 'https://vimeo.com/pending' },
+      files: [file('p', 'photo.jpg', { shoot_service_id: 'b', can_download: true }), file('blocked', 'pending.jpg', { shoot_service_id: 'b', can_download: false })],
+    }), { canDownloadWholeShoot: false });
+    expect(result.threeDLinks.map(item => item.id)).toEqual(['tour-iguide_branded']);
+    expect(result.videoLinks).toEqual([]);
+    expect(result.services[0].photoCount).toBe(1);
+    expect(result.wholeShootPhotoCount).toBe(0);
+  });
   it('separates photos, edited video files, PDF originals and each guarded JPG page', () => {
     const result = build(shoot({ serviceItems: [line('1', 'Photos & Floor Plans')], files: [
       file('photo', 'front.jpg', { shoot_service_id: '1', media_type: 'photo' }),

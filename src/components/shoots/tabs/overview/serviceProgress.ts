@@ -2,7 +2,7 @@ import type { NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 
 export type ServiceProgressCode =
   | 'applied' | 'pending' | 'received' | 'in_editing' | 'drafting' | 'processing'
-  | 'awaiting_assets' | 'ready' | 'delivered' | 'cancelled' | 'on_hold' | 'needs_attention';
+  | 'awaiting_assets' | 'ready' | 'delivering' | 'delivered' | 'cancelled' | 'on_hold' | 'needs_attention';
 
 type ProgressTone = 'neutral' | 'active' | 'waiting' | 'delivered';
 export type ServiceProgress = { code: ServiceProgressCode; label: string; tone: ProgressTone };
@@ -16,6 +16,7 @@ const states: Record<ServiceProgressCode, Omit<ServiceProgress, 'code'>> = {
   processing: { label: 'Processing', tone: 'active' },
   awaiting_assets: { label: 'Awaiting links & floor plans', tone: 'waiting' },
   ready: { label: 'Ready', tone: 'active' },
+  delivering: { label: 'Delivering', tone: 'active' },
   delivered: { label: 'Delivered', tone: 'delivered' },
   cancelled: { label: 'Cancelled', tone: 'neutral' },
   on_hold: { label: 'On hold', tone: 'waiting' },
@@ -32,6 +33,9 @@ export function getServiceProgress(item: NormalizedShootServiceItem): ServicePro
     code = 'cancelled';
   } else if (supplied === 'not_applicable' || !item.isDeliverable) {
     code = 'applied';
+  } else if (item.source.delivery_components?.some(component => component.status === 'delivered' && !component.without_content)
+    && item.source.delivery_components.some(component => !['delivered', 'cancelled'].includes(component.status))) {
+    code = 'delivering';
   } else if (typeof supplied === 'string' && Object.prototype.hasOwnProperty.call(states, supplied)) {
     code = supplied as ServiceProgressCode;
   } else {

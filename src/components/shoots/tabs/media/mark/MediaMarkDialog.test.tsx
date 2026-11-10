@@ -36,27 +36,30 @@ describe('shared media Mark workspace', () => {
   });
   it('finalizes ready components only while explaining the pending video', async () => {
     show('delivery'); await screen.findByText('Finished video is missing.');
-    expect(screen.getByRole('checkbox', { name: 'Video — Showcase' })).toBeDisabled();
-    expect(screen.getAllByRole('checkbox').filter(input => (input as HTMLInputElement).checked)).toHaveLength(2);
-    fireEvent.click(screen.getByRole('button', { name: /Finalize selected/ })); await screen.findByText('All set');
-    expect(mocks.finalize).toHaveBeenCalledWith(expect.objectContaining({ body: expect.objectContaining({ component_ids: ['photos', 'plans'], mode: 'media', plan_revision: 'revision-1' }) }));
+    expect(screen.getByRole('checkbox', { name: 'Select Video — Showcase' })).toBeDisabled();
+    expect(screen.getByRole('checkbox', { name: 'Select Floorplans — Showcase' })).toBeChecked();
+    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Finalise' })); await screen.findByText('All set');
+    expect(mocks.finalize).toHaveBeenCalledWith(expect.objectContaining({ body: expect.objectContaining({ component_ids: ['photos', 'plans'], mode: 'auto', allow_without_content: false, confirmed: true, plan_revision: 'revision-1' }) }));
   });
-  it('requires an explicit component, meaningful reason and named confirmation for no-content completion', async () => {
+  it('requires selecting missing work and a meaningful reason while preserving real ready outputs', async () => {
     show('delivery'); await screen.findByText('Finished video is missing.');
-    fireEvent.click(screen.getByRole('radio', { name: /Without content/ }));
-    const apply = screen.getByRole('button', { name: /Finalize without content/ }); expect(apply).toBeDisabled();
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Video — Showcase' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Without content' }));
+    const apply = screen.getByRole('button', { name: 'Finalise' });
+    expect(screen.getByRole('checkbox', { name: 'Select Video — Showcase' })).not.toBeChecked();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Video — Showcase' }));
+    expect(apply).toBeDisabled();
     fireEvent.change(screen.getByRole('textbox', { name: /Reason for completion/ }), { target: { value: 'Approved external handoff' } });
-    expect(apply).toBeDisabled(); fireEvent.click(screen.getByRole('checkbox', { name: /I confirm completion without content/ }));
+    expect(apply).toBeEnabled();
     fireEvent.click(apply); await screen.findByText('All set');
-    expect(mocks.finalize).toHaveBeenCalledWith(expect.objectContaining({ body: expect.objectContaining({ component_ids: ['video'], mode: 'manual_no_content', reason: 'Approved external handoff', confirmed: true }) }));
+    expect(mocks.finalize).toHaveBeenCalledWith(expect.objectContaining({ body: expect.objectContaining({ component_ids: ['photos', 'plans', 'video'], mode: 'auto', allow_without_content: true, reason: 'Approved external handoff', confirmed: true }) }));
   });
   it.each(['editor', 'photographer', 'salesrep', 'client'])('does not fetch or expose staff controls to %s', async role => {
     mocks.role = role; show(); expect(screen.queryByRole('tab', { name: 'Service' })).not.toBeInTheDocument(); expect(screen.queryByRole('tab', { name: 'Delivery' })).not.toBeInTheDocument(); expect(mocks.plan).not.toHaveBeenCalled(); expect(mocks.preview).not.toHaveBeenCalled();
   });
   it('honors denied server capabilities even for an admin', async () => {
     mocks.role = 'admin'; mocks.plan.mockResolvedValue({ ...plan(), capabilities: { can_finalize: false, can_manual_no_content: false, can_assign_service: false } }); mocks.preview.mockResolvedValue({ ...discovery(), capabilities: { can_assign_service: false } });
-    show('delivery'); await screen.findByText('This action is unavailable'); expect(screen.queryByRole('tab', { name: 'Service' })).not.toBeInTheDocument(); expect(screen.getByRole('button', { name: /Finalize selected/ })).toBeDisabled();
+    show('delivery'); await screen.findByText('This action is unavailable'); expect(screen.queryByRole('tab', { name: 'Service' })).not.toBeInTheDocument(); expect(screen.getByRole('button', { name: 'Finalise' })).toBeDisabled();
   });
   it('supports keyboard navigation between the shared tabs', async () => {
     show(); await screen.findByRole('tab', { name: 'Service' });
@@ -66,10 +69,28 @@ describe('shared media Mark workspace', () => {
     fireEvent.keyDown(screen.getByRole('tab', { name: 'Service' }), { key: 'End' });
     expect(screen.getByRole('tab', { name: 'Delivery' })).toHaveAttribute('aria-selected', 'true');
   });
-  it('omits an empty file selection when global Finalize discovers capabilities', async () => {
+  it('selects ready external output together with photos without a delivery-mode picker', async () => {
+    mocks.plan.mockResolvedValue({ ...plan(), components: [component('photos', 'photo', 'ready'),
+      { ...component('tour', 'floorplan', 'ready'), label: 'Property tour', kind: 'tour', file_ids: [], methods: ['external', 'manual_no_content'], external_url: 'https://youriguide.com/ready' }] });
+    render(<MediaMarkDialog request={{ shootId: 5935, initialTab: 'delivery' }} onClose={vi.fn()} />);
+    await screen.findByRole('link', { name: /Review/ });
+    fireEvent.click(screen.getByRole('button', { name: 'Finalise' })); await screen.findByText('All set');
+    expect(mocks.finalize).toHaveBeenCalledWith(expect.objectContaining({ body: expect.objectContaining({ component_ids: ['photos', 'tour'], mode: 'auto', confirmed: true }) }));
+  });
+  it('turning off without-content removes pending selections and retains ready work', async () => {
+    show('delivery'); await screen.findByText('Finished video is missing.');
+    fireEvent.click(screen.getByRole('switch', { name: 'Without content' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Video — Showcase' }));
+    fireEvent.click(screen.getByRole('switch', { name: 'Without content' }));
+    expect(screen.getByRole('checkbox', { name: 'Select Video — Showcase' })).not.toBeChecked();
+    expect(screen.queryByRole('textbox', { name: /Reason for completion/ })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Finalise' })); await screen.findByText('All set');
+    expect(mocks.finalize).toHaveBeenCalledWith(expect.objectContaining({ body: expect.objectContaining({ component_ids: ['photos', 'plans'], allow_without_content: false }) }));
+  });
+  it('does not load unrelated file-assignment controls in the standalone finalise modal', async () => {
     render(<MediaMarkDialog request={{ shootId: 5935, initialTab: 'delivery' }} onClose={vi.fn()} />);
     await screen.findByText('Finished video is missing.');
-    expect(mocks.preview.mock.calls[0][1]).toEqual({ confirm_historical: false });
+    expect(mocks.preview).not.toHaveBeenCalled();
   });
   it('requires a reason and explicit receipt confirmation for historical assignment', async () => {
     const history = { ...discovery(), targets: [{ ...discovery().targets[0], historical: true }], files: [{ id: 21, shoot_service_id: 6100, content_version: 2 }], requires_historical_confirmation: true, receipt_revision: 'a'.repeat(64) };
@@ -87,16 +108,16 @@ describe('shared media Mark workspace', () => {
   it('clears approvals after a stale-plan rejection and keeps the reason visible', async () => {
     mocks.plan.mockResolvedValueOnce(plan()).mockResolvedValue({ ...plan(), revision: 'revision-2' });
     mocks.finalize.mockResolvedValue({ status: 'error', message: 'Delivery plan changed. Review the latest work.' });
-    show('delivery'); await screen.findByText('Finished video is missing.'); fireEvent.click(screen.getByRole('button', { name: /Finalize selected/ }));
-    await screen.findByRole('alert'); await waitFor(() => expect(screen.getByRole('button', { name: /Finalize selected/ })).toBeDisabled());
+    show('delivery'); await screen.findByText('Finished video is missing.'); fireEvent.click(screen.getByRole('button', { name: 'Finalise' }));
+    await screen.findByRole('alert'); await waitFor(() => expect(screen.getByRole('button', { name: 'Finalise' })).toBeDisabled());
     expect(screen.getByRole('alert')).toHaveTextContent('Delivery plan changed'); expect(mocks.plan).toHaveBeenCalledTimes(2);
   });
   it('reuses the same delivery key and scope after an uncertain response while the plan is unchanged', async () => {
     mocks.finalize.mockResolvedValueOnce({ status: 'error', message: 'Connection interrupted. Check or retry this delivery.' }).mockResolvedValueOnce({ status: 'completed', warnings: [] });
     show('delivery'); await screen.findByText('Finished video is missing.');
-    fireEvent.click(screen.getByRole('button', { name: /Finalize selected/ })); await screen.findByRole('alert');
-    await waitFor(() => expect(screen.getByRole('button', { name: /Finalize selected/ })).toBeEnabled());
-    fireEvent.click(screen.getByRole('button', { name: /Finalize selected/ })); await screen.findByText('All set');
+    fireEvent.click(screen.getByRole('button', { name: 'Finalise' })); await screen.findByRole('alert');
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Finalise' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'Finalise' })); await screen.findByText('All set');
     expect(mocks.finalize.mock.calls[0][0].body).toEqual(mocks.finalize.mock.calls[1][0].body);
   });
 });

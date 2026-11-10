@@ -13,6 +13,16 @@ const image: MediaFile = {
 };
 
 describe('video editor reference images', () => {
+  it('allows only paid released files while other client services remain locked', () => {
+    const client = { ...editor, role: 'client', isEditor: false, isClient: true, releaseLocked: true };
+    const paid = { ...image, uses_watermark: false };
+    const unpaid = { ...image, uses_watermark: true, can_download: false };
+    expect(getMediaDownloadPermissions({ ...client, viewerFile: paid }).canDownloadFile(paid)).toBe(true);
+    expect(getMediaDownloadPermissions({ ...client, viewerFile: paid }).canDownloadViewer).toBe(true);
+    expect(getMediaDownloadPermissions({ ...client, viewerFile: unpaid }).canDownloadFile(unpaid)).toBe(false);
+    expect(getMediaDownloadPermissions({ ...client, viewerFile: unpaid }).canViewFullSize).toBe(false);
+    expect(getMediaDownloadPermissions({ ...client, viewerFile: { ...paid, can_download: false } }).canDownloadViewer).toBe(false);
+  });
   it('permits grid and viewer downloads without photo editing controls', () => {
     const access = getMediaDownloadPermissions({ ...editor, viewerFile: image });
     expect(access.canDownloadFile(image)).toBe(true);

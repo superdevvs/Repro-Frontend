@@ -192,7 +192,7 @@ export function useShootMediaDerivedData({
     isAdmin ||
     isPhotographer ||
     (isEditor && (displayTab === 'uploaded' || editedFiles.some(file => file.can_download === true))) ||
-    (isClient && !isClientReleaseLocked) ||
+    (isClient && (!isClientReleaseLocked || editedFiles.some(file => file.can_download === true))) ||
     (isSalesRep && displayTab === 'edited');
   const showUploadTab = isAdmin || isPhotographer || isEditor;
 

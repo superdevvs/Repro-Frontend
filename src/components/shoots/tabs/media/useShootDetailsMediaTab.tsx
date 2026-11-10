@@ -61,6 +61,9 @@ import { usePostRenameBatchPrompt } from './usePostRenameBatchPrompt';
 import { useShootMediaRailEvents } from './useShootMediaRailEvents';
 import { MEDIA_BATCH_RENAME_API_ENABLED } from '@/features/media-filename-rename/featureFlag';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
+import { getShootDeliveryProgress, serviceHasReleasedContent } from '@/utils/shootDeliveryProgress';
+import { getShootClientReleaseAccess } from '../../details/shootClientReleaseAccess';
+import { ClientDeliveryNotice } from './ClientDeliveryNotice';
 import { canShowIguideMedia } from './iguideMediaVisibility';
 import { useShootFileScanStatusRenderer } from './useShootFileScanStatusRenderer';
 import { useUnitMediaScope, useScopedShootFiles } from '@/features/shoot-units/useUnitMediaScope';
@@ -81,6 +84,7 @@ interface ShootDetailsMediaTabProps {
   isClientReleaseLocked?: boolean;
   role: string;
   onShootUpdate: () => void;
+  onPayNow?: () => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onSelectionChange?: (selectedIds: string[]) => void;
@@ -149,9 +153,10 @@ export function useShootDetailsMediaTab({
   isPhotographer,
   isEditor,
   isClient,
-  isClientReleaseLocked = false,
+  isClientReleaseLocked = getShootClientReleaseAccess(fullShoot, isClient).isClientReleaseLocked,
   role,
   onShootUpdate,
+  onPayNow,
   isExpanded = false,
   onToggleExpand,
   onSelectionChange,
@@ -242,7 +247,7 @@ export function useShootDetailsMediaTab({
           return (
             item.isDeliverable &&
             item.isUnlockedForDelivery &&
-            ['ready', 'delivered'].includes(deliveryStatus) &&
+            (serviceHasReleasedContent(item) || ['ready', 'delivered'].includes(deliveryStatus)) &&
             workflowStatus !== 'cancelled'
           );
         })
@@ -250,23 +255,10 @@ export function useShootDetailsMediaTab({
     );
   }, [isClient, shoot]);
   const hasClientUnlockedServiceDelivery = isClient && clientUnlockedServiceIds.size > 0;
-  const effectiveClientReleaseLocked = isClientReleaseLocked && !hasClientUnlockedServiceDelivery;
-  const clientVisibleEditedFiles = useMemo(() => {
-    if (!isClient || !isClientReleaseLocked || !hasClientUnlockedServiceDelivery) {
-      return editedFiles;
-    }
-
-    return editedFiles.filter((file) => {
-      const serviceId = file.shoot_service_id ?? file.shootServiceId;
-      return serviceId != null && clientUnlockedServiceIds.has(String(serviceId));
-    });
-  }, [
-    clientUnlockedServiceIds,
-    editedFiles,
-    hasClientUnlockedServiceDelivery,
-    isClient,
-    isClientReleaseLocked,
-  ]);
+  const effectiveClientReleaseLocked = isClientReleaseLocked;
+  // The API supplies released, role-scoped previews and per-file entitlements.
+  // One paid service must not hide other delivered watermarked previews.
+  const clientVisibleEditedFiles = editedFiles;
   const {
     uploadedPhotos,
     uploadedVideos,
@@ -1227,7 +1219,8 @@ export function useShootDetailsMediaTab({
     );
   };
   // Show "Work in Progress" UI for clients when shoot is not finalized
-  if (isClient && !isShootFinalized && !hasClientUnlockedServiceDelivery) {
+  if (isClient && !isShootFinalized && !hasClientUnlockedServiceDelivery
+    && !getShootDeliveryProgress(shoot).hasReleasedContent && editedFiles.length === 0) {
     return <ClientWorkInProgressPanel clientProgress={clientProgress} />;
   }
 
@@ -1248,6 +1241,7 @@ export function useShootDetailsMediaTab({
           if (index >= 0) openViewerWithSource(index, files, displayTab);
         }}
       /></div>}
+      {isClient && <ClientDeliveryNotice shoot={shoot} onPayNow={onPayNow} />}
       <ShootDetailsMediaTabView
         role={role}
         mediaRequirements={mediaRequirements}

@@ -15,6 +15,7 @@ interface ShootDetailsMediaTabProps {
   isClientReleaseLocked?: boolean;
   role: string;
   onShootUpdate: () => void;
+  onPayNow?: () => void;
   isExpanded?: boolean;
   onToggleExpand?: () => void;
   onSelectionChange?: (selectedIds: string[]) => void;

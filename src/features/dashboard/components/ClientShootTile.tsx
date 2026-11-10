@@ -1,4 +1,5 @@
 import { getShootDisplayStatus, hasActiveShootWork } from '@/utils/activeShootWork';
+import { getShootDeliveryProgress } from '@/utils/shootDeliveryProgress';
 import React from "react";
 import { format, parseISO } from "date-fns";
 import { Calendar, CreditCard, Download, Ghost, Image as ImageIcon } from "lucide-react";
@@ -156,7 +157,7 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 hover:bg-emerald-500/20 text-[10px] sm:text-[11px] h-6 px-2.5 font-semibold">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse" />
-                  {hasActiveShootWork(data) ? 'Active' : 'Delivered'}
+                  {getShootDeliveryProgress(data).isDelivering ? 'Delivering' : hasActiveShootWork(data) ? 'Active' : 'Delivered'}
                 </Badge>
                 {data.isGhostVisibleForUser ? (
                   <Badge className="bg-slate-500/10 text-slate-600 border-slate-500/20 hover:bg-slate-500/15 text-[10px] sm:text-[11px] h-6 px-2.5 font-semibold">

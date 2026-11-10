@@ -10,6 +10,8 @@ import { getShootMediaRequirements } from '../media/shootMediaRequirements';
 import { canSeeServiceImageCounts, countServicePhotos } from './serviceImageCounts';
 import { getServiceProgress } from './serviceProgress';
 import { ServiceProgressBadge } from './ServiceProgressBadge';
+import { clientServicePaymentText, getShootDeliveryProgress, serviceDeliveryComponents } from '@/utils/shootDeliveryProgress';
+import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 import './OverviewServiceRows.css';
 
 interface Props {
@@ -20,6 +22,7 @@ interface Props {
   isPhotographer: boolean;
   isEditor: boolean;
   isAdmin?: boolean;
+  onOpenMedia?: () => void;
   formatServiceLabel: (service: unknown) => string;
   getReadonlyServiceDisplayPrice: (service: unknown) => string;
 }
@@ -56,8 +59,11 @@ export function OverviewServiceRows(props: Props) {
   const hasPhotos = countServices.length > 0;
   const raw = useShootFiles(props.shoot.id, 'raw', { enabled: showCounts && hasPhotos });
   const edited = useShootFiles(props.shoot.id, 'edited', { enabled: showCounts && hasPhotos && !props.isPhotographer });
+  const delivery = getShootDeliveryProgress(props.shoot);
+  const paid = normalizeShootPaymentSummary(props.shoot).paymentStatus === 'paid';
   return <section className="overview-service-rows" aria-label="Booked services">
-    <h3 className="mb-1 text-[10px] font-medium uppercase text-muted-foreground">Services</h3>
+    <div className="mb-1 flex items-center justify-between gap-2"><h3 className="text-[10px] font-medium uppercase text-muted-foreground">Services</h3>
+      {props.isClient && delivery.hasReleasedContent && <span className="text-[10px] text-primary">{delivery.delivered ? `${delivery.delivered} of ${delivery.total} services delivered` : 'Delivery in progress'}</span>}</div>
     {props.serviceItems.map(item => {
       const id = String(item.shootServiceId ?? '');
       const target = countServices.find(service => service.id === id);
@@ -76,6 +82,19 @@ export function OverviewServiceRows(props: Props) {
           </div>
           <span className="service-row-price" aria-label={`${props.isPhotographer || props.isEditor ? 'Pay' : 'Price'} ${props.getReadonlyServiceDisplayPrice(item.source)}`}>{props.getReadonlyServiceDisplayPrice(item.source)}</span>
         </div>
+        {props.isClient && <div className="mt-1 space-y-1 text-[11px]">
+          {serviceDeliveryComponents(item).map((component, index) => <div key={`${component.kind}-${index}`} className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">{component.kind !== 'legacy' ? component.label : 'Delivery'}</span>
+            <span className={component.status === 'delivered' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-300'}>
+              {component.without_content ? 'Completed without content' : component.status === 'delivered' ? 'Delivered' : 'Coming soon'}
+            </span>
+          </div>)}
+          {item.isDeliverable && !item.isInvoiceAdjustment && <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground">
+            <span>{clientServicePaymentText(item, paid)}</span>
+            {props.onOpenMedia && serviceDeliveryComponents(item).some(component => component.status === 'delivered' && !component.without_content)
+              && <button type="button" className="min-h-8 text-primary hover:underline" onClick={props.onOpenMedia}>View media →</button>}
+          </div>}
+        </div>}
         <div className="service-row-bottom">
           <div className="service-row-assignee">
             {!props.isPhotographer && !props.isEditor && <span className="service-row-person">{item.photographerName || item.editorName || 'Unassigned'}</span>}

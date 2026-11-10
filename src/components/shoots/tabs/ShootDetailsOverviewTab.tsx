@@ -312,6 +312,7 @@ const mapPhotographerPickerOption = (value: unknown): PhotographerPickerOption =
 };
 
 export interface ShootDetailsOverviewTabProps {
+  onOpenMedia?: () => void;
   shoot: ShootData;
   isAdmin: boolean;
   isRep: boolean;
@@ -340,6 +341,7 @@ export interface ShootDetailsOverviewTabProps {
 
 export const ShootDetailsOverviewTab = withShootUnitOverview(ShootDetailsOverviewTabContent);
 function ShootDetailsOverviewTabContent({
+  onOpenMedia,
   shoot,
   isAdmin,
   isRep,
@@ -889,6 +891,7 @@ function ShootDetailsOverviewTabContent({
         }
       />
       <OverviewServicesTableSection
+        onOpenMedia={onOpenMedia}
         role={role}
         isEditMode={isEditMode && canEditServicePlan}
         canEditAppointments={canEditAppointments}

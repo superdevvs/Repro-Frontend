@@ -324,6 +324,7 @@ export interface ShootServiceObject {
   progressStatus?: string | null;
   delivery_status?: string | null;
   deliveryStatus?: string | null;
+  delivery_components?: Array<{ kind: string; label: string; status: string; without_content?: boolean }>;
   ready_at?: string | null;
   readyAt?: string | null;
   delivered_at?: string | null;

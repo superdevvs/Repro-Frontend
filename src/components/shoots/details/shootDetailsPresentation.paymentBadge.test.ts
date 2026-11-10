@@ -36,8 +36,8 @@ describe('getShootDetailsPaymentStatus — production-shaped shoot 61', () => {
     expect(getShootDetailsPaymentStatus(shoot61)).toBe('partial');
   });
 
-  it('renders the Partial badge label', () => {
-    expect(getShootDetailsPaymentBadge(shoot61)?.label).toBe('Partial');
+  it('renders the Part-paid badge distinctly from partial delivery', () => {
+    expect(getShootDetailsPaymentBadge(shoot61)?.label).toBe('Part-paid');
   });
 
   it('matches the Shoot History badge, which already read partial', () => {

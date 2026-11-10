@@ -2,6 +2,7 @@ import type { ShootData } from '@/types/shoots';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { getShootUnits } from '@/features/shoot-units/shootUnitData';
+import { serviceHasReleasedContent } from '@/utils/shootDeliveryProgress';
 
 type CanonicalPaymentStatus = 'paid' | 'unpaid' | 'partial' | null;
 
@@ -36,7 +37,7 @@ export const getShootClientReleaseAccess = (
       getShootServiceItems(shoot).some((item) =>
         item.isDeliverable &&
         item.isUnlockedForDelivery &&
-        ['ready', 'delivered'].includes(String(item.deliveryStatus ?? '').toLowerCase()) &&
+        (serviceHasReleasedContent(item) || ['ready', 'delivered'].includes(String(item.deliveryStatus ?? '').toLowerCase())) &&
         item.workflowStatus !== 'cancelled',
       ),
   );
@@ -49,7 +50,7 @@ export const getShootClientReleaseAccess = (
     hasUnlockedServiceDownloads,
     canClientDownload: !isClientReleaseLocked || hasUnlockedServiceDownloads,
     canClientDownloadWholeShoot: !isClientReleaseLocked,
-    canClientAccessTours: !isClient || (units.length ? units.some(unit => Number(unit.ready_service_count) > 0) : !isClientReleaseLocked),
+    canClientAccessTours: !isClient || (units.length ? units.some(unit => Number(unit.ready_service_count) > 0) || hasUnlockedServiceDownloads : !isClientReleaseLocked || hasUnlockedServiceDownloads),
     shouldUseWatermarkedMessaging: isClientReleaseLocked,
   };
 };

@@ -83,7 +83,7 @@ export function OverviewPaymentSummarySection({
 }: OverviewPaymentSummarySectionProps) {
   const pendingPayments = shoot.payment?.pendingPayments ?? [];
   const formattedPaymentBalance = `$${paymentBalance.toFixed(2)}`;
-  const payNowLabel = `Pay ${formattedPaymentBalance}`;
+  const payNowLabel = 'Pay now';
   const isCancellationFeeOnly = Boolean(shoot.payment?.isCancellationFeeOnly);
   const originalServiceSubtotal = Number(shoot.payment?.originalServiceSubtotal || 0);
   const cancellationFee = Number(shoot.payment?.cancellationFee || shoot.payment?.totalQuote || 0);
@@ -141,7 +141,8 @@ export function OverviewPaymentSummarySection({
 
   return (
     <div className="p-2.5 border rounded-lg bg-card">
-      <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Payment</span>
+      <div className="mb-1.5 flex items-center justify-between gap-2"><span className="text-[11px] font-semibold text-muted-foreground uppercase">Payment</span>
+        {isClient && <span className="text-[10px] text-muted-foreground">{paymentBalance <= 0.01 ? 'Paid' : paymentTotalPaid > 0 ? 'Part-paid' : 'Unpaid'}</span>}</div>
       {isEditMode && canViewFullBreakdown ? (
         <div className="space-y-1.5 text-xs">
           {canEditDiscount && (
@@ -380,6 +381,7 @@ export function OverviewPaymentSummarySection({
                     size="sm"
                     className="w-full justify-center bg-emerald-600 text-white hover:bg-emerald-700"
                     onClick={onPayNow}
+                    aria-label={`Pay now — ${formattedPaymentBalance} remaining`}
                     disabled={isPaying}
                   >
                     {isPaying ? (

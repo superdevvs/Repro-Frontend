@@ -2,6 +2,7 @@ import type { ShootData, ShootFileData } from '@/types/shoots';
 import { getShootServiceItems, type NormalizedShootServiceItem } from '@/utils/shootServiceItems';
 import { buildTourUrl } from '@/features/shoot-units/unitTourData';
 import { getServiceUnitId } from '@/features/shoot-units/shootUnitData';
+import { serviceHasReleasedContent } from '@/utils/shootDeliveryProgress';
 
 type RecordData = Record<string, unknown>;
 export type ShootDownloadItem = {
@@ -89,6 +90,7 @@ const isVisibleFile = (file: ShootFileData, isClient: boolean) => {
     : flag(data.is_extra);
   if (extra && !flag(data.required_for_editing)) return false;
   if (!isClient) return true;
+  if (data.can_download === false) return false;
   if (/^raw$/i.test(file.file_type ?? file.fileType ?? '')) return false;
   const stage = text(file.workflow_stage ?? file.workflowStage);
   if (stage) return ready(stage);
@@ -124,20 +126,23 @@ export function buildShootDownloadCenterModel(shoot: ShootData | null | undefine
   const allServices = getShootServiceItems(shoot).filter(service => unitId == null || getServiceUnitId(service.source) === String(unitId));
   const eligible = allServices.filter(service => service.isDeliverable && !service.isInvoiceAdjustment
     && service.workflowStatus !== 'cancelled'
-    && (wholeAccess || (service.isUnlockedForDelivery && ['ready', 'delivered'].includes(service.deliveryStatus ?? ''))));
+    && (wholeAccess || (service.isUnlockedForDelivery && (serviceHasReleasedContent(service) || ['ready', 'delivered'].includes(service.deliveryStatus ?? '')))));
   const eligibleIds = new Set(eligible.map(service => service.id));
-  const linkServices = eligible.filter(service => !isClient || !service.deliveryStatus
+  const releasedLink = (service: NormalizedShootServiceItem, kind: string) => !isClient
+    || !service.source.delivery_components?.length
+    || service.source.delivery_components.some(component => component.kind === kind && component.status === 'delivered' && !component.without_content);
+  const linkServices = eligible.filter(service => !isClient || serviceHasReleasedContent(service) || !service.deliveryStatus
     || ['ready', 'delivered'].includes(service.deliveryStatus));
   const linkServiceIds = new Set(linkServices.map(service => service.id));
-  const ordered = (pattern: RegExp) => linkServices.some(service => pattern.test(serviceText(service)));
+  const ordered = (pattern: RegExp) => linkServices.some(service => releasedLink(service, 'tour') && pattern.test(serviceText(service)));
   // Older single-shoot payloads can predate service-line serialization. Only
   // fully released shoots may use their existing published links as evidence.
   const legacyLinks = wholeAccess && unitId == null && allServices.length === 0;
-  const generic3d = linkServices.some(service => /\b3d\b|three[ -]?dimensional/i.test(serviceText(service))
+  const generic3d = linkServices.some(service => releasedLink(service, 'tour') && /\b3d\b|three[ -]?dimensional/i.test(serviceText(service))
     && !/matterport|iguide|i[ -]?guide|cubicasa|zillow/i.test(serviceText(service)));
   const canUseProvider = (provider: string) => legacyLinks || ordered(new RegExp(provider, 'i')) || generic3d;
-  const videoOrdered = legacyLinks || linkServices.some(service => /video/.test(serviceText(service))
-    || ['video', 'photo_video'].includes(text(record(service.source).upload_intake_type ?? record(service.source).uploadIntakeType)));
+  const videoOrdered = legacyLinks || linkServices.some(service => releasedLink(service, 'video') && (/video/.test(serviceText(service))
+    || ['video', 'photo_video'].includes(text(record(service.source).upload_intake_type ?? record(service.source).uploadIntakeType))));
   const files = array(shoot.files).map(value => value as ShootFileData).filter(file => {
     if (!isVisibleFile(file, isClient)) return false;
     const id = fileLineId(file);

@@ -43,6 +43,7 @@ const EDIT_COLUMN_WIDTHS: Record<string, number> = { Date: 148, Time: 112, 'Assi
 
 export type OverviewServicesTableSectionProps = {
   isEditMode: boolean;
+  onOpenMedia?: () => void;
   serviceChangeIntent?: ServiceChangeIntent;
   onServiceChangeIntentChange?: (intent: ServiceChangeIntent) => void;
   canEditAppointments?: boolean;

@@ -1,4 +1,5 @@
 import { getShootOperationalDate, getShootOperationalTime, hasActiveShootWork, normalizeActiveShootWork } from '@/utils/activeShootWork';
+import { getShootDeliveryProgress } from '@/utils/shootDeliveryProgress';
 import { shootAutoDeliveryFields } from '@/utils/shootAutoDelivery';
 import { format, startOfDay, differenceInCalendarDays, parse, parseISO, isValid } from "date-fns";
 
@@ -280,6 +281,7 @@ export const isClientVisibleCompletedSummary = (summary: DashboardShootSummary) 
   matchesStatus(summary, CLIENT_VISIBLE_DELIVERED_STATUS_KEYWORDS);
 
 export const hasClientVisibleDeliveredService = (shoot: ShootData) =>
+  getShootDeliveryProgress(shoot).hasReleasedContent ||
   getShootServiceItems(shoot).some((item) => {
     const deliveryStatus = String(item.deliveryStatus ?? "").toLowerCase();
     const workflowStatus = String(item.workflowStatus ?? "").toLowerCase();

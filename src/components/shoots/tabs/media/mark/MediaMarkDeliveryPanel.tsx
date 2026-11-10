@@ -1,34 +1,64 @@
-import { AlertCircle, Check, CheckCircle2, ExternalLink, FileCheck2, FileText, Image, Link2, Video } from 'lucide-react';
-import type { DeliveryMode, DeliveryPlan } from '@/services/mediaMarkService';
-import { deliveryComponentSelectable } from '@/services/mediaMarkService';
+import { ExternalLink } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import type { DeliveryPlan } from '@/services/mediaMarkService';
+import { automaticDeliveryMethod, deliveryServiceGroups } from './simpleDeliverySelection';
 
-const modes: Array<{ id: DeliveryMode; title: string; description: string; icon: typeof Image }> = [
-  { id: 'media', title: 'Ready content', description: 'Release reviewed files', icon: FileCheck2 },
-  { id: 'external', title: 'External delivery', description: 'Review provider output', icon: Link2 },
-  { id: 'manual_no_content', title: 'Without content', description: 'Record a staff exception', icon: FileText },
-];
-const kindIcons = { photo: Image, video: Video, floorplan: FileText, tour: Link2, external: Link2, legacy: FileCheck2 };
-export function MediaMarkDeliveryPanel({ plan, mode, onModeChange, selected, onSelect, reason, onReasonChange, confirmed, onConfirm }: {
-  plan: DeliveryPlan; mode: DeliveryMode; onModeChange: (value: DeliveryMode) => void; selected: string[];
-  onSelect: (id: string) => void; reason: string; onReasonChange: (value: string) => void; confirmed: boolean; onConfirm: (value: boolean) => void;
+export function MediaMarkDeliveryPanel({ plan, withoutContent, onWithoutContentChange, selected, onSelect, reason, onReasonChange, disabled = false }: {
+  plan: DeliveryPlan; withoutContent: boolean; onWithoutContentChange: (value: boolean) => void;
+  selected: string[]; onSelect: (ids: string[], checked: boolean) => void;
+  reason: string; onReasonChange: (value: string) => void; disabled?: boolean;
 }) {
-  const selectedComponents = plan.components.filter(component => selected.includes(component.id));
-  return <div className="space-y-5">
-    <div className="mark-panel-heading"><span className="mark-eyebrow">Review the remaining work</span><h3>Deliver exactly what’s ready</h3><p>{plan.summary || 'Each booked component is checked separately. Other unfinished work stays in progress.'}</p></div>
-    <div className="mark-delivery-modes" role="radiogroup" aria-label="Delivery method">{modes.filter(item => item.id === 'manual_no_content' ? plan.capabilities.can_manual_no_content : plan.capabilities.can_finalize).map(item => <button key={item.id} type="button" role="radio" aria-checked={mode === item.id} className={`mark-mode ${mode === item.id ? 'is-selected' : ''}`} onClick={() => onModeChange(item.id)}><item.icon /><strong>{item.title}</strong><small>{item.description}</small></button>)}</div>
-    <div className="mark-component-list">{plan.components.map(component => {
-      const Icon = kindIcons[component.kind] ?? FileCheck2;
-      const enabled = deliveryComponentSelectable(component, mode);
-      const preservedLegacyDelivery = component.kind === 'legacy' && (component.resolved || component.status === 'delivered');
-      return <div key={component.id} className={`mark-component ${selected.includes(component.id) ? 'is-selected' : ''}`}>
-        <label><input type="checkbox" checked={selected.includes(component.id)} disabled={!enabled} onChange={() => onSelect(component.id)} aria-label={`${component.label} — ${component.service_name || `Service ${component.shoot_service_id}`}`} /><span className="mark-component-icon"><Icon /></span><span className="min-w-0 flex-1"><strong>{component.label}</strong><small>{component.service_name || `Service #${component.shoot_service_id}`}{component.unit_id ? ` · Unit ${component.unit_id}` : ''}</small></span><span className={`mark-status mark-status-${component.status}`}>{component.status === 'delivered' && <Check />} {component.status}</span></label>
-        <div className="mark-component-detail"><span>{preservedLegacyDelivery ? 'Previous delivery preserved.' : <>{component.output_count ?? component.file_ids.length} {component.kind === 'video' ? 'video' : component.kind === 'photo' ? 'photo' : 'output'}{(component.output_count ?? component.file_ids.length) === 1 ? '' : 's'}</>}</span>{component.reason && !component.resolved && <p><AlertCircle />{component.reason}</p>}
-          {component.external_url && <a href={component.external_url} target="_blank" rel="noopener noreferrer">Review provider delivery <ExternalLink /></a>}
-        </div>
-      </div>;
-    })}</div>
-    {!plan.components.length && <div className="mark-empty"><CheckCircle2 /><h3>No outstanding delivery work</h3><p>There are no required components available for this shoot.</p></div>}
-    {mode === 'external' && <div className="mark-manual"><p className="mark-notice">Open and review each selected provider destination before finalizing. A tour link does not automatically complete promised floorplans.</p><label className="mark-confirm"><input type="checkbox" checked={confirmed} onChange={event => onConfirm(event.target.checked)} /><span>I reviewed the provider output for the selected components and confirm it is ready for delivery.</span></label></div>}
-    {mode === 'manual_no_content' && <div className="mark-manual"><label className="mark-field">Reason for completion<textarea value={reason} onChange={event => onReasonChange(event.target.value)} rows={3} maxLength={2000} placeholder="Explain why this work is being completed without content…" /></label><label className="mark-confirm"><input type="checkbox" checked={confirmed} onChange={event => onConfirm(event.target.checked)} /><span>I confirm completion without content for <strong>{selectedComponents.length ? selectedComponents.map(component => component.label).join(', ') : 'the selected components'}</strong>. Other unfinished work will remain pending.</span></label></div>}
+  const groups = deliveryServiceGroups(plan);
+  const missing = plan.components.filter(component => selected.includes(component.id)
+    && automaticDeliveryMethod(component, withoutContent) === 'manual_no_content');
+  return <div className="simple-finalise">
+    <div className="simple-finalise-columns"><span>Services</span><span>Status</span></div>
+    <ul aria-label="Booked services" className="simple-finalise-services">
+      {groups.map(group => {
+        const eligible = group.components.filter(component => automaticDeliveryMethod(component, withoutContent)
+          && (automaticDeliveryMethod(component, withoutContent) === 'manual_no_content' ? plan.capabilities.can_manual_no_content : plan.capabilities.can_finalize));
+        const checked = eligible.length > 0 && eligible.every(component => selected.includes(component.id));
+        const mixed = !checked && eligible.some(component => selected.includes(component.id));
+        const statuses = group.components.map(component => component.status);
+        const status = statuses.every(value => value === 'cancelled') ? 'cancelled'
+          : group.components.every(component => component.resolved) ? 'delivered'
+            : statuses.includes('ready') ? 'ready' : 'pending';
+        return <li key={group.id} className="simple-finalise-service">
+          <label className="simple-finalise-service-heading">
+            <input type="checkbox" aria-label={`Select ${group.name}${group.unitId ? ` · Unit ${group.unitId}` : ''}`}
+              ref={input => { if (input) input.indeterminate = mixed; }} checked={checked}
+              disabled={disabled || eligible.length === 0} onChange={event => onSelect(eligible.map(component => component.id), event.target.checked)} />
+            <span className="min-w-0 flex-1"><strong>{group.name}</strong>{group.unitId && <small>Unit {group.unitId}</small>}</span>
+            <span className={`mark-status mark-status-${status}`}>{status}</span>
+          </label>
+          {group.components.map(component => {
+            const method = automaticDeliveryMethod(component, withoutContent);
+            return <div key={component.id} className="simple-finalise-component">
+              {group.components.length > 1 && <label><input type="checkbox" aria-label={`Select ${component.label} — ${group.name}`}
+                checked={selected.includes(component.id)} disabled={disabled || !method || !eligible.includes(component)}
+                onChange={event => onSelect([component.id], event.target.checked)} /><span>{component.label}</span></label>}
+              <span>{component.resolved ? (component.status === 'cancelled' ? 'Cancelled' : 'Delivered')
+                : method === 'manual_no_content' && selected.includes(component.id) ? 'Complete without content'
+                  : component.status === 'ready' ? component.file_ids.length ? `${component.output_count ?? component.file_ids.length} ${component.kind === 'photo' ? 'photos' : 'files'} ready` : 'Provider output ready'
+                    : component.reason || 'Still being prepared'}</span>
+              {component.external_url && /^https?:\/\//i.test(component.external_url) && !component.resolved
+                && <a href={component.external_url} target="_blank" rel="noopener noreferrer">Review <ExternalLink className="h-3 w-3" /></a>}
+            </div>;
+          })}
+        </li>;
+      })}
+    </ul>
+    {!groups.length && <p className="mark-notice">No outstanding delivery work.</p>}
+    {plan.capabilities.can_manual_no_content && <div className="simple-finalise-toggle">
+      <div><label htmlFor="finalise-without-content">Without content</label><p>Allow selected pending work to be completed.</p></div>
+      <Switch id="finalise-without-content" checked={withoutContent} disabled={disabled} onCheckedChange={onWithoutContentChange} />
+    </div>}
+    {missing.length > 0 && <label className="mark-field">Reason for completion
+      <textarea value={reason} disabled={disabled} onChange={event => onReasonChange(event.target.value)} rows={2} maxLength={2000}
+        placeholder="Why is this selected work being completed without content?" />
+      <span className="text-xs text-muted-foreground">Finalise will complete {missing.map(component => component.label).join(', ')} without releasing files.</span>
+    </label>}
+    {plan.components.some(component => selected.includes(component.id) && automaticDeliveryMethod(component, withoutContent) === 'external')
+      && <p className="mt-3 text-xs text-muted-foreground">Finalise confirms the selected provider output has been reviewed and is ready for delivery.</p>}
   </div>;
 }

@@ -2,7 +2,7 @@ import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import type { MediaFile } from '@/hooks/useShootFiles';
 
-export type DeliveryMode = 'media' | 'external' | 'manual_no_content';
+export type DeliveryMode = 'media' | 'external' | 'manual_no_content' | 'auto';
 export interface DeliveryComponent {
   id: string; shoot_service_id: number; unit_id: number | null; service_name?: string;
   label: string; kind: 'photo' | 'video' | 'floorplan' | 'tour' | 'external' | 'legacy';

@@ -315,6 +315,7 @@ export function ShootDetailsModalBody({
             <Tabs value={activeDetailsTab} onValueChange={handleTabChange}>
               <TabsContent value="overview" className="mt-0">
                 <ShootDetailsOverviewTab
+                  onOpenMedia={() => handleTabChange('media')}
                   isUnitSwitchDisabled={hasInflightUploads}
                   shoot={shoot}
                   isAdmin={isAdmin}
@@ -439,6 +440,7 @@ export function ShootDetailsModalBody({
               disabled={isEditMode || hasInflightUploads}
             />
             <ShootDetailsMediaTab
+              onPayNow={handleProcessPayment}
               shoot={shoot}
               isAdmin={isAdmin}
               isPhotographer={isPhotographer}
@@ -464,6 +466,7 @@ export function ShootDetailsModalBody({
               </React.Suspense>
             ) : (
               <ShootDetailsMediaTab
+                onPayNow={handleProcessPayment}
                 shoot={shoot}
                 isAdmin={isAdmin}
                 isPhotographer={isPhotographer}

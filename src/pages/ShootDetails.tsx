@@ -690,6 +690,7 @@ const ShootDetails: React.FC = () => {
                       <ShootDetailsPanelUnitChrome shoot={shoot} />
                     </div>
                     <ShootDetailsMediaTab
+                      onPayNow={handleProcessPayment}
                       contextualSearch
                       shoot={shoot}
                       isAdmin={isAdmin}

@@ -1,4 +1,5 @@
 import { getShootDisplayStatus, hasActiveShootWork } from '@/utils/activeShootWork';
+import { getShootDeliveryProgress } from '@/utils/shootDeliveryProgress';
 import { ShootData } from '@/types/shoots';
 import { formatServiceCount, groupServiceItems } from '@/utils/groupServiceItems';
 import { isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
@@ -46,6 +47,7 @@ export const shootDetailsWorkflowBadgeMap: Record<
   review: createWorkflowBadge('review', 'In Review', 'default'),
   editing_issue: createWorkflowBadge('editing_issue', 'Editing Issue', 'destructive'),
   delivered: createWorkflowBadge('delivered', 'Delivered', 'default'),
+  delivering: createWorkflowBadge('editing', 'Delivering', 'default'),
   ready_for_client: createWorkflowBadge('ready_for_client', 'Delivered', 'default'),
   admin_verified: createWorkflowBadge('admin_verified', 'Delivered', 'default'),
   ready: createWorkflowBadge('ready', 'Ready', 'default'),
@@ -62,12 +64,13 @@ const shootDetailsPaymentBadgeMap: Record<
 > = {
   paid: { label: 'Paid', variant: 'default' },
   unpaid: { label: 'Unpaid', variant: 'destructive' },
-  partial: { label: 'Partial', variant: 'secondary' },
+  partial: { label: 'Part-paid', variant: 'secondary' },
 };
 
 /** Keep the overall Active label while retaining existing editor submission wording. */
 export function getShootDetailsDisplayStatus(shoot: ShootData, editorUserId?: string): string {
   if (hasActiveShootWork(shoot)) return 'active';
+  if (getShootDeliveryProgress(shoot).isDelivering) return 'delivering';
   const assignments = editorUserId ? shoot.editorAssignments?.filter(assignment =>
     String(assignment.editorId ?? assignment.editor?.id) === editorUserId) ?? [] : [];
   const stage = shoot.workflowStatus || shoot.status || 'booked';
