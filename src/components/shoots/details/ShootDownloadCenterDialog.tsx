@@ -5,7 +5,7 @@ import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/context/AuthContext';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { hasRestrictedSalesRepRole } from '@/utils/shootManagementAccess';
 import { cn } from '@/lib/utils';
 import type { ShootData } from '@/types/shoots';

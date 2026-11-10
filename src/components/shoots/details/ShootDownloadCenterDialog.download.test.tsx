@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ShootData } from '@/types/shoots';
 
 const mocks = vi.hoisted(() => ({ archive: vi.fn(), raw: vi.fn(), file: vi.fn(), selection: vi.fn(), toast: vi.fn(), role: 'admin' }));
-vi.mock('@/context/AuthContext', () => ({ useAuth: () => ({ role: mocks.role, user: { role: mocks.role } }) }));
+vi.mock('@/components/auth/AuthProvider', () => ({ useAuth: () => ({ role: mocks.role, user: { role: mocks.role } }) }));
 vi.mock('@/utils/shootSelectedMediaDownload', () => ({ downloadShootSelectedMedia: mocks.selection }));
 vi.mock('@/utils/shootMediaDownload', () => ({
   downloadShootMediaArchive: mocks.archive, downloadShootRawFiles: mocks.raw, downloadShootMediaFile: mocks.file,
