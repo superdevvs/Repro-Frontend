@@ -31,8 +31,11 @@ export function getShootDeliveryProgress(shoot: ShootData | null) {
   };
 }
 
-export function clientServicePaymentText(item: NormalizedShootServiceItem, shootPaid = false) {
+export function clientServicePaymentText(item: NormalizedShootServiceItem, shootPaid = false, showLineBalance = true) {
   if (shootPaid || item.isUnlockedForDelivery) return item.balanceDue > 0.01 && !shootPaid ? 'Access granted' : 'Paid';
+  // Allocations use the service price; order discounts, tax and adjustments
+  // belong to the existing invoice balance, not a guessed per-service charge.
+  if (!showLineBalance) return item.paidAmount > 0 ? 'Part-paid' : 'Unpaid';
   const dollars = (value: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
   return item.paidAmount > 0 ? `${dollars(item.paidAmount)} paid · ${dollars(item.balanceDue)} due` : `${dollars(item.balanceDue)} due`;
 }

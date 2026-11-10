@@ -60,7 +60,9 @@ export function OverviewServiceRows(props: Props) {
   const raw = useShootFiles(props.shoot.id, 'raw', { enabled: showCounts && hasPhotos });
   const edited = useShootFiles(props.shoot.id, 'edited', { enabled: showCounts && hasPhotos && !props.isPhotographer });
   const delivery = getShootDeliveryProgress(props.shoot);
-  const paid = normalizeShootPaymentSummary(props.shoot).paymentStatus === 'paid';
+  const payment = normalizeShootPaymentSummary(props.shoot);
+  const paid = payment.paymentStatus === 'paid';
+  const showLineBalance = payment.discountAmount === 0 && payment.taxAmount === 0 && payment.invoiceAdjustmentsTotal === 0;
   return <section className="overview-service-rows" aria-label="Booked services">
     <div className="mb-1 flex items-center justify-between gap-2"><h3 className="text-[10px] font-medium uppercase text-muted-foreground">Services</h3>
       {props.isClient && delivery.hasReleasedContent && <span className="text-[10px] text-primary">{delivery.delivered ? `${delivery.delivered} of ${delivery.total} services delivered` : 'Delivery in progress'}</span>}</div>
@@ -90,7 +92,7 @@ export function OverviewServiceRows(props: Props) {
             </span>
           </div>)}
           {item.isDeliverable && !item.isInvoiceAdjustment && <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground">
-            <span>{clientServicePaymentText(item, paid)}</span>
+            <span>{clientServicePaymentText(item, paid, showLineBalance)}</span>
             {props.onOpenMedia && serviceDeliveryComponents(item).some(component => component.status === 'delivered' && !component.without_content)
               && <button type="button" className="min-h-8 text-primary hover:underline" onClick={props.onOpenMedia}>View media →</button>}
           </div>}

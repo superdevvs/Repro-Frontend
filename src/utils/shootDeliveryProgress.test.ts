@@ -38,6 +38,11 @@ describe('partial delivery and payment access', () => {
     expect(getShootClientReleaseAccess(shoot, true).canClientDownload).toBe(false);
     expect(clientServicePaymentText(getShootServiceItems(shoot)[0])).toBe('$150.00 paid · $150.00 due');
   });
+  it('does not present a pre-discount or pre-tax allocation balance as the amount to pay', () => {
+    expect(clientServicePaymentText(getShootServiceItems(fixture(150))[0], false, false)).toBe('Part-paid');
+    expect(clientServicePaymentText(getShootServiceItems(fixture())[0], false, false)).toBe('Unpaid');
+    expect(clientServicePaymentText(getShootServiceItems(fixture(300))[0], false, false)).toBe('Paid');
+  });
   it('does not advertise no-content completion or a cancelled shoot as usable media', () => {
     const shoot = fixture();
     shoot.deliveryStatus = 'delivered';
