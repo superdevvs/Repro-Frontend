@@ -6,7 +6,7 @@ import { type Installation } from '@/components/integrations/AryeoApiIntegration
 import { aryeoApi, readable } from '@/services/aryeoApi';
 import { AryeoCaseResolution, AryeoExecutorControls, AryeoPilotMetrics } from '@/components/integrations/AryeoOperatingControls';
 
-type Destination = { id: string; workflow: string; provider_job_id: string | null; listing_url: string | null; association_status: string; on_hold: boolean; client_id: number; recipients: { email: string; provider_customer_id: string }[] };
+type Destination = { id: string; workflow: string; provider_job_id: string | null; listing_url: string | null; association_status: string; on_hold: boolean; superseded_at?: string | null; client_id: number; recipients: { email: string; provider_customer_id: string }[] };
 type Export = { id: string; revision: string; status: string; phase: string; blocker: string | null; submitted_at: string | null; completed_at: string | null;
   outcomes: Record<string, string>; snapshot: { company_id: string; unit_id: number | null; legacy_listing_id: string; listing_url: string; recipients: Destination['recipients']; consent: { intent: string }; release: { paid: boolean; release_override: boolean }; assets: { id: number; filename: string; type: string; content: { sha256: string; bytes: number } }[]; tours: { id: string; url: string }[] };
   operations: { id: string; operation_key: string; status: string; error_code: string | null }[]; cases: { id: string; kind: string; status: string; owner: string; next_action: string; escalate_at: string }[];
@@ -37,12 +37,12 @@ export function AryeoApiPanel({ shootId, unitId }: { shootId: number | string; u
     {panel && !panel.installations.length && <p className="text-sm">Add a connection in Settings → Integrations → Aryeo delivery.</p>}
     {panel && panel.installations.length > 0 && <BindingForm installations={panel.installations} shootId={shootId} unitId={unitId} busy={busy} run={run} />}
     {panel?.destinations.map(({ destination: d, blockers, exports }) => <article className="space-y-3 rounded border p-3" key={d.id}>
-      <p className="text-sm font-medium">{readable(d.workflow)} · {readable(d.association_status)}{d.on_hold && ' · On hold'}</p>
+      <p className="text-sm font-medium">{readable(d.workflow)} · {readable(d.association_status)}{d.superseded_at ? ' · Superseded' : d.on_hold && ' · On hold'}</p>
       <p className="text-xs">Recipients: {d.recipients.map(r => r.email).join(', ')}</p>
       {d.listing_url && <a href={d.listing_url} target="_blank" rel="noreferrer" className="text-sm underline">Open approved listing</a>}
       {blockers.length > 0 && <ul className="list-inside list-disc text-xs text-muted-foreground">{blockers.map(b => <li key={b}>{readable(b)}</li>)}</ul>}
-      <div className="flex flex-wrap gap-2"><Button size="sm" disabled={busy || d.on_hold} onClick={() => void run(() => apiClient.post(`${aryeoApi}/destinations/${d.id}/preview`))}>Preview current media</Button><Button size="sm" variant="outline" disabled={busy} onClick={() => void run(() => apiClient.patch(`${aryeoApi}/destinations/${d.id}/hold`, { on_hold: !d.on_hold }))}>{d.on_hold ? 'Remove shoot hold' : 'Hold this shoot'}</Button></div>
-      {exports.map(e => <ExportCard key={e.id} value={e} busy={busy} run={run} />)}
+      <div className="flex flex-wrap gap-2"><Button size="sm" disabled={busy || d.on_hold || Boolean(d.superseded_at)} onClick={() => void run(() => apiClient.post(`${aryeoApi}/destinations/${d.id}/preview`))}>Preview current media</Button><Button size="sm" variant="outline" disabled={busy || Boolean(d.superseded_at)} onClick={() => void run(() => apiClient.patch(`${aryeoApi}/destinations/${d.id}/hold`, { on_hold: !d.on_hold }))}>{d.on_hold ? 'Remove shoot hold' : 'Hold this shoot'}</Button></div>
+      {exports.map(e => <ExportCard key={e.id} value={e} busy={busy} retired={Boolean(d.superseded_at)} run={run} />)}
       <AryeoExecutorControls destinationId={d.id} busy={busy} run={run} />
     </article>)}
   </section>;
@@ -76,7 +76,7 @@ function BindingForm({ installations, shootId, unitId, busy, run }: { installati
   </details>;
 }
 
-function ExportCard({ value: e, busy, run }: { value: Export; busy: boolean; run: (task: () => Promise<unknown>) => Promise<void> }) {
+function ExportCard({ value: e, busy, retired, run }: { value: Export; busy: boolean; retired: boolean; run: (task: () => Promise<unknown>) => Promise<void> }) {
   const [ack, setAck] = useState(false);
   const [feature, setFeature] = useState('media');
   const [status, setStatus] = useState('verified');
@@ -91,8 +91,8 @@ function ExportCard({ value: e, busy, run }: { value: Export; busy: boolean; run
     <p className="text-xs">{e.snapshot.assets.length} files · {e.snapshot.tours.length} tour links · {e.snapshot.release.release_override ? 'Explicit release override' : e.snapshot.release.paid ? 'Paid / complimentary release' : 'Release review required'} · {e.snapshot.consent.intent} delivery</p>
     <p className="break-all text-xs">Company: {e.snapshot.company_id} · Listing: {e.snapshot.legacy_listing_id || 'Awaiting listing'} · Unit: {e.snapshot.unit_id ?? 'Whole property'}<br />Recipients: {e.snapshot.recipients.map(r => r.email).join(', ')}</p>
     <details><summary className="cursor-pointer text-xs">Exact approved package and history</summary><ol className="list-inside list-decimal text-xs">{e.snapshot.assets.map(a => <li key={a.id}>{a.filename} · {a.type} · {a.content.bytes} bytes <span className="break-all text-muted-foreground">SHA256 {a.content.sha256}</span></li>)}</ol>{e.snapshot.tours.map(t => <p className="break-all text-xs" key={t.id}>{t.id}: {t.url}</p>)}{e.operations.map(op => <p className="text-xs" key={op.id}>{op.operation_key}: {op.status}{op.error_code && ` · ${readable(op.error_code)}`}</p>)}{e.evidence.map(v => <p className="text-xs" key={v.id}>{v.feature}: {v.status} · <a className="underline" href={v.evidence_url} target="_blank" rel="noreferrer">Evidence</a> · {new Date(v.observed_at).toLocaleString()}</p>)}</details>
-    {e.status === 'draft' && <><label className="flex gap-2 text-xs"><input type="checkbox" checked={ack} onChange={v => setAck(v.target.checked)} />I reviewed this destination, recipients, package and email/order effects. The named destination is reserved with no outside editing for the next two hours. I will supervise delivery. Outside-edit risk remains.</label><Button size="sm" disabled={busy || !ack} onClick={() => void action('approve', { revision: e.revision, editing_window_until: new Date(Date.now() + 2 * 3600000).toISOString(), no_external_editing_acknowledged: ack })}>Approve this revision</Button></>}
-    <div className="flex flex-wrap gap-2">{['approved', 'blocked'].includes(e.status) && <Button size="sm" disabled={busy} onClick={() => void action('submit')}>Submit / resume approved work</Button>}
+    {!retired && e.status === 'draft' && <><label className="flex gap-2 text-xs"><input type="checkbox" checked={ack} onChange={v => setAck(v.target.checked)} />I reviewed this destination, recipients, package and email/order effects. The named destination is reserved with no outside editing for the next two hours. I will supervise delivery. Outside-edit risk remains.</label><Button size="sm" disabled={busy || !ack} onClick={() => void action('approve', { revision: e.revision, editing_window_until: new Date(Date.now() + 2 * 3600000).toISOString(), no_external_editing_acknowledged: ack })}>Approve this revision</Button></>}
+    <div className="flex flex-wrap gap-2">{!retired && ['approved', 'blocked'].includes(e.status) && <Button size="sm" disabled={busy} onClick={() => void action('submit')}>Submit / resume approved work</Button>}
       {e.operations.some(o => ['sent', 'unknown'].includes(o.status)) && <Button size="sm" variant="outline" disabled={busy} onClick={() => void action('reconcile')}>Reconcile provider outcome</Button>}
       <Button size="sm" variant="outline" disabled={busy} onClick={() => void packet()}>Download support packet</Button></div>
     {e.cases.filter(c => c.status === 'open').map(c => <p className="rounded border p-2 text-xs" key={c.id}>{readable(c.kind)} · Owner: {c.owner}<br />Next: {c.next_action}<br />Partner escalation due: {new Date(c.escalate_at).toLocaleString()}</p>)}

@@ -40,4 +40,16 @@ describe('Aryeo API delivery review', () => {
     fireEvent.submit(screen.getByLabelText('Verification evidence URL').closest('form')!);
     await waitFor(() => expect(apiClient.post).toHaveBeenCalledWith('/integrations/aryeo/api/exports/export/evidence', expect.objectContaining({ feature: 'branding', status: 'verified', revision: 'a'.repeat(64) })));
   });
+
+  it('retains history while preventing approval or resumption of superseded destinations', async () => {
+    const data = fixture('approved');
+    Object.assign(data.destinations[0].destination, { superseded_at: '2026-11-10T14:00:00Z', on_hold: true });
+    vi.mocked(apiClient.get).mockResolvedValue({ data });
+    render(<AryeoApiPanel shootId={9} />);
+    await screen.findByText(/Superseded/);
+    expect(screen.getByRole('button', { name: 'Preview current media' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Remove shoot hold' })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Submit / resume approved work' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Download support packet' })).toBeInTheDocument();
+  });
 });
