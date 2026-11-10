@@ -56,6 +56,15 @@ describe('partial delivery and payment access', () => {
     expect(clientServicePaymentText(getShootServiceItems(fixture())[0], false, false)).toBe('Unpaid');
     expect(clientServicePaymentText(getShootServiceItems(fixture(300))[0], false, false)).toBe('Paid');
   });
+  it('preserves paid historical tours without treating another provider as iGUIDE', () => {
+    const historical = transformShootFromApi({ id: 51, status: 'delivered', payment_status: 'paid',
+      total_quote: 300, total_paid: 300, service_items: [{ id: 9, service_id: 5, name: 'HDR Photo + iGuide',
+        is_deliverable: true, delivery_status: 'pending', price: 300 }] });
+    expect(canClientOpenIguide(historical)).toBe(true);
+    const otherProvider = fixture(300);
+    otherProvider.serviceItems![0].name = 'Matterport 3D';
+    expect(canClientOpenIguide(otherProvider)).toBe(false);
+  });
   it('does not advertise no-content completion or a cancelled shoot as usable media', () => {
     const shoot = fixture();
     shoot.deliveryStatus = 'delivered';

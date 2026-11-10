@@ -16,8 +16,14 @@ export const canClientOpenIguide = (shoot: ShootData | null): boolean => {
   const items = getShootServiceItems(shoot);
   if (!items.length) return paid;
   return items.some(item => {
+    const isIguide = /iguide|i[ -]?guide/i.test(item.name)
+      || /\b3d\b/i.test(item.name) && !/matterport|cubicasa|zillow/i.test(item.name);
     if (!item.isDeliverable || item.isInvoiceAdjustment || (!paid && !item.isUnlockedForDelivery)
-      || !/iguide|i[ -]?guide|\b3d\b/i.test(item.name)) return false;
+      || !isIguide || ['cancelled', 'canceled'].includes(item.workflowStatus ?? '')
+      || ['cancelled', 'canceled'].includes(item.deliveryStatus ?? '')) return false;
+    // Imported delivery history can predate component receipts and line states.
+    if (!item.source.delivery_components?.length && paid
+      && (shoot.deliveryStatus === 'delivered' || shoot.workflowStatus === 'delivered' || shoot.status === 'delivered')) return true;
     const components = serviceDeliveryComponents(item);
     return components.some(component => ['tour', 'legacy'].includes(component.kind)
       && component.status === 'delivered' && !component.without_content);
