@@ -3,12 +3,9 @@ import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from 're
 import { DashboardShootSummary } from '@/types/dashboard';
 import { Card } from './SharedComponents';
 import { cn } from '@/lib/utils';
-import { formatDashboardShootSchedule } from '@/utils/dashboardShootSchedule';
 import { DASHBOARD_MOBILE_PANEL_CLASS } from '@/features/dashboard/utils/dashboardMobilePanel';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { selectShootCardHeroUrls } from '@/utils/shootCardHero';
-import { ClientPaymentPill } from '@/features/dashboard/components/ClientPaymentPill';
-import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
+import { DeliveredShootCard } from './DeliveredShootCard';
 
 import { resolveAdaptiveDeliveredVisibleCount } from './resolveAdaptiveDeliveredVisibleCount';
 
@@ -30,92 +27,6 @@ interface CompletedShootsCardProps {
   onViewInvoice?: (shoot: DashboardShootSummary) => void;
   onViewAll?: () => void;
 }
-
-const getShootImages = (shoot: DashboardShootSummary): string[] =>
-  selectShootCardHeroUrls(shoot, {
-    limit: 6,
-    placeholder: '/no-image-placeholder.svg',
-  });
-
-interface SlideshowProps {
-  images: string[];
-  shootId: number;
-  addressLine: string;
-  clientName: string | null;
-  startTime: string | null;
-  scheduledLocalDate?: string | null;
-  timeLabel?: string | null;
-}
-
-const Slideshow: React.FC<SlideshowProps> = ({ images, shootId, addressLine, clientName, startTime, scheduledLocalDate, timeLabel }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [isPaused, setIsPaused] = useState(false);
-  const scheduleLabel = formatDashboardShootSchedule({ startTime, scheduledLocalDate, timeLabel });
-
-  useEffect(() => {
-    if (images.length <= 1 || isPaused) return;
-    
-    const interval = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % images.length);
-    }, 3000); // Change image every 3 seconds
-
-    return () => clearInterval(interval);
-  }, [images.length, isPaused]);
-
-
-  return (
-    <div
-      className="relative h-36 sm:h-56 w-full overflow-hidden group"
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
-    >
-      <img
-        src={images[currentIndex]}
-        alt={addressLine}
-        className="h-full w-full object-cover transition-opacity duration-500"
-        loading="lazy"
-      />
-      {/* Dark gradient from bottom for text readability */}
-      <div 
-        className="absolute inset-0 pointer-events-none z-[5]"
-        style={{
-          background: 'linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.8) 15%, rgba(0, 0, 0, 0.6) 30%, rgba(0, 0, 0, 0.3) 45%, rgba(0, 0, 0, 0) 55%)'
-        }}
-      />
-      
-      {/* Text content */}
-      <div className="absolute left-3 sm:left-4 bottom-3 sm:bottom-4 right-3 sm:right-4 text-white space-y-1 z-10">
-        <p className="select-text cursor-text text-xs sm:text-sm font-semibold truncate">{addressLine}</p>
-        <div className="text-[10px] sm:text-[11px] text-white/80 flex flex-col">
-          <span>{clientName || 'Client TBD'}</span>
-          {scheduleLabel && (
-            <span className="text-white/60">
-              {scheduleLabel}
-            </span>
-          )}
-        </div>
-      </div>
-      
-      {/* Dots indicator in bottom right corner */}
-      {images.length > 1 && (
-        <div className="absolute bottom-3 right-3 z-20">
-          <div className="flex gap-1.5 items-center bg-black/30 backdrop-blur-sm px-2 py-1.5 rounded-full">
-            {images.map((_, index) => (
-              <button
-                key={index}
-                onClick={() => setCurrentIndex(index)}
-                className={`w-1.5 h-1.5 rounded-full transition-all ${
-                  index === currentIndex ? 'bg-white w-4' : 'bg-white/50'
-                }`}
-                aria-label={`Go to image ${index + 1}`}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
   shoots = [],
@@ -214,50 +125,14 @@ export const CompletedShootsCard: React.FC<CompletedShootsCardProps> = ({
           ref={listRef}
           className="space-y-3 flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar pr-1"
         >
-          {visibleShoots.map((shoot) => {
-            const images = getShootImages(shoot);
-            const scheduleLabel = formatDashboardShootSchedule(shoot);
-            return (
-              <div
-                key={shoot.id}
-                data-delivered-shoot-card="true"
-                className="rounded-3xl border border-border/60 overflow-hidden hover:border-primary/40 transition-colors bg-card group relative cursor-pointer"
-                onClick={() => onSelect?.(shoot)}
-              >
-                <div className="relative h-36 sm:h-56 w-full overflow-hidden">
-                  <img
-                    src={images[0]}
-                    alt={shoot.addressLine}
-                    className="h-full w-full object-cover"
-                    loading="lazy"
-                  />
-                  <div 
-                    className="absolute inset-0 pointer-events-none z-[5]"
-                    style={{
-                      background: 'linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.8) 15%, rgba(0, 0, 0, 0.6) 30%, rgba(0, 0, 0, 0.3) 45%, rgba(0, 0, 0, 0) 55%)'
-                    }}
-                  />
-                  <div className="absolute left-3 sm:left-4 bottom-3 sm:bottom-4 right-14 sm:right-16 text-white space-y-1 z-10">
-                    <ShootActionRequestBadges shoot={shoot} />
-                    <p className="select-text cursor-text text-xs sm:text-sm font-semibold truncate">{shoot.addressLine}</p>
-                    <div className="text-[10px] sm:text-[11px] text-white/80 flex flex-col">
-                      <span>{shoot.clientName || 'Client TBD'}</span>
-                      {scheduleLabel && (
-                        <span className="text-white/60">
-                          {scheduleLabel}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {showPaymentStatus ? (
-                    <div className="absolute bottom-3 right-3 sm:bottom-4 sm:right-4 z-20 pointer-events-none">
-                      <ClientPaymentPill status={shoot.paymentStatus} overlay />
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            );
-          })}
+          {visibleShoots.map((shoot) => (
+            <DeliveredShootCard
+              key={shoot.id}
+              shoot={shoot}
+              showPaymentStatus={showPaymentStatus}
+              onSelect={onSelect}
+            />
+          ))}
         </div>
       )}
       <button
