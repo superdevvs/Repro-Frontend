@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { transformShootFromApi } from '@/context/shootNormalization';
-import { getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess';
+import { canClientOpenIguide, getShootClientReleaseAccess } from '@/components/shoots/details/shootClientReleaseAccess';
 import { hasClientVisibleDeliveredService } from './dashboardDerivedUtils';
 import { clientServicePaymentText, getShootDeliveryProgress } from './shootDeliveryProgress';
 import { getShootServiceItems } from './shootServiceItems';
@@ -37,6 +37,19 @@ describe('partial delivery and payment access', () => {
     const shoot = fixture(150);
     expect(getShootClientReleaseAccess(shoot, true).canClientDownload).toBe(false);
     expect(clientServicePaymentText(getShootServiceItems(shoot)[0])).toBe('$150.00 paid · $150.00 due');
+  });
+  it('opens only a paid, released tour and keeps pending or no-content tours closed', () => {
+    expect(canClientOpenIguide(fixture())).toBe(false);
+    expect(canClientOpenIguide(fixture(150))).toBe(false);
+    expect(canClientOpenIguide(fixture(300))).toBe(true);
+    const pending = fixture(300);
+    pending.serviceItems![0].delivery_components![1].status = 'ready';
+    expect(canClientOpenIguide(pending)).toBe(false);
+    pending.payment = { ...pending.payment, paymentStatus: 'paid', totalPaid: 400, totalQuote: 400 };
+    expect(canClientOpenIguide(pending)).toBe(false);
+    pending.serviceItems![0].delivery_components![1] = { kind: 'tour', label: 'Property tour', status: 'delivered', without_content: true };
+    expect(canClientOpenIguide(pending)).toBe(false);
+    expect(canClientOpenIguide({ ...fixture(300), workflowStatus: 'cancelled' })).toBe(false);
   });
   it('does not present a pre-discount or pre-tax allocation balance as the amount to pay', () => {
     expect(clientServicePaymentText(getShootServiceItems(fixture(150))[0], false, false)).toBe('Part-paid');

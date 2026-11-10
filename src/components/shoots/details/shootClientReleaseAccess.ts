@@ -2,12 +2,27 @@ import type { ShootData } from '@/types/shoots';
 import { normalizeShootPaymentSummary } from '@/utils/shootPaymentSummary';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { getShootUnits } from '@/features/shoot-units/shootUnitData';
-import { serviceHasReleasedContent } from '@/utils/shootDeliveryProgress';
+import { serviceDeliveryComponents, serviceHasReleasedContent } from '@/utils/shootDeliveryProgress';
 
 type CanonicalPaymentStatus = 'paid' | 'unpaid' | 'partial' | null;
 
 const resolveBypassPaywall = (shoot: ShootData | null): boolean =>
-  Boolean((shoot as any)?.bypassPaywall ?? (shoot as any)?.bypass_paywall);
+  Boolean(shoot?.bypassPaywall ?? shoot?.bypass_paywall);
+
+/** Provider shortcuts must follow the booked tour's own payment and release. */
+export const canClientOpenIguide = (shoot: ShootData | null): boolean => {
+  if (!shoot || ['cancelled', 'canceled', 'declined'].includes(shoot.workflowStatus ?? shoot.status ?? '')) return false;
+  const paid = normalizeShootPaymentSummary(shoot).paymentStatus === 'paid' || resolveBypassPaywall(shoot);
+  const items = getShootServiceItems(shoot);
+  if (!items.length) return paid;
+  return items.some(item => {
+    if (!item.isDeliverable || item.isInvoiceAdjustment || (!paid && !item.isUnlockedForDelivery)
+      || !/iguide|i[ -]?guide|\b3d\b/i.test(item.name)) return false;
+    const components = serviceDeliveryComponents(item);
+    return components.some(component => ['tour', 'legacy'].includes(component.kind)
+      && component.status === 'delivered' && !component.without_content);
+  });
+};
 
 export interface ShootClientReleaseAccess {
   paymentStatus: CanonicalPaymentStatus;

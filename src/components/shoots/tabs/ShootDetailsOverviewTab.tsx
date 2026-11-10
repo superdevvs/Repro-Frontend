@@ -1,4 +1,5 @@
 import { TravelFeasibilityPanel } from '@/features/travel/TravelFeasibilityPanel';
+import { canClientOpenIguide } from '@/components/shoots/details/shootClientReleaseAccess';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { withShootUnitOverview } from '@/features/shoot-units/withShootUnitOverview';
 import { ShootNotesTab } from '@/components/dashboard/ShootNotesTab';
@@ -787,7 +788,7 @@ function ShootDetailsOverviewTabContent({
         ? Number(baseSqft)
         : null;
   const iguideSync = getNormalizedIguideSync(shoot);
-  const iguideTourUrl = iguideSync.url;
+  const iguideTourUrl = !isClient || canClientOpenIguide(shoot) ? iguideSync.url : '';
   const iguideFloorplans = iguideSync.floorplans;
   const iguideLastSyncedAt = iguideSync.lastSyncedAt;
   const iguidePropertyId = iguideSync.propertyId;

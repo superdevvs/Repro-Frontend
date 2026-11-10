@@ -6,6 +6,7 @@ import { UploadProgressCard } from './MediaUploadPanels';
 import { MediaGrid } from './MediaGrid';
 import { MediaServiceSections } from './MediaServiceSections';
 import { IguideMediaPanel } from './IguideMediaPanel';
+import { canClientOpenIguide } from '@/components/shoots/details/shootClientReleaseAccess';
 import { getPhotographerEditedMediaMlsLink } from '@/utils/shootTourData';
 import { AlertCircle, CloudUpload, Download, ExternalLink, FileIcon, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -517,6 +518,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                   
                   {!unassignedOnly && uploadedMediaTab === 'iguide' && showIguideMedia && (
                     <IguideMediaPanel
+                      isDeliveryLocked={isClient && !canClientOpenIguide(shoot)}
                       iguideUrl={iguideUrl}
                       iguideSync={iguideSync}
                       isAdmin={isAdmin}
@@ -706,6 +708,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                   
                   {!unassignedOnly && editedMediaTab === 'iguide' && showIguideMedia && (
                     <IguideMediaPanel
+                      isDeliveryLocked={isClient && !canClientOpenIguide(shoot)}
                       iguideUrl={iguideUrl}
                       iguideSync={iguideSync}
                       isAdmin={isAdmin}

@@ -19,6 +19,7 @@ import {
 } from '../tours/iguideOfflinePackage';
 
 interface IguideMediaPanelProps {
+  isDeliveryLocked?: boolean;
   iguideUrl?: string;
   iguideSync?: NormalizedIguideSync | null;
   isAdmin: boolean;
@@ -30,7 +31,16 @@ interface IguideMediaPanelProps {
 
 const emptyOfflinePackage = () => normalizeIguideOfflinePackage(null);
 
-export function IguideMediaPanel({
+export function IguideMediaPanel(props: IguideMediaPanelProps) {
+  if (props.isClient && props.isDeliveryLocked) {
+    return <div className="rounded-xl border border-border bg-card p-5 text-sm text-muted-foreground">
+      This tour will be available once it is delivered and its service is paid. Check Overview for delivery and payment status.
+    </div>;
+  }
+  return <IguideMediaContent {...props} />;
+}
+
+function IguideMediaContent({
   iguideUrl = '',
   iguideSync,
   isAdmin,

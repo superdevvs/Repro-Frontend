@@ -174,11 +174,13 @@ export function useShootMediaDerivedData({
   const iguideFloorplans = useMemo(
     () =>
       normalizeIguideFloorplans(shoot).filter((fp) => {
+        // Clients use approved ShootFiles, never unguarded provider originals.
+        if (isClient) return false;
         if (fp.asset_key && ingestedIguideKeys.keys.has(fp.asset_key)) return false;
         if (fp.url && ingestedIguideKeys.urls.has(fp.url)) return false;
         return true;
       }),
-    [shoot, ingestedIguideKeys],
+    [shoot, ingestedIguideKeys, isClient],
   );
 
   const shootHasVideoService = useMemo(() => {

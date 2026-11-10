@@ -157,6 +157,14 @@ describe('IguideMediaPanel', () => {
     expect(screen.queryByText(/Last synced/)).toBeNull();
   });
 
+  it('does not load a provider or offline viewer for a locked client delivery', () => {
+    render(<IguideMediaPanel iguideUrl="https://youriguide.com/9137-lakeland" iguideSync={readySync}
+      isAdmin={false} isClient isEditor={false} isDeliveryLocked onShootUpdate={vi.fn()} shootId={82} />);
+    expect(screen.queryByTitle('iGUIDE 3D Tour')).toBeNull();
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByText(/once it is delivered and its service is paid/)).toBeTruthy();
+  });
+
   it('prefers the ready offline viewer instead of stacking a published viewer below it', async () => {
     render(
       <IguideMediaPanel
