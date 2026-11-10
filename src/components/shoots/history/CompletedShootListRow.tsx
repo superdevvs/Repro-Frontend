@@ -16,7 +16,9 @@ import {
 import { cn } from '@/lib/utils'
 import { hasActiveTextSelection } from '@/lib/textSelection'
 import { API_BASE_URL } from '@/config/env'
-import { useTheme } from '@/hooks/useTheme'
+import { useShootCardPhoto } from '@/hooks/useShootCardPhoto'
+import { selectShootCardHeroUrls } from '@/utils/shootCardHero'
+import { DeliverySpotlight } from '@/components/dashboard/v2/DeliverySpotlight'
 import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { formatTimeForDisplay } from '@/utils/availabilityUtils'
@@ -29,7 +31,6 @@ import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import {
   getEditingNotes,
   formatCurrency,
-  getShootPlaceholderSrc,
   getShootStatusBadgeClass,
   isAwaitingFinalizeShoot,
   isFeaturedPendingShoot,
@@ -183,13 +184,14 @@ export const CompletedShootListRow = ({
   // Route shoot-time display through the shared Time_Formatter so canonical
   // values (HH:mm and HH:mm:ss, e.g. 07:00:00) render as 12-hour text (7:00 AM).
   const formatTime = formatTimeForDisplay
-  const { theme } = useTheme()
-  const [imgErrored, setImgErrored] = React.useState(false)
   const formatDisplayDateLocal = (value?: string | null, isScheduledDate = false) => {
     if (!value) return '—'
     try { return formatDatePref(isScheduledDate ? value : new Date(value)) } catch { return value ?? '—' }
   }
-  const heroImage = resolveShootThumbnail(shoot, 'thumb')
+  const { image: heroImage, onImageError } = useShootCardPhoto([
+    resolveShootThumbnail(shoot, 'thumb'), ...selectShootCardHeroUrls(shoot),
+  ])
+  const spotlightServices = getShootDetailsServiceNames(shoot).map(label => ({ label, type: 'service' }))
   const isInProgress = (shoot.status === 'in_progress' || shoot.workflowStatus === 'in_progress' || 
                         shoot.status === 'uploaded' || shoot.workflowStatus === 'uploaded' ||
                         shoot.status === 'editing' || shoot.workflowStatus === 'editing')
@@ -225,15 +227,12 @@ export const CompletedShootListRow = ({
   // until finalized; flag that for staff so it is not mistaken for delivered.
   const showAwaitingFinalize = !isClient && isAwaitingFinalizeShoot(shoot)
 
-  const placeholderImage = getShootPlaceholderSrc(theme)
-  const hasNoImages = !heroImage
-  const showPlaceholder = hasNoImages || imgErrored
-  const displayImage = showPlaceholder ? placeholderImage : heroImage
   const serviceLabels = getShootDetailsServiceNames(shoot)
   const showDownload = Boolean(onDownload) && viewerRole !== 'photographer'
 
   return (
     <Card
+      data-shoot-id={shoot.id}
       className="cursor-pointer overflow-hidden hover:border-primary/60 hover:shadow-md transition-all group"
       onClick={(event) => {
         if (hasActiveTextSelection(event.currentTarget)) return;
@@ -243,13 +242,13 @@ export const CompletedShootListRow = ({
       <div className="sm:hidden">
         <div className="flex gap-3 px-3 pb-2.5 pt-3">
           <div className="relative h-[115px] w-32 flex-shrink-0 overflow-hidden rounded-xl bg-muted shadow-sm">
-            <img
-              src={displayImage}
+            {heroImage ? <img
+              src={heroImage}
               alt={shoot.location.address}
               className="absolute inset-0 h-full w-full object-cover"
               loading="lazy"
-              onError={() => setImgErrored(true)}
-            />
+              onError={onImageError}
+            /> : <DeliverySpotlight services={spotlightServices} layout="thumbnail" />}
             <Badge
               variant="outline"
               className={cn(
@@ -363,13 +362,13 @@ export const CompletedShootListRow = ({
       <div className="hidden items-stretch gap-3 p-3 sm:flex sm:gap-4 sm:p-4">
         {/* Thumbnail - Small square on mobile, rectangular landscape on desktop */}
         <div className="relative w-32 min-h-[80px] overflow-hidden rounded-lg flex-shrink-0 self-stretch bg-muted shadow-sm sm:w-48 min-[1180px]:w-56">
-          <img 
-            src={displayImage} 
+          {heroImage ? <img
+            src={heroImage}
             alt={shoot.location.address} 
             className="absolute inset-0 h-full w-full object-cover"
             loading="lazy"
-            onError={() => setImgErrored(true)}
-          />
+            onError={onImageError}
+          /> : <DeliverySpotlight services={spotlightServices} layout="thumbnail" />}
         </div>
 
         {/* Content */}

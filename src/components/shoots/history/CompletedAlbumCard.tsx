@@ -15,7 +15,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import { API_BASE_URL } from '@/config/env'
-import { useTheme } from '@/hooks/useTheme'
+import { useShootCardPhoto } from '@/hooks/useShootCardPhoto'
+import { selectShootCardHeroUrls } from '@/utils/shootCardHero'
+import { DeliverySpotlight } from '@/components/dashboard/v2/DeliverySpotlight'
 import { useToast } from '@/hooks/use-toast'
 import { useUserPreferences } from '@/contexts/UserPreferencesContext'
 import { formatTimeForDisplay } from '@/utils/availabilityUtils'
@@ -29,7 +31,6 @@ import { getVisibleClientContact } from '@/utils/clientContactVisibility'
 import {
   getEditingNotes,
   formatCurrency,
-  getShootPlaceholderSrc,
   isFeaturedPendingShoot,
   isFeaturedShoot,
   resolveShootThumbnail,
@@ -183,13 +184,14 @@ export const CompletedAlbumCard = ({
   // Route shoot-time display through the shared Time_Formatter so canonical
   // values (HH:mm and HH:mm:ss, e.g. 07:00:00) render as 12-hour text (7:00 AM).
   const formatTime = formatTimeForDisplay
-  const { theme } = useTheme()
-  const [imgErrored, setImgErrored] = React.useState(false)
   const formatDisplayDateLocal = (value?: string | null, isScheduledDate = false) => {
     if (!value) return '—'
     try { return formatDatePref(isScheduledDate ? value : new Date(value)) } catch { return value ?? '—' }
   }
-  const heroImage = resolveShootThumbnail(shoot, 'thumb')
+  const { image: heroImage, onImageError } = useShootCardPhoto([
+    resolveShootThumbnail(shoot, 'thumb'), ...selectShootCardHeroUrls(shoot),
+  ])
+  const spotlightServices = getShootDetailsServiceNames(shoot).map(label => ({ label, type: 'service' }))
   const isInProgress = (shoot.status === 'in_progress' || shoot.workflowStatus === 'in_progress' || 
                         shoot.status === 'uploaded' || shoot.workflowStatus === 'uploaded' ||
                         shoot.status === 'editing' || shoot.workflowStatus === 'editing')
@@ -202,10 +204,7 @@ export const CompletedAlbumCard = ({
     shoot,
     shouldHideClientDetails,
   })
-  const placeholderImage = getShootPlaceholderSrc(theme)
-  const hasNoImages = !heroImage
-  const showPlaceholder = hasNoImages || imgErrored
-  const displayImage = showPlaceholder ? placeholderImage : heroImage
+  const showPlaceholder = !heroImage
   const hasTour = shoot.tourPurchased || Boolean(shoot.tourLinks?.branded || shoot.tourLinks?.mls)
   const paymentSummary = normalizeShootPaymentSummary(shoot)
   const canShowPaymentStatus = showPaymentStatus && Boolean(onViewInvoice) && (
@@ -228,19 +227,20 @@ export const CompletedAlbumCard = ({
 
   return (
     <Card
+      data-shoot-id={shoot.id}
       className={cn('overflow-hidden cursor-pointer border border-border/70 hover:border-primary/50 hover:shadow-xl transition-all group bg-card/50 backdrop-blur-sm', compact && 'shoot-glass-card')}
-      style={compact ? { '--shoot-glass-image': `url(${JSON.stringify(displayImage)})` } as React.CSSProperties : undefined}
+      style={compact && heroImage ? { '--shoot-glass-image': `url(${JSON.stringify(heroImage)})` } as React.CSSProperties : undefined}
       onClick={() => onSelect(shoot)}
     >
       {/* Cover Image or Placeholder */}
-      <div className={cn('relative overflow-hidden', compact ? 'shoot-glass-hero' : 'h-64 bg-muted')}>
-        <img
-          src={displayImage}
-          alt={showPlaceholder ? 'No images yet' : shoot.location.address}
+      <div className={cn('relative overflow-hidden', compact ? 'shoot-glass-hero' : 'h-64 bg-muted', showPlaceholder && 'min-h-56')}>
+        {heroImage ? <img
+          src={heroImage}
+          alt={shoot.location.address}
           className={compact ? 'shoot-glass-card-image' : 'h-full w-full object-cover group-hover:scale-105 transition-transform duration-300'}
           loading="lazy"
-          onError={() => setImgErrored(true)}
-        />
+          onError={onImageError}
+        /> : <DeliverySpotlight services={spotlightServices} layout="cover" />}
         {!showPlaceholder && !compact ? (
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
         ) : null}
@@ -331,10 +331,10 @@ export const CompletedAlbumCard = ({
             </Badge>
           ) : null}
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-black/70 text-white px-2.5 py-1 rounded-full text-sm">
+            {!showPlaceholder && <div className="flex items-center gap-1.5 bg-black/70 text-white px-2.5 py-1 rounded-full text-sm">
               <Image className="h-3.5 w-3.5" />
               <span>{photoCount} photos</span>
-            </div>
+            </div>}
             {hasTour && (
               <div className="bg-black/70 text-white px-2.5 py-1 rounded-full text-sm">
                 Tour: Yes

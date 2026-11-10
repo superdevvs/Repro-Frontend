@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import type { DashboardShootSummary } from '@/types/dashboard';
 import { cn } from '@/lib/utils';
 import { formatDashboardShootSchedule } from '@/utils/dashboardShootSchedule';
-import { isUnsuitableShootCardHeroUrl, selectShootCardHeroUrls } from '@/utils/shootCardHero';
+import { selectShootCardHeroUrls } from '@/utils/shootCardHero';
+import { useShootCardPhoto } from '@/hooks/useShootCardPhoto';
 import { ShootActionRequestBadges } from '@/components/shoots/ShootActionRequests';
 import { ClientPaymentPill } from '@/features/dashboard/components/ClientPaymentPill';
 import { DeliverySpotlight } from './DeliverySpotlight';
@@ -14,11 +15,7 @@ interface DeliveredShootCardProps {
 }
 
 export const DeliveredShootCard: React.FC<DeliveredShootCardProps> = ({ shoot, showPaymentStatus, onSelect }) => {
-  const images = selectShootCardHeroUrls(shoot, { limit: 6 }).filter(url => !isUnsuitableShootCardHeroUrl(url));
-  const signature = JSON.stringify(images);
-  const [failed, setFailed] = useState<{ signature: string; urls: string[] }>({ signature: '', urls: [] });
-  const failedUrls = failed.signature === signature ? failed.urls : [];
-  const image = images.find(url => !failedUrls.includes(url));
+  const { image, onImageError } = useShootCardPhoto(selectShootCardHeroUrls(shoot, { limit: 6 }));
   const scheduleLabel = formatDashboardShootSchedule(shoot);
 
   return (
@@ -44,7 +41,7 @@ export const DeliveredShootCard: React.FC<DeliveredShootCardProps> = ({ shoot, s
             alt={shoot.addressLine}
             className="h-full w-full object-cover"
             loading="lazy"
-            onError={() => setFailed({ signature, urls: [...failedUrls, image] })}
+            onError={onImageError}
           />
           <div
             className="absolute inset-0 pointer-events-none z-[5]"

@@ -1,7 +1,7 @@
 import type { ShootData } from "@/types/shoots";
 import type { DashboardShootSummary } from "@/types/dashboard";
 import { normalizeImageUrl } from "@/utils/imageUrl";
-import { isFloorplanLikeHeroUrl, selectShootCardHeroUrls } from "@/utils/shootCardHero";
+import { isFloorplanLikeHeroUrl, isUnsuitableShootCardHeroUrl, selectShootCardHeroUrls } from "@/utils/shootCardHero";
 
 import {
   CLIENT_DELIVERED_EXCLUDED_STAGE_KEYWORDS,
@@ -232,7 +232,7 @@ export const getClientDeliveredMedia = (shoot: ShootData) => {
       ],
     },
     { limit: 6 },
-  );
+  ).filter(url => !isUnsuitableShootCardHeroUrl(url));
 
   const photos =
     filePhotos.length > 0

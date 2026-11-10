@@ -11,6 +11,16 @@ const baseShoot: ShootData = {
 };
 
 describe('getClientDeliveredMedia', () => {
+  it('uses a delivered media photo when the list only supplies a floorplan', () => {
+    const photo = 'https://cdn.test/shoots/384/exterior.jpg';
+    const result = getClientDeliveredMedia({
+      ...baseShoot,
+      heroImage: 'https://cdn.test/shoots/384/floorplan.jpg',
+      media: { images: [{ id: 'photo', url: photo, type: 'edited' }] },
+    });
+    expect(result.coverPhoto).toBe(photo);
+  });
+
   it('uses hydrated hero/preview_images when file rows are omitted (include_files=false)', () => {
     const hero =
       'https://cdn.test/shoots/384/grids/707%20Sequoia%20Dr%20-8132_grid.jpg';

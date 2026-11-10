@@ -97,3 +97,37 @@
   .delivery-spotlight__art[data-paired='true'] > :first-child { width: 64px; height: 64px; }
   .delivery-spotlight__art[data-paired='true'] > :last-child { width: 55px; height: 55px; }
 }
+
+/* History covers leave room for the existing status/invoice and payment controls. */
+.delivery-spotlight--cover .delivery-spotlight__brand { inset: 51px 18px auto; }
+.delivery-spotlight--cover .delivery-spotlight__main {
+  inset: 92px 18px 44px;
+  height: auto;
+  grid-template-columns: minmax(0, 1fr) clamp(78px, 34cqw, 150px);
+}
+.delivery-spotlight--cover .delivery-spotlight__title { font-size: clamp(19px, 7cqw, 32px); }
+.delivery-spotlight--cover .delivery-spotlight__art { height: clamp(78px, 30cqw, 120px); }
+.delivery-spotlight--cover .delivery-spotlight__illustration { width: 100%; height: 100%; }
+.delivery-spotlight--cover .delivery-spotlight__art[data-paired='true'] > :first-child { width: 76%; height: 85%; }
+.delivery-spotlight--cover .delivery-spotlight__art[data-paired='true'] > :last-child { width: 63%; height: 72%; }
+.delivery-spotlight--cover .delivery-spotlight__divider,
+.delivery-spotlight--thumbnail .delivery-spotlight__divider { display: none; }
+
+/* Small list thumbnails retain the service names alongside scaled artwork. */
+.delivery-spotlight--thumbnail .delivery-spotlight__brand { inset: 34px 9px auto; }
+.delivery-spotlight--thumbnail .delivery-spotlight__logo { width: clamp(54px, 36cqw, 80px); height: 20px; }
+.delivery-spotlight--thumbnail .delivery-spotlight__count,
+.delivery-spotlight--thumbnail .delivery-spotlight__description { display: none; }
+.delivery-spotlight--thumbnail .delivery-spotlight__main {
+  inset: 59px 9px 8px;
+  height: auto;
+  gap: 2px;
+  grid-template-columns: minmax(0, 1fr) clamp(35px, 33cqw, 76px);
+}
+.delivery-spotlight--thumbnail .delivery-spotlight__title { font-size: clamp(10px, 7cqw, 17px); letter-spacing: -0.2px; }
+.delivery-spotlight--thumbnail .delivery-spotlight__line { gap: 2px; }
+.delivery-spotlight--thumbnail .delivery-spotlight__plus { font-size: 10px; }
+.delivery-spotlight--thumbnail .delivery-spotlight__art { height: clamp(36px, 33cqw, 76px); }
+.delivery-spotlight--thumbnail .delivery-spotlight__illustration { width: 100%; height: 100%; }
+.delivery-spotlight--thumbnail .delivery-spotlight__art[data-paired='true'] > :first-child { width: 85%; height: 85%; }
+.delivery-spotlight--thumbnail .delivery-spotlight__art[data-paired='true'] > :last-child { width: 70%; height: 70%; }

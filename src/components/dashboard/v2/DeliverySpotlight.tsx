@@ -3,14 +3,17 @@ import type { DashboardShootServiceTag } from '@/types/dashboard';
 import { getDeliverySpotlightDescription, getDeliverySpotlightServices } from '@/utils/deliverySpotlight';
 import './DeliverySpotlight.css';
 
-export const DeliverySpotlight: React.FC<{ services: DashboardShootServiceTag[] }> = ({ services }) => {
+export const DeliverySpotlight: React.FC<{
+  services: DashboardShootServiceTag[];
+  layout?: 'dashboard' | 'cover' | 'thumbnail';
+}> = ({ services, layout = 'dashboard' }) => {
   const items = getDeliverySpotlightServices(services);
   const visible = items.slice(0, 2);
   const illustrations = visible.length ? visible : [{ label: 'Property media', illustration: 'media' }];
   const serviceNames = items.map(item => item.label).join(' + ');
 
   return (
-    <div className="delivery-spotlight" data-delivery-spotlight="true" aria-label={serviceNames || 'Property media'}>
+    <div className={`delivery-spotlight delivery-spotlight--${layout}`} data-delivery-spotlight="true" aria-label={serviceNames || 'Property media'}>
       <div className="delivery-spotlight__brand">
         <img src="/images/repro-logo.png" alt="R/E Pro Photos" width={91} height={27} className="delivery-spotlight__logo" />
         {items.length > 0 && <span className="delivery-spotlight__count">{items.length} {items.length === 1 ? 'service' : 'services'}</span>}

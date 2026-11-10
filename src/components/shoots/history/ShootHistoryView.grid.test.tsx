@@ -80,7 +80,7 @@ describe('Shoot History glass cards', () => {
     expect(container.textContent).toBe(standardText)
   })
 
-  it('keeps hidden hero images hidden and uses the existing placeholder on image failure', () => {
+  it('keeps hidden hero images hidden and uses the service cover on image failure', () => {
     const { container, rerender } = render(renderGlassCard(<SharedShootCard shoot={glassShoot} compact hideHeroImage role="admin" />))
     expect(container.querySelector('img')).toBeNull()
     rerender(renderGlassCard(<CompletedAlbumCard shoot={glassShoot} compact onSelect={vi.fn()} />))
@@ -88,7 +88,8 @@ describe('Shoot History glass cards', () => {
     expect(image).toHaveClass('shoot-glass-card-image')
     expect(image).toHaveAttribute('src', 'https://images.example.test/property.jpg')
     act(() => image.dispatchEvent(new Event('error')))
-    expect(image.getAttribute('src')).not.toBe('https://images.example.test/property.jpg')
+    expect(container.querySelector('img[src="https://images.example.test/property.jpg"]')).toBeNull()
+    expect(container.querySelector('[data-delivery-spotlight]')).not.toBeNull()
   })
 
   it.each([

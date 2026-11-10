@@ -20,6 +20,8 @@ import { hasActiveTextSelection } from "@/lib/textSelection";
 import type { ClientShootTileProps } from "../types";
 import { getClientDeliveredMedia } from "../utils";
 import { ClientPaymentPill } from "./ClientPaymentPill";
+import { useShootCardPhoto } from '@/hooks/useShootCardPhoto';
+import { DeliverySpotlight } from '@/components/dashboard/v2/DeliverySpotlight';
 
 export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
   record,
@@ -36,6 +38,8 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
 }) => {
   const { formatTime, formatDate } = useUserPreferences();
   const { data, summary } = record;
+  const deliveredMedia = variant === 'completed' ? getClientDeliveredMedia(data) : { photos: [], count: 0 };
+  const { image: coverPhoto, onImageError } = useShootCardPhoto(deliveredMedia.photos);
   
   const totalQuote = data.payment?.totalQuote ?? 0;
   const totalPaid = data.payment?.totalPaid ?? 0;
@@ -76,36 +80,33 @@ export const ClientShootTile: React.FC<ClientShootTileProps> = React.memo(({
   const overflow = services.length - serviceBadges.length;
 
   if (variant === "completed") {
-    const deliveredMedia = getClientDeliveredMedia(data);
-    const coverPhoto = deliveredMedia.coverPhoto;
     const totalCount = deliveredMedia.count;
 
     return (
       <div
+        data-shoot-id={data.id}
         className="group relative rounded-2xl overflow-hidden border border-border/50 hover:border-primary/50 transition-all duration-300 bg-card cursor-pointer hover:shadow-xl hover:shadow-primary/5"
         onClick={() => onSelect(record)}
       >
         <div className="flex flex-col sm:flex-row">
           {/* Left - large cover photo with gradient overlay */}
-          <div className="relative w-full sm:w-[280px] md:w-[320px] flex-shrink-0">
+          <div className={`relative w-full sm:w-[280px] md:w-[320px] flex-shrink-0 ${!coverPhoto ? 'min-h-56' : ''}`}>
             {coverPhoto ? (
               <>
                 <img
                   src={coverPhoto}
                   alt={summary.addressLine}
                   className="w-full h-[180px] sm:h-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  onError={onImageError}
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-transparent to-background/30 hidden sm:block" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent sm:hidden" />
               </>
             ) : (
-              <div className="w-full h-[180px] sm:h-full bg-muted flex items-center justify-center">
-                <ImageIcon className="w-12 h-12 text-muted-foreground/20" />
-              </div>
+              <DeliverySpotlight services={summary.services} layout="cover" />
             )}
             {/* Photo count pill */}
-            {totalCount > 0 && (
+            {coverPhoto && totalCount > 0 && (
               <div className="absolute top-3 left-3 bg-black/50 backdrop-blur-md text-white text-[11px] font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5">
                 <ImageIcon className="w-3 h-3" />
                 {totalCount} photo{totalCount !== 1 ? 's' : ''}
