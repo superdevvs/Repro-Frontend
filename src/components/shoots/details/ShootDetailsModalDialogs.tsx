@@ -331,6 +331,10 @@ export function ShootDetailsModalDialogs({
                   <span className="text-right">${serviceDetachConfirmation.impact.currentTotal.toFixed(2)}</span>
                   <span className="text-muted-foreground">New total</span>
                   <span className="text-right font-semibold">${serviceDetachConfirmation.impact.newTotal.toFixed(2)}</span>
+                  <span className="text-muted-foreground">Already paid</span>
+                  <span className="text-right">${serviceDetachConfirmation.impact.totalPaid.toFixed(2)}</span>
+                  <span className="text-muted-foreground">New balance due</span>
+                  <span className="text-right font-semibold">${serviceDetachConfirmation.impact.newBalance.toFixed(2)}</span>
                   {serviceDetachConfirmation.impact.paymentAllocationsReleased > 0.005 && (
                     <>
                       <span className="text-muted-foreground">Allocations redistributed</span>
@@ -346,6 +350,12 @@ export function ShootDetailsModalDialogs({
                     </>
                   )}
                 </div>
+
+                {serviceDetachConfirmation.impact.allRemovedServicesUnpaid && (
+                  <p className="text-xs text-muted-foreground">
+                    Unpaid charges will be removed from the invoice, receipt view, and balance. Commission adjustments are recorded automatically for accounts review. Recorded payments and earned photographer/editor pay are preserved.
+                  </p>
+                )}
 
                 {(serviceDetachConfirmation.impact.filesDetached > 0
                   || serviceDetachConfirmation.impact.albumsDetached > 0

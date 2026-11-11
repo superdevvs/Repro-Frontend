@@ -21,6 +21,7 @@ export type ServiceDetachImpact = {
   totalPaid: number;
   newBalance: number;
   refundCreditDue: number;
+  allRemovedServicesUnpaid?: boolean;
 };
 
 export type ServiceDetachConfirmation = {
@@ -136,6 +137,7 @@ export const parseServiceDetachConfirmation = (
       totalPaid: asNumber(impact.total_paid ?? impact.totalPaid),
       newBalance: asNumber(impact.new_balance ?? impact.newBalance),
       refundCreditDue: asNumber(impact.refund_credit_due ?? impact.refundCreditDue),
+      allRemovedServicesUnpaid: impact.all_removed_services_unpaid === true,
     },
   };
 };

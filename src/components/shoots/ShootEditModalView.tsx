@@ -473,6 +473,10 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                   <span className="text-right">${serviceDetachConfirmation.impact.currentTotal.toFixed(2)}</span>
                   <span className="text-muted-foreground">New total</span>
                   <span className="text-right font-semibold">${serviceDetachConfirmation.impact.newTotal.toFixed(2)}</span>
+                  <span className="text-muted-foreground">Already paid</span>
+                  <span className="text-right">${serviceDetachConfirmation.impact.totalPaid.toFixed(2)}</span>
+                  <span className="text-muted-foreground">New balance due</span>
+                  <span className="text-right font-semibold">${serviceDetachConfirmation.impact.newBalance.toFixed(2)}</span>
                   <span className="text-muted-foreground">Payment allocations released</span>
                   <span className="text-right">${serviceDetachConfirmation.impact.paymentAllocationsReleased.toFixed(2)}</span>
                   {serviceDetachConfirmation.impact.refundCreditDue > 0.005 && (
@@ -484,6 +488,11 @@ export function ShootEditModalView({ model }: { model: ReturnType<typeof useShoo
                     </>
                   )}
                 </div>
+                {serviceDetachConfirmation.impact.allRemovedServicesUnpaid && (
+                  <p className="text-xs text-muted-foreground">
+                    Unpaid charges will be removed from the invoice, receipt view, and balance. Commission adjustments are recorded automatically for accounts review. Recorded payments and earned photographer/editor pay are preserved.
+                  </p>
+                )}
               </div>
             )}
             <DialogFooter>
