@@ -317,7 +317,10 @@ export function resolveUploadServiceTargets(
       const workflow = String(item.workflow_status ?? item.workflowStatus ?? '').toLowerCase();
       const delivery = String(item.delivery_status ?? item.deliveryStatus ?? '').toLowerCase();
       if (workflow === 'cancelled' || delivery === 'cancelled') return false;
-      if (!options.includeClosed && workflow === 'delivered' && delivery === 'delivered') return false;
+      // Production staff can add finished files after delivery. The required
+      // count is a minimum; keep the booked service as the upload's owner.
+      const canAddDeliveredEdits = uploadType === 'edited' && adminLike;
+      if (!options.includeClosed && !canAddDeliveredEdits && workflow === 'delivered' && delivery === 'delivered') return false;
 
       // Capability next, and it applies to every role. An admin is not exempt: the
       // question is whether the service can receive this media at all, not who is
