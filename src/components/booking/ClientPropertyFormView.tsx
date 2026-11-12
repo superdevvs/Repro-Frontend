@@ -605,11 +605,12 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                           type="number"
                           placeholder="sqft"
                           {...field}
-                          value={field.value ?? ''}
+                          value={field.value === 0 ? '' : field.value ?? ''}
                           className={cn(showMissingFieldStroke('sqft') && invalidFieldClassName)}
                           onChange={(e) => {
-                            const value = e.target.value;
-                            field.onChange(value === '' ? undefined : Number(value));
+                            const value = e.currentTarget.value.replace(/^0+(?=\d)/, '');
+                            e.currentTarget.value = value;
+                            field.onChange(value === '' ? 0 : Number(value));
                           }} />
                       </FormControl>
                       <FormMessage />
