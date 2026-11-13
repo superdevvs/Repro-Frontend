@@ -1,5 +1,6 @@
 import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
+import { triggerShootDetailRefresh } from '@/realtime/realtimeRefreshBus';
 import { buildShootZipFilename, parseDownloadFilename } from './shootDownloadFilename';
 import {
   ArchiveTooLargeForBuffer,
@@ -441,12 +442,15 @@ export const downloadShootMediaFile = async ({
   const contentType = response.headers.get('content-type') || '';
 
   if (!response.ok) {
+    const refreshFiles = response.status === 403 || response.status === 404;
+    if (refreshFiles) triggerShootDetailRefresh(shootId);
+    const refreshHint = refreshFiles ? ' Refresh the file list and choose an available file.' : '';
     if (contentType.includes('application/json')) {
       const errorData = await extractJsonResponse(response);
-      throw new Error(errorData.message || errorData.error || 'Failed to download file');
+      throw new Error((errorData.message || errorData.error || 'This file is not available to download.') + refreshHint);
     }
 
-    throw new Error('Failed to download file');
+    throw new Error('Failed to download file.' + refreshHint);
   }
 
   if (contentType.includes('application/json')) {

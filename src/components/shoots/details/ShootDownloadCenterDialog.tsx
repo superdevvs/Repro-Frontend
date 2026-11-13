@@ -162,6 +162,9 @@ export function ShootDownloadCenterDialog({
         {sourceShoot && scope.isMultiUnit && <div className="px-5 pt-3"><ShootUnitScopeBar shoot={sourceShoot} disabled={downloadBusy} /></div>}
         {downloadBusy && <div role="status" className="px-5 pt-3 text-sm text-muted-foreground">{downloadStatusMessage || 'Preparing your download...'}</div>}
         <div className="min-h-0 overflow-y-auto px-5 py-4">
+          {(downloadModel.pendingReviewCount ?? 0) > 0 && <p role="status" className="mb-4 rounded-md border bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
+            {downloadModel.pendingReviewCount === 1 ? 'One file is' : `${downloadModel.pendingReviewCount} files are`} awaiting review and will be available to download after approval.
+          </p>}
           {!hasDownloads ? <div className="rounded-lg border border-dashed border-border px-4 py-8 text-center">
             <EmptyState icon="downloads" title={<>No downloads available yet</>} size="compact" />
             <div className="mt-1 text-sm text-muted-foreground">Delivered photos, videos, floorplans, and links will appear here.</div>

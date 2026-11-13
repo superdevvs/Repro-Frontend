@@ -5,9 +5,9 @@ import { MediaGrid } from './MediaGrid';
 import { canInteractWithMediaFile, canManageMediaVisibility, canReorderMediaFile, canSetMediaHero, canUseMediaDownload } from './mediaPresentationPermissions';
 
 const files: MediaFile[] = [
-  { id: '11', filename: 'visible.jpg', media_type: 'edited', workflowStage: 'verified', can_manage_visibility: true, can_set_hero: true },
+  { id: '11', filename: 'visible.jpg', media_type: 'edited', workflowStage: 'verified', can_manage_visibility: true, can_set_hero: true, can_download: true },
   { id: '12', filename: 'hidden.jpg', media_type: 'edited', workflowStage: 'verified', is_hidden: true, can_manage_visibility: true, can_set_hero: false },
-  { id: '13', filename: 'shared-readonly.jpg', media_type: 'edited', workflowStage: 'verified', can_manage_visibility: false, can_set_hero: false },
+  { id: '13', filename: 'shared-readonly.jpg', media_type: 'edited', workflowStage: 'verified', can_manage_visibility: false, can_set_hero: false, can_download: true },
 ];
 beforeEach(() => {
   vi.stubGlobal('matchMedia', (media: string) => ({ matches: false, media, onchange: null,

@@ -32,13 +32,30 @@ beforeEach(() => { vi.clearAllMocks(); mocks.role = 'admin'; vi.spyOn(console, '
 afterEach(() => { cleanup(); vi.restoreAllMocks(); });
 
 describe('Download Center loading buttons', () => {
-  it('hides old video revisions for a rep when shoot details omit download flags', async () => {
+  it('explains a pending replacement and offers it only after the server grants download access', async () => {
+    mocks.role = 'client';
+    const onDownloadFile = vi.fn().mockResolvedValue(undefined);
+    const pending = { ...shoot, files: [
+      { id: 'replacement', filename: 'Revised video.mp4', workflow_stage: 'completed', can_download: false, download_unavailable_reason: 'content_not_finalized' },
+    ] } as ShootData;
+    const dialog = (data: ShootData) => <ShootDownloadCenterDialog shoot={data} open isClient isDownloading={false} downloadStatusMessage=""
+      onOpenChange={vi.fn()} onDownloadArchive={vi.fn()} onDownloadFile={onDownloadFile} />;
+    const view = render(dialog(pending));
+    expect(screen.getByRole('status')).toHaveTextContent('One file is awaiting review');
+    expect(screen.queryByRole('button', { name: 'Download Revised video.mp4' })).not.toBeInTheDocument();
+    view.rerender(dialog({ ...pending, files: [{ ...pending.files![0], can_download: true, download_unavailable_reason: null }] }));
+    expect(screen.queryByText(/awaiting review/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Download Revised video.mp4' }));
+    await waitFor(() => expect(onDownloadFile).toHaveBeenCalledExactlyOnceWith('replacement', 'Revised video.mp4', undefined));
+  });
+
+  it('hides old video revisions for a rep without an explicit download grant', async () => {
     mocks.role = 'salesRep';
     const onDownloadFile = vi.fn().mockResolvedValue(undefined);
     const data = { ...shoot, files: [
       { id: 'old-1', filename: 'Old video 1.mp4', workflow_stage: 'completed', is_hidden: true },
       { id: 'old-2', filename: 'Old video 2.mp4', workflow_stage: 'completed', is_hidden: true },
-      { id: 'current', filename: 'Current video.mp4', workflow_stage: 'completed', is_hidden: false },
+      { id: 'current', filename: 'Current video.mp4', workflow_stage: 'completed', is_hidden: false, can_download: true },
     ] } as ShootData;
     const view = render(<ShootDownloadCenterDialog shoot={data} open isDownloading={false} downloadStatusMessage=""
       onOpenChange={vi.fn()} onDownloadArchive={vi.fn()} onDownloadFile={onDownloadFile} />);

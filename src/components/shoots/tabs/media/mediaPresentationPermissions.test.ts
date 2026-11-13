@@ -5,6 +5,15 @@ import { canInteractWithMediaFile, canManageMediaVisibility, canReorderMediaFile
 
 const image: MediaFile = { id: '11', filename: 'final.jpg', media_type: 'edited', workflowStage: 'verified', scan_status: 'clean', can_manage_visibility: true, can_set_hero: true };
 describe('scoped media presentation permissions', () => {
+  it.each(['client', 'salesRep'])('requires an explicit server grant for %s downloads without changing preview interactions', role => {
+    for (const can_download of [false, undefined]) {
+      expect(canUseMediaDownload({ ...image, can_download }, role)).toBe(false);
+      expect(canInteractWithMediaFile({ ...image, can_download }, role)).toBe(true);
+    }
+    expect(canUseMediaDownload({ ...image, can_download: true }, role)).toBe(true);
+    expect(canUseMediaDownload({ ...image, can_download: true, is_hidden: true }, role)).toBe(false);
+  });
+
   it.each(['client', 'salesRep', 'sales_rep', 'rep', 'representative'])('allows server-authorized %s curation and keeps hidden files restorable', role => {
     expect(canManageMediaVisibility(image, role)).toBe(true);
     expect(canSetMediaHero(image, role)).toBe(true);
@@ -37,6 +46,8 @@ describe('scoped media presentation permissions', () => {
     expect(canManageMediaVisibility(image, 'unknown')).toBe(false);
   });
   it('preserves staff legacy permissions and respects explicit denial', () => {
+    expect(canUseMediaDownload(image, 'editor')).toBe(true);
+    expect(canUseMediaDownload({ ...image, can_download: false }, 'admin')).toBe(false);
     const legacy = { ...image, can_manage_visibility: undefined, can_set_hero: undefined };
     expect(canSetMediaHero(legacy, 'admin')).toBe(true);
     expect(canManageMediaVisibility(legacy, 'editor')).toBe(true);

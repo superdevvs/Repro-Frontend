@@ -11,15 +11,37 @@ const line = (id: string, name: string, extra: Record<string, unknown> = {}) => 
   is_deliverable: true, is_unlocked_for_delivery: true, delivery_status: 'ready', workflow_status: 'delivered', ...extra,
 }) as ShootServiceObject;
 const file = (id: string, filename: string, extra: Record<string, unknown> = {}) => ({
-  id, filename, workflow_stage: 'verified', ...extra,
+  id, filename, workflow_stage: 'verified', can_download: true, ...extra,
 }) as ShootFileData;
 const shoot = (extra: Record<string, unknown> = {}) => ({ id: '42', files: [], services: [], ...extra }) as unknown as ShootData;
 const build = (data: ShootData, overrides: Partial<ShootDownloadCenterOptions> = {}) => buildShootDownloadCenterModel(data, { ...options, ...overrides });
 
 describe('client download checklist model', () => {
+  it.each(['completed', 'verified', 'delivered'])('requires a customer download capability even at %s stage', workflow_stage => {
+    const data = shoot({ files: [
+      file('approved', 'approved.mp4', { workflow_stage, can_download: true }),
+      file('replacement', 'replacement.mp4', { workflow_stage, can_download: false, download_unavailable_reason: 'content_not_finalized' }),
+      file('unknown', 'unknown.mp4', { workflow_stage, can_download: undefined }),
+    ] });
+    expect(build(data).editedVideos.map(item => item.fileId)).toEqual(['approved']);
+    expect(build(data).pendingReviewCount).toBe(1);
+    expect(build(data, { isClient: false, isSalesRep: true }).editedVideos.map(item => item.fileId)).toEqual(['approved']);
+  });
+
+  it('counts only visible review-blocked files in the selected unit', () => {
+    const result = build(shoot({ serviceItems: [line('a', 'Video A', { shoot_unit_id: '1' }), line('b', 'Video B', { shoot_unit_id: '2' })], files: [
+      file('current', 'current.mp4', { shoot_service_id: 'a', can_download: false, download_unavailable_reason: 'content_not_finalized' }),
+      file('hidden', 'hidden.mp4', { shoot_service_id: 'a', is_hidden: true, can_download: false, download_unavailable_reason: 'content_not_finalized' }),
+      file('unpaid', 'unpaid.mp4', { shoot_service_id: 'a', can_download: false, download_unavailable_reason: 'payment_required' }),
+      file('other-unit', 'other.mp4', { shoot_service_id: 'b', can_download: false, download_unavailable_reason: 'content_not_finalized' }),
+    ] }), { unitId: '1' });
+    expect(result.pendingReviewCount).toBe(1);
+    expect(result.editedVideos).toEqual([]);
+  });
+
   it('offers only downloadable files to a sales rep viewing hidden video revisions', () => {
     const result = build(shoot({ serviceItems: [line('v', 'Social Video'), line('p', 'Photos')], files: [
-      file('old-video', 'old-video.mp4', { shoot_service_id: 'v', is_hidden: true }),
+      file('old-video', 'old-video.mp4', { shoot_service_id: 'v', is_hidden: true, can_download: undefined }),
       file('revised-video', 'revised-video.mp4', { shoot_service_id: 'v', is_hidden: true, can_download: false }),
       file('current-video', 'current-video.mp4', { shoot_service_id: 'v', can_download: true }),
       file('denied-visible', 'restricted.mp4', { shoot_service_id: 'v', can_download: false }),
@@ -38,7 +60,7 @@ describe('client download checklist model', () => {
   it('preserves authorized staff downloads of hidden files and legacy file payloads', () => {
     const result = build(shoot({ files: [
       file('staff-hidden', 'hidden.mp4', { is_hidden: true, can_download: true }),
-      file('legacy', 'legacy.mp4'),
+      file('legacy', 'legacy.mp4', { can_download: undefined }),
     ] }), { isClient: false });
 
     expect(result.editedVideos.map(item => item.fileId)).toEqual(['staff-hidden', 'legacy']);

@@ -4,7 +4,7 @@ import type { MediaFile } from '@/hooks/useShootFiles';
 import { useMediaViewerController } from './useMediaViewerController';
 
 vi.mock('framer-motion', () => ({ useReducedMotion: () => true }));
-const files = [{ id: 'a', filename: 'a.jpg' }, { id: 'b', filename: 'b.jpg' }] as MediaFile[];
+const files = [{ id: 'a', filename: 'a.jpg', can_download: true }, { id: 'b', filename: 'b.jpg', can_download: true }] as MediaFile[];
 const base = {
   isOpen: true, files, onClose: vi.fn(), onIndexChange: vi.fn(), getImageUrl: () => '/photo.jpg',
 };

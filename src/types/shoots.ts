@@ -58,6 +58,8 @@ export interface ShootFileData {
   formattedSize?: string;
   workflow_stage?: string;
   workflowStage?: string;
+  can_download?: boolean;
+  download_unavailable_reason?: 'payment_required' | 'content_not_finalized' | 'file_infected' | 'file_scan_failed' | 'file_scan_pending' | 'file_provider_pending' | 'hidden' | 'forbidden' | null;
   uploaded_by?: string | number;
   uploadedBy?: string;
   is_cover?: boolean;

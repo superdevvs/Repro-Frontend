@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { sendShootToEditing } from '@/services/shootEditingDispatch';
 import { openMediaVersions } from '@/services/mediaVersions';
-import { canShowMediaEditingActions } from './tabs/media/mediaEditingPermissions';
+import { canShowMediaEditingActions, isEditedMediaFile } from './tabs/media/mediaEditingPermissions';
+import { isVideoFile } from './tabs/media/mediaViewerFileTypes';
 import { triggerShootDetailRefresh } from '@/realtime/realtimeRefreshBus';
 import { apiClient } from '@/services/api';
 import { studioError } from '@/services/studioWorkspaceService';
@@ -20,18 +21,19 @@ export function MediaEditingMenuItems({ file, shootId, beforeOpen, className }: 
   const [helperAvailable, setHelperAvailable] = useState(false);
   const id = shootId ?? file.shoot_id;
   const allowed = canShowMediaEditingActions(file, shootId, role);
-  const edited = ['completed', 'verified'].includes(file.workflowStage ?? '') || file.media_type === 'edited' || file.is_ai_edited;
+  const edited = isEditedMediaFile(file);
+  const video = isVideoFile(file);
   useEffect(() => {
-    if (!allowed || !edited) return;
+    if (!allowed || !edited || video) return;
     let active = true;
     void apiClient.get<{ data: { available: boolean } }>('/desktop-editing').then(({ data }) => { if (active) setHelperAvailable(data.data.available); }).catch(() => { if (active) setHelperAvailable(false); });
     return () => { active = false; };
-  }, [allowed, edited, id, file.id]);
+  }, [allowed, edited, video, id, file.id]);
   if (!allowed || !id) return null;
   return <>
-      <DropdownMenuItem className={className} onSelect={() => { beforeOpen?.(); void sendShootToEditing(id, [Number(file.id)]).then(sent => { if (sent) triggerShootDetailRefresh(String(id)); }).catch(error => toast({ title: 'Editing request failed', description: error.message, variant: 'destructive' })); }}>Send to editing…</DropdownMenuItem>
-      {edited && <DropdownMenuItem className={className} onSelect={() => { beforeOpen?.(); openMediaVersions({ shootId: id, fileId: file.id, name: file.filename }); }}>Versions / upload saved edit…</DropdownMenuItem>}
-      {edited && <DropdownMenuItem className={className} onSelect={() => {
+      {!video && <DropdownMenuItem className={className} onSelect={() => { beforeOpen?.(); void sendShootToEditing(id, [Number(file.id)]).then(sent => { if (sent) triggerShootDetailRefresh(String(id)); }).catch(error => toast({ title: 'Editing request failed', description: error.message, variant: 'destructive' })); }}>Send to editing…</DropdownMenuItem>}
+      {edited && <DropdownMenuItem className={className} onSelect={() => { beforeOpen?.(); openMediaVersions({ shootId: id, fileId: file.id, name: file.filename, mediaType: video ? 'video' : 'image' }); }}>{video ? 'Versions / review replacements…' : 'Versions / upload saved edit…'}</DropdownMenuItem>}
+      {edited && !video && <DropdownMenuItem className={className} onSelect={() => {
         void apiClient.get<{ data: { available: boolean } }>('/desktop-editing').then(async ({ data }) => {
           if (!data.data.available) { beforeOpen?.(); window.location.assign('/settings?tab=desktop-editing'); return; }
           const history = await apiClient.get<{ current_version: number }>(`/shoots/${id}/files/${file.id}/versions`);

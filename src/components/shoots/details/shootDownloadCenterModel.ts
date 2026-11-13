@@ -85,11 +85,14 @@ const isVisibleFile = (file: ShootFileData, isClient: boolean, isSalesRep: boole
   const data = record(file);
   const scan = text(data.scan_status);
   if (scan && scan !== 'clean') return false;
+  // Processing/replacement stages do not grant delivery access. Customer
+  // downloads must use the same file capability as the guarded API endpoint.
+  if ((isClient || isSalesRep) && data.can_download !== true) return false;
   // Sales reps can preview hidden files for curation, but the server denies
   // their downloads. Honor that capability for every role in this picker.
   if (data.can_download === false) return false;
-  // Shoot detail payloads can omit can_download. Hidden customer files still
-  // must not appear as downloads; an explicit contractor grant takes priority.
+  // Hidden client files are management previews. A contractor grant can still
+  // allow a hidden file on an account that also has a sales role.
   if (flag(file.is_hidden) && (isClient || (isSalesRep && data.can_download !== true))) return false;
   const extra = data.is_extra == null
     ? file.media_type === 'extra' || /[/\\]extra[/\\]/i.test(file.path ?? '')
@@ -115,6 +118,7 @@ const dedupe = (items: ShootDownloadItem[]) => {
 export function buildShootDownloadCenterModel(shoot: ShootData | null | undefined, options: ShootDownloadCenterOptions) {
   const model = {
     wholeShootPhotoCount: 0,
+    pendingReviewCount: 0,
     services: [] as Array<{ id: string; name: string; shootServiceId: string; photoCount: number }>,
     editedVideos: [] as ShootDownloadItem[],
     videoLinks: [] as ShootDownloadItem[],
@@ -149,11 +153,13 @@ export function buildShootDownloadCenterModel(shoot: ShootData | null | undefine
   const videoOrdered = legacyLinks || linkServices.some(service => releasedLink(service, 'video') && (/video/.test(serviceText(service))
     || ['video', 'photo_video'].includes(text(record(service.source).upload_intake_type ?? record(service.source).uploadIntakeType))));
   const files = array(shoot.files).map(value => value as ShootFileData).filter(file => {
-    if (!isVisibleFile(file, isClient, isSalesRep)) return false;
     const id = fileLineId(file);
     if (unitId != null && !eligibleIds.has(id)) return false;
     if (!wholeAccess && !eligibleIds.has(id)) return false;
-    return !id || !allServices.some(service => service.id === id) || eligibleIds.has(id);
+    if (id && allServices.some(service => service.id === id) && !eligibleIds.has(id)) return false;
+    if (isClient && !flag(file.is_hidden) && record(file).can_download !== true
+      && record(file).download_unavailable_reason === 'content_not_finalized') model.pendingReviewCount += 1;
+    return isVisibleFile(file, isClient, isSalesRep);
   });
   const photos = files.filter(file => isImage(file) && !isVideo(file)
     && !isFloorplan(file, allServices.find(service => service.id === fileLineId(file))));

@@ -471,7 +471,7 @@ const PrivateListingPortal = () => {
             throw new Error(await getResponseErrorMessage(res));
           }
 
-          queryClient.setQueryData<unknown>(['shoot', id], (previous) => {
+          queryClient.setQueriesData<unknown>({ queryKey: ['shoot', id] }, (previous) => {
             if (!previous) return previous;
             return {
               ...asListingRecord(previous),

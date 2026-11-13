@@ -12,7 +12,7 @@ const rep = { id: '7', name: 'Account rep', email: 'rep@example.test', role: 'sa
 const shoot = {
   id: '42', services: [], files: [
     { id: 'old', filename: 'Hidden revision.mp4', workflow_stage: 'completed', is_hidden: true },
-    { id: 'current', filename: 'Delivered video.mp4', workflow_stage: 'completed', is_hidden: false },
+    { id: 'current', filename: 'Delivered video.mp4', workflow_stage: 'completed', is_hidden: false, can_download: true },
   ],
 } as unknown as ShootData;
 

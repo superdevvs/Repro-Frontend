@@ -17,7 +17,7 @@ describe('media dialogs shared download state', () => {
     const onDownloadSingle = vi.fn().mockResolvedValue(undefined);
     const props = {
       viewerOpen: true, setViewerOpen: vi.fn(), viewerIndex: 0, setViewerIndex: vi.fn(), setViewerFiles: vi.fn(),
-      viewerFiles: [{ id: 'a', filename: 'a.jpg', thumb: '/photo.jpg', web_path: '/photo.jpg' }],
+      viewerFiles: [{ id: 'a', filename: 'a.jpg', thumb: '/photo.jpg', web_path: '/photo.jpg', can_download: true }],
       getImageUrl: () => '/photo.jpg', shoot: { id: 42, location: { address: '12 Oak Street' } },
       canDownloadSingleMedia: true, canInteractSingleMedia: true, onDownloadSingle,
       selectedFiles: new Set<string>(), showAiEditDialog: false, requestManagerOpen: false,

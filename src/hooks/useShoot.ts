@@ -2,7 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { API_BASE_URL } from '@/config/env';
 import { ShootData } from '@/types/shoots';
-import { transformShootFromApi } from '@/context/shootNormalization';
+import { transformShootFromApi, type ApiShoot } from '@/context/shootNormalization';
+import { getImpersonatedUserId } from '@/services/api';
 
 const getToken = (sessionToken?: string | null) => {
   const localToken =
@@ -11,7 +12,7 @@ const getToken = (sessionToken?: string | null) => {
   return localToken || sessionToken || undefined;
 };
 
-const fetchShoot = async (shootId: string | number, token?: string): Promise<ShootData> => {
+const fetchShoot = async (shootId: string | number, token?: string, impersonatedUserId?: string | null): Promise<ShootData> => {
   const authToken = token || getToken();
   if (!authToken) {
     throw new Error('Missing auth token');
@@ -27,6 +28,7 @@ const fetchShoot = async (shootId: string | number, token?: string): Promise<Sho
       headers: {
         'Authorization': `Bearer ${authToken}`,
         'Accept': 'application/json',
+        ...(impersonatedUserId ? { 'X-Impersonate-User-Id': impersonatedUserId } : {}),
       },
       signal: controller.signal,
     });
@@ -65,7 +67,7 @@ const fetchShoot = async (shootId: string | number, token?: string): Promise<Sho
     }
   }
 
-  let json: any;
+  let json: ApiShoot & { data?: ApiShoot };
   try {
     json = await res.json();
   } catch (parseError) {
@@ -89,11 +91,12 @@ const fetchShoot = async (shootId: string | number, token?: string): Promise<Sho
 };
 
 export const useShoot = (shootId: string | number | null | undefined, options?: { enabled?: boolean }) => {
-  const { session } = useAuth();
+  const { session, user, role, isImpersonating, originalUser } = useAuth();
+  const impersonatedUserId = getImpersonatedUserId();
   
   return useQuery({
-    queryKey: ['shoot', shootId],
-    queryFn: () => fetchShoot(shootId!, getToken(session?.accessToken)),
+    queryKey: ['shoot', shootId, user?.id ?? null, role ?? user?.role ?? null, isImpersonating, originalUser?.id ?? null, impersonatedUserId],
+    queryFn: () => fetchShoot(shootId!, getToken(session?.accessToken), impersonatedUserId),
     enabled: Boolean(shootId) && (options?.enabled !== false),
     staleTime: 30 * 1000, // 30 seconds
     gcTime: 5 * 60 * 1000, // 5 minutes

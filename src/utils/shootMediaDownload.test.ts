@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { downloadShootMediaArchive, downloadShootMediaFile, downloadShootRawFiles, resolveShootMediaArchiveRequest } from './shootMediaDownload';
 import { MAX_BUFFERED_ARCHIVE_BYTES } from './shootDownloadTransfer';
+import { registerShootDetailRefresh } from '@/realtime/realtimeRefreshBus';
 
 vi.mock('@/config/env', () => ({ API_BASE_URL: 'https://api.example.test' }));
 vi.mock('@/services/api', () => ({ getApiHeaders: () => ({ Authorization: 'Bearer fixture', 'Content-Type': 'application/json' }) }));
@@ -17,6 +18,32 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); document.body.innerHTML = ''; });
 
 describe('shoot archive requests', () => {
+  it.each([403, 404])('refreshes a stale file list after HTTP %s without retrying the denied download', async status => {
+    const refresh = vi.fn();
+    const unsubscribe = registerShootDetailRefresh(63, refresh);
+    const fetchMock = vi.fn().mockResolvedValue(Response.json({ message: 'This video is not released.' }, { status }));
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      await expect(downloadShootMediaFile({ shootId: 63, fileId: 17 }))
+        .rejects.toThrow('This video is not released. Refresh the file list and choose an available file.');
+      await vi.advanceTimersByTimeAsync(300);
+      expect(refresh).toHaveBeenCalledOnce();
+      expect(fetchMock).toHaveBeenCalledOnce();
+      expect(URL.createObjectURL).not.toHaveBeenCalled();
+    } finally { unsubscribe(); }
+  });
+
+  it('preserves ordinary download errors without refreshing unrelated file state', async () => {
+    const refresh = vi.fn();
+    const unsubscribe = registerShootDetailRefresh(63, refresh);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(Response.json({ message: 'Please try again later.' }, { status: 503 })));
+    try {
+      await expect(downloadShootMediaFile({ shootId: 63, fileId: 17 })).rejects.toThrow('Please try again later.');
+      await vi.advanceTimersByTimeAsync(300);
+      expect(refresh).not.toHaveBeenCalled();
+    } finally { unsubscribe(); }
+  });
+
   it('does not start a ready download after preparation was cancelled', async () => {
     const controller = new AbortController();
     vi.stubGlobal('fetch', vi.fn().mockImplementation(async () => {

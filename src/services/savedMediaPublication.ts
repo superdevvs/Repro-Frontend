@@ -13,7 +13,7 @@ export async function waitForSavedMedia(shootId: string | number, ids: string[],
       }));
       for (const result of results) {
         if (['published', 'archived'].includes(result.status)) pending.delete(result.id);
-        else if (['failed', 'conflict', 'alternative', 'dismissed'].includes(result.status)) return { published: false, message: result.error || 'A saved edit needs review in Versions / upload saved edit. The current image is unchanged.' };
+        else if (['failed', 'conflict', 'alternative', 'dismissed'].includes(result.status)) return { published: false, message: result.error || 'A saved edit needs review in Versions. The current file is unchanged.' };
       }
       if (pending.size) await new Promise<void>(resolve => { const timer = setTimeout(done, 2000); function done() { clearTimeout(timer); signal?.removeEventListener('abort', done); resolve(); } signal?.addEventListener('abort', done, { once: true }); });
     }

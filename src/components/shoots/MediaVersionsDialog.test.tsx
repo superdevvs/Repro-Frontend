@@ -49,3 +49,44 @@ it('labels receipt-bound returned edits Review and keeps staff resolution bound 
   fireEvent.click(screen.getByRole('button', { name: 'Replace latest (v1)' }));
   await waitFor(() => expect(api.post).toHaveBeenCalledWith('/shoots/8/media-versions/review-v2/resolve', { choice: 'replace_latest', expected_latest_version: 1 }));
 });
+
+it('plays a signed video preview and approves only the reviewed current version', async () => {
+  const stream = 'https://dashboard.test/api/media-version-stream/review-v2?expires=2000000000&signature=fixture';
+  api.get.mockResolvedValue({ data: { mime_type: 'video/mp4', current_version: 1, data: [{
+    id: 'review-v2', filename: 'Listing.mp4', mime_type: 'video/mp4', stream_url: stream,
+    preview_url: '/api/image-preview-not-for-video', status: 'conflict', error_code: 'delivery_review_required', created_at: '2026-11-13',
+  }] } });
+  render(<MemoryRouter><MediaVersionsDialogHost /></MemoryRouter>);
+  act(() => openMediaVersions({ shootId: 8, fileId: 12, name: 'Listing.mp4', mediaType: 'video' }));
+  const preview = await screen.findByLabelText('Preview Listing.mp4');
+  expect(preview.tagName).toBe('VIDEO');
+  expect(preview).toHaveAttribute('src', stream);
+  expect(preview).toHaveAttribute('controls');
+  expect(preview).toHaveAttribute('preload', 'metadata');
+  expect(screen.getByText(/This returned edit needs staff delivery review\. The current delivered video stays available/)).toBeVisible();
+  expect(screen.queryByText(/Photoshop/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Replace latest (v1)' }));
+  await waitFor(() => expect(api.post).toHaveBeenCalledWith('/shoots/8/media-versions/review-v2/resolve', { choice: 'replace_latest', expected_latest_version: 1 }));
+});
+
+it('uses the server media type for a video with no versions and directs uploads to the existing Edited files flow', async () => {
+  api.get.mockResolvedValue({ data: { mime_type: 'video/mp4', current_version: 3, data: [] } });
+  render(<MemoryRouter initialEntries={['/dashboard?editingShootId=8&editingFileId=12']}><MediaVersionsDialogHost /></MemoryRouter>);
+  expect(await screen.findByText(/Upload a replacement through Edited files/)).toBeVisible();
+  expect(screen.queryByLabelText('Upload a saved edit')).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: /Upload/ })).not.toBeInTheDocument();
+  expect(api.post).not.toHaveBeenCalled();
+});
+
+it.each([
+  { mime_type: 'application/mp4', media_type: undefined, requestType: undefined },
+  { mime_type: 'application/octet-stream', media_type: 'video', requestType: undefined },
+  { mime_type: 'application/octet-stream', media_type: undefined, requestType: 'video' as const },
+])('keeps legacy video metadata in the video review flow: %j', async ({ mime_type, media_type, requestType }) => {
+  api.get.mockResolvedValue({ data: { mime_type, media_type, current_version: 3, data: [] } });
+  render(<MemoryRouter><MediaVersionsDialogHost /></MemoryRouter>);
+  act(() => openMediaVersions({ shootId: 8, fileId: 12, name: 'Listing.mp4', mediaType: requestType }));
+  expect(await screen.findByText(/Upload a replacement through Edited files/)).toBeVisible();
+  await screen.findByText(/Current version 3/);
+  expect(screen.queryByLabelText('Upload a saved edit')).not.toBeInTheDocument();
+});
