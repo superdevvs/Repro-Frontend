@@ -84,7 +84,9 @@ export class ParallelDownload {
           const end = Math.min(source.size - 1, start + DOWNLOAD_CHUNK_BYTES - 1);
           for (let attempt = 0; ; attempt++) {
             try {
-              const response = await fetchAsset(url, { signal: controller.signal, headers: { Range: `bytes=${start}-${end}`, 'If-Range': source.etag } });
+              // A single Range is CORS-safelisted. Validate the returned strong ETag
+              // before reading bytes, avoiding an extra preflight for each part.
+              const response = await fetchAsset(url, { signal: controller.signal, headers: { Range: `bytes=${start}-${end}` } });
               if (response.status !== 206 || response.headers.get('Content-Range') !== `bytes ${start}-${end}/${source.size}` || response.headers.get('ETag') !== source.etag) {
                 await response.body?.cancel();
                 throw new Error('The file or download link changed. Pause and resume to refresh the link.');

@@ -31,6 +31,7 @@ describe('parallel downloads', () => {
     for (const [, options] of fetcher.mock.calls) {
       expect(options.credentials).toBe('omit'); expect(options.redirect).toBe('error');
       expect(new Headers(options.headers).has('Authorization')).toBe(false);
+      expect(new Headers(options.headers).has('If-Range')).toBe(false);
     }
   });
 
@@ -64,6 +65,17 @@ describe('parallel downloads', () => {
     const { file } = fixture(51 * 1024 ** 3);
     await expect(new ParallelDownload(file, vi.fn()).start(url)).rejects.toThrow('50 GB');
     expect(file.createWritable).not.toHaveBeenCalled();
+  });
+
+  it('rejects replacement bytes when the archive changes after HEAD', async () => {
+    const { file, fetcher, writer, changeVersion } = fixture(1024);
+    const original = fetcher.getMockImplementation()!;
+    fetcher.mockImplementation(async (target, options) => {
+      if (options.method !== 'HEAD') changeVersion();
+      return original(target, options);
+    });
+    await expect(new ParallelDownload(file, vi.fn()).start(url)).rejects.toThrow('file or download link changed');
+    expect(writer.write).not.toHaveBeenCalled();
   });
 
   it('rejects a full-body response to a range request without reading it', async () => {
