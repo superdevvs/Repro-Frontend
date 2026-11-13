@@ -42,6 +42,7 @@ describe('additional edited files after delivery', () => {
     </QueryClientProvider>);
     expect(screen.getByText('26')).toBeVisible();
     expect(screen.getByText('28')).toBeVisible();
+    expect(screen.getByText(/use Finalize shoot to review and release the added files/)).toBeVisible();
     expect(screen.queryByText(/No outstanding booked service/)).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole('combobox', { name: 'Service for edited upload batch' }), { target: { value: '72' } });
     fireEvent.change(screen.getByTestId('edited-upload-input'), {

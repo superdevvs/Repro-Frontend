@@ -614,6 +614,7 @@ export function EditedUploadSection({
 
   return (
     <div className="flex min-h-full flex-col space-y-4">
+      {(shoot.workflowStatus === 'delivered' || shoot.status === 'delivered') && <p role="status" className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">After uploading, use Finalize shoot to review and release the added files for client download.</p>}
       {!eligibleServices.length && <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs leading-relaxed">No outstanding booked service is available for edited uploads. Review the services in Overview before uploading.</p>}
       {eligibleServices.length > 0 && (
         <label className="block space-y-1.5">

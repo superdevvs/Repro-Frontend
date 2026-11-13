@@ -2,11 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { ShootData } from '@/types/shoots';
 import { getShootDetailsCapabilities } from './shootDetailsCapabilities';
 
-const capabilitiesFor = (role: string, editedPhotoCount = 29) => getShootDetailsCapabilities({
+const capabilitiesFor = (role: string, editedPhotoCount = 29, status = 'scheduled') => getShootDetailsCapabilities({
   shoot: {
     id: 86,
-    status: 'scheduled',
-    workflowStatus: 'scheduled',
+    status,
+    workflowStatus: status,
     rawPhotoCount: 0,
     editedPhotoCount,
     canFinalizeNoMedia: false,
@@ -24,6 +24,15 @@ const capabilitiesFor = (role: string, editedPhotoCount = 29) => getShootDetails
 });
 
 describe('scheduled shoot with directly uploaded edits', () => {
+  it('keeps supplemental delivery review reachable after delivery for production roles only', () => {
+    for (const role of ['admin', 'superadmin', 'editing_manager']) {
+      expect(capabilitiesFor(role, 32, 'delivered').canFinalise).toBe(true);
+      expect(capabilitiesFor(role, 32, 'cancelled').canFinalise).toBe(false);
+    }
+    for (const role of ['client', 'rep', 'photographer', 'editor']) {
+      expect(capabilitiesFor(role, 32, 'delivered').canFinalise).toBe(false);
+    }
+  });
   it('offers Finalize to delivery roles without requiring raw submission or editing', () => {
     for (const role of ['admin', 'superadmin', 'editing_manager']) {
       const capabilities = capabilitiesFor(role);

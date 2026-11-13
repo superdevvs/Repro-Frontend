@@ -92,7 +92,8 @@ export const getShootDetailsCapabilities = ({
     isNoMediaFinalise(shoot);
   // Opens a read-only delivery review. The server plan owns the available
   // component actions; aggregate photo counts cannot establish readiness.
-  const canFinalise = isAdmin && !isDelivered && !isCancelledOrDeclined;
+  // Delivered orders can have supplemental uploads awaiting approval.
+  const canFinalise = isAdmin && !isCancelledOrDeclined;
   // Drives the "Finalize (fast-forward)" label and the allow_no_media_delivery
   // request flag.
   const isFastForwardFinalise = canFastForwardFinalise;
