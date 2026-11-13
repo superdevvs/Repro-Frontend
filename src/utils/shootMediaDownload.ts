@@ -330,6 +330,7 @@ export const downloadShootRawFiles = async ({
   onDownloading,
   onPreparing,
   signal,
+  startDownload = true,
 }: {
   shootId: string | number;
   fileIds?: Array<string | number>;
@@ -337,6 +338,7 @@ export const downloadShootRawFiles = async ({
   onDownloading?: () => void;
   onPreparing?: (state: ShootMediaArchivePreparingState) => void;
   signal?: AbortSignal;
+  startDownload?: boolean;
 }): Promise<ShootRawMediaDownloadResult> => {
   const headers = getApiHeaders();
   headers.Accept = 'application/json, application/zip, application/octet-stream';
@@ -373,6 +375,7 @@ export const downloadShootRawFiles = async ({
       const data = await extractRawJsonResponse(response);
 
       if (data.type === 'redirect' && data.url) {
+        if (!startDownload) return { mode: 'redirect', url: validateDownloadUrl(data.url), message: data.message, fileCount: data.file_count };
         onDownloading?.();
         const result = await downloadReadyAsset(data.url, buildRawDownloadFilename(shootId, null, address), signal);
         emitShootMediaDownloadStarted({ shootId, type: 'raw', size: 'original' });
@@ -401,6 +404,10 @@ export const downloadShootRawFiles = async ({
     }
 
     if (/text\/html/i.test(contentType)) throw new Error('The ZIP could not be downloaded. Please try again.');
+    if (!startDownload) {
+      await response.body?.cancel();
+      throw new Error('Parallel download is unavailable for this archive. Use the browser download.');
+    }
     onDownloading?.();
     const filename = buildRawDownloadFilename(
       shootId,

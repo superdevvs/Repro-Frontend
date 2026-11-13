@@ -4,6 +4,7 @@ import { ChevronDown, ChevronUp, LayoutGrid, List, Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MediaSelectionActions, type MediaSelectionActionsProps } from './MediaSelectionActions';
 import { RawDownloadBatches } from './RawDownloadBatches';
+import { ParallelRawDownload } from './ParallelRawDownload';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import type { ReclassifyMediaType } from './useShootMediaActions';
 
@@ -107,7 +108,8 @@ export function ShootMediaHeader(props: ShootMediaHeaderProps) {
           
           <div className="shoot-media-toolbar flex shrink-0 items-center gap-1.5">
             {isEditor && !isClient && canDownload && displayTab === 'uploaded' && shootId != null && (
-              <RawDownloadBatches key={shootId} shootId={shootId} files={rawFiles} disabled={downloading} />
+              <><ParallelRawDownload key={`parallel-${shootId}`} shootId={shootId} files={rawFiles} disabled={downloading} />
+              <RawDownloadBatches key={shootId} shootId={shootId} files={rawFiles} disabled={downloading} /></>
             )}
             {(rawFiles.length > 0 || editedFiles.length > 0) && (
               <div className="flex shrink-0 items-center overflow-hidden rounded-md border" role="group" aria-label="Media view">
