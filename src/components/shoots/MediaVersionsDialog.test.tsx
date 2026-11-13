@@ -69,6 +69,56 @@ it('plays a signed video preview and approves only the reviewed current version'
   await waitFor(() => expect(api.post).toHaveBeenCalledWith('/shoots/8/media-versions/review-v2/resolve', { choice: 'replace_latest', expected_latest_version: 1 }));
 });
 
+it('refreshes failed publication into a retryable saved upload without reporting success or uploading again', async () => {
+  const version = { id: 'review-v2', filename: 'Listing.mp4', status: 'conflict', error_code: 'delivery_review_required', created_at: '2026-11-13' };
+  const response = (status: string, error_code?: string) => ({ data: { mime_type: 'video/mp4', current_version: 1, data: [{ ...version, status, error_code }] } });
+  api.get.mockResolvedValueOnce(response('conflict', 'delivery_review_required'))
+    .mockResolvedValueOnce(response('failed', 'processing_failed'))
+    .mockResolvedValueOnce(response('queued'));
+  let finishRetry!: () => void;
+  api.post.mockRejectedValueOnce(new Error('Publication failed; your previous video is unchanged.'))
+    .mockImplementationOnce(() => new Promise(resolve => { finishRetry = () => resolve({ data: {} }); }));
+  render(<MemoryRouter><MediaVersionsDialogHost /></MemoryRouter>);
+  act(() => openMediaVersions({ shootId: 8, fileId: 12, name: 'Listing.mp4', mediaType: 'video' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Replace latest (v1)' }));
+  const retry = await screen.findByRole('button', { name: 'Retry saved upload' });
+  await waitFor(() => expect(retry).toBeEnabled());
+  expect(screen.getByRole('alert')).toHaveTextContent('Publication failed; your previous video is unchanged.');
+  expect(screen.queryByRole('button', { name: 'Replace latest (v1)' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  expect(api.refresh).not.toHaveBeenCalled();
+  expect(api.post).toHaveBeenCalledExactlyOnceWith('/shoots/8/media-versions/review-v2/resolve', { choice: 'replace_latest', expected_latest_version: 1 });
+  fireEvent.click(retry);
+  fireEvent.click(retry);
+  expect(api.post).toHaveBeenCalledTimes(2);
+  expect(api.post).toHaveBeenLastCalledWith('/shoots/8/media-versions/review-v2/retry', {});
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  await act(async () => { finishRetry(); });
+  await screen.findByText('queued');
+  expect(api.post).toHaveBeenCalledTimes(2);
+  expect(api.refresh).not.toHaveBeenCalled();
+});
+
+it('preserves the failed action error when recovery refresh fails and clears an earlier success message', async () => {
+  const version = { id: 'review-v2', filename: 'Listing.mp4', status: 'conflict', error_code: 'delivery_review_required', created_at: '2026-11-13' };
+  api.get.mockResolvedValue({ data: { mime_type: 'video/mp4', current_version: 1, data: [version] } });
+  render(<MemoryRouter><MediaVersionsDialogHost /></MemoryRouter>);
+  act(() => openMediaVersions({ shootId: 8, fileId: 12, name: 'Listing.mp4', mediaType: 'video' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Save as copy' }));
+  await screen.findByText('Saved.');
+  const replace = screen.getByRole('button', { name: 'Replace latest (v1)' });
+  await waitFor(() => expect(replace).toBeEnabled());
+  api.post.mockRejectedValueOnce(new Error('The replacement could not be published.'));
+  api.get.mockRejectedValueOnce(new Error('The recovery refresh failed.'));
+  fireEvent.click(replace);
+  await waitFor(() => expect(api.get).toHaveBeenCalledTimes(3));
+  await waitFor(() => expect(replace).toBeEnabled());
+  expect(screen.getByRole('alert')).toHaveTextContent('The replacement could not be published.');
+  expect(screen.queryByText('The recovery refresh failed.')).not.toBeInTheDocument();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  expect(api.refresh).not.toHaveBeenCalled();
+});
+
 it('uses the server media type for a video with no versions and directs uploads to the existing Edited files flow', async () => {
   api.get.mockResolvedValue({ data: { mime_type: 'video/mp4', current_version: 3, data: [] } });
   render(<MemoryRouter initialEntries={['/dashboard?editingShootId=8&editingFileId=12']}><MediaVersionsDialogHost /></MemoryRouter>);

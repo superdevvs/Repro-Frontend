@@ -43,7 +43,7 @@ function MediaVersionsDialog({ request, onClose }: { request: MediaVersionReques
   const video = request.mediaType === 'video' || mediaType === 'video' || mimeType.startsWith('video/') || mimeType === 'application/mp4';
   const mediaName = video ? 'video' : 'image';
   const base = `/shoots/${request.shootId}`;
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async ({ preserveError = false }: { preserveError?: boolean } = {}) => {
     controller.current?.abort();
     const next = new AbortController(); controller.current = next;
     try {
@@ -51,7 +51,7 @@ function MediaVersionsDialog({ request, onClose }: { request: MediaVersionReques
       setVersions(data.data); setCurrentVersion(data.current_version); setMimeType(data.mime_type ?? ''); setMediaType(data.media_type ?? '');
       if (lastVersion.current !== null && lastVersion.current !== data.current_version) triggerShootDetailRefresh(String(request.shootId));
       lastVersion.current = data.current_version;
-    } catch (e) { if (!next.signal.aborted) setError(studioError(e)); }
+    } catch (e) { if (!next.signal.aborted && !preserveError) setError(studioError(e)); }
   }, [base, request.fileId, request.shootId]);
   useEffect(() => { void refresh(); return () => controller.current?.abort(); }, [refresh]);
   useEffect(() => {
@@ -77,7 +77,7 @@ function MediaVersionsDialog({ request, onClose }: { request: MediaVersionReques
   };
   const act = async (version: MediaVersion, action: 'restore' | 'retry' | 'replace_latest' | 'save_copy' | 'dismiss') => {
     if (!currentVersion || inFlight.current) return;
-    inFlight.current = true; setBusy(true); setError(null);
+    inFlight.current = true; setBusy(true); setError(null); setMessage('');
     try {
       const conflict = action === 'replace_latest' || action === 'save_copy';
       if (action === 'restore' && !restoreRequests.current.has(version.id)) restoreRequests.current.set(version.id, { request_id: crypto.randomUUID(), expected_version: currentVersion });
@@ -87,7 +87,10 @@ function MediaVersionsDialog({ request, onClose }: { request: MediaVersionReques
       if (action === 'restore') restoreRequests.current.delete(version.id);
       setMessage(action === 'restore' ? 'Restore saved. Processing will create a new current version.' : 'Saved.');
       await refresh();
-    } catch (e) { setError(studioError(e)); } finally { inFlight.current = false; setBusy(false); }
+    } catch (e) {
+      setError(studioError(e));
+      await refresh({ preserveError: true });
+    } finally { inFlight.current = false; setBusy(false); }
   };
   return <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}><DialogContent className="flex max-h-[90dvh] max-w-2xl flex-col">
     <DialogHeader><DialogTitle>Versions and returned edits</DialogTitle><DialogDescription>{request.name} · Current version {currentVersion ?? '…'}. Previous {video ? 'videos' : 'images'} remain available to staff.</DialogDescription></DialogHeader>
