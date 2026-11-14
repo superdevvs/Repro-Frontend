@@ -5,7 +5,7 @@ import { GuestOverviewView } from '@/components/shoots/sharing/guest/GuestOvervi
 import { GuestVerificationCard } from '@/components/shoots/sharing/guest/GuestVerificationCard';
 import type { GuestFile, GuestOverview } from '@/components/shoots/sharing/guest/guestOverviewTypes';
 
-type GuestResponse = { verified: boolean; recipient: string; data: GuestOverview | null };
+type GuestResponse = { verified: boolean; recipient: string; sender_name?: string; data: GuestOverview | null };
 
 export default function GuestShootOverview() {
   const { token = '' } = useParams();
@@ -85,7 +85,7 @@ function GuestShootOverviewContent({ token }: { token: string }) {
     finally { setBusy(false); }
   };
   const overview = result?.verified ? result.data : null;
-  if (!overview) return <GuestVerificationCard recipient={result?.recipient} error={error} message={message}
+  if (!overview) return <GuestVerificationCard recipient={result?.recipient} senderName={result?.sender_name} error={error} message={message}
     busy={busy} code={code} codeSent={codeSent} onCodeChange={setCode} onSendCode={() => void sendCode()}
     onVerify={event => void verify(event)} onRetry={() => void retry()} />;
   return <GuestOverviewView overview={overview} selected={selected} onSelect={setSelected} />;

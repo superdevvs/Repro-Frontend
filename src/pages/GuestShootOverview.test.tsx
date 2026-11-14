@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import GuestShootOverview from './GuestShootOverview';
 
-const unverified = { verified: false, recipient: 'g***@example.com', data: null };
+const unverified = { verified: false, recipient: 'g***@example.com', sender_name: 'Alex Morgan', data: null };
 const overview = { property: { address: '1211 Ripple Court', city: 'Pasadena', state: 'MD', zip: '21122', beds: 3, baths: 2, sqft: 1748 }, services: [], files: [], tours: [], expires_at: '2026-12-14T00:00:00Z' };
 function SwitchInvitation() { const navigate = useNavigate(); return <button onClick={() => navigate('/guest/shoot/second')}>Next invitation</button>; }
 function show() { return render(<MemoryRouter initialEntries={['/guest/shoot/first']}><SwitchInvitation /><Routes><Route path="/guest/shoot/:token" element={<GuestShootOverview />} /></Routes></MemoryRouter>); }
@@ -30,6 +30,8 @@ describe('guest Magic Link overview', () => {
       .mockResolvedValueOnce(Response.json({ ...unverified, verified: true, data: overview }));
     vi.stubGlobal('fetch', fetchMock); show();
     fireEvent.click(await screen.findByRole('button', { name: 'Email me a verification code' }));
+    expect(screen.getByText('Alex Morgan')).toBeInTheDocument();
+    expect(screen.getByText(/shared this link with you/)).toBeInTheDocument();
     expect(screen.queryByText('1211 Ripple Court')).not.toBeInTheDocument();
     fireEvent.change(await screen.findByLabelText('Six-digit code'), { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: 'View property' }));
