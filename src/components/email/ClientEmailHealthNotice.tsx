@@ -101,30 +101,41 @@ export function ClientEmailHealthNotice({
     return (
       <section
         className={cn(
-          'w-full rounded-2xl border px-3 py-2.5 shadow-[0_10px_28px_rgba(15,23,42,0.06)] backdrop-blur-sm sm:max-w-[34rem]',
+          '!h-auto w-full self-start rounded-2xl border px-3 py-2 shadow-[0_10px_28px_rgba(15,23,42,0.06)] backdrop-blur-sm sm:max-w-[34rem]',
           config.accentClasses,
           className,
         )}
       >
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0 flex items-start gap-2.5">
-            <div className="mt-0.5 rounded-lg border border-current/15 bg-background/70 p-1.5">
+        <div className="flex items-center gap-2.5">
+          <div className="min-w-0 flex flex-1 items-center gap-2.5">
+            <div className="shrink-0 rounded-lg border border-current/15 bg-background/70 p-1.5">
               {emailHealth?.status === 'unverified' ? (
                 <MailCheck className="h-4 w-4" />
               ) : (
                 <AlertTriangle className="h-4 w-4" />
               )}
             </div>
-            <div className="min-w-0 space-y-0.5">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-semibold tracking-tight">{config.compactTitle}</p>
-                <EmailHealthBadge emailHealth={emailHealth} />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="truncate text-sm font-semibold tracking-tight" title={config.compactTitle}>
+                  {config.compactTitle}
+                </p>
+                <EmailHealthBadge emailHealth={emailHealth} className="shrink-0" />
               </div>
-              <p className="text-xs leading-4 text-muted-foreground">{config.compactDescription}</p>
+              <p
+                title={resendFeedback?.message ?? config.compactDescription}
+                role={resendFeedback ? 'status' : undefined}
+                className={cn(
+                  'truncate text-[11px] leading-4 text-muted-foreground',
+                  resendFeedback && (resendFeedback.ok ? 'text-emerald-700 dark:text-emerald-400' : 'text-destructive'),
+                )}
+              >
+                {resendFeedback?.message ?? config.compactDescription}
+              </p>
             </div>
           </div>
 
-          <div className="flex shrink-0 flex-wrap gap-1.5 sm:justify-end">
+          <div className="flex shrink-0 gap-1.5">
             {config.showResend && onResendVerification && (
               <Button
                 type="button"
@@ -150,11 +161,6 @@ export function ClientEmailHealthNotice({
             </Button>
           </div>
         </div>
-        {resendFeedback && (
-          <p className={`mt-2 text-xs ${resendFeedback.ok ? 'text-emerald-700' : 'text-destructive'}`}>
-            {resendFeedback.message}
-          </p>
-        )}
       </section>
     );
   }
