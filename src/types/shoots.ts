@@ -676,6 +676,7 @@ export interface ShootData extends ActiveShootWorkFields {
   canViewVideoEditorContext?: boolean;
   can_view_video_editor_context?: boolean;
   canFinalizeNoMedia?: boolean;
+  canFinalizeDelivery?: boolean;
   canRemoveAllServices?: boolean;
   canManageBooking?: boolean;
   canManageShootActions?: boolean;
@@ -692,6 +693,7 @@ export interface ShootData extends ActiveShootWorkFields {
   can_approve_editing_review?: boolean;
   can_view_invoice?: boolean;
   can_finalize_no_media?: boolean;
+  can_finalize_delivery?: boolean;
   can_remove_all_services?: boolean;
   mediaSummary?: ShootMediaSummary;
   bracketNotes?: string;

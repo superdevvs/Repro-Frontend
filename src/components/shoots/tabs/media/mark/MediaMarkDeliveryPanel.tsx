@@ -10,13 +10,13 @@ export function MediaMarkDeliveryPanel({ plan, withoutContent, onWithoutContentC
 }) {
   const groups = deliveryServiceGroups(plan);
   const missing = plan.components.filter(component => selected.includes(component.id)
-    && automaticDeliveryMethod(component, withoutContent) === 'manual_no_content');
+    && automaticDeliveryMethod(component, withoutContent) === 'defer');
   return <div className="simple-finalise">
     <div className="simple-finalise-columns"><span>Services</span><span>Status</span></div>
     <ul aria-label="Booked services" className="simple-finalise-services">
       {groups.map(group => {
         const eligible = group.components.filter(component => automaticDeliveryMethod(component, withoutContent)
-          && (automaticDeliveryMethod(component, withoutContent) === 'manual_no_content' ? plan.capabilities.can_manual_no_content : plan.capabilities.can_finalize));
+          && plan.capabilities.can_finalize);
         const checked = eligible.length > 0 && eligible.every(component => selected.includes(component.id));
         const mixed = !checked && eligible.some(component => selected.includes(component.id));
         const statuses = group.components.map(component => component.status);
@@ -38,7 +38,7 @@ export function MediaMarkDeliveryPanel({ plan, withoutContent, onWithoutContentC
                 checked={selected.includes(component.id)} disabled={disabled || !method || !eligible.includes(component)}
                 onChange={event => onSelect([component.id], event.target.checked)} /><span>{component.label}</span></label>}
               <span>{component.resolved ? (component.status === 'cancelled' ? 'Cancelled' : 'Delivered')
-                : method === 'manual_no_content' && selected.includes(component.id) ? 'Complete without content'
+                : component.status !== 'ready' && (component.deferred || method === 'defer' && selected.includes(component.id)) ? 'Pending — deliver when ready'
                   : component.status === 'ready' ? component.file_ids.length ? `${component.output_count ?? component.file_ids.length} ${component.kind === 'photo' ? 'photos' : 'files'} ready` : 'Provider output ready'
                     : component.reason || 'Still being prepared'}</span>
               {component.external_url && /^https?:\/\//i.test(component.external_url) && !component.resolved
@@ -49,14 +49,14 @@ export function MediaMarkDeliveryPanel({ plan, withoutContent, onWithoutContentC
       })}
     </ul>
     {!groups.length && <p className="mark-notice">No outstanding delivery work.</p>}
-    {plan.capabilities.can_manual_no_content && <div className="simple-finalise-toggle">
-      <div><label htmlFor="finalise-without-content">Without content</label><p>Allow selected pending work to be completed.</p></div>
+    {plan.capabilities.can_finalize && plan.components.some(component => component.status === 'pending' && !component.deferred && component.methods.includes('defer')) && <div className="simple-finalise-toggle">
+      <div><label htmlFor="finalise-without-content">Finalise without waiting</label><p>Release ready content. Missing work stays pending.</p></div>
       <Switch id="finalise-without-content" checked={withoutContent} disabled={disabled} onCheckedChange={onWithoutContentChange} />
     </div>}
-    {missing.length > 0 && <label className="mark-field">Reason for completion
+    {missing.length > 0 && <label className="mark-field">Reason for proceeding
       <textarea value={reason} disabled={disabled} onChange={event => onReasonChange(event.target.value)} rows={2} maxLength={2000}
-        placeholder="Why is this selected work being completed without content?" />
-      <span className="text-xs text-muted-foreground">Finalise will complete {missing.map(component => component.label).join(', ')} without releasing files.</span>
+        placeholder="Why are you finalising before this content is ready?" />
+      <span className="text-xs text-muted-foreground">{missing.map(component => component.label).join(', ')} will stay pending. Provider content will update here when it is ready.</span>
     </label>}
     {plan.components.some(component => selected.includes(component.id) && automaticDeliveryMethod(component, withoutContent) === 'external')
       && <p className="mt-3 text-xs text-muted-foreground">Finalise confirms the selected provider output has been reviewed and is ready for delivery.</p>}

@@ -79,6 +79,7 @@ import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/fin
 import { useNavigate } from 'react-router-dom';
 import { HistoricalImportSummary } from '@/components/shoots/details/HistoricalImportSummary';
 import { CompReshootOverviewStrip } from '@/features/complimentary-reshoots/CompReshootOverviewStrip';
+import { ClientDeliveryNotice } from './media/ClientDeliveryNotice';
 import { isComplimentaryReshootEnabled } from '@/features/complimentary-reshoots/featureFlag';
 
 const serviceCurrencyFormatter = new Intl.NumberFormat('en-US', {
@@ -848,6 +849,7 @@ function ShootDetailsOverviewTabContent({
         role={role}
         onOpenShoot={(shootId) => navigate(`/shoots/${encodeURIComponent(shootId)}`)}
       />
+      {isClient && !isEditMode && <ClientDeliveryNotice shoot={shoot} onPayNow={handleOpenPaymentDialog} />}
       <OverviewPropertyLocationSection
         unitSelector={unitSelector}
         isEditMode={isEditMode}

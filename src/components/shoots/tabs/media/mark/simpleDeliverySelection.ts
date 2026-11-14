@@ -7,7 +7,7 @@ export function automaticDeliveryMethod(component: DeliveryComponent, withoutCon
     if (component.methods.includes('external')) return 'external';
   }
   if (!withoutContent && component.methods.includes('external') && component.reason_codes.includes('external_review_required')) return 'external';
-  return withoutContent && component.methods.includes('manual_no_content') ? 'manual_no_content' : null;
+  return withoutContent && !component.deferred && component.methods.includes('defer') ? 'defer' : null;
 }
 
 export function readyDeliverySelection(plan: DeliveryPlan, fileIds: number[] = []) {

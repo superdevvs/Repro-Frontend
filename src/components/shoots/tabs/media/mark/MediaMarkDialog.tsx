@@ -59,7 +59,7 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
   const [attemptKey, setAttemptKey] = useState(() => crypto.randomUUID());
   const allowType = Boolean(['admin', 'superadmin', 'super_admin', 'editing_manager', 'editor', 'photographer'].includes(String(role || user?.role)) && request.allowType && ids.length && ids.length === files.length && files.every(file => file.can_interact !== false));
   const canAssign = staff && Boolean(discovery?.capabilities.can_assign_service);
-  const canDeliver = staff && Boolean(plan?.capabilities.can_finalize || plan?.capabilities.can_manual_no_content);
+  const canDeliver = staff && Boolean(plan?.capabilities.can_finalize);
   const shootId = request.shootId;
   const idKey = ids.join(',');
   const standaloneDelivery = request.initialTab === 'delivery';
@@ -91,7 +91,7 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
     return () => { clearTimeout(timer); controller.abort(); };
   }, [shootId, targetId, canAssign, idKey, discovery, historical, assignmentReason]);
 
-  const changed = () => { refresh(shootId); request.onChanged?.(); };
+  const changed = async () => { refresh(shootId); await request.onChanged?.(); };
   const changeWithoutContent = (next: boolean) => {
     setWithoutContent(next); setReason(''); setAttemptKey(crypto.randomUUID());
     // Enabling an exception never opts pending work in. Disabling it removes only missing work.
@@ -99,12 +99,12 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
   };
   const select = (componentIds: string[], checked: boolean) => { setSelected(previous => checked ? [...new Set([...previous, ...componentIds])] : previous.filter(id => !componentIds.includes(id))); setAttemptKey(crypto.randomUUID()); };
   const selectedComponents = plan?.components.filter(component => selected.includes(component.id)) ?? [];
-  const hasMissingSelection = selectedComponents.some(component => automaticDeliveryMethod(component, withoutContent) === 'manual_no_content');
+  const hasMissingSelection = selectedComponents.some(component => automaticDeliveryMethod(component, withoutContent) === 'defer');
   const canApply = !busy && !saved && !loading && (tab === 'type' ? allowType && Boolean(type)
     : tab === 'service' ? canAssign && preview?.can_apply && !previewing && ids.length > 0 && ids.length === files.length && (!preview.requires_historical_confirmation || historicalConfirmed) && (!discovery?.files.some(file => file.shoot_service_id != null) || assignmentReason.trim().length >= 3)
       : canDeliver && selected.length > 0 && selectedComponents.length === selected.length
         && selectedComponents.every(component => automaticDeliveryMethod(component, withoutContent)
-          && (automaticDeliveryMethod(component, withoutContent) === 'manual_no_content' ? plan?.capabilities.can_manual_no_content : plan?.capabilities.can_finalize))
+          && plan?.capabilities.can_finalize)
         && (!hasMissingSelection || reason.trim().length >= 5));
   const apply = async () => {
     if (!canApply) return;
@@ -121,9 +121,9 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
       } else if (plan) {
         const outcome = await finalizeShootWithProgressToast({ shootId, shootLabel: request.shootLabel, body: { final_status: 'admin_verified', component_ids: selected, mode: 'auto', allow_without_content: withoutContent, reason: hasMissingSelection ? reason.trim() : undefined, plan_revision: plan.revision, idempotency_key: attemptKey, confirmed: true }, onRefresh: changed });
         if (outcome.status === 'failed' || outcome.status === 'error') throw new Error(outcome.message);
-        setSaved(outcome.status === 'pending' ? 'Delivery is running in the background. The selected work will refresh when it finishes.' : 'Selected delivery work is complete. Other unfinished work remains in progress.');
+        setSaved(outcome.status === 'pending' ? 'Delivery is running in the background. The selected work will refresh when it finishes.' : 'Ready content has been released. Missing work remains pending and will update when it is ready.');
       }
-      changed();
+      await changed();
       toast({ title: 'Changes saved', description: tab === 'service' ? 'Service assignment updated.' : tab === 'type' ? 'Media category updated.' : 'Delivery status refreshed.' });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The change could not be saved.');
@@ -148,7 +148,7 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
     if (next) { setTab(next.id); setError(''); document.getElementById(`mark-tab-${next.id}`)?.focus(); }
   };
   const selectedServices = new Set(selectedComponents.map(component => component.shoot_service_id)).size;
-  const pendingServices = plan ? deliveryServiceGroups(plan).filter(group => group.components.some(component => !component.resolved && !selected.includes(component.id))).map(group => group.name) : [];
+  const pendingServices = plan ? deliveryServiceGroups(plan).filter(group => group.components.some(component => !component.resolved && (!selected.includes(component.id) || automaticDeliveryMethod(component, withoutContent) === 'defer'))).map(group => group.name) : [];
   return <Dialog open onOpenChange={open => { if (!open && !busy) onClose(); }}><DialogContent className={`media-mark-dialog ${standaloneDelivery ? 'simple-finalise-dialog' : ''}`} onEscapeKeyDown={event => { if (busy) event.preventDefault(); }} onInteractOutside={event => { if (busy) event.preventDefault(); }}>
     <DialogHeader className="mark-header">{!standaloneDelivery && <span className="mark-title-icon"><Tag /></span>}<div><DialogTitle>{standaloneDelivery ? 'Finalise shoot' : 'Mark media'}</DialogTitle><DialogDescription>{request.shootLabel || `Shoot #${shootId}`}</DialogDescription></div></DialogHeader>
     {!standaloneDelivery && <><div className="mark-selection"><div className="mark-thumbnails">{files.slice(0, 4).map(file => <span key={file.id}>{file.grid_url || file.thumbnail_url || file.thumb ? <img src={file.grid_url || file.thumbnail_url || file.thumb} alt="" /> : <Tag />}</span>)}</div><div><strong>{ids.length ? `${ids.length} file${ids.length === 1 ? '' : 's'} selected` : 'Review booked deliverables'}</strong><small>{ids.length ? `${formatUploadFileSize(files.reduce((sum, file) => sum + (file.fileSize || 0), 0))} · Original files preserved` : 'Complete only the work you select'}</small></div></div>

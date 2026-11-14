@@ -35,6 +35,7 @@ import { getWeatherForLocation, WeatherInfo } from '@/services/weatherService';
 import { subscribeToWeatherProvider } from '@/state/weatherProviderStore';
 import { useUserPreferences } from '@/contexts/UserPreferencesContext';
 import { useUpload } from '@/context/UploadContext';
+import './shootDetailsMotion.css';
 import { useShootDetailsScreen } from './modal/useShootDetailsScreen';
 import { useShootDetailsModalActions } from './modal/useShootDetailsModalActions';
 import { useShootDetailsModalPayments } from './modal/useShootDetailsModalPayments';
@@ -711,7 +712,7 @@ export function ShootDetailsModal({
   return (
     <>
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent onCloseAutoFocus={onCloseAutoFocus} className="top-0 translate-y-0 w-screen h-[100dvh] max-w-none rounded-none overflow-hidden flex flex-col gap-0 p-0 sm:top-4 sm:w-[calc(100vw-2rem)] sm:max-w-none sm:max-h-[calc(100dvh-2rem)] sm:h-[calc(100dvh-2rem)] sm:rounded-lg [&>button.absolute]:hidden [&>button.absolute]:shootDesktop:flex">
+      <DialogContent onCloseAutoFocus={onCloseAutoFocus} className="shoot-details-surface top-0 translate-y-0 w-screen h-[100dvh] max-w-none rounded-none overflow-hidden flex flex-col gap-0 p-0 sm:top-4 sm:w-[calc(100vw-2rem)] sm:max-w-none sm:max-h-[calc(100dvh-2rem)] sm:h-[calc(100dvh-2rem)] sm:rounded-lg [&>button.absolute]:hidden [&>button.absolute]:shootDesktop:flex">
         {/* DialogHeader for accessibility - must be first child */}
         <DialogHeader className="sr-only">
             <DialogTitle>
@@ -723,6 +724,7 @@ export function ShootDetailsModal({
         </DialogHeader>
         
         <ShootDetailsModalActionRail
+          shoot={shoot}
           shootAddress={shoot.location?.address || 'Shoot'}
           statusBadge={statusBadge}
           isEditMode={isEditMode}
@@ -796,6 +798,7 @@ export function ShootDetailsModal({
         />
         
         <ShootDetailsModalHeader
+          shoot={isEditMode ? undefined : shoot}
           addressTitle={addressTitle} fullAddress={weatherLocationQuery || addressTitle}
           createdByLabel={createdByLabel}
           statusBadge={statusBadge}

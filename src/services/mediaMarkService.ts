@@ -2,11 +2,12 @@ import { API_BASE_URL } from '@/config/env';
 import { getApiHeaders } from '@/services/api';
 import type { MediaFile } from '@/hooks/useShootFiles';
 
-export type DeliveryMode = 'media' | 'external' | 'manual_no_content' | 'auto';
+export type DeliveryMode = 'media' | 'external' | 'manual_no_content' | 'defer' | 'auto';
 export interface DeliveryComponent {
   id: string; shoot_service_id: number; unit_id: number | null; service_name?: string;
   label: string; kind: 'photo' | 'video' | 'floorplan' | 'tour' | 'external' | 'legacy';
   status: 'pending' | 'ready' | 'delivered' | 'cancelled'; resolved: boolean; required: boolean;
+  deferred?: boolean;
   file_ids: number[]; output_count?: number; reason_codes: string[]; reason: string | null;
   methods: DeliveryMode[]; external_url?: string | null; scheduled_at?: string | null;
   photographer_id?: number | null; editor_id?: number | null;

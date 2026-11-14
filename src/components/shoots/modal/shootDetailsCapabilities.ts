@@ -61,13 +61,13 @@ export const getShootDetailsCapabilities = ({
   );
   const rawMediaCount = Number(
     shoot?.rawPhotoCount ??
-      (shoot as any)?.raw_photo_count ??
+      (shoot as (ShootData & { raw_photo_count?: number }) | null)?.raw_photo_count ??
       shoot?.mediaSummary?.rawUploaded ??
       0,
   );
   const editedMediaCount = Number(
     shoot?.editedPhotoCount ??
-      (shoot as any)?.edited_photo_count ??
+      (shoot as (ShootData & { edited_photo_count?: number }) | null)?.edited_photo_count ??
       shoot?.mediaSummary?.editedUploaded ??
       0,
   );
@@ -90,10 +90,12 @@ export const getShootDetailsCapabilities = ({
     isAdmin &&
     !isDelivered &&
     isNoMediaFinalise(shoot);
-  // Opens a read-only delivery review. The server plan owns the available
-  // component actions; aggregate photo counts cannot establish readiness.
-  // Delivered orders can have supplemental uploads awaiting approval.
-  const canFinalise = isAdmin && !isCancelledOrDeclined;
+  // The server checks unreleased outputs and pending work, including new
+  // uploads on previously delivered shoots. A deferred floorplan alone does
+  // not require another finalise action.
+  const finalizeCapability = shoot?.canFinalizeDelivery ?? shoot?.can_finalize_delivery;
+  const canFinalise = Boolean(shoot) && isAdmin && !isCancelledOrDeclined
+    && (finalizeCapability ?? !isDelivered);
   // Drives the "Finalize (fast-forward)" label and the allow_no_media_delivery
   // request flag.
   const isFastForwardFinalise = canFastForwardFinalise;
@@ -105,7 +107,7 @@ export const getShootDetailsCapabilities = ({
     normalizedStatus === 'review' &&
     editedMediaCount > 0;
   const mmmRedirectUrl =
-    shoot?.mmmRedirectUrl || (shoot as any)?.mmm_redirect_url || undefined;
+    shoot?.mmmRedirectUrl || (shoot as (ShootData & { mmm_redirect_url?: string }) | null)?.mmm_redirect_url || undefined;
   const canStartMmmPunchout =
     currentUserRole === 'superadmin' || isAdmin || isRep || isClient;
   const showMmmPunchoutButtons =

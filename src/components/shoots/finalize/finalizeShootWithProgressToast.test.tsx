@@ -9,6 +9,9 @@ import {
 const postFinalizeShoot = vi.fn();
 const fetchFinalizeProgress = vi.fn();
 const fetchShootForFinalizeFallback = vi.fn();
+const getDeliveryPlan = vi.fn();
+
+vi.mock('@/services/mediaMarkService', () => ({ getDeliveryPlan: (...args: unknown[]) => getDeliveryPlan(...args) }));
 
 vi.mock('@/services/finalizeShootService', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/services/finalizeShootService')>();
@@ -81,6 +84,7 @@ beforeEach(() => {
   postFinalizeShoot.mockReset();
   fetchFinalizeProgress.mockReset();
   fetchShootForFinalizeFallback.mockReset();
+  getDeliveryPlan.mockReset();
 });
 
 afterEach(() => {
@@ -88,6 +92,34 @@ afterEach(() => {
 });
 
 describe('finalizeShootWithProgressToast', () => {
+  it('waits for the refreshed shoot before reporting completion', async () => {
+    postFinalizeShoot.mockResolvedValue({ httpStatus: 200 });
+    let finishRefresh!: () => void;
+    const onRefresh = vi.fn(() => new Promise<void>(resolve => { finishRefresh = resolve; }));
+    const run = finalizeShootWithProgressToast({ shootId: 7, onRefresh });
+    await advance(1);
+    expect(onRefresh).toHaveBeenCalledOnce();
+    expect(toastCalls).toHaveLength(1);
+    finishRefresh();
+    expect((await run).status).toBe('completed');
+    expect(toastCalls[1]).toMatchObject({ title: 'Finalize complete' });
+  });
+
+  it('preserves delivery success if the asynchronous refresh fails', async () => {
+    postFinalizeShoot.mockResolvedValue({ httpStatus: 200 });
+    const outcome = await finalizeShootWithProgressToast({ shootId: 7, onRefresh: () => Promise.reject(new Error('Offline')) });
+    expect(outcome.status).toBe('completed');
+  });
+
+  it('recognizes deferred pending work without falsely waiting for delivery in fallback polling', async () => {
+    postFinalizeShoot.mockResolvedValue({ httpStatus: 202, progress: null });
+    fetchFinalizeProgress.mockRejectedValue(new FinalizeProgressUnavailableError('Unavailable'));
+    getDeliveryPlan.mockResolvedValue({ components: [{ id: 'photos', status: 'delivered' }, { id: 'plans', status: 'pending', deferred: true }] });
+    const outcome = await finalizeShootWithProgressToast({ shootId: 7, body: { component_ids: ['photos', 'plans'], allow_without_content: true } });
+    expect(outcome.status).toBe('completed');
+    expect(getDeliveryPlan).toHaveBeenCalledOnce();
+  });
+
   it('shows a live progress toast and a single success toast when the pipeline completes', async () => {
     postFinalizeShoot.mockResolvedValue({ httpStatus: 202, progress: progress() });
     fetchFinalizeProgress

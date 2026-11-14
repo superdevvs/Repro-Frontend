@@ -7,6 +7,7 @@ import { ArrowLeft, Calendar, Camera, CheckCircle, ChevronRight, Cloud, Copy, Do
 import { InlineSpinner } from '@/components/ui/inline-spinner';
 import { ShootActionRequestBanner } from '@/components/shoots/ShootActionRequests';
 import type { ShootDetailsPageHeaderProps } from './ShootDetailsPageHeader';
+import { ShootGuestShareButton } from '@/components/shoots/sharing/ShootGuestShareButton';
 
 interface HeaderAction {
   label: string;
@@ -69,6 +70,7 @@ export function ShootDetailsPageHeader(p: ShootDetailsPageHeaderProps) {
             </div>
           </div>
           <div className="shoot-workspace-header-actions">
+            <ShootGuestShareButton shoot={shoot} className="h-9 rounded-lg text-xs" />
             <Button variant="outline" size="sm" className="h-9 gap-1.5 rounded-lg text-xs" onClick={p.onOpenOverview} aria-label="Open shoot overview" data-testid="shoot-overview-button"><PanelTopOpen className="h-4 w-4" />Overview</Button>
             {p.canShowDownloadButton && <Button size="sm" className="h-9 gap-1.5 rounded-lg text-xs" onClick={p.onDownload} disabled={p.isDownloadDisabled || p.isDownloading} aria-busy={p.isDownloading}>{p.isDownloading ? <InlineSpinner aria-hidden="true" className="h-4 w-4" /> : <Download className="h-4 w-4" />}<span>{p.isDownloading ? 'Downloading...' : 'Downloads'}</span></Button>}
             <DropdownMenu>

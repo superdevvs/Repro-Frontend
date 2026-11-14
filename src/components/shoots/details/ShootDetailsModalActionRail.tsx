@@ -1,4 +1,6 @@
 import React from 'react';
+import type { ShootData } from '@/types/shoots';
+import { ShootGuestShareButton } from '@/components/shoots/sharing/ShootGuestShareButton';
 import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer';
 import { blurActiveElement } from '../dialogFocusUtils';
@@ -38,6 +40,7 @@ const getModalTabIcon = (tabId: string) => {
 };
 
 interface ShootDetailsModalActionRailProps {
+  shoot?: ShootData;
   shootAddress: string;
   statusBadge: React.ReactNode;
   isEditMode: boolean;
@@ -116,6 +119,7 @@ interface ShootDetailsModalActionRailProps {
 }
 
 export function ShootDetailsModalActionRail({
+  shoot,
   shootAddress,
   statusBadge,
   isEditMode,
@@ -337,6 +341,7 @@ export function ShootDetailsModalActionRail({
               {/* Downloads and Bright MLS sit up here because they are the two
                   actions clients reach for constantly, and eyes go to the top of
                   the panel. Delete and Print Marketing moved to the bottom rail. */}
+              {shoot && <ShootGuestShareButton shoot={shoot} className="h-7 px-3 text-xs" />}
               {canOpenDeliveredDownloadDialog && (
                 <Button
                   variant="outline"
@@ -797,6 +802,7 @@ export function ShootDetailsModalActionRail({
 }
 
 interface ShootDetailsModalHeaderProps {
+  shoot?: ShootData;
   addressTitle: string;
   fullAddress?: string | null;
   createdByLabel: string | null;
@@ -812,6 +818,7 @@ interface ShootDetailsModalHeaderProps {
 }
 
 export function ShootDetailsModalHeader({
+  shoot,
   addressTitle,
   fullAddress,
   createdByLabel,
@@ -900,6 +907,7 @@ export function ShootDetailsModalHeader({
           </div>
 
           <div className="shootDesktop:hidden flex items-center gap-1.5">
+            {shoot && <ShootGuestShareButton shoot={shoot} compact className="h-8 w-8 rounded-full sm:h-10 sm:w-10" />}
             <Button
               aria-label="More actions"
               variant="outline"

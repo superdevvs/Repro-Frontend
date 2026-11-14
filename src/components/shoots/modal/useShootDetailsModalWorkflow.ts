@@ -122,7 +122,7 @@ export function useShootDetailsModalWorkflow({
 
   const handleFinalise = async () => {
     if (!shoot || isFinalising) return;
-    openMediaMark({ shootId: shoot.id, shootLabel: shoot.location?.address, initialTab: 'delivery', onChanged: () => { void refreshShoot(); refreshShootMutations(shoot.id); } });
+    openMediaMark({ shootId: shoot.id, shootLabel: shoot.location?.address, initialTab: 'delivery', onChanged: async () => { await refreshShoot(); onShootUpdate?.(); } });
   };
 
   const handleMarkOnHoldClick = () => {
@@ -476,11 +476,15 @@ export function useShootDetailsModalWorkflow({
       });
       setSubmitConfirm(null);
       try {
-        if (res.shoot_status) {
-          const committed = { ...shoot, workflowStatus: res.shoot_status };
-          setShoot(committed);
-          updateShoot(shoot.id, committed, { skipApi: true });
-        }
+        const committed = {
+          ...shoot,
+          ...(res.shoot_status ? { workflowStatus: res.shoot_status } : {}),
+          ...(kind === 'raw' ? { canSubmitRaw: false, can_submit_raw: false }
+            : { canSubmitEdits: false, can_submit_edits: false }),
+        };
+        setShoot(committed);
+        updateShoot(shoot.id, committed, { skipApi: true });
+        refreshShootMutations(shoot.id);
         await refreshShoot();
         onShootUpdate?.();
       } catch {

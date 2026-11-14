@@ -1,0 +1,23 @@
+/* Keep the large overview anchored while it opens, like a sheet coming into focus. */
+.shoot-details-surface[data-state='open'] {
+  animation: shoot-overview-open 220ms cubic-bezier(0.2, 0.8, 0.2, 1) both !important;
+  transform-origin: center center;
+}
+
+.shoot-details-surface[data-state='closed'] {
+  animation: shoot-overview-close 140ms ease-in both !important;
+}
+
+@keyframes shoot-overview-open {
+  from { opacity: 0; transform: translate(-50%, 0) scale(0.975); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+
+@keyframes shoot-overview-close {
+  from { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  to { opacity: 0; transform: translate(-50%, 0) scale(0.985); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shoot-details-surface[data-state] { animation: none !important; }
+}

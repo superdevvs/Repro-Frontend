@@ -147,7 +147,8 @@ export const canSubmitRawFromDetails = ({
   rawFileCount,
 }: RawSubmitCapabilityInput): boolean => {
   if (!shoot) return false;
-  if (shoot.canSubmitRaw ?? shoot.can_submit_raw) return true;
+  const serverCapability = shoot.canSubmitRaw ?? shoot.can_submit_raw;
+  if (serverCapability !== undefined) return serverCapability;
   const role = (currentUserRole || '').toLowerCase();
   const allowedRole = isAdmin || isEditingManager || isPhotographer
     || ['admin', 'superadmin', 'super_admin', 'editing_manager', 'photographer'].includes(role);

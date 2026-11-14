@@ -63,7 +63,6 @@ import { MEDIA_BATCH_RENAME_API_ENABLED } from '@/features/media-filename-rename
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { getShootDeliveryProgress, serviceHasReleasedContent } from '@/utils/shootDeliveryProgress';
 import { getShootClientReleaseAccess } from '../../details/shootClientReleaseAccess';
-import { ClientDeliveryNotice } from './ClientDeliveryNotice';
 import { canShowIguideMedia } from './iguideMediaVisibility';
 import { useShootFileScanStatusRenderer } from './useShootFileScanStatusRenderer';
 import { useUnitMediaScope, useScopedShootFiles } from '@/features/shoot-units/useUnitMediaScope';
@@ -1241,7 +1240,6 @@ export function useShootDetailsMediaTab({
           if (index >= 0) openViewerWithSource(index, files, displayTab);
         }}
       /></div>}
-      {isClient && <ClientDeliveryNotice shoot={shoot} onPayNow={onPayNow} />}
       <ShootDetailsMediaTabView
         role={role}
         mediaRequirements={mediaRequirements}

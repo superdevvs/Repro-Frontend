@@ -8,8 +8,10 @@ vi.mock('@/services/shootMediaService', () => ({
   approveEditingReview: vi.fn(), finalizeEditedUploadQueue: vi.fn(), finalizeRawUploadQueue: vi.fn(),
 }));
 vi.mock('@/services/api', () => ({ getApiHeaders: () => ({}) }));
-vi.mock('@/hooks/useShootMutationRefresh', () => ({ useShootMutationRefresh: () => vi.fn() }));
+vi.mock('@/hooks/useShootMutationRefresh', () => ({ useShootMutationRefresh: () => mutationRefresh }));
 vi.mock('@/components/shoots/finalize/finalizeShootWithProgressToast', () => ({ finalizeShootWithProgressToast: vi.fn() }));
+
+const mutationRefresh = vi.hoisted(() => vi.fn());
 
 const shoot = { id: '100', status: 'in_review', workflowStatus: 'in_review' } as ShootData;
 const options = () => ({
@@ -45,7 +47,8 @@ describe('editing review workflow', () => {
     expect(props.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Edited files submitted' }));
     expect(props.toast).toHaveBeenCalledWith(expect.objectContaining({ title: 'Dashboard refresh incomplete' }));
     expect(props.toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: 'Submit edits failed' }));
-    expect(props.updateShoot).toHaveBeenCalledWith('100', expect.objectContaining({ workflowStatus: 'ready' }), { skipApi: true });
+    expect(props.updateShoot).toHaveBeenCalledWith('100', expect.objectContaining({ workflowStatus: 'ready', canSubmitEdits: false, can_submit_edits: false }), { skipApi: true });
+    expect(mutationRefresh).toHaveBeenCalledWith('100');
   });
   it('refreshes the shoot and parent after approval and stays busy until the refresh finishes', async () => {
     vi.mocked(approveEditingReview).mockResolvedValue({ workflow_status_changed: true, shoot_status: 'ready' });

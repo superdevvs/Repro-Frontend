@@ -3,6 +3,11 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 describe('shoot overview section ordering', () => {
+  it('puts the client payment notice above property metrics', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/components/shoots/tabs/ShootDetailsOverviewTab.tsx'), 'utf8');
+    expect(source.indexOf('<ClientDeliveryNotice')).toBeGreaterThan(-1);
+    expect(source.indexOf('<ClientDeliveryNotice')).toBeLessThan(source.indexOf('<OverviewPropertyLocationSection'));
+  });
   it('keeps client-visible notes before payment details', () => {
     const source = readFileSync(
       resolve(process.cwd(), 'src/components/shoots/tabs/ShootDetailsOverviewTab.tsx'),

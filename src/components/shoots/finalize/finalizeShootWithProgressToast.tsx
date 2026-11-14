@@ -48,7 +48,7 @@ const TOAST_COPY = {
   running: 'Running background processes…',
   title: 'Finalizing shoot',
   doneTitle: 'Finalize complete',
-  doneDescription: 'The selected work is delivered. Other unfinished requirements remain in progress.',
+  doneDescription: 'Ready content is delivered. Missing work remains pending.',
   warningsTitle: 'Finalized with warnings',
   failedTitle: 'Finalize failed',
   pendingTitle: 'Still processing',
@@ -129,9 +129,9 @@ const executeFinalize = async (
   const { shootId, body = {}, fetchShoot, onRefresh } = options;
   let refreshedOnCommit = false;
 
-  const refresh = () => {
+  const refresh = async () => {
     try {
-      onRefresh?.();
+      await onRefresh?.();
     } catch {
       // Refreshing the caller's view must never change the finalize outcome.
     }
@@ -144,7 +144,7 @@ const executeFinalize = async (
 
     // Pre-202 backends finalize synchronously: there is no pipeline to follow.
     if (response.httpStatus !== 202) {
-      refresh();
+      await refresh();
       return { status: 'completed', warnings: [] };
     }
 
@@ -191,16 +191,16 @@ const executeFinalize = async (
         );
         if (commitDone && !refreshedOnCommit) {
           refreshedOnCommit = true;
-          refresh();
+          await refresh();
         }
 
         if (progress.status === 'completed') {
-          refresh();
+          await refresh();
           return { status: 'completed', warnings: collectWarnings(progress) };
         }
 
         if (progress.status === 'failed') {
-          refresh();
+          await refresh();
           return {
             status: 'failed',
             message: progress.error || TOAST_COPY.errorDescription,
@@ -219,7 +219,7 @@ const executeFinalize = async (
       const componentIds = Array.isArray(body?.component_ids) ? body.component_ids.map(String) : [];
       if (componentIds.length) {
         const delivery = await getDeliveryPlan(shootId);
-        if (componentIds.every(id => delivery.components.some(component => component.id === id && component.status === 'delivered'))) { refresh(); return { status: 'completed', warnings: [] }; }
+        if (componentIds.every(id => delivery.components.some(component => component.id === id && (component.status === 'delivered' || body.allow_without_content === true && component.deferred === true)))) { await refresh(); return { status: 'completed', warnings: [] }; }
         await delay(FALLBACK_POLL_MS);
         continue;
       }
@@ -227,12 +227,12 @@ const executeFinalize = async (
       const outcome = readFinalizeOutcomeFromShoot(shoot);
 
       if (outcome === 'delivered') {
-        refresh();
+        await refresh();
         return { status: 'completed', warnings: [] };
       }
 
       if (outcome === 'failed') {
-        refresh();
+        await refresh();
         return {
           status: 'failed',
           message: 'Finalize failed in background. Check the Activity Log for details.',
@@ -245,7 +245,7 @@ const executeFinalize = async (
     await delay(FALLBACK_POLL_MS);
   }
 
-  refresh();
+  await refresh();
 
   return { status: 'pending', message: TOAST_COPY.pendingDescription };
 };

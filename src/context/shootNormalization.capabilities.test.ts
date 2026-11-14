@@ -3,6 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { transformShootFromApi } from './shootNormalization';
 
 describe('transformShootFromApi finalisation capabilities', () => {
+  it.each([true, false, undefined])('preserves the current delivery action capability (%s)', permission => {
+    const shoot = transformShootFromApi({ id: 42, can_finalize_delivery: permission });
+    expect(shoot.canFinalizeDelivery).toBe(permission);
+    expect(shoot.can_finalize_delivery).toBe(permission);
+  });
+
   it.each([true, false, undefined])('preserves the server video editor context permission (%s)', permission => {
     const shoot = transformShootFromApi({ id: 42, can_view_video_editor_context: permission,
       client: { id: 12, name: 'Video Client' }, company_notes: 'Use client branding.' });

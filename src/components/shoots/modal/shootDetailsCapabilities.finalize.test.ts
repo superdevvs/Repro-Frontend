@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ShootData } from '@/types/shoots';
 import { getShootDetailsCapabilities } from './shootDetailsCapabilities';
 
-const capabilitiesFor = (role: string, editedPhotoCount = 29, status = 'scheduled') => getShootDetailsCapabilities({
+const capabilitiesFor = (role: string, editedPhotoCount = 29, status = 'scheduled', canFinalizeDelivery?: boolean) => getShootDetailsCapabilities({
   shoot: {
     id: 86,
     status,
@@ -10,6 +10,7 @@ const capabilitiesFor = (role: string, editedPhotoCount = 29, status = 'schedule
     rawPhotoCount: 0,
     editedPhotoCount,
     canFinalizeNoMedia: false,
+    canFinalizeDelivery,
   } as unknown as ShootData,
   currentUserRole: role,
   roleFlags: {
@@ -24,13 +25,16 @@ const capabilitiesFor = (role: string, editedPhotoCount = 29, status = 'schedule
 });
 
 describe('scheduled shoot with directly uploaded edits', () => {
-  it('keeps supplemental delivery review reachable after delivery for production roles only', () => {
+  it('shows supplemental delivery only when the server finds outstanding delivery work', () => {
     for (const role of ['admin', 'superadmin', 'editing_manager']) {
-      expect(capabilitiesFor(role, 32, 'delivered').canFinalise).toBe(true);
+      expect(capabilitiesFor(role, 32, 'delivered', true).canFinalise).toBe(true);
+      expect(capabilitiesFor(role, 32, 'delivered', false).canFinalise).toBe(false);
+      expect(capabilitiesFor(role, 32, 'delivered').canFinalise).toBe(false);
+      expect(capabilitiesFor(role, 32, 'ready', false).canFinalise).toBe(false);
       expect(capabilitiesFor(role, 32, 'cancelled').canFinalise).toBe(false);
     }
     for (const role of ['client', 'rep', 'photographer', 'editor']) {
-      expect(capabilitiesFor(role, 32, 'delivered').canFinalise).toBe(false);
+      expect(capabilitiesFor(role, 32, 'delivered', true).canFinalise).toBe(false);
     }
   });
   it('offers Finalize to delivery roles without requiring raw submission or editing', () => {

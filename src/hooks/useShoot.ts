@@ -4,6 +4,7 @@ import { API_BASE_URL } from '@/config/env';
 import { ShootData } from '@/types/shoots';
 import { transformShootFromApi, type ApiShoot } from '@/context/shootNormalization';
 import { getImpersonatedUserId } from '@/services/api';
+import { getShootDeliveryProgress } from '@/utils/shootDeliveryProgress';
 
 const getToken = (sessionToken?: string | null) => {
   const localToken =
@@ -99,6 +100,10 @@ export const useShoot = (shootId: string | number | null | undefined, options?: 
     queryFn: () => fetchShoot(shootId!, getToken(session?.accessToken), impersonatedUserId),
     enabled: Boolean(shootId) && (options?.enabled !== false),
     staleTime: 30 * 1000, // 30 seconds
+    // Provider work can arrive after photos have been released. Keep the open
+    // overview current even when the realtime connection is interrupted.
+    refetchInterval: query => query.state.data && getShootDeliveryProgress(query.state.data).isDelivering ? 15000 : false,
+    refetchIntervalInBackground: false,
     gcTime: 5 * 60 * 1000, // 5 minutes
     retry: (failureCount, error) => {
       // Don't retry on 404 (not found) or 401/403 (unauthorized)
