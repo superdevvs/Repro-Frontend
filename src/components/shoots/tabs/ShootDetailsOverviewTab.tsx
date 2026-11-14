@@ -73,6 +73,7 @@ import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { getNormalizedIguideSync, normalizePropertyDetails } from '@/utils/shootTourData';
 import { formatPropertyMetricValue, getBathroomMetricDisplay } from '@/utils/shootPropertyDisplay';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
+import { isShootFullyDelivered } from '@/utils/shootDeliveryProgress';
 import { buildShootPaymentDialogModel } from '@/utils/shootPaymentDialogModel';
 import { getVisibleClientContact } from '@/utils/clientContactVisibility';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
@@ -1043,8 +1044,8 @@ function ShootDetailsOverviewTabContent({
         );
       })()}
 
-      {/* Completion Info Card - Only show if completed */}
-      {!isEditor && shoot.completedDate && (
+      {/* A photo editing date must not imply that pending deliverables are complete. */}
+      {!isEditor && shoot.completedDate && isShootFullyDelivered(shoot) && (
         <div className="p-2.5 border rounded-lg bg-card">
           <span className="text-[11px] font-semibold text-muted-foreground uppercase mb-1.5 block">Completion</span>
           <div className="space-y-0.5 text-xs">

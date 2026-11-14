@@ -57,6 +57,25 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.clearAllMocks(); vi.unstubAllGlobals(); });
 
 describe('delivered sales rep overview edit scope', () => {
+  it.each<{ label: string; status: string; deliveryStatus?: string; floorplanStatus?: string; visible: boolean }>([
+    { label: 'pending editing completion', status: 'editing', deliveryStatus: 'pending', visible: false },
+    { label: 'partially delivered bundle', status: 'delivered', deliveryStatus: 'partially_delivered', visible: false },
+    { label: 'unresolved floorplan receipt', status: 'delivered', deliveryStatus: 'delivered', floorplanStatus: 'pending', visible: false },
+    { label: 'fully delivered bundle', status: 'delivered', deliveryStatus: 'delivered', floorplanStatus: 'delivered', visible: true },
+    ...['delivered', 'delivered_to_client', 'ready_for_client', 'admin_verified'].map(status => ({ label: `legacy ${status}`, status, deliveryStatus: undefined, floorplanStatus: undefined, visible: true })),
+  ])('shows whole-shoot completion correctly for $label', ({ status, deliveryStatus, floorplanStatus, visible }) => {
+    const completedShoot = { ...shoot, status, workflowStatus: status, deliveryStatus, completedDate: '2026-11-14',
+      serviceItems: [{ ...shoot.serviceItems![0], ...(floorplanStatus ? { delivery_components: [
+        { kind: 'photo', label: 'Photos', status: 'delivered' },
+        { kind: 'floorplan', label: 'Floorplans', status: floorplanStatus, deferred: floorplanStatus === 'pending' },
+      ] } : {}) }],
+    } as ShootData;
+    render(<MemoryRouter><ShootDetailsOverviewTab shoot={completedShoot} role="salesRep" isAdmin={false} isRep
+      isPhotographer={false} isEditor={false} isClient={false} isEditMode={false} onShootUpdate={vi.fn()} />
+    </MemoryRouter>);
+    expect(Boolean(screen.queryByText('Completed:'))).toBe(visible);
+  });
+
   it('limits read-only property metrics to beds, baths, and square footage', () => {
     render(<MemoryRouter><ShootDetailsOverviewTab shoot={shoot} role="salesRep" isAdmin={false} isRep
       isPhotographer={false} isEditor={false} isClient={false} isEditMode={false} onShootUpdate={vi.fn()} />

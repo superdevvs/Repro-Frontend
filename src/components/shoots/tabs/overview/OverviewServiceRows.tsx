@@ -88,7 +88,7 @@ export function OverviewServiceRows(props: Props) {
           {serviceDeliveryComponents(item).map((component, index) => <div key={`${component.kind}-${index}`} className="flex items-center justify-between gap-2">
             <span className="text-muted-foreground">{component.kind !== 'legacy' ? component.label : 'Delivery'}</span>
             <span className={component.status === 'delivered' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-300'}>
-              {component.without_content ? 'Completed without content' : component.status === 'delivered' ? 'Delivered' : 'Coming soon'}
+              {component.without_content ? 'Completed without content' : component.status === 'delivered' ? 'Delivered' : component.status === 'pending' && component.deferred ? 'Pending' : 'Coming soon'}
             </span>
           </div>)}
           {item.isDeliverable && !item.isInvoiceAdjustment && <div className="flex flex-wrap items-center justify-between gap-2 text-muted-foreground">

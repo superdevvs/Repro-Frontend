@@ -31,14 +31,15 @@ function mount(role = 'admin', source = shoot, isClient = role === 'client') {
 beforeEach(() => { mocks.files.mockClear(); mocks.capabilities = []; mocks.loaded = true; mocks.raw = [photo('11'), photo('11'), photo('12'), photo('11', true), photo('')]; mocks.edited = [photo('11')]; });
 afterEach(cleanup);
 describe('compact service rows', () => {
-  it('shows released and coming-soon parts inside the existing overview with the remaining service balance', () => {
+  it.each([false, true])('shows released and pending parts with accurate wording (deferred=%s)', deferred => {
     mount('client', { ...shoot, total_quote: 275, total_paid: 100, serviceItems: [{ ...services[0],
       paid_amount: 100, balance_due: 175, is_unlocked_for_delivery: false, progress_status: 'ready',
       delivery_components: [{ kind: 'photo', label: 'Photos', status: 'delivered' },
-        { kind: 'floorplan', label: 'Floorplan', status: 'pending' }] }] } as ShootData);
+        { kind: 'floorplan', label: 'Floorplan', status: 'pending', deferred }] }] } as ShootData);
     expect(screen.getByLabelText(`${services[0].name}: Delivering`)).toBeVisible();
     expect(screen.getByText('Delivered')).toBeVisible();
-    expect(screen.getByText('Coming soon')).toBeVisible();
+    expect(screen.getByText(deferred ? 'Pending' : 'Coming soon')).toBeVisible();
+    expect(screen.queryByText(deferred ? 'Coming soon' : 'Pending')).not.toBeInTheDocument();
     expect(screen.getByText('$100.00 paid · $175.00 due')).toBeVisible();
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
