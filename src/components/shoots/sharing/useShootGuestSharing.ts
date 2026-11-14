@@ -70,9 +70,9 @@ export function useShootGuestSharing(shootId: string, open: boolean) {
       const sent = next.filter(result => result.outcome === 'sent').length;
       const existing = next.filter(result => result.outcome === 'existing').length;
       const failed = next.filter(result => result.outcome === 'failed').length;
-      setMessage([sent && `${sent} Magic Link${sent === 1 ? '' : 's'} sent.`, existing && `${existing} already invited.`, failed && `${failed} could not be sent; retry those recipients below.`].filter(Boolean).join(' '));
+      setMessage([sent && `${sent} Magic Link${sent === 1 ? '' : 's'} sent.`, existing && `${existing} already invited.`, failed && `${failed} could not be sent; retry the remaining recipients.`].filter(Boolean).join(' '));
       try { await refresh(); }
-      catch { setError('Invitations were processed, but the access list could not refresh. Reopen Manage access to reload it.'); }
+      catch { setError('Invitations were processed, but the access list could not refresh. Close and reopen Share to reload it.'); }
       return next;
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to send invitations.'); return null; }
     finally { setBusy(false); }
@@ -86,7 +86,7 @@ export function useShootGuestSharing(shootId: string, open: boolean) {
         : response.data?.id ? [response.data, ...previous.filter(item => item.id !== response.data.id)] : previous);
       setMessage(action === 'revoke' ? `Access revoked for ${invitation.email}.` : `Magic Link sent to ${invitation.email}.`);
       try { await refresh(); }
-      catch { setError('The change was saved, but the access list could not refresh. Reopen Manage access to reload it.'); }
+      catch { setError('The change was saved, but the access list could not refresh. Close and reopen Share to reload it.'); }
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Unable to update access.'); }
     finally { setBusy(false); }
   };

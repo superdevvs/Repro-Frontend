@@ -12,7 +12,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const openDialog = async () => {
   render(<ShootSharingDialog shoot={shoot} />);
   fireEvent.click(screen.getByRole('button', { name: 'Share shoot' }));
-  await screen.findByRole('dialog');
+  await screen.findByRole('dialog', { name: 'Share' });
 };
 
 describe('Sharing multiple recipients and managing access', () => {
@@ -142,7 +142,7 @@ describe('Sharing multiple recipients and managing access', () => {
     expect(within(row).queryByRole('button', { name: `Revoke access for ${share.email}` })).not.toBeInTheDocument();
   });
 
-  it('preserves recipient chips and an unfinished email draft across Invite and Manage tabs', async () => {
+  it('preserves recipient chips and an unfinished email draft across Magic Link and Manage tabs', async () => {
     const recipients = ['one@example.com', 'two@example.com', 'three@example.com'];
     const fetchMock = vi.fn(async (_url: string, options: RequestInit) => Response.json({ data: options.method === 'POST'
       ? recipients.map(email => ({ email, outcome: 'sent' })) : [] }));
@@ -153,14 +153,15 @@ describe('Sharing multiple recipients and managing access', () => {
     fireEvent.change(screen.getByLabelText('Send to'), { target: { value: recipients[2] } });
     fireEvent.mouseDown(screen.getByRole('tab', { name: /Manage access/ }), { button: 0, ctrlKey: false });
     expect(screen.getByRole('tab', { name: /Manage access/ })).toHaveAttribute('aria-selected', 'true');
-    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Invite people' }), { button: 0, ctrlKey: false });
+    fireEvent.mouseDown(screen.getByRole('tab', { name: 'Magic Link' }), { button: 0, ctrlKey: false });
 
-    expect(screen.getByRole('tab', { name: 'Invite people' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tab', { name: 'Magic Link' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('button', { name: `Remove ${recipients[0]}` })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: `Remove ${recipients[1]}` })).toBeInTheDocument();
     expect(screen.getByLabelText('Send to')).toHaveValue(recipients[2]);
     fireEvent.click(screen.getByRole('button', { name: 'Send Magic Links · 3' }));
     await screen.findByText('3 Magic Links sent.');
+    expect(screen.getByRole('tab', { name: 'Magic Link' })).toHaveAttribute('aria-selected', 'true');
     expect(fetchMock.mock.calls.find(([, options]) => options.method === 'POST')?.[1].body).toBe(JSON.stringify({ emails: recipients }));
   });
 });
