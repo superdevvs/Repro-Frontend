@@ -120,7 +120,10 @@ export function ClientEmailHealthNotice({
                 <p className="truncate text-sm font-semibold tracking-tight" title={config.compactTitle}>
                   {config.compactTitle}
                 </p>
-                <EmailHealthBadge emailHealth={emailHealth} className="shrink-0" />
+                <EmailHealthBadge
+                  emailHealth={emailHealth}
+                  className={cn('shrink-0', config.showResend && 'hidden sm:inline-flex')}
+                />
               </div>
               <p
                 title={resendFeedback?.message ?? config.compactDescription}
@@ -155,9 +158,10 @@ export function ClientEmailHealthNotice({
               variant="outline"
               className="h-7 rounded-full px-2.5 text-xs font-semibold"
               onClick={onManageEmail}
+              aria-label="Update email"
             >
-              <Settings2 className="mr-1.5 h-3.5 w-3.5" />
-              Update
+              <Settings2 className={cn('h-3.5 w-3.5', config.showResend ? 'sm:mr-1.5' : 'mr-1.5')} />
+              <span className={config.showResend ? 'hidden sm:inline' : undefined}>Update</span>
             </Button>
           </div>
         </div>
