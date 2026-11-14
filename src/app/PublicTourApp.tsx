@@ -10,6 +10,7 @@ const GenericMLS = lazy(() => import('@/components/tourLinks/GenericMLS').then(m
 const PublicVideoPage = lazy(() => import('@/components/tourLinks/PublicVideoPage').then(module => ({ default: module.PublicVideoPage })));
 const Public3dRedirect = lazy(() => import('@/components/tourLinks/Public3dRedirect').then(module => ({ default: module.Public3dRedirect })));
 const ShootShareRedirect = lazy(() => import('@/pages/ShootShareRedirect'));
+const GuestShootOverview = lazy(() => import('@/pages/GuestShootOverview'));
 const ShootArchiveRedirect = lazy(() => import('@/pages/ShootArchiveRedirect'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const DashboardApp = lazy(() => import('../App'));
@@ -36,6 +37,7 @@ function PublicRoutes({ onExit }: { onExit: () => void }) {
     <Route path="/tour/3d/branded" element={<Public3dRedirect variant="branded" />} />
     <Route path="/tour/3d/mls" element={<Public3dRedirect variant="mls" />} />
     <Route path="/share/:token" element={<ShootShareRedirect />} />
+    <Route path="/guest/shoot/:token" element={<GuestShootOverview />} />
     <Route path="/download/media" element={<ShootArchiveRedirect />} />
     <Route path="*" element={<NotFound />} />
   </Routes>;

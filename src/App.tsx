@@ -104,6 +104,7 @@ const TermsAndConditions = lazy(() => import('./pages/TermsAndConditions'));
 const PrivacyPolicy = lazy(() => import('./pages/PrivacyPolicy'));
 const ShootArchiveRedirect = lazy(() => import('./pages/ShootArchiveRedirect'));
 const ShootShareRedirect = lazy(() => import('./pages/ShootShareRedirect'));
+const GuestShootOverview = lazy(() => import('./pages/GuestShootOverview'));
 
 // Messaging pages
 const MessagingOverview = lazy(() => import('./pages/messaging/MessagingOverview'));
@@ -490,6 +491,7 @@ const AppRoutes = () => {
           <ShootShareRedirect />
         </PageTransition>
       } />
+      <Route path="/guest/shoot/:token" element={<GuestShootOverview />} />
       <Route path="/download/media" element={
         <PageTransition>
           <ShootArchiveRedirect />
