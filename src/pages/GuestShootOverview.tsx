@@ -4,6 +4,7 @@ import { API_BASE_URL } from '@/config/env';
 import { GuestOverviewView } from '@/components/shoots/sharing/guest/GuestOverviewView';
 import { GuestVerificationCard } from '@/components/shoots/sharing/guest/GuestVerificationCard';
 import type { GuestFile, GuestOverview } from '@/components/shoots/sharing/guest/guestOverviewTypes';
+import { GuestRequestError } from '@/components/shoots/sharing/guest/guestOverviewTypes';
 
 type GuestResponse = { verified: boolean; recipient: string; sender_name?: string; data: GuestOverview | null };
 
@@ -32,7 +33,7 @@ function GuestShootOverviewContent({ token }: { token: string }) {
         ...(body ? { body: JSON.stringify(body) } : {}) });
       const data = await response.json().catch(() => ({}));
       if (controller.signal.aborted) throw new DOMException('Request cancelled', 'AbortError');
-      if (!response.ok) throw new Error(data.message || 'This invitation is unavailable.');
+      if (!response.ok) throw new GuestRequestError(data.message || 'This invitation is unavailable.', response.status);
       return data;
     } finally { pendingRequests.current.delete(controller); }
   }, [endpoint]);
@@ -88,5 +89,5 @@ function GuestShootOverviewContent({ token }: { token: string }) {
   if (!overview) return <GuestVerificationCard recipient={result?.recipient} senderName={result?.sender_name} error={error} message={message}
     busy={busy} code={code} codeSent={codeSent} onCodeChange={setCode} onSendCode={() => void sendCode()}
     onVerify={event => void verify(event)} onRetry={() => void retry()} />;
-  return <GuestOverviewView overview={overview} selected={selected} onSelect={setSelected} />;
+  return <GuestOverviewView overview={overview} selected={selected} onSelect={setSelected} request={request} onRefreshAccess={load} />;
 }

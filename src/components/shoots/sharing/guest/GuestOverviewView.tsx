@@ -1,10 +1,12 @@
-import { useId, useState } from 'react';
-import { BedDouble, Check, Copy, Download, ExternalLink, MapPin, Ruler, ShieldCheck, ShowerHead, View } from 'lucide-react';
+import { useEffect, useId, useMemo, useState } from 'react';
+import { BedDouble, Check, Copy, Download, MapPin, Ruler, ShieldCheck, ShowerHead } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { GuestMediaGallery } from './GuestMediaGallery';
-import type { GuestFile, GuestOverview } from './guestOverviewTypes';
+import { GuestMediaLightbox } from './GuestMediaLightbox';
+import { GuestDownloadDialog } from './GuestDownloadDialog';
+import { GuestTourCards } from './GuestTourCards';
+import type { GuestFile, GuestOverview, GuestRequest } from './guestOverviewTypes';
 
 const sectionTabClass = 'h-8 rounded-none px-3 text-xs data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:shadow-none';
 
@@ -49,20 +51,22 @@ function GuestPropertyDetails({ overview }: { overview: GuestOverview }) {
   </div>;
 }
 
-function GuestTours({ tours }: { tours: GuestOverview['tours'] }) {
-  return <section aria-label="Property tours" className="space-y-2">
-    {tours.length ? tours.map(tour => <article key={tour.url} className="rounded-lg border bg-card p-2.5">
-      <div className="mb-3 flex items-center gap-2"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><View className="h-4 w-4" /></span><h2 className="text-xs font-semibold">{tour.label}</h2></div>
-      <a href={tour.url} target="_blank" rel="noopener noreferrer" className="flex min-h-9 items-center justify-center gap-2 rounded-md border bg-background px-3 text-xs font-medium text-primary hover:bg-primary/5" aria-label={`Open ${tour.label}`}>Open tour<ExternalLink className="h-3.5 w-3.5" /></a>
-    </article>) : <div className="rounded-lg border bg-card px-4 py-10 text-center"><View className="mx-auto mb-3 h-7 w-7 text-muted-foreground/60" /><p className="text-xs text-muted-foreground">Tours will appear when released.</p></div>}
-  </section>;
-}
-
-export function GuestOverviewView({ overview, selected, onSelect }: { overview: GuestOverview; selected: GuestFile | null; onSelect: (file: GuestFile | null) => void }) {
+export function GuestOverviewView({ overview, selected, onSelect, request, onRefreshAccess }: {
+  overview: GuestOverview; selected: GuestFile | null; onSelect: (file: GuestFile | null) => void;
+  request: GuestRequest; onRefreshAccess: () => Promise<void>;
+}) {
   const panelId = useId();
   const [section, setSection] = useState('overview');
   const [downloadsOpen, setDownloadsOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [checkedIds, setCheckedIds] = useState<Set<number>>(new Set());
+  const selectedIds = useMemo(() => new Set(overview.files.filter(file => checkedIds.has(file.id)).map(file => file.id)), [overview.files, checkedIds]);
+  useEffect(() => { setCheckedIds(previous => {
+    const allowed = new Set(overview.files.map(file => file.id));
+    const next = new Set([...previous].filter(id => allowed.has(id)));
+    return next.size === previous.size ? previous : next;
+  }); }, [overview.files]);
+  const toggleFile = (id: number) => setCheckedIds(previous => { const next = new Set(previous); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   const components = overview.services.flatMap(service => service.components).filter(component => component.status !== 'cancelled');
   const status = components.length ? components.every(component => component.status === 'delivered') ? 'Delivered'
     : components.some(component => component.status === 'delivered') || overview.files.length || overview.tours.length ? 'Delivering' : 'Pending'
@@ -106,23 +110,17 @@ export function GuestOverviewView({ overview, selected, onSelect }: { overview: 
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-3 py-2.5 shootDesktop:px-4">
               <TabsContent value="overview" id={`${panelId}-overview`} aria-labelledby={undefined} aria-label="Overview" className="mt-0"><GuestPropertyDetails overview={overview} /></TabsContent>
-              <TabsContent value="tours" id={`${panelId}-tours`} aria-labelledby={undefined} aria-label="Tours" className="mt-0"><GuestTours tours={overview.tours} /></TabsContent>
+              <TabsContent value="tours" id={`${panelId}-tours`} aria-labelledby={undefined} aria-label="Tours" className="mt-0"><GuestTourCards tours={overview.tours} files={overview.files} onPreview={onSelect} /></TabsContent>
             </div>
           </Tabs>
         </aside>
         <div id={`${panelId}-media`} role="tabpanel" aria-label="Media" className={`${section === 'media' ? 'flex' : 'hidden shootDesktop:flex'} min-h-0 min-w-0 flex-1`}>
-          <GuestMediaGallery files={overview.files} onPreview={onSelect} />
+          <GuestMediaGallery files={overview.files} onPreview={onSelect} selectedIds={selectedIds} onToggle={toggleFile}
+            onSelectAll={select => setCheckedIds(new Set(select ? overview.files.map(file => file.id) : []))} onDownload={() => setDownloadsOpen(true)} />
         </div>
       </div>
     </div>
-    <Dialog open={downloadsOpen} onOpenChange={setDownloadsOpen}><DialogContent className="max-w-lg">
-      <DialogTitle>Downloads</DialogTitle><DialogDescription>Choose a file to download.</DialogDescription>
-      <div className="max-h-[60dvh] space-y-1 overflow-y-auto">{overview.files.map(file => <a key={file.id} href={file.download_url} className="flex min-h-11 items-center justify-between gap-3 rounded-lg border px-3 py-2 text-xs hover:bg-muted" aria-label={`Download ${file.name}`}><span className="min-w-0 truncate">{file.name}</span><Download className="h-4 w-4 shrink-0 text-primary" /></a>)}</div>
-    </DialogContent></Dialog>
-    <Dialog open={Boolean(selected)} onOpenChange={open => { if (!open) onSelect(null); }}><DialogContent className="max-w-5xl">
-      <DialogTitle className="pr-8 text-sm">{selected?.name}</DialogTitle><DialogDescription className="sr-only">Shared property media preview</DialogDescription>
-      {selected?.kind === 'photo' ? <img src={selected.preview_url} alt={selected.name} className="max-h-[75dvh] w-full object-contain" /> : selected?.kind === 'video' ? <video controls src={selected.preview_url} className="max-h-[75dvh] w-full" /> : selected && <a href={selected.preview_url} target="_blank" rel="noopener noreferrer" className="py-10 text-center text-primary">Open file preview <ExternalLink className="inline h-4 w-4" /></a>}
-      {selected && <a href={selected.download_url} className="inline-flex items-center gap-2 text-sm text-primary"><Download className="h-4 w-4" />Download file</a>}
-    </DialogContent></Dialog>
+    <GuestDownloadDialog open={downloadsOpen} onOpenChange={setDownloadsOpen} files={overview.files} selectedIds={[...selectedIds]} request={request} onRefreshAccess={onRefreshAccess} />
+    <GuestMediaLightbox files={overview.files} selected={selected} onSelect={onSelect} />
   </main>;
 }

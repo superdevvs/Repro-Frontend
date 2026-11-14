@@ -1,44 +1,72 @@
 import '@testing-library/jest-dom/vitest';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ShootData } from '@/types/shoots';
 import { ShootGuestShareButton } from './ShootGuestShareButton';
 
 const auth = vi.hoisted(() => ({ role: 'client', user: { id: '12', role: 'superadmin' } }));
 vi.mock('@/components/auth', () => ({ useAuth: () => auth }));
-vi.mock('@/services/api', () => ({ getApiHeaders: () => ({ Authorization: 'Bearer actor', 'X-Impersonate-User-Id': '12', 'Content-Type': 'application/json' }) }));
+vi.mock('./ShootSharingDialog', () => ({
+  ShootSharingDialog: function SharingDialogStub() {
+    const [open, setOpen] = useState(false);
+    return <>
+      <button aria-label="Share shoot" onClick={() => setOpen(true)}>Magic Link</button>
+      {open && <div role="dialog">Sharing controls</div>}
+    </>;
+  },
+}));
+
 const shoot = { id: '42', client: { id: '12' } } as ShootData;
 beforeEach(() => { auth.role = 'client'; });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(cleanup);
 
-describe('Magic Link sharing', () => {
-  it('honors the effective role and requires the client to own the shoot', () => {
+describe('Magic Link sharing permission gate', () => {
+  it.each(['can_share_guest', 'canShareGuest'] as const)('allows a rep only when %s grants access', capability => {
+    auth.role = 'rep';
+    const { rerender } = render(<ShootGuestShareButton shoot={{ ...shoot, [capability]: true }} />);
+    expect(screen.getByRole('button', { name: 'Share shoot' })).toBeInTheDocument();
+
+    rerender(<ShootGuestShareButton shoot={{ ...shoot, [capability]: false }} />);
+    expect(screen.queryByRole('button', { name: 'Share shoot' })).not.toBeInTheDocument();
+
+    rerender(<ShootGuestShareButton shoot={shoot} />);
+    expect(screen.queryByRole('button', { name: 'Share shoot' })).not.toBeInTheDocument();
+  });
+
+  it.each(['can_share_guest', 'canShareGuest'] as const)('honors an explicit admin denial from %s', capability => {
+    auth.role = 'admin';
+    render(<ShootGuestShareButton shoot={{ ...shoot, [capability]: false }} />);
+    expect(screen.queryByRole('button', { name: 'Share shoot' })).not.toBeInTheDocument();
+  });
+
+  it('allows the owning client on older payloads without the capability', () => {
+    render(<ShootGuestShareButton shoot={shoot} />);
+    expect(screen.getByRole('button', { name: 'Share shoot' })).toBeInTheDocument();
+  });
+
+  it('uses the effective client role and requires ownership on older payloads', () => {
     render(<ShootGuestShareButton shoot={{ ...shoot, client: { id: '99' } } as ShootData} />);
     expect(screen.queryByRole('button', { name: 'Share shoot' })).not.toBeInTheDocument();
   });
 
-  it('uses canonical impersonation headers when sending the requested Magic Link', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(Response.json({ data: [] }));
-    vi.stubGlobal('fetch', fetchMock);
-    render(<ShootGuestShareButton shoot={shoot} />);
+  it('removes open sharing controls as soon as permission is revoked', () => {
+    const { rerender } = render(<ShootGuestShareButton shoot={{ ...shoot, canShareGuest: true }} />);
     fireEvent.click(screen.getByRole('button', { name: 'Share shoot' }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-    fireEvent.change(screen.getByLabelText('Recipient email'), { target: { value: 'guest@example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Send link' }));
-    await screen.findByText('Magic Link sent to guest@example.com.');
-    const post = fetchMock.mock.calls.find(([, options]) => options.method === 'POST');
-    expect(post?.[1]).toMatchObject({ credentials: 'include', headers: { Authorization: 'Bearer actor', 'X-Impersonate-User-Id': '12' }, body: JSON.stringify({ email: 'guest@example.com' }) });
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    rerender(<ShootGuestShareButton shoot={{ ...shoot, canShareGuest: false }} />);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Share shoot' })).not.toBeInTheDocument();
   });
 
-  it('clears the dialog and cancels requests when the viewed shoot changes', async () => {
-    const fetchMock = vi.fn().mockImplementation(() => new Promise<Response>(() => {}));
-    vi.stubGlobal('fetch', fetchMock);
+  it('resets open sharing controls when the viewed shoot changes', () => {
     const { rerender } = render(<ShootGuestShareButton shoot={shoot} />);
     fireEvent.click(screen.getByRole('button', { name: 'Share shoot' }));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
-    const signal = fetchMock.mock.calls[0][1].signal as AbortSignal;
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
     rerender(<ShootGuestShareButton shoot={{ ...shoot, id: '43' }} />);
-    expect(signal.aborted).toBe(true);
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Share shoot' })).toBeInTheDocument();
   });
 });

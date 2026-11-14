@@ -207,12 +207,14 @@ export type ApiShoot = ActiveShootWorkFields & {
   can_view_video_editor_context?: boolean;
   canFinalizeNoMedia?: boolean;
   canFinalizeDelivery?: boolean;
+  canShareGuest?: boolean;
   canRemoveAllServices?: boolean;
   can_submit_raw?: boolean;
   can_submit_edits?: boolean;
   can_view_invoice?: boolean;
   can_finalize_no_media?: boolean;
   can_finalize_delivery?: boolean;
+  can_share_guest?: boolean;
   can_remove_all_services?: boolean;
   notes?: string | ApiNotePayload | null;
   shoot_notes?: string;

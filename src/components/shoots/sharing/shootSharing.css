@@ -1,0 +1,11 @@
+@keyframes shoot-sharing-open {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(.965); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes shoot-sharing-close {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(.98); }
+}
+.shoot-sharing-dialog[data-state='open'] { animation: shoot-sharing-open 180ms cubic-bezier(.22, 1, .36, 1); }
+.shoot-sharing-dialog[data-state='closed'] { animation: shoot-sharing-close 120ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .shoot-sharing-dialog { animation: none !important; } }

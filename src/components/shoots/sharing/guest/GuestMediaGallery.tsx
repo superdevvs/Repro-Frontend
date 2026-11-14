@@ -1,14 +1,15 @@
 import { useState } from 'react';
 import { Download, FileText, Grid2X2, ImageIcon, List, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { GuestFile } from './guestOverviewTypes';
+import { isGuestImage, type GuestFile } from './guestOverviewTypes';
 import '@/components/shoots/tabs/media/shootDetailsMediaWorkspace.css';
 
 const labels: Record<string, string> = { photo: 'Photos', floorplan: 'Floorplans', video: 'Videos', file: 'Files' };
 
 function GuestThumbnail({ file }: { file: GuestFile }) {
-  return file.kind === 'photo'
+  return isGuestImage(file)
     ? <img src={file.preview_url} alt={file.name} loading="lazy" className="h-full w-full object-cover" />
     : <span className="flex h-full w-full flex-col items-center justify-center gap-1.5 text-muted-foreground">
       {file.kind === 'video' ? <Play className="h-7 w-7" /> : <FileText className="h-7 w-7" />}
@@ -16,7 +17,10 @@ function GuestThumbnail({ file }: { file: GuestFile }) {
     </span>;
 }
 
-export function GuestMediaGallery({ files, onPreview }: { files: GuestFile[]; onPreview: (file: GuestFile) => void }) {
+export function GuestMediaGallery({ files, onPreview, selectedIds, onToggle, onSelectAll, onDownload }: {
+  files: GuestFile[]; onPreview: (file: GuestFile) => void; selectedIds: ReadonlySet<number>;
+  onToggle: (id: number) => void; onSelectAll: (selected: boolean) => void; onDownload: () => void;
+}) {
   const [tab, setTab] = useState('photo');
   const [view, setView] = useState<'grid' | 'list'>('grid');
   const tabs = ['photo', 'floorplan', 'video', 'file'].filter(kind => kind === 'photo' || files.some(file => file.kind === kind));
@@ -42,9 +46,13 @@ export function GuestMediaGallery({ files, onPreview }: { files: GuestFile[]; on
       </div>
       <TabsContent value={activeTab} className="mt-0 min-h-0 flex-1 overflow-y-auto rounded-xl border bg-muted/20 p-2.5">
         {visible.length ? <>
-          <div className="flex items-center justify-between gap-2 px-0.5 pb-2.5 text-[11px] text-muted-foreground"><span>{visible.length} {labels[activeTab].toLowerCase()}</span><span>Click to preview</span></div>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-0.5 pb-2.5 text-[11px] text-muted-foreground">
+            <label className="flex min-h-8 cursor-pointer items-center gap-2"><Checkbox aria-label="Select all media" checked={selectedIds.size === files.length ? true : selectedIds.size ? 'indeterminate' : false} onCheckedChange={checked => onSelectAll(checked === true)} />Select all<span>{selectedIds.size ? `${selectedIds.size} selected` : `${files.length} files`}</span></label>
+            {selectedIds.size > 0 && <div className="flex items-center gap-2"><button className="min-h-8 px-1 text-xs hover:text-foreground" onClick={() => onSelectAll(false)}>Clear</button><Button size="sm" variant="outline" className="h-8 gap-1.5 text-xs" onClick={onDownload}><Download className="h-3.5 w-3.5" />Download selected</Button></div>}
+          </div>
           <div className={view === 'grid' ? 'shoot-media-grid' : 'space-y-2'}>
-            {visible.map(file => <article key={file.id} className={`group min-w-0 overflow-hidden rounded-xl border bg-card transition-colors hover:border-primary/50 ${view === 'list' ? 'flex items-center gap-3 p-2' : ''}`}>
+            {visible.map(file => <article key={file.id} className={`group relative min-w-0 overflow-hidden rounded-xl border bg-card transition-colors hover:border-primary/50 ${selectedIds.has(file.id) ? 'border-primary ring-1 ring-primary' : ''} ${view === 'list' ? 'flex items-center gap-3 p-2' : ''}`}>
+              <span className="absolute left-1.5 top-1.5 z-10 flex h-8 w-8 items-center justify-center rounded-full bg-background/90 shadow-sm"><Checkbox aria-label={`Select ${file.name}`} checked={selectedIds.has(file.id)} onCheckedChange={() => onToggle(file.id)} /></span>
               <button onClick={() => onPreview(file)} aria-label={`Preview ${file.name}`}
                 className={`block overflow-hidden bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary ${view === 'list' ? 'aspect-[4/3] w-24 shrink-0 rounded-md sm:w-32' : 'aspect-[4/3] w-full'}`}>
                 <GuestThumbnail file={file} />

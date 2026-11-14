@@ -1,0 +1,8 @@
+.guest-media-lightbox:fullscreen {
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+  max-width: none !important;
+  transform: none !important;
+  border-radius: 0 !important;
+}
