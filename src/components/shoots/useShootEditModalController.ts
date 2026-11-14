@@ -28,7 +28,7 @@ import { type DayAvailability } from '@/utils/availabilityProvider';
 import { useShootEditAvailability } from './useShootEditAvailability';
 import { extractStartTimeScheduleError } from '@/utils/editPickerBounds';
 import { getShootPhotographerAssignmentGroups } from '@/utils/shootPhotographerAssignments';
-import { calculatePricingBreakdown, type PricingDiscountType } from '@/utils/pricing';
+import { calculatePricingBreakdown, isDiscountEligibleService, type PricingDiscountType } from '@/utils/pricing';
 import { buildWallClockIso } from '@/utils/wallClockDateTime';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
 import { getShootSchedule } from '@/utils/shootSchedule';
@@ -857,6 +857,10 @@ export function useShootEditModalController({
     const normalizedTaxRate = taxPercent > 1 ? taxPercent / 100 : taxPercent;
     const pricing = calculatePricingBreakdown({
       serviceSubtotal: servicesTotal,
+      discountEligibleSubtotal: hasVariablePricingWithoutSqft ? 0 : Array.from(selectedServiceIds).reduce((sum, id) => {
+        const service = availableServices.find((candidate) => candidate.id?.toString() === id);
+        return sum + (service && isDiscountEligibleService(service) ? getServicePrice(service) * normalizeBookingQuantity(serviceQuantities[id]) : 0);
+      }, 0),
       discountType: activeDiscountType,
       discountValue: activeDiscountValue,
       taxRate: normalizedTaxRate,

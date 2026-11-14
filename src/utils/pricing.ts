@@ -11,6 +11,16 @@ export interface PricingBreakdown {
   totalPaid?: number;
 }
 
+/** Keep financial fees whole, including legacy catalogue rows without a flag. */
+export const isDiscountEligibleService = (value: unknown): boolean => {
+  if (!value || typeof value !== 'object') return false;
+  const row = value as Record<string, unknown>;
+  const nested = row.service && typeof row.service === 'object' ? row.service as Record<string, unknown> : {};
+  const financialOnly = row.financial_only ?? nested.financial_only;
+  if (financialOnly === true || financialOnly === 1 || financialOnly === '1') return false;
+  return !/\b(?:travel|mileage|cancell?ation)\b|\bhold\s+fee\b/i.test(String(row.name ?? row.service_name ?? nested.name ?? ''));
+};
+
 const TAX_RATES_BY_STATE: Record<string, number> = {
   maryland: 0.06,
   md: 0.06,
@@ -58,12 +68,14 @@ export const calculateDiscountAmount = (
 
 export const calculatePricingBreakdown = ({
   serviceSubtotal,
+  discountEligibleSubtotal,
   discountType,
   discountValue,
   taxRate,
   totalPaid,
 }: {
   serviceSubtotal: number;
+  discountEligibleSubtotal?: number;
   discountType?: PricingDiscountType;
   discountValue?: number | null;
   taxRate?: number;
@@ -71,7 +83,8 @@ export const calculatePricingBreakdown = ({
 }): PricingBreakdown => {
   const subtotal = roundCurrency(Math.max(Number(serviceSubtotal || 0), 0));
   const resolvedTaxRate = Math.max(Number(taxRate || 0), 0);
-  const discountAmount = calculateDiscountAmount(subtotal, discountType, discountValue);
+  const eligibleSubtotal = Math.min(subtotal, roundCurrency(Math.max(Number(discountEligibleSubtotal ?? subtotal), 0)));
+  const discountAmount = calculateDiscountAmount(eligibleSubtotal, discountType, discountValue);
   const discountedSubtotal = roundCurrency(Math.max(subtotal - discountAmount, 0));
   const taxAmount = roundCurrency(discountedSubtotal * resolvedTaxRate);
   const totalQuote = roundCurrency(discountedSubtotal + taxAmount);

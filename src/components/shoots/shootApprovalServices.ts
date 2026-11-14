@@ -1,5 +1,5 @@
 import { getBookedServiceQuantities, getBookedServiceUnitPrices, normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
-import { calculatePricingBreakdown, type PricingDiscountType } from '@/utils/pricing';
+import { calculatePricingBreakdown, isDiscountEligibleService, type PricingDiscountType } from '@/utils/pricing';
 import { getShootInvoiceAdjustmentTotal, isInvoiceAdjustmentServiceItem } from '@/utils/shootServiceItems';
 
 const record = (value: unknown): Record<string, unknown> => value && typeof value === 'object' ? value as Record<string, unknown> : {};
@@ -47,6 +47,8 @@ export function getApprovalPricing(value: unknown, services: Array<ApprovalServi
   const discountType = shoot.discount_type ?? shoot.discountType ?? payment.discount_type ?? payment.discountType;
   const discountValue = shoot.discount_value ?? shoot.discountValue ?? payment.discount_value ?? payment.discountValue;
   const pricing = calculatePricingBreakdown({ serviceSubtotal, taxRate,
+    discountEligibleSubtotal: services.reduce((sum, service) => sum + (typeof service === 'string' || !isDiscountEligibleService(service)
+      ? 0 : service.price * normalizeBookingQuantity(quantities[String(service.id)] ?? service.quantity)), 0),
     discountType: (discountType ?? (originalSubtotal > savedBase ? 'fixed' : null)) as PricingDiscountType,
     discountValue: numberOr(discountValue, Math.max(originalSubtotal - savedBase, 0)),
   });

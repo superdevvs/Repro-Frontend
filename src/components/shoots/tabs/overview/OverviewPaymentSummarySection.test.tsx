@@ -18,6 +18,17 @@ const makeShoot = (): ShootData => ({
 } as ShootData);
 
 describe('OverviewPaymentSummarySection invoice adjustments', () => {
+  it('honors a saved zero discount on a fee-only shoot', () => {
+    const shoot = makeShoot();
+    shoot.payment = { ...shoot.payment, serviceSubtotal: 60, baseQuote: 60, discountType: 'percent', discountValue: 10, discountAmount: 0, taxAmount: 3.6, totalQuote: 63.6 };
+    const { container } = render(<OverviewPaymentSummarySection
+      isEditMode={false} isAdmin isRep={false} isClient={false} isClientReleaseLocked={false}
+      editedShoot={shoot} shoot={shoot} paymentTotalPaid={0} paymentBalance={63.6} updateField={vi.fn()}
+    />);
+    expect(container.textContent).not.toContain('Discount:');
+    expect(container.textContent).not.toContain('-$6.00');
+  });
+
   it('lets an admin enter a shoot discount and shows negative invoice adjustments', () => {
     const shoot = makeShoot();
     shoot.payment = { ...shoot.payment, discountType: 'fixed', discountValue: 30, invoiceAdjustmentsTotal: -30 };

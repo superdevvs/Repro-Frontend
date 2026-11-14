@@ -2,6 +2,20 @@ import { describe, expect, it } from 'vitest';
 import { getApprovalPricing, getApprovalServices } from './shootApprovalServices';
 
 describe('approval quantity pricing', () => {
+  it('keeps travel and cancellation fees undiscounted when approval changes quantities', () => {
+    const shoot = {
+      service_items: [
+        { service_id: 10, name: 'Photos', price: 270, quantity: 1 },
+        { service_id: 11, name: 'Onsite Cancellation/hold fee', price: 60, quantity: 1, financial_only: true },
+        { service_id: 12, name: 'Travel fee', price: 50, quantity: 1, financial_only: true },
+      ],
+      discount_type: 'percent', discount_value: 10, tax_percent: 6,
+      payment: { baseQuote: 353, taxAmount: 21.18, totalQuote: 374.18 },
+    };
+    const services = getApprovalServices(shoot);
+    expect(getApprovalPricing(shoot, services, { '10': 2 })).toEqual({ baseQuote: 596, taxAmount: 35.76, totalQuote: 631.76 });
+  });
+
   it('retains tax when an older response omits the rate and recalculates an unstored tax amount', () => {
     const shoot = { service_items: [{ service_id: 10, price: 100, quantity: 2 }], payment: { baseQuote: 200, taxAmount: 20 } };
     const services = getApprovalServices(shoot);

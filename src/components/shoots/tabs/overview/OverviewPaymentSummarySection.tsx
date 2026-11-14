@@ -17,9 +17,11 @@ import { calculateDiscountAmount } from '@/utils/pricing';
 const resolveDiscountAmount = (payment?: ShootData['payment'] | null): number => {
   if (!payment) return 0;
   const raw = payment as unknown as Record<string, unknown>;
-  const precomputed =
-    Number(payment.discountAmount ?? (raw.discount_amount as number | undefined) ?? 0) || 0;
-  if (precomputed > 0.005) return precomputed;
+  const savedAmount = payment.discountAmount ?? raw.discount_amount;
+  // A saved zero is authoritative (for example a booking containing only fees).
+  if (savedAmount !== null && savedAmount !== undefined && Number.isFinite(Number(savedAmount))) {
+    return Math.max(Number(savedAmount), 0);
+  }
 
   const discountType =
     payment.discountType ?? (raw.discount_type as ShootData['payment']['discountType']) ?? null;
@@ -180,7 +182,7 @@ export function OverviewPaymentSummarySection({
                   className="h-8 text-xs"
                 />
               </div>
-              <p className="text-[10px] text-muted-foreground">Applies to this shoot. Tax and totals update when saved.</p>
+              <p className="text-[10px] text-muted-foreground">Excludes cancellation, hold and travel fees. Tax and totals update when saved.</p>
             </div>
           )}
           <div className="flex justify-between">

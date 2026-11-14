@@ -42,7 +42,7 @@ import {
   usePhotographerAssignmentOptions,
   usePhotographerDistanceAvailability, getOverviewAvailabilityDuration,
 } from './shootOverviewEditorSupport';
-import { calculatePricingBreakdown } from '@/utils/pricing';
+import { calculatePricingBreakdown, isDiscountEligibleService } from '@/utils/pricing';
 import type {
   AddressDetailsForLookup,
   ClientOption,
@@ -674,6 +674,12 @@ export function useShootOverviewEditor({
     const normalizedTaxRate = rawTaxRate > 1 ? rawTaxRate / 100 : rawTaxRate;
     const pricing = calculatePricingBreakdown({
       serviceSubtotal,
+      discountEligibleSubtotal: selectedServiceIds.reduce((sum, serviceId) => {
+        const service = servicesList.find((option) => option.id === serviceId);
+        if (!service || !isDiscountEligibleService(service)) return sum;
+        const price = resolveServicePrice(service, effectiveSqft, servicePrices[serviceId]).price;
+        return sum + (Number.isNaN(price) ? 0 : price * normalizeBookingQuantity(serviceQuantities[serviceId]));
+      }, 0),
       discountType: editedShoot.payment?.discountType !== undefined ? editedShoot.payment.discountType : shoot.payment?.discountType ?? null,
       discountValue: editedShoot.payment?.discountValue !== undefined ? editedShoot.payment.discountValue : shoot.payment?.discountValue ?? null,
       taxRate: normalizedTaxRate,

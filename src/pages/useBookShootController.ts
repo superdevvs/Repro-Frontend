@@ -31,7 +31,7 @@ import {
   resolveServicePhotographerId,
   selectedServicesRequirePhotographer,
 } from '@/utils/photographerAssignment';
-import { calculatePricingBreakdown, getTaxRateForState } from '@/utils/pricing';
+import { calculatePricingBreakdown, getTaxRateForState, isDiscountEligibleService } from '@/utils/pricing';
 import { normalizeEmailHealth } from '@/utils/emailHealth';
 import { BOOK_ANOTHER_SHOOT_NAV_TARGET, clearBookingFormCache } from '@/utils/bookingDraftReset';
 import { useBookShootWorkflow } from './useBookShootWorkflow';
@@ -197,11 +197,13 @@ export const useBookShootController = () => {
     () =>
       calculatePricingBreakdown({
         serviceSubtotal,
+        discountEligibleSubtotal: selectedServices.filter(isDiscountEligibleService)
+          .reduce((sum, service) => sum + resolveSelectedServiceSubtotal(service, selectedServiceSqft), 0),
         discountType: selectedClientData?.clientDiscountType ?? selectedClientData?.client_discount_type ?? null,
         discountValue: selectedClientData?.clientDiscountValue ?? selectedClientData?.client_discount_value ?? null,
         taxRate: getTaxRateForState(state),
       }),
-    [selectedClientData, serviceSubtotal, state]
+    [selectedClientData, selectedServices, selectedServiceSqft, serviceSubtotal, state]
   );
   const parsedAdjustedTotal = React.useMemo(
     () => (canAdjustBookingAmount ? parseCurrencyInput(adjustedTotalInput) : null),
