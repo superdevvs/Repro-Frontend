@@ -11,6 +11,25 @@ const buildOnlyPackages = new Set([
   '@typescript-eslint/type-utils', '@typescript-eslint/typescript-estree', '@typescript-eslint/utils',
 ]);
 const allowedRouterVersion = '7.18.2';
+// GHSA-fc5q-39xc-vjpf: picomatch <=4.0.7 ReDoS through attacker-controlled extglob patterns.
+// No fixed release exists (reviewed 2026-11-18). picomatch only reaches build and test
+// tooling, which matches repository-controlled globs; build-glob-review.mjs refuses these
+// packages in application source and in every renderer bundle. Re-review by the expiry date.
+const reviewedPicomatchAdvisory = Object.freeze({
+  id: 'GHSA-fc5q-39xc-vjpf',
+  expires: '2026-12-18',
+  packages: new Set([
+    '@electron/rebuild', '@typescript-eslint/eslint-plugin', '@typescript-eslint/parser',
+    '@typescript-eslint/type-utils', '@typescript-eslint/typescript-estree', '@typescript-eslint/utils',
+    'anymatch', 'app-builder-lib', 'chokidar', 'dmg-builder', 'electron-builder',
+    'electron-builder-squirrel-windows', 'fast-glob', 'fdir', 'lovable-tagger', 'micromatch',
+    'node-gyp', 'picomatch', 'readdirp', 'sucrase', 'tailwindcss', 'tinyglobby',
+    'typescript-eslint', 'vite', 'vitest',
+  ]),
+});
+if (new Date().toISOString().slice(0, 10) > reviewedPicomatchAdvisory.expires) {
+  throw new Error(`The ${reviewedPicomatchAdvisory.id} exception expired on ${reviewedPicomatchAdvisory.expires}; upgrade picomatch or re-review it.`);
+}
 const sourceExtensions = new Set(['.js', '.jsx', '.ts', '.tsx', '.cjs', '.mjs']);
 const ignoredDirectories = new Set(['__tests__', 'dist', 'node_modules']);
 
@@ -142,7 +161,8 @@ for (const packageName of Object.keys(vulnerabilities)) {
   }
   for (const id of ids) {
     const routerAllowed = id === allowedAdvisory && ['react-router', 'react-router-dom'].includes(packageName);
-    if (!routerAllowed) {
+    const picomatchAllowed = id === reviewedPicomatchAdvisory.id && reviewedPicomatchAdvisory.packages.has(packageName);
+    if (!routerAllowed && !picomatchAllowed) {
       unexpected.push(`${packageName}: ${id}`);
     }
   }

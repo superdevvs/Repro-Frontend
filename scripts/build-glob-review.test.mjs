@@ -79,3 +79,14 @@ test('audit scans CJS/MJS runtime source and leaves the retired build advisories
   assert.doesNotMatch(audit, /buildAllowed/);
   assert.doesNotMatch(audit, /GHSA-(?:vfj7-8cjw-p6xm|3g3m-2fjr-6pw4|g3hv-75wg-m249)/);
 });
+
+test('the picomatch exception is one advisory, dated, and limited to build tooling that never ships', () => {
+  const audit = readFileSync(new URL('scripts/audit-with-policy.mjs', root), 'utf8');
+  assert.equal((audit.match(/GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}/g) ?? []).filter(id => id !== 'GHSA-qwww-vcr4-c8h2' && id !== 'GHSA-fc5q-39xc-vjpf').length, 0);
+  assert.match(audit, /id: 'GHSA-fc5q-39xc-vjpf',\s*expires: '2026-12-18'/);
+  assert.match(audit, /expired on/);
+  for (const name of ['picomatch', 'tinyglobby', 'fdir', 'anymatch', 'readdirp', 'micromatch', 'fast-glob', 'chokidar']) {
+    assert.throws(() => assertRuntimeSource('src/page.tsx', `import x from '${name}';`), /build tool imported/, name);
+    assert.throws(() => reviewedBuildGlobGuard().generateBundle({}, chunk(`/repo/node_modules/${name}/index.js`)), /must not ship/, name);
+  }
+});

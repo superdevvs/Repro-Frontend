@@ -9,6 +9,9 @@ const buildOnlyPackages = new Set([
   'electron-builder-squirrel-windows', 'electron-winstaller', 'eslint',
   'eslint-plugin-react-refresh', 'filelist', 'glob', 'jake', 'minimatch',
   'rimraf', 'sucrase', 'temp', 'typescript-eslint',
+  // Glob tooling behind GHSA-fc5q-39xc-vjpf (picomatch ReDoS); build-time only.
+  'anymatch', 'chokidar', 'fast-glob', 'fdir', 'micromatch', 'picomatch',
+  'readdirp', 'tailwindcss', 'tinyglobby',
 ]);
 
 const normalized = (value) => value.replaceAll('\\', '/');
