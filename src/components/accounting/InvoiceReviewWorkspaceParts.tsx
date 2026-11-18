@@ -8,7 +8,7 @@ import { InvoiceAccountsNote } from './InvoiceAccountsNote';
 import { payoutInvoiceLines } from '@/components/invoices/payoutInvoiceLinePresentation';
 import { PayoutBasisSummary, PayoutReconciliationSummary } from '@/components/invoices/PayoutReconciliationSummary';
 import {
-  formatBillingPeriod, formatCurrency, formatRelativeTimestamp, getInvoiceWarnings,
+  formatApprovedDate, formatBillingPeriod, formatCurrency, formatRelativeTimestamp, getInvoiceWarnings,
   getSalesRepCommissionSummary, getStatusBadgeClassName, getStatusLabel, type ReviewWorkspaceRole,
 } from './invoiceReviewWorkspaceUtils';
 import './admin-review-workspace.css';
@@ -52,7 +52,7 @@ export const DetailShell = ({ invoice, detailLoading, onApprove, onReturn, onOpe
           <Badge variant="outline" className={getStatusBadgeClassName(invoice.approval_status)}>{invoice.payout_review?.label || getStatusLabel(invoice.approval_status)}</Badge>
         </div>
         <p className="mt-1 break-all text-xs text-muted-foreground">{payee?.email || 'No email available'}</p>
-        <p className="mt-2 text-xs text-muted-foreground">{formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)} · Updated {formatRelativeTimestamp(invoice.last_activity_at)}</p>
+        <p className="mt-2 text-xs text-muted-foreground">{formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)} · Updated {formatRelativeTimestamp(invoice.last_activity_at)}{invoice.approved_at && ['approved', 'accounts_approved'].includes(invoice.approval_status) ? ` · Approved ${formatApprovedDate(invoice.approved_at)}${invoice.approvedBy?.name ? ` by ${invoice.approvedBy.name}` : ''}` : ''}</p>
       </div>
       <div className="shrink-0"><p className="text-xs text-muted-foreground">Invoice total</p><p className="mt-1 text-xl font-semibold tabular-nums">{formatCurrency(invoice.total_amount)}</p></div>
     </header>

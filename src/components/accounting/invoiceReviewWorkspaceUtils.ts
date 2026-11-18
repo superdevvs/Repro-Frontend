@@ -45,6 +45,14 @@ export const formatRelativeTimestamp = (value?: string | null) => {
   return formatDistanceToNowStrict(parsed, { addSuffix: true });
 };
 
+/** Calendar date an invoice was approved by accounts, e.g. "Nov 12, 2026". Empty when not approved yet. */
+export const formatApprovedDate = (value?: string | null) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', year: 'numeric' }).format(parsed);
+};
+
 export const getStatusLabel = (status: string) => {
   switch (status) {
     case 'pending':
@@ -93,4 +101,32 @@ export const getSalesRepCommissionSummary = (invoice: WeeklyInvoice) => {
     commissionAmount: Number(invoice.total_amount || 0),
     isFrozen: Boolean(snapshot),
   };
+};
+
+export const buildReviewQueueExport = (invoices: WeeklyInvoice[], role: 'photographer' | 'salesRep', payeeLabel: string) => {
+  const columns = [
+    { key: 'payee', label: payeeLabel },
+    { key: 'email', label: 'Email' },
+    { key: 'period', label: 'Billing Period' },
+    { key: 'status', label: 'Status' },
+    { key: 'shoots', label: 'Shoots' },
+    { key: 'expenses', label: 'Expenses' },
+    { key: 'total', label: 'Total' },
+    { key: 'approvedOn', label: 'Approved On' },
+    { key: 'approvedBy', label: 'Approved By' },
+    { key: 'updated', label: 'Last Updated' },
+  ] as const;
+  const rows = invoices.map((invoice) => ({
+    payee: role === 'salesRep' ? invoice.salesRep?.name || 'Sales Rep' : invoice.photographer?.name || 'Photographer',
+    email: role === 'salesRep' ? invoice.salesRep?.email || '' : invoice.photographer?.email || '',
+    period: formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end),
+    status: getStatusLabel(invoice.approval_status),
+    shoots: invoice.shoot_count || 0,
+    expenses: invoice.expense_count || 0,
+    total: formatCurrency(invoice.total_amount),
+    approvedOn: formatApprovedDate(invoice.approved_at),
+    approvedBy: invoice.approved_at ? invoice.approvedBy?.name || '' : '',
+    updated: formatRelativeTimestamp(invoice.last_activity_at),
+  }));
+  return { columns, rows };
 };

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WeeklyInvoice } from '@/services/invoiceService';
-import { getSalesRepCommissionSummary } from './invoiceReviewWorkspaceUtils';
+import { buildReviewQueueExport, formatApprovedDate, getSalesRepCommissionSummary } from './invoiceReviewWorkspaceUtils';
 
 describe('Sales commission review amounts', () => {
   it('preserves a frozen zero rate and zero excluded fees over current item metadata', () => {
@@ -22,5 +22,28 @@ describe('Sales commission review amounts', () => {
       { meta: { commissionable_gross: 50, excluded_fees_total: 5 } },
     ] } as unknown as WeeklyInvoice;
     expect(getSalesRepCommissionSummary(invoice)).toMatchObject({ commissionableGross: 150, excludedFeeTotal: 15, commissionRate: 12, isFrozen: false });
+  });
+});
+
+const approved = {
+  id: 7, photographer: { id: 11, name: 'Alice', email: 'alice@example.com' }, approval_status: 'accounts_approved', total_amount: 100,
+  billing_period_start: '2026-11-01', billing_period_end: '2026-11-07',
+  // Submitted on the 9th, approved on the 12th: the export must show the 12th.
+  modified_at: '2026-11-09T15:00:00.000Z', last_activity_at: '2026-11-09T15:00:00.000Z',
+  approved_at: '2026-11-12T15:00:00.000Z', approvedBy: { id: 3, name: 'Accounts Admin', email: 'accounts@example.com' },
+} as unknown as WeeklyInvoice;
+const waiting = { ...approved, id: 8, approval_status: 'pending_approval', approved_at: undefined, approvedBy: null } as unknown as WeeklyInvoice;
+
+describe('payout review queue export', () => {
+  it('shows the calendar day accounts approved the invoice, and who approved it', () => {
+    const { columns, rows } = buildReviewQueueExport([approved, waiting], 'photographer', 'Photographer');
+    expect(columns.map((column) => column.label)).toEqual(expect.arrayContaining(['Approved On', 'Approved By', 'Last Updated']));
+    expect(rows[0]).toMatchObject({ payee: 'Alice', approvedOn: 'Nov 12, 2026', approvedBy: 'Accounts Admin' });
+    expect(rows[1]).toMatchObject({ approvedOn: '', approvedBy: '' });
+  });
+
+  it('leaves the approval date blank for missing or invalid values', () => {
+    expect(formatApprovedDate(null)).toBe('');
+    expect(formatApprovedDate('not-a-date')).toBe('');
   });
 });

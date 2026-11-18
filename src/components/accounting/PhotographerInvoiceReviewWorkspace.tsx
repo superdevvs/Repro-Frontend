@@ -66,7 +66,8 @@ import {
   STATUS_OPTIONS,
   formatBillingPeriod,
   formatCurrency,
-  formatRelativeTimestamp,
+  buildReviewQueueExport,
+  formatApprovedDate,
   getInvoiceWarnings,
   getStatusBadgeClassName,
   getStatusLabel,
@@ -312,27 +313,7 @@ export function PhotographerInvoiceReviewWorkspace({
           return true;
         });
       }
-      const rows = exportQueue.map((invoice) => ({
-      payee: role === 'salesRep' ? invoice.salesRep?.name || 'Sales Rep' : invoice.photographer?.name || 'Photographer',
-      email: role === 'salesRep' ? invoice.salesRep?.email || '' : invoice.photographer?.email || '',
-      period: formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end),
-      status: getStatusLabel(invoice.approval_status),
-      shoots: invoice.shoot_count || 0,
-      expenses: invoice.expense_count || 0,
-      total: formatCurrency(invoice.total_amount),
-      updated: formatRelativeTimestamp(invoice.last_activity_at),
-      }));
-
-    const columns = [
-      { key: 'payee', label: resolvedShortLabel },
-      { key: 'email', label: 'Email' },
-      { key: 'period', label: 'Billing Period' },
-      { key: 'status', label: 'Status' },
-      { key: 'shoots', label: 'Shoots' },
-      { key: 'expenses', label: 'Expenses' },
-      { key: 'total', label: 'Total' },
-      { key: 'updated', label: 'Last Updated' },
-    ] as const;
+      const { columns, rows } = buildReviewQueueExport(exportQueue, role, resolvedShortLabel);
 
     const fileName = `${resolvedShortLabel.toLowerCase().replace(/\s+/g, '-')}-review-queue`;
 
@@ -538,7 +519,7 @@ export function PhotographerInvoiceReviewWorkspace({
                   <Checkbox checked={selectedDownloadInvoices.has(invoice.id)} onCheckedChange={(checked) => toggleDownloadSelection(invoice, checked === true)} aria-label={`Select invoice W-${invoice.id} for export`} className="mt-1" />
                   <button type="button" className="min-w-0 flex-1 text-left" aria-pressed={invoice.id === selectedInvoiceId} onClick={() => handleSelectInvoice(invoice.id)}>
                     <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1"><span className="truncate text-sm font-semibold">{payee?.name || resolvedShortLabel}</span><span className="text-sm font-semibold tabular-nums">{formatCurrency(invoice.total_amount)}</span></div>
-                    <p className="mt-1 text-xs text-muted-foreground">{formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{formatBillingPeriod(invoice.billing_period_start, invoice.billing_period_end)}{invoice.approved_at && ['approved', 'accounts_approved'].includes(invoice.approval_status) ? ` · Approved ${formatApprovedDate(invoice.approved_at)}` : ''}</p>
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2"><span className="text-xs text-muted-foreground">W-{invoice.id} · {invoice.shoot_count || 0} shoots · {invoice.expense_count || 0} expenses</span><Badge variant="outline" className={cn('text-[10px]', getStatusBadgeClassName(invoice.approval_status))}>{invoice.payout_review?.label || getStatusLabel(invoice.approval_status)}</Badge></div>
                   </button>
                   <ReviewInvoiceDownloadMenu invoice={invoice} onDownload={handleInvoiceDownload} />
