@@ -1,16 +1,20 @@
 import { ExternalLink } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import type { DeliveryPlan } from '@/services/mediaMarkService';
-import { automaticDeliveryMethod, deliveryServiceGroups } from './simpleDeliverySelection';
+import { automaticDeliveryMethod, canCompleteWithoutContent, deliveryServiceGroups, type MissingWork } from './simpleDeliverySelection';
 
-export function MediaMarkDeliveryPanel({ plan, withoutContent, onWithoutContentChange, selected, onSelect, reason, onReasonChange, disabled = false }: {
-  plan: DeliveryPlan; withoutContent: boolean; onWithoutContentChange: (value: boolean) => void;
+export function MediaMarkDeliveryPanel({ plan, missingWork, onMissingWorkChange, selected, onSelect, reason, onReasonChange, confirmed, onConfirmedChange, disabled = false }: {
+  plan: DeliveryPlan; missingWork: MissingWork; onMissingWorkChange: (value: MissingWork) => void;
   selected: string[]; onSelect: (ids: string[], checked: boolean) => void;
-  reason: string; onReasonChange: (value: string) => void; disabled?: boolean;
+  reason: string; onReasonChange: (value: string) => void;
+  confirmed: boolean; onConfirmedChange: (value: boolean) => void; disabled?: boolean;
 }) {
+  const withoutContent = missingWork;
   const groups = deliveryServiceGroups(plan);
   const missing = plan.components.filter(component => selected.includes(component.id)
     && automaticDeliveryMethod(component, withoutContent) === 'defer');
+  const completing = plan.components.filter(component => selected.includes(component.id)
+    && automaticDeliveryMethod(component, withoutContent) === 'manual_no_content');
   return <div className="simple-finalise">
     <div className="simple-finalise-columns"><span>Services</span><span>Status</span></div>
     <ul aria-label="Booked services" className="simple-finalise-services">
@@ -38,6 +42,7 @@ export function MediaMarkDeliveryPanel({ plan, withoutContent, onWithoutContentC
                 checked={selected.includes(component.id)} disabled={disabled || !method || !eligible.includes(component)}
                 onChange={event => onSelect([component.id], event.target.checked)} /><span>{component.label}</span></label>}
               <span>{component.resolved ? (component.status === 'cancelled' ? 'Cancelled' : 'Delivered')
+                : method === 'manual_no_content' && selected.includes(component.id) ? 'Completes without content'
                 : component.status !== 'ready' && (component.deferred || method === 'defer' && selected.includes(component.id)) ? 'Pending — deliver when ready'
                   : component.status === 'ready' ? component.file_ids.length ? `${component.output_count ?? component.file_ids.length} ${component.kind === 'photo' ? 'photos' : 'files'} ready` : 'Provider output ready'
                     : component.reason || 'Still being prepared'}</span>
@@ -51,7 +56,18 @@ export function MediaMarkDeliveryPanel({ plan, withoutContent, onWithoutContentC
     {!groups.length && <p className="mark-notice">No outstanding delivery work.</p>}
     {plan.capabilities.can_finalize && plan.components.some(component => component.status === 'pending' && !component.deferred && component.methods.includes('defer')) && <div className="simple-finalise-toggle">
       <div><label htmlFor="finalise-without-content">Finalise without waiting</label><p>Release ready content. Missing work stays pending.</p></div>
-      <Switch id="finalise-without-content" checked={withoutContent} disabled={disabled} onCheckedChange={onWithoutContentChange} />
+      <Switch id="finalise-without-content" checked={missingWork === 'later'} disabled={disabled} onCheckedChange={value => onMissingWorkChange(value ? 'later' : 'none')} />
+    </div>}
+    {canCompleteWithoutContent(plan) && <div className="simple-finalise-toggle">
+      <div><label htmlFor="complete-without-content">Complete without content</label><p>Mark selected missing work as done. Nothing more will be delivered for it.</p></div>
+      <Switch id="complete-without-content" checked={missingWork === 'complete'} disabled={disabled} onCheckedChange={value => onMissingWorkChange(value ? 'complete' : 'none')} />
+    </div>}
+    {completing.length > 0 && <div className="mark-field">
+      <label className="mark-field">Reason for completing without content
+        <textarea value={reason} disabled={disabled} onChange={event => onReasonChange(event.target.value)} rows={2} maxLength={2000}
+          placeholder="Why is this work complete without content?" /></label>
+      <label className="mark-confirm"><input type="checkbox" checked={confirmed} disabled={disabled} onChange={event => onConfirmedChange(event.target.checked)} />
+        <span>I confirm {completing.map(component => component.label).join(', ')} is complete without content.</span></label>
     </div>}
     {missing.length > 0 && <label className="mark-field">Reason for proceeding
       <textarea value={reason} disabled={disabled} onChange={event => onReasonChange(event.target.value)} rows={2} maxLength={2000}

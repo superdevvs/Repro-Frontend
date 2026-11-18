@@ -16,7 +16,7 @@ import { formatUploadFileSize } from '../mediaUploadUtils';
 import { MediaMarkTypePanel } from './MediaMarkTypePanel';
 import { MediaMarkServicePanel } from './MediaMarkServicePanel';
 import { MediaMarkDeliveryPanel } from './MediaMarkDeliveryPanel';
-import { automaticDeliveryMethod, deliveryServiceGroups, readyDeliverySelection } from './simpleDeliverySelection';
+import { automaticDeliveryMethod, deliveryServiceGroups, readyDeliverySelection, type MissingWork } from './simpleDeliverySelection';
 import { MEDIA_MARK_EVENT, type MediaMarkRequest, type MediaMarkTab } from './mediaMarkEvents';
 import './mediaMarkDialog.css';
 
@@ -49,7 +49,8 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
   const [assignmentReason, setAssignmentReason] = useState('');
   const [historicalConfirmed, setHistoricalConfirmed] = useState(false);
   const [previewing, setPreviewing] = useState(false);
-  const [withoutContent, setWithoutContent] = useState(false);
+  const [withoutContent, setWithoutContent] = useState<MissingWork>('none');
+  const [completionConfirmed, setCompletionConfirmed] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -92,20 +93,21 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
   }, [shootId, targetId, canAssign, idKey, discovery, historical, assignmentReason]);
 
   const changed = async () => { refresh(shootId); await request.onChanged?.(); };
-  const changeWithoutContent = (next: boolean) => {
-    setWithoutContent(next); setReason(''); setAttemptKey(crypto.randomUUID());
-    // Enabling an exception never opts pending work in. Disabling it removes only missing work.
-    if (!next) setSelected(previous => previous.filter(id => plan?.components.some(component => component.id === id && automaticDeliveryMethod(component))));
+  const changeWithoutContent = (next: MissingWork) => {
+    setWithoutContent(next); setReason(''); setCompletionConfirmed(false); setAttemptKey(crypto.randomUUID());
+    // Enabling an exception never opts pending work in. Changing it removes only missing work.
+    setSelected(previous => previous.filter(id => plan?.components.some(component => component.id === id && automaticDeliveryMethod(component))));
   };
   const select = (componentIds: string[], checked: boolean) => { setSelected(previous => checked ? [...new Set([...previous, ...componentIds])] : previous.filter(id => !componentIds.includes(id))); setAttemptKey(crypto.randomUUID()); };
   const selectedComponents = plan?.components.filter(component => selected.includes(component.id)) ?? [];
-  const hasMissingSelection = selectedComponents.some(component => automaticDeliveryMethod(component, withoutContent) === 'defer');
+  const hasMissingSelection = selectedComponents.some(component => ['defer', 'manual_no_content'].includes(automaticDeliveryMethod(component, withoutContent) ?? ''));
+  const completesWithoutContent = selectedComponents.some(component => automaticDeliveryMethod(component, withoutContent) === 'manual_no_content');
   const canApply = !busy && !saved && !loading && (tab === 'type' ? allowType && Boolean(type)
     : tab === 'service' ? canAssign && preview?.can_apply && !previewing && ids.length > 0 && ids.length === files.length && (!preview.requires_historical_confirmation || historicalConfirmed) && (!discovery?.files.some(file => file.shoot_service_id != null) || assignmentReason.trim().length >= 3)
       : canDeliver && selected.length > 0 && selectedComponents.length === selected.length
         && selectedComponents.every(component => automaticDeliveryMethod(component, withoutContent)
           && plan?.capabilities.can_finalize)
-        && (!hasMissingSelection || reason.trim().length >= 5));
+        && (!hasMissingSelection || reason.trim().length >= 5) && (!completesWithoutContent || completionConfirmed));
   const apply = async () => {
     if (!canApply) return;
     setBusy(true); setError('');
@@ -119,9 +121,11 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
         await applyServiceAssignment(shootId, { file_ids: ids, shoot_service_id: Number(targetId), expected_target_unit_id: discovery?.targets.find(target => String(target.id) === targetId)?.unit_id ?? null, expected_files: assignmentIdentities(preview?.files ?? []), idempotency_key: attemptKey, reason: assignmentReason.trim() || undefined, confirm_historical: historical, expected_receipt_revision: preview?.receipt_revision });
         setSaved(`Assigned ${ids.length} file${ids.length === 1 ? '' : 's'} to the booked service.`);
       } else if (plan) {
-        const outcome = await finalizeShootWithProgressToast({ shootId, shootLabel: request.shootLabel, body: { final_status: 'admin_verified', component_ids: selected, mode: 'auto', allow_without_content: withoutContent, reason: hasMissingSelection ? reason.trim() : undefined, plan_revision: plan.revision, idempotency_key: attemptKey, confirmed: true }, onRefresh: changed });
+        const outcome = await finalizeShootWithProgressToast({ shootId, shootLabel: request.shootLabel, body: { final_status: 'admin_verified', component_ids: selected, mode: 'auto', allow_without_content: withoutContent === 'later', ...(withoutContent === 'complete' ? { complete_without_content: true } : {}), reason: hasMissingSelection ? reason.trim() : undefined, plan_revision: plan.revision, idempotency_key: attemptKey, confirmed: true }, onRefresh: changed });
         if (outcome.status === 'failed' || outcome.status === 'error') throw new Error(outcome.message);
-        setSaved(outcome.status === 'pending' ? 'Delivery is running in the background. The selected work will refresh when it finishes.' : 'Ready content has been released. Missing work remains pending and will update when it is ready.');
+        setSaved(outcome.status === 'pending' ? 'Delivery is running in the background. The selected work will refresh when it finishes.'
+          : completesWithoutContent ? 'Ready content has been released and the selected work was completed without content.'
+            : 'Ready content has been released. Missing work remains pending and will update when it is ready.');
       }
       await changed();
       toast({ title: 'Changes saved', description: tab === 'service' ? 'Service assignment updated.' : tab === 'type' ? 'Media category updated.' : 'Delivery status refreshed.' });
@@ -159,7 +163,7 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
         : loading && tab !== 'type' ? <div className="mark-empty" role="status"><InlineSpinner /><p>Checking the latest work and permissions…</p></div>
           : tab === 'type' ? <MediaMarkTypePanel value={type} onChange={setType} allowed={allowType} />
             : tab === 'service' && canAssign ? <MediaMarkServicePanel discovery={discovery} targetId={targetId} onChange={id => { setTargetId(id); setHistoricalConfirmed(false); setAttemptKey(crypto.randomUUID()); }} preview={preview} previewing={previewing} count={ids.length} historical={historical} onHistorical={value => { setHistorical(value); setHistoricalConfirmed(false); setTargetId(''); setPreview(null); setAttemptKey(crypto.randomUUID()); }} reason={assignmentReason} onReason={value => { setAssignmentReason(value); setHistoricalConfirmed(false); setAttemptKey(crypto.randomUUID()); }} historicalConfirmed={historicalConfirmed} onHistoricalConfirm={setHistoricalConfirmed} />
-              : tab === 'delivery' && plan && canDeliver ? <MediaMarkDeliveryPanel plan={plan} withoutContent={withoutContent} onWithoutContentChange={changeWithoutContent} selected={selected} onSelect={select} reason={reason} onReasonChange={value => { setReason(value); setAttemptKey(crypto.randomUUID()); }} disabled={busy} />
+              : tab === 'delivery' && plan && canDeliver ? <MediaMarkDeliveryPanel plan={plan} missingWork={withoutContent} onMissingWorkChange={changeWithoutContent} confirmed={completionConfirmed} onConfirmedChange={value => { setCompletionConfirmed(value); setAttemptKey(crypto.randomUUID()); }} selected={selected} onSelect={select} reason={reason} onReasonChange={value => { setReason(value); setAttemptKey(crypto.randomUUID()); }} disabled={busy} />
                 : <div className="mark-empty"><Layers3 /><h3>This action is unavailable</h3><p>Your current permissions or this shoot’s work state do not allow this change.</p></div>}
     </div>
     <div className="mark-footer"><p>{saved ? 'The shoot and media library have been refreshed.' : tab === 'delivery' ? `${selectedServices} service${selectedServices === 1 ? '' : 's'} selected${pendingServices.length ? ` · ${pendingServices.length === 1 ? pendingServices[0] + ' stays' : 'Other work stays'} pending` : ''}` : tab === 'service' ? 'A service assignment is separate from the media type.' : 'Applies to the selected files only.'}</p><div><Button variant="ghost" disabled={busy} onClick={onClose}>{saved ? 'Close' : 'Cancel'}</Button>{!saved && <Button disabled={!canApply} onClick={() => void apply()}>{busy ? <InlineSpinner /> : <Check />}{busy ? 'Saving…' : tab === 'type' ? 'Save type' : tab === 'service' ? 'Assign service' : 'Finalise'}{!busy && <ArrowRight />}</Button>}</div></div>

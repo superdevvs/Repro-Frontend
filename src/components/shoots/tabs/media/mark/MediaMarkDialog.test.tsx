@@ -96,6 +96,22 @@ describe('shared media Mark workspace', () => {
     expect(screen.queryByRole('switch')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Finalise' })).toBeDisabled();
   });
+  it('completes previously deferred work without content only after a reason and confirmation', async () => {
+    mocks.plan.mockResolvedValue({ ...plan(), components: [component('photos', 'photo', 'delivered'), { ...component('plans', 'floorplan', 'pending'), deferred: true, methods: ['defer', 'manual_no_content'] }] });
+    show('delivery'); await screen.findByRole('switch', { name: 'Complete without content' });
+    expect(screen.queryByRole('switch', { name: 'Finalise without waiting' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('switch', { name: 'Complete without content' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Floorplans — Showcase' }));
+    expect(screen.getByText('Completes without content')).toBeInTheDocument();
+    const apply = screen.getByRole('button', { name: 'Finalise' });
+    expect(apply).toBeDisabled();
+    fireEvent.change(screen.getByRole('textbox', { name: /Reason for completing without content/ }), { target: { value: 'Client cancelled the floorplan' } });
+    expect(apply).toBeDisabled();
+    fireEvent.click(screen.getByRole('checkbox', { name: /I confirm Floorplans is complete without content/ }));
+    expect(apply).toBeEnabled();
+    fireEvent.click(apply); await screen.findByText('All set');
+    expect(mocks.finalize).toHaveBeenCalledWith(expect.objectContaining({ body: expect.objectContaining({ component_ids: ['plans'], mode: 'auto', allow_without_content: false, complete_without_content: true, reason: 'Client cancelled the floorplan', confirmed: true }) }));
+  });
   it('offers newly ready content even when its earlier deferral is still recorded', async () => {
     mocks.plan.mockResolvedValue({ ...plan(), components: [{ ...component('plans', 'floorplan', 'ready'), deferred: true }] });
     render(<MediaMarkDialog request={{ shootId: 5935, initialTab: 'delivery' }} onClose={vi.fn()} />);

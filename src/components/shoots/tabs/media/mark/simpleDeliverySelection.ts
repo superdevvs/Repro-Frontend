@@ -1,14 +1,23 @@
 import type { DeliveryComponent, DeliveryPlan } from '@/services/mediaMarkService';
 
-export function automaticDeliveryMethod(component: DeliveryComponent, withoutContent = false) {
+/** How missing work is handled: wait for it, deliver it later (defer), or complete it without content. */
+export type MissingWork = 'none' | 'later' | 'complete';
+
+export function automaticDeliveryMethod(component: DeliveryComponent, missing: MissingWork | boolean = 'none') {
+  const mode: MissingWork = missing === true ? 'later' : missing === false ? 'none' : missing;
   if (component.resolved || ['delivered', 'cancelled'].includes(component.status)) return null;
   if (component.status === 'ready') {
     if (component.methods.includes('media')) return 'media';
     if (component.methods.includes('external')) return 'external';
   }
-  if (!withoutContent && component.methods.includes('external') && component.reason_codes.includes('external_review_required')) return 'external';
-  return withoutContent && !component.deferred && component.methods.includes('defer') ? 'defer' : null;
+  if (mode === 'complete') return component.methods.includes('manual_no_content') ? 'manual_no_content' : null;
+  if (mode !== 'later' && component.methods.includes('external') && component.reason_codes.includes('external_review_required')) return 'external';
+  return mode === 'later' && !component.deferred && component.methods.includes('defer') ? 'defer' : null;
 }
+
+/** Work the actor may close without content, including work deferred earlier. */
+export const canCompleteWithoutContent = (plan: DeliveryPlan) => plan.capabilities.can_manual_no_content
+  && plan.components.some(component => !component.resolved && component.status !== 'ready' && component.methods.includes('manual_no_content'));
 
 export function readyDeliverySelection(plan: DeliveryPlan, fileIds: number[] = []) {
   return plan.components.filter(component => component.status === 'ready' && automaticDeliveryMethod(component)
