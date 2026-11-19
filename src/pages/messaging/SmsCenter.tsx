@@ -18,7 +18,7 @@ import {
   updateSmsContactComment,
   getTemplates,
 } from '@/services/messaging';
-import type { SmsInboxScope, SmsContact, SmsThreadDetail, SmsThreadFilter } from '@/types/messaging';
+import type { SmsInboxScope, SmsContact, SmsThreadDetail, SmsThreadFilter, SmsThreadSummary } from '@/types/messaging';
 import { useSmsRealtime } from '@/hooks/use-sms-realtime';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
@@ -33,6 +33,29 @@ import { canViewSystemSms } from '@/utils/messagingRoles';
 import { SmsSenderSelect } from '@/components/messaging/sms/SmsSenderSelect';
 import { MessageSquarePlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { sendSmsWithAttachments } from '@/services/messageMedia';
+import { useSmsAttachmentDrafts } from '@/components/messaging/sms/useSmsAttachmentDrafts';
+import { smsMessageAttachmentsKey, useSmsMessageAttachments } from '@/components/messaging/sms/useSmsMessageAttachments';
+import type { SmsMessageDetail } from '@/types/messaging';
+
+const NO_MESSAGES: SmsMessageDetail[] = [];
+
+type AttachmentSendFailure = { response?: { status?: number; data?: { status?: unknown; message?: unknown; result?: { message?: unknown } } } };
+
+/**
+ * What a failed send with attachments means for the draft:
+ * - `offline`: the request may or may not have arrived; repeating it with the same key is safe.
+ * - `reserved`: the server kept the uploads with the unsent message, so the files must be uploaded again.
+ * - `refused`: nothing was reserved; fix the draft and send again.
+ */
+const attachmentSendFailure = (error: unknown): { kind: 'offline' | 'reserved' | 'refused'; message?: string } => {
+  const response = (error as AttachmentSendFailure | null)?.response;
+  if (!response?.status) return { kind: 'offline' };
+  const data = response.data ?? {};
+  const message = [data.result?.message, data.message].find((value): value is string => typeof value === 'string' && value.length > 0);
+  const reserved = data.result !== undefined || data.status === 'uncertain' || response.status === 409;
+  return { kind: reserved ? 'reserved' : 'refused', message };
+};
 
 export default function SmsCenter() {
   const queryClient = useQueryClient();
@@ -40,7 +63,7 @@ export default function SmsCenter() {
   const location = useLocation();
   const currentLocation = useRef(location.key);
   currentLocation.current = location.key;
-  const { role, user } = useAuth();
+  const { role, user, isImpersonating } = useAuth();
   const actorKey = `${user?.id}:${role}`;
   const currentActor = useRef(actorKey);
   currentActor.current = actorKey;
@@ -58,6 +81,10 @@ export default function SmsCenter() {
   const [desktopThreadId, setDesktopThreadId] = useState<string | null>(null);
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [senderChoices, setSenderChoices] = useState<Record<string, number>>({});
+  const attachmentDrafts = useSmsAttachmentDrafts();
+  const [attachmentNotices, setAttachmentNotices] = useState<Record<string, string[]>>({});
+  // A send that lost its connection is repeated with the same key so the API can refuse a second text.
+  const sendKeys = useRef<Record<string, { fingerprint: string; key: string }>>({});
   const composeOpen = searchParams.get('compose') === 'new';
   const currentCompose = useRef(composeOpen);
   currentCompose.current = composeOpen;
@@ -147,6 +174,8 @@ export default function SmsCenter() {
   });
 
   const threadDetail = threadDetailQuery.data?.thread.id === activeThreadId ? threadDetailQuery.data : undefined;
+  const draftAttachments = activeThreadId ? attachmentDrafts.itemsFor(draftKey) : [];
+  const messageAttachments = useSmsMessageAttachments(activeThreadId, threadDetail?.messages ?? NO_MESSAGES, actorKey);
   const senderNumbersQuery = useQuery({
     queryKey: ['sms-senders', user?.id, role],
     queryFn: () => getSmsSenders(),
@@ -207,11 +236,28 @@ export default function SmsCenter() {
   }, [activeThreadId, markThreadRead, user?.id, role]);
 
   const sendMutation = useMutation({
-    mutationFn: ({ body, threadId, senderId }: { body: string; threadId: string; draftKey: string; senderId?: number; actorKey: string }) => {
-      return sendSmsMessageToThread(threadId, { body, sms_number_id: senderId });
+    mutationFn: async ({ body, threadId, senderId, attachmentIds, requestKey }: {
+      body: string; threadId: string; draftKey: string; senderId?: number; actorKey: string; attachmentIds: string[]; requestKey?: string;
+    }): Promise<Awaited<ReturnType<typeof sendSmsMessageToThread>>> => {
+      // Text-only replies keep their original route.
+      if (attachmentIds.length === 0 || !requestKey) return sendSmsMessageToThread(threadId, { body, sms_number_id: senderId });
+      const sent = await sendSmsWithAttachments({
+        request_key: requestKey, conversation_id: threadId, body, sender_id: senderId, attachment_ids: attachmentIds,
+      });
+      if (!sent.success) throw { response: { status: 422, data: sent } };
+      return {
+        message: sent.result?.message as SmsMessageDetail,
+        thread: sent.result?.thread as SmsThreadSummary,
+        failed: sent.result?.failed,
+      };
     },
     onSuccess: (result, sent) => {
       queryClient.invalidateQueries({ queryKey: ['sms-threads'] });
+      delete sendKeys.current[sent.draftKey];
+      if (sent.attachmentIds.length > 0) {
+        attachmentDrafts.clearSent(sent.draftKey, sent.attachmentIds);
+        queryClient.invalidateQueries({ queryKey: [smsMessageAttachmentsKey] });
+      }
       if (!mounted.current || currentActor.current !== sent.actorKey) return;
       setDrafts(previous => previous[sent.draftKey]?.trim() === sent.body ? { ...previous, [sent.draftKey]: '' } : previous);
       queryClient.invalidateQueries({ queryKey: ['sms-thread', sent.threadId] });
@@ -234,7 +280,28 @@ export default function SmsCenter() {
         toast.warning(`${result.failed} ${result.failed === 1 ? 'person was' : 'people were'} not sent`);
       }
     },
-    onError: (_error, sent) => { if (mounted.current && currentActor.current === sent.actorKey) toast.error('Unable to send message'); },
+    onError: (error, sent) => {
+      const active = mounted.current && currentActor.current === sent.actorKey;
+      if (sent.attachmentIds.length === 0) {
+        if (active) toast.error('Unable to send message');
+        return;
+      }
+      const failure = attachmentSendFailure(error);
+      if (failure.kind === 'offline') {
+        if (active) toast.error('Connection lost while sending. Select Send again; the message will not go out twice.');
+        return;
+      }
+      delete sendKeys.current[sent.draftKey];
+      if (failure.kind === 'reserved') {
+        // The text stays in the draft; the files are uploaded again so it can be re-sent.
+        attachmentDrafts.uploadAgain(sent.draftKey, sent.attachmentIds);
+        queryClient.invalidateQueries({ queryKey: ['sms-thread', sent.threadId] });
+        queryClient.invalidateQueries({ queryKey: [smsMessageAttachmentsKey] });
+        if (active) toast.error(`${failure.message ?? 'The message was not sent.'} Check the conversation, then send again once the files finish attaching.`);
+        return;
+      }
+      if (active) toast.error(failure.message ?? 'Unable to send message');
+    },
   });
 
   const composeMutation = useMutation({
@@ -373,8 +440,21 @@ export default function SmsCenter() {
   });
 
   const handleSend = () => {
-    if (!composerText.trim() || !activeThreadId || senderUnavailable) return;
-    sendMutation.mutate({ body: composerText.trim(), threadId: activeThreadId, draftKey, actorKey, senderId: role === 'superadmin' ? selectedSenderId : undefined });
+    const body = composerText.trim();
+    if (!activeThreadId || senderUnavailable || sendMutation.isPending) return;
+    if (draftAttachments.some(item => item.status !== 'ready')) return;
+    if (!body && draftAttachments.length === 0) return;
+    const senderId = role === 'superadmin' ? selectedSenderId : undefined;
+    const attachmentIds = draftAttachments.map(item => item.id);
+    let requestKey: string | undefined;
+    if (attachmentIds.length > 0) {
+      const fingerprint = JSON.stringify([activeThreadId, body, senderId ?? null, attachmentIds]);
+      const pending = sendKeys.current[draftKey];
+      requestKey = pending?.fingerprint === fingerprint ? pending.key : crypto.randomUUID();
+      sendKeys.current[draftKey] = { fingerprint, key: requestKey };
+    }
+    setAttachmentNotices(previous => ({ ...previous, [draftKey]: [] }));
+    sendMutation.mutate({ body, threadId: activeThreadId, draftKey, actorKey, senderId, attachmentIds, requestKey });
   };
 
   const handleContactUpdate = async (payload: Parameters<typeof updateSmsContact>[1]) => {
@@ -508,6 +588,20 @@ export default function SmsCenter() {
                 onSend={handleSend}
                 sending={replySending}
                 sendDisabled={senderUnavailable}
+                messageAttachments={messageAttachments.attachments}
+                messageAttachmentsLoading={messageAttachments.loading}
+                draftAttachments={draftAttachments}
+                onAttachFiles={(files) => {
+                  const refused = attachmentDrafts.add(draftKey, files);
+                  setAttachmentNotices(previous => ({ ...previous, [draftKey]: refused }));
+                }}
+                onRemoveAttachment={(key) => {
+                  attachmentDrafts.remove(draftKey, key);
+                  setAttachmentNotices(previous => ({ ...previous, [draftKey]: [] }));
+                }}
+                onRetryAttachment={(key) => attachmentDrafts.retry(draftKey, key)}
+                attachUnavailableReason={isImpersonating ? 'Attachments are unavailable while you are viewing as another user.' : undefined}
+                attachmentNotice={attachmentNotices[draftKey]}
                 senderControl={role === 'superadmin' ? <SmsSenderSelect
                   compact
                   numbers={senderNumbers}

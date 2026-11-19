@@ -4,6 +4,9 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Sparkles } from 'lucide-react';
 import { parseSmsReaction, type SmsReactionBadge } from './smsReaction';
+import type { MessageMediaFile } from '@/services/messageMedia';
+import { SmsMessageAttachments } from './SmsMessageAttachments';
+import { splitAttachmentLink } from './smsAttachments';
 
 const URL_PATTERN = /https?:\/\/[^\s<>"'“”„‟«»‘’]+/g;
 
@@ -41,9 +44,12 @@ function MessageText({ text }: { text: string }) {
 interface SmsMessageBubbleProps {
   message: SmsMessageDetail;
   reactions?: SmsReactionBadge[];
+  attachments?: MessageMediaFile[];
+  /** True while this conversation's attachments are still being looked up. */
+  attachmentsLoading?: boolean;
 }
 
-export const SmsMessageBubble = ({ message, reactions = [] }: SmsMessageBubbleProps) => {
+export const SmsMessageBubble = ({ message, reactions = [], attachments = [], attachmentsLoading = false }: SmsMessageBubbleProps) => {
   const isOutbound = message.direction === 'OUTBOUND';
   const timestamp = message.sentAt ? format(new Date(message.sentAt), 'MMM d • h:mm a') : '';
   const senderLabel = isOutbound ? (message.aiGenerated ? 'Robbie' : 'You') : 'Them';
@@ -54,6 +60,11 @@ export const SmsMessageBubble = ({ message, reactions = [] }: SmsMessageBubblePr
     sender: message.from || 'Contact',
     reactedAt: message.sentAt,
   }] : reactions;
+  // Sent attachments travel as one link appended to the text. Show the files
+  // themselves instead, and keep the raw link only if they cannot be listed.
+  const body = message.body ?? '';
+  const link = isOutbound ? splitAttachmentLink(body) : { text: body, count: 0 };
+  const text = link.count > 0 && (attachments.length > 0 || attachmentsLoading) ? link.text : body;
 
   return (
     <div className={cn('flex w-full', isOutbound ? 'justify-end' : 'justify-start')}>
@@ -75,9 +86,18 @@ export const SmsMessageBubble = ({ message, reactions = [] }: SmsMessageBubblePr
               <MessageText text={reaction.quotedMessage} />
             </blockquote>
           ) : (
-            <p className="whitespace-pre-line text-base leading-snug lg:text-sm">
-              <MessageText text={message.body ?? ''} />
-            </p>
+            <>
+              {attachments.length > 0 && (
+                <div className={text ? 'mb-2 mt-1.5' : 'mt-1.5'}>
+                  <SmsMessageAttachments attachments={attachments} outbound={isOutbound} />
+                </div>
+              )}
+              {(text || attachments.length === 0) && (
+                <p className="whitespace-pre-line text-base leading-snug lg:text-sm">
+                  <MessageText text={text} />
+                </p>
+              )}
+            </>
           )}
           <p className={cn('mt-1 text-xs', isOutbound ? 'text-primary-foreground/70' : 'text-muted-foreground')}>
             {senderLabel} • {timestamp}

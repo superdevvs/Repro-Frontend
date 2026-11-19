@@ -55,4 +55,22 @@ describe('SmsThreadListItem reaction previews', () => {
     expect(screen.getByText(body)).toBeTruthy();
     expect(screen.queryByText('👍 Liked your message')).toBeNull();
   });
+
+  it('names attachments in the preview instead of showing their link', () => {
+    const link = 'https://api.reprodashboard.com/api/messaging/media/bundle/5f0c2f6e-8d3b-4a53-9c38-1c4f1f6f2a10?expires=1797000000&signature=abc';
+    const { container } = render(<SmsThreadListItem thread={thread(`Floor plans attached
+
+Attachments (2)
+${link}`, 'OUTBOUND')} />);
+
+    expect(screen.getByText('Floor plans attached · 2 attachments')).toBeTruthy();
+    expect(container.textContent).not.toContain('https://');
+  });
+
+  it('labels a received photo that came without text', () => {
+    render(<SmsThreadListItem thread={{ ...thread(''), lastMessageAt: '2026-11-19T13:39:00Z' }} />);
+
+    expect(screen.getByText('Attachment')).toBeTruthy();
+    expect(screen.queryByText('No messages yet')).toBeNull();
+  });
 });

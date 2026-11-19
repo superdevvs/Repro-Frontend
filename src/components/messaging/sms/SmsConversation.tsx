@@ -7,6 +7,8 @@ import { SmsMessageBubble } from './SmsMessageBubble';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useEffect, useRef, type ReactNode } from 'react';
 import { buildSmsConversation, type SmsConversationItem } from './smsReaction';
+import type { MessageMediaFile } from '@/services/messageMedia';
+import type { DraftAttachment } from './useSmsAttachmentDrafts';
 
 interface SmsConversationProps {
   thread?: SmsThreadSummary;
@@ -27,6 +29,15 @@ interface SmsConversationProps {
   togglingContactAi?: boolean;
   senderControl?: ReactNode;
   sendDisabled?: boolean;
+  /** Attachments of the listed messages by message id; undefined while loading. */
+  messageAttachments?: Record<string, MessageMediaFile[]>;
+  messageAttachmentsLoading?: boolean;
+  draftAttachments?: DraftAttachment[];
+  onAttachFiles?: (files: File[]) => void;
+  onRemoveAttachment?: (key: string) => void;
+  onRetryAttachment?: (key: string) => void;
+  attachUnavailableReason?: string;
+  attachmentNotice?: string[];
 }
 
 export const SmsConversation = ({
@@ -48,14 +59,27 @@ export const SmsConversation = ({
   togglingContactAi,
   senderControl,
   sendDisabled,
+  messageAttachments,
+  messageAttachmentsLoading,
+  draftAttachments = [],
+  onAttachFiles,
+  onRemoveAttachment,
+  onRetryAttachment,
+  attachUnavailableReason,
+  attachmentNotice,
 }: SmsConversationProps) => {
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const attachmentsPending = draftAttachments.some((item) => item.status !== 'ready');
+  const nothingToSend = !composerValue.trim() && draftAttachments.length === 0;
+  // Bubbles grow when their attachments arrive. Follow that once per change in
+  // which messages carry files, not on every background refresh.
+  const messagesWithAttachments = messages.filter((message) => messageAttachments?.[message.id]?.length).length;
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [messages, messagesWithAttachments]);
 
   if (!thread) {
     return (
@@ -190,7 +214,13 @@ export const SmsConversation = ({
               <div key={group.date} className="space-y-3">
                 <div className="text-center text-xs text-muted-foreground">{group.date}</div>
                 {group.items.map(({ message, reactions }) => (
-                  <SmsMessageBubble key={message.id} message={message} reactions={reactions} />
+                  <SmsMessageBubble
+                    key={message.id}
+                    message={message}
+                    reactions={reactions}
+                    attachments={messageAttachments?.[message.id]}
+                    attachmentsLoading={messageAttachmentsLoading}
+                  />
                 ))}
               </div>
             ))}
@@ -202,8 +232,15 @@ export const SmsConversation = ({
         value={composerValue}
         onChange={onComposerChange}
         onSend={onSend}
-        disabled={sending || sendDisabled || !composerValue.trim()}
+        disabled={sending || sendDisabled || nothingToSend || attachmentsPending}
         senderControl={senderControl}
+        attachments={draftAttachments}
+        onAttachFiles={onAttachFiles}
+        onRemoveAttachment={onRemoveAttachment}
+        onRetryAttachment={onRetryAttachment}
+        attachDisabled={sending}
+        attachUnavailableReason={attachUnavailableReason}
+        attachmentNotice={attachmentNotice}
         placeholder={`Write a message to ${name}`}
         templates={templates}
         compact={isMobile}

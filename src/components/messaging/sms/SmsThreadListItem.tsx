@@ -5,6 +5,7 @@ import { format, isToday, isYesterday } from 'date-fns';
 import { Pause, Sparkles } from 'lucide-react';
 import { SmsThreadAvatar } from './SmsGroupAvatar';
 import { parseSmsReaction } from './smsReaction';
+import { smsSnippetPreview } from './smsAttachments';
 
 interface SmsThreadListItemProps {
   thread: SmsThreadSummary;
@@ -91,7 +92,7 @@ export const SmsThreadListItem = ({ thread, active, onSelect, disabled }: SmsThr
               thread.unread && 'font-medium text-foreground/80',
             )}
           >
-            {reactionPreview || thread.lastMessageSnippet || 'No messages yet'}
+            {reactionPreview || smsSnippetPreview(thread.lastMessageSnippet, Boolean(thread.lastMessageAt)) || 'No messages yet'}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
             {thread.businessNumber && <span className="text-[10px] text-muted-foreground">Via {thread.businessNumber}</span>}
