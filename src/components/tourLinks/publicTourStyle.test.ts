@@ -3,7 +3,7 @@ import { isLandorTourStyle, resolvePublicTourPalette, resolvePublicTourStyle } f
 import { LANDOR_STYLE_IDS, LEGACY_LANDOR_STYLE_IDS } from './landor/landorRegistry';
 
 describe('resolvePublicTourStyle', () => {
-  it.each(['default', 'neo', 'homeify', 'landor'] as const)(
+  it.each(['default', 'neo', 'homeify', 'landor', 'ofen', 'maison'] as const)(
     'preserves saved %s without a valid preview',
     (style) => {
       expect(resolvePublicTourStyle(style, null)).toBe(style);

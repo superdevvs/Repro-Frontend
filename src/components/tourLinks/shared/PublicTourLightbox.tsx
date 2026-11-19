@@ -11,7 +11,7 @@ interface PublicTourLightboxProps {
   onOpenChange: (open: boolean) => void;
   onIndexChange: (index: number) => void;
   triggerRef: RefObject<HTMLElement | null>;
-  theme: 'homeify' | 'landor';
+  theme: 'homeify' | 'landor' | 'ofen' | 'maison';
   className?: string;
 }
 

@@ -39,7 +39,7 @@ vi.mock('@/lib/tourTracking', () => ({
 }));
 
 const fetchMock = vi.fn();
-const layouts = ['homeify', 'landor'] as const;
+const layouts = ['homeify', 'landor', 'ofen', 'maison'] as const;
 const legacyLandorLayouts = ['landor-estate', 'landor-solid', 'landor-beyond', 'landor-vision', 'landor-leader', 'landor-living'] as const;
 const payload = {
   shoot: { id: 42, address: '42 Redwood Avenue', city: 'Austin', state: 'TX' },
@@ -108,6 +108,8 @@ describe.each([
   it.each([
     ['homeify', 'landor'],
     ['landor', 'homeify'],
+    ['maison', 'ofen'],
+    ['ofen', 'landor'],
   ])('previews %s over saved %s', async (preview, saved) => {
     window.history.replaceState({}, '', `/?shootId=42&layout=${preview}`);
     respond({ ...payload, tour_style: saved });
