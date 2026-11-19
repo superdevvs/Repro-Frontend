@@ -886,6 +886,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
         : undefined,
     media: shoot.media || undefined,
     can_manage_zillow_visibility: shoot.can_manage_zillow_visibility === true,
+    can_manage_tour_visibility: (shoot.can_manage_tour_visibility ?? shoot.can_manage_zillow_visibility) === true,
     tourLinks: shoot.tour_links || undefined,
     iguideTourUrl: shoot.iguide_tour_url || undefined,
     iguideFloorplans: shoot.iguide_floorplans || undefined,

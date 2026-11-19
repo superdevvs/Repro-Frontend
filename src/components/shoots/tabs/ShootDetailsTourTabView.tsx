@@ -8,6 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { BarChart3, Copy, ExternalLink, Share2, QrCode, Download, Edit, Trash, Check, X, Info } from 'lucide-react';
 import { ShootTourSettingsSection } from './ShootTourSettingsSection';
 import { TourProvidersSection } from './tours/TourProvidersSection';
+import { PublicTourVisibilitySwitches } from './tours/PublicTourVisibilitySwitches';
+import { hiddenOnLabel, usePublicTourVisibility } from './tours/usePublicTourVisibility';
 import { TourLinkRow, type TourLinkAction } from './tours/TourLinkRow';
 // This legacy view is a pass-through shell while its sections are progressively extracted.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,7 +36,7 @@ export function ShootDetailsTourTabView(props: any) {
     showMatterportSection,
     showIguideSection,
     showZillowSection,
-    zillowOptions,
+    publicVisibilityOptions,
     publicVideoLinkConfigs,
     editingVideoLinkKey,
     videoLinkValue,
@@ -113,6 +115,10 @@ export function ShootDetailsTourTabView(props: any) {
     downloadQrCode,
   } = props;
 
+  // One set of switches for the whole tab, so the video and 3D rows never disagree.
+  const publicVisibility = usePublicTourVisibility(shootId, unitId, publicVisibilityOptions, onShootUpdate);
+  const videoHiddenOn = hiddenOnLabel(publicVisibility.visibility, 'video');
+
   const providerSection = (
     <TourProvidersSection
       shootId={shootId}
@@ -125,7 +131,7 @@ export function ShootDetailsTourTabView(props: any) {
       showMatterportSection={showMatterportSection}
       showIguideSection={showIguideSection}
       showZillowSection={showZillowSection}
-      zillowOptions={zillowOptions}
+      publicVisibility={publicVisibility}
       visibleMatterportKeys={visibleMatterportKeys}
       visibleIguideKeys={visibleIguideKeys}
       tourLinks={tourLinks}
@@ -253,6 +259,7 @@ export function ShootDetailsTourTabView(props: any) {
           <div className="border-b px-3 py-2.5">
             <h3 id="tour-video-links-title" className="text-sm font-semibold">Video Links</h3>
             <p className="truncate text-[11px] text-muted-foreground">Public video pages and embedded tour video</p>
+            {videoHiddenOn && <p className="text-[11px] text-muted-foreground">{videoHiddenOn}</p>}
           </div>
           <div className="space-y-4 px-3 py-3">
             {showVideoLinksSection && (
@@ -343,6 +350,7 @@ export function ShootDetailsTourTabView(props: any) {
                 )}
               </div>
             )}
+            <PublicTourVisibilitySwitches className="border-t pt-3" content="video" control={publicVisibility} />
           </div>
         </section>
       )}

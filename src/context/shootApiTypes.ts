@@ -120,6 +120,7 @@ export type ApiServiceRecord = {
 
 export type ApiShoot = ActiveShootWorkFields & {
   can_manage_zillow_visibility?: boolean;
+  can_manage_tour_visibility?: boolean;
   auto_delivery?: ShootAutoDelivery | null;
   autoDelivery?: ShootAutoDelivery | null;
   media_order_version?: number | string | null;

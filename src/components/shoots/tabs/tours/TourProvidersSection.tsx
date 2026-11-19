@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import './tourProviders.css';
 import { Box, Check, ChevronDown, Copy, Download, Edit3, ExternalLink, FileArchive, Home, MapPinned, MoreHorizontal, RefreshCw, Share2, Trash2, UploadCloud, X } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
@@ -14,9 +14,16 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
+import { normalizePublicTourUrl } from '@/components/tourLinks/publicIguideModel';
 import { normalizePublicZillowTourUrl } from '@/components/tourLinks/publicZillowTour';
-import { useZillowVisibility, type ZillowVisibilityOptions } from './useZillowVisibility';
+import { PublicTourVisibilitySwitches } from './PublicTourVisibilitySwitches';
+import {
+  hiddenOnLabel,
+  readTourVisibility,
+  type PublicTourVisibilityControl,
+  type TourVisibilityContent,
+  type TourVisibilityKey,
+} from './usePublicTourVisibility';
 import { useToast } from '@/hooks/use-toast';
 import type {
   NormalizedIguideOfflinePackage,
@@ -37,6 +44,15 @@ type Managed3DLinkKey =
   | 'iguide_branded'
   | 'iguide_mls'
   | 'zillow_3d';
+
+/** The switch that decides whether each saved 3D link is on a shared tour page. */
+const linkVisibilityKey: Record<Managed3DLinkKey, TourVisibilityKey> = {
+  matterport_branded: 'show_matterport_on_branded',
+  matterport_mls: 'show_matterport_on_mls',
+  iguide_branded: 'show_iguide_on_branded',
+  iguide_mls: 'show_iguide_on_mls',
+  zillow_3d: 'show_zillow_on_branded',
+};
 
 interface CubicasaSyncView {
   brandedUrl?: string | null;
@@ -89,7 +105,7 @@ interface TourProvidersSectionProps {
   showMatterportSection: boolean;
   show3dTours: boolean;
   showZillowSection: boolean;
-  zillowOptions?: ZillowVisibilityOptions;
+  publicVisibility?: PublicTourVisibilityControl;
   startEdit3D: (key: Managed3DLinkKey) => void;
   syncCubicasaNow?: () => void | Promise<void>;
   syncIguideNow?: () => void | Promise<void>;
@@ -315,14 +331,27 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
     visibleMatterportKeys,
   } = props;
   const { toast } = useToast();
-  const zillowId = useId();
-  const { visibility: zillowVisibility, saving: savingZillowVisibility, saveVisibility } = useZillowVisibility(
-    shootId, unitId, props.zillowOptions, onShootUpdate,
-  );
-  const showPublicZillow = zillowVisibility.show_zillow_on_branded;
-  const savedZillowUrl = !showPublicZillow && props.zillowOptions?.canManage && props.zillowOptions.canOpenSavedLink
-    ? normalizePublicZillowTourUrl(tourLinks.zillow_3d)
-    : '';
+  const publicVisibility = props.publicVisibility;
+  const visibility = publicVisibility?.visibility ?? readTourVisibility(null);
+  // A link switched off for the shared tour no longer resolves through its
+  // public page, so people who manage it open and copy the saved URL itself.
+  const isOnPublicTour = (key: Managed3DLinkKey) => visibility[linkVisibilityKey[key]];
+  const savedUrlFor = (key: Managed3DLinkKey) => {
+    if (isOnPublicTour(key) || !publicVisibility?.canManage || !publicVisibility.canOpenSavedLink) return '';
+    return key === 'zillow_3d' ? normalizePublicZillowTourUrl(tourLinks[key]) : normalizePublicTourUrl(tourLinks[key]);
+  };
+  const canOpenManagedLink = (key: Managed3DLinkKey) => Boolean(tourLinks[key]) && (isOnPublicTour(key) || Boolean(savedUrlFor(key)));
+  const openManagedLink = (key: Managed3DLinkKey) => {
+    const savedUrl = savedUrlFor(key);
+    if (savedUrl) window.open(savedUrl, '_blank', 'noopener,noreferrer');
+    else openLink(key);
+  };
+  const withHiddenNote = (summary: string, content: TourVisibilityContent) => {
+    const note = hiddenOnLabel(visibility, content);
+    return note ? `${summary} · ${note}` : summary;
+  };
+  const showPublicZillow = isOnPublicTour('zillow_3d');
+  const savedZillowUrl = savedUrlFor('zillow_3d');
   const [openProvider, setOpenProvider] = useState<ProviderId | null>(
     isAdmin && iguideSync.offlinePackage.exists ? 'iguide' : null,
   );
@@ -375,7 +404,8 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
   const matterportReadyKeys = matterportKeys.filter((key) => Boolean(tourLinks[key]));
   const iguideReadyKeys = iguideKeys.filter((key) => Boolean(tourLinks[key]));
   const preferredMatterportKey = matterportReadyKeys[0] || matterportKeys[0] || 'matterport_branded';
-  const preferredIguideKey = iguideReadyKeys[0] || iguideKeys[0] || 'iguide_branded';
+  const openableMatterportKey = matterportReadyKeys.find(canOpenManagedLink);
+  const openableIguideKey = iguideReadyKeys.find(canOpenManagedLink);
   const iguideDeliverableCount = iguideSync.floorplans.length
     + Number(Boolean(iguideSync.pdfImperialUrl))
     + Number(Boolean(iguideSync.pdfMetricUrl));
@@ -411,8 +441,8 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
     const items: React.ReactNode[] = [];
     if (index > 0) items.push(<DropdownMenuSeparator key={`${key}-separator`} />);
     items.push(<DropdownMenuLabel key={`${key}-label`} className="text-[10px] uppercase text-muted-foreground">{label}</DropdownMenuLabel>);
-    const canSharePublicLink = key !== 'zillow_3d' || showPublicZillow;
-    const savedUrl = key === 'zillow_3d' ? savedZillowUrl : '';
+    const canSharePublicLink = isOnPublicTour(key);
+    const savedUrl = savedUrlFor(key);
     if (url && (canSharePublicLink || savedUrl)) {
       items.push(
         <DropdownMenuItem key={`${key}-copy`} onSelect={() => savedUrl ? copyLink(key, savedUrl) : copyLink(key)}>
@@ -506,16 +536,16 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
           <ProviderRow
             id="matterport"
             title="Matterport"
-            summary={matterportReadyKeys.length ? `${matterportReadyKeys.length} link${matterportReadyKeys.length === 1 ? '' : 's'} ready` : 'No tour links connected'}
+            summary={withHiddenNote(matterportReadyKeys.length ? `${matterportReadyKeys.length} link${matterportReadyKeys.length === 1 ? '' : 's'} ready` : 'No tour links connected', 'matterport')}
             icon={<Box className="h-4 w-4" />}
             status={<ProviderStatus kind={matterportReadyKeys.length ? 'ready' : 'empty'}>{matterportReadyKeys.length ? 'Ready' : 'Not set'}</ProviderStatus>}
             open={openProvider === 'matterport'}
             onToggle={(id) => setOpenProvider((current) => current === id ? null : id)}
-            action={matterportReadyKeys.length ? (
-              <Button size="sm" className="h-8 shrink-0 px-3 text-xs" onClick={() => openLink(preferredMatterportKey)}>
+            action={openableMatterportKey ? (
+              <Button size="sm" className="h-8 shrink-0 px-3 text-xs" onClick={() => openManagedLink(openableMatterportKey)}>
                 <ExternalLink className="mr-1 h-3.5 w-3.5" />Open
               </Button>
-            ) : isAdmin ? (
+            ) : isAdmin && !matterportReadyKeys.length ? (
               <Button size="sm" variant="outline" className="h-8 shrink-0 px-3 text-xs" onClick={() => startEdit3D(preferredMatterportKey)}>
                 Add link
               </Button>
@@ -536,6 +566,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                 />
               ))}
             </div>
+            <PublicTourVisibilitySwitches className="mt-3 border-t pt-3" content="matterport" control={publicVisibility} />
           </ProviderRow>
         )}
 
@@ -543,22 +574,22 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
           <ProviderRow
             id="iguide"
             title="iGUIDE"
-            summary={iguideSync.url
+            summary={withHiddenNote(iguideSync.url
               ? `${iguideDeliverableCount} deliverable${iguideDeliverableCount === 1 ? '' : 's'}${iguideSync.lastSyncedAt ? ` · synced ${formatSyncTime(iguideSync.lastSyncedAt)}` : ''}`
               : visibleOfflinePackage
                 ? `${iguidePackageLabel}${offlinePackage.originalFilename ? ` · ${offlinePackage.originalFilename}` : ''}`
-                : 'No tour or offline package'}
+                : 'No tour or offline package', 'iguide')}
             icon={<Home className="h-4 w-4" />}
             status={<ProviderStatus kind={iguideSync.url ? 'empty' : (visibleOfflinePackage && offlinePackage.status === 'ready') ? 'ready' : visibleOfflinePackage ? packageStatusKind : 'empty'}>
               {iguideSync.url ? 'Linked' : visibleOfflinePackage ? iguidePackageLabel : 'Not set'}
             </ProviderStatus>}
             open={openProvider === 'iguide'}
             onToggle={(id) => setOpenProvider((current) => current === id ? null : id)}
-            action={iguideReadyKeys.length || iguideSync.url ? (
+            action={openableIguideKey || iguideSync.url ? (
               <Button
                 size="sm"
                 className="h-8 shrink-0 px-3 text-xs"
-                onClick={() => iguideReadyKeys.length ? openLink(preferredIguideKey) : openExternal(iguideSync.url)}
+                onClick={() => openableIguideKey ? openManagedLink(openableIguideKey) : openExternal(iguideSync.url)}
               >
                 <ExternalLink className="mr-1 h-3.5 w-3.5" />Open
               </Button>
@@ -704,6 +735,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                   </div>
                 </div>
               )}
+              <PublicTourVisibilitySwitches className="border-t pt-3" content="iguide" control={publicVisibility} />
             </div>
           </ProviderRow>
         )}
@@ -712,9 +744,9 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
           <ProviderRow
             id="cubicasa"
             title="CubiCasa"
-            summary={hasCubicasaData
+            summary={withHiddenNote(hasCubicasaData
               ? `${cubicasaFloorplans.length} floor plan${cubicasaFloorplans.length === 1 ? '' : 's'}${cubicasa.productType ? ` · ${cubicasa.productType}` : ''}`
-              : 'No order connected'}
+              : 'No order connected', 'cubicasa')}
             icon={<MapPinned className="h-4 w-4" />}
             status={<ProviderStatus kind={cubicasaStatusKind}>{cubicasa.status || 'Not linked'}</ProviderStatus>}
             open={openProvider === 'cubicasa'}
@@ -778,6 +810,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
                   </div>
                 </div>
               )}
+              <PublicTourVisibilitySwitches className="border-t pt-3" content="cubicasa" control={publicVisibility} />
             </div>
           </ProviderRow>
         )}
@@ -786,7 +819,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
           <ProviderRow
             id="zillow"
             title="Zillow 3D"
-            summary={tourLinks.zillow_3d ? 'Home tour connected' : 'No tour link connected'}
+            summary={withHiddenNote(tourLinks.zillow_3d ? 'Home tour connected' : 'No tour link connected', 'zillow')}
             icon={<MapPinned className="h-4 w-4" />}
             status={<ProviderStatus kind={tourLinks.zillow_3d ? 'ready' : 'empty'}>{tourLinks.zillow_3d ? 'Ready' : 'Not set'}</ProviderStatus>}
             open={openProvider === 'zillow'}
@@ -808,22 +841,7 @@ export function TourProvidersSection(props: TourProvidersSectionProps) {
               : undefined}
           >
             <LinkEditor {...props} isAdmin={isAdmin} linkKey="zillow_3d" label="Zillow 3D Home Tour" />
-            {props.zillowOptions?.canManage && (
-              <div className="mt-3 space-y-2 border-t pt-3" aria-busy={savingZillowVisibility}>
-                <p className="text-xs font-medium">Public tour visibility</p>
-                <p className="text-[11px] text-muted-foreground">Your saved Zillow link stays in the dashboard. MLS pages require an unbranded link.</p>
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor={`${zillowId}-branded`} className="text-xs">Show on Branded</Label>
-                  <Switch id={`${zillowId}-branded`} checked={zillowVisibility.show_zillow_on_branded} disabled={savingZillowVisibility}
-                    onCheckedChange={(value) => void saveVisibility('show_zillow_on_branded', value)} />
-                </div>
-                <div className="flex items-center justify-between gap-3">
-                  <Label htmlFor={`${zillowId}-mls`} className="text-xs">Show on MLS</Label>
-                  <Switch id={`${zillowId}-mls`} checked={zillowVisibility.show_zillow_on_mls} disabled={savingZillowVisibility}
-                    onCheckedChange={(value) => void saveVisibility('show_zillow_on_mls', value)} />
-                </div>
-              </div>
-            )}
+            <PublicTourVisibilitySwitches className="mt-3 border-t pt-3" content="zillow" control={publicVisibility} />
           </ProviderRow>
         )}
       </div>

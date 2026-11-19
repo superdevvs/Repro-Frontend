@@ -456,6 +456,7 @@ export interface ShootAutoDelivery {
 
 export interface ShootData extends ActiveShootWorkFields {
   can_manage_zillow_visibility?: boolean;
+  can_manage_tour_visibility?: boolean;
   autoDelivery?: ShootAutoDelivery;
   auto_delivery?: ShootAutoDelivery;
   /** Positive after a manual media arrangement has been saved on the server. */
