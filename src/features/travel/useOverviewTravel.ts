@@ -28,5 +28,6 @@ export function useOverviewTravel({ active, draft, assignment, role, onScheduleC
       // Incomplete service date fields are validated by the existing editor.
     }
   }
-  return useTravelFeasibility({ payload, notificationsSupported: active && !assignment, onScheduleChange: scope.isMultiUnit || assignment ? undefined : onScheduleChange });
+  const controller = useTravelFeasibility({ payload, notificationsSupported: active && !assignment, onScheduleChange: scope.isMultiUnit || assignment ? undefined : onScheduleChange });
+  return { ...controller, serviceNames: Object.fromEntries(options.servicesList.map(service => [String(service.id), service.name])) };
 }

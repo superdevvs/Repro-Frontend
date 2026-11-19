@@ -26,3 +26,8 @@ it('persists a duration-only change in the new booking form', () => {
   expect(setSchedules.mock.calls[0][0]({})).toEqual({ '1': { date: '2026-10-13', time: '13:30', duration_minutes: 45 } });
   expect(setDate).not.toHaveBeenCalled(); expect(setTime).not.toHaveBeenCalled();
 });
+it('labels draft lines that carry only a service id with the catalogue name', () => {
+  const draft = { ...payload, service_items: [{ service_id: 84, duration_minutes: 165, photographer_id: 9, scheduled_at: payload.scheduled_at }] };
+  expect(visitDurationItems(draft, 9, change.fromStart, change.timezone, { '84': 'HDR Photos, Video & Premium iGuide' })[0].name).toBe('HDR Photos, Video & Premium iGuide');
+  expect(visitDurationItems(draft, 9, change.fromStart, change.timezone)[0].name).toBe('Service 84');
+});

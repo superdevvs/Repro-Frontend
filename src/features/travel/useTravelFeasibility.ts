@@ -120,4 +120,6 @@ export type TravelController = ReturnType<typeof useTravelFeasibility> & {
   warningChanges?: ForceSaveChange[];
   dayScheduleScope?: boolean;
   photographerNames?: Record<string, string>;
+  /** Draft payload lines carry ids only; names are display data kept out of requests. */
+  serviceNames?: Record<string, string>;
 };

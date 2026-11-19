@@ -73,7 +73,7 @@ export function durationKey(row: Record<string, unknown>) {
   return String(row.shoot_service_id ?? row.service_id ?? row.id ?? row.client_key ?? '');
 }
 /** Resolved payload lines already carry booking durations, independent of catalogue prices. */
-export function visitDurationItems(payload: TravelPayload | null, photographer: number, start: string, timezone: string): DayDuration[] {
+export function visitDurationItems(payload: TravelPayload | null, photographer: number, start: string, timezone: string, names: Record<string, string> = {}): DayDuration[] {
   if (!payload) return [];
   const rows = [payload.service_lines, payload.service_items, payload.services].find(Array.isArray) as Record<string, unknown>[] | undefined;
   return (rows ?? []).flatMap(row => {
@@ -81,7 +81,7 @@ export function visitDurationItems(payload: TravelPayload | null, photographer: 
     const at = buildShootScheduleTimestamp(clock.date, clock.time, timezone);
     if (!at || rowPhotographer(payload, row) !== photographer || Date.parse(at) !== Date.parse(start)
       || !(Number(row.duration_minutes) > 0)) return [];
-    return [{ key: durationKey(row), name: String(row.service_name ?? row.name ?? `Service ${row.service_id ?? row.id ?? ''}`), duration_minutes: Number(row.duration_minutes),
+    return [{ key: durationKey(row), name: String(row.service_name ?? row.name ?? names[String(row.service_id ?? row.id ?? '')] ?? `Service ${row.service_id ?? row.id ?? ''}`), duration_minutes: Number(row.duration_minutes),
       min_minutes: Number(row.booking_duration_min_minutes) || 5, max_minutes: Number(row.booking_duration_max_minutes) || 300 }];
   });
 }

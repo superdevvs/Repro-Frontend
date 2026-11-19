@@ -63,7 +63,7 @@ function DayScheduleEditor({ travel, open, onClose, visits: targets, selector }:
     const visits = targets.filter(row => row.photographer_id === photographer && localSchedule(row.start, timezone).date === date);
     return [...existing, ...visits.map((row, index): DayBooking => {
       const selected = row === target;
-      const items = visitDurationItems(travel.payload, row.photographer_id, row.start, timezone)
+      const items = visitDurationItems(travel.payload, row.photographer_id, row.start, timezone, travel.serviceNames)
         .map(item => ({ ...item, duration_minutes: selected ? durations.target?.[item.key] ?? item.duration_minutes : item.duration_minutes }));
       const minutes = items.length ? items.reduce((sum, item) => sum + item.duration_minutes, 0) : row.duration_minutes;
       const start = selected && moves.target ? moves.target : row.start;
