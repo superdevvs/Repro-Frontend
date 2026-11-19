@@ -33,7 +33,8 @@ export function hiddenOnLabel(visibility: TourVisibility, content: TourVisibilit
 export interface PublicTourVisibilityOptions {
   canManage: boolean;
   canOpenSavedLink: boolean;
-  visibility: TourVisibility;
+  /** The saved switches, or the shoot's tour links that carry them. */
+  visibility: Record<string, unknown> | null | undefined;
 }
 
 export interface PublicTourVisibilityControl {
