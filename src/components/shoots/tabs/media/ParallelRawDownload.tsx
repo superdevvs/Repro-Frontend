@@ -40,7 +40,9 @@ export function ParallelRawDownload({ shootId, files, disabled }: { shootId: str
     try {
       // File picker must run directly from this click, before any network request.
       if (!session.current) {
-        const name = decodeURIComponent(new URL(url).pathname.split('/').pop() || 'raw-files.zip');
+        // Prefer the signed attachment name; the path may end in an archive cache key.
+        const link = new URL(url);
+        const name = link.searchParams.get('download') || decodeURIComponent(link.pathname.split('/').pop() || 'raw-files.zip');
         const file = await chooseDownloadFile(name);
         session.current = new ParallelDownload(file, (bytes, total) => setProgress({ bytes, total }));
       }

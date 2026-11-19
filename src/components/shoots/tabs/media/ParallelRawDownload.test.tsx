@@ -33,3 +33,13 @@ it('refreshes authorization before starting and reports completion only after sa
   expect(downloadShootRawFiles).toHaveBeenCalledTimes(2);
   expect(start).toHaveBeenCalledOnce();
 });
+
+it('suggests the signed attachment name instead of the archive cache key', async () => {
+  vi.mocked(downloadShootRawFiles).mockResolvedValue({ mode: 'redirect', url: 'https://downloads.reprodashboard.com/api/public/shoot-media/file/editor-downloads/5999/9b9f2f6b20ff.zip?download=12-main-st-raw-files.zip&expires=1&signature=abc' });
+  vi.mocked(chooseDownloadFile).mockResolvedValue({ createWritable: vi.fn() });
+  vi.mocked(ParallelDownload).mockImplementation(function () { return { start: vi.fn().mockResolvedValue(true), pause: vi.fn() } as unknown as ParallelDownload; });
+  render(<ParallelRawDownload shootId={5999} files={[{ id: '11', filename: 'a.raf' }]} disabled={false} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Parallel download' }));
+  fireEvent.click(await screen.findByRole('button', { name: 'Save and download' }));
+  await waitFor(() => expect(chooseDownloadFile).toHaveBeenCalledWith('12-main-st-raw-files.zip'));
+});
