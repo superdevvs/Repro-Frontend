@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import type { TravelController } from './useTravelFeasibility';
 import { TravelOverrideSchedule } from './TravelOverrideSchedule';
 import { TravelNotifications } from './TravelNotifications';
+import { workingHoursWarnings } from './workingHoursWarning';
 import { TravelDurationAdjustment, type TravelDurationAdjuster } from './TravelDurationAdjustment';
 
 export function TravelOverrideDialog({ travel, durationAdjuster }: { travel: TravelController; durationAdjuster?: TravelDurationAdjuster }) {
@@ -29,6 +30,7 @@ export function TravelOverrideDialog({ travel, durationAdjuster }: { travel: Tra
           const format = (instant: string) => new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short', timeZone: visit.timezone }).format(new Date(instant));
           return <p key={index}>{format(visit.start)} – {format(visit.end)} · {visit.duration_minutes} min</p>;
         })}
+        {(travel.result?.working_hours?.length ? workingHoursWarnings(travel.result) : []).map(line => <p key={line} className="text-muted-foreground">{line}</p>)}
       </section>}
       {open && travel.canOverride && durationAdjuster?.items.length ? <TravelDurationAdjustment key={JSON.stringify(durationAdjuster.items)} adjuster={durationAdjuster} cancelSave={cancel} onPendingChange={setDurationPending} /> : null}
     </div>

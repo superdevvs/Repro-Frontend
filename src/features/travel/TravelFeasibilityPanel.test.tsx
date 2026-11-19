@@ -17,6 +17,17 @@ const controller = (overrides: Partial<TravelController> = {}): TravelController
   retry: vi.fn(), loadAlternatives: vi.fn(), alternativesRequested: false, acceptServerError: vi.fn(), ...overrides,
 });
 describe('travel explanations and permission controls', () => {
+  it('states the working hours and only offers an exception where one can be confirmed', () => {
+    const result = { ...controller().result!, reason_codes: ['outside_working_hours'], transitions: [], can_override: false, working_hours: [{ photographer_id: 1106, photographer_name: 'KK', date: '2026-11-19',
+      day: 'Thursday', start: '14:00', end: '17:15', ends_next_day: false, blocked: false, windows: [{ start: '09:00', end: '17:00' }] }] };
+    const view = render(<TravelFeasibilityPanel travel={controller({ result, canOverride: false })} />);
+    expect(screen.getByText('Ends 5:15 PM; KK works 9:00 AM–5:00 PM on Thursday (15 min over).')).toBeInTheDocument();
+    expect(screen.getByText(/A working-hours exception is not available for this change\./)).toBeInTheDocument();
+    view.unmount();
+    render(<TravelFeasibilityPanel travel={controller({ result, canOverride: false, canOverrideWorkingHours: true })} />);
+    expect(screen.getByText(/You can approve this appointment outside working hours/)).toBeInTheDocument();
+    expect(screen.queryByText(/exception is not available/)).not.toBeInTheDocument();
+  });
   it('uses a compact summary with adjustment and reveals route details on demand', () => {
     const travel = controller({ onScheduleChange: vi.fn(), result: { ...controller().result!, visits: [{
       photographer_id: 9, start: '2026-10-13T17:30:00Z', end: '2026-10-13T18:45:00Z',

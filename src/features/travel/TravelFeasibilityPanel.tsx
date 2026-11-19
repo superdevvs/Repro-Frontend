@@ -12,6 +12,7 @@ import type { TravelController } from './useTravelFeasibility';
 import type { TravelDurationAdjuster } from './TravelDurationAdjustment';
 import { getShootSchedule } from '@/utils/shootSchedule';
 import { formatTimeForDisplay } from '@/utils/availabilityUtils';
+import { WORKING_HOURS_FIT_HINT, workingHoursWarnings } from './workingHoursWarning';
 
 export function TravelFeasibilityPanel({ travel, durationAdjuster, issuesOnly = false, compact = false, showNotifications = true }: { travel: TravelController; durationAdjuster?: TravelDurationAdjuster; issuesOnly?: boolean; compact?: boolean; showNotifications?: boolean }) {
   const [adjusting, setAdjusting] = useState(false);
@@ -32,7 +33,8 @@ export function TravelFeasibilityPanel({ travel, durationAdjuster, issuesOnly = 
       {travel.error && <p className="mt-1 text-muted-foreground">{travel.error}</p>}
       {overlap && <p className="mt-1 text-muted-foreground">See the booking on this date and move either shoot to a free time.</p>}
       {result?.radius_checks?.filter(check => !check.eligible).map((check, index) => <p key={index} className="mt-1 text-muted-foreground">{check.distance_miles != null && check.radius_miles != null ? `${check.distance_miles} mi from ${check.origin === 'previous_shoot' ? 'the previous shoot' : 'home'} exceeds this photographer’s ${check.radius_miles} mi travel radius.` : 'This photographer’s location or travel radius could not be verified.'} An authorized administrator or sales rep must confirm a location exception.</p>)}
-      {result?.reason_codes?.some(reason => /working_hours|outside_hours/.test(reason)) && <p className="mt-1 text-muted-foreground">The appointment is outside the photographer’s working hours.</p>}
+      {workingHoursWarnings(result).map(line => <p key={line} className="mt-1 text-muted-foreground">{line}</p>)}
+      {outsideHours && issue && !travel.requestedOnly && !travel.canOverrideWorkingHours && !travel.canForceSave && <p className="mt-1 text-muted-foreground">{WORKING_HOURS_FIT_HINT} A working-hours exception is not available for this change.</p>}
       {issue && travel.requestedOnly && <p className="mt-1 text-muted-foreground">You can submit your request. Our team will review the schedule before confirming it.</p>}
       {hasError && Array.isArray(items) && <ul className="mt-2 space-y-1 text-xs text-muted-foreground">{items.filter(row => row.photographer_id).map((row, index) => {
         const schedule = getShootSchedule({ scheduled_at: row.scheduled_at, timezone });

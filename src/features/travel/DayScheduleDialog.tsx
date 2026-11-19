@@ -12,6 +12,7 @@ import { DayScheduleTimeline } from './DayScheduleTimeline';
 import { TravelNotifications } from './TravelNotifications';
 import { TravelRouteSummary } from './TravelRouteSummary';
 import type { ScheduleAdjustment } from './types';
+import { WORKING_HOURS_FIT_HINT, workingHoursWarnings } from './workingHoursWarning';
 import '@/components/shoots/shootScheduleDialogs.css';
 import { useShootEditorViewport } from '@/components/shoots/useShootEditorViewport';
 
@@ -126,7 +127,7 @@ function DayScheduleEditor({ travel, open, onClose, visits: targets, selector }:
       <div aria-live="polite" className="space-y-2 text-sm">
         {conflict ? <p className="text-amber-600 dark:text-amber-300">Bookings overlap. Move either shoot to a free time.</p> : preview.loading ? <p>Checking travel for this schedule…</p>
           : preview.error ? <p role="alert" className="text-destructive">{preview.error}</p> : preview.result?.available ? <p className="text-emerald-700 dark:text-emerald-300">This schedule has enough travel time.</p>
-            : <p className="text-amber-600 dark:text-amber-300">{outsideHours ? 'This schedule is outside the photographer’s working hours. Move the bookings within their availability.' : serverOverlap ? 'The photographer has another booking at this time. Move either shoot to a free time.' : canApply ? 'You can use this schedule and explicitly confirm the shorter travel gap when saving.' : 'Travel for this schedule needs approval from an administrator or sales rep.'}</p>}
+            : <p className="text-amber-600 dark:text-amber-300">{outsideHours ? `${workingHoursWarnings(preview.result).join(' ')} ${WORKING_HOURS_FIT_HINT}` : serverOverlap ? 'The photographer has another booking at this time. Move either shoot to a free time.' : canApply ? 'You can use this schedule and explicitly confirm the shorter travel gap when saving.' : 'Travel for this schedule needs approval from an administrator or sales rep.'}</p>}
         {moveError && <p role="alert" className="text-destructive">{moveError}</p>}
         {sameDayTransitions(preview.result?.transitions ?? [], timezone).map(leg => <TravelRouteSummary key={leg.id} leg={leg} />)}
       </div>

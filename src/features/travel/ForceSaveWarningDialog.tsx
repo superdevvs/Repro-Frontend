@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { TravelOverrideSchedule } from './TravelOverrideSchedule';
 import { TravelNotifications } from './TravelNotifications';
 import type { TravelController } from './useTravelFeasibility';
+import { workingHoursWarnings } from './workingHoursWarning';
 
 function warningText(code: string) {
   if (/working_hours|outside_hours/.test(code)) return 'The appointment is outside the photographer’s working hours.';
@@ -24,7 +25,7 @@ export function ForceSaveWarningDialog({ travel }: { travel: TravelController })
     <DialogHeader><DialogTitle className="flex items-center gap-2"><AlertTriangle className="h-5 w-5 text-amber-600" />Save changes with scheduling warning</DialogTitle>
       <DialogDescription>Review the warnings and proposed changes. Enter a reason to save this existing shoot anyway.</DialogDescription></DialogHeader>
     <section aria-label="Scheduling warnings" role="alert" className="rounded-lg border border-amber-500/60 bg-amber-500/10 p-3 text-sm">
-      <p className="font-semibold">Warnings to acknowledge</p><ul className="mt-2 list-disc space-y-1 pl-5">{warnings.map(code => <li key={code}>{warningText(code)}</li>)}</ul>
+      <p className="font-semibold">Warnings to acknowledge</p><ul className="mt-2 list-disc space-y-1 pl-5">{[...new Set(warnings.flatMap(code => /working_hours|outside_hours/.test(code) ? workingHoursWarnings(travel.result) : [warningText(code)]))].map(text => <li key={text}>{text}</li>)}</ul>
       {warnings.some(code => /working_hours|outside_hours/.test(code)) && <p className="mt-2">Travel may remain unverified for this changed window.</p>}
     </section>
     {travel.warningChanges?.length ? <section aria-label="Proposed changes" className="space-y-2 text-sm"><p className="font-semibold">Proposed changes</p>

@@ -27,6 +27,8 @@ export type TravelFeasibility = {
   status: 'available' | 'conflict' | 'review_required';
   available: boolean;
   reason_codes: string[];
+  /** Display facts for an outside-hours result; local clocks in the booking timezone. */
+  working_hours?: Array<{ photographer_id: number; photographer_name?: string | null; date: string; day: string; start: string; end: string; ends_next_day: boolean; blocked: boolean; windows: Array<{ start: string; end: string }> }>;
   radius_checks?: Array<{ photographer_id: number; origin: 'home' | 'previous_shoot'; distance_miles: number | null; radius_miles: number | null; eligible: boolean; reason: string; candidate_start: string }>;
   transitions: TravelTransition[];
   alternatives: TravelAlternative[];
