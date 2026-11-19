@@ -51,7 +51,6 @@ import { DashboardMobileToolbarContext } from '../components/dashboardMobileTool
 import { ClientAccessInfoDialog } from "../components/ClientAccessInfoDialog";
 import { ClientDeliveryBanner } from "../components/ClientDeliveryBanner";
 import { ProfileCompletionNotice } from "../components/ProfileCompletionNotice";
-import { MicrosoftEmailNotice } from "../components/MicrosoftEmailNotice";
 import { DASHBOARD_DESCRIPTION } from "../constants";
 import {
   DASHBOARD_MOBILE_PAGE_CLASS,
@@ -282,7 +281,6 @@ export const ClientDashboardView = ({
         stackWidthClassName="w-full sm:w-[34rem]"
         equalizeLayerHeights
       >
-        <MicrosoftEmailNotice />
         <ClientEmailHealthNotice
           email={user?.email}
           emailHealth={normalizeEmailHealth(user?.email_health)}
