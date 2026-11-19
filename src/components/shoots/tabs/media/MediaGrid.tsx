@@ -362,7 +362,7 @@ export function MediaGrid({
         )}
 
         {/* Hidden overlay */}
-        {file.is_hidden && <HiddenMediaOverlay />}
+        {file.is_client_hidden ? <HiddenMediaOverlay label="Hidden from client" /> : file.is_hidden && <HiddenMediaOverlay />}
 
         {hasStack && (
           <>
@@ -532,7 +532,7 @@ export function MediaGrid({
               </div>
             )}
 
-            {file.is_hidden && <HiddenMediaOverlay />}
+            {file.is_client_hidden ? <HiddenMediaOverlay label="Hidden from client" /> : file.is_hidden && <HiddenMediaOverlay />}
 
             <MediaTileBadges file={file} />
             {renderSingleMediaActions(file)}

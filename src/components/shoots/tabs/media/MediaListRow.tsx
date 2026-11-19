@@ -69,7 +69,7 @@ export function MediaListRow({ file, shootAddress, selected, canSelect, onSelect
         {isVideo && <div className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-center">
           <span className="rounded-full bg-black/55 p-1.5"><Play className="h-3.5 w-3.5 fill-white text-white" /></span>
         </div>}
-        {file.is_hidden && <HiddenMediaOverlay />}
+        {file.is_client_hidden ? <HiddenMediaOverlay label="Hidden from client" /> : file.is_hidden && <HiddenMediaOverlay />}
         {canSelect && <button type="button" role="checkbox" aria-label={`Select ${filename}`} aria-checked={selected}
           className="absolute left-0 top-0 z-10 flex h-11 w-11 items-center justify-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
           onPointerDown={event => event.stopPropagation()}

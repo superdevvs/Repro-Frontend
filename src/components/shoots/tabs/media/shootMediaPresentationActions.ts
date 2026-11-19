@@ -25,7 +25,8 @@ export function createShootMediaPresentationActions({
 }: PresentationParams) {
   const pool = new Map([...rawFiles, ...editedFiles].map(file => [String(file.id), file]));
   const toggleFilesHidden = async (fileIds: string[], hidden: boolean) => {
-    const ids = new Set(fileIds.map(String));
+    // Unhiding never touches media staff hid from the client (Mark media › Visibility).
+    const ids = new Set(fileIds.map(String).filter(id => hidden || !pool.get(id)?.is_client_hidden));
     if (!ids.size || [...ids].some(id => !pool.has(id) || !canManageMediaVisibility(pool.get(id)!, role))) return;
     const apply = (files: MediaFile[]) => files.map(file => ids.has(String(file.id))
       ? { ...file, is_hidden: hidden, is_cover: hidden ? false : file.is_cover } : file);

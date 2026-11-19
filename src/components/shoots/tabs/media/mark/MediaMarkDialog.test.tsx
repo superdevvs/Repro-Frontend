@@ -20,6 +20,51 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 const show = (initialTab: 'type' | 'service' | 'delivery' = 'type') => render(<MediaMarkDialog request={{ shootId: 5935, shootLabel: '18013 Highfield Road', files: [file], allowType: true, initialTab }} onClose={vi.fn()} />);
 
 describe('shared media Mark workspace', () => {
+  const edited = (id: string, extra: Partial<MediaFile> = {}) => ({ ...file, id, workflowStage: 'verified', ...extra }) as MediaFile;
+  const showVisibility = (files: MediaFile[]) => render(<MediaMarkDialog request={{ shootId: 5935, shootLabel: '18013 Highfield Road', files, allowType: true }} onClose={vi.fn()} />);
+  it.each(['admin', 'superadmin', 'editing_manager'])('lets %s hide edited media from the client', async role => {
+    mocks.role = role;
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ updated_count: 2 }) }); vi.stubGlobal('fetch', fetch);
+    showVisibility([edited('21'), edited('22')]);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Visibility' }));
+    expect(screen.getByText(/All selected media is visible to the client/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Save visibility/ })).toBeDisabled();
+    fireEvent.click(screen.getByRole('radio', { name: 'Hidden' }));
+    fireEvent.click(screen.getByRole('button', { name: /Save visibility/ }));
+    await screen.findByText('All set');
+    expect(fetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/shoots\/5935\/files\/client-visibility$/), expect.objectContaining({ method: 'PATCH' }));
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ file_ids: [21, 22], hidden: true });
+    expect(screen.getByText(/Admins and editing managers still see them/)).toBeInTheDocument();
+    expect(mocks.refresh).toHaveBeenCalledWith(5935);
+  });
+  it('restores hidden media and only counts files that change', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ updated_count: 1 }) }); vi.stubGlobal('fetch', fetch);
+    showVisibility([edited('21', { is_client_hidden: true }), edited('22')]);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Visibility' }));
+    expect(screen.getByText(/1 of 2 selected files are hidden from the client/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('radio', { name: 'Visible to client' }));
+    fireEvent.click(screen.getByRole('button', { name: /Save visibility/ }));
+    await screen.findByText(/1 file is visible to the client again/);
+    expect(JSON.parse(fetch.mock.calls[0][1].body)).toEqual({ file_ids: [21, 22], hidden: false });
+  });
+  it('surfaces a rejected visibility change', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, json: async () => ({ message: 'Only edited media can be hidden from the client.' }) }));
+    showVisibility([edited('21')]);
+    fireEvent.click(await screen.findByRole('tab', { name: 'Visibility' }));
+    fireEvent.click(screen.getByRole('radio', { name: 'Hidden' }));
+    fireEvent.click(screen.getByRole('button', { name: /Save visibility/ }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Only edited media can be hidden from the client.');
+  });
+  it.each(['editor', 'photographer', 'salesrep', 'client'])('does not offer the Hidden marking to %s', async role => {
+    mocks.role = role; showVisibility([edited('21')]);
+    expect(screen.queryByRole('tab', { name: 'Visibility' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('radio', { name: 'Hidden' })).not.toBeInTheDocument();
+  });
+  it('does not offer the Hidden marking for raw (unedited) media', async () => {
+    showVisibility([edited('21', { workflowStage: 'todo' })]);
+    await screen.findByRole('tab', { name: 'Service' });
+    expect(screen.queryByRole('tab', { name: 'Visibility' })).not.toBeInTheDocument();
+  });
   it('changes type without sending a service or delivery mutation', async () => {
     const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ updated_count: 1 }) }); vi.stubGlobal('fetch', fetch);
     show(); await screen.findByRole('tab', { name: 'Service' }); fireEvent.click(screen.getByRole('radio', { name: 'Drone' })); fireEvent.click(screen.getByRole('button', { name: /Save type/ }));

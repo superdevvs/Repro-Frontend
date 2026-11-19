@@ -96,6 +96,8 @@ export interface MediaFile {
   is_cover?: boolean;
   is_favorite?: boolean;
   is_hidden?: boolean;
+  /** Staff-only "Hidden" marking: withheld from every client surface. */
+  is_client_hidden?: boolean;
   sort_order?: number;
   comments?: Array<{
     author?: string | null;
@@ -151,6 +153,7 @@ type ShootMediaPayload = Omit<Partial<MediaFile>, 'id' | 'filename'> & {
   file_type?: string;
   workflow_stage?: string;
   is_extra?: boolean | number;
+  isClientHidden?: boolean;
   usesWatermark?: boolean;
   file_size?: number;
   mediaSource?: string | null;
@@ -230,6 +233,7 @@ export const normalizeShootMediaFile = (payload: Record<string, unknown>): Media
   is_cover: Boolean(value.is_cover),
   is_favorite: Boolean(value.is_favorite),
   is_hidden: Boolean(value.is_hidden),
+  is_client_hidden: Boolean(value.is_client_hidden ?? value.isClientHidden),
   sort_order: value.sort_order ?? 0,
   comments: Array.isArray(value.comments) ? value.comments : [],
   comment_count: Number(value.comment_count ?? 0),

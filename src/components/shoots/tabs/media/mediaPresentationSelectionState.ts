@@ -16,7 +16,8 @@ export function getMediaPresentationSelectionState({ files, selectedFiles, role,
   return {
     selected,
     canHide: Boolean(onToggleHidden && canManageAll && selected.some(file => !file.is_hidden)),
-    canUnhide: Boolean(onToggleHidden && canManageAll && selected.some(file => file.is_hidden)),
+    // Media staff hid from the client is restored only from Mark media › Visibility.
+    canUnhide: Boolean(onToggleHidden && canManageAll && selected.some(file => file.is_hidden && !file.is_client_hidden)),
     canSetHero: Boolean(onSetHero && selected.length === 1 && canSetMediaHero(selected[0], role)),
   };
 }

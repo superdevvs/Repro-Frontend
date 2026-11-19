@@ -1,5 +1,5 @@
 import { useEffect, useState, type KeyboardEvent } from 'react';
-import { AlertCircle, ArrowRight, Check, CheckCircle2, Layers3, Tag, Truck } from 'lucide-react';
+import { AlertCircle, ArrowRight, Check, CheckCircle2, EyeOff, Layers3, Tag, Truck } from 'lucide-react';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,7 @@ import { formatUploadFileSize } from '../mediaUploadUtils';
 import { MediaMarkTypePanel } from './MediaMarkTypePanel';
 import { MediaMarkServicePanel } from './MediaMarkServicePanel';
 import { MediaMarkDeliveryPanel } from './MediaMarkDeliveryPanel';
+import { MediaMarkVisibilityPanel, type ClientVisibility } from './MediaMarkVisibilityPanel';
 import { automaticDeliveryMethod, deliveryServiceGroups, readyDeliverySelection, type MissingWork } from './simpleDeliverySelection';
 import { MEDIA_MARK_EVENT, type MediaMarkRequest, type MediaMarkTab } from './mediaMarkEvents';
 import './mediaMarkDialog.css';
@@ -41,6 +42,8 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
   const ids = selectedMediaIds(files);
   const [tab, setTab] = useState<MediaMarkTab>(request.initialTab ?? 'type');
   const [type, setType] = useState<ReclassifyMediaType | ''>('');
+  const hiddenCount = files.filter(file => file.is_client_hidden).length;
+  const [visibility, setVisibility] = useState<ClientVisibility | ''>(() => !files.length ? '' : hiddenCount === files.length ? 'hidden' : hiddenCount === 0 ? 'visible' : '');
   const [plan, setPlan] = useState<DeliveryPlan | null>(null);
   const [discovery, setDiscovery] = useState<AssignmentPreview | null>(null);
   const [preview, setPreview] = useState<AssignmentPreview | null>(null);
@@ -59,6 +62,10 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
   const [saved, setSaved] = useState('');
   const [attemptKey, setAttemptKey] = useState(() => crypto.randomUUID());
   const allowType = Boolean(['admin', 'superadmin', 'super_admin', 'editing_manager', 'editor', 'photographer'].includes(String(role || user?.role)) && request.allowType && ids.length && ids.length === files.length && files.every(file => file.can_interact !== false));
+  // Only admins and editing managers may hide delivered (edited) media from the client.
+  const canSetVisibility = staff && ids.length > 0 && ids.length === files.length
+    && files.every(file => ['completed', 'verified'].includes(String(file.workflowStage ?? '').toLowerCase()));
+  const visibilityChanges = visibility === 'hidden' ? files.length - hiddenCount : visibility === 'visible' ? hiddenCount : 0;
   const canAssign = staff && Boolean(discovery?.capabilities.can_assign_service);
   const canDeliver = staff && Boolean(plan?.capabilities.can_finalize);
   const shootId = request.shootId;
@@ -102,12 +109,12 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
   const selectedComponents = plan?.components.filter(component => selected.includes(component.id)) ?? [];
   const hasMissingSelection = selectedComponents.some(component => ['defer', 'manual_no_content'].includes(automaticDeliveryMethod(component, withoutContent) ?? ''));
   const completesWithoutContent = selectedComponents.some(component => automaticDeliveryMethod(component, withoutContent) === 'manual_no_content');
-  const canApply = !busy && !saved && !loading && (tab === 'type' ? allowType && Boolean(type)
+  const canApply = !busy && !saved && (tab === 'visibility' ? canSetVisibility && visibilityChanges > 0 : !loading && (tab === 'type' ? allowType && Boolean(type)
     : tab === 'service' ? canAssign && preview?.can_apply && !previewing && ids.length > 0 && ids.length === files.length && (!preview.requires_historical_confirmation || historicalConfirmed) && (!discovery?.files.some(file => file.shoot_service_id != null) || assignmentReason.trim().length >= 3)
       : canDeliver && selected.length > 0 && selectedComponents.length === selected.length
         && selectedComponents.every(component => automaticDeliveryMethod(component, withoutContent)
           && plan?.capabilities.can_finalize)
-        && (!hasMissingSelection || reason.trim().length >= 5) && (!completesWithoutContent || completionConfirmed));
+        && (!hasMissingSelection || reason.trim().length >= 5) && (!completesWithoutContent || completionConfirmed)));
   const apply = async () => {
     if (!canApply) return;
     setBusy(true); setError('');
@@ -117,6 +124,13 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
         const data = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(data.message || 'Media type could not be saved.');
         setSaved(`Updated the type of ${ids.length} file${ids.length === 1 ? '' : 's'}.`);
+      } else if (tab === 'visibility') {
+        const hidden = visibility === 'hidden';
+        const response = await fetch(`${API_BASE_URL}/api/shoots/${shootId}/files/client-visibility`, { method: 'PATCH', headers: getApiHeaders(), body: JSON.stringify({ file_ids: ids, hidden }) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.message || 'Client visibility could not be saved.');
+        setSaved(hidden ? `Hid ${visibilityChanges} file${visibilityChanges === 1 ? '' : 's'} from the client. Admins and editing managers still see ${visibilityChanges === 1 ? 'it' : 'them'}.`
+          : `${visibilityChanges} file${visibilityChanges === 1 ? ' is' : 's are'} visible to the client again.`);
       } else if (tab === 'service') {
         await applyServiceAssignment(shootId, { file_ids: ids, shoot_service_id: Number(targetId), expected_target_unit_id: discovery?.targets.find(target => String(target.id) === targetId)?.unit_id ?? null, expected_files: assignmentIdentities(preview?.files ?? []), idempotency_key: attemptKey, reason: assignmentReason.trim() || undefined, confirm_historical: historical, expected_receipt_revision: preview?.receipt_revision });
         setSaved(`Assigned ${ids.length} file${ids.length === 1 ? '' : 's'} to the booked service.`);
@@ -128,7 +142,7 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
             : 'Ready content has been released. Missing work remains pending and will update when it is ready.');
       }
       await changed();
-      toast({ title: 'Changes saved', description: tab === 'service' ? 'Service assignment updated.' : tab === 'type' ? 'Media category updated.' : 'Delivery status refreshed.' });
+      toast({ title: 'Changes saved', description: tab === 'service' ? 'Service assignment updated.' : tab === 'type' ? 'Media category updated.' : tab === 'visibility' ? 'Client visibility updated.' : 'Delivery status refreshed.' });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : 'The change could not be saved.');
       if (tab === 'service' && cause instanceof MediaMarkRequestError && [409, 422].includes(cause.status)) {
@@ -142,7 +156,7 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
       }
     } finally { setBusy(false); }
   };
-  const tabs = [{ id: 'type' as const, label: 'Type', icon: Tag, visible: allowType || tab === 'type' }, { id: 'service' as const, label: 'Service', icon: Layers3, visible: canAssign }, { id: 'delivery' as const, label: 'Delivery', icon: Truck, visible: canDeliver }];
+  const tabs = [{ id: 'type' as const, label: 'Type', icon: Tag, visible: allowType || tab === 'type' }, { id: 'visibility' as const, label: 'Visibility', icon: EyeOff, visible: canSetVisibility }, { id: 'service' as const, label: 'Service', icon: Layers3, visible: canAssign }, { id: 'delivery' as const, label: 'Delivery', icon: Truck, visible: canDeliver }];
   const visibleTabs = tabs.filter(item => item.visible);
   const navigateTab = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
     const offset = event.key === 'ArrowRight' ? 1 : event.key === 'ArrowLeft' ? -1 : 0;
@@ -160,12 +174,13 @@ export function MediaMarkDialog({ request, onClose }: { request: MediaMarkReques
     <div className="mark-body" role={standaloneDelivery ? undefined : 'tabpanel'} id={`mark-panel-${tab}`} aria-labelledby={standaloneDelivery ? undefined : `mark-tab-${tab}`}>
       {error && <div className="mark-error" role="alert"><AlertCircle /><p>{error}</p></div>}
       {saved ? <div className="mark-empty mark-success" role="status"><CheckCircle2 /><h3>All set</h3><p>{saved}</p></div>
-        : loading && tab !== 'type' ? <div className="mark-empty" role="status"><InlineSpinner /><p>Checking the latest work and permissions…</p></div>
+        : loading && tab !== 'type' && tab !== 'visibility' ? <div className="mark-empty" role="status"><InlineSpinner /><p>Checking the latest work and permissions…</p></div>
           : tab === 'type' ? <MediaMarkTypePanel value={type} onChange={setType} allowed={allowType} />
+            : tab === 'visibility' && canSetVisibility ? <MediaMarkVisibilityPanel value={visibility} onChange={setVisibility} hiddenCount={hiddenCount} total={files.length} />
             : tab === 'service' && canAssign ? <MediaMarkServicePanel discovery={discovery} targetId={targetId} onChange={id => { setTargetId(id); setHistoricalConfirmed(false); setAttemptKey(crypto.randomUUID()); }} preview={preview} previewing={previewing} count={ids.length} historical={historical} onHistorical={value => { setHistorical(value); setHistoricalConfirmed(false); setTargetId(''); setPreview(null); setAttemptKey(crypto.randomUUID()); }} reason={assignmentReason} onReason={value => { setAssignmentReason(value); setHistoricalConfirmed(false); setAttemptKey(crypto.randomUUID()); }} historicalConfirmed={historicalConfirmed} onHistoricalConfirm={setHistoricalConfirmed} />
               : tab === 'delivery' && plan && canDeliver ? <MediaMarkDeliveryPanel plan={plan} missingWork={withoutContent} onMissingWorkChange={changeWithoutContent} confirmed={completionConfirmed} onConfirmedChange={value => { setCompletionConfirmed(value); setAttemptKey(crypto.randomUUID()); }} selected={selected} onSelect={select} reason={reason} onReasonChange={value => { setReason(value); setAttemptKey(crypto.randomUUID()); }} disabled={busy} />
                 : <div className="mark-empty"><Layers3 /><h3>This action is unavailable</h3><p>Your current permissions or this shoot’s work state do not allow this change.</p></div>}
     </div>
-    <div className="mark-footer"><p>{saved ? 'The shoot and media library have been refreshed.' : tab === 'delivery' ? `${selectedServices} service${selectedServices === 1 ? '' : 's'} selected${pendingServices.length ? ` · ${pendingServices.length === 1 ? pendingServices[0] + ' stays' : 'Other work stays'} pending` : ''}` : tab === 'service' ? 'A service assignment is separate from the media type.' : 'Applies to the selected files only.'}</p><div><Button variant="ghost" disabled={busy} onClick={onClose}>{saved ? 'Close' : 'Cancel'}</Button>{!saved && <Button disabled={!canApply} onClick={() => void apply()}>{busy ? <InlineSpinner /> : <Check />}{busy ? 'Saving…' : tab === 'type' ? 'Save type' : tab === 'service' ? 'Assign service' : 'Finalise'}{!busy && <ArrowRight />}</Button>}</div></div>
+    <div className="mark-footer"><p>{saved ? 'The shoot and media library have been refreshed.' : tab === 'delivery' ? `${selectedServices} service${selectedServices === 1 ? '' : 's'} selected${pendingServices.length ? ` · ${pendingServices.length === 1 ? pendingServices[0] + ' stays' : 'Other work stays'} pending` : ''}` : tab === 'service' ? 'A service assignment is separate from the media type.' : tab === 'visibility' ? 'Hidden media stays out of client galleries, downloads, ZIPs and share links.' : 'Applies to the selected files only.'}</p><div><Button variant="ghost" disabled={busy} onClick={onClose}>{saved ? 'Close' : 'Cancel'}</Button>{!saved && <Button disabled={!canApply} onClick={() => void apply()}>{busy ? <InlineSpinner /> : <Check />}{busy ? 'Saving…' : tab === 'type' ? 'Save type' : tab === 'visibility' ? 'Save visibility' : tab === 'service' ? 'Assign service' : 'Finalise'}{!busy && <ArrowRight />}</Button>}</div></div>
   </DialogContent></Dialog>;
 }

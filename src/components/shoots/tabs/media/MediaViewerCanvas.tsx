@@ -17,7 +17,7 @@ export function MediaViewerCanvas({ model, controlsInHeader = false }: { model: 
   useEffect(() => { activeThumbnail.current?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); }, [currentIndex]);
   return <section className="media-viewer-canvas" data-controls-in-header={controlsInHeader} aria-label="Media preview">
     <div className="media-viewer-stage-wrap">
-      {currentFile.is_hidden && <span className="media-viewer-media-label" data-hidden="true">Hidden image</span>}
+      {currentFile.is_hidden && <span className="media-viewer-media-label" data-hidden="true">{currentFile.is_client_hidden ? 'Hidden from client' : 'Hidden image'}</span>}
       <div ref={zoomStageRef} {...swipe} className={`media-viewer-stage ${zoom > 1 ? `${isPanningZoomStage ? 'cursor-grabbing' : 'cursor-grab'} touch-none overflow-auto` : 'overflow-hidden touch-pan-y'}`}
         onPointerDown={model.handleZoomStagePointerDown} onPointerMove={model.handleZoomStagePointerMove} onPointerUp={model.handleZoomStagePointerUp} onPointerCancel={model.handleZoomStagePointerUp} onLostPointerCapture={() => model.stopZoomPan()}>
         {isImg ? <MediaViewerPhoto model={model} /> : isVid ? videoUrl ? <video key={`${currentFile.id}-${videoUrl}`} src={videoUrl} controls playsInline preload="metadata" className={`${fitMediaClassName} bg-black`} onError={() => setVideoSourceIndex(current => Math.min(current + 1, videoUrlCandidates.length - 1))} /> : <div className="media-viewer-unavailable"><FileIcon /><p>Video preview is not available.</p></div> : <div className="media-viewer-unavailable"><FileIcon /><p>{displayFilename}</p></div>}

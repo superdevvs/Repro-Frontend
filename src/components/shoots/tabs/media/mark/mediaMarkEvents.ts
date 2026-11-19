@@ -1,6 +1,6 @@
 import type { MediaFile } from '@/hooks/useShootFiles';
 
-export type MediaMarkTab = 'type' | 'service' | 'delivery';
+export type MediaMarkTab = 'type' | 'visibility' | 'service' | 'delivery';
 export interface MediaMarkRequest {
   shootId: string | number; shootLabel?: string; files?: MediaFile[]; initialTab?: MediaMarkTab;
   allowType?: boolean; onChanged?: () => void | Promise<void>;

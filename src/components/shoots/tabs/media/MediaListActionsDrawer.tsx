@@ -121,7 +121,7 @@ export function MediaListActionsDrawer({ file, previewUrl, downloading, onToggle
             {onSetHero && <ActionRow icon={<ImagePlus className="h-5 w-5" />} aria-label="Set hero image" disabled={file.is_cover} onClick={onSetHero}>
               {file.is_cover ? 'Current hero image' : 'Set hero image'}
             </ActionRow>}
-            {onToggleHidden && <ActionRow icon={file.is_hidden ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />} onClick={onToggleHidden}>
+            {onToggleHidden && !file.is_client_hidden && <ActionRow icon={file.is_hidden ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />} onClick={onToggleHidden}>
               {file.is_hidden ? 'Unhide image' : 'Hide image'}
             </ActionRow>}
           </div>

@@ -36,7 +36,7 @@ export function MediaViewerActions({ model }: { model: MediaViewerModel }) {
       {canDownloadSingleMedia && onDownloadSingle && <DropdownMenuItem className={itemClass} disabled={downloading} aria-busy={downloading} onSelect={() => model.handleDownloadSingle(currentFile.id)}>
         {downloading ? <InlineSpinner aria-hidden="true" /> : <Download />}{downloading ? 'Downloading…' : 'Download'}
       </DropdownMenuItem>}
-      {onToggleHidden && <DropdownMenuItem className={itemClass} onSelect={() => onToggleHidden(currentFile.id, !currentFile.is_hidden)}>{currentFile.is_hidden ? <Eye /> : <EyeOff />}{currentFile.is_hidden ? 'Unhide image' : 'Hide image'}</DropdownMenuItem>}
+      {onToggleHidden && !currentFile.is_client_hidden && <DropdownMenuItem className={itemClass} onSelect={() => onToggleHidden(currentFile.id, !currentFile.is_hidden)}>{currentFile.is_hidden ? <Eye /> : <EyeOff />}{currentFile.is_hidden ? 'Unhide image' : 'Hide image'}</DropdownMenuItem>}
       {canShowRenameFilename && <DropdownMenuItem className={itemClass} disabled={!renameApiEnabled || renamingFilename} onSelect={model.openRenameComposer}><Pencil />Rename filename</DropdownMenuItem>}
       <MediaEditingMenuItems file={currentFile} shootId={model.shoot?.id} beforeOpen={model.onClose} className={itemClass} />
       {(slideshowAvailable || canRequestModification) && <DropdownMenuSeparator className="bg-white/10" />}
