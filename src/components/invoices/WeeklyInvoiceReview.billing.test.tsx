@@ -62,6 +62,20 @@ describe('weekly billing workspace', () => {
     expect(screen.getByText('10 Exterior HDR Photos')).toBeInTheDocument();
   });
 
+  it('shows the client under each commission line address in the rep view', async () => {
+    mocks.fetch.mockResolvedValue({ data: [invoice(122, {
+      billing_period_start: '2026-09-13', billing_period_end: '2026-09-19', total_amount: 140,
+      items: [
+        { id: 401, invoice_id: 122, type: 'charge', shoot_id: 7, quantity: 1, unit_amount: 100, total_amount: 100, description: 'Shoot #7 - 1234 Main St (Commission 10% on $1,000.00)', client_name: 'Jane Smith' },
+        { id: 402, invoice_id: 122, type: 'charge', shoot_id: 8, quantity: 1, unit_amount: 40, total_amount: 40, description: 'Shoot #8 - 9 Oak Ave (Commission 10% on $400.00)', meta: { client_name: 'Stored Client' } },
+      ],
+    })], current_page: 1, last_page: 1, total: 1 });
+    render(<WeeklyInvoiceReview />);
+    expect(await screen.findByText('Shoot #7 - 1234 Main St (Commission 10% on $1,000.00)')).toBeInTheDocument();
+    expect(screen.getByText('Client: Jane Smith')).toBeInTheDocument();
+    expect(screen.getByText('Client: Stored Client')).toBeInTheDocument();
+  });
+
   it('paginates history while keeping selected exports across pages', async () => {
     render(<WeeklyInvoiceReview />);
     await screen.findByRole('heading', { name: 'Commission reviews' });

@@ -157,6 +157,31 @@ describe('invoice PDF downloads', () => {
     expect(renderedText).not.toContain('Wrong Client Label');
   });
 
+  it('names each sales rep payout line client beside its address', async () => {
+    await generateInvoicesPdf([{
+      ...invoice({ role: 'salesRep', payee: { name: 'Sam Rep', email: 'sam@example.test' } }),
+      items: [
+        { shoot_id: 7, description: 'Shoot #7 - 1234 Main St (Commission 10% on $1,000.00)', quantity: 1, unit_amount: 100, total_amount: 100, client_name: 'Jane Smith' },
+        { shoot_id: 8, description: 'Shoot #8 - 9 Oak Ave (Commission 10% on $400.00)', quantity: 1, unit_amount: 40, total_amount: 40 },
+        { description: 'Parking', quantity: 1, unit_amount: 10, total_amount: 10, type: 'expense' },
+      ],
+      shoots: [{ id: 8, client: { name: 'Shoot Client' } }],
+    }]);
+
+    const renderedText = pdfMocks.text.mock.calls.flat().map(String);
+    expect(renderedText).toContain('Shoot #7 - 1234 Main St (Commission 10% on $1,000.00) · Client: Jane Smith');
+    expect(renderedText).toContain('Shoot #8 - 9 Oak Ave (Commission 10% on $400.00) · Client: Shoot Client');
+    expect(renderedText).toContain('Parking');
+  });
+
+  it('keeps client invoice line descriptions unchanged', async () => {
+    await generateInvoicesPdf([invoice({ items: [{ shoot_id: 7, description: 'Photography', quantity: 1, unit_amount: 140, total_amount: 140, client_name: 'Ada Client' }] })]);
+
+    const renderedText = pdfMocks.text.mock.calls.flat().map(String);
+    expect(renderedText).toContain('Photography');
+    expect(renderedText.some((text) => text.includes('Client: Ada Client'))).toBe(false);
+  });
+
   it('itemizes the saved shoot discount in an Accounting PDF without changing the payable total', async () => {
     await generateInvoicesPdf([discountedInvoice()]);
 

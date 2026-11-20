@@ -147,6 +147,8 @@ export interface WeeklyInvoiceItem {
   unit_amount: number;
   total_amount: number;
   recorded_at?: string;
+  /** The line's shoot client (stored at generation, else the shoot's current client). */
+  client_name?: string | null;
   meta?: Record<string, unknown> | null;
 }
 

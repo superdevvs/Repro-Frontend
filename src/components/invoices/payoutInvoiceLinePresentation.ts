@@ -8,6 +8,21 @@ const calendarDate = (value: unknown): string | null => {
   return match && parseInvoiceDateInput(match[0]) ? match[0] : null;
 };
 
+const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '');
+
+/** The client of a payout line's shoot: API value, stored meta, then the linked shoot's client. */
+export const payoutLineClientName = (
+  item: Pick<WeeklyInvoiceItem, 'client_name' | 'meta'>,
+  shoot?: { client?: { name?: string | null } | null } | null,
+): string | null => text(item.client_name) || text(item.meta?.client_name) || text(shoot?.client?.name) || null;
+
+/** "1234 Main St … · Client: Jane Smith" for single-line surfaces such as PDFs. */
+export const withPayoutClientName = (description: string, clientName: string | null | undefined) => {
+  const name = text(clientName);
+  if (!name || description.toLowerCase().includes(`client: ${name.toLowerCase()}`)) return description;
+  return `${description} · Client: ${name}`;
+};
+
 export const payoutInvoiceLines = (invoice: WeeklyInvoice) => {
   const shoots = new Map((invoice.shoots || []).map(shoot => [String(shoot.id), shoot]));
   return (invoice.items || []).map((item: WeeklyInvoiceItem) => {
@@ -20,6 +35,7 @@ export const payoutInvoiceLines = (invoice: WeeklyInvoice) => {
     const parsed = date ? parseInvoiceDateInput(date) : null;
     return {
       item,
+      clientName: payoutLineClientName(item, shoot),
       date,
       dateLabel: parsed ? parsed.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Date unavailable',
       showShootNumber: Boolean(item.shoot_id && !new RegExp(`\\bShoot\\s*#\\s*${item.shoot_id}\\b`, 'i').test(item.description)),

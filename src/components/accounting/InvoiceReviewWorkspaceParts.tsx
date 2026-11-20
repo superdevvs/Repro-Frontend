@@ -83,7 +83,7 @@ export const DetailShell = ({ invoice, detailLoading, onApprove, onReturn, onOpe
         </div>}
         <section><h3 className="ar-section-title">Line items <span>{items.length}</span></h3>
           <div className="ar-table-scroll"><table className="ar-table"><thead><tr><th>Date</th><th>Description</th><th>Type</th><th className="text-right">Amount</th></tr></thead>
-            <tbody>{payoutInvoiceLines(invoice).map(({ item, dateLabel }) => <tr key={item.id}><td className="whitespace-nowrap text-muted-foreground">{dateLabel}</td><td>{item.description}<PayoutBasisSummary item={item} /></td><td className="capitalize text-muted-foreground">{item.type}</td><td className="text-right font-medium tabular-nums">{formatCurrency(item.total_amount)}</td></tr>)}</tbody>
+            <tbody>{payoutInvoiceLines(invoice).map(({ item, dateLabel, clientName }) => <tr key={item.id}><td className="whitespace-nowrap text-muted-foreground">{dateLabel}</td><td>{item.description}{clientName && <p className="mt-0.5 text-xs text-muted-foreground">Client: {clientName}</p>}<PayoutBasisSummary item={item} /></td><td className="capitalize text-muted-foreground">{item.type}</td><td className="text-right font-medium tabular-nums">{formatCurrency(item.total_amount)}</td></tr>)}</tbody>
           </table></div>{!items.length && <p className="ar-empty">No line items are available.</p>}
         </section>
         <div className="grid gap-3 sm:grid-cols-2">

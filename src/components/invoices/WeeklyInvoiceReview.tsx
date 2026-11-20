@@ -34,6 +34,7 @@ import {
 import { cn } from '@/lib/utils';
 import { exportRowsAsCsv, exportRowsAsExcel, exportRowsAsPdf } from '@/utils/accountingExports';
 import { downloadInvoicesPdf } from '@/utils/invoiceDownloads';
+import { payoutLineClientName } from './payoutInvoiceLinePresentation';
 import {
   DEFAULT_INVOICE_DATE_FILTER,
   type InvoiceDateFilter,
@@ -398,7 +399,7 @@ export const WeeklyInvoiceReview: React.FC = () => {
             <div className="my-3 h-1.5 overflow-hidden rounded-full bg-emerald-500/20"><div className="h-full bg-primary" style={{ width: `${shootPayPct}%` }} /></div>
             <div className="flex justify-between gap-3 text-[11px] text-muted-foreground"><span>{reviewCopy.chargeLabel} {shootPayPct}%</span><span>{reviewCopy.expenseLabel} {expensePct}%</span></div>
             <h4 className="mb-1 mt-5 text-xs font-semibold">{reviewCopy.breakdownTitle}</h4>
-            {detailCharges.map((item) => <div key={item.id} className="flex items-start justify-between gap-3 border-b border-border/50 py-3 text-xs"><div className="min-w-0"><p className="break-words font-medium">{item.description}</p><p className="mt-1 text-[11px] text-muted-foreground">{reviewCopy.breakdownItemDescription}</p></div><strong className="shrink-0 tabular-nums">{formatCurrency(Number(item.total_amount || 0))}</strong></div>)}
+            {detailCharges.map((item) => { const clientName = payoutLineClientName(item, detailInvoice.shoots?.find((shoot) => String(shoot.id) === String(item.shoot_id))); return <div key={item.id} className="flex items-start justify-between gap-3 border-b border-border/50 py-3 text-xs"><div className="min-w-0"><p className="break-words font-medium">{item.description}</p>{clientName && <p className="mt-1 break-words text-[11px] text-muted-foreground">Client: {clientName}</p>}<p className="mt-1 text-[11px] text-muted-foreground">{reviewCopy.breakdownItemDescription}</p></div><strong className="shrink-0 tabular-nums">{formatCurrency(Number(item.total_amount || 0))}</strong></div>; })}
             {!detailCharges.length && <p className="py-3 text-xs text-muted-foreground">{reviewCopy.breakdownEmpty}</p>}
             <div className="mt-5 flex items-center justify-between gap-2"><h4 className="text-xs font-semibold">{reviewCopy.expensesTitle}</h4>{canModify(detailInvoice) && <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => { setSelectedInvoice(detailInvoice); setExpenseOpen(true); }}><Plus className="mr-1 h-3 w-3" />{reviewCopy.addExpenseLabel}</Button>}</div>
             {detailExpenses.map((item) => <div key={item.id} className="flex items-center gap-2 border-b border-border/50 py-3 text-xs"><p className="min-w-0 flex-1 break-words">{item.description}</p><strong className="shrink-0 tabular-nums">{formatCurrency(item.total_amount)}</strong>{canModify(detailInvoice) && <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" aria-label={`Remove ${item.description}`} onClick={() => handleRemoveExpense(detailInvoice, item)} disabled={actionLoading}><Trash2 className="h-3.5 w-3.5" /></Button>}</div>)}

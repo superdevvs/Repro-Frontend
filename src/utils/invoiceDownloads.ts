@@ -10,6 +10,7 @@ import type {
   InvoiceShootRef,
 } from '@/types/invoice';
 import { resolveInvoicePricingDisplay } from '@/utils/invoicePricingSummary';
+import { payoutLineClientName, withPayoutClientName } from '@/components/invoices/payoutInvoiceLinePresentation';
 
 type JsPdfDocument = import('jspdf').jsPDF;
 
@@ -133,16 +134,25 @@ const shootAddress = (value: unknown): string => {
   return [address, city, [state, zip].filter(Boolean).join(' ')].filter(Boolean).join(', ');
 };
 
-const normalizeItem = (value: unknown): NormalizedInvoiceLine | null => {
+type PayoutShootClients = Map<string, { client?: { name?: string | null } | null }>;
+
+const normalizeItem = (value: unknown, payoutShoots?: PayoutShootClients): NormalizedInvoiceLine | null => {
   const item = toRecord(value) as InvoiceItem & Record<string, unknown>;
   const meta = toRecord(item.meta);
-  const description = firstText(
+  const baseDescription = firstText(
     item.description,
     meta.extra_description,
     meta.service_name,
     item.type,
   );
-  if (!description) return null;
+  if (!baseDescription) return null;
+  // Payout invoices cover many clients: name each line's client beside its address.
+  const description = payoutShoots
+    ? withPayoutClientName(baseDescription, payoutLineClientName(
+      { client_name: toText(item.client_name) || null, meta },
+      payoutShoots.get(toText(item.shoot_id)),
+    ))
+    : baseDescription;
 
   const quantity = Math.max(1, toMoney(item.quantity, 1));
   const unitAmount = toOptionalNumber(item.unit_amount ?? item.unitAmount);
@@ -186,8 +196,16 @@ const normalizeInvoice = (invoice: DownloadableInvoice): NormalizedInvoice => {
   ).replace(/^#/, '');
 
   const totalHint = toOptionalNumber(source.total ?? source.amount ?? source.total_amount);
+  const payoutShoots: PayoutShootClients | undefined = isPayout
+    ? new Map((Array.isArray(source.shoots) ? source.shoots : []).map((shoot) => {
+      const record = toRecord(shoot);
+      return [toText(record.id), { client: toRecord(record.client) as { name?: string | null } }] as const;
+    }))
+    : undefined;
   const sourceItems = Array.isArray(source.items)
-    ? source.items.map(normalizeItem).filter((item): item is NormalizedInvoiceLine => Boolean(item))
+    ? source.items
+      .map((item) => normalizeItem(item, payoutShoots))
+      .filter((item): item is NormalizedInvoiceLine => Boolean(item))
     : [];
   const services = Array.isArray(source.services)
     ? source.services.map(toText).filter(Boolean)

@@ -340,6 +340,8 @@ export function PhotographerInvoiceReviewWorkspace({
 
     return {
       ...invoice,
+      // Client receipts are not payout lines; the on-screen editor hides them too.
+      items: invoice.items?.filter((item) => item.type !== 'payment'),
       number: `W-${invoice.id}`,
       client: payee,
       payee,
@@ -351,10 +353,17 @@ export function PhotographerInvoiceReviewWorkspace({
     };
   };
 
+  // Queue rows carry no lines; PDFs list each line's address and client, so load the detail.
+  const withDownloadLines = async (invoice: WeeklyInvoice): Promise<WeeklyInvoice> => {
+    if (invoice.items) return invoice;
+    if (selectedInvoice?.id === invoice.id && selectedInvoice.items) return selectedInvoice;
+    return fetchAdminInvoiceReviewDetail(invoice.id);
+  };
+
   const handleInvoiceDownload = async (invoice: WeeklyInvoice, downloadFormat: 'pdf' | 'csv') => {
     try {
       if (downloadFormat === 'csv') await downloadInvoiceCsv(invoice.id);
-      else await downloadInvoicePdf(toDownloadableInvoice(invoice));
+      else await downloadInvoicePdf(toDownloadableInvoice(await withDownloadLines(invoice)));
       toast({
         title: 'Invoice downloaded',
         description: `Invoice W-${invoice.id} was downloaded as ${downloadFormat.toUpperCase()}.`,
@@ -374,7 +383,11 @@ export function PhotographerInvoiceReviewWorkspace({
 
     setExporting(true);
     try {
-      await downloadInvoicesPdf(selected.map(toDownloadableInvoice), {
+      const detailed: WeeklyInvoice[] = [];
+      for (let index = 0; index < selected.length; index += 4) {
+        detailed.push(...await Promise.all(selected.slice(index, index + 4).map(withDownloadLines)));
+      }
+      await downloadInvoicesPdf(detailed.map(toDownloadableInvoice), {
         fileName: `${resolvedShortLabel.toLowerCase().replace(/\s+/g, '-')}-selected-invoices.pdf`,
       });
       toast({

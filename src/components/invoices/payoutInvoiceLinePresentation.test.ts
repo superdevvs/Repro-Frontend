@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WeeklyInvoice, WeeklyInvoiceItem } from '@/services/invoiceService';
-import { payoutInvoiceLines } from './payoutInvoiceLinePresentation';
+import { payoutInvoiceLines, payoutLineClientName, withPayoutClientName } from './payoutInvoiceLinePresentation';
 
 const line = (id: number, overrides: Partial<WeeklyInvoiceItem> = {}): WeeklyInvoiceItem => ({
   id, invoice_id: 686, type: 'charge', description: `Shoot #${id} - HDR Photos`,
@@ -54,5 +54,29 @@ describe('payout invoice line presentation', () => {
       line(4, { shoot_id: undefined, description: 'External work' }),
     ]));
     expect(result.map(row => row.showShootNumber)).toEqual([false, false, true, true, false]);
+  });
+});
+
+describe('payout line client names', () => {
+  it('names each line client from the API, stored meta, or the linked shoot client', () => {
+    const rows = payoutInvoiceLines(invoice([
+      line(1, { client_name: 'Jane Smith', meta: { client_name: 'Older Name' } }),
+      line(2, { meta: { client_name: 'Stored Client' } }),
+      line(3),
+      line(4, { type: 'expense', shoot_id: undefined }),
+    ], [{ id: 3, scheduled_date: '2026-09-28', client: { id: 9, name: 'Shoot Client', email: '' } }]));
+    const byId = new Map(rows.map(row => [row.item.id, row.clientName]));
+    expect(byId.get(1)).toBe('Jane Smith');
+    expect(byId.get(2)).toBe('Stored Client');
+    expect(byId.get(3)).toBe('Shoot Client');
+    expect(byId.get(4)).toBeNull();
+  });
+
+  it('adds the client after the address once, for single-line surfaces', () => {
+    const description = 'Shoot #7 - 1234 Main St, City, ST 12345 (Commission 10% on $1,000.00)';
+    expect(withPayoutClientName(description, 'Jane Smith')).toBe(`${description} · Client: Jane Smith`);
+    expect(withPayoutClientName(`${description} · Client: Jane Smith`, 'Jane Smith')).toBe(`${description} · Client: Jane Smith`);
+    expect(withPayoutClientName(description, null)).toBe(description);
+    expect(payoutLineClientName({ client_name: '  ', meta: null })).toBeNull();
   });
 });
