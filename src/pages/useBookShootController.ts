@@ -338,6 +338,14 @@ export const useBookShootController = () => {
     return true;
   };
   const bookingSubmitInFlight = React.useRef(false);
+  // Staff can switch off the client's standing editor notes for this one booking.
+  const [standingNotesSkipped, setStandingNotesSkipped] = React.useState(false);
+  React.useEffect(() => { setStandingNotesSkipped(false); }, [client]);
+  const standingNotesSkip = React.useMemo(() => ({
+    enabled: !isEditMode && !isClientAccount,
+    skipped: standingNotesSkipped,
+    setSkipped: setStandingNotesSkipped,
+  }), [isClientAccount, isEditMode, standingNotesSkipped]);
   const handleSubmit = async () => {
     if (bookingSubmitInFlight.current) return;
     bookingSubmitInFlight.current = true;
@@ -573,6 +581,7 @@ export const useBookShootController = () => {
         company_notes: companyNotes || undefined,
         photographer_notes: photographerNotes || undefined,
         editor_notes: editorNotes || undefined,
+        ...(standingNotesSkip.enabled && standingNotesSkip.skipped ? { standing_editor_notes_hidden: true } : {}),
         bypass_paywall: bypassPayment || isNoChargeShoot,
         send_notification: sendNotification,
         property_details: propertyDetails || undefined,
@@ -960,6 +969,7 @@ export const useBookShootController = () => {
   }, [compReshoot.sourceShootId, navigate, setAdjustedTotalInput, setBypassPayment, setShootType, setStep]);
 
   return {
+    standingNotesSkip,
     unitBooking, isMobile, isEditMode, editShootLoading, packages, packagesLoading, clients, client,
     setClient, address, setAddress, city, setCity, state, setState, zip, setZip, date,
     setDate, time, setTime, photographer, setPhotographer, servicePhotographers,

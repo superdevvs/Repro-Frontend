@@ -1,3 +1,4 @@
+import { parseShootStandingEditorNotes } from '@/utils/standingEditorNotes';
 import { hasActiveShootWork, normalizeActiveShootWork } from '@/utils/activeShootWork';
 import { shootAutoDeliveryFields } from '@/utils/shootAutoDelivery';
 import {
@@ -101,6 +102,7 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
   companyNotes: shoot.company_notes ?? null,
   photographerNotes: shoot.photographer_notes ?? null,
   editorNotes: shoot.editor_notes ?? null,
+  standingEditorNotes: parseShootStandingEditorNotes(shoot.standing_editor_notes),
   // Property details
   propertyDetails: shoot.property_details ?? null,
 });

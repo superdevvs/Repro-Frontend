@@ -30,6 +30,7 @@ import { ClientPropertyFormActions } from './ClientPropertyFormActions';
 import { MobileClientPicker } from './MobileClientPicker';
 import { normalizeBookingQuantity } from '@/utils/bookedServiceQuantity';
 import { formatPrice } from '@/utils/servicePricing';
+import { StandingEditorNotesBookingBanner } from './StandingEditorNotesBookingBanner';
 export const ClientPropertyFormView = ({ controller }: { controller: ClientPropertyFormController }) => {
   const {
     form, isClientAccount, allClients, selectedClient, isSearching, visibleClients,
@@ -45,7 +46,7 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
     onPropertyDraftChange, buildPropertyDraftData, submitAttemptNotice,
     showClearSavedData, onClearSavedData, submitForm,
     isCompReshootMode, sourceContextLocked, serviceMappingSlot,
-    slide, onBack,
+    slide, onBack, standingNotesSkip, watchedClientId,
   } = controller;
   const units = useBookingUnits();
   const showPropertySlide = slide !== 'services';
@@ -885,6 +886,9 @@ export const ClientPropertyFormView = ({ controller }: { controller: ClientPrope
                 </FormItem>
               )}
             />
+            {!isClientAccount && (
+              <StandingEditorNotesBookingBanner className="col-span-full" clientId={watchedClientId} skip={standingNotesSkip} />
+            )}
             {!isClientAccount && <details open={!isMobile} className="col-span-full rounded-lg border border-border p-3">
               <summary className="cursor-pointer text-sm font-semibold">Internal notes</summary>
               <div className="grid gap-3 pt-3 lg:grid-cols-2">

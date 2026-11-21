@@ -1,3 +1,4 @@
+import { parseShootStandingEditorNotes } from '@/utils/standingEditorNotes';
 import { normalizeActiveShootWork } from '@/utils/activeShootWork';
 import { shootAutoDeliveryFields } from '@/utils/shootAutoDelivery';
 import { ShootData, ShootServiceObject } from '@/types/shoots';
@@ -850,6 +851,7 @@ export const transformShootFromApi = (shoot: ApiShoot): ShootData => {
     canSubmitEdits: Boolean(shoot.canSubmitEdits ?? shoot.can_submit_edits),
     canViewInvoice: toOptionalBoolean(shoot.canViewInvoice, shoot.can_view_invoice),
     canViewVideoEditorContext: toOptionalBoolean(shoot.can_view_video_editor_context, shoot.canViewVideoEditorContext),
+    standingEditorNotes: parseShootStandingEditorNotes(shoot.standing_editor_notes ?? shoot.standingEditorNotes),
     canFinalizeNoMedia: toOptionalBoolean(shoot.canFinalizeNoMedia, shoot.can_finalize_no_media),
     canFinalizeDelivery: toOptionalBoolean(shoot.canFinalizeDelivery, shoot.can_finalize_delivery),
     canShareGuest: toOptionalBoolean(shoot.canShareGuest, shoot.can_share_guest),

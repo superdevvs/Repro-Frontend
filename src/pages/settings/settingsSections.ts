@@ -8,8 +8,9 @@ export const SETTINGS_GROUPS = [
   { id: 'branding', label: 'Branding', description: 'Portfolio appearance and photo watermark settings.', tabs: [
     { value: 'branding', label: 'Portfolio' }, { value: 'watermark', label: 'Watermark' },
   ] },
-  { id: 'editing', label: 'Editing', description: 'Desktop editing tools and AI service providers.', tabs: [
-    { value: 'desktop-editing', label: 'Desktop editing' }, { value: 'ai-editing', label: 'AI providers' },
+  { id: 'editing', label: 'Editing', description: 'Desktop editing tools, standing editor notes and AI service providers.', tabs: [
+    { value: 'desktop-editing', label: 'Desktop editing' }, { value: 'standing-notes', label: 'Standing notes' },
+    { value: 'ai-editing', label: 'AI providers' },
   ] },
   { id: 'business', label: 'Business', description: 'Discount codes and photographer service coverage.', tabs: [
     { value: 'coupons', label: 'Discounts' }, { value: 'service-areas', label: 'Service Areas' },

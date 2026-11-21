@@ -37,6 +37,8 @@ import { AccountInsuranceFields } from './AccountInsuranceFields';
 import { AccountRoleSettings } from './AccountRoleSettings';
 import { AdminDefaultBracketModeField } from './AdminDefaultBracketModeField';
 import { AccountPhotographerCapabilityFields } from './AccountPhotographerCapabilityFields';
+import { StandingEditorNoteSection } from './StandingEditorNoteSection';
+import { canManageStandingEditorNotes, canReadStandingEditorNotes } from '@/utils/standingEditorNotes';
 export function AccountFormView({ controller }: { controller: AccountFormController }) {
   const { data: schedulingCategories, isLoading: schedulingCategoriesLoading } = useServiceCategories();
   const schedulingCategoryNames = React.useMemo(() => {
@@ -920,6 +922,14 @@ export function AccountFormView({ controller }: { controller: AccountFormControl
                 </FormItem>
               )}
             />
+            {initialData?.id && currentRole === 'client' && canReadStandingEditorNotes(viewerRole) && (
+              <StandingEditorNoteSection
+                clientId={initialData.id}
+                clientName={initialData.name || 'this client'}
+                companyName={form.watch('company') || initialData.company}
+                canManage={canManageStandingEditorNotes(viewerRole)}
+              />
+            )}
               </div>
             </div>
             {currentRole === "photographer" && (
