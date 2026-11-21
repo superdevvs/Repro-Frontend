@@ -60,6 +60,7 @@ export function BookShootView({ controller }: { controller: BookShootController 
                   onAddressFieldsChange={handleAddressFieldsChange}
                   onClientChange={handleClientChange}
                   onPropertyDraftChange={handlePropertyDraftChange}
+                  standingNotesSkip={controller.standingNotesSkip}
                   date={date}
                   setDate={setDate}
                   time={time}

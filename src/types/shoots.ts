@@ -1,3 +1,4 @@
+import type { ShootStandingEditorNotes } from '@/utils/standingEditorNotes';
 import type { ActiveShootWorkFields } from '@/utils/activeShootWork';
 
 export type BracketMode = 3 | 5 | null;
@@ -676,6 +677,8 @@ export interface ShootData extends ActiveShootWorkFields {
   canViewInvoice?: boolean;
   canViewVideoEditorContext?: boolean;
   can_view_video_editor_context?: boolean;
+  /** Standing client/brokerage instructions for the editor (staff and editors only). */
+  standingEditorNotes?: ShootStandingEditorNotes | null;
   canFinalizeNoMedia?: boolean;
   canFinalizeDelivery?: boolean;
   canShareGuest?: boolean;

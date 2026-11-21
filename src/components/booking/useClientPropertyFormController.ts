@@ -255,6 +255,8 @@ export type ClientPropertyFormProps = {
   onAddressFieldsChange?: (fields: { address: string; city: string; state: string; zip: string }) => void;
   onClientChange?: (clientId: string) => void;
   onPropertyDraftChange?: (data: ClientPropertyDraft) => void;
+  /** Booking-only switch to leave the client's standing editor notes off this shoot. */
+  standingNotesSkip?: { enabled: boolean; skipped: boolean; setSkipped: (skipped: boolean) => void };
   selectedServices: PackageOption[];
   onSelectedServicesChange: (services: PackageOption[]) => void;
   shootType?: InternalShootType;
@@ -282,6 +284,7 @@ export const useClientPropertyFormController = ({
   onAddressFieldsChange,
   onClientChange,
   onPropertyDraftChange,
+  standingNotesSkip,
   selectedServices,
   onSelectedServicesChange,
   shootType = 'standard',
@@ -812,6 +815,8 @@ export const useClientPropertyFormController = ({
 
   return {
     form,
+    standingNotesSkip,
+    watchedClientId,
     isClientAccount,
     allClients,
     selectedClient,

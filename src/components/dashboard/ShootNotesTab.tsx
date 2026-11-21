@@ -12,6 +12,7 @@ import { hasSalesRepRole } from '@/utils/shootManagementAccess';
 import { canViewVideoEditorClientContext } from '@/utils/videoEditorClientContext';
 import { PageSearch } from '@/components/search/PageSearch';
 import { useContextualSearch } from '@/components/search/searchContext';
+import { StandingEditorNotesCard } from './StandingEditorNotesCard';
 
 interface ShootNotesTabProps {
   contextualSearch?: boolean;
@@ -615,6 +616,14 @@ export function ShootNotesTab({
         onResultOpen={result => document.getElementById(result.destination.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
       /></div>}
       {searchTerm && !noteTypes.some(shouldRenderNoteSection) && <p role="status" className="p-4 text-sm text-muted-foreground">No visible notes match your search.</p>}
+      {!searchTerm && (
+        <StandingEditorNotesCard
+          shootId={shoot.id}
+          clientId={shoot.client?.id}
+          value={shoot.standingEditorNotes}
+          canManage={isRealAdmin || isRep}
+        />
+      )}
       {shouldRenderNoteSection('shootNotes') && renderNoteSection('shootNotes')}
       {shouldRenderNoteSection('approvalNotes') && renderNoteSection('approvalNotes')}
       {shouldRenderNoteSection('photographerNotes') && renderNoteSection('photographerNotes')}

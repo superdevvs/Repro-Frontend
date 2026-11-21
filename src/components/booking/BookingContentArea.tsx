@@ -28,6 +28,7 @@ interface BookingContentAreaProps {
   onAddressFieldsChange?: (fields: { address: string; city: string; state: string; zip: string }) => void;
   onClientChange?: (clientId: string) => void;
   onPropertyDraftChange?: BookShootController['handlePropertyDraftChange'];
+  standingNotesSkip?: BookShootController['standingNotesSkip'];
   date: Date | undefined;
   setDate: React.Dispatch<React.SetStateAction<Date | undefined>>;
   time: string;
@@ -90,6 +91,7 @@ export function BookingContentArea({
   onAddressFieldsChange,
   onClientChange,
   onPropertyDraftChange,
+  standingNotesSkip,
   date,
   setDate,
   time,
@@ -176,6 +178,7 @@ export function BookingContentArea({
           onAddressFieldsChange={onAddressFieldsChange}
           onClientChange={onClientChange}
           onPropertyDraftChange={onPropertyDraftChange as ClientPropertyFormProps['onPropertyDraftChange']}
+          standingNotesSkip={standingNotesSkip}
           selectedServices={selectedServices}
           onSelectedServicesChange={onSelectedServicesChange}
           shootType={shootType}
