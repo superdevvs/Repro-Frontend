@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { canBookOutsideClientServiceGroups, canBookWithoutServices } from '@/utils/bookingServiceAccess';
 import { useBookingMainSchedule } from './useBookingMainSchedule';
+import { useBookingStandingNotes } from './useBookingStandingNotes';
 import { useBookingTravel } from '@/features/travel/useBookingTravel';
 import { bookingDayScheduleHandler } from '@/features/travel/bookingDayScheduleHandler';
 import { buildBookingDurationAdjuster } from './bookShootDurationAdjustment';
@@ -338,14 +339,7 @@ export const useBookShootController = () => {
     return true;
   };
   const bookingSubmitInFlight = React.useRef(false);
-  // Staff can switch off the client's standing editor notes for this one booking.
-  const [standingNotesSkipped, setStandingNotesSkipped] = React.useState(false);
-  React.useEffect(() => { setStandingNotesSkipped(false); }, [client]);
-  const standingNotesSkip = React.useMemo(() => ({
-    enabled: !isEditMode && !isClientAccount,
-    skipped: standingNotesSkipped,
-    setSkipped: setStandingNotesSkipped,
-  }), [isClientAccount, isEditMode, standingNotesSkipped]);
+  const standingNotesSkip = useBookingStandingNotes(client, !isEditMode && !isClientAccount);
   const handleSubmit = async () => {
     if (bookingSubmitInFlight.current) return;
     bookingSubmitInFlight.current = true;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Badge } from '@/components/ui/badge';
+import { ChevronDown, Pin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -73,9 +73,9 @@ export function StandingEditorNoteSection({ clientId, clientName, companyName, c
   React.useEffect(() => { void load(); }, [load]);
 
   React.useEffect(() => {
-    if (scope !== 'brokerage') return;
     const keyword = companyMatch.trim();
-    if (keyword.length < 2) { setMatches(null); return; }
+    setMatches(null);
+    if (scope !== 'brokerage' || keyword.length < 2) { setMatching(false); return; }
     let cancelled = false;
     setMatching(true);
     const timer = window.setTimeout(() => {
@@ -150,121 +150,108 @@ export function StandingEditorNoteSection({ clientId, clientName, companyName, c
     }
   };
 
+  const preview = ownNote?.is_active ? ownNote : brokerageNotes[0] ?? ownNote;
+  const status = !loaded ? (loadError ? 'Could not load' : 'Loading…')
+    : preview ? (preview === ownNote && !ownNote?.is_active ? 'Off' : preview.label)
+    : 'No note';
+
   return (
-    <section
-      aria-labelledby="standing-editor-note-heading"
-      className="space-y-3 rounded-xl border-2 border-primary/60 bg-primary/[0.03] p-4"
+    <details
+      className="group rounded-lg border border-violet-500/25 bg-violet-500/[0.04]"
       data-testid="standing-editor-note-section"
     >
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 id="standing-editor-note-heading" className="text-sm font-semibold">Standing note for the editor</h3>
-        <Badge variant="secondary" className="bg-purple-500/15 text-purple-700 dark:text-purple-300">
-          Editors only · never shown to client
-        </Badge>
-      </div>
+      <summary className="flex min-h-10 cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-violet-500/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+        <Pin aria-hidden="true" className="size-3.5 shrink-0 text-violet-700 dark:text-violet-300" />
+        <span className="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-2.5">
+          <span className="block shrink-0 font-medium">Standing editor note</span>
+          {preview && <span className="block truncate text-xs text-muted-foreground group-open:hidden">{preview.content}</span>}
+        </span>
+        <span className="shrink-0 text-xs text-muted-foreground">{status}</span>
+        <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
 
-      {loadError ? (
-        <p className="text-sm text-destructive">{loadError}</p>
-      ) : !loaded ? (
-        <p className="flex items-center gap-2 text-sm text-muted-foreground"><InlineSpinner className="h-4 w-4" /> Loading standing note…</p>
-      ) : (
-        <>
-          <Textarea
-            aria-label="Standing note for the editor"
-            value={content}
-            onChange={(event) => setContent(event.target.value)}
-            placeholder="e.g. All Weichert agents get 1 complimentary exterior green grass."
-            rows={3}
-            maxLength={2000}
-            disabled={!canManage}
-          />
-
-          <fieldset className="space-y-2" disabled={!canManage}>
-            <legend className="mb-1 text-xs font-semibold text-muted-foreground">Apply to</legend>
-            <label className={cn('flex cursor-pointer gap-3 rounded-lg border p-3', scope === 'client' && 'border-primary bg-primary/5')}>
-              <input type="radio" name="standing-note-scope" className="mt-1" checked={scope === 'client'} onChange={() => setScope('client')} />
-              <span>
-                <span className="block text-sm font-semibold">Only {clientName}</span>
-                <span className="block text-xs text-muted-foreground">Every shoot booked for this client.</span>
-              </span>
-            </label>
-            <label className={cn('flex cursor-pointer gap-3 rounded-lg border p-3', scope === 'brokerage' && 'border-primary bg-primary/5')}>
-              <input type="radio" name="standing-note-scope" className="mt-1" checked={scope === 'brokerage'} onChange={() => setScope('brokerage')} />
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold">Everyone at this brokerage</span>
+      <div className="space-y-2.5 border-t border-violet-500/15 px-3 py-2.5">
+        {loadError ? (
+          <p role="alert" className="text-sm text-destructive">{loadError}</p>
+        ) : !loaded ? (
+          <p className="flex items-center gap-2 text-sm text-muted-foreground"><InlineSpinner className="size-4" /> Loading standing note…</p>
+        ) : (
+          <>
+            <div className="grid gap-2.5 md:grid-cols-[minmax(0,1fr)_minmax(15rem,32%)]">
+              <Textarea
+                aria-label="Standing note for the editor"
+                className="min-h-[4rem]"
+                value={content}
+                onChange={(event) => setContent(event.target.value)}
+                placeholder="Add an instruction for the editor…"
+                rows={2}
+                maxLength={2000}
+                disabled={!canManage}
+              />
+              <fieldset className="space-y-1.5" disabled={!canManage}>
+                <legend className="mb-1 text-xs font-medium text-muted-foreground">Apply to</legend>
+                <div className="grid grid-cols-2 gap-1 rounded-md bg-muted/70 p-0.5">
+                  <label className={cn('flex min-h-8 cursor-pointer items-center gap-1.5 rounded px-1.5 text-xs', scope === 'client' && 'bg-background font-medium shadow-sm')}>
+                    <input type="radio" name="standing-note-scope" checked={scope === 'client'} onChange={() => setScope('client')} />
+                    This client
+                  </label>
+                  <label className={cn('flex min-h-8 cursor-pointer items-center gap-1.5 rounded px-1.5 text-xs', scope === 'brokerage' && 'bg-background font-medium shadow-sm')}>
+                    <input type="radio" name="standing-note-scope" checked={scope === 'brokerage'} onChange={() => setScope('brokerage')} />
+                    Brokerage
+                  </label>
+                </div>
                 {scope === 'brokerage' && (
-                  <span className="mt-2 block space-y-2">
-                    <span className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      Company name contains
-                      <Input
-                        aria-label="Company name contains"
-                        className="h-8 w-40"
-                        value={companyMatch}
-                        maxLength={120}
-                        onChange={(event) => setCompanyMatch(event.target.value)}
-                      />
-                      {matching ? <InlineSpinner className="h-3.5 w-3.5" /> : matches && (
-                        <Badge variant="secondary">{matches.count} {matches.count === 1 ? 'client matches' : 'clients match'}</Badge>
-                      )}
-                    </span>
-                    {matches && matches.clients.length > 0 && (
-                      <span className="block max-h-36 overflow-auto rounded-md border bg-background text-xs">
-                        {matches.clients.map((client) => (
-                          <span key={client.id} className="flex justify-between gap-3 border-b px-2.5 py-1.5 last:border-b-0">
-                            <span>{client.name}</span>
-                            <span className="truncate text-muted-foreground">{client.company_name}</span>
-                          </span>
-                        ))}
-                        {matches.count > matches.clients.length && (
-                          <span className="block px-2.5 py-1.5 text-muted-foreground">+ {matches.count - matches.clients.length} more…</span>
-                        )}
-                      </span>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <Input aria-label="Company name contains" placeholder="Company name contains…" className="h-8 min-w-[8rem] flex-1 px-2 text-xs" value={companyMatch} maxLength={120} onChange={(event) => setCompanyMatch(event.target.value)} />
+                    {matching ? <InlineSpinner className="size-3.5" /> : matches && (
+                      <details className="relative text-xs">
+                        <summary className="cursor-pointer whitespace-nowrap text-primary underline-offset-4 hover:underline">
+                          {matches.count} {matches.count === 1 ? 'client matches' : 'clients match'}
+                        </summary>
+                        <ul className="mt-1 max-h-28 min-w-24 space-y-1 overflow-auto rounded-md border bg-background p-2">
+                          {matches.clients.map((client) => <li key={client.id}>{client.name}</li>)}
+                          {matches.count > matches.clients.length && <li>+ {matches.count - matches.clients.length} more</li>}
+                          {matches.count === 0 && <li>No matching clients yet.</li>}
+                        </ul>
+                      </details>
                     )}
-                    <span className="block text-xs text-muted-foreground">
-                      New agents whose company contains this keyword are picked up automatically.
-                    </span>
-                  </span>
+                  </div>
                 )}
-              </span>
-            </label>
-          </fieldset>
-
-          {otherBrokerage.length > 0 && (
-            <div className="space-y-1 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
-              <p className="font-semibold">Also applies to this client</p>
-              {otherBrokerage.map((note) => (
-                <p key={note.id}><span className="font-medium">{note.label}:</span> {note.content}</p>
-              ))}
-              <p className="text-amber-800/80 dark:text-amber-200/80">Change brokerage notes in Settings › Editing › Standing notes.</p>
+              </fieldset>
             </div>
-          )}
 
-          <p className="rounded-md border-l-4 border-primary bg-primary/5 px-3 py-2 text-xs">
-            Shows on <b>new shoots and any shoot not yet delivered</b>. Delivered shoots keep whatever note they had.
-          </p>
+            {otherBrokerage.length > 0 && (
+              <details className="text-xs">
+                <summary className="cursor-pointer font-medium text-muted-foreground">
+                  {otherBrokerage.length} additional brokerage {otherBrokerage.length === 1 ? 'note applies' : 'notes apply'}
+                </summary>
+                <ul className="mt-1.5 space-y-1 pl-3">
+                  {otherBrokerage.map((note) => <li key={note.id}><span className="font-medium">{note.label}</span> · {note.content}</li>)}
+                </ul>
+              </details>
+            )}
 
-          {canManage && (
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              {ownNote ? (
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Switch checked={ownNote.is_active} onCheckedChange={(checked) => void toggleOwnActive(checked)} disabled={saving} />
-                  {ownNote.is_active ? 'Client note on' : 'Client note off'}
-                </label>
-              ) : <span />}
-              <div className="flex gap-2">
-                {ownNote && scope === 'client' && (
-                  <Button type="button" variant="outline" size="sm" onClick={() => void removeClientNote()} disabled={saving}>
-                    Remove
+            {canManage && (
+              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                {ownNote ? (
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Switch checked={ownNote.is_active} onCheckedChange={(checked) => void toggleOwnActive(checked)} disabled={saving} />
+                    {ownNote.is_active ? 'Client note on' : 'Client note off'}
+                  </label>
+                ) : <span className="text-xs text-muted-foreground">Applies to open and future shoots.</span>}
+                <div className="ml-auto flex gap-1.5">
+                  {ownNote && scope === 'client' && (
+                    <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => void removeClientNote()} disabled={saving}>Remove</Button>
+                  )}
+                  <Button type="button" size="sm" className="h-8" onClick={() => void save()} disabled={!canSave}>
+                    {saving ? 'Saving…' : 'Save note'}
                   </Button>
-                )}
-                <Button type="button" size="sm" onClick={() => void save()} disabled={!canSave}>
-                  {saving ? 'Saving…' : 'Save note'}
-                </Button>
+                </div>
               </div>
-            </div>
-          )}
-        </>
-      )}
-    </section>
+            )}
+          </>
+        )}
+      </div>
+    </details>
   );
 }

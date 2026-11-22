@@ -21,6 +21,7 @@ interface ShootNotesTabProps {
   isPhotographer: boolean;
   role: string;
   hideEmptySections?: boolean;
+  showStandingNote?: boolean;
 }
 
 const noteTypes = [
@@ -51,6 +52,7 @@ export function ShootNotesTab({
   shoot, 
   role,
   hideEmptySections = false,
+  showStandingNote = true,
   contextualSearch: bindContextualSearch = false,
 }: ShootNotesTabProps) {
   const contextualSearch = useContextualSearch();
@@ -616,7 +618,7 @@ export function ShootNotesTab({
         onResultOpen={result => document.getElementById(result.destination.slice(1))?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
       /></div>}
       {searchTerm && !noteTypes.some(shouldRenderNoteSection) && <p role="status" className="p-4 text-sm text-muted-foreground">No visible notes match your search.</p>}
-      {!searchTerm && (
+      {showStandingNote && !searchTerm && (isRealAdmin || isRep || isEditingManager || isEditor) && (
         <StandingEditorNotesCard
           shootId={shoot.id}
           clientId={shoot.client?.id}

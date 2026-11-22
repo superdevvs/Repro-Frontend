@@ -34,7 +34,7 @@ describe('editor dashboard strip', () => {
   it('puts the standing note first, labelled with the brokerage', () => {
     render(<EditorShootContextNotes shoot={card(standing())} />);
     const line = screen.getByTestId('editor-standing-note');
-    expect(line).toHaveTextContent('📌 Standing client note (Weichert):');
+    expect(line).toHaveTextContent('Standing client note (Weichert):');
     expect(line).toHaveTextContent(grass.content);
     expect(screen.getByText('Twilight on photo 14.')).toBeInTheDocument();
   });
@@ -66,6 +66,11 @@ describe('Notes tab pinned card', () => {
     await waitFor(() => expect(screen.getByText('Hidden on this shoot')).toBeInTheDocument());
     expect(service.setShootStandingEditorNotesHidden).toHaveBeenCalledWith(42, true);
     expect(screen.getByRole('button', { name: 'Show on this shoot' })).toBeInTheDocument();
+  });
+
+  it('keeps hidden instructions out of the overview', () => {
+    render(<StandingEditorNotesCard shootId={42} value={standing({ hidden: true })} canManage={false} overview />);
+    expect(screen.queryByText(grass.content)).not.toBeInTheDocument();
   });
 
   it('renders nothing when no standing note applies', () => {
