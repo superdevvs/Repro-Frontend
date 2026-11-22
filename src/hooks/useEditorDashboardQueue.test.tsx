@@ -32,6 +32,19 @@ describe('editor dashboard operational pagination', () => {
     await waitFor(() => expect(result.current.deliveredShoots.map(shoot => shoot.id)).toEqual(['2']));
   });
 
+  it('carries authorized standing instructions from the shoot list to the editor card', async () => {
+    const standing = {
+      hidden: false, frozen: false,
+      notes: [{ id: 7, scope: 'brokerage', client_id: null, company_match: 'Weichert', label: 'Weichert brokerage', content: 'Green the front lawn.', updated_at: null }],
+    };
+    mocks.get.mockImplementation(async (_path, { params }) => ({ data: {
+      data: params.tab === 'completed' ? [{ ...record(1), standing_editor_notes: standing }] : [],
+      meta: { last_page: 1 },
+    } }));
+    const { result } = renderHook(() => useEditorDashboardQueue(7, true), { wrapper });
+    await waitFor(() => expect(result.current.upcomingSummaries[0]?.standingEditorNotes).toEqual(standing));
+  });
+
   it('loads all active pages and only the first delivered page', async () => {
     mocks.get.mockImplementation(async (_path, { params }) => ({ data: {
       data: params.tab === 'completed' ? [record(params.page), record(1)] : [record(200, 'delivered')],

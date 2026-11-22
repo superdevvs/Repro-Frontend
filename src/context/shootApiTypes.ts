@@ -206,6 +206,8 @@ export type ApiShoot = ActiveShootWorkFields & {
   canViewInvoice?: boolean;
   canViewVideoEditorContext?: boolean;
   can_view_video_editor_context?: boolean;
+  standing_editor_notes?: unknown;
+  standingEditorNotes?: unknown;
   canFinalizeNoMedia?: boolean;
   canFinalizeDelivery?: boolean;
   canShareGuest?: boolean;

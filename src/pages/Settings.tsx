@@ -41,6 +41,8 @@ import { NotificationPreferencesCard } from '@/components/settings/NotificationP
 import { photographerSettingsDestination } from '@/pages/photographerAccountNavigation';
 import { AiEditingProviderSettings } from '@/components/settings/AiEditingProviderSettings';
 import { DesktopEditingSettings } from '@/components/settings/DesktopEditingSettings';
+import { StandingEditorNotesSettings } from '@/components/settings/StandingEditorNotesSettings';
+import { canManageStandingEditorNotes, canReadStandingEditorNotes } from '@/utils/standingEditorNotes';
 import { EditorPreferencesCard } from '@/components/settings/EditorPreferencesCard';
 import { formatUserRoleLabel } from '@/utils/userRoleLabels';
 import { ShortLinkSettings } from '@/components/settings/ShortLinkSettings';
@@ -153,6 +155,7 @@ const Settings = () => {
     if (canViewRobbieSettings) {
       tabs.push('robbie');
     }
+    if (canReadStandingEditorNotes(role)) tabs.push('standing-notes');
     if (role === 'superadmin') tabs.push('ai-editing');
     if (canViewServiceAreas) {
       tabs.push('service-areas');
@@ -786,6 +789,7 @@ const Settings = () => {
 
             {role === 'superadmin' && <TabsContent value="ai-editing" className="space-y-6"><AiEditingProviderSettings /></TabsContent>}
             {['admin', 'superadmin', 'editing_manager'].includes(role ?? '') && <TabsContent value="desktop-editing" className="space-y-6"><DesktopEditingSettings /></TabsContent>}
+            {canReadStandingEditorNotes(role) && <TabsContent value="standing-notes" className="space-y-6"><StandingEditorNotesSettings canManage={canManageStandingEditorNotes(role)} /></TabsContent>}
             {canViewServiceAreas && (
               <TabsContent value="service-areas" className="space-y-6">
                 <div>

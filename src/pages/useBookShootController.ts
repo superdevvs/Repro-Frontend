@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { canBookOutsideClientServiceGroups, canBookWithoutServices } from '@/utils/bookingServiceAccess';
 import { useBookingMainSchedule } from './useBookingMainSchedule';
+import { useBookingStandingNotes } from './useBookingStandingNotes';
 import { useBookingTravel } from '@/features/travel/useBookingTravel';
 import { bookingDayScheduleHandler } from '@/features/travel/bookingDayScheduleHandler';
 import { buildBookingDurationAdjuster } from './bookShootDurationAdjustment';
@@ -338,6 +339,7 @@ export const useBookShootController = () => {
     return true;
   };
   const bookingSubmitInFlight = React.useRef(false);
+  const standingNotesSkip = useBookingStandingNotes(client, !isEditMode && !isClientAccount);
   const handleSubmit = async () => {
     if (bookingSubmitInFlight.current) return;
     bookingSubmitInFlight.current = true;
@@ -573,6 +575,7 @@ export const useBookShootController = () => {
         company_notes: companyNotes || undefined,
         photographer_notes: photographerNotes || undefined,
         editor_notes: editorNotes || undefined,
+        ...(standingNotesSkip.enabled && standingNotesSkip.skipped ? { standing_editor_notes_hidden: true } : {}),
         bypass_paywall: bypassPayment || isNoChargeShoot,
         send_notification: sendNotification,
         property_details: propertyDetails || undefined,
@@ -960,6 +963,7 @@ export const useBookShootController = () => {
   }, [compReshoot.sourceShootId, navigate, setAdjustedTotalInput, setBypassPayment, setShootType, setStep]);
 
   return {
+    standingNotesSkip,
     unitBooking, isMobile, isEditMode, editShootLoading, packages, packagesLoading, clients, client,
     setClient, address, setAddress, city, setCity, state, setState, zip, setZip, date,
     setDate, time, setTime, photographer, setPhotographer, servicePhotographers,

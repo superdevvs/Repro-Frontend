@@ -1,3 +1,4 @@
+import type { ShootStandingEditorNotes } from '@/utils/standingEditorNotes';
 import type { ActiveShootWorkFields } from '@/utils/activeShootWork';
 import type { ShootAutoDelivery } from '@/types/shoots';
 export interface DashboardStatsResponse {
@@ -110,6 +111,7 @@ export interface DashboardShootSummaryResponse extends ActiveShootWorkFields {
   company_notes?: string | null;
   photographer_notes?: string | null;
   editor_notes?: string | null;
+  standing_editor_notes?: unknown;
   // Property details
   property_details?: {
     bedrooms?: number;
@@ -291,6 +293,7 @@ export interface DashboardShootSummary extends ActiveShootWorkFields {
   companyNotes?: string | null;
   photographerNotes?: string | null;
   editorNotes?: string | null;
+  standingEditorNotes?: ShootStandingEditorNotes | null;
   // Property details
   propertyDetails?: {
     bedrooms?: number;

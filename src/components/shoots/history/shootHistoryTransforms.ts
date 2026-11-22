@@ -1,3 +1,4 @@
+import { parseShootStandingEditorNotes } from '@/utils/standingEditorNotes';
 import { normalizeActiveShootWork } from '@/utils/activeShootWork';
 import { shootAutoDeliveryFields } from '@/utils/shootAutoDelivery';
 import { getStateFullName } from '@/utils/stateUtils'
@@ -630,6 +631,7 @@ export const mapShootApiToShootData = (item: Record<string, unknown>): ShootData
     },
     isPrivateListing: toBooleanValue(item.is_private_listing ?? item.isPrivateListing),
     notes: resolvedNotes,
+    standingEditorNotes: parseShootStandingEditorNotes(item.standing_editor_notes ?? item.standingEditorNotes),
     adminIssueNotes: item.admin_issue_notes as string | undefined,
     isFlagged: toBooleanValue(item.is_flagged),
     issuesResolvedAt: item.issues_resolved_at as string | undefined,
