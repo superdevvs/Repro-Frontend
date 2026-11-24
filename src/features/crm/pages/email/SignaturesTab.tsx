@@ -14,7 +14,7 @@ interface Mine { latest: Signature | null; approved: Signature | null; send_bloc
 export function SignaturesTab() {
   const { data: meta } = useCrmMeta();
   const mine = useCrmQuery<Mine>(['crm', 'signature', 'me'], '/signatures/me');
-  const pending = useCrmQuery<{ data: (Signature & { change?: string[] })[] }>(['crm', 'signatures', 'pending'], '/signatures/pending', undefined, Boolean(meta?.can.approve_signatures));
+  const pending = useCrmQuery<{ data: (Signature & { change?: string })[] }>(['crm', 'signatures', 'pending'], '/signatures/pending', undefined, Boolean(meta?.can.approve_signatures));
   const [form, setForm] = useState({ name: '', title: '', phone: '', sender_email: '' });
   const [comment, setComment] = useState<Record<number, string>>({});
 
@@ -65,7 +65,7 @@ export function SignaturesTab() {
             {pending.data?.data.map((s) => (
               <li key={s.id} className="flex flex-col gap-2 p-4">
                 <p className="text-[13px]"><b>{s.user?.name}</b> · {s.sender_email} · v{s.version} · {when(s.submitted_at)}</p>
-                {s.change && s.change.length > 0 && <p className="text-xs text-muted-foreground">Changed: {s.change.join(', ')}</p>}
+                {s.change && <p className="text-xs text-muted-foreground">{s.change}</p>}
                 <div className="rounded-lg border bg-white p-3 text-[#0f1a26]" dangerouslySetInnerHTML={{ __html: s.html }} />
                 <div className="flex flex-wrap gap-2">
                   <TextInput aria-label={`Comment for ${s.user?.name}`} className="min-w-[200px] flex-1" placeholder="Comment (needed to send back)" value={comment[s.id] ?? ''} onChange={(e) => setComment({ ...comment, [s.id]: e.target.value })} />
