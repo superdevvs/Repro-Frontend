@@ -25,6 +25,8 @@ import { cn } from '@/lib/utils';
 import { GlobalCommandBar } from '@/components/search/GlobalCommandBar';
 import { useContextualSearch } from '@/components/search/searchContext';
 import { RobbieInsightStrip } from '@/components/ai/RobbieInsightStrip';
+// Inside /crm the strip shows CRM insights and opens Robbie's side panel.
+const CrmRobbieStrip = React.lazy(() => import('@/features/crm/robbie/CrmRobbieStrip'));
 import { usePermission } from '@/hooks/usePermission';
 import { usesSettingsOnlyAccount } from '@/pages/profileNavigation';
 import { MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
@@ -232,6 +234,7 @@ export function Navbar() {
   // Photographers and editors get simplified nav with menu in top bar
   const isSimplifiedLayout = role === 'photographer' || role === 'editor';
   const showRobbieStrip = role !== 'photographer' && role !== 'editor';
+  const isCrmRoute = location.pathname === '/crm' || location.pathname.startsWith('/crm/');
   const robbieStripViewport = useMediaQuery('(min-width: 1024px)');
 
   useEffect(() => {
@@ -504,10 +507,12 @@ export function Navbar() {
         {showRobbieStrip && (
           <div className="hidden min-w-0 flex-1 items-center lg:flex">
             <div className="h-8 w-px shrink-0 bg-border/60" />
-            {robbieStripViewport && <RobbieInsightStrip
+            {robbieStripViewport && (isCrmRoute
+              ? <React.Suspense fallback={null}><CrmRobbieStrip className="min-w-0 flex-1" /></React.Suspense>
+              : <RobbieInsightStrip
               role={role}
               className="min-w-0 flex-1 border-0 shadow-none px-4 py-1.5 rounded-xl"
-            />}
+            />)}
           </div>
         )}
       

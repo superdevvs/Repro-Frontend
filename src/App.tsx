@@ -31,6 +31,7 @@ import { RequestManagerProvider, useRequestManager } from './context/RequestMana
 import { StudioRevisionRequestsProvider } from './context/StudioRevisionRequestsContext';
 import { PhotographerAssignmentProvider, usePhotographerAssignment } from './context/PhotographerAssignmentContext';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
+import { CRM_ENABLED } from '@/features/crm/featureFlag';
 import { DashboardRouteSkeleton } from '@/components/layout/DashboardRouteSkeleton';
 import { PageTransition } from '@/components/layout/PageTransition';
 import { ResponsiveResizeIndicator } from '@/components/layout/ResponsiveResizeIndicator';
@@ -117,6 +118,12 @@ const EmailRecovery = lazy(() => import('./pages/messaging/EmailRecovery'));
 const SmsCenter = lazy(() => import('./pages/messaging/SmsCenter'));
 const MessagingSettings = lazy(() => import('./pages/messaging/MessagingSettings'));
 const CallsLayout = lazy(() => import('./pages/voice/CallsLayout'));
+
+// Sales CRM (own layout under /crm) and its public pages
+const CrmApp = lazy(() => import('./features/crm/CrmApp'));
+const CrmCareersPage = lazy(() => import('./features/crm/public/CareersPage'));
+const CrmPublicQuotePage = lazy(() => import('./features/crm/public/PublicQuotePage'));
+const CrmUnsubscribePage = lazy(() => import('./features/crm/public/UnsubscribePage'));
 
 // Lazy-load modals
 const RequestManagerModal = lazy(() => import('./components/requests/RequestManagerModal').then(module => ({ default: module.RequestManagerModal })));
@@ -492,6 +499,16 @@ const AppRoutes = () => {
         </PageTransition>
       } />
       <Route path="/guest/shoot/:token" element={<GuestShootOverview />} />
+      {/* Unsubscribe links in old emails keep working even with the CRM switched off. */}
+      <Route path="/unsubscribe/:token" element={<CrmUnsubscribePage />} />
+      {CRM_ENABLED && <Route path="/careers" element={<CrmCareersPage />} />}
+      {CRM_ENABLED && <Route path="/careers/:slug" element={<CrmCareersPage />} />}
+      {CRM_ENABLED && <Route path="/q/:token" element={<CrmPublicQuotePage />} />}
+      {CRM_ENABLED && <Route path="/crm/*" element={
+        <ProtectedRoute>
+          <PermissionRoute resource="crm-contacts"><CrmApp /></PermissionRoute>
+        </ProtectedRoute>
+      } />}
       <Route path="/download/media" element={
         <PageTransition>
           <ShootArchiveRedirect />

@@ -17,6 +17,7 @@ interface ImportMetaEnv {
   readonly VITE_COMPANY_ADDRESS?: string;
   readonly VITE_PUBLIC_SITE_URL?: string;
   readonly VITE_COMPLIMENTARY_RESHOOT_ENABLED?: string;
+  readonly VITE_CRM_ENABLED?: string;
 }
 
 interface ImportMeta {

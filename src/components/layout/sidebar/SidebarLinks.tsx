@@ -27,11 +27,13 @@ import {
   Crown,
   PlusCircle,
   Sparkles,
+  Handshake as HandshakeIcon,
 } from 'lucide-react';
 import styles from './SidebarLinks.module.css';
 import { canUseListingStudio, listingStudioIsExternal, listingStudioHref } from '@/utils/listingStudio';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useMessagingBadgeCounts } from '@/hooks/useMessagingBadgeCounts';
+import { CRM_ENABLED } from '@/features/crm/featureFlag';
 
 interface SidebarLinksProps {
   isCollapsed: boolean;
@@ -95,6 +97,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const canViewScheduling = permission.can('scheduling-settings', 'view');
   const canViewPortal = permission.can('portal', 'view');
   const canViewAccounting = permission.can('accounting', 'view');
+  const canViewCrm = CRM_ENABLED && permission.can('crm-contacts', 'view');
   const canViewEmailInbox = canUseEmailWorkspace(role) && permission.can('messaging-email', 'view');
   const canViewMessagingOverview = canUseEmailWorkspace(role) && permission.can('messaging-overview', 'view');
   const canViewSms = permission.can('messaging-sms', 'view');
@@ -150,7 +153,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
     window.addEventListener('resize', measureActiveIndicator);
 
     return () => window.removeEventListener('resize', measureActiveIndicator);
-  }, [pathname, role, canViewShared, canBookShoot, canViewScheduling, canViewPortal, canViewAccounting, canViewEmailInbox, canViewMessagingOverview, canViewSms, canViewCalls, canViewSupport, canViewAiEditing, canViewRobbie, measureActiveIndicator]);
+  }, [pathname, role, canViewShared, canBookShoot, canViewScheduling, canViewPortal, canViewAccounting, canViewEmailInbox, canViewMessagingOverview, canViewSms, canViewCalls, canViewSupport, canViewAiEditing, canViewRobbie, canViewCrm, measureActiveIndicator]);
 
   React.useLayoutEffect(() => {
     setActiveIndicator(null);
@@ -267,6 +270,18 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
           label="Accounts"
           isCollapsed={isCollapsed}
           isActive={pathname === '/accounts'}
+          onActivePreview={previewActiveIndicator}
+        />
+      )}
+
+      {/* Sales CRM: opens its own area with a CRM-only sidebar */}
+      {canViewCrm && (
+        <NavLink
+          to="/crm"
+          icon={<HandshakeIcon className="h-5 w-5" />}
+          label="Sales CRM"
+          isCollapsed={isCollapsed}
+          isActive={pathname === '/crm' || pathname.startsWith('/crm/')}
           onActivePreview={previewActiveIndicator}
         />
       )}

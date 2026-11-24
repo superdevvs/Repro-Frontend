@@ -38,9 +38,13 @@ interface DashboardLayoutProps {
   className?: string;
   hideNavbar?: boolean;
   hideFooter?: boolean;
+  /** Replaces the Dashboard sidebar (the Sales CRM has its own). */
+  sidebar?: React.ReactNode;
+  /** Replaces the phone bottom menu; receives the height reporter. */
+  renderMobileNav?: (onHeightChange: (height: number) => void) => React.ReactNode;
 }
 
-export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, className, hideNavbar = false, hideFooter = false }) => {
+export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, className, hideNavbar = false, hideFooter = false, sidebar, renderMobileNav }) => {
   const isInsideDashboardLayout = React.useContext(DashboardLayoutContext);
   const isMobile = useIsMobile();
   const isCompactDashboardShell = useMediaQuery('(max-width: 1024px)');
@@ -135,7 +139,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
       {/* The viewport rule keeps the dynamic height after its legacy fallback;
           combining h-screen and h-dvh lets Tailwind's h-screen rule win. */}
       <div className="dashboard-viewport flex overflow-hidden">
-        {!useCompactShell && !isSimplifiedLayout && <Sidebar />}
+        {!useCompactShell && (sidebar ?? (!isSimplifiedLayout && <Sidebar />))}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           {isImpersonating && user && (
             <div className="bg-amber-100 dark:bg-amber-900/30 border-b border-amber-200 dark:border-amber-800 px-4 py-2 flex items-center justify-between">
@@ -194,7 +198,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, clas
             </main>
             </PageLoadingBoundary>
           </ErrorBoundary>
-          {useCompactShell && <MobileMenu onBottomNavHeightChange={setBottomNavHeight} />}
+          {useCompactShell && (renderMobileNav ? renderMobileNav(setBottomNavHeight) : <MobileMenu onBottomNavHeightChange={setBottomNavHeight} />)}
         </div>
       </div>
       {listingStudioOpen && (
