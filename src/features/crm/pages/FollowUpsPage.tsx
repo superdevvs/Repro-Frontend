@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CalendarCheck, Mail, Phone, Users } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { apiClient } from '@/services/api';
+import { toApiError } from '../api';
 import { cn } from '@/lib/utils';
 import { useCrmMeta, useCrmQuery } from '../hooks';
 import { ago, shortDay, time } from '../format';
@@ -30,6 +33,18 @@ export default function FollowUpsPage() {
   const q = useCrmQuery<FollowUps>(['crm', 'follow-ups', userId], '/follow-ups', { user_id: userId || undefined, days: 7 });
   const [completing, setCompleting] = useState<CrmEvent | null>(null);
   const [moving, setMoving] = useState<CrmEvent | undefined>();
+  const [connecting, setConnecting] = useState(false);
+  const connectCalendar = async () => {
+    setConnecting(true);
+    try {
+      const { data } = await apiClient.post<{ data?: { authorization_url?: string } }>('/google-calendar/connect', { source: 'crm' });
+      if (data.data?.authorization_url) window.location.assign(data.data.authorization_url);
+    } catch (e) {
+      toast.error(toApiError(e).message);
+    } finally {
+      setConnecting(false);
+    }
+  };
 
   const g = q.data?.groups;
   const due = (g?.overdue.length ?? 0) + (g?.today.length ?? 0);
@@ -44,8 +59,13 @@ export default function FollowUpsPage() {
       </>}
       tabs={<TabBar<Tab> value={tab} onChange={setTab} tabs={[{ key: 'due', label: 'Due', count: due }, { key: 'upcoming', label: 'Next 7 days', count: g?.upcoming.length }, { key: 'done', label: 'Done', count: q.data?.recently_done.length }]} />}
     >
-      {q.data?.calendar && !q.data.calendar.connected && (
-        <Note tone="info">Connect Google Calendar in your profile to see follow-ups next to your other meetings. Times stay in step both ways.</Note>
+      {q.data?.calendar && !q.data.calendar.connected && (!userId || Number(userId) === meta?.me.id) && (
+        <Note tone="info">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span>Connect Google Calendar to see follow-ups next to your other meetings. Moving one in either place moves it in both.</span>
+            <Button size="sm" variant="outline" className="h-7 bg-card" disabled={connecting} onClick={() => void connectCalendar()}>{connecting ? 'Opening Google…' : 'Connect Google Calendar'}</Button>
+          </div>
+        </Note>
       )}
       {q.isLoading && <Loading />}
       {q.error && <ErrorNote error={q.error} onRetry={() => q.refetch()} />}
