@@ -90,7 +90,7 @@ test('changing an approved campaign returns it to review without delivering', as
   await signIn(page, repToken!);
   await page.goto(route);
   await page.getByRole('button', { name: 'Submit for review' }).click({ timeout: 25_000 });
-  await expectUi(page.getByText('Submitted', { exact: true }).first()).toBeVisible();
+  await expectUi(page.getByText('Waiting for review', { exact: true }).first()).toBeVisible();
 
   const supervisor = await browser.newPage({ baseURL: process.env.E2E_BASE_URL });
   try {
@@ -107,7 +107,7 @@ test('changing an approved campaign returns it to review without delivering', as
   await page.getByLabel('Subject').fill('Photos for upcoming listings');
   await expectUi(page.getByRole('button', { name: /^Send now to/ })).toBeDisabled();
   await page.getByRole('button', { name: 'Save', exact: true }).click({ timeout: 25_000 });
-  await expectUi(page.getByText('Submitted', { exact: true }).first()).toBeVisible();
+  await expectUi(page.getByText('Waiting for review', { exact: true }).first()).toBeVisible();
   await page.reload();
   await expectUi(page.getByLabel('Subject')).toHaveValue('Photos for upcoming listings');
   await expectUi(page.getByRole('button', { name: /^Send now to/ })).toHaveCount(0);
