@@ -408,7 +408,7 @@ export function Navbar() {
   ];
 
   return (
-    <div className="w-full bg-background">
+    <div className={cn('w-full', isCrmRoute ? 'bg-secondary dark:bg-background' : 'bg-background')}>
       <div className="flex h-16 items-center justify-between gap-2 px-4 sm:gap-4">
         <div
           className={cn(
