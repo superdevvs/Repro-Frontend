@@ -37,7 +37,7 @@ export default function FollowUpsPage() {
   const connectCalendar = async () => {
     setConnecting(true);
     try {
-      const { data } = await apiClient.post<{ data?: { authorization_url?: string } }>('/google-calendar/connect', { source: 'crm' });
+      const { data } = await apiClient.post<{ data?: { authorization_url?: string } }>('/crm/calendar/connect', { source: 'crm' });
       if (data.data?.authorization_url) window.location.assign(data.data.authorization_url);
     } catch (e) {
       toast.error(toApiError(e).message);
