@@ -10,6 +10,7 @@ import {
   type NormalizedIguideSync,
 } from '@/utils/shootTourData';
 import { IguideOfflinePackageDialog } from '../tours/IguideOfflinePackageDialog';
+import { IguideFloorplanControls, type IguideFloorplanOperations } from './IguideFloorplanControls';
 import {
   downloadIguideOfflinePackage,
   formatFileSize,
@@ -27,6 +28,7 @@ interface IguideMediaPanelProps {
   isEditor: boolean;
   onShootUpdate: () => void;
   shootId: number | string;
+  floorplanOperations?: IguideFloorplanOperations;
 }
 
 const emptyOfflinePackage = () => normalizeIguideOfflinePackage(null);
@@ -48,6 +50,7 @@ function IguideMediaContent({
   isEditor,
   onShootUpdate,
   shootId,
+  floorplanOperations,
 }: IguideMediaPanelProps) {
   const { toast } = useToast();
   const sync = iguideSync || ({} as NormalizedIguideSync);
@@ -179,6 +182,7 @@ function IguideMediaContent({
   return (
     <div className="h-full overflow-y-auto">
       <div className="m-2.5 space-y-4 rounded-lg border bg-card p-4">
+        {floorplanOperations && <IguideFloorplanControls operations={floorplanOperations} shootId={shootId} onShootUpdate={onShootUpdate} />}
         {showOfflinePackage && (
           <section
             className="space-y-3 rounded-md border border-border/70 bg-muted/20 p-3"

@@ -304,6 +304,25 @@ export function useShootDetailsMediaTab({
     isEditor,
     offlinePackage: iguideSync.offlinePackage,
   });
+  const iguideFloorplanTargets = isAdmin && !isClient && !isEditor
+    ? getShootServiceItems(shoot).flatMap(item => {
+        if (!item.shootServiceId || !item.source.can_add_iguide_floorplan) return [];
+        const fileBelongsToLine = (file: MediaFile) => String(file.shoot_service_id) === item.shootServiceId;
+        return [{ id: item.shootServiceId, name: item.name,
+          tourStatus: item.source.delivery_components?.find(part => part.kind === 'tour')?.status,
+          manualCount: editedFloorplans.filter(file => fileBelongsToLine(file) && file.media_source !== 'iguide').length }];
+      })
+    : [];
+  const importedIguideFloorplans = new Set(editedFloorplans.filter(file => file.media_source === 'iguide')
+    .map(file => file.provider_asset_key ?? file.id)).size;
+  const iguideFloorplanOperations = iguideFloorplanTargets.length > 0 ? {
+    targets: iguideFloorplanTargets,
+    linked: Boolean(iguideSync.propertyId && iguideSync.lastSyncedAt),
+    providerLinkSaved: Boolean(iguideUrl),
+    imported: importedIguideFloorplans,
+    expected: iguideFloorplans.length + importedIguideFloorplans,
+  } : undefined;
+  const showIguidePanel = showIguideMedia || Boolean(iguideFloorplanOperations);
   const clientEditedMediaTabs = useMemo(
     () =>
       [
@@ -311,7 +330,7 @@ export function useShootDetailsMediaTab({
         (!isPhotoOnlyEditor && (shootHasVideoService || editedVideos.length > 0))
           ? { id: 'videos' as MediaSubTab, label: `Video (${editedVideos.length})` }
           : null,
-        showIguideMedia
+        showIguidePanel
           ? { id: 'iguide' as MediaSubTab, label: 'iGUIDE' }
           : null,
         !isEditor && (editedFloorplans.length > 0 || iguideFloorplans.length > 0)
@@ -351,7 +370,7 @@ export function useShootDetailsMediaTab({
       iguideFloorplans.length,
       isEditor,
       isPhotoOnlyEditor,
-      showIguideMedia,
+      showIguidePanel,
       shootHasVideoService,
     ],
   );
@@ -1300,6 +1319,7 @@ export function useShootDetailsMediaTab({
         iguideUrl={iguideUrl}
         iguideFloorplans={iguideFloorplans.filter(file => !effectiveMediaQuery.trim() || String(file.filename ?? '').toLowerCase().includes(effectiveMediaQuery.trim().toLowerCase()))}
         iguideSync={iguideSync}
+        iguideFloorplanOperations={iguideFloorplanOperations}
         uploadedFloorplans={filterMediaSearch(uploadedFloorplans, effectiveMediaQuery)}
         uploadedVirtualStaging={uploadedVirtualStaging}
         uploadedGreenGrass={uploadedGreenGrass}

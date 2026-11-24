@@ -81,6 +81,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     iguideUrl,
     iguideFloorplans,
     iguideSync,
+    iguideFloorplanOperations,
     uploadedFloorplans,
     uploadedVirtualStaging,
     uploadedGreenGrass,
@@ -158,7 +159,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
     </div>
   );
   const canMarkSelectedFiles = ['admin', 'superadmin', 'super_admin', 'editing_manager', 'photographer', 'editor'].includes(String(role)) && !isClient && (!isEditor || displayTab === 'edited') && ![...rawFiles, ...editedFiles, ...unassignedFiles].some(file => selectedFiles.has(file.id) && file.can_interact === false);
-  const showIguideMedia = canShowIguideMedia({
+  const showIguideMedia = Boolean(iguideFloorplanOperations) || canShowIguideMedia({
     iguideUrl,
     isAdmin,
     isClient,
@@ -521,6 +522,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                       isDeliveryLocked={isClient && !canClientOpenIguide(shoot)}
                       iguideUrl={iguideUrl}
                       iguideSync={iguideSync}
+                      floorplanOperations={iguideFloorplanOperations}
                       isAdmin={isAdmin}
                       isClient={isClient}
                       isEditor={isEditor}
@@ -711,6 +713,7 @@ export function ShootDetailsMediaTabView(props: ShootDetailsMediaTabViewProps) {
                       isDeliveryLocked={isClient && !canClientOpenIguide(shoot)}
                       iguideUrl={iguideUrl}
                       iguideSync={iguideSync}
+                      floorplanOperations={iguideFloorplanOperations}
                       isAdmin={isAdmin}
                       isClient={isClient}
                       isEditor={isEditor}

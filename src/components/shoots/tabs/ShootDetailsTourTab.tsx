@@ -767,14 +767,12 @@ export function ShootDetailsTourContent({
       });
       return;
     }
+    const isIguideLink = editing3DKey === 'iguide_branded' || editing3DKey === 'iguide_mls';
     setIsSaving3D(true);
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      // Update tour links through the shoot PATCH endpoint
-      const updatedTourLinks = {
-        ...sourceTourLinks,
-        [editing3DKey]: value || null,
-      };
+      const updatedTourLinks = { ...sourceTourLinks, [editing3DKey]: value || null };
+      const shootServiceId = isIguideLink && unitId ? iguideLineId : undefined;
       const res = await fetch(updateUrl, {
         method: 'PATCH',
         headers: {
@@ -782,7 +780,7 @@ export function ShootDetailsTourContent({
           'Authorization': `Bearer ${token}`,
           'Accept': 'application/json',
         },
-        body: JSON.stringify({ tour_links: updatedTourLinks }),
+        body: JSON.stringify({ tour_links: updatedTourLinks, shoot_service_id: shootServiceId }),
       });
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({ message: 'Failed to save 3D tour' }));
@@ -793,8 +791,8 @@ export function ShootDetailsTourContent({
       setEditing3DKey(null);
       setEditing3DValue('');
       toast({
-        title: 'Success',
-        description: '3D tour link saved successfully',
+        title: isIguideLink ? 'iGuide link saved' : '3D tour link saved',
+        description: isIguideLink && value ? 'Check Media → iGUIDE for the sync and floor plan status.' : undefined,
       });
       onShootUpdate();
     } catch (err: unknown) {
@@ -1205,7 +1203,7 @@ export function ShootDetailsTourContent({
       toast({
         title: 'iGuide synced',
         description: queued > 0
-          ? `Pulled ${queued} deliverable(s) from youriguide.com.`
+          ? `${queued} floor plan files queued for import. Check Media → iGUIDE for progress.`
           : 'iGuide metadata refreshed.',
       });
       onShootUpdate();

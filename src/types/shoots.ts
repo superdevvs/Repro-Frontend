@@ -328,6 +328,7 @@ export interface ShootServiceObject {
   delivery_status?: string | null;
   deliveryStatus?: string | null;
   delivery_components?: Array<{ kind: string; label: string; status: string; without_content?: boolean; deferred?: boolean }>;
+  can_add_iguide_floorplan?: boolean;
   ready_at?: string | null;
   readyAt?: string | null;
   delivered_at?: string | null;

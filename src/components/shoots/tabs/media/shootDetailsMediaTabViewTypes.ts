@@ -6,6 +6,7 @@ import type { MediaFile } from '@/hooks/useShootFiles';
 import type { ShootData } from '@/types/shoots';
 import type { useToast } from '@/hooks/use-toast';
 import type { NormalizedIguideFloorplan, NormalizedIguideSync } from '@/utils/shootTourData';
+import type { IguideFloorplanOperations } from './IguideFloorplanControls';
 import type { DownloadPopupState, ReclassifyMediaType } from './useShootMediaActions';
 import type { MediaImageSize } from './mediaPreviewUtils';
 import type { MediaSortOrder } from './mediaSort';
@@ -96,6 +97,7 @@ export interface ShootDetailsMediaTabViewProps {
   iguideUrl: string;
   iguideFloorplans: NormalizedIguideFloorplan[];
   iguideSync?: NormalizedIguideSync | null;
+  iguideFloorplanOperations?: IguideFloorplanOperations;
   uploadedFloorplans: MediaFile[];
   uploadedVirtualStaging: MediaFile[];
   uploadedGreenGrass: MediaFile[];
