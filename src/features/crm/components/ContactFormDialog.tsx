@@ -75,7 +75,7 @@ export function ContactFormDialog({ open, onOpenChange, contact }: { open: boole
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="crm-root max-h-[92dvh] overflow-y-auto sm:max-w-[640px]">
+      <DialogContent className="crm-root max-h-[92dvh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>{editing ? `Edit ${contact!.name}` : 'Add contact'}</DialogTitle>
           <DialogDescription>{editing ? 'Changes are checked against every contact for duplicates.' : 'New contacts start in Outreach. Email, phone and name are checked against every contact in the CRM.'}</DialogDescription>

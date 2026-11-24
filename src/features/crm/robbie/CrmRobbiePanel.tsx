@@ -85,12 +85,12 @@ export function CrmRobbiePanel({ className, onClose }: { className?: string; onC
   const suggestions = SUGGESTIONS[where.page] ?? SUGGESTIONS.default;
 
   return (
-    <aside aria-label="Robbie" className={cn('flex min-h-0 flex-col overflow-hidden rounded-[14px] border bg-card shadow-[0_8px_24px_-12px_hsl(210_40%_10%/.18)]', className)}>
+    <aside aria-label="Robbie" className={cn('flex min-h-0 flex-col overflow-hidden rounded-[14px] border bg-card shadow-lg', className)}>
       <div className="flex min-h-[62px] items-center gap-2.5 border-b px-4 py-3">
         <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-accent"><ReproAiIcon className="h-[18px] w-[18px]" /></span>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-semibold leading-4">Robbie</p>
-          <p className="truncate text-[11.5px] text-muted-foreground">{where.label ? `Looking at ${where.label}` : 'Your sales assistant'}</p>
+          <p className="truncate text-xs text-muted-foreground">{where.label ? `Looking at ${where.label}` : 'Your sales assistant'}</p>
         </div>
         <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Close Robbie" onClick={() => (onClose ? onClose() : robbie?.setOpen(false))}><X className="h-4 w-4" /></Button>
       </div>
@@ -98,17 +98,17 @@ export function CrmRobbiePanel({ className, onClose }: { className?: string; onC
       <div ref={scroller} className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto p-4">
         {turns.length === 0 && (
           <div className="flex gap-2.5">
-            <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-accent"><ReproAiIcon className="h-4 w-4" /></span>
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent"><ReproAiIcon className="h-4 w-4" /></span>
             <p className="text-[13px] leading-5">I can look up your contacts, plan your day and draft notes, follow-ups and emails. Nothing changes until you confirm it.</p>
           </div>
         )}
         {turns.map((t, i) => {
-          if (t.role === 'user') return <p key={i} className="max-w-[280px] self-end rounded-[12px_12px_4px_12px] bg-primary px-3 py-2 text-[13px] leading-[19px] text-primary-foreground">{t.content}</p>;
+          if (t.role === 'user') return <p key={i} className="max-w-72 self-end crm-outgoing-bubble bg-primary px-3 py-2 text-[13px] leading-5 text-primary-foreground">{t.content}</p>;
           if (t.role === 'plan') return <PlanList key={i} items={t.items} onAsk={(q) => void send(q)} />;
           return (
             <div key={i} className="flex flex-col gap-2.5">
               <div className="flex gap-2.5">
-                <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-lg bg-accent"><ReproAiIcon className="h-4 w-4" /></span>
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent"><ReproAiIcon className="h-4 w-4" /></span>
                 <p className="whitespace-pre-wrap text-[13px] leading-5">{t.content}</p>
               </div>
               {t.proposals?.map((p) => <ProposalCard key={p.id} proposal={p} />)}
@@ -132,7 +132,7 @@ export function CrmRobbiePanel({ className, onClose }: { className?: string; onC
           <input id="crm-robbie-input" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Ask about your contacts…" className="min-w-0 flex-1 bg-transparent py-2 text-[13px] outline-none placeholder:text-muted-foreground" autoComplete="off" />
           <Button type="submit" size="icon" className="h-7 w-7 rounded-lg" disabled={busy || !input.trim()} aria-label="Send"><ArrowUp className="h-4 w-4" /></Button>
         </form>
-        <p className="text-[11px] leading-[15px] text-muted-foreground">Robbie sees only the contacts you can see. Suggestions wait for your confirmation.</p>
+        <p className="text-[11px] leading-4 text-muted-foreground">Robbie sees only the contacts you can see. Suggestions wait for your confirmation.</p>
       </div>
     </aside>
   );
@@ -148,10 +148,10 @@ function PlanList({ items, onAsk }: { items: PlanItem[]; onAsk: (q: string) => v
       <ol className="divide-y">
         {items.map((item, i) => (
           <li key={`${item.kind}-${item.event_id ?? item.contact?.id ?? i}`} className="flex items-start gap-2.5 px-3 py-2.5">
-            <span className={cn('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10.5px] font-semibold', item.kind === 'overdue' || item.kind === 'first_contact' ? 'bg-[hsl(var(--crm-red-soft))] crm-text-red' : 'bg-secondary text-muted-foreground')}>{i + 1}</span>
+            <span className={cn('mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold', item.kind === 'overdue' || item.kind === 'first_contact' ? 'crm-bg-red crm-text-red' : 'bg-secondary text-muted-foreground')}>{i + 1}</span>
             <div className="min-w-0 flex-1">
-              {item.contact ? <Link to={`/crm/contacts/${item.contact.id}`} className="block truncate text-[12.5px] font-medium hover:underline">{item.title}</Link> : <p className="truncate text-[12.5px] font-medium">{item.title}</p>}
-              <p className="text-[11.5px] text-muted-foreground">{item.reason}</p>
+              {item.contact ? <Link to={`/crm/contacts/${item.contact.id}`} className="block truncate text-[13px] font-medium hover:underline">{item.title}</Link> : <p className="truncate text-[13px] font-medium">{item.title}</p>}
+              <p className="text-xs text-muted-foreground">{item.reason}</p>
             </div>
             {item.contact?.phone && item.action.kind === 'call' && <a href={`tel:${item.contact.phone}`} className="rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label={`Call ${item.contact.name}`}><Phone className="h-3.5 w-3.5" /></a>}
             {item.contact && item.action.kind === 'email' && (

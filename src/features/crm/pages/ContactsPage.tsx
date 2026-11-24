@@ -67,7 +67,7 @@ export default function ContactsPage() {
       {statList && <StatStrip stats={statList} className="max-md:grid-cols-2" />}
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex h-8 w-[240px] items-center rounded-lg border bg-background max-md:h-10 max-md:w-full" data-page-search-container>
+        <div className="relative flex h-8 w-60 items-center rounded-lg border bg-background max-md:h-10 max-md:w-full" data-page-search-container>
           <Search className="ml-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           <PageSearch searchId="crm-contacts" scope="crm-contacts" scopeLabel="Contacts" priority={20} aria-label="Search contacts" placeholder="Search name, company, email, phone" value={search} onChange={(e) => setFilter('search', e.target.value)}
             className="h-full border-0 bg-transparent px-2 text-[13px] shadow-none focus-visible:ring-0" />

@@ -59,12 +59,12 @@ export default function HomePage() {
           { label: 'Quotes to act on', count: d.quote_action_count ?? quotes.length, to: '#quote-actions', urgent: false },
         ].map(({ label, count, to, urgent }) => {
           const content = <><span className="text-[13px] font-medium">{label}</span><strong className="mt-2 text-3xl tabular-nums tracking-tight">{count}</strong></>;
-          const style = cn('flex min-w-0 flex-col rounded-xl border bg-card px-4 py-3 hover:border-primary/60', urgent && 'border-amber-500/60 bg-[hsl(var(--crm-amber-soft))] crm-text-amber');
+          const style = cn('flex min-w-0 flex-col rounded-xl border bg-card px-4 py-3 hover:border-primary/60', urgent && 'border-amber-500/60 crm-bg-amber crm-text-amber');
           return to.startsWith('#') ? <a key={label} href={to} className={style}>{content}</a> : <Link key={label} to={to} className={style}>{content}</Link>;
         })}
       </nav>
 
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-4 crm-work-grid">
         <div className="flex min-w-0 flex-col gap-4">
           <section id="new-leads" className="scroll-mt-16">
             <Card title={<h2 className="flex items-center gap-2 text-[13px] font-semibold">New leads</h2>} bodyClassName="p-0">
@@ -167,7 +167,7 @@ export default function HomePage() {
             <Card title="Robbie noticed" bodyClassName="flex flex-col gap-2 p-3">
               {d.insights.map((i) => (
                 <button key={i.key} type="button" onClick={() => robbie?.ask(i.prompt)} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[13px] hover:bg-secondary">
-                  <span className={cn('h-[7px] w-[7px] shrink-0 rounded-full', i.tone === 'warning' ? 'bg-amber-500' : 'bg-primary')} aria-hidden="true" />{i.text}
+                  <span className={cn('h-2 w-2 shrink-0 rounded-full', i.tone === 'warning' ? 'bg-amber-500' : 'bg-primary')} aria-hidden="true" />{i.text}
                   <Chip tone="line" className="ml-auto">Ask</Chip>
                 </button>
               ))}

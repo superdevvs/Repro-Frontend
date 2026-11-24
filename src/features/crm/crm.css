@@ -70,6 +70,39 @@
 .crm-root .crm-email-frame { background: #f3f5f7; border-radius: 10px; }
 
 .crm-root .crm-card-heading h2 { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; letter-spacing: -0.01em; }
+/* CRM-only layouts load with this route. */
+.crm-key-values { grid-template-columns: 104px 1fr; }
+.crm-loss-row { grid-template-columns: 140px 1fr 32px; }
+.crm-recruit-board { grid-template-columns: repeat(6, minmax(160px, 1fr)); }
+.crm-mobile-tabs { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.crm-docked-robbie { height: calc(100dvh - 84px); }
+.crm-outgoing-bubble { border-radius: 12px 12px 4px 12px; }
+.crm-active-link { box-shadow: inset 3px 0 hsl(var(--primary)); }
+.crm-bg-amber { background-color: hsl(var(--crm-amber-soft)); }
+.crm-bg-red { background-color: hsl(var(--crm-red-soft)); }
+.crm-rich-editor a { color: hsl(var(--primary)); text-decoration: underline; }
+.crm-rich-editor p { margin-bottom: .5rem; }
+.crm-rich-editor ul { list-style-type: disc; padding-left: 1.25rem; }
+.crm-draft-preview p { margin-bottom: .25rem; }
+@media (min-width: 640px) {
+  .crm-quote-address { grid-template-columns: 1fr 160px; }
+  .crm-quote-location { grid-template-columns: 2fr 1fr 1fr; }
+}
+@media (min-width: 768px) {
+  .crm-page-panel { box-shadow: 0 1px 2px hsl(210 40% 10% / .04), 0 8px 24px -12px hsl(210 40% 10% / .10); }
+}
+@media (min-width: 1024px) {
+  .crm-detail-grid { grid-template-columns: minmax(0, 1fr) 300px; }
+  .crm-applicant-grid { grid-template-columns: minmax(0, 1fr) 320px; }
+  .crm-contact-grid { grid-template-columns: minmax(0, 1fr) minmax(250px, 30%); }
+}
+@media (min-width: 1280px) {
+  .crm-work-grid { grid-template-columns: minmax(0, 1fr) 340px; }
+  .crm-coverage-grid { grid-template-columns: minmax(0, 1fr) 320px; }
+}
+@media (max-width: 1279.98px) {
+  .crm-stage-board { grid-template-columns: repeat(4, minmax(240px, 1fr)); }
+}
 .crm-root .crm-stats { grid-template-columns: repeat(var(--crm-stat-count), minmax(0, 1fr)); }
 .crm-root .crm-table a:focus-visible, .crm-root button:focus-visible, .crm-root a:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
 .crm-root .crm-table td a:hover { text-decoration: underline; }

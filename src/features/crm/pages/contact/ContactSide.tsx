@@ -43,7 +43,7 @@ export function ContactSide({ contact }: { contact: Contact }) {
     <div className="flex flex-col gap-3">
       <div className="flex gap-3 rounded-[10px] border crm-bg-thead p-3.5">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent"><ReproAiIcon className="h-4 w-4" /></span>
-        <div className="min-w-0 flex-1 text-[12.5px] leading-[18px]">
+        <div className="min-w-0 flex-1 text-[13px] leading-[18px]">
           <p className="mb-1 text-xs font-semibold">Robbie’s brief</p>
           {brief ? <p>{brief.summary}</p> : <p className="text-muted-foreground">A quick summary before you call: stage, last contact, emails, shoots and what’s next.</p>}
           {briefError && <p className="crm-text-red mt-1">{briefError}</p>}

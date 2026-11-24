@@ -53,7 +53,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="crm-root max-h-[92dvh] overflow-y-auto sm:max-w-[880px]">
+      <DialogContent className="crm-root max-h-[92dvh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle>Import contacts</DialogTitle>
           <DialogDescription>
@@ -97,7 +97,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               <Button variant="ghost" size="sm" className="ml-auto h-7 text-xs" onClick={refresh} disabled={runPreview.isPending}>Recheck</Button>
             </div>
             <div className="max-h-[320px] overflow-auto rounded-[10px] border">
-              <table className="crm-table text-[12.5px]">
+              <table className="crm-table text-[13px]">
                 <thead><tr><th>Row</th><th>Name</th><th>Company</th><th>Email</th><th>Segment</th><th>Status</th></tr></thead>
                 <tbody>
                   {preview.rows.slice(0, 200).map((r) => (

@@ -47,7 +47,7 @@ export function RichText({ value, onChange, label, className, minHeight = 180 }:
         suppressContentEditableWarning
         onInput={emit}
         onBlur={emit}
-        className="prose-sm max-w-none px-3 py-2.5 text-[13.5px] leading-[22px] outline-none [&_a]:text-primary [&_a]:underline [&_p]:mb-2 [&_ul]:list-disc [&_ul]:pl-5"
+        className="prose-sm max-w-none px-3 py-2.5 text-sm leading-relaxed outline-none crm-rich-editor"
         style={{ minHeight }}
       />
     </div>

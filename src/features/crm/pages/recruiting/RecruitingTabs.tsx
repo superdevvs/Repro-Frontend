@@ -76,7 +76,7 @@ function PostingDialog({ posting, states, onClose }: { posting: Posting | 'new' 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   return (
     <Dialog open={posting !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="crm-root sm:max-w-[560px]">
+      <DialogContent className="crm-root sm:max-w-xl">
         <DialogHeader><DialogTitle>{isNew ? 'New job posting' : 'Edit posting'}</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Role">{(id) => <Select id={id} value={f.role} onChange={set('role')} options={[{ value: 'photographer', label: 'Photographer' }, { value: 'sales_rep', label: 'Sales rep' }]} />}</Field>
@@ -122,7 +122,7 @@ export function CoverageTab() {
   };
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
+    <div className="grid gap-5 crm-coverage-grid">
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-emerald-500/85" />Covered (2+ photographers) · {q.data.totals.covered}</span>

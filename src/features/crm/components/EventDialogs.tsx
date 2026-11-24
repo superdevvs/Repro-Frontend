@@ -42,7 +42,7 @@ export function ScheduleEventDialog({ open, onOpenChange, contactId, contactName
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="crm-root sm:max-w-[440px]">
+      <DialogContent className="crm-root sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{event ? 'Edit follow-up' : 'Schedule follow-up'}</DialogTitle>
           {contactName && <DialogDescription>With {contactName}</DialogDescription>}

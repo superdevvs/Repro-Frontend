@@ -44,7 +44,7 @@ export default function UnassignedPage() {
               <li key={c.id} className="flex flex-wrap items-start gap-4 rounded-[10px] border p-4">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Link to={`/crm/contacts/${c.id}`} className="text-[13.5px] font-semibold hover:underline">{c.name}</Link>
+                    <Link to={`/crm/contacts/${c.id}`} className="text-sm font-semibold hover:underline">{c.name}</Link>
                     <Chip tone="blue">{c.lead_source_label}</Chip>
                     <Chip tone="line">{c.segment === 'commercial' ? 'Commercial' : 'Residential'}</Chip>
                     {c.market && <span className="text-xs text-muted-foreground">{c.market}</span>}
@@ -52,7 +52,7 @@ export default function UnassignedPage() {
                   <p className="text-xs text-muted-foreground">{[c.company, c.email, c.phone].filter(Boolean).join(' · ')} · waiting {ago(c.created_at)}</p>
                   {c.inquiry?.message && <p className="mt-2 line-clamp-3 rounded-lg crm-bg-thead p-2.5 text-[13px]">“{c.inquiry.message}”</p>}
                 </div>
-                <div className="flex w-full flex-col gap-2 sm:w-[260px]">
+                <div className="flex w-full flex-col gap-2 sm:w-64">
                   {c.suggestion && <p className="flex items-start gap-1.5 text-xs text-muted-foreground"><Sparkles className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />Robbie suggests <b className="text-foreground">{c.suggestion.rep.name}</b>: {c.suggestion.reason}</p>}
                   <div className="flex gap-2">
                     <Select aria-label={`Rep for ${c.name}`} value={picked} onChange={(e) => setChoice({ ...choice, [c.id]: e.target.value })} placeholder="Choose a rep…" options={(meta?.reps ?? []).map((r) => ({ value: String(r.id), label: r.name }))} />

@@ -67,7 +67,7 @@ export default function ClientPoolPage() {
       {q.data && q.data.needs_review > 0 && <Note tone="warn">{q.data.needs_review} imported clients need review. <Link className="font-medium underline" to="/crm/contacts?filter=needs_review">Review contacts</Link></Note>}
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex h-8 w-[240px] items-center rounded-lg border bg-background max-md:h-10 max-md:w-full" data-page-search-container>
+        <div className="relative flex h-8 w-60 items-center rounded-lg border bg-background max-md:h-10 max-md:w-full" data-page-search-container>
           <Search className="ml-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           <PageSearch searchId="crm-client-pool" scope="crm-contacts" scopeLabel="Client pool" priority={20} aria-label="Search clients" placeholder="Search clients" value={search} onChange={(e) => setSearch(e.target.value)} className="h-full border-0 bg-transparent px-2 text-[13px] shadow-none focus-visible:ring-0" />
         </div>

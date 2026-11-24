@@ -35,7 +35,7 @@ const meta = (can: Partial<CrmMeta['can']> = {}): CrmMeta => ({
   pipeline_stages: ['outreach', 'inquiry', 'estimate', 'booked'],
   segments: [{ key: 'residential', label: 'Residential' }, { key: 'commercial', label: 'Commercial' }],
   client_types: [], lost_reasons: [], lead_sources: [], markets: [],
-  settings: { first_contact_hours: 24, quote_discount_approval_percent: 10 },
+  settings: { first_contact_business_days: 1, quote_discount_approval_percent: 10 },
 });
 
 function wrap(ui: React.ReactElement) {

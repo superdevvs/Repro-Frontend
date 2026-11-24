@@ -65,7 +65,7 @@ export default function ApplicantPage() {
       {a.stage === 'not_moving_forward' && <Note tone="bad">Not moving forward: {a.exit_reason}. Their record stays; reopen it any time.</Note>}
       {a.stage === 'hired' && a.hired_user && <Note tone="ok">Hired. Account: {a.hired_user.name}{a.roster?.states.length ? ` · covers ${a.roster.states.join(', ')}` : ''}.</Note>}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-5 crm-applicant-grid">
         <div className="min-w-0">
           {tab === 'notes' && <NotesTab applicant={a} canManage={Boolean(can?.manage)} scoreKeys={meta.data?.score_keys ?? []} />}
           {tab === 'files' && <FilesTab applicant={a} canSee={Boolean(can?.documents)} kinds={meta.data?.file_kinds ?? []} />}
@@ -225,7 +225,7 @@ function ApplicantDialogs({ applicant, kind, onClose }: { applicant: Applicant; 
   return (
     <Dialog open={kind !== null} onOpenChange={(o) => !o && onClose()}>
       {kind && (
-        <DialogContent className={cn('crm-root', kind === 'email' ? 'sm:max-w-[640px]' : 'sm:max-w-[460px]')}>
+        <DialogContent className={cn('crm-root', kind === 'email' ? 'sm:max-w-2xl' : 'sm:max-w-[460px]')}>
           <DialogHeader><DialogTitle>{titles[kind][0]}</DialogTitle><DialogDescription>{titles[kind][1]}</DialogDescription></DialogHeader>
           {kind === 'exit' && <Field label="Reason" required>{(id) => <TextInput id={id} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Took another job, portfolio not a fit…" />}</Field>}
           {kind === 'interview' && <div className="flex flex-col gap-3"><Field label="When" required>{(id) => <TextInput id={id} type="datetime-local" value={when_} onChange={(e) => setWhen(e.target.value)} />}</Field><Field label="Note">{(id) => <TextInput id={id} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Video call, portfolio review" />}</Field></div>}

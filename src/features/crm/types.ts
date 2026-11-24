@@ -23,7 +23,7 @@ export interface CrmMeta {
   lost_reasons: Option[];
   lead_sources: Option[];
   markets: string[];
-  settings: { first_contact_hours: number; quote_discount_approval_percent: number };
+  settings: { first_contact_business_days: number; quote_discount_approval_percent: number };
 }
 
 export interface CrmEvent {

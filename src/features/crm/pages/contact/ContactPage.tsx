@@ -118,9 +118,9 @@ export default function ContactPage() {
               <li key={s.key} className="flex items-center">
                 {i > 0 && <span className={cn('mx-2 h-[1.5px] w-4 max-sm:mx-1 max-sm:w-2', i <= stepIndex ? 'bg-primary' : 'bg-border')} aria-hidden="true" />}
                 <button type="button" disabled={!canEdit || current || move.isPending} onClick={() => move.mutate(s.key)}
-                  className={cn('flex items-center gap-2 whitespace-nowrap text-[12.5px] text-muted-foreground disabled:cursor-default max-sm:min-h-9', current && 'font-semibold text-foreground', canEdit && !current && 'hover:text-foreground')}
+                  className={cn('flex items-center gap-2 whitespace-nowrap text-[13px] text-muted-foreground disabled:cursor-default max-sm:min-h-9', current && 'font-semibold text-foreground', canEdit && !current && 'hover:text-foreground')}
                   aria-current={current ? 'step' : undefined} title={canEdit && !current ? `Move to ${s.label}` : undefined}>
-                  <span className={cn('flex h-5 w-5 items-center justify-center rounded-full border-[1.5px] bg-card text-[10.5px] font-semibold', done && 'border-primary bg-primary text-primary-foreground', current && 'border-primary text-accent-foreground')}>
+                  <span className={cn('flex h-5 w-5 items-center justify-center rounded-full border-[1.5px] bg-card text-[11px] font-semibold', done && 'border-primary bg-primary text-primary-foreground', current && 'border-primary text-accent-foreground')}>
                     {done ? <Check className="h-3 w-3" /> : i + 1}
                   </span>
                   {s.label}
@@ -147,7 +147,7 @@ export default function ContactPage() {
         <button type="button" onClick={() => setDetailsOpen(!detailsOpen)} aria-expanded={detailsOpen} className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold">Contact details <span>{detailsOpen ? '−' : '+'}</span></button>
         {detailsOpen && <div className="border-t p-3"><ContactSide key={contact.id} contact={contact} /></div>}
       </div>}
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(250px,30%)]">
+      <div className="grid gap-5 crm-contact-grid">
         <div className="min-w-0">
           <h2 className="mb-3 text-lg font-semibold">{{ activity: 'Activity', notes: 'Notes', follow_ups: 'Follow-ups', emails: 'Emails', quotes: 'Quotes', conversation: 'Conversations' }[tab]}</h2>
           {tab === 'activity' && <ActivityList contactId={contact.id} />}

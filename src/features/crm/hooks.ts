@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { useAuth } from '@/components/auth/AuthProvider';
 import { crmApi, toApiError } from './api';
 import type { ApiError, CrmMeta } from './types';
 
@@ -12,14 +13,19 @@ export const crmKeys = {
   contactPart: (id: number, part: string) => ['crm', 'contact', id, part] as const,
 };
 
+export function useCrmQueryKey(key: QueryKey): QueryKey {
+  const { user, role, isImpersonating, originalUser } = useAuth();
+  return [...key, `${user?.id ?? ''}:${role}:${isImpersonating}:${originalUser?.id ?? ''}`];
+}
+
 export function useCrmMeta() {
-  return useQuery({ queryKey: crmKeys.meta, queryFn: () => crmApi.get<CrmMeta>('/meta'), staleTime: 60_000 });
+  return useQuery({ queryKey: useCrmQueryKey(crmKeys.meta), queryFn: () => crmApi.get<CrmMeta>('/meta'), staleTime: 60_000 });
 }
 
 /** A read query against /api/crm with the shared error shape. */
 export function useCrmQuery<T>(key: QueryKey, path: string, params?: Record<string, string | number | boolean | null | undefined>, enabled = true) {
   return useQuery<T, ApiError>({
-    queryKey: key,
+    queryKey: useCrmQueryKey(key),
     enabled,
     queryFn: async () => {
       try {

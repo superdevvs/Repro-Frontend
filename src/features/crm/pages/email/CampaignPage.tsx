@@ -4,7 +4,7 @@ import { useParams } from 'react-router-dom';
 import { AlertTriangle, CalendarClock, Check, Send, Undo2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { crmApi } from '../../api';
-import { useCrmMeta, useCrmMutation, useCrmQuery } from '../../hooks';
+import { useCrmMeta, useCrmMutation, useCrmQuery, useCrmQueryKey } from '../../hooks';
 import { toLocalInput, when } from '../../format';
 import type { ContentCheck, Person } from '../../types';
 import { Field, Select, TextInput } from '../../ui/fields';
@@ -30,6 +30,7 @@ export default function CampaignPage() {
   const { id } = useParams();
   const client = useQueryClient();
   const { data: meta } = useCrmMeta();
+  const campaignKey = useCrmQueryKey(['crm', 'campaign', id]);
   const q = useCrmQuery<{ campaign: Campaign }>(['crm', 'campaign', id], `/campaigns/${id}`);
   const c = q.data?.campaign;
   const [subject, setSubject] = useState('');
@@ -48,7 +49,7 @@ export default function CampaignPage() {
 
   const save = useCrmMutation(async () => {
     const response = await crmApi.patch<{ campaign: Campaign }>(`/campaigns/${id}`, { subject, body_html: body, audience });
-    client.setQueryData(['crm', 'campaign', id], response);
+    client.setQueryData(campaignKey, response);
     setDirty(false);
     return response;
   }, { success: 'Saved' });

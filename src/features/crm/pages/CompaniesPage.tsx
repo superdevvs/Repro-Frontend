@@ -19,7 +19,7 @@ export default function CompaniesPage() {
 
   return (
     <CrmPage title="Companies" count={q.data?.data.length ?? null} description={meta?.can.view_all ? 'Every company your contacts work at.' : 'Companies where you have contacts. Other reps’ contacts there stay private.'}>
-      <div className="relative flex h-8 w-[260px] items-center rounded-lg border bg-background max-md:h-10 max-md:w-full" data-page-search-container>
+      <div className="relative flex h-8 w-64 items-center rounded-lg border bg-background max-md:h-10 max-md:w-full" data-page-search-container>
         <Search className="ml-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
         <PageSearch searchId="crm-companies" scope="crm-companies" scopeLabel="Companies" priority={20} aria-label="Search companies" placeholder="Search companies" value={search} onChange={(e) => setSearch(e.target.value)} className="h-full border-0 bg-transparent px-2 text-[13px] shadow-none focus-visible:ring-0" />
       </div>

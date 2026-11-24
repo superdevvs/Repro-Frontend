@@ -82,7 +82,7 @@ export default function DripBuilderPage() {
       <Button variant="outline" size="sm" className="self-start" onClick={() => { const last = steps.reduce((m, s) => Math.max(m, s.send_day), -7); setSteps([...steps, { send_day: last + 7, label: 'New step', template_id: null }]); setDirty(true); }}><Plus className="mr-1.5 h-3.5 w-3.5" />Add step</Button>
 
       <Dialog open={previewing} onOpenChange={setPreviewing}>
-        <DialogContent className="crm-root max-h-[92dvh] overflow-y-auto sm:max-w-[760px]">
+        <DialogContent className="crm-root max-h-[92dvh] overflow-y-auto sm:max-w-3xl">
           <DialogHeader><DialogTitle>{drip.name}: every step</DialogTitle></DialogHeader>
           {preview.isLoading && <Loading />}
           <div className="flex flex-col gap-4">

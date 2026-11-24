@@ -37,7 +37,7 @@ export function CrmMobileNav({ onHeightChange }: { onHeightChange?: (height: num
 
   return (
     <>
-      <div ref={ref} className="crm-root pointer-events-none fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 px-4 pb-[max(12px,env(safe-area-inset-bottom))]">
+      <div ref={ref} className="crm-root pointer-events-none fixed inset-x-0 bottom-0 z-40 flex items-center gap-3 px-4 crm-mobile-tabs">
         <nav aria-label="Sales CRM" className="pointer-events-auto flex flex-1 items-center justify-between rounded-full border bg-card/95 p-1 shadow-lg backdrop-blur">
           {TABS.map((t) => {
             const active = t.end ? location.pathname === t.to : location.pathname.startsWith(t.to);

@@ -80,7 +80,7 @@ export function ComposeEmailDialog({ open, onOpenChange, contactId, contactName,
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="crm-root max-h-[94dvh] overflow-y-auto sm:max-w-[960px]">
+      <DialogContent className="crm-root max-h-[94dvh] overflow-y-auto sm:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Email {contactName}</DialogTitle>
           <DialogDescription>
@@ -92,7 +92,7 @@ export function ComposeEmailDialog({ open, onOpenChange, contactId, contactName,
         {blocker && <Note tone="bad" icon={<AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />}>{blocker}</Note>}
         {options.data && options.data.templates.length === 0 && <Note tone="info">No approved templates yet. An admin approves them under Email → Templates.</Note>}
 
-        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="grid gap-5 lg:grid-cols-2">
           <div className="flex flex-col gap-3">
             <Field label="Template">{(id) => <Select id={id} value={templateId} onChange={(e) => setTemplateId(e.target.value)} options={(options.data?.templates ?? []).map((t) => ({ value: String(t.id), label: t.name }))} />}</Field>
             <Field label="Subject">{(id) => <TextInput id={id} value={subject} onChange={(e) => { setSubject(e.target.value); setPreview(null); }} />}</Field>

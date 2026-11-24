@@ -60,7 +60,7 @@ export function StatStrip({ stats, className }: { stats: Stat[]; className?: str
             <div className={cn('mt-1 flex items-baseline gap-2 text-[22px] font-semibold leading-7 tracking-tight tabular-nums', s.tone === 'bad' && s.value > 0 && 'crm-text-red')}>
               {s.value.toLocaleString()}
               {s.delta !== null && s.delta !== 0 && (
-                <span className={cn('text-[11.5px] font-medium tracking-normal', s.key === 'overdue' ? 'crm-text-red' : s.delta > 0 ? 'crm-text-green' : 'crm-text-red')}>
+                <span className={cn('text-xs font-medium tracking-normal', s.key === 'overdue' ? 'crm-text-red' : s.delta > 0 ? 'crm-text-green' : 'crm-text-red')}>
                   {s.delta > 0 ? '+' : ''}{s.delta}
                 </span>
               )}
@@ -86,8 +86,8 @@ export function CrmPage({ title, count, description, crumbs, actions, children, 
   tabs?: React.ReactNode;
 }) {
   return (
-    <section className={cn('flex min-h-full min-w-0 flex-col overflow-hidden rounded-[14px] border bg-card text-card-foreground shadow-[0_1px_2px_hsl(210_40%_10%/.04),0_8px_24px_-12px_hsl(210_40%_10%/.10)] max-md:rounded-none max-md:border-0 max-md:shadow-none', className)}>
-      <header className="flex min-h-[78px] flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b px-[22px] py-3.5 max-md:px-4">
+    <section className={cn('flex min-h-full min-w-0 flex-col overflow-hidden rounded-[14px] border bg-card text-card-foreground crm-page-panel max-md:rounded-none max-md:border-0 max-md:shadow-none', className)}>
+      <header className="flex min-h-[78px] flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b px-5 py-3.5 max-md:px-4">
         <div className="min-w-0">
           {crumbs && crumbs.length > 0 && (
             <nav aria-label="Breadcrumb" className="mb-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -99,7 +99,7 @@ export function CrmPage({ title, count, description, crumbs, actions, children, 
               ))}
             </nav>
           )}
-          <h1 className="truncate text-[24px] font-semibold leading-8 tracking-[-0.035em]">
+          <h1 className="truncate text-2xl font-semibold leading-8 tracking-tight">
             {title}{typeof count === 'number' && <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">{count.toLocaleString()}</span>}
           </h1>
           {description && <p className="mt-1 text-[13px] text-muted-foreground">{description}</p>}
@@ -107,7 +107,7 @@ export function CrmPage({ title, count, description, crumbs, actions, children, 
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </header>
       {tabs}
-      <div className={cn('flex min-w-0 flex-1 flex-col gap-4 px-[22px] pb-7 pt-5 max-md:px-4', bodyClassName)}>{children}</div>
+      <div className={cn('flex min-w-0 flex-1 flex-col gap-4 px-5 pb-7 pt-5 max-md:px-4', bodyClassName)}>{children}</div>
     </section>
   );
 }
@@ -160,7 +160,7 @@ export function ErrorNote({ error, onRetry }: { error: unknown; onRetry?: () => 
 /** Small uppercase key/value grid used in record sidebars. */
 export function KeyValues({ rows }: { rows: [string, React.ReactNode][] }) {
   return (
-    <dl className="grid grid-cols-[104px_1fr] gap-x-3 gap-y-2 text-[13px]">
+    <dl className="grid crm-key-values gap-x-3 gap-y-2 text-[13px]">
       {rows.map(([k, v]) => (
         <React.Fragment key={k}>
           <dt className="text-muted-foreground">{k}</dt>
@@ -173,7 +173,7 @@ export function KeyValues({ rows }: { rows: [string, React.ReactNode][] }) {
 
 export function TabBar<T extends string>({ tabs, value, onChange, className }: { tabs: { key: T; label: string; count?: number | null }[]; value: T; onChange: (key: T) => void; className?: string }) {
   return (
-    <div role="tablist" className={cn('flex gap-0.5 overflow-x-auto border-b px-[22px] max-md:px-4', className)}>
+    <div role="tablist" className={cn('flex gap-0.5 overflow-x-auto border-b px-5 max-md:px-4', className)}>
       {tabs.map((t) => (
         <button
           key={t.key}
@@ -194,7 +194,7 @@ export function TabBar<T extends string>({ tabs, value, onChange, className }: {
             value === t.key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}
         >
           {t.label}
-          {typeof t.count === 'number' && <span className="rounded-[5px] bg-secondary px-1.5 text-[11px] leading-4 text-muted-foreground tabular-nums">{t.count}</span>}
+          {typeof t.count === 'number' && <span className="rounded-md bg-secondary px-1.5 text-[11px] leading-4 text-muted-foreground tabular-nums">{t.count}</span>}
         </button>
       ))}
     </div>

@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ReproAiIcon } from '@/components/icons/ReproAiIcon';
 import { cn } from '@/lib/utils';
 import { crmApi } from '../api';
+import { useCrmQueryKey } from '../hooks';
 import type { Insight } from '../types';
 import { useCrmRobbie } from './useCrmRobbie';
 
@@ -14,7 +15,7 @@ import { useCrmRobbie } from './useCrmRobbie';
 export function CrmRobbieStrip({ className }: { className?: string }) {
   const robbie = useCrmRobbie();
   const { data } = useQuery({
-    queryKey: ['crm', 'robbie', 'insights'],
+    queryKey: useCrmQueryKey(['crm', 'robbie', 'insights']),
     queryFn: () => crmApi.get<{ data: Insight[] }>('/robbie/insights'),
     refetchInterval: 60_000,
     staleTime: 30_000,
@@ -36,11 +37,11 @@ export function CrmRobbieStrip({ className }: { className?: string }) {
       <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[.2em] text-muted-foreground">Robbie</span>
       {current ? (
         <button type="button" onClick={() => robbie?.ask(current.prompt)} className="flex min-w-0 items-center gap-2 text-left" title={current.text}>
-          <span className={cn('h-[7px] w-[7px] shrink-0 rounded-full', current.tone === 'warning' ? 'bg-amber-500' : 'bg-primary')} aria-hidden="true" />
-          <span className="truncate text-[13.5px] font-medium">{current.text}</span>
+          <span className={cn('h-2 w-2 shrink-0 rounded-full', current.tone === 'warning' ? 'bg-amber-500' : 'bg-primary')} aria-hidden="true" />
+          <span className="truncate text-sm font-medium">{current.text}</span>
         </button>
       ) : (
-        <span className="truncate text-[13.5px] text-muted-foreground">You’re all caught up.</span>
+        <span className="truncate text-sm text-muted-foreground">You’re all caught up.</span>
       )}
       <button type="button" onClick={() => robbie?.toggle()} className="ml-auto flex shrink-0 items-center gap-1.5 text-xs font-medium text-accent-foreground hover:underline">
         {robbie?.open ? 'Close Robbie' : 'Ask Robbie'}

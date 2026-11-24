@@ -66,7 +66,7 @@ function CrmBody() {
         </Suspense>
       </div>
       {panelOpen && inlinePanel && (
-        <CrmRobbiePanel className="sticky top-0 hidden h-[calc(100dvh-84px)] w-[380px] shrink-0 lg:flex" />
+        <CrmRobbiePanel className="sticky top-0 hidden crm-docked-robbie w-[380px] shrink-0 lg:flex" />
       )}
       {!inlinePanel && (
         <Sheet open={panelOpen} onOpenChange={(o) => robbie?.setOpen(o)}>

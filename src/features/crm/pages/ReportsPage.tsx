@@ -79,7 +79,7 @@ export default function ReportsPage() {
                   {r.lost_reasons.filter((l) => l.count > 0).sort((a, b) => b.count - a.count).map((l) => {
                     const max = Math.max(...r.lost_reasons.map((x) => x.count), 1);
                     return (
-                      <li key={l.reason} className="grid grid-cols-[140px_1fr_32px] items-center gap-3 text-[13px]">
+                      <li key={l.reason} className="grid crm-loss-row items-center gap-3 text-[13px]">
                         <span className="truncate">{l.label}</span>
                         <span className="h-2 overflow-hidden rounded-full bg-secondary"><span className="block h-full rounded-full bg-rose-400" style={{ width: `${(l.count / max) * 100}%` }} /></span>
                         <span className="text-right tabular-nums">{l.count}</span>
@@ -138,7 +138,7 @@ function GoalsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
   const goals = current.data?.people[0]?.goals ?? [];
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="crm-root sm:max-w-[440px]">
+      <DialogContent className="crm-root sm:max-w-md">
         <DialogHeader><DialogTitle>Monthly goals</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Person">{(id) => <Select id={id} value={userId} onChange={(e) => setUserId(e.target.value)} placeholder="Choose…" options={(meta?.reps ?? []).map((r) => ({ value: String(r.id), label: r.name }))} />}</Field>

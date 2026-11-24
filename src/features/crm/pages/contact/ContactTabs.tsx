@@ -30,7 +30,7 @@ export function EmailsList({ contactId }: { contactId: number }) {
           <tbody>
             {items.map((s) => (
               <tr key={s.id} data-href onClick={() => setOpen(s.id)}>
-                <td className="max-w-[320px] truncate font-medium"><button type="button" className="text-left hover:underline" onClick={(e) => { e.stopPropagation(); setOpen(s.id); }}>{s.subject}</button></td>
+                <td className="max-w-xs truncate font-medium"><button type="button" className="text-left hover:underline" onClick={(e) => { e.stopPropagation(); setOpen(s.id); }}>{s.subject}</button></td>
                 <td className="capitalize text-muted-foreground">{s.source_type.replace('_', '-')}</td>
                 <td className="text-muted-foreground">{when(s.sent_at ?? s.created_at)}</td>
                 <td>
@@ -112,7 +112,7 @@ export function ConversationTab({ contactId, canEdit, hasPhone }: { contactId: n
         </div>
         {!data.sms.consent && canEdit && hasPhone && (
           <div className="mt-2 flex flex-wrap items-end gap-2">
-            <Field label="How did they agree?" className="w-[220px]">{(id) => <Select id={id} value={source} onChange={(e) => setSource(e.target.value)} placeholder="Choose…" options={[{ value: 'verbal', label: 'Said yes on a call' }, { value: 'written', label: 'In writing' }, { value: 'website', label: 'Website form' }, { value: 'text_reply', label: 'Texted us first' }]} />}</Field>
+            <Field label="How did they agree?" className="w-56">{(id) => <Select id={id} value={source} onChange={(e) => setSource(e.target.value)} placeholder="Choose…" options={[{ value: 'verbal', label: 'Said yes on a call' }, { value: 'written', label: 'In writing' }, { value: 'website', label: 'Website form' }, { value: 'text_reply', label: 'Texted us first' }]} />}</Field>
             <Button size="sm" className="h-8" disabled={!source || consent.isPending} onClick={() => consent.mutate(true)}>Record consent</Button>
           </div>
         )}
@@ -139,7 +139,7 @@ export function ConversationTab({ contactId, canEdit, hasPhone }: { contactId: n
         {data.items.map((item) => {
           const Icon = ICON[item.channel];
           return (
-            <li key={item.id} className={cn('flex max-w-[88%] gap-2.5 rounded-[12px] border p-3', item.direction === 'in' ? 'self-start bg-card' : 'self-end bg-accent/60')}>
+            <li key={item.id} className={cn('flex max-w-[88%] gap-2.5 rounded-xl border p-3', item.direction === 'in' ? 'self-start bg-card' : 'self-end bg-accent/60')}>
               <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               <div className="min-w-0">
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">

@@ -44,7 +44,7 @@ export default function CompanyPage() {
         { key: 'clients', label: 'Clients', value: stats.clients, delta: null, series: null },
         { key: 'shoots', label: 'Shoots', value: stats.shoots, delta: null, series: null },
       ]} />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid gap-5 crm-detail-grid">
         <div className="overflow-x-auto rounded-[10px] border">
           <table className="crm-table">
             <thead><tr><th>Name</th><th>Stage</th>{meta?.can.view_all && <th>Rep</th>}<th className="r">Shoots</th><th>Last contact</th></tr></thead>
@@ -87,7 +87,7 @@ function EditCompany({ open, onOpenChange, company }: { open: boolean; onOpenCha
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setForm({ ...form, [k]: e.target.value });
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="crm-root sm:max-w-[520px]">
+      <DialogContent className="crm-root sm:max-w-lg">
         <DialogHeader><DialogTitle>Edit company</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Name" className="col-span-2" hint="Renaming updates the company on every contact here.">{(id, d) => <TextInput id={id} aria-describedby={d} value={form.name} onChange={set('name')} />}</Field>

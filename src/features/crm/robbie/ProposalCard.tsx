@@ -42,7 +42,7 @@ export function ProposalCard({ proposal, onDone }: { proposal: Proposal; onDone?
         {TITLES[proposal.kind]}
         {proposal.contact && <Link to={`/crm/contacts/${proposal.contact.id}`} className="ml-auto truncate font-medium text-muted-foreground hover:text-foreground">{proposal.contact.name}</Link>}
       </div>
-      <div className="flex flex-col gap-1.5 px-3 py-2.5 text-[12.5px] leading-[18px]">
+      <div className="flex flex-col gap-1.5 px-3 py-2.5 text-[13px] leading-[18px]">
         {!editing && <Summary proposal={state} />}
         {editing && (
           <div className="flex flex-col gap-2">
@@ -82,7 +82,7 @@ function Summary({ proposal }: { proposal: Proposal }) {
     case 'event':
       return <p><span className="font-medium capitalize">{String(p.type ?? 'follow-up').replace('_', ' ')}</span> · {when(p.starts_at)}{p.note ? <><br /><span className="text-muted-foreground">{p.note}</span></> : null}</p>;
     case 'email':
-      return <><p className="font-medium">{p.subject ?? 'From the template'}</p>{p.body_html && <div className="line-clamp-4 text-muted-foreground [&_p]:mb-1" dangerouslySetInnerHTML={{ __html: sanitise(p.body_html) }} />}</>;
+      return <><p className="font-medium">{p.subject ?? 'From the template'}</p>{p.body_html && <div className="line-clamp-4 text-muted-foreground crm-draft-preview" dangerouslySetInnerHTML={{ __html: sanitise(p.body_html) }} />}</>;
     default:
       return <p>{proposal.summary}</p>;
   }

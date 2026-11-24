@@ -142,9 +142,9 @@ export default function QuoteEditorPage() {
         </Note>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+      <div className="grid gap-5 crm-detail-grid">
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_160px]">
+          <div className="grid grid-cols-1 gap-3 crm-quote-address">
             <Field label="Property address">{(fid) => <TextInput id={fid} value={address} onChange={(e) => setAddress(e.target.value)} disabled={!editable} placeholder="123 Main St" />}</Field>
             <Field label="Square feet" hint="For size-based prices.">{(fid, d) => <TextInput id={fid} aria-describedby={d} type="number" min={0} value={sqft} onChange={(e) => setSqft(e.target.value)} disabled={!editable} />}</Field>
           </div>

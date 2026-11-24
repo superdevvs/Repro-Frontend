@@ -82,7 +82,7 @@ function BoardTab({ meta }: { meta?: RecruitMeta }) {
             </button>
           ))}
         </div>
-        <div className="relative flex h-8 w-[220px] items-center rounded-lg border bg-background" data-page-search-container>
+        <div className="relative flex h-8 w-56 items-center rounded-lg border bg-background" data-page-search-container>
           <Search className="ml-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
           <PageSearch searchId="crm-recruiting" scope="crm-recruiting" scopeLabel="Applicants" priority={20} aria-label="Search applicants" placeholder="Search applicants" value={search} onChange={(e) => setSearch(e.target.value)} className="h-full border-0 bg-transparent px-2 text-[13px] shadow-none focus-visible:ring-0" />
         </div>
@@ -105,7 +105,7 @@ function BoardTab({ meta }: { meta?: RecruitMeta }) {
       </section>}
       {!closed && q.data && (
         <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-          <div className="grid grid-cols-[repeat(6,minmax(160px,1fr))] gap-2.5 overflow-x-auto pb-2">
+          <div className="grid crm-recruit-board gap-2.5 overflow-x-auto pb-2">
             {q.data.columns.map((col) => <Column key={col.stage} stage={col.stage} label={col.label} cards={col.cards} canMove={Boolean(meta?.can.manage)} />)}
           </div>
         </DndContext>
@@ -154,7 +154,7 @@ function AddApplicant({ open, onOpenChange, meta }: { open: boolean; onOpenChang
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="crm-root sm:max-w-[520px]">
+      <DialogContent className="crm-root sm:max-w-lg">
         <DialogHeader><DialogTitle>Add applicant</DialogTitle><DialogDescription>They start in Sourced / Applied. Add documents and details on their record.</DialogDescription></DialogHeader>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Role">{(id) => <Select id={id} value={f.role} onChange={set('role')} options={meta.roles.map((r) => ({ value: r.key, label: r.label }))} />}</Field>

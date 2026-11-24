@@ -112,7 +112,7 @@ function TemplatesTab() {
             <tbody>
               {q.data!.data.map((t) => (
                 <tr key={t.id} data-href onClick={() => navigate(`/crm/email/templates/${t.id}`)}>
-                  <td><Link to={`/crm/email/templates/${t.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{t.name}</Link><span className="block max-w-[380px] truncate text-xs text-muted-foreground">{(t.approved ?? t.latest)?.subject}</span></td>
+                  <td><Link to={`/crm/email/templates/${t.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{t.name}</Link><span className="block max-w-sm truncate text-xs text-muted-foreground">{(t.approved ?? t.latest)?.subject}</span></td>
                   <td>{TEMPLATE_KIND[t.kind]}</td>
                   <td className="flex flex-wrap gap-1">
                     {t.approved ? <Chip tone="green">Approved v{t.approved.version_no}</Chip> : <Chip tone="line">Not approved</Chip>}
@@ -144,7 +144,7 @@ function CreateDialog({ kind, onClose }: { kind: 'campaign' | 'template' | null;
   React.useEffect(() => { setName(''); setTemplateId(''); }, [kind]);
   return (
     <Dialog open={kind !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="crm-root sm:max-w-[440px]">
+      <DialogContent className="crm-root sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{kind === 'campaign' ? 'New campaign' : 'New template'}</DialogTitle>
           <DialogDescription>{kind === 'campaign' ? 'Start from an approved campaign template, then choose who receives it.' : 'Write it, then submit it for review. Only approved versions can be sent.'}</DialogDescription>

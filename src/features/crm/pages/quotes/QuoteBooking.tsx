@@ -11,7 +11,7 @@ import { Card, Note } from '../../ui/primitives';
 interface Location { city: string; state: string; zip: string }
 
 export function PropertyLocation({ value, onChange, disabled = false }: { value: Location; onChange: (v: Location) => void; disabled?: boolean }) {
-  return <div className="grid grid-cols-2 gap-3 sm:grid-cols-[2fr_1fr_1fr]">
+  return <div className="grid grid-cols-2 gap-3 crm-quote-location">
     <Field label="City" className="max-sm:col-span-2">{(id) => <TextInput id={id} autoComplete="address-level2" value={value.city} disabled={disabled} onChange={(e) => onChange({ ...value, city: e.target.value })} />}</Field>
     <Field label="State">{(id) => <Select id={id} value={value.state} disabled={disabled} placeholder="Select" options={US_STATES.map((state) => ({ value: state, label: state }))} onChange={(e) => onChange({ ...value, state: e.target.value })} />}</Field>
     <Field label="ZIP code">{(id) => <TextInput id={id} autoComplete="postal-code" maxLength={10} value={value.zip} disabled={disabled} onChange={(e) => onChange({ ...value, zip: e.target.value })} />}</Field>

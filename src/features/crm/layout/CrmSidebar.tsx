@@ -30,12 +30,12 @@ export function CrmSidebar() {
       className={cn('crm-root flex h-full shrink-0 flex-col gap-2.5 bg-secondary px-2.5 pb-2.5 pt-3 transition-[width] duration-200 dark:bg-background', collapsed ? 'w-[60px]' : 'w-[232px]')}
     >
       <div className={cn('flex items-center gap-2.5 rounded-lg px-2 py-1.5', collapsed && 'justify-center px-0')}>
-        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[7px] border bg-white"><img src="/REPRO-HQ-icon.png" alt="" className="h-[18px] w-auto" /></span>
-        {!collapsed && <div className="min-w-0"><b className="block text-[13px] font-semibold leading-4">R/E Pro Photos</b><span className="block text-[11px] leading-[14px] text-muted-foreground">Sales CRM</span></div>}
+        <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border bg-white"><img src="/REPRO-HQ-icon.png" alt="" className="h-[18px] w-auto" /></span>
+        {!collapsed && <div className="min-w-0"><b className="block text-[13px] font-semibold leading-4">R/E Pro Photos</b><span className="block text-[11px] leading-4 text-muted-foreground">Sales CRM</span></div>}
       </div>
 
-      <Link to="/dashboard" className={cn('flex h-[38px] items-center gap-2 border-b px-2 pb-2.5 text-[12.5px] font-medium text-muted-foreground hover:text-foreground', collapsed && 'justify-center px-0')} title="Back to Dashboard">
-        <ArrowLeft className="h-[15px] w-[15px] shrink-0" aria-hidden="true" />
+      <Link to="/dashboard" className={cn('flex h-[38px] items-center gap-2 border-b px-2 pb-2.5 text-[13px] font-medium text-muted-foreground hover:text-foreground', collapsed && 'justify-center px-0')} title="Back to Dashboard">
+        <ArrowLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
         {!collapsed && 'Back to Dashboard'}
       </Link>
 
@@ -54,15 +54,15 @@ export function CrmSidebar() {
                   end={item.end}
                   title={collapsed ? item.label : undefined}
                   aria-current={active ? 'page' : undefined}
-                  className={cn('relative flex h-9 items-center gap-2.5 rounded-[7px] px-2 text-[13px] font-[450] text-muted-foreground transition-colors hover:bg-card/70 hover:text-foreground',
-                    active && 'bg-accent font-semibold text-accent-foreground shadow-[inset_3px_0_hsl(var(--primary))] hover:bg-accent',
+                  className={cn('relative flex h-9 items-center gap-2.5 rounded-lg px-2 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-card/70 hover:text-foreground',
+                    active && 'bg-accent font-semibold text-accent-foreground crm-active-link hover:bg-accent',
                     collapsed && 'justify-center px-0')}
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
                   {!collapsed && item.label}
                   {item.count !== undefined && (collapsed
                     ? <span className={cn('absolute right-1.5 top-1 h-1.5 w-1.5 rounded-full', item.hot ? 'bg-rose-500' : 'bg-primary')} aria-label={`${item.count} waiting`} />
-                    : <span className={cn('ml-auto rounded-[5px] border px-[5px] text-[11px] font-medium leading-4 tabular-nums', item.hot ? 'border-transparent bg-[hsl(var(--crm-red-soft))] crm-text-red' : 'bg-card text-muted-foreground')}>{item.count}</span>)}
+                    : <span className={cn('ml-auto rounded-md border px-[5px] text-[11px] font-medium leading-4 tabular-nums', item.hot ? 'border-transparent crm-bg-red crm-text-red' : 'bg-card text-muted-foreground')}>{item.count}</span>)}
                 </NavLink>
               );
             })}
@@ -70,7 +70,7 @@ export function CrmSidebar() {
         ))}
       </nav>
 
-      <button type="button" onClick={toggle} className={cn('flex h-9 items-center gap-2.5 rounded-[7px] px-2 text-[13px] text-muted-foreground hover:bg-card/70 hover:text-foreground', collapsed && 'justify-center px-0')} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+      <button type="button" onClick={toggle} className={cn('flex h-9 items-center gap-2.5 rounded-lg px-2 text-[13px] text-muted-foreground hover:bg-card/70 hover:text-foreground', collapsed && 'justify-center px-0')} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
         {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <><PanelLeftClose className="h-4 w-4" />Collapse</>}
       </button>
     </aside>
