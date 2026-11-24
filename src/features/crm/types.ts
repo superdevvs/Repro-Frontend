@@ -173,12 +173,14 @@ export interface PlanItem {
 }
 
 export interface Quote {
-  id: number; number: string; status: 'draft' | 'pending_approval' | 'approved' | 'sent' | 'accepted' | 'declined' | 'expired';
+  id: number; number: string; status: 'draft' | 'pending_approval' | 'approved' | 'sending' | 'sent' | 'accepted' | 'declined' | 'expired';
   total: number; subtotal: number; discount_percent: number; discount_amount: number; needs_approval: boolean;
   contact: { id: number; name: string; company: string | null } | null; property_address: string | null; valid_until: string | null;
   sent_at: string | null; accepted_at: string | null; declined_at: string | null; created_by: Person | null; approved_by: Person | null;
   via_robbie: boolean; created_at: string | null;
   items?: { id: number; service_id: number | null; name: string; quantity: number; unit_price: number; total: number }[];
+  sqft?: number | null; property_city?: string | null; property_state?: string | null; property_zip?: string | null;
+  booking_status?: 'needs_review' | 'requested' | 'linked' | null; booking_shoot_id?: number | null; booking_review_reason?: string | null;
   notes?: string | null; decline_reason?: string | null; public_url?: string | null;
 }
 

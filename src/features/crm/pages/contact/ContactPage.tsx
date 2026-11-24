@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { CalendarPlus, Check, ChevronLeft, FileText, Mail, MoreHorizontal, Phone, StickyNote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { crmApi } from '../../api';
 import { crmKeys, useCrmMeta, useCrmMutation, useCrmQuery } from '../../hooks';
 import { when } from '../../format';
+import { useIsLarge } from '@/hooks/use-media-query';
 import { useRobbieWhere } from '../../robbie/useCrmRobbie';
 import type { Contact, PipelineStage } from '../../types';
 import { Chip, CrmPage, ErrorNote, Loading, Note, StageChip, TabBar } from '../../ui/primitives';
@@ -33,7 +34,16 @@ export default function ContactPage() {
   const contact = q.data?.contact;
   useRobbieWhere({ page: 'contact', entityType: 'crm_contact', entityId: contactId, label: contact?.name });
 
-  const [tab, setTab] = useState<Tab>('activity');
+  const [params, setParams] = useSearchParams();
+  const active = params.get('tab');
+  const tab = ['notes', 'follow_ups', 'emails', 'quotes', 'conversation'].includes(active ?? '') ? active as Tab : 'activity';
+  const setTab = (value: Tab) => setParams((previous) => {
+    const next = new URLSearchParams(previous);
+    if (value === 'activity') next.delete('tab'); else next.set('tab', value);
+    return next;
+  });
+  const wide = useIsLarge();
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [emailing, setEmailing] = useState(false);
   const [scheduling, setScheduling] = useState(false);
@@ -59,7 +69,7 @@ export default function ContactPage() {
       title={<span className="flex flex-wrap items-center gap-2">{contact.name}<StageChip stage={contact.stage} label={contact.stage_label} /></span>}
       description={[contact.title, contact.company, contact.market].filter(Boolean).join(' · ') || undefined}
       actions={<>
-        <Button variant="ghost" size="sm" className="h-8 md:hidden" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" />Back</Button>
+        <Button variant="ghost" size="sm" className="h-8 md:hidden" onClick={() => navigate('/crm/contacts')}><ChevronLeft className="h-4 w-4" />Back</Button>
         {contact.phone && <Button asChild variant="outline" size="sm" className="h-8"><a href={`tel:${contact.phone}`}><Phone className="mr-1.5 h-3.5 w-3.5" />Call</a></Button>}
         {canEdit && contact.email && <Button variant="outline" size="sm" className="h-8" onClick={() => setEmailing(true)}><Mail className="mr-1.5 h-3.5 w-3.5" />Email</Button>}
         {canEdit && <Button size="sm" className="h-8" onClick={() => setScheduling(true)}><CalendarPlus className="mr-1.5 h-3.5 w-3.5" />Schedule</Button>}
@@ -100,15 +110,15 @@ export default function ContactPage() {
       )}
 
       {inPipeline && (
-        <ol className="flex flex-wrap items-center gap-y-2" aria-label="Sales stage">
+        <ol className="flex flex-wrap items-center gap-y-2 rounded-xl border bg-secondary/30 px-4 py-3" aria-label="Sales stage">
           {STEPS.map((s, i) => {
             const done = i < stepIndex;
             const current = i === stepIndex;
             return (
               <li key={s.key} className="flex items-center">
-                {i > 0 && <span className={cn('mx-2.5 h-[1.5px] w-6', i <= stepIndex ? 'bg-primary' : 'bg-border')} aria-hidden="true" />}
+                {i > 0 && <span className={cn('mx-2 h-[1.5px] w-4 max-sm:mx-1 max-sm:w-2', i <= stepIndex ? 'bg-primary' : 'bg-border')} aria-hidden="true" />}
                 <button type="button" disabled={!canEdit || current || move.isPending} onClick={() => move.mutate(s.key)}
-                  className={cn('flex items-center gap-2 whitespace-nowrap text-[12.5px] text-muted-foreground disabled:cursor-default', current && 'font-semibold text-foreground', canEdit && !current && 'hover:text-foreground')}
+                  className={cn('flex items-center gap-2 whitespace-nowrap text-[12.5px] text-muted-foreground disabled:cursor-default max-sm:min-h-9', current && 'font-semibold text-foreground', canEdit && !current && 'hover:text-foreground')}
                   aria-current={current ? 'step' : undefined} title={canEdit && !current ? `Move to ${s.label}` : undefined}>
                   <span className={cn('flex h-5 w-5 items-center justify-center rounded-full border-[1.5px] bg-card text-[10.5px] font-semibold', done && 'border-primary bg-primary text-primary-foreground', current && 'border-primary text-accent-foreground')}>
                     {done ? <Check className="h-3 w-3" /> : i + 1}
@@ -133,8 +143,13 @@ export default function ContactPage() {
         </Note>
       )}
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      {!wide && <div className="rounded-xl border">
+        <button type="button" onClick={() => setDetailsOpen(!detailsOpen)} aria-expanded={detailsOpen} className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold">Contact details <span>{detailsOpen ? '−' : '+'}</span></button>
+        {detailsOpen && <div className="border-t p-3"><ContactSide key={contact.id} contact={contact} /></div>}
+      </div>}
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(250px,30%)]">
         <div className="min-w-0">
+          <h2 className="mb-3 text-lg font-semibold">{{ activity: 'Activity', notes: 'Notes', follow_ups: 'Follow-ups', emails: 'Emails', quotes: 'Quotes', conversation: 'Conversations' }[tab]}</h2>
           {tab === 'activity' && <ActivityList contactId={contact.id} />}
           {tab === 'notes' && <NotesList contactId={contact.id} canAdd={canEdit} />}
           {tab === 'follow_ups' && <EventsList contactId={contact.id} contactName={contact.name} canEdit={canEdit} />}
@@ -145,9 +160,9 @@ export default function ContactPage() {
             </div>
           )}
           {tab === 'quotes' && <QuotesList contactId={contact.id} canEdit={canEdit} />}
-          {tab === 'conversation' && <ConversationTab contactId={contact.id} canEdit={canEdit} hasPhone={Boolean(contact.phone)} />}
+          {tab === 'conversation' && <ConversationTab key={contact.id} contactId={contact.id} canEdit={canEdit} hasPhone={Boolean(contact.phone)} />}
         </div>
-        <ContactSide contact={contact} />
+        {wide && <ContactSide key={contact.id} contact={contact} />}
       </div>
 
       {contact.company_id && <p className="text-xs text-muted-foreground">Part of <Link to={`/crm/companies/${contact.company_id}`} className="font-medium hover:underline">{contact.company}</Link>{contact.assigned_rep ? <> · owned by {contact.assigned_rep.name}</> : <> · <Chip tone="amber">Unassigned</Chip></>}</p>}

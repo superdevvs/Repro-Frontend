@@ -1,10 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { DndContext, DragOverlay, PointerSensor, KeyboardSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
-import { Calendar, Camera, ChevronRight, EyeOff, Mail, Phone, Plus, Search, Upload, Users } from 'lucide-react';
+import { Calendar, Camera, ChevronRight, EyeOff, GripVertical, Mail, Phone, Plus, Search, Upload, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { PageSearch } from '@/components/search/PageSearch';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsLarge } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import { crmApi } from '../api';
 import { crmKeys, useCrmMeta, useCrmMutation, useCrmQuery } from '../hooks';
@@ -25,7 +25,9 @@ export default function PipelinePage() {
   useRobbieWhere({ page: 'pipeline' });
   const { data: meta } = useCrmMeta();
   const navigate = useNavigate();
-  const isMobile = useIsMobile();
+  const wide = useIsLarge();
+  const [view, setView] = useState<'board' | 'list' | null>(null);
+  const listView = view ? view === 'list' : !wide;
   const [search, setSearch] = useState('');
   const [rep, setRep] = useState('');
   const [segment, setSegment] = useState('');
@@ -48,6 +50,12 @@ export default function PipelinePage() {
     if (card && to && to !== card.stage) move.mutate({ id: card.id, stage: to });
   };
 
+  const currentColumn = board.data?.columns.find((column) => column.stage === mobileStage);
+  const stageUrl = (stage: string) => {
+    const params = new URLSearchParams({ stage });
+    for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+    return `/crm/contacts?${params}`;
+  };
   const total = useMemo(() => board.data?.columns.reduce((n, c) => n + c.count, 0) ?? 0, [board.data]);
 
   return (
@@ -78,10 +86,17 @@ export default function PipelinePage() {
         )}
       </div>
 
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-base font-semibold">Sales stages</h2>
+        <div className="flex rounded-lg border bg-secondary/50 p-0.5" role="group" aria-label="Pipeline view">
+          {(['board', 'list'] as const).map((v) => <button key={v} type="button" onClick={() => setView(v)} aria-pressed={v === (listView ? 'list' : 'board')}
+            className={cn('rounded-md px-3 py-1.5 text-[13px] font-medium capitalize', v === (listView ? 'list' : 'board') ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground')}>{v}</button>)}
+        </div>
+      </div>
       {board.isLoading && <Loading />}
       {board.error && <ErrorNote error={board.error} onRetry={() => board.refetch()} />}
 
-      {board.data && isMobile && (
+      {board.data && listView && (
         <>
           <div role="tablist" className="flex gap-1 overflow-x-auto">
             {board.data.columns.map((c) => (
@@ -92,20 +107,22 @@ export default function PipelinePage() {
             ))}
           </div>
           <div className="divide-y overflow-hidden rounded-xl border">
-            {board.data.columns.find((c) => c.stage === mobileStage)?.contacts.map((card) => (
+            {currentColumn?.contacts.map((card) => (
               <button key={card.id} type="button" onClick={() => navigate(`/crm/contacts/${card.id}`)} className="flex w-full items-center gap-3 bg-card px-4 py-3 text-left">
                 <div className="min-w-0 flex-1"><CardBody card={card} /></div>
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
               </button>
             ))}
+            {currentColumn && currentColumn.contacts.length === 0 && <p className="p-4 text-sm text-muted-foreground">No contacts in this stage.</p>}
+            {currentColumn && currentColumn.count > currentColumn.contacts.length && <Link className="block p-3 text-center font-medium underline" to={stageUrl(mobileStage)}>Show all {currentColumn.count}</Link>}
           </div>
         </>
       )}
 
-      {board.data && !isMobile && (
+      {board.data && !listView && (
         <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
           <div className="grid min-h-[420px] grid-cols-4 gap-3 max-xl:grid-cols-[repeat(4,minmax(240px,1fr))] max-xl:overflow-x-auto">
-            {board.data.columns.map((col) => <Column key={col.stage} column={col} />)}
+            {board.data.columns.map((col) => <Column key={col.stage} column={col} stageUrl={stageUrl(col.stage)} canMove={Boolean(meta?.can.update)} />)}
           </div>
           <DragOverlay>{dragging && <div className="w-[260px] rotate-1 rounded-[10px] border bg-card p-3 shadow-xl"><CardBody card={dragging} /></div>}</DragOverlay>
         </DndContext>
@@ -117,26 +134,27 @@ export default function PipelinePage() {
   );
 }
 
-function Column({ column }: { column: Board['columns'][number] }) {
-  const { setNodeRef, isOver } = useDroppable({ id: column.stage });
+function Column({ column, stageUrl, canMove }: { column: Board['columns'][number]; stageUrl: string; canMove: boolean }) {
+  const { setNodeRef, isOver } = useDroppable({ id: column.stage, disabled: !canMove });
   return (
     <section ref={setNodeRef} aria-label={`${column.label}, ${column.count} contacts`} className={cn('crm-bg-lane flex min-h-0 flex-col gap-2 rounded-xl p-2 transition-colors', isOver && 'ring-2 ring-primary/40')}>
       <header className="flex items-center gap-2 px-1.5 py-1 text-[13px] font-semibold">
         <span className={cn('h-[7px] w-[7px] rounded-full', STAGE_DOT[column.stage])} aria-hidden="true" />{column.label}
         <span className="ml-auto font-normal text-muted-foreground tabular-nums">{column.count}</span>
       </header>
-      {column.contacts.map((card) => <DraggableCard key={card.id} card={card} />)}
+      {column.contacts.map((card) => <DraggableCard key={card.id} card={card} canMove={canMove} />)}
       {column.contacts.length === 0 && <p className="px-2 py-6 text-center text-xs text-muted-foreground">Nobody here yet.</p>}
-      {column.count > column.contacts.length && <Link to={`/crm/contacts?stage=${column.stage}`} className="px-2 py-1 text-center text-xs font-medium text-accent-foreground hover:underline">Show all {column.count}</Link>}
+      {column.count > column.contacts.length && <Link to={stageUrl} className="px-2 py-1 text-center text-xs font-medium text-accent-foreground hover:underline">Show all {column.count}</Link>}
     </section>
   );
 }
 
-function DraggableCard({ card }: { card: BoardCard }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `card-${card.id}`, data: { card } });
+function DraggableCard({ card, canMove }: { card: BoardCard; canMove: boolean }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: `card-${card.id}`, data: { card }, disabled: !canMove });
   return (
-    <div ref={setNodeRef} {...attributes} {...listeners} className={cn('touch-none rounded-[10px] border bg-card p-3 shadow-[0_1px_2px_hsl(210_40%_10%/.04)] transition-shadow hover:shadow-md', isDragging && 'opacity-40')}>
-      <Link to={`/crm/contacts/${card.id}`} className="block focus:outline-none" onPointerDown={(e) => e.stopPropagation()} draggable={false}>
+    <div ref={setNodeRef} className={cn('relative rounded-[10px] border bg-card p-3 shadow-[0_1px_2px_hsl(210_40%_10%/.04)] transition-shadow hover:shadow-md', isDragging && 'opacity-40')}>
+      {canMove && <button type="button" {...attributes} {...listeners} aria-label={`Move ${card.name} to another stage`} className="absolute right-1.5 top-1.5 cursor-grab touch-none rounded p-1.5 text-muted-foreground hover:bg-secondary"><GripVertical className="h-4 w-4" /></button>}
+      <Link to={`/crm/contacts/${card.id}`} className="block pr-5" draggable={false}>
         <CardBody card={card} />
       </Link>
     </div>

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { FileText } from 'lucide-react';
 import { useCrmMeta, useCrmQuery } from '../../hooks';
 import { money, when } from '../../format';
@@ -35,7 +35,7 @@ export default function QuotesPage() {
             <tbody>
               {q.data.data.map((x) => (
                 <tr key={x.id} data-href onClick={() => navigate(`/crm/quotes/${x.id}`)}>
-                  <td className="font-medium">{x.number}{x.via_robbie && <Chip tone="blue" className="ml-1.5">via Robbie</Chip>}</td>
+                  <td><Link to={`/crm/quotes/${x.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{x.number}</Link>{x.via_robbie && <Chip tone="blue" className="ml-1.5">via Robbie</Chip>}</td>
                   <td>{x.contact?.name}{x.contact?.company && <span className="block text-xs text-muted-foreground">{x.contact.company}</span>}</td>
                   <td><Chip tone={quoteTone(x.status)}>{QUOTE_LABEL[x.status]}</Chip></td>
                   <td className="r tabular-nums">{x.discount_percent ? `${x.discount_percent}%` : '—'}</td>

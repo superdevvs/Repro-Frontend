@@ -13,7 +13,7 @@ import '../crm.css';
 interface PublicQuote {
   number: string; status: string; for: string | null; company: string | null; property_address: string | null; valid_until: string | null;
   items: { name: string; quantity: number; unit_price: number; total: number }[]; subtotal: number; discount_percent: number; discount_amount: number; total: number;
-  notes: string | null; can_respond: boolean;
+  notes: string | null; can_respond: boolean; booking_status?: string | null;
 }
 
 /** The client's quote page, opened from the quote email (/q/:token). */
@@ -61,7 +61,7 @@ export default function PublicQuotePage() {
       </div>
       {x.notes && <p className="mt-4 whitespace-pre-wrap text-[15px]">{x.notes}</p>}
 
-      {x.status === 'accepted' && <Note tone="ok" icon={<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />} className="mt-6 text-[15px]">Accepted. Your rep will be in touch to book the shoot.</Note>}
+      {x.status === 'accepted' && <Note tone="ok" icon={<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />} className="mt-6 text-[15px]">{x.booking_status === 'linked' ? 'Quote accepted. Your rep linked this quote to your existing booking.' : x.booking_status === 'requested' ? 'Quote accepted. Your booking request is in. Your rep will confirm a time with you.' : 'Quote accepted. Your rep will follow up about scheduling.'}</Note>}
       {x.status === 'declined' && <Note tone="info" className="mt-6">You declined this quote. Thanks for letting us know.</Note>}
       {x.status === 'expired' && <Note tone="warn" className="mt-6">This quote has expired. Ask your rep for an updated one.</Note>}
       {error && <Note tone="bad" className="mt-4">{error}</Note>}

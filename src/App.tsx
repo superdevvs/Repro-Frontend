@@ -323,7 +323,7 @@ function PerformanceCacheScope() {
   }, [client]);
   useEffect(() => {
     if (prior.current !== scope) {
-      for (const key of ['shoot-history', 'accounting-performance', 'shootFiles', 'dashboardOverview', ...STUDIO_FINANCIAL_QUERY_ROOTS]) {
+      for (const key of ['shoot-history', 'accounting-performance', 'shootFiles', 'dashboardOverview', 'crm', ...STUDIO_FINANCIAL_QUERY_ROOTS]) {
         void client.cancelQueries({ queryKey: [key] });
         client.removeQueries({ queryKey: [key] });
       }

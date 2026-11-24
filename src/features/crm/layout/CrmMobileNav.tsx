@@ -3,6 +3,7 @@ import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CalendarCheck, Home, KanbanSquare, Menu, Plus, Users } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { useCrmMeta } from '../hooks';
 import { useCrmNav } from './crmNav';
 
 const TABS = [
@@ -21,6 +22,7 @@ export function CrmMobileNav({ onHeightChange }: { onHeightChange?: (height: num
   const location = useLocation();
   const navigate = useNavigate();
   const groups = useCrmNav();
+  const { data: meta } = useCrmMeta();
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,9 +54,9 @@ export function CrmMobileNav({ onHeightChange }: { onHeightChange?: (height: num
             <Menu className="h-[18px] w-[18px]" />
           </button>
         </nav>
-        <button type="button" onClick={() => navigate('/crm/contacts?new=1')} className="pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg" aria-label="Add contact">
+        {meta?.can.create && <button type="button" onClick={() => navigate('/crm/contacts?new=1')} className="pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg" aria-label="Add contact">
           <Plus className="h-6 w-6" />
-        </button>
+        </button>}
       </div>
 
       <Sheet open={more} onOpenChange={setMore}>

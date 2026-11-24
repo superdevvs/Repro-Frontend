@@ -1,6 +1,7 @@
 import type { SearchResult, SearchScope } from './searchTypes';
 
 const destinations = [
+  ['crm-contacts', 'CRM contacts', '/crm/contacts'],
   ['accounts', 'Accounts', '/accounts'], ['shoots', 'Shoot History', '/shoot-history'],
   ['invoices', 'Accounting', '/accounting'], ['listings', 'Exclusive Listings', '/portal'],
   ['email', 'Email Inbox', '/messaging/email/inbox'], ['sms', 'SMS Inbox', '/messaging/sms'],

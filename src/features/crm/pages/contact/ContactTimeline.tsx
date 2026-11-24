@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Bot, CalendarClock, CheckCircle2, Clock, GitBranch, Mail, Pencil, StickyNote, UserRound } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { crmApi } from '../../api';
 import { crmKeys, useCrmMutation, useCrmQuery } from '../../hooks';
@@ -48,6 +49,10 @@ export function ActivityList({ contactId }: { contactId: number }) {
 export function NotesList({ contactId, canAdd }: { contactId: number; canAdd: boolean }) {
   const q = useCrmQuery<{ data: CrmNote[] }>(crmKeys.contactPart(contactId, 'notes'), `/contacts/${contactId}/notes`);
   const [body, setBody] = useState('');
+  const [history, setHistory] = useState<number | null>(null);
+  const versions = useCrmQuery<{ note: CrmNote; versions: { id: number; saved_at: string; body: string }[] }>(
+    crmKeys.contactPart(contactId, `note-${history}-versions`), `/contacts/${contactId}/notes/${history}/versions`, undefined, history !== null,
+  );
   const [editing, setEditing] = useState<{ id: number; body: string } | null>(null);
   const add = useCrmMutation(() => crmApi.post(`/contacts/${contactId}/notes`, { body }), { success: 'Note added' });
   const save = useCrmMutation(() => crmApi.patch(`/contacts/${contactId}/notes/${editing!.id}`, { body: editing!.body }), { success: 'Note updated' });
@@ -68,7 +73,7 @@ export function NotesList({ contactId, canAdd }: { contactId: number; canAdd: bo
         <article key={n.id} className="rounded-[10px] border p-3">
           <header className="mb-1.5 flex items-center gap-2 text-xs text-muted-foreground">
             <Avatar person={n.author} size="sm" /><span className="font-medium text-foreground">{n.author?.name ?? 'Unknown'}</span>· {when(n.created_at)}
-            {n.edited_at && <span title={`Edited ${when(n.edited_at)}`}>· edited</span>}
+            {n.edited_at && <button type="button" className="font-medium text-accent-foreground underline" onClick={() => setHistory(n.id)}>Version history</button>}
             {n.via_robbie && <Chip tone="blue">via Robbie</Chip>}
             {n.can_edit && editing?.id !== n.id && <Button variant="ghost" size="icon" className="ml-auto h-6 w-6" aria-label="Edit note" onClick={() => setEditing({ id: n.id, body: n.body })}><Pencil className="h-3 w-3" /></Button>}
           </header>
@@ -83,6 +88,14 @@ export function NotesList({ contactId, canAdd }: { contactId: number; canAdd: bo
           ) : <p className="whitespace-pre-wrap text-[13px]">{n.body}</p>}
         </article>
       ))}
+      <Dialog open={history !== null} onOpenChange={(open) => !open && setHistory(null)}>
+        <DialogContent className="crm-root max-h-[85dvh] overflow-y-auto"><DialogHeader><DialogTitle>Note history</DialogTitle></DialogHeader>
+          {versions.isLoading && <Loading />}{versions.error && <ErrorNote error={versions.error} onRetry={() => versions.refetch()} />}
+          {versions.data && <div className="space-y-4"><div><h3 className="font-semibold">Current version</h3><p className="mt-1 whitespace-pre-wrap">{versions.data.note.body}</p></div>
+            {versions.data.versions.map((v) => <article className="border-t pt-3" key={v.id}><h3 className="text-xs text-muted-foreground">{when(v.saved_at)}</h3><p className="mt-1 whitespace-pre-wrap">{v.body}</p></article>)}
+          </div>}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

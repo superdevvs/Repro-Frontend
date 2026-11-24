@@ -52,7 +52,7 @@ export function Sparkline({ points, tone = 'primary' }: { points: number[]; tone
 
 export function StatStrip({ stats, className }: { stats: Stat[]; className?: string }) {
   return (
-    <div className={cn('grid overflow-hidden rounded-[10px] border', className)} style={{ gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))` }}>
+    <div className={cn('crm-stats grid overflow-hidden rounded-xl border bg-card', className)} style={{ '--crm-stat-count': Math.max(1, stats.length) } as React.CSSProperties}>
       {stats.map((s, i) => (
         <div key={s.key} className={cn('flex items-end justify-between gap-3 px-4 py-3.5', i > 0 && 'border-l max-md:border-l-0 max-md:border-t')}>
           <div className="min-w-0">
@@ -87,7 +87,7 @@ export function CrmPage({ title, count, description, crumbs, actions, children, 
 }) {
   return (
     <section className={cn('flex min-h-full min-w-0 flex-col overflow-hidden rounded-[14px] border bg-card text-card-foreground shadow-[0_1px_2px_hsl(210_40%_10%/.04),0_8px_24px_-12px_hsl(210_40%_10%/.10)] max-md:rounded-none max-md:border-0 max-md:shadow-none', className)}>
-      <header className="flex min-h-[62px] flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b px-[22px] py-3.5 max-md:px-4">
+      <header className="flex min-h-[78px] flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b px-[22px] py-3.5 max-md:px-4">
         <div className="min-w-0">
           {crumbs && crumbs.length > 0 && (
             <nav aria-label="Breadcrumb" className="mb-0.5 flex items-center gap-1 text-xs text-muted-foreground">
@@ -99,10 +99,10 @@ export function CrmPage({ title, count, description, crumbs, actions, children, 
               ))}
             </nav>
           )}
-          <h1 className="truncate text-[17px] font-semibold leading-6 tracking-[-0.015em]">
+          <h1 className="truncate text-[24px] font-semibold leading-8 tracking-[-0.035em]">
             {title}{typeof count === 'number' && <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">{count.toLocaleString()}</span>}
           </h1>
-          {description && <p className="mt-px text-xs text-muted-foreground">{description}</p>}
+          {description && <p className="mt-1 text-[13px] text-muted-foreground">{description}</p>}
         </div>
         {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
       </header>
@@ -116,7 +116,7 @@ export function Card({ title, actions, children, className, bodyClassName }: { t
   return (
     <div className={cn('rounded-[10px] border bg-card', className)}>
       {(title || actions) && (
-        <div className="flex items-center justify-between gap-3 border-b px-4 py-2.5">
+        <div className="crm-card-heading flex items-center justify-between gap-3 border-b px-4 py-2.5">
           {typeof title === 'string' ? <h2 className="text-[13px] font-semibold">{title}</h2> : title}
           {actions}
         </div>
@@ -180,6 +180,15 @@ export function TabBar<T extends string>({ tabs, value, onChange, className }: {
           role="tab"
           type="button"
           aria-selected={value === t.key}
+          tabIndex={value === t.key ? 0 : -1}
+          onKeyDown={(event) => {
+            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const index = tabs.findIndex((tab) => tab.key === t.key);
+            const target = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+            onChange(tabs[target].key);
+            event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[target]?.focus();
+          }}
           onClick={() => onChange(t.key)}
           className={cn('-mb-px flex shrink-0 items-center gap-1.5 border-b-[1.5px] px-2.5 py-2.5 text-[13px] font-medium transition-colors',
             value === t.key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}

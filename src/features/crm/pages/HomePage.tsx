@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
-import { AlertTriangle, Bell, CalendarCheck, Phone, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, Bell, CalendarCheck, Check, FileText, Inbox, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { crmApi } from '../api';
 import { useCrmMutation, useCrmQuery } from '../hooks';
-import { ago, shortDay, time, when } from '../format';
+import { ago, money, scheduleTimeLabel, shortDay, time, when } from '../format';
 import { useCrmRobbie, useRobbieWhere } from '../robbie/useCrmRobbie';
 import type { CrmEvent, Insight, Stat } from '../types';
 import { Card, Chip, CrmPage, Empty, ErrorNote, Loading, StatStrip } from '../ui/primitives';
@@ -14,6 +13,10 @@ import { CompleteEventDialog } from '../components/EventDialogs';
 
 interface Home {
   greeting_name: string;
+  quote_actions?: { id: number; quote_number: string; contact_name: string; status: string; total: number; action_due_at: string | null }[];
+  today_count?: number; new_lead_count?: number; quote_action_count?: number;
+  unassigned_count?: number;
+  approval_count?: number;
   today: CrmEvent[];
   overdue_count: number;
   goals: { metric: string; label: string; target: number | null; actual: number }[];
@@ -24,7 +27,7 @@ interface Home {
   insights: Insight[];
 }
 
-const greeting = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
+
 
 /** Home, "my day" (frame F1; phones M7). */
 export default function HomePage() {
@@ -39,39 +42,53 @@ export default function HomePage() {
   const d = q.data;
   const overdue = d.today.filter((e) => e.overdue);
   const today = d.today.filter((e) => !e.overdue);
+  const quotes = d.quote_actions ?? [];
+  const todayLabel = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' }).format(new Date());
 
   return (
     <CrmPage
-      title={`${greeting()}, ${d.greeting_name}`}
-      description={`${format(new Date(), 'EEEE d MMMM')} · ${d.today.length} follow-up${d.today.length === 1 ? '' : 's'} due${d.overdue_count ? `, ${d.overdue_count} overdue` : ''}`}
+      title="My work today"
+      description={`${todayLabel} · ${scheduleTimeLabel()}`}
       actions={<Button size="sm" variant="outline" className="h-8" onClick={() => robbie?.ask('Plan my day')}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Plan my day</Button>}
     >
-      <StatStrip stats={d.pipeline} className="max-md:grid-cols-2" />
+      <nav aria-label="Today's work" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        {[
+          { label: 'Overdue follow-ups', count: d.overdue_count, to: '/crm/follow-ups', urgent: d.overdue_count > 0 },
+          { label: 'Due today', count: d.today_count ?? today.length, to: '/crm/follow-ups', urgent: false },
+          { label: 'New leads', count: d.new_lead_count ?? d.new_leads.length, to: '#new-leads', urgent: false },
+          { label: 'Quotes to act on', count: d.quote_action_count ?? quotes.length, to: '#quote-actions', urgent: false },
+        ].map(({ label, count, to, urgent }) => {
+          const content = <><span className="text-[13px] font-medium">{label}</span><strong className="mt-2 text-3xl tabular-nums tracking-tight">{count}</strong></>;
+          const style = cn('flex min-w-0 flex-col rounded-xl border bg-card px-4 py-3 hover:border-primary/60', urgent && 'border-amber-500/60 bg-[hsl(var(--crm-amber-soft))] crm-text-amber');
+          return to.startsWith('#') ? <a key={label} href={to} className={style}>{content}</a> : <Link key={label} to={to} className={style}>{content}</Link>;
+        })}
+      </nav>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex min-w-0 flex-col gap-4">
-          {d.new_leads.length > 0 && (
-            <Card title={<h2 className="flex items-center gap-2 text-[13px] font-semibold">New leads · contact within a day</h2>} bodyClassName="p-0">
+          <section id="new-leads" className="scroll-mt-16">
+            <Card title={<h2 className="flex items-center gap-2 text-[13px] font-semibold">New leads</h2>} bodyClassName="p-0">
               <ul className="divide-y">
+                {d.new_leads.length === 0 && <li className="px-4 py-3 text-muted-foreground">No new leads awaiting first contact.</li>}
                 {d.new_leads.map((l) => (
                   <li key={l.id} className="flex items-center gap-3 px-4 py-2.5">
                     <div className="min-w-0 flex-1">
                       <Link to={`/crm/contacts/${l.id}`} className="font-medium hover:underline">{l.name}</Link>
                       <p className={cn('text-xs', l.late ? 'crm-text-red' : 'text-muted-foreground')}>{l.first_contact_due_at ? (l.late ? `Was due ${when(l.first_contact_due_at)}` : `Due ${when(l.first_contact_due_at)}`) : 'No target set'}{l.company ? ` · ${l.company}` : ''}</p>
                     </div>
-                    <Button asChild size="icon" variant="outline" className="h-8 w-8"><Link to={`/crm/contacts/${l.id}`} aria-label={`Open ${l.name}`}><Phone className="h-3.5 w-3.5" /></Link></Button>
+                    <Button asChild size="icon" variant="outline" className="h-8 w-8"><Link to={`/crm/contacts/${l.id}`} aria-label={`Open ${l.name}`}><ArrowUpRight className="h-3.5 w-3.5" /></Link></Button>
                   </li>
                 ))}
               </ul>
             </Card>
-          )}
+          </section>
 
           <Card title={<h2 className="flex items-center gap-2 text-[13px] font-semibold"><CalendarCheck className="h-4 w-4 text-muted-foreground" />Today</h2>} actions={<Link to="/crm/follow-ups" className="text-xs font-medium text-accent-foreground hover:underline">All follow-ups</Link>} bodyClassName="p-0">
             {d.today.length === 0 ? <Empty title="Nothing due today.">A good moment to check on clients who haven’t booked in a while.</Empty> : (
               <ul className="divide-y">
                 {[...overdue, ...today].map((e) => (
                   <li key={e.id} className="flex items-center gap-3 px-4 py-2.5">
-                    <button type="button" onClick={() => setCompleting(e)} className="h-5 w-5 shrink-0 rounded-md border-[1.5px] hover:border-primary" aria-label={`Complete ${e.type?.label} with ${e.contact?.name ?? e.applicant?.name ?? ''}`} />
+                    <button type="button" onClick={() => setCompleting(e)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-muted-foreground hover:border-primary hover:text-primary" aria-label={`Complete ${e.type?.label} with ${e.contact?.name ?? e.applicant?.name ?? ''}`}><Check className="h-4 w-4" aria-hidden="true" /></button>
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-[13px] font-medium">{e.type?.label} · {e.contact ? <Link to={`/crm/contacts/${e.contact.id}`} className="hover:underline">{e.contact.name}</Link> : e.applicant ? <Link to={`/crm/recruiting/applicants/${e.applicant.id}`} className="hover:underline">{e.applicant.name}</Link> : 'No contact'}</p>
                       <p className={cn('text-xs', e.overdue ? 'crm-text-red' : 'text-muted-foreground')}>{e.overdue ? `${e.late} late · ${shortDay(e.starts_at)}` : `${time(e.starts_at)} · ${e.duration_min} min`}{e.note ? ` · ${e.note}` : ''}</p>
@@ -82,6 +99,16 @@ export default function HomePage() {
             )}
           </Card>
 
+          <section id="quote-actions" className="scroll-mt-16">
+            <Card title={<h2 className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4" />Quotes to act on</h2>} actions={<Link className="text-xs underline" to="/crm/quotes">All quotes</Link>} bodyClassName="p-0">
+              {quotes.length ? <ul className="divide-y">{quotes.map((quote) => <li key={quote.id}>
+                <Link className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-secondary/50" to={`/crm/quotes/${quote.id}`}>
+                  <span><strong>{quote.contact_name}</strong><span className="block text-xs text-muted-foreground">{quote.quote_number} · {quote.status === 'approved' ? 'Ready to send' : quote.status === 'pending_approval' ? 'Awaiting approval' : 'Draft'}</span></span>
+                  <span className="font-medium tabular-nums">{money(quote.total)}</span>
+                </Link>
+              </li>)}</ul> : <p className="px-4 py-3 text-muted-foreground">No quotes need action.</p>}
+            </Card>
+          </section>
           {d.at_risk.length > 0 && (
             <Card title={<h2 className="flex items-center gap-2 text-[13px] font-semibold"><AlertTriangle className="h-4 w-4 crm-text-amber" />Clients who haven’t booked in a while</h2>} actions={<Link to="/crm/client-pool?health=at_risk" className="text-xs font-medium text-accent-foreground hover:underline">See all</Link>} bodyClassName="p-0">
               <ul className="divide-y">
@@ -100,6 +127,10 @@ export default function HomePage() {
         </div>
 
         <div className="flex flex-col gap-4">
+          {Boolean(d.unassigned_count || d.approval_count) && <Card title={<h2 className="flex items-center gap-2 font-semibold"><Inbox className="h-4 w-4" />Team inbox</h2>} bodyClassName="divide-y p-0">
+            {Boolean(d.unassigned_count) && <Link className="flex justify-between px-4 py-3 hover:bg-secondary" to="/crm/unassigned">Unassigned leads<strong>{d.unassigned_count}</strong></Link>}
+            {Boolean(d.approval_count) && <Link className="flex justify-between px-4 py-3 hover:bg-secondary" to="/crm/email?tab=campaigns&status=submitted">Campaign approvals<strong>{d.approval_count}</strong></Link>}
+          </Card>}
           <Card title="Goals this month">
             {d.goals.every((g) => g.target === null) ? <p className="text-[13px] text-muted-foreground">No goals set for this month.</p> : (
               <ul className="flex flex-col gap-3">
@@ -144,6 +175,7 @@ export default function HomePage() {
           )}
         </div>
       </div>
+      <section aria-label="Pipeline summary" className="space-y-2"><h2 className="text-sm font-semibold">Pipeline summary</h2><StatStrip stats={d.pipeline} /></section>
       <CompleteEventDialog event={completing} onClose={() => setCompleting(null)} />
     </CrmPage>
   );

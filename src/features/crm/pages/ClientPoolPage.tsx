@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, UserCheck } from 'lucide-react';
 import { PageSearch } from '@/components/search/PageSearch';
 import { cn } from '@/lib/utils';
@@ -27,7 +27,9 @@ export default function ClientPoolPage() {
   const [type, setType] = useState('');
   const [rep, setRep] = useState('');
   const [health, setHealth] = useState(params.get('health') ?? '');
-  const filters = { search, segment, client_type: type, rep_id: rep, health };
+  const [page, setPage] = useState(1);
+  React.useEffect(() => setPage(1), [search, segment, type, rep, health]);
+  const filters = { search, segment, client_type: type, rep_id: rep, health, page };
   const q = useCrmQuery<Pool>(['crm', 'client-pool', filters], '/client-pool', filters);
 
   const cell = (seg: 'residential' | 'commercial', t: 'one_off' | 'recurring', label: string) => {
@@ -62,7 +64,7 @@ export default function ClientPoolPage() {
         </div>
       )}
 
-      {q.data && q.data.needs_review > 0 && <Note tone="warn">{q.data.needs_review} imported clients still need a segment or client type. Filter Contacts by “Needs clean-up” to fix them.</Note>}
+      {q.data && q.data.needs_review > 0 && <Note tone="warn">{q.data.needs_review} imported clients need review. <Link className="font-medium underline" to="/crm/contacts?filter=needs_review">Review contacts</Link></Note>}
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative flex h-8 w-[240px] items-center rounded-lg border bg-background max-md:h-10 max-md:w-full" data-page-search-container>
@@ -82,7 +84,7 @@ export default function ClientPoolPage() {
             <tbody>
               {q.data.data.map((c) => (
                 <tr key={c.id} data-href onClick={() => navigate(`/crm/contacts/${c.id}`)}>
-                  <td><span className="font-medium">{c.name}</span>{c.company && <span className="block text-xs text-muted-foreground">{c.company}</span>}</td>
+                  <td><Link to={`/crm/contacts/${c.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{c.name}</Link>{c.company && <span className="block text-xs text-muted-foreground">{c.company}</span>}</td>
                   <td><Chip tone="line">{c.segment === 'commercial' ? 'Commercial' : 'Residential'}</Chip> {c.client_type ? <Chip>{c.client_type === 'recurring' ? 'Recurring' : 'One-off'}</Chip> : <Chip tone="amber">Type?</Chip>}</td>
                   <td className="r tabular-nums">{c.shoots?.total ?? '—'}</td>
                   <td className="text-muted-foreground">{c.shoots?.last_shoot ? ago(c.shoots.last_shoot) : '—'}</td>
@@ -96,6 +98,11 @@ export default function ClientPoolPage() {
           </table>
         </div>
       )}
+      {q.data && q.data.meta.last_page > 1 && <nav className="flex items-center justify-end gap-3" aria-label="Client pool pages">
+        <button type="button" className="rounded-lg border px-3 py-2 disabled:opacity-40" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</button>
+        <span>Page {page} of {q.data.meta.last_page}</span>
+        <button type="button" className="rounded-lg border px-3 py-2 disabled:opacity-40" disabled={page >= q.data.meta.last_page} onClick={() => setPage(page + 1)}>Next</button>
+      </nav>}
     </CrmPage>
   );
 }

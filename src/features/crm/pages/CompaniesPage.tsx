@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Building2, Search } from 'lucide-react';
 import { PageSearch } from '@/components/search/PageSearch';
 import { useCrmMeta, useCrmQuery } from '../hooks';
@@ -33,7 +33,7 @@ export default function CompaniesPage() {
             <tbody>
               {q.data.data.map((c) => (
                 <tr key={c.id} data-href onClick={() => navigate(`/crm/companies/${c.id}`)}>
-                  <td><span className="font-medium">{c.name}</span>{(c.city || c.state) && <span className="block text-xs text-muted-foreground">{[c.city, c.state].filter(Boolean).join(', ')}</span>}</td>
+                  <td><Link to={`/crm/companies/${c.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{c.name}</Link>{(c.city || c.state) && <span className="block text-xs text-muted-foreground">{[c.city, c.state].filter(Boolean).join(', ')}</span>}</td>
                   <td>{c.segment ? <Chip tone="line">{c.segment === 'commercial' ? 'Commercial' : 'Residential'}</Chip> : '—'}</td>
                   <td className="r tabular-nums">{c.contacts}</td>
                   <td className="r tabular-nums">{c.pipeline}</td>

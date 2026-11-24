@@ -94,19 +94,15 @@ export function ContactFormDialog({ open, onOpenChange, contact }: { open: boole
           </Note>
         )}
         {errors._form && <Note tone="bad">{errors._form}</Note>}
+        {Object.keys(errors).some((key) => ['title', 'market_city', 'market_state', 'address', 'website'].includes(key)) && <Note tone="bad">Check the highlighted fields in Additional details.</Note>}
 
         <form id="crm-contact-form" onSubmit={(e) => { e.preventDefault(); submit(false); }} className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
           <Field label="Full name" required error={errors.name} className="sm:col-span-2">{(id, d) => <TextInput id={id} aria-describedby={d} aria-invalid={Boolean(errors.name) || dup?.duplicate.reason === 'name'} value={form.name} onChange={set('name')} autoFocus autoComplete="off" />}</Field>
           <Field label="Company">{(id) => <TextInput id={id} value={form.company} onChange={set('company')} />}</Field>
-          <Field label="Title">{(id) => <TextInput id={id} value={form.title} onChange={set('title')} placeholder="Managing broker" />}</Field>
           <Field label="Email" error={errors.email}>{(id, d) => <TextInput id={id} type="email" aria-describedby={d} aria-invalid={dup?.duplicate.reason === 'email'} value={form.email} onChange={set('email')} />}</Field>
           <Field label="Phone" error={errors.phone}>{(id, d) => <TextInput id={id} type="tel" aria-describedby={d} aria-invalid={dup?.duplicate.reason === 'phone'} value={form.phone} onChange={set('phone')} />}</Field>
           <Field label="Segment" required error={errors.segment}>{(id, d) => <Select id={id} aria-describedby={d} value={form.segment} onChange={set('segment')} placeholder="Choose…" options={(meta?.segments ?? []).map((s) => ({ value: s.key, label: s.label }))} />}</Field>
           <Field label="Lead source">{(id) => <Select id={id} value={form.lead_source} onChange={set('lead_source')} placeholder="Choose…" options={(meta?.lead_sources ?? []).map((s) => ({ value: s.key, label: s.label }))} />}</Field>
-          <Field label="City">{(id) => <TextInput id={id} value={form.market_city} onChange={set('market_city')} placeholder="Bethesda" />}</Field>
-          <Field label="State">{(id) => <Select id={id} value={form.market_state} onChange={set('market_state')} placeholder="—" options={US_STATES.map((s) => ({ value: s, label: s }))} />}</Field>
-          <Field label="Address" className="sm:col-span-2">{(id) => <TextInput id={id} value={form.address} onChange={set('address')} />}</Field>
-          <Field label="Website">{(id) => <TextInput id={id} value={form.website} onChange={set('website')} placeholder="example.com" />}</Field>
           {editing && <Field label="Client type">{(id) => <Select id={id} value={form.client_type} onChange={set('client_type')} placeholder="—" options={(meta?.client_types ?? []).map((s) => ({ value: s.key, label: s.label }))} />}</Field>}
           {!editing && (
             <Field label="Rep" hint={meta?.can.assign ? 'Leave empty to send it to the Unassigned queue.' : 'New contacts you add are yours.'}>
@@ -115,6 +111,16 @@ export function ContactFormDialog({ open, onOpenChange, contact }: { open: boole
                 : <TextInput id={id} aria-describedby={d} value={meta?.me.name ?? ''} disabled />}
             </Field>
           )}
+          <details className="rounded-xl border px-3 py-2.5 sm:col-span-2" open={editing || undefined}>
+            <summary className="cursor-pointer font-medium">Additional details</summary>
+            <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Title" error={errors.title}>{(id) => <TextInput id={id} value={form.title} onChange={set('title')} placeholder="Managing broker" />}</Field>
+          <Field label="City" error={errors.market_city}>{(id) => <TextInput id={id} value={form.market_city} onChange={set('market_city')} placeholder="Bethesda" />}</Field>
+          <Field label="State" error={errors.market_state}>{(id) => <Select id={id} value={form.market_state} onChange={set('market_state')} placeholder="—" options={US_STATES.map((s) => ({ value: s, label: s }))} />}</Field>
+          <Field label="Address" error={errors.address} className="sm:col-span-2">{(id) => <TextInput id={id} value={form.address} onChange={set('address')} />}</Field>
+          <Field label="Website" error={errors.website}>{(id) => <TextInput id={id} value={form.website} onChange={set('website')} placeholder="example.com" />}</Field>
+            </div>
+          </details>
         </form>
 
         <DialogFooter className="gap-2">

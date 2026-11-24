@@ -1,24 +1,25 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CalendarCheck, Mail, Phone, Users } from 'lucide-react';
+import { CalendarCheck, Check, Mail, Phone, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/services/api';
 import { toApiError } from '../api';
 import { cn } from '@/lib/utils';
 import { useCrmMeta, useCrmQuery } from '../hooks';
-import { ago, shortDay, time } from '../format';
+import { ago, scheduleTimeLabel, shortDay, time } from '../format';
 import { useCrmRobbie, useRobbieWhere } from '../robbie/useCrmRobbie';
 import type { CrmEvent, Person } from '../types';
 import { FilterSelect } from '../ui/fields';
 import { Chip, CrmPage, Empty, ErrorNote, Loading, Note, TabBar } from '../ui/primitives';
+import { EventTypeSettings } from '../components/EventTypeSettings';
 import { CompleteEventDialog, ScheduleEventDialog } from '../components/EventDialogs';
 
 interface FollowUps {
   user: Person | null;
   groups: { overdue: CrmEvent[]; today: CrmEvent[]; upcoming: CrmEvent[] };
   recently_done: CrmEvent[];
-  calendar: { connected: boolean; sync_enabled?: boolean; email?: string | null; message?: string | null } | null;
+  calendar: { connected: boolean; crm_sync?: boolean; sync_enabled?: boolean; email?: string | null; message?: string | null } | null;
 }
 type Tab = 'due' | 'upcoming' | 'done';
 const ICON: Record<string, React.ElementType> = { call: Phone, checkin_call: Phone, email: Mail, checkin_email: Mail, meeting: Users };
@@ -33,6 +34,7 @@ export default function FollowUpsPage() {
   const q = useCrmQuery<FollowUps>(['crm', 'follow-ups', userId], '/follow-ups', { user_id: userId || undefined, days: 7 });
   const [completing, setCompleting] = useState<CrmEvent | null>(null);
   const [moving, setMoving] = useState<CrmEvent | undefined>();
+  const [settings, setSettings] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const connectCalendar = async () => {
     setConnecting(true);
@@ -52,18 +54,21 @@ export default function FollowUpsPage() {
   return (
     <CrmPage
       title="Follow-ups"
-      description={q.data?.user && meta?.me.id !== q.data.user.id ? `For ${q.data.user.name}` : 'Your calls, emails and meetings.'}
+      description={q.data?.user && meta?.me.id !== q.data.user.id ? `For ${q.data.user.name} · ${scheduleTimeLabel()}` : scheduleTimeLabel()}
       actions={<>
         {meta?.can.view_all && <FilterSelect label="Person" allLabel="Me" value={userId} onChange={setUserId} options={(meta.reps ?? []).filter((r) => r.id !== meta.me.id).map((r) => ({ value: String(r.id), label: r.name }))} />}
+        {meta?.can.manage_event_types && <Button size="sm" variant="outline" onClick={() => setSettings(true)}>Follow-up types</Button>}
         <Button size="sm" variant="outline" className="h-8" onClick={() => robbie?.ask('Plan my day')}>Plan my day</Button>
       </>}
       tabs={<TabBar<Tab> value={tab} onChange={setTab} tabs={[{ key: 'due', label: 'Due', count: due }, { key: 'upcoming', label: 'Next 7 days', count: g?.upcoming.length }, { key: 'done', label: 'Done', count: q.data?.recently_done.length }]} />}
     >
-      {q.data?.calendar && !q.data.calendar.connected && (!userId || Number(userId) === meta?.me.id) && (
+      {q.data?.calendar && (!userId || Number(userId) === meta?.me.id) && (
         <Note tone="info">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <span>Connect Google Calendar to see follow-ups next to your other meetings. Moving one in either place moves it in both.</span>
-            <Button size="sm" variant="outline" className="h-7 bg-card" disabled={connecting} onClick={() => void connectCalendar()}>{connecting ? 'Opening Google…' : 'Connect Google Calendar'}</Button>
+            <span><strong>Google Calendar</strong><span className="block">{q.data.calendar.connected
+              ? `${q.data.calendar.email ?? 'Account connected'} · ${q.data.calendar.crm_sync && q.data.calendar.sync_enabled ? 'Two-way sync is on.' : 'Follow-up sync is off.'}`
+              : q.data.calendar.crm_sync ? 'Connect your calendar to sync follow-ups in both directions.' : 'Follow-up sync is off. You can connect your account ahead of activation.'}</span></span>
+            {!q.data.calendar.connected && <Button size="sm" variant="outline" className="h-7 bg-card" disabled={connecting} onClick={() => void connectCalendar()}>{connecting ? 'Opening Google…' : 'Connect Google Calendar'}</Button>}
           </div>
         </Note>
       )}
@@ -93,6 +98,7 @@ export default function FollowUpsPage() {
           </ul>
         )
       )}
+      {settings && <EventTypeSettings onClose={() => setSettings(false)} />}
       <CompleteEventDialog event={completing} onClose={() => setCompleting(null)} />
       <ScheduleEventDialog open={moving !== undefined} onOpenChange={(o) => !o && setMoving(undefined)} event={moving} contactName={moving?.contact?.name} />
     </CrmPage>
@@ -108,8 +114,8 @@ function Section({ title, tone, events, onComplete, onMove }: { title: string; t
           const Icon = ICON[e.type?.key ?? ''] ?? CalendarCheck;
           const who = e.contact ?? (e.applicant ? { id: e.applicant.id, name: e.applicant.name, company: null } : null);
           return (
-            <li key={e.id} className="flex flex-wrap items-center gap-3 bg-card px-4 py-3">
-              <button type="button" onClick={() => onComplete(e)} className="h-5 w-5 shrink-0 rounded-md border-[1.5px] hover:border-primary" aria-label={`Complete ${e.type?.label}`} />
+            <li key={e.id} className="flex flex-wrap items-center gap-3 bg-card px-4 py-3.5">
+              <button type="button" onClick={() => onComplete(e)} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border text-muted-foreground hover:border-primary hover:text-primary" aria-label={`Complete ${e.type?.label}`}><Check className="h-4 w-4" aria-hidden="true" /></button>
               <Icon className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               <div className="min-w-0 flex-1">
                 <p className="text-[13px] font-medium">

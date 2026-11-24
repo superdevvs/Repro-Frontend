@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Globe, Pencil, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -51,7 +51,7 @@ export default function CompanyPage() {
             <tbody>
               {contacts.map((c) => (
                 <tr key={c.id} data-href onClick={() => navigate(`/crm/contacts/${c.id}`)}>
-                  <td><span className="font-medium">{c.name}</span>{c.title && <span className="block text-xs text-muted-foreground">{c.title}</span>}</td>
+                  <td><Link to={`/crm/contacts/${c.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{c.name}</Link>{c.title && <span className="block text-xs text-muted-foreground">{c.title}</span>}</td>
                   <td><StageChip stage={c.stage} label={c.stage_label} /></td>
                   {meta?.can.view_all && <td>{c.assigned_rep ? <span className="flex items-center gap-1.5"><Avatar person={c.assigned_rep} size="sm" />{c.assigned_rep.name}</span> : <Chip tone="amber">Unassigned</Chip>}</td>}
                   <td className="r tabular-nums">{c.shoots?.total ?? '—'}</td>

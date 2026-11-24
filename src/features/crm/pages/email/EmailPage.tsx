@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Mail, Plus, Repeat } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -60,7 +60,7 @@ function CampaignsTab({ status }: { status: string }) {
         <tbody>
           {rows.map((c) => (
             <tr key={c.id} data-href onClick={() => navigate(`/crm/email/campaigns/${c.id}`)}>
-              <td><span className="font-medium">{c.name}</span><span className="block max-w-[360px] truncate text-xs text-muted-foreground">{c.subject}</span></td>
+              <td><Link to={`/crm/email/campaigns/${c.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{c.name}</Link><span className="block max-w-[360px] truncate text-xs text-muted-foreground">{c.subject}</span></td>
               <td><Chip tone={CAMPAIGN_STATUS[c.status]?.[1] ?? 'neutral'}>{CAMPAIGN_STATUS[c.status]?.[0] ?? c.status}</Chip>{c.scheduled_at && c.status === 'scheduled' && <span className="ml-1.5 text-xs text-muted-foreground">{when(c.scheduled_at)}</span>}</td>
               {q.data?.can_approve && <td>{c.owner?.name}</td>}
               <td className="r tabular-nums">{c.recipient_count ?? '—'}</td>
@@ -112,7 +112,7 @@ function TemplatesTab() {
             <tbody>
               {q.data!.data.map((t) => (
                 <tr key={t.id} data-href onClick={() => navigate(`/crm/email/templates/${t.id}`)}>
-                  <td><span className="font-medium">{t.name}</span><span className="block max-w-[380px] truncate text-xs text-muted-foreground">{(t.approved ?? t.latest)?.subject}</span></td>
+                  <td><Link to={`/crm/email/templates/${t.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{t.name}</Link><span className="block max-w-[380px] truncate text-xs text-muted-foreground">{(t.approved ?? t.latest)?.subject}</span></td>
                   <td>{TEMPLATE_KIND[t.kind]}</td>
                   <td className="flex flex-wrap gap-1">
                     {t.approved ? <Chip tone="green">Approved v{t.approved.version_no}</Chip> : <Chip tone="line">Not approved</Chip>}

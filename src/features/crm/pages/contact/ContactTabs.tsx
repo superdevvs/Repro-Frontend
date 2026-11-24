@@ -8,8 +8,8 @@ import { crmApi } from '../../api';
 import { crmKeys, useCrmMutation, useCrmQuery } from '../../hooks';
 import { money, when } from '../../format';
 import type { EmailSend, Quote } from '../../types';
-import { Field, Select } from '../../ui/fields';
-import { Chip, Empty, ErrorNote, Loading, Note } from '../../ui/primitives';
+import { Field, Select, TextArea } from '../../ui/fields';
+import { Chip, Empty, ErrorNote, Loading } from '../../ui/primitives';
 import { EmailFrame } from '../../components/RichText';
 import { QUOTE_LABEL, QUOTE_TONE } from '../quotes/quoteStatus';
 
@@ -30,12 +30,12 @@ export function EmailsList({ contactId }: { contactId: number }) {
           <tbody>
             {items.map((s) => (
               <tr key={s.id} data-href onClick={() => setOpen(s.id)}>
-                <td className="max-w-[320px] truncate font-medium">{s.subject}</td>
+                <td className="max-w-[320px] truncate font-medium"><button type="button" className="text-left hover:underline" onClick={(e) => { e.stopPropagation(); setOpen(s.id); }}>{s.subject}</button></td>
                 <td className="capitalize text-muted-foreground">{s.source_type.replace('_', '-')}</td>
                 <td className="text-muted-foreground">{when(s.sent_at ?? s.created_at)}</td>
                 <td>
                   <div className="flex flex-wrap gap-1">
-                    {s.recorded_only ? <Chip tone="line">Recorded (test mode)</Chip> : s.status === 'failed' || s.status === 'blocked' ? <Chip tone="red">{s.status}</Chip> : <Chip tone="green">Sent</Chip>}
+                    {s.recorded_only ? <Chip tone="line">Recorded (test mode)</Chip> : s.status === 'failed' || s.status === 'blocked' ? <Chip tone="red">{s.status}</Chip> : s.status === 'sent' ? <Chip tone="green">Sent</Chip> : <Chip tone="amber">{s.status === 'uncertain' ? 'Delivery unconfirmed' : s.status}</Chip>}
                     {s.opened && <Chip tone="blue">Opened{s.open_count > 1 ? ` ×${s.open_count}` : ''}</Chip>}
                     {s.replied_at && <Chip tone="violet">Replied</Chip>}
                     {s.bounced_at && <Chip tone="red">Bounced</Chip>}
@@ -81,12 +81,19 @@ export function QuotesList({ contactId, canEdit }: { contactId: number; canEdit:
 }
 
 interface ConversationItem { channel: 'email' | 'sms' | 'call'; direction: 'in' | 'out'; at: string; title: string | null; body: string | null; status: string; opened?: boolean; replied?: boolean; id: string }
-interface Conversation { items: ConversationItem[]; sms: { consent: boolean; consent_at: string | null; source: string | null; can_send: boolean } }
+interface Conversation { items: ConversationItem[]; sms: { consent: boolean; consent_at: string | null; source: string | null; can_send: boolean; enabled?: boolean; timezone?: string | null }; marketing_email?: { consent: boolean; source: string | null; consent_at: string | null } }
 
 /** Conversations (frame F5): emails, texts and calls in one thread, with SMS consent. */
 export function ConversationTab({ contactId, canEdit, hasPhone }: { contactId: number; canEdit: boolean; hasPhone: boolean }) {
   const q = useCrmQuery<Conversation>(crmKeys.contactPart(contactId, 'conversation'), `/contacts/${contactId}/conversation`);
   const [source, setSource] = useState('');
+  const [marketingSource, setMarketingSource] = useState('');
+  const [text, setText] = useState('');
+  const [requestId, setRequestId] = useState(() => crypto.randomUUID());
+  const marketing = useCrmMutation((value: boolean) => crmApi.post(`/contacts/${contactId}/marketing-consent`, { consent: value, source: value ? marketingSource : null }), { success: 'Marketing email preference updated' });
+  const sms = useCrmMutation(() => crmApi.post<{ status: string }>(`/contacts/${contactId}/conversation/sms`, {
+    body: text.trim(), request_id: requestId, ...(q.data?.sms.timezone ? { timezone: q.data.sms.timezone } : {}),
+  }), { success: (res) => `Text message: ${res.status.replaceAll('_', ' ')}` });
   const consent = useCrmMutation((value: boolean) => crmApi.post(`/contacts/${contactId}/sms-consent`, { consent: value, source: value ? source : null }), { success: 'SMS consent updated' });
 
   if (q.isLoading) return <Loading />;
@@ -110,8 +117,23 @@ export function ConversationTab({ contactId, canEdit, hasPhone }: { contactId: n
           </div>
         )}
         {!hasPhone && <p className="mt-1 text-xs text-muted-foreground">Add a phone number to text this contact.</p>}
-        {data.sms.consent && !data.sms.can_send && <Note tone="info" className="mt-2">Texting from the CRM switches on when the SMS integration goes live. Until then, texts sent from Messaging appear here.</Note>}
+        {data.sms.consent && !data.sms.can_send && <p className="mt-2 text-muted-foreground">{data.sms.enabled ? 'Sending is unavailable for this contact.' : 'Text delivery is turned off.'}</p>}
+        {canEdit && data.sms.can_send && <form className="mt-3 space-y-2" onSubmit={(e) => {
+          e.preventDefault();
+          if (text.trim() && !sms.isPending) sms.mutate(undefined, { onSuccess: () => { setText(''); setRequestId(crypto.randomUUID()); } });
+        }}>
+          <Field label="Text message">{(id) => <TextArea id={id} maxLength={1600} value={text} disabled={sms.isPending} onChange={(e) => { setText(e.target.value); setRequestId(crypto.randomUUID()); }} />}</Field>
+          <Button type="submit" size="sm" disabled={!text.trim() || sms.isPending}>Send text</Button>
+        </form>}
       </div>
+      {data.marketing_email && <section className="rounded-xl border p-3" aria-label="Marketing email consent">
+        <div className="flex items-center gap-3"><h3 className="font-medium">Marketing email</h3><Chip tone={data.marketing_email.consent ? 'green' : 'line'}>{data.marketing_email.consent ? 'Consent recorded' : 'No recorded consent'}</Chip>
+          {canEdit && data.marketing_email.consent && <Button size="sm" variant="ghost" className="ml-auto" disabled={marketing.isPending} onClick={() => marketing.mutate(false)}>Withdraw email consent</Button>}</div>
+        {canEdit && !data.marketing_email.consent && <div className="mt-2 flex flex-wrap items-end gap-2">
+          <Field label="Email consent source">{(id) => <Select id={id} value={marketingSource} onChange={(e) => setMarketingSource(e.target.value)} placeholder="Choose…" options={[{ value: 'written', label: 'In writing' }, { value: 'email_reply', label: 'Email reply' }, { value: 'website', label: 'Website opt-in' }, { value: 'verbal', label: 'Verbal permission' }]} />}</Field>
+          <Button size="sm" disabled={!marketingSource || marketing.isPending} onClick={() => marketing.mutate(true)}>Record email consent</Button>
+        </div>}
+      </section>}
       {data.items.length === 0 && <Empty title="No conversations yet." />}
       <ol className="flex flex-col gap-2">
         {data.items.map((item) => {
@@ -123,10 +145,11 @@ export function ConversationTab({ contactId, canEdit, hasPhone }: { contactId: n
                 <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                   {item.direction === 'in' ? <ArrowDownLeft className="h-3 w-3" /> : <ArrowUpRight className="h-3 w-3" />}
                   {item.channel === 'call' ? `Call${item.title ? ` · ${item.title}` : ''}` : item.channel === 'sms' ? 'Text' : 'Email'} · {when(item.at)}
+                  {item.channel === 'sms' && item.direction === 'out' && <Chip tone={['failed', 'blocked'].includes(item.status) ? 'red' : item.status === 'sent' ? 'green' : 'amber'}>{item.status.replaceAll('_', ' ')}</Chip>}
                   {item.opened && <Chip tone="blue">Opened</Chip>}{item.replied && <Chip tone="violet">Replied</Chip>}
                 </p>
                 {item.channel === 'email' && item.title && <p className="text-[13px] font-medium">{item.title}</p>}
-                {item.body && <p className="line-clamp-4 whitespace-pre-wrap text-[13px]">{item.body}</p>}
+                {item.body && <p className="whitespace-pre-wrap break-words text-[13px]">{item.body}</p>}
               </div>
             </li>
           );

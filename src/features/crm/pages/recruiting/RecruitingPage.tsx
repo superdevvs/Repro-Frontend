@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { DndContext, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { Camera, Plane, Plus, Search, Star } from 'lucide-react';
 import { toast } from 'sonner';
@@ -45,10 +45,23 @@ export default function RecruitingPage() {
 }
 
 function BoardTab({ meta }: { meta?: RecruitMeta }) {
-  const [role, setRole] = useState<'photographer' | 'sales_rep'>('photographer');
+  const [params, setParams] = useSearchParams();
+  const role = params.get('role') === 'sales_rep' ? 'sales_rep' : 'photographer';
+  const setRole = (value: string) => setParams((old) => { const next = new URLSearchParams(old); next.set('role', value); next.delete('page'); return next; });
+  const closed = params.get('stage') === 'not_moving_forward';
+  const page = Math.max(1, Number(params.get('page')) || 1);
   const [search, setSearch] = useState('');
   const [state, setState] = useState('');
   const q = useCrmQuery<Board>(['crm', 'recruit-board', role, search, state], '/recruiting/board', { role, q: search, state });
+  const exits = useCrmQuery<{ data: ApplicantCard[]; meta: { last_page: number } }>(
+    ['crm', 'recruit-exits', role, search, state, page], '/recruiting/applicants', { stage: 'not_moving_forward', role, q: search, state, page }, closed,
+  );
+  const link = (archived: boolean, n = 1) => {
+    const next = new URLSearchParams({ role });
+    if (archived) next.set('stage', 'not_moving_forward');
+    if (n > 1) next.set('page', String(n));
+    return `/crm/recruiting?${next}`;
+  };
   const move = useCrmMutation(({ id, stage }: { id: number; stage: string }) => crmApi.post(`/recruiting/applicants/${id}/stage`, { stage }), { success: 'Stage updated' });
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const onDragEnd = (e: DragEndEvent) => {
@@ -74,11 +87,23 @@ function BoardTab({ meta }: { meta?: RecruitMeta }) {
           <PageSearch searchId="crm-recruiting" scope="crm-recruiting" scopeLabel="Applicants" priority={20} aria-label="Search applicants" placeholder="Search applicants" value={search} onChange={(e) => setSearch(e.target.value)} className="h-full border-0 bg-transparent px-2 text-[13px] shadow-none focus-visible:ring-0" />
         </div>
         <FilterSelect label="State" allLabel="All" value={state} onChange={setState} options={Object.entries(meta?.states ?? {}).map(([code, name]) => ({ value: code, label: name }))} />
-        {q.data && q.data.not_moving_forward > 0 && <Link to={`/crm/recruiting?stage=not_moving_forward`} className="ml-auto text-xs text-muted-foreground">{q.data.not_moving_forward} not moving forward</Link>}
+        {closed && <Link className="ml-auto underline" to={link(false)}>Return to board</Link>}
+        {!closed && q.data && q.data.not_moving_forward > 0 && <Link to={link(true)} className="ml-auto text-xs text-muted-foreground">{q.data.not_moving_forward} not moving forward</Link>}
       </div>
       {q.isLoading && <Loading />}
       {q.error && <ErrorNote error={q.error} onRetry={() => q.refetch()} />}
-      {q.data && (
+      {closed && <section className="space-y-3" aria-label="Applicants not moving forward">
+        <h2 className="text-lg font-semibold">Not moving forward</h2>
+        {exits.isLoading && <Loading />}{exits.error && <ErrorNote error={exits.error} onRetry={() => exits.refetch()} />}
+        {exits.data && (exits.data.data.length ? <ul className="divide-y rounded-xl border">
+          {exits.data.data.map((applicant) => <li key={applicant.id}><Link className="block p-3 hover:bg-secondary" to={`/crm/recruiting/applicants/${applicant.id}`}>
+            <strong>{applicant.name}</strong><span className="block text-muted-foreground">{applicant.exit_reason}</span>
+          </Link></li>)}</ul> : <Empty title="No applicants match." />)}
+        {exits.data && exits.data.meta.last_page > 1 && <nav className="flex gap-3" aria-label="Applicant pages">
+          {page > 1 && <Link to={link(true, page - 1)}>Previous</Link>}Page {page} of {exits.data.meta.last_page}{page < exits.data.meta.last_page && <Link to={link(true, page + 1)}>Next</Link>}
+        </nav>}
+      </section>}
+      {!closed && q.data && (
         <DndContext sensors={sensors} onDragEnd={onDragEnd}>
           <div className="grid grid-cols-[repeat(6,minmax(160px,1fr))] gap-2.5 overflow-x-auto pb-2">
             {q.data.columns.map((col) => <Column key={col.stage} stage={col.stage} label={col.label} cards={col.cards} canMove={Boolean(meta?.can.manage)} />)}

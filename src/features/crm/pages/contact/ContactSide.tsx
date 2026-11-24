@@ -9,13 +9,15 @@ import { useCrmMeta, useCrmMutation, useCrmQuery } from '../../hooks';
 import { ago, day, when } from '../../format';
 import { useCrmRobbie } from '../../robbie/useCrmRobbie';
 import type { Contact } from '../../types';
-import { Field, Select } from '../../ui/fields';
+import { Field, Select, TextArea } from '../../ui/fields';
 import { Card, Chip, HealthChip, KeyValues, Note } from '../../ui/primitives';
 
 /** Right column of the contact record: details, drip, Robbie's brief. */
 export function ContactSide({ contact }: { contact: Contact }) {
   const { data: meta } = useCrmMeta();
   const robbie = useCrmRobbie();
+  const [reviewNote, setReviewNote] = useState('');
+  const review = useCrmMutation(() => crmApi.post(`/contacts/${contact.id}/review`, { note: reviewNote.trim() }), { success: 'Review completed' });
   const [enrolling, setEnrolling] = useState(false);
   const [brief, setBrief] = useState<{ summary: string; ai: boolean } | null>(null);
   const [briefError, setBriefError] = useState<string | null>(null);
@@ -70,7 +72,14 @@ export function ContactSide({ contact }: { contact: Contact }) {
           ...(contact.health ? [['Health', <span key="h" className="flex items-center gap-2"><HealthChip health={contact.health} />{contact.usual_gap_days ? <span className="text-xs text-muted-foreground">every ~{contact.usual_gap_days} days</span> : null}</span>] as [string, React.ReactNode]] : []),
         ]} />
         {contact.email_opted_out && <Note tone="warn" className="mt-3">Unsubscribed from email. Marketing and drips won’t reach them.</Note>}
-        {contact.needs_review && <Note tone="warn" className="mt-3">Needs clean-up: {contact.review_reasons.join(', ') || 'check the details'}.</Note>}
+        {contact.needs_review && <Note tone="warn" className="mt-3">
+          <p className="font-semibold">Import review</p>
+          <p>{contact.review_reasons.map((r) => r.replaceAll('_', ' ')).join(' · ') || 'Check imported details.'}</p>
+          {meta?.can.assign && <form className="mt-2 space-y-2" onSubmit={(e) => { e.preventDefault(); if (reviewNote.trim()) review.mutate(undefined); }}>
+            <Field label="Review note">{(id) => <TextArea id={id} required maxLength={1000} value={reviewNote} onChange={(e) => setReviewNote(e.target.value)} placeholder="What did you verify?" />}</Field>
+            <Button type="submit" size="sm" disabled={!reviewNote.trim() || review.isPending}>Complete review</Button>
+          </form>}
+        </Note>}
       </Card>
 
       <Card title="Drip" actions={!drip || drip.status !== 'active' ? (meta?.can.enrol_drips && !contact.email_opted_out && contact.stage !== 'lost' ? <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEnrolling(true)}><Repeat className="mr-1 h-3 w-3" />Enrol</Button> : null) : undefined}>

@@ -42,7 +42,7 @@ export function CrmSidebar() {
       <nav className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto">
         {groups.map((group) => (
           <React.Fragment key={group.label ?? 'top'}>
-            {group.label && !collapsed && <p className="px-2 pb-0.5 pt-2 text-[11px] font-medium leading-4 text-muted-foreground">{group.label}</p>}
+            {group.label && !collapsed && <p className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase leading-4 tracking-[0.08em] text-muted-foreground">{group.label}</p>}
             {group.label && collapsed && <div className="mx-2 my-1.5 h-px bg-border" />}
             {group.items.map((item) => {
               const Icon = item.icon;
@@ -54,8 +54,8 @@ export function CrmSidebar() {
                   end={item.end}
                   title={collapsed ? item.label : undefined}
                   aria-current={active ? 'page' : undefined}
-                  className={cn('relative flex h-[30px] items-center gap-[9px] rounded-[7px] px-2 text-[13px] font-[450] text-muted-foreground transition-colors hover:bg-card/70 hover:text-foreground',
-                    active && 'bg-card font-[550] text-accent-foreground shadow-[0_0_0_1px_hsl(var(--border)),0_1px_2px_rgba(20,20,22,.05)] hover:bg-card',
+                  className={cn('relative flex h-9 items-center gap-2.5 rounded-[7px] px-2 text-[13px] font-[450] text-muted-foreground transition-colors hover:bg-card/70 hover:text-foreground',
+                    active && 'bg-accent font-semibold text-accent-foreground shadow-[inset_3px_0_hsl(var(--primary))] hover:bg-accent',
                     collapsed && 'justify-center px-0')}
                 >
                   <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
@@ -70,7 +70,7 @@ export function CrmSidebar() {
         ))}
       </nav>
 
-      <button type="button" onClick={toggle} className={cn('flex h-[30px] items-center gap-[9px] rounded-[7px] px-2 text-[13px] text-muted-foreground hover:bg-card/70 hover:text-foreground', collapsed && 'justify-center px-0')} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
+      <button type="button" onClick={toggle} className={cn('flex h-9 items-center gap-2.5 rounded-[7px] px-2 text-[13px] text-muted-foreground hover:bg-card/70 hover:text-foreground', collapsed && 'justify-center px-0')} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>
         {collapsed ? <PanelLeftOpen className="h-4 w-4" /> : <><PanelLeftClose className="h-4 w-4" />Collapse</>}
       </button>
     </aside>

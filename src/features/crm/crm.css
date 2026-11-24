@@ -4,7 +4,10 @@
  * height and table rhythm for screens under .crm-root.
  */
 .crm-root {
-  font-size: 13px;
+  font-size: 14px;
+  --primary: 215 78% 40%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 215 80% 48%;
   line-height: 20px;
   letter-spacing: -0.003em;
   --crm-amber: 32 90% 32%;
@@ -18,6 +21,8 @@
   --crm-lane: 210 20% 96%;
 }
 .dark .crm-root {
+  --primary: 211 86% 71%;
+  --primary-foreground: 218 48% 13%;
   --crm-amber: 40 85% 62%;
   --crm-amber-soft: 38 55% 13%;
   --crm-green: 146 55% 60%;
@@ -64,6 +69,13 @@
 /* Rendered email previews keep their own white page in dark mode. */
 .crm-root .crm-email-frame { background: #f3f5f7; border-radius: 10px; }
 
+.crm-root .crm-card-heading h2 { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; letter-spacing: -0.01em; }
+.crm-root .crm-stats { grid-template-columns: repeat(var(--crm-stat-count), minmax(0, 1fr)); }
+.crm-root .crm-table a:focus-visible, .crm-root button:focus-visible, .crm-root a:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.crm-root .crm-table td a:hover { text-decoration: underline; }
+@media (max-width: 900px) {
+  .crm-root .crm-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 767px) {
   .crm-root { font-size: 14px; }
 }

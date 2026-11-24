@@ -1,8 +1,9 @@
 import React, { lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import { useAuth } from '@/components/auth';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
-import { useIsMobile } from '@/hooks/use-mobile';
+import { useIsXLarge } from '@/hooks/use-media-query';
 import { CRM_ENABLED } from './featureFlag';
 import { CrmSidebar } from './layout/CrmSidebar';
 import { CrmMobileNav } from './layout/CrmMobileNav';
@@ -33,7 +34,7 @@ const ApplicantPage = lazy(() => import('./pages/recruiting/ApplicantPage'));
 
 function CrmBody() {
   const robbie = useCrmRobbie();
-  const isMobile = useIsMobile();
+  const inlinePanel = useIsXLarge();
   const panelOpen = Boolean(robbie?.open);
 
   return (
@@ -64,12 +65,12 @@ function CrmBody() {
           </Routes>
         </Suspense>
       </div>
-      {panelOpen && !isMobile && (
+      {panelOpen && inlinePanel && (
         <CrmRobbiePanel className="sticky top-0 hidden h-[calc(100dvh-84px)] w-[380px] shrink-0 lg:flex" />
       )}
-      {isMobile && (
+      {!inlinePanel && (
         <Sheet open={panelOpen} onOpenChange={(o) => robbie?.setOpen(o)}>
-          <SheetContent side="bottom" className="crm-root h-[85dvh] rounded-t-2xl p-0 [&>button]:hidden">
+          <SheetContent side="bottom" className="crm-root mx-auto h-[85dvh] max-w-2xl rounded-t-2xl p-0 [&>button]:hidden">
             <SheetTitle className="sr-only">Robbie</SheetTitle>
             <CrmRobbiePanel className="h-full rounded-none border-0 shadow-none" />
           </SheetContent>
@@ -84,10 +85,12 @@ function CrmBody() {
  * CRM sidebar and pages. Lazy-loaded; dark until VITE_CRM_ENABLED is on.
  */
 export default function CrmApp() {
+  const { user, role, isImpersonating, originalUser } = useAuth();
+  const identity = `${user?.id}:${role}:${isImpersonating}:${originalUser?.id}`;
   if (!CRM_ENABLED) return <Navigate to="/dashboard" replace />;
 
   return (
-    <CrmRobbieProvider>
+    <CrmRobbieProvider key={identity}>
       <DashboardLayout
         hideFooter
         sidebar={<CrmSidebar />}

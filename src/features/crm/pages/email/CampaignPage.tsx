@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { AlertTriangle, CalendarClock, Check, Send, Undo2, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ import { CAMPAIGN_STATUS } from './campaignStatus';
 interface Audience { segment?: string | null; client_type?: string | null; stage?: string | null; market_state?: string | null; rep_id?: number | null }
 interface Campaign {
   id: number; name: string; status: string; owner: Person | null; subject: string; audience: Audience; submitted_at: string | null; scheduled_at: string | null;
+  delivery_summary?: { sent: number; skipped: number; unconfirmed: number };
   sent_at: string | null; recipient_count: number | null; reviewed_by: Person | null; review_comment: string | null; content_check: ContentCheck | null; updated_at: string | null;
   template: { id: number; name: string }; body_html: string; image_url: string | null; from: { name: string; email: string } | null;
   audience_summary: { total: number; reachable: number; opted_out: number; bounced: number }; rendered: { subject: string; html: string };
@@ -26,6 +28,7 @@ interface Campaign {
  */
 export default function CampaignPage() {
   const { id } = useParams();
+  const client = useQueryClient();
   const { data: meta } = useCrmMeta();
   const q = useCrmQuery<{ campaign: Campaign }>(['crm', 'campaign', id], `/campaigns/${id}`);
   const c = q.data?.campaign;
@@ -35,10 +38,20 @@ export default function CampaignPage() {
   const [comment, setComment] = useState('');
   const [at, setAt] = useState('');
   const [dirty, setDirty] = useState(false);
+  const hydratedId = React.useRef<number | null>(null);
 
-  useEffect(() => { if (c) { setSubject(c.subject); setBody(c.body_html); setAudience(c.audience ?? {}); setDirty(false); } }, [c]);
+  useEffect(() => {
+    if (!c || (dirty && hydratedId.current === c.id)) return;
+    hydratedId.current = c.id;
+    setSubject(c.subject); setBody(c.body_html); setAudience(c.audience ?? {}); setDirty(false);
+  }, [c, dirty]);
 
-  const save = useCrmMutation(() => crmApi.patch(`/campaigns/${id}`, { subject, body_html: body, audience }), { success: 'Saved' });
+  const save = useCrmMutation(async () => {
+    const response = await crmApi.patch<{ campaign: Campaign }>(`/campaigns/${id}`, { subject, body_html: body, audience });
+    client.setQueryData(['crm', 'campaign', id], response);
+    setDirty(false);
+    return response;
+  }, { success: 'Saved' });
   const action = useCrmMutation((a: { name: 'submit' | 'approve' | 'send-back' | 'schedule'; body?: object }) => crmApi.post(`/campaigns/${id}/${a.name}`, a.body ?? {}), {
     success: (r: unknown) => { const s = (r as { campaign?: { status: string } })?.campaign?.status ?? ''; return CAMPAIGN_STATUS[s]?.[0] ?? 'Done'; },
   });
@@ -48,7 +61,7 @@ export default function CampaignPage() {
 
   const isOwner = meta?.me.id === c.owner?.id;
   const canApprove = Boolean(meta?.can.approve_campaigns);
-  const editable = (isOwner || canApprove) && !['sending', 'sent', 'scheduled'].includes(c.status);
+  const editable = (isOwner || canApprove) && ['draft', 'sent_back', 'submitted', 'approved'].includes(c.status);
   const setAud = (k: keyof Audience) => (e: React.ChangeEvent<HTMLSelectElement>) => { setAudience({ ...audience, [k]: e.target.value || null }); setDirty(true); };
   const issues = c.content_check?.issues ?? [];
 
@@ -64,7 +77,13 @@ export default function CampaignPage() {
     >
       {c.status === 'sent_back' && c.review_comment && <Note tone="bad">{c.reviewed_by?.name} sent this back: {c.review_comment}</Note>}
       {c.status === 'approved' && <Note tone="ok">Approved by {c.reviewed_by?.name}. Any edit now sends it back for review.</Note>}
-      {c.status === 'sent' && <Note tone="ok">Sent {when(c.sent_at)} to {c.recipient_count} people.</Note>}
+      {c.status === 'sent' && <Note tone="ok">Accepted by the email provider {when(c.sent_at)} for {c.recipient_count} recipient{c.recipient_count === 1 ? '' : 's'}.</Note>}
+      {c.status === 'needs_review' && <Note tone="warn">Delivery needs review. Check individual email statuses before contacting these recipients again.</Note>}
+      {c.status === 'skipped' && <Note>No eligible recipients. This campaign sent no emails.</Note>}
+      {c.delivery_summary && ['sent', 'needs_review', 'skipped'].includes(c.status) && <div className="flex flex-wrap gap-2" aria-label="Campaign delivery">
+        <Chip tone="green">{c.delivery_summary.sent} accepted</Chip><Chip tone="line">{c.delivery_summary.skipped} skipped</Chip>
+        {c.delivery_summary.unconfirmed > 0 && <Chip tone="amber">{c.delivery_summary.unconfirmed} unconfirmed</Chip>}
+      </div>}
       {c.status === 'scheduled' && <Note tone="info">Scheduled for {when(c.scheduled_at)}.</Note>}
 
       {c.status === 'submitted' && canApprove && (
@@ -77,17 +96,18 @@ export default function CampaignPage() {
           ) : <Note tone="ok" className="mb-3">The content check found nothing to fix.</Note>}
           <div className="flex flex-wrap gap-2">
             <TextInput aria-label="Comment for the owner" className="min-w-[240px] flex-1" placeholder="What should change? (needed to send back)" value={comment} onChange={(e) => setComment(e.target.value)} />
-            <Button variant="outline" size="sm" className="h-8" disabled={!comment.trim()} onClick={() => action.mutate({ name: 'send-back', body: { comment } })}><Undo2 className="mr-1 h-3.5 w-3.5" />Send back</Button>
-            <Button size="sm" className="h-8" onClick={() => action.mutate({ name: 'approve' })}><Check className="mr-1 h-3.5 w-3.5" />Approve</Button>
+            <Button variant="outline" size="sm" className="h-8" disabled={!comment.trim() || action.isPending} onClick={() => action.mutate({ name: 'send-back', body: { comment } })}><Undo2 className="mr-1 h-3.5 w-3.5" />Send back</Button>
+            <Button size="sm" className="h-8" disabled={dirty || save.isPending || action.isPending} onClick={() => action.mutate({ name: 'approve' })}><Check className="mr-1 h-3.5 w-3.5" />Approve</Button>
           </div>
         </Card>
       )}
 
       {c.status === 'approved' && (isOwner || canApprove) && (
         <Card title="Send">
+          {dirty && <Note tone="warn" className="mb-3">Save your changes and send this version through review before scheduling delivery.</Note>}
           <div className="flex flex-wrap items-end gap-2">
             <Field label="When" hint="Leave empty to send now.">{(fid, d) => <TextInput id={fid} aria-describedby={d} type="datetime-local" min={toLocalInput(new Date())} value={at} onChange={(e) => setAt(e.target.value)} />}</Field>
-            <Button size="sm" className="h-8" onClick={() => action.mutate({ name: 'schedule', body: { at: at ? new Date(at).toISOString() : null } })}><CalendarClock className="mr-1.5 h-3.5 w-3.5" />{at ? 'Schedule' : 'Send now'} to {c.audience_summary.reachable}</Button>
+            <Button size="sm" className="h-8" disabled={dirty || save.isPending || action.isPending || !c.audience_summary.reachable} onClick={() => action.mutate({ name: 'schedule', body: { at: at ? new Date(at).toISOString() : null } })}><CalendarClock className="mr-1.5 h-3.5 w-3.5" />{at ? 'Schedule' : 'Send now'} to {c.audience_summary.reachable}</Button>
           </div>
         </Card>
       )}

@@ -47,6 +47,11 @@ export function toLocalInput(value: string | Date | null | undefined): string {
   return d && !Number.isNaN(d.getTime()) ? format(d, "yyyy-MM-dd'T'HH:mm") : '';
 }
 
+export function scheduleTimeLabel(): string {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return zone === 'America/New_York' ? 'Eastern time' : `Days grouped in Eastern time · Times shown in ${zone.replaceAll('_', ' ')}`;
+}
+
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${n.toLocaleString()} ${n === 1 ? one : many}`;
 }

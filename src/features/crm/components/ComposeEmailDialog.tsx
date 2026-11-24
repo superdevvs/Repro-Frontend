@@ -28,7 +28,7 @@ export function ComposeEmailDialog({ open, onOpenChange, contactId, contactName,
   const [check, setCheck] = useState<ContentCheck | null>(null);
   const [drafting, setDrafting] = useState(false);
   const [draftNote, setDraftNote] = useState<string | null>(null);
-  const [key] = useState(() => Math.random().toString(36).slice(2));
+  const [key, setKey] = useState(() => crypto.randomUUID());
 
   const template = useMemo(() => options.data?.templates.find((t) => String(t.id) === templateId), [options.data, templateId]);
 
@@ -47,7 +47,14 @@ export function ComposeEmailDialog({ open, onOpenChange, contactId, contactName,
   const payload = () => ({ template_id: Number(templateId), subject, body_html: body, idempotency_key: key });
 
   const runPreview = useCrmMutation(() => crmApi.post<{ subject: string; html: string; content_check: ContentCheck | null }>(`/contacts/${contactId}/emails/preview`, payload()), { invalidate: [] });
-  const send = useCrmMutation(() => crmApi.post(`/contacts/${contactId}/emails`, payload()), { success: `Email sent to ${contactName}`, silentErrors: true });
+  const send = useCrmMutation(() => crmApi.post<{ send: { status: string } }>(`/contacts/${contactId}/emails`, payload()), {
+    success: ({ send: result }) => {
+      if (result.status === 'logged') return 'Preview recorded. No email was delivered.';
+      if (result.status === 'sent') return `Email sent to ${contactName}`;
+      return `Delivery status: ${result.status}. Check the contact’s Emails tab.`;
+    },
+    silentErrors: true,
+  });
 
   const draft = async () => {
     setDrafting(true);
@@ -126,10 +133,10 @@ export function ComposeEmailDialog({ open, onOpenChange, contactId, contactName,
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button disabled={Boolean(blocker) || !templateId || send.isPending} onClick={() => send.mutate(undefined, {
-            onSuccess: () => onOpenChange(false),
+            onSuccess: () => { setKey(crypto.randomUUID()); setTemplateId(''); onOpenChange(false); },
             onError: (e: ApiError) => { if (e.content_check) setCheck(e.content_check); },
           })}>
-            <Send className="mr-1.5 h-3.5 w-3.5" />{send.isPending ? 'Sending…' : 'Send'}
+            <Send className="mr-1.5 h-3.5 w-3.5" />{send.isPending ? 'Working…' : options.data?.transport === 'log' ? 'Record preview' : 'Send'}
           </Button>
         </DialogFooter>
       </DialogContent>
