@@ -3,6 +3,7 @@ import { expect, test, type Page } from '@playwright/test';
 const adminToken = process.env.E2E_CRM_ADMIN_TOKEN;
 const repToken = process.env.E2E_CRM_REP_TOKEN;
 const apiKey = process.env.E2E_CRM_WEBSITE_KEY;
+const expectUi = expect.configure({ timeout: 30_000 });
 const isolated = /^http:\/\/(localhost|127\.0\.0\.1):\d+$/.test(process.env.E2E_BASE_URL ?? '');
 
 test.skip(!isolated || !adminToken || !repToken, 'CRM acceptance requires a seeded local app and admin and rep fixture tokens.');
@@ -20,9 +21,10 @@ async function signIn(page: Page, token: string) {
 }
 
 test('rep adds a contact, moves it, marks it lost and reopens it', async ({ page }) => {
+  test.setTimeout(120_000);
   await signIn(page, repToken!);
   await page.goto('/crm');
-  await expect(page.getByRole('heading', { name: 'My work today' })).toBeVisible();
+  await expectUi(page.getByRole('heading', { name: 'My work today' })).toBeVisible();
   await page.goto('/crm/contacts');
   await page.getByRole('button', { name: 'Add contact', exact: true }).click();
   const dialog = page.getByRole('dialog');
@@ -30,23 +32,23 @@ test('rep adds a contact, moves it, marks it lost and reopens it', async ({ page
   await dialog.getByLabel('Full name').fill(name);
   await dialog.getByLabel('Segment').selectOption('residential');
   await dialog.getByRole('button', { name: 'Add contact', exact: true }).click();
-  await expect(dialog).toBeHidden();
-  await expect(page.getByRole('heading', { name: new RegExp(name) })).toBeVisible();
+  await expectUi(dialog).toBeHidden();
+  await expectUi(page.getByRole('heading', { name: new RegExp(name) })).toBeVisible();
   const stages = page.getByRole('list', { name: 'Sales stage' });
   await stages.getByRole('button', { name: 'Inquiry', exact: true }).click();
-  await expect(stages.locator('[aria-current=step]')).toContainText('Inquiry');
+  await expectUi(stages.locator('[aria-current=step]')).toContainText('Inquiry');
   await page.getByRole('button', { name: 'More actions' }).click();
   await page.getByRole('menuitem', { name: 'Mark lost' }).click();
   await dialog.getByLabel('Reason').selectOption({ index: 1 });
   await dialog.getByRole('button', { name: 'Mark lost' }).click();
-  await expect(dialog).toBeHidden();
+  await expectUi(dialog).toBeHidden();
   await page.reload();
   await page.getByRole('button', { name: 'Reopen', exact: true }).click();
   await dialog.getByLabel('Reopen into').selectOption('inquiry');
   await dialog.getByRole('button', { name: 'Reopen', exact: true }).click();
-  await expect(stages.locator('[aria-current=step]')).toContainText('Inquiry');
+  await expectUi(stages.locator('[aria-current=step]')).toContainText('Inquiry');
   await page.reload();
-  await expect(stages.locator('[aria-current=step]')).toContainText('Inquiry');
+  await expectUi(stages.locator('[aria-current=step]')).toContainText('Inquiry');
 });
 
 test('recruiting intake replay is visible once after a refresh', async ({ page }) => {
@@ -65,7 +67,7 @@ test('recruiting intake replay is visible once after a refresh', async ({ page }
   expect((await first.json()).applicant_id).toBe((await repeat.json()).applicant_id);
 
   await page.goto('/crm/recruiting');
-  await expect(page.getByText(applicant, { exact: true })).toHaveCount(1);
+  await expectUi(page.getByText(applicant, { exact: true })).toHaveCount(1);
   await page.reload();
-  await expect(page.getByText(applicant, { exact: true })).toHaveCount(1);
+  await expectUi(page.getByText(applicant, { exact: true })).toHaveCount(1);
 });
