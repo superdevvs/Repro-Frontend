@@ -54,9 +54,9 @@ describe('CRM sidebar', () => {
     const { CrmSidebar } = await import('./layout/CrmSidebar');
     wrap(<CrmSidebar />);
     expect(await screen.findByRole('link', { name: /follow-ups/i })).toBeInTheDocument();
-    const homeLink = screen.getByRole('link', { name: 'R/E Pro CRM home' });
+    const homeLink = screen.getByRole('link', { name: 'R/E Pro Photos CRM home' });
     expect(homeLink).toHaveAttribute('href', '/crm');
-    expect(homeLink).toHaveTextContent('R/E Pro CRM');
+    expect(homeLink).toHaveTextContent('CRM');
     expect(screen.getByRole('link', { name: /back to dashboard/i })).toHaveAttribute('href', '/dashboard');
     expect(screen.queryByRole('link', { name: /unassigned/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /recruiting/i })).not.toBeInTheDocument();
