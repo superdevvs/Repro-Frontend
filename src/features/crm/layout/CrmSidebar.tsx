@@ -30,8 +30,11 @@ export function CrmSidebar() {
       className={cn('crm-root flex h-full shrink-0 flex-col bg-secondary px-2.5 pb-3 transition-[width] duration-200 motion-reduce:transition-none dark:bg-background', collapsed ? 'w-[60px]' : 'w-[210px]')}
     >
       <div className={cn('flex h-16 shrink-0 items-center', collapsed ? 'justify-center' : 'px-1')}>
-        <Link to="/crm" aria-label="Sales CRM home" className="inline-flex h-10 w-10 items-center justify-center rounded-xl">
-          <Logo isCollapsed className="h-7 w-auto" />
+        <Link to="/crm" aria-label="R/E Pro CRM home" className="inline-flex h-10 max-w-full items-center gap-1.5 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <span aria-hidden="true" className="flex w-10 shrink-0 justify-center">
+            <Logo isCollapsed className="h-7 w-auto" />
+          </span>
+          {!collapsed && <span className="truncate text-sm font-semibold text-foreground">R/E Pro CRM</span>}
         </Link>
       </div>
 
