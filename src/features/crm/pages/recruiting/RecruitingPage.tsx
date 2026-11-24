@@ -80,7 +80,7 @@ function BoardTab({ meta }: { meta?: RecruitMeta }) {
       {q.error && <ErrorNote error={q.error} onRetry={() => q.refetch()} />}
       {q.data && (
         <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-          <div className="grid grid-cols-[repeat(6,minmax(200px,1fr))] gap-2.5 overflow-x-auto pb-2">
+          <div className="grid grid-cols-[repeat(6,minmax(160px,1fr))] gap-2.5 overflow-x-auto pb-2">
             {q.data.columns.map((col) => <Column key={col.stage} stage={col.stage} label={col.label} cards={col.cards} canMove={Boolean(meta?.can.manage)} />)}
           </div>
         </DndContext>
@@ -109,7 +109,7 @@ function Card({ card, canMove }: { card: ApplicantCard; canMove: boolean }) {
       <p className="truncate text-[13px] font-semibold">{card.name}</p>
       <p className="truncate text-xs text-muted-foreground">{[card.city, card.state].filter(Boolean).join(', ') || card.states.join(', ') || '—'}</p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-        {card.posting && <Chip tone="line">{card.posting.title}</Chip>}
+        {card.posting && <Chip tone="line" className="max-w-full" title={card.posting.title}><span className="truncate">{card.posting.title}</span></Chip>}
         {card.flies_drone && <Chip tone="blue"><Plane className="h-3 w-3" />Drone</Chip>}
         {card.specialty && card.role === 'photographer' && <Chip><Camera className="h-3 w-3" />{card.specialty}</Chip>}
       </div>

@@ -41,7 +41,7 @@
 .crm-root .crm-table tbody tr[data-href]:hover td { background: hsl(var(--secondary) / .7); }
 .crm-root .crm-table td.r, .crm-root .crm-table th.r { text-align: right; }
 
-.crm-root .crm-chip { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 11.5px; font-weight: 500; white-space: nowrap; background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
+.crm-root .crm-chip { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 11.5px; font-weight: 500; white-space: nowrap; max-width: 100%; min-width: 0; background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
 .crm-root .crm-chip[data-tone='blue'] { background: hsl(var(--accent)); color: hsl(var(--accent-foreground)); }
 .crm-root .crm-chip[data-tone='green'] { background: hsl(var(--crm-green-soft)); color: hsl(var(--crm-green)); }
 .crm-root .crm-chip[data-tone='amber'] { background: hsl(var(--crm-amber-soft)); color: hsl(var(--crm-amber)); }
