@@ -35,6 +35,7 @@ import { useShootDetailsModalActions } from '@/components/shoots/modal/useShootD
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { buildFinalizeRequestBody } from '@/utils/shootFinalize';
 import { finalizeShootWithProgressToast } from '@/components/shoots/finalize/finalizeShootWithProgressToast';
+import { openMediaMark } from '@/components/shoots/tabs/media/mark/mediaMarkEvents';
 import { buildShootPath, shootPathNeedsCanonicalising } from '@/utils/shootPath';
 import { useRescheduleAccess } from '@/hooks/useRescheduleAccess';
 
@@ -242,6 +243,15 @@ const ShootDetails: React.FC = () => {
   };
   const handleFinalise = async () => {
     if (!shoot || isFinalising) return;
+    if (!isFastForwardFinalise) {
+      openMediaMark({
+        shootId: shoot.id,
+        shootLabel: shoot.location?.address,
+        initialTab: 'delivery',
+        onChanged: async () => { await loadShoot(); },
+      });
+      return;
+    }
     try {
       setIsFinalising(true);
       // The shared runner owns the progress toast (live bar + one line per
