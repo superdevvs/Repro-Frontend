@@ -31,7 +31,7 @@ test('rep adds a contact, moves it, marks it lost and reopens it', async ({ page
   await dialog.getByLabel('Segment').selectOption('residential');
   await dialog.getByRole('button', { name: 'Add contact', exact: true }).click();
   await expect(dialog).toBeHidden();
-  await page.getByRole('link', { name, exact: true }).click();
+  await expect(page.getByRole('heading', { name: new RegExp(name) })).toBeVisible();
   const stages = page.getByRole('list', { name: 'Sales stage' });
   await stages.getByRole('button', { name: 'Inquiry', exact: true }).click();
   await expect(stages.locator('[aria-current=step]')).toContainText('Inquiry');
