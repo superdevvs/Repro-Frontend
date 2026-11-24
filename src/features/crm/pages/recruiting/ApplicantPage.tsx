@@ -40,8 +40,8 @@ export default function ApplicantPage() {
 
   return (
     <CrmPage
-      crumbs={[{ label: 'Recruiting', to: '/crm/recruiting' }, { label: ROLE_LABEL[a.role] + 's', to: '/crm/recruiting' }]}
-      title={<span className="flex flex-wrap items-center gap-2">{a.name}<Chip tone={stageTone(a.stage)}>{a.stage_label}</Chip>{a.score !== null && <Chip tone="amber"><Star className="h-3 w-3 fill-current" />{a.score.toFixed(1)}</Chip>}</span>}
+      crumbs={[{ label: 'Recruiting', to: '/crm/recruiting' }, { label: ROLE_LABEL[a.role] + 's', to: `/crm/recruiting?role=${a.role}` }]}
+      title={<span className="flex flex-wrap items-center gap-2 whitespace-normal"><span className="break-words">{a.name}</span><Chip tone={stageTone(a.stage)}>{a.stage_label}</Chip>{a.score !== null && <Chip tone="amber"><Star className="h-3 w-3 fill-current" aria-hidden="true" />{a.score.toFixed(1)}</Chip>}</span>}
       description={[ROLE_LABEL[a.role], [a.city, a.state].filter(Boolean).join(', '), a.posting?.title].filter(Boolean).join(' · ')}
       actions={can?.manage ? <>
         {a.email && <Button variant="outline" size="sm" className="h-8" onClick={() => setDialog('email')}><Mail className="mr-1.5 h-3.5 w-3.5" />Email</Button>}
@@ -78,7 +78,7 @@ export default function ApplicantPage() {
           {tab === 'emails' && (
             <ul className="divide-y rounded-[10px] border">
               {a.emails.length === 0 && <li className="p-3 text-[13px] text-muted-foreground">No emails yet.</li>}
-              {a.emails.map((m) => <li key={m.id} className="flex items-center gap-3 p-3 text-[13px]"><span className="min-w-0 flex-1 truncate font-medium">{m.subject}</span><Chip tone={m.status === 'failed' ? 'red' : 'green'}>{m.status === 'logged' ? 'Recorded' : m.status}</Chip><span className="text-xs text-muted-foreground">{ago(m.sent_at ?? m.created_at)}</span></li>)}
+              {a.emails.map((m) => <li key={m.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 p-3 text-[13px]"><span className="min-w-0 break-words font-medium max-sm:w-full sm:flex-1">{m.subject}</span><Chip tone={m.status === 'failed' ? 'red' : 'green'}>{m.status === 'logged' ? 'Recorded' : m.status}</Chip><span className="text-xs text-muted-foreground">{ago(m.sent_at ?? m.created_at)}</span></li>)}
             </ul>
           )}
           {tab === 'history' && (
@@ -225,7 +225,7 @@ function ApplicantDialogs({ applicant, kind, onClose }: { applicant: Applicant; 
   return (
     <Dialog open={kind !== null} onOpenChange={(o) => !o && onClose()}>
       {kind && (
-        <DialogContent className={cn('crm-root', kind === 'email' ? 'sm:max-w-2xl' : 'sm:max-w-[460px]')}>
+        <DialogContent className={cn('crm-root max-h-[calc(100dvh-2rem)] overflow-y-auto', kind === 'email' ? 'sm:max-w-2xl' : 'sm:max-w-[460px]')}>
           <DialogHeader><DialogTitle>{titles[kind][0]}</DialogTitle><DialogDescription>{titles[kind][1]}</DialogDescription></DialogHeader>
           {kind === 'exit' && <Field label="Reason" required>{(id) => <TextInput id={id} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Took another job, portfolio not a fit…" />}</Field>}
           {kind === 'interview' && <div className="flex flex-col gap-3"><Field label="When" required>{(id) => <TextInput id={id} type="datetime-local" value={when_} onChange={(e) => setWhen(e.target.value)} />}</Field><Field label="Note">{(id) => <TextInput id={id} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Video call, portfolio review" />}</Field></div>}

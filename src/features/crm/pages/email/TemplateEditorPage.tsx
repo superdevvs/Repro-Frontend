@@ -48,7 +48,7 @@ export default function TemplateEditorPage() {
   return (
     <CrmPage
       crumbs={[{ label: 'Email', to: '/crm/email?tab=templates' }, { label: 'Templates', to: '/crm/email?tab=templates' }]}
-      title={<span className="flex items-center gap-2">{t.name}{t.approved ? <Chip tone="green">Approved v{t.approved.version_no}</Chip> : <Chip tone="line">Not approved</Chip>}{pending && <Chip tone="amber">Waiting for review</Chip>}</span>}
+      title={<span className="flex flex-wrap items-center gap-2 whitespace-normal"><span className="break-words">{t.name}</span>{t.approved ? <Chip tone="green">Approved v{t.approved.version_no}</Chip> : <Chip tone="line">Not approved</Chip>}{pending && <Chip tone="amber">Waiting for review</Chip>}</span>}
       description="The layout, logo, footer and unsubscribe link are fixed. You write the subject and message."
       actions={canEdit ? <>
         {t.status !== 'retired' && t.approved && <Button variant="ghost" size="sm" className="h-8" onClick={() => retire.mutate(undefined)}>Retire</Button>}
@@ -67,15 +67,15 @@ export default function TemplateEditorPage() {
           )}
           {check?.passed && <Note tone="ok" className="mb-3">The content check found nothing to fix.</Note>}
           <div className="flex flex-wrap gap-2">
-            <TextInput aria-label="Comment" className="min-w-[240px] flex-1" placeholder="What should change? (needed to send back)" value={comment} onChange={(e) => setComment(e.target.value)} />
+            <TextInput aria-label="Comment" className="crm-review-comment min-w-0" placeholder="What should change? (needed to send back)" value={comment} onChange={(e) => setComment(e.target.value)} />
             <Button variant="outline" size="sm" className="h-8" disabled={!comment.trim() || reject.isPending} onClick={() => reject.mutate(undefined)}><X className="mr-1 h-3.5 w-3.5" />Send back</Button>
             <Button size="sm" className="h-8" disabled={approve.isPending} onClick={() => approve.mutate(undefined)}><Check className="mr-1 h-3.5 w-3.5" />Approve</Button>
           </div>
         </Card>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <div className="flex flex-col gap-3">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-3">
           <Field label="Template name">{(fid) => <TextInput id={fid} value={name} onChange={(e) => setName(e.target.value)} disabled={!canEdit} />}</Field>
           <Field label="Subject" required>{(fid) => <TextInput id={fid} value={c.subject} onChange={set('subject')} disabled={!canEdit} />}</Field>
           <Field label="Preview text" hint="Shown after the subject in most inboxes.">{(fid, d) => <TextInput id={fid} aria-describedby={d} value={c.preheader} onChange={set('preheader')} disabled={!canEdit} />}</Field>
@@ -84,19 +84,16 @@ export default function TemplateEditorPage() {
             {canEdit ? <RichText label="Message" value={c.body_html} onChange={(html) => { setC({ ...c, body_html: html }); setPreview(null); }} minHeight={240} /> : <div className="rounded-lg border p-3 text-[13px]" dangerouslySetInnerHTML={{ __html: c.body_html }} />}
             {canEdit && <p className="flex flex-wrap gap-1 text-xs text-muted-foreground">Merge fields: {MERGE.map((m) => <code key={m} className="rounded bg-secondary px-1">{m}</code>)}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Image URL" className="col-span-2">{(fid) => <TextInput id={fid} value={c.image_url} onChange={set('image_url')} disabled={!canEdit} placeholder="https://…" />}</Field>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Field label="Image URL" className="sm:col-span-2">{(fid) => <TextInput id={fid} value={c.image_url} onChange={set('image_url')} disabled={!canEdit} placeholder="https://…" />}</Field>
             <Field label="Button label">{(fid) => <TextInput id={fid} value={c.cta_label} onChange={set('cta_label')} disabled={!canEdit} placeholder="Book a shoot" />}</Field>
             <Field label="Button link">{(fid) => <TextInput id={fid} value={c.cta_url} onChange={set('cta_url')} disabled={!canEdit} placeholder="https://reprophotos.com/book" />}</Field>
           </div>
         </div>
-        <div className="flex min-w-0 flex-col gap-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium">Preview (with your signature)</span>
-            <Button variant="ghost" size="sm" className="h-7 text-xs" disabled={render.isPending || !c.subject || !c.body_html} onClick={() => render.mutate(undefined, { onSuccess: (r) => setPreview(r.html) })}><Eye className="mr-1 h-3.5 w-3.5" />{preview ? 'Refresh' : 'Show preview'}</Button>
-          </div>
-          {preview ? <EmailFrame html={preview} title="Template preview" height={640} /> : <div className="flex h-[640px] items-center justify-center rounded-[10px] border border-dashed text-xs text-muted-foreground">Preview renders the email exactly as it will be sent.</div>}
-        </div>
+        <Card title="Email preview" className="h-fit min-w-0" bodyClassName={preview ? 'p-2' : undefined}
+          actions={<Button variant="outline" size="sm" disabled={render.isPending || !c.subject || !c.body_html} onClick={() => render.mutate(undefined, { onSuccess: (r) => setPreview(r.html) })}><Eye className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />{render.isPending ? 'Loading…' : preview ? 'Refresh' : 'Show preview'}</Button>}>
+          {preview ? <EmailFrame html={preview} title="Template preview" height={640} /> : <div className="flex min-h-32 items-center justify-center px-3 text-center text-sm text-muted-foreground">See the branded email with your signature.</div>}
+        </Card>
       </div>
 
       {t.versions && t.versions.length > 0 && (

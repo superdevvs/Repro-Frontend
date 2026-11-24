@@ -4,6 +4,8 @@ import { useAuth } from '@/components/auth';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet';
 import { useIsXLarge } from '@/hooks/use-media-query';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
 import { CRM_ENABLED } from './featureFlag';
 import { CrmSidebar } from './layout/CrmSidebar';
 import { CrmMobileNav } from './layout/CrmMobileNav';
@@ -86,6 +88,7 @@ function CrmBody() {
  */
 export default function CrmApp() {
   const { user, role, isImpersonating, originalUser } = useAuth();
+  const isMobile = useIsMobile();
   const identity = `${user?.id}:${role}:${isImpersonating}:${originalUser?.id}`;
   if (!CRM_ENABLED) return <Navigate to="/dashboard" replace />;
 
@@ -95,7 +98,7 @@ export default function CrmApp() {
         hideFooter
         sidebar={<CrmSidebar />}
         renderMobileNav={(report) => <CrmMobileNav onHeightChange={report} />}
-        className="crm-root !bg-secondary dark:!bg-background lg:!pl-0 lg:!pt-0 lg:!pr-2 lg:!pb-2 max-md:!px-0 max-md:!pt-0"
+        className={cn('crm-root !bg-secondary !pt-0 dark:!bg-background', isMobile ? '!px-0' : '!pl-0 !pr-2 !pb-2')}
       >
         <CrmBody />
       </DashboardLayout>

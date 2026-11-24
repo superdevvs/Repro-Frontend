@@ -69,7 +69,7 @@ export default function CampaignPage() {
   return (
     <CrmPage
       crumbs={[{ label: 'Email', to: '/crm/email' }, { label: 'Campaigns', to: '/crm/email' }]}
-      title={<span className="flex items-center gap-2">{c.name}<Chip tone={CAMPAIGN_STATUS[c.status]?.[1] ?? 'neutral'}>{CAMPAIGN_STATUS[c.status]?.[0] ?? c.status}</Chip></span>}
+      title={<span className="flex flex-wrap items-center gap-2 whitespace-normal"><span className="break-words">{c.name}</span><Chip tone={CAMPAIGN_STATUS[c.status]?.[1] ?? 'neutral'}>{CAMPAIGN_STATUS[c.status]?.[0] ?? c.status}</Chip></span>}
       description={`By ${c.owner?.name ?? '—'} · from ${c.template.name}${c.from ? ` · sends as ${c.from.name} <${c.from.email}>` : ''}`}
       actions={<>
         {editable && <Button variant="outline" size="sm" className="h-8" disabled={!dirty || save.isPending} onClick={() => save.mutate(undefined)}>Save</Button>}
@@ -96,7 +96,7 @@ export default function CampaignPage() {
             </Note>
           ) : <Note tone="ok" className="mb-3">The content check found nothing to fix.</Note>}
           <div className="flex flex-wrap gap-2">
-            <TextInput aria-label="Comment for the owner" className="min-w-[240px] flex-1" placeholder="What should change? (needed to send back)" value={comment} onChange={(e) => setComment(e.target.value)} />
+            <TextInput aria-label="Comment for the owner" className="crm-review-comment min-w-0" placeholder="What should change? (needed to send back)" value={comment} onChange={(e) => setComment(e.target.value)} />
             <Button variant="outline" size="sm" className="h-8" disabled={!comment.trim() || action.isPending} onClick={() => action.mutate({ name: 'send-back', body: { comment } })}><Undo2 className="mr-1 h-3.5 w-3.5" />Send back</Button>
             <Button size="sm" className="h-8" disabled={dirty || save.isPending || action.isPending} onClick={() => action.mutate({ name: 'approve' })}><Check className="mr-1 h-3.5 w-3.5" />Approve</Button>
           </div>
@@ -106,15 +106,15 @@ export default function CampaignPage() {
       {c.status === 'approved' && (isOwner || canApprove) && (
         <Card title="Send">
           {dirty && <Note tone="warn" className="mb-3">Save your changes and send this version through review before scheduling delivery.</Note>}
-          <div className="flex flex-wrap items-end gap-2">
+          <div className="flex flex-wrap items-end gap-3">
             <Field label="When" hint="Leave empty to send now.">{(fid, d) => <TextInput id={fid} aria-describedby={d} type="datetime-local" min={toLocalInput(new Date())} value={at} onChange={(e) => setAt(e.target.value)} />}</Field>
             <Button size="sm" className="h-8" disabled={dirty || save.isPending || action.isPending || !c.audience_summary.reachable} onClick={() => action.mutate({ name: 'schedule', body: { at: at ? new Date(at).toISOString() : null } })}><CalendarClock className="mr-1.5 h-3.5 w-3.5" />{at ? 'Schedule' : 'Send now'} to {c.audience_summary.reachable}</Button>
           </div>
         </Card>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-2">
-        <div className="flex flex-col gap-3">
+      <div className="grid min-w-0 gap-5 xl:grid-cols-2">
+        <div className="flex min-w-0 flex-col gap-3">
           <Card title={<h2 className="flex items-center gap-2 text-[13px] font-semibold"><Users className="h-4 w-4 text-muted-foreground" />Audience</h2>}>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Segment">{(fid) => <Select id={fid} disabled={!editable} value={audience.segment ?? ''} onChange={setAud('segment')} placeholder="All" options={(meta?.segments ?? []).map((s) => ({ value: s.key, label: s.label }))} />}</Field>
@@ -131,10 +131,9 @@ export default function CampaignPage() {
             {editable ? <RichText label="Message" value={body} onChange={(html) => { setBody(html); setDirty(true); }} minHeight={220} /> : <div className="rounded-lg border p-3 text-[13px]" dangerouslySetInnerHTML={{ __html: body }} />}
           </div>
         </div>
-        <div className="flex min-w-0 flex-col gap-2">
-          <span className="text-xs font-medium">Preview{dirty ? ' (save to refresh)' : ''}</span>
+        <Card title="Email preview" className="h-fit min-w-0" bodyClassName="p-2" actions={dirty ? <span className="text-xs text-muted-foreground">Save to refresh</span> : undefined}>
           <EmailFrame html={c.rendered.html} title="Campaign preview" height={680} />
-        </div>
+        </Card>
       </div>
     </CrmPage>
   );

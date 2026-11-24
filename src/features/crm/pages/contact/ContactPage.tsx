@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { CalendarPlus, Check, ChevronLeft, FileText, Mail, MoreHorizontal, Phone, StickyNote } from 'lucide-react';
+import { CalendarPlus, Check, ChevronDown, FileText, Mail, MoreHorizontal, Phone, StickyNote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
@@ -66,10 +66,9 @@ export default function ContactPage() {
   return (
     <CrmPage
       crumbs={[{ label: 'Contacts', to: '/crm/contacts' }, { label: contact.name }]}
-      title={<span className="flex flex-wrap items-center gap-2">{contact.name}<StageChip stage={contact.stage} label={contact.stage_label} /></span>}
+      title={<span className="flex flex-wrap items-center gap-2"><span className="min-w-0">{contact.name}</span><StageChip stage={contact.stage} label={contact.stage_label} /></span>}
       description={[contact.title, contact.company, contact.market].filter(Boolean).join(' · ') || undefined}
       actions={<>
-        <Button variant="ghost" size="sm" className="h-8 md:hidden" onClick={() => navigate('/crm/contacts')}><ChevronLeft className="h-4 w-4" />Back</Button>
         {contact.phone && <Button asChild variant="outline" size="sm" className="h-8"><a href={`tel:${contact.phone}`}><Phone className="mr-1.5 h-3.5 w-3.5" />Call</a></Button>}
         {canEdit && contact.email && <Button variant="outline" size="sm" className="h-8" onClick={() => setEmailing(true)}><Mail className="mr-1.5 h-3.5 w-3.5" />Email</Button>}
         {canEdit && <Button size="sm" className="h-8" onClick={() => setScheduling(true)}><CalendarPlus className="mr-1.5 h-3.5 w-3.5" />Schedule</Button>}
@@ -110,18 +109,19 @@ export default function ContactPage() {
       )}
 
       {inPipeline && (
-        <ol className="flex flex-wrap items-center gap-y-2 rounded-xl border bg-secondary/30 px-4 py-3" aria-label="Sales stage">
+        <ol className="crm-contact-stages flex flex-wrap items-center gap-2 rounded-xl border bg-card p-2.5" aria-label="Sales stage">
           {STEPS.map((s, i) => {
             const done = i < stepIndex;
             const current = i === stepIndex;
             return (
-              <li key={s.key} className="flex items-center">
-                {i > 0 && <span className={cn('mx-2 h-[1.5px] w-4 max-sm:mx-1 max-sm:w-2', i <= stepIndex ? 'bg-primary' : 'bg-border')} aria-hidden="true" />}
+              <li key={s.key} className="min-w-0">
                 <button type="button" disabled={!canEdit || current || move.isPending} onClick={() => move.mutate(s.key)}
-                  className={cn('flex items-center gap-2 whitespace-nowrap text-[13px] text-muted-foreground disabled:cursor-default max-sm:min-h-9', current && 'font-semibold text-foreground', canEdit && !current && 'hover:text-foreground')}
+                  className={cn('flex min-h-9 w-full items-center gap-1.5 rounded-lg border border-transparent px-2.5 text-[13px] text-muted-foreground disabled:cursor-default',
+                    current && 'border-primary/30 bg-accent font-semibold text-accent-foreground',
+                    canEdit && !current && 'hover:bg-secondary hover:text-foreground')}
                   aria-current={current ? 'step' : undefined} title={canEdit && !current ? `Move to ${s.label}` : undefined}>
-                  <span className={cn('flex h-5 w-5 items-center justify-center rounded-full border-[1.5px] bg-card text-[11px] font-semibold', done && 'border-primary bg-primary text-primary-foreground', current && 'border-primary text-accent-foreground')}>
-                    {done ? <Check className="h-3 w-3" /> : i + 1}
+                  <span className={cn('grid h-4 w-4 shrink-0 place-items-center rounded-full border bg-card', done && 'border-primary bg-primary text-primary-foreground', current && 'border-primary text-accent-foreground')} aria-hidden="true">
+                    {done ? <Check className="h-3 w-3" /> : current ? <span className="h-1.5 w-1.5 rounded-full bg-primary" /> : null}
                   </span>
                   {s.label}
                 </button>
@@ -129,7 +129,7 @@ export default function ContactPage() {
             );
           })}
           {contact.next_event && (
-            <li className="ml-auto text-xs text-muted-foreground max-md:ml-0 max-md:w-full">
+            <li className="crm-contact-next ml-auto px-2 text-xs text-muted-foreground max-md:ml-0">
               Next: <span className={contact.next_event.overdue ? 'crm-text-red font-medium' : 'font-medium text-foreground'}>{contact.next_event.type?.label} · {when(contact.next_event.starts_at)}</span>
             </li>
           )}
@@ -143,9 +143,11 @@ export default function ContactPage() {
         </Note>
       )}
 
-      {!wide && <div className="rounded-xl border">
-        <button type="button" onClick={() => setDetailsOpen(!detailsOpen)} aria-expanded={detailsOpen} className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold">Contact details <span>{detailsOpen ? '−' : '+'}</span></button>
-        {detailsOpen && <div className="border-t p-3"><ContactSide key={contact.id} contact={contact} /></div>}
+      {!wide && <div className="rounded-xl border bg-card">
+        <button type="button" onClick={() => setDetailsOpen(!detailsOpen)} aria-expanded={detailsOpen} aria-controls="crm-contact-details" className="flex w-full items-center justify-between px-4 py-3 text-left text-sm font-semibold">
+          Contact details <ChevronDown className={cn('h-4 w-4 text-muted-foreground transition-transform', detailsOpen && 'rotate-180')} aria-hidden="true" />
+        </button>
+        <div id="crm-contact-details" hidden={!detailsOpen} className="border-t p-3"><ContactSide key={contact.id} contact={contact} /></div>
       </div>}
       <div className="grid gap-5 crm-contact-grid">
         <div className="min-w-0">

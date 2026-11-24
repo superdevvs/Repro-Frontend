@@ -1,7 +1,8 @@
+@import './pages/workflow.css';
+
 /*
- * Sales CRM density layer. Colours come only from the Dashboard's global
- * tokens (index.css :root and .dark); this file sets type size, control
- * height and table rhythm for screens under .crm-root.
+ * CRM surfaces share the Dashboard palette, with local cues for CRM states
+ * and spacing kept in the lazy-loaded CRM stylesheet.
  */
 .crm-root {
   font-size: 14px;
@@ -19,6 +20,7 @@
   --crm-violet: 262 52% 47%;
   --crm-thead: 210 20% 98%;
   --crm-lane: 210 20% 96%;
+  --crm-workspace: 210 20% 98%;
 }
 .dark .crm-root {
   --primary: 211 86% 71%;
@@ -31,10 +33,22 @@
   --crm-red-soft: 0 50% 14%;
   --crm-violet: 262 80% 76%;
   --crm-thead: 210 40% 9.5%;
-  --crm-lane: 210 40% 5.5%;
+  --crm-lane: 210 37% 7%;
+  --crm-workspace: 210 38% 6%;
 }
 
-.crm-root .crm-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.crm-page-header { padding: 16px 24px; }
+.crm-page-body {
+  padding: 20px 24px 28px;
+  background: hsl(var(--crm-workspace));
+}
+
+.crm-root .crm-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: hsl(var(--card));
+  font-variant-numeric: tabular-nums;
+}
 .crm-root .crm-table th {
   text-align: left; font-size: 11px; line-height: 16px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase;
   color: hsl(var(--muted-foreground)); padding: 9px 14px; background: hsl(var(--crm-thead)); border-bottom: 1px solid hsl(var(--border));
@@ -43,7 +57,8 @@
 .crm-root .crm-table td { padding: 10px 14px; border-bottom: 1px solid hsl(var(--border)); vertical-align: middle; }
 .crm-root .crm-table tr:last-child td { border-bottom: 0; }
 .crm-root .crm-table tbody tr[data-href] { cursor: pointer; }
-.crm-root .crm-table tbody tr[data-href]:hover td { background: hsl(var(--secondary) / .7); }
+.crm-root .crm-table tbody tr[data-href]:is(:hover, :focus-within) td { background: hsl(var(--secondary) / .7); }
+.crm-root .crm-table tbody tr[data-selected='true'] td { background: hsl(var(--accent) / .65); }
 .crm-root .crm-table td.r, .crm-root .crm-table th.r { text-align: right; }
 
 .crm-root .crm-chip { display: inline-flex; align-items: center; gap: 5px; height: 20px; padding: 0 7px; border-radius: 6px; font-size: 11.5px; font-weight: 500; white-space: nowrap; max-width: 100%; min-width: 0; background: hsl(var(--secondary)); color: hsl(var(--foreground)); }
@@ -74,10 +89,8 @@
 .crm-key-values { grid-template-columns: 104px 1fr; }
 .crm-loss-row { grid-template-columns: 140px 1fr 32px; }
 .crm-recruit-board { grid-template-columns: repeat(6, minmax(160px, 1fr)); }
-.crm-mobile-tabs { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
 .crm-docked-robbie { height: calc(100dvh - 84px); }
 .crm-outgoing-bubble { border-radius: 12px 12px 4px 12px; }
-.crm-active-link { box-shadow: inset 3px 0 hsl(var(--primary)); }
 .crm-bg-amber { background-color: hsl(var(--crm-amber-soft)); }
 .crm-bg-red { background-color: hsl(var(--crm-red-soft)); }
 .crm-rich-editor a { color: hsl(var(--primary)); text-decoration: underline; }
@@ -96,19 +109,76 @@
   .crm-applicant-grid { grid-template-columns: minmax(0, 1fr) 320px; }
   .crm-contact-grid { grid-template-columns: minmax(0, 1fr) minmax(250px, 30%); }
 }
+@media (min-width: 1160px) {
+  .crm-work-grid { grid-template-columns: minmax(0, 1fr) minmax(255px, 32%); }
+}
 @media (min-width: 1280px) {
-  .crm-work-grid { grid-template-columns: minmax(0, 1fr) 340px; }
   .crm-coverage-grid { grid-template-columns: minmax(0, 1fr) 320px; }
 }
-@media (max-width: 1279.98px) {
-  .crm-stage-board { grid-template-columns: repeat(4, minmax(240px, 1fr)); }
+.crm-stage-board {
+  grid-auto-columns: minmax(220px, 1fr);
+  grid-auto-flow: column;
+  scroll-snap-type: x proximity;
+}
+.crm-stage-board > section { scroll-snap-align: start; }
+.crm-stage-board h3 { font: inherit; }
+.crm-pipeline-filters { flex: 1 1 20rem; }
+.crm-pipeline-search { flex: 0 1 16rem; }
+.crm-list-search {
+  display: flex;
+  min-width: 0;
+  height: 36px;
+  align-items: center;
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  background: hsl(var(--card));
+}
+.crm-list-search:focus-within {
+  border-color: hsl(var(--ring));
+  box-shadow: 0 0 0 2px hsl(var(--ring) / .2);
+}
+.crm-view-switch {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 9px;
+  background: hsl(var(--secondary));
+}
+.crm-view-switch button {
+  display: inline-flex;
+  min-height: 28px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 9px;
+  border-radius: 6px;
+  color: hsl(var(--muted-foreground));
+  font-size: 12px;
+  font-weight: 600;
+}
+.crm-view-switch button[aria-pressed='true'] {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow: 0 1px 3px hsl(var(--foreground) / .12);
+}
+.crm-view-switch button:hover { color: hsl(var(--foreground)); }
+@media (max-width: 550px) {
+  .crm-contact-stages {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .crm-contact-next { grid-column: span 2; }
 }
 .crm-root .crm-stats { grid-template-columns: repeat(var(--crm-stat-count), minmax(0, 1fr)); }
 .crm-root .crm-table a:focus-visible, .crm-root button:focus-visible, .crm-root a:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
 .crm-root .crm-table td a:hover { text-decoration: underline; }
 @media (max-width: 900px) {
-  .crm-root .crm-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .crm-root .crm-stats { grid-template-columns: repeat(var(--crm-stat-compact-count), minmax(0, 1fr)); }
 }
 @media (max-width: 767px) {
-  .crm-root { font-size: 14px; }
+  .crm-page-header { padding: 14px 16px; }
+  .crm-page-body { padding: 16px 16px 24px; }
+  .crm-pipeline-search { flex: 1 0 100%; }
+  .crm-list-search { height: 40px; }
+  .crm-root .crm-table th, .crm-root .crm-table td { padding-inline: 10px; }
 }

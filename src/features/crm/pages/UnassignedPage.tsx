@@ -30,7 +30,7 @@ export default function UnassignedPage() {
   return (
     <CrmPage
       title="Unassigned"
-      description="New website leads wait here until an admin gives them to a rep. Reps who try to add an existing contact show up under duplicates."
+      description="Assign leads to a rep and review possible duplicate contacts."
       tabs={<TabBar<Tab> value={tab} onChange={setTab} tabs={[{ key: 'leads', label: 'Leads', count: q.data?.leads.length }, { key: 'duplicates', label: 'Duplicate attempts', count: q.data?.duplicate_attempts.length }]} />}
     >
       {q.isLoading && <Loading />}
@@ -41,8 +41,8 @@ export default function UnassignedPage() {
           {q.data.leads.map((c) => {
             const picked = choice[c.id] ?? (c.suggestion ? String(c.suggestion.rep.id) : '');
             return (
-              <li key={c.id} className="flex flex-wrap items-start gap-4 rounded-[10px] border p-4">
-                <div className="min-w-0 flex-1">
+              <li key={c.id} className="flex flex-wrap items-start gap-3 rounded-xl border bg-card p-3.5 sm:gap-4 sm:p-4">
+                <div className="min-w-0 flex-1 break-words max-sm:basis-full">
                   <div className="flex flex-wrap items-center gap-2">
                     <Link to={`/crm/contacts/${c.id}`} className="text-sm font-semibold hover:underline">{c.name}</Link>
                     <Chip tone="blue">{c.lead_source_label}</Chip>
@@ -68,15 +68,15 @@ export default function UnassignedPage() {
       {q.data && tab === 'duplicates' && (q.data.duplicate_attempts.length === 0 ? <Empty icon={<ShieldAlert className="h-5 w-5" />} title="No duplicate attempts to review." /> : (
         <ul className="flex flex-col gap-2">
           {q.data.duplicate_attempts.map((a) => (
-            <li key={a.id} className="flex flex-wrap items-start gap-4 rounded-[10px] border p-4">
+            <li key={a.id} className="flex flex-wrap items-start gap-3 rounded-xl border bg-card p-3.5 sm:gap-4 sm:p-4">
               <Avatar person={a.attempted_by} />
-              <div className="min-w-0 flex-1 text-[13px]">
+              <div className="min-w-0 flex-1 break-words text-[13px]">
                 <p><b>{a.attempted_by?.name ?? 'Someone'}</b> tried to add <b>{a.payload.name ?? 'a contact'}</b> ({a.payload.email ?? a.payload.phone ?? 'no email'}) · same {a.match_type} · {when(a.created_at)}{a.origin !== 'form' ? ` · via ${a.origin}` : ''}</p>
                 {a.matched_contact && (
                   <p className="mt-1 text-muted-foreground">Already in the CRM as <Link to={`/crm/contacts/${a.matched_contact.id}`} className="font-medium text-foreground hover:underline">{a.matched_contact.name}</Link> · {a.matched_contact.stage_label} · {a.matched_contact.assigned_rep?.name ?? 'Unassigned'}</p>
                 )}
               </div>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2 max-sm:w-full">
                 <Button size="sm" variant="outline" className="h-8" onClick={() => resolve.mutate({ id: a.id, outcome: 'kept' })}>Keep current owner</Button>
                 {a.match_type === 'name' && <Button size="sm" variant="outline" className="h-8" onClick={() => resolve.mutate({ id: a.id, outcome: 'allowed_different' })}>Different person: add it</Button>}
                 {a.matched_contact && a.attempted_by && <Button size="sm" className="h-8" onClick={() => resolve.mutate({ id: a.id, outcome: 'reassigned' })}>Give to {a.attempted_by.name.split(' ')[0]}</Button>}

@@ -13,7 +13,13 @@ import { Chip, CrmPage, Empty, ErrorNote, Loading, TabBar, type Tone } from '../
 import { SignaturesTab } from './SignaturesTab';
 import { CAMPAIGN_STATUS } from './campaignStatus';
 
-type Tab = 'campaigns' | 'drips' | 'templates' | 'signatures';
+const EMAIL_TABS = [
+  { key: 'campaigns', label: 'Campaigns' },
+  { key: 'drips', label: 'Drips' },
+  { key: 'templates', label: 'Templates' },
+  { key: 'signatures', label: 'Signatures' },
+] as const;
+type Tab = (typeof EMAIL_TABS)[number]['key'];
 interface DripRow { id: number; name: string; length_key: string; length: string; status: 'draft' | 'live' | 'paused' | 'retired'; enrolled: number; has_draft: boolean; published: { version_no: number; published_at: string | null } | null }
 interface CampaignRow { id: number; name: string; status: string; owner: Person | null; subject: string; submitted_at: string | null; scheduled_at: string | null; sent_at: string | null; recipient_count: number | null; updated_at: string | null }
 
@@ -23,19 +29,25 @@ const TEMPLATE_KIND: Record<string, string> = { one_off: 'One-off', drip: 'Drip'
 export default function EmailPage() {
   useRobbieWhere({ page: 'email' });
   const { data: meta } = useCrmMeta();
-  const [params] = useSearchParams();
-  const [tab, setTab] = useState<Tab>((params.get('tab') as Tab) ?? 'campaigns');
+  const [params, setParams] = useSearchParams();
+  const tab = EMAIL_TABS.find((item) => item.key === params.get('tab'))?.key ?? 'campaigns';
+  const setTab = (next: Tab) => setParams((current) => {
+    const updated = new URLSearchParams(current);
+    if (next === 'campaigns') updated.delete('tab');
+    else updated.set('tab', next);
+    return updated;
+  }, { replace: true });
   const [creating, setCreating] = useState<'campaign' | 'template' | null>(null);
 
   return (
     <CrmPage
       title="Email"
-      description="Every email uses an approved template, a reviewed signature and an unsubscribe link."
+      description="Marketing emails use approved templates and signatures with an unsubscribe link."
       actions={<>
         {tab === 'campaigns' && meta?.can.create_campaigns && <Button size="sm" className="h-8" onClick={() => setCreating('campaign')}><Plus className="mr-1.5 h-3.5 w-3.5" />New campaign</Button>}
         {tab === 'templates' && meta?.can.approve_templates && <Button size="sm" className="h-8" onClick={() => setCreating('template')}><Plus className="mr-1.5 h-3.5 w-3.5" />New template</Button>}
       </>}
-      tabs={<TabBar<Tab> value={tab} onChange={setTab} tabs={[{ key: 'campaigns', label: 'Campaigns' }, { key: 'drips', label: 'Drips' }, { key: 'templates', label: 'Templates' }, { key: 'signatures', label: 'Signatures' }]} />}
+      tabs={<TabBar<Tab> value={tab} onChange={setTab} tabs={[...EMAIL_TABS]} />}
     >
       {tab === 'campaigns' && <CampaignsTab status={params.get('status') ?? ''} />}
       {tab === 'drips' && <DripsTab />}
@@ -52,19 +64,24 @@ function CampaignsTab({ status }: { status: string }) {
   const rows = (q.data?.data ?? []).filter((c) => !status || c.status === status);
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorNote error={q.error} onRetry={() => q.refetch()} />;
-  if (rows.length === 0) return <Empty icon={<Mail className="h-5 w-5" />} title="No campaigns yet.">Write one from an approved campaign template. An admin reviews it before it goes out.</Empty>;
+  if (rows.length === 0) return <Empty icon={<Mail className="h-5 w-5" />} title={status ? 'No campaigns match this status.' : 'No campaigns yet.'}>{!status && 'Write one from an approved campaign template. An admin reviews it before it goes out.'}</Empty>;
   return (
     <div className="overflow-x-auto rounded-[10px] border">
-      <table className="crm-table">
-        <thead><tr><th>Campaign</th><th>Status</th>{q.data?.can_approve && <th>Owner</th>}<th className="r">Recipients</th><th>Updated</th></tr></thead>
+      <table className="crm-table crm-workflow-table">
+        <thead><tr><th className="w-3/5 lg:w-auto">Campaign</th><th>Status</th>{q.data?.can_approve && <th className="crm-wide-cell">Owner</th>}<th className="r hidden lg:table-cell">Recipients</th><th className="hidden lg:table-cell">Updated</th></tr></thead>
         <tbody>
           {rows.map((c) => (
             <tr key={c.id} data-href onClick={() => navigate(`/crm/email/campaigns/${c.id}`)}>
-              <td><Link to={`/crm/email/campaigns/${c.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{c.name}</Link><span className="block max-w-[360px] truncate text-xs text-muted-foreground">{c.subject}</span></td>
-              <td><Chip tone={CAMPAIGN_STATUS[c.status]?.[1] ?? 'neutral'}>{CAMPAIGN_STATUS[c.status]?.[0] ?? c.status}</Chip>{c.scheduled_at && c.status === 'scheduled' && <span className="ml-1.5 text-xs text-muted-foreground">{when(c.scheduled_at)}</span>}</td>
-              {q.data?.can_approve && <td>{c.owner?.name}</td>}
-              <td className="r tabular-nums">{c.recipient_count ?? '—'}</td>
-              <td className="text-muted-foreground">{ago(c.updated_at)}</td>
+              <td>
+                <Link to={`/crm/email/campaigns/${c.id}`} onClick={(e) => e.stopPropagation()} className="break-words font-medium hover:underline">{c.name}</Link>
+                <span className="mt-0.5 block max-w-[360px] break-words text-xs text-muted-foreground">{c.subject}</span>
+                {q.data?.can_approve && c.owner?.name && <span className="mt-1 block break-words text-xs text-muted-foreground xl:hidden">By {c.owner.name}</span>}
+                <span className="mt-1 block text-xs text-muted-foreground lg:hidden">{c.recipient_count != null ? `${c.recipient_count.toLocaleString()} recipients · ` : ''}{ago(c.updated_at)}</span>
+              </td>
+              <td><div className="flex flex-col items-start gap-1"><Chip tone={CAMPAIGN_STATUS[c.status]?.[1] ?? 'neutral'} className="crm-workflow-status">{CAMPAIGN_STATUS[c.status]?.[0] ?? c.status}</Chip>{c.scheduled_at && c.status === 'scheduled' && <span className="text-xs text-muted-foreground">{when(c.scheduled_at)}</span>}</div></td>
+              {q.data?.can_approve && <td className="crm-wide-cell">{c.owner?.name}</td>}
+              <td className="r hidden tabular-nums lg:table-cell">{c.recipient_count ?? '—'}</td>
+              <td className="hidden text-muted-foreground lg:table-cell">{ago(c.updated_at)}</td>
             </tr>
           ))}
         </tbody>
@@ -82,12 +99,12 @@ function DripsTab() {
   if (rows.length === 0) return <Empty icon={<Repeat className="h-5 w-5" />} title="No live drips yet.">An admin builds and publishes the drips. Enrol contacts from their record once one is live.</Empty>;
   const tone: Record<string, Tone> = { draft: 'line', live: 'green', paused: 'amber', retired: 'neutral' };
   return (
-    <div className="grid gap-3 md:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
       {rows.map((d) => (
-        <button key={d.id} type="button" onClick={() => q.data?.can_manage && navigate(`/crm/email/drips/${d.id}`)} className="flex flex-col gap-2 rounded-[10px] border p-4 text-left hover:bg-secondary/50 disabled:cursor-default" disabled={!q.data?.can_manage}>
-          <div className="flex items-center gap-2"><Repeat className="h-4 w-4 text-primary" /><span className="font-semibold">{d.name}</span><Chip tone={tone[d.status]} className="ml-auto capitalize">{d.status}</Chip></div>
-          <p className="text-xs text-muted-foreground">{d.length} · {d.enrolled} enrolled{d.published ? ` · version ${d.published.version_no}` : ' · not published yet'}</p>
-          {d.has_draft && <Chip tone="amber" className="self-start">Unpublished changes</Chip>}
+        <button key={d.id} type="button" onClick={() => navigate(`/crm/email/drips/${d.id}`)} className="crm-drip-tile flex min-w-0 flex-col gap-3 rounded-xl border bg-card p-4 text-left transition-colors disabled:cursor-default" disabled={!q.data?.can_manage}>
+          <div className="flex w-full flex-wrap items-center gap-2"><Repeat className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" /><span className="min-w-0 flex-1 break-words font-semibold">{d.name}</span><Chip tone={tone[d.status]} className="shrink-0 capitalize">{d.status}</Chip></div>
+          <p className="text-xs text-muted-foreground">{d.length} · {d.enrolled} enrolled{d.published ? ` · Version ${d.published.version_no}` : ''}</p>
+          {d.has_draft && d.published && <Chip tone="amber" className="self-start">Unpublished changes</Chip>}
         </button>
       ))}
     </div>
@@ -102,25 +119,29 @@ function TemplatesTab() {
   if (q.error) return <ErrorNote error={q.error} onRetry={() => q.refetch()} />;
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex gap-1.5">{['', 'one_off', 'campaign', 'drip', 'recruiting'].map((k) => (
-        <button key={k} type="button" aria-pressed={kind === k} onClick={() => setKind(k)} className={`h-7 rounded-full border px-3 text-xs font-medium ${kind === k ? 'border-primary bg-accent text-accent-foreground' : 'text-muted-foreground'}`}>{k ? TEMPLATE_KIND[k] : 'All'}</button>
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by template type">{['', 'one_off', 'campaign', 'drip', 'recruiting'].map((k) => (
+        <Button key={k} type="button" size="sm" variant={kind === k ? 'secondary' : 'outline'} aria-pressed={kind === k} onClick={() => setKind(k)} className="min-h-9 px-3">{k ? TEMPLATE_KIND[k] : 'All'}</Button>
       ))}</div>
       {(q.data?.data.length ?? 0) === 0 ? <Empty title="No templates here." /> : (
         <div className="overflow-x-auto rounded-[10px] border">
-          <table className="crm-table">
-            <thead><tr><th>Template</th><th>Kind</th><th>Status</th><th>Updated</th></tr></thead>
+          <table className="crm-table crm-workflow-table">
+            <thead><tr><th className="w-3/5 lg:w-auto">Template</th><th className="hidden lg:table-cell">Kind</th><th>Status</th><th className="hidden lg:table-cell">Updated</th></tr></thead>
             <tbody>
               {q.data!.data.map((t) => (
                 <tr key={t.id} data-href onClick={() => navigate(`/crm/email/templates/${t.id}`)}>
-                  <td><Link to={`/crm/email/templates/${t.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{t.name}</Link><span className="block max-w-sm truncate text-xs text-muted-foreground">{(t.approved ?? t.latest)?.subject}</span></td>
-                  <td>{TEMPLATE_KIND[t.kind]}</td>
-                  <td className="flex flex-wrap gap-1">
+                  <td>
+                    <Link to={`/crm/email/templates/${t.id}`} onClick={(e) => e.stopPropagation()} className="break-words font-medium hover:underline">{t.name}</Link>
+                    {t.name !== (t.approved ?? t.latest)?.subject && <span className="mt-0.5 block max-w-sm break-words text-xs text-muted-foreground">{(t.approved ?? t.latest)?.subject}</span>}
+                    <span className="mt-1 block text-xs text-muted-foreground lg:hidden">{TEMPLATE_KIND[t.kind]} · {ago(t.updated_at)}</span>
+                  </td>
+                  <td className="hidden lg:table-cell">{TEMPLATE_KIND[t.kind]}</td>
+                  <td><div className="crm-workflow-statuses flex flex-wrap gap-1">
                     {t.approved ? <Chip tone="green">Approved v{t.approved.version_no}</Chip> : <Chip tone="line">Not approved</Chip>}
                     {t.latest?.status === 'pending' && <Chip tone="amber">Waiting for review</Chip>}
                     {t.latest?.status === 'rejected' && <Chip tone="red">Changes requested</Chip>}
                     {t.status === 'retired' && <Chip>Retired</Chip>}
-                  </td>
-                  <td className="text-muted-foreground">{ago(t.updated_at)}</td>
+                  </div></td>
+                  <td className="hidden text-muted-foreground lg:table-cell">{ago(t.updated_at)}</td>
                 </tr>
               ))}
             </tbody>
@@ -144,7 +165,7 @@ function CreateDialog({ kind, onClose }: { kind: 'campaign' | 'template' | null;
   React.useEffect(() => { setName(''); setTemplateId(''); }, [kind]);
   return (
     <Dialog open={kind !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="crm-root sm:max-w-md">
+      <DialogContent className="crm-root max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{kind === 'campaign' ? 'New campaign' : 'New template'}</DialogTitle>
           <DialogDescription>{kind === 'campaign' ? 'Start from an approved campaign template, then choose who receives it.' : 'Write it, then submit it for review. Only approved versions can be sent.'}</DialogDescription>

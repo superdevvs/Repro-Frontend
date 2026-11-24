@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Check, Copy, Plus, Send, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { crmApi } from '../../api';
 import { crmKeys, useCrmMeta, useCrmMutation, useCrmQuery } from '../../hooks';
 import { day, money, when } from '../../format';
@@ -107,7 +108,7 @@ export default function QuoteEditorPage() {
   return (
     <CrmPage
       crumbs={[{ label: 'Quotes', to: '/crm/quotes' }, ...(contact ? [{ label: contact.name, to: `/crm/contacts/${contact.id}` }] : [])]}
-      title={<span className="flex items-center gap-2">{isNew ? 'New quote' : quote!.number}{quote && <Chip tone={quoteTone(quote.status)}>{QUOTE_LABEL[quote.status]}</Chip>}</span>}
+      title={<span className="flex flex-wrap items-center gap-2">{isNew ? 'New quote' : quote!.number}{quote && <Chip tone={quoteTone(quote.status)}>{QUOTE_LABEL[quote.status]}</Chip>}</span>}
       description={contact ? `For ${contact.name}${contact.company ? ` · ${contact.company}` : ''}` : undefined}
       actions={<>
         {editable && <Button variant="outline" size="sm" className="h-8" disabled={!changed || !lines.length || save.isPending || act.isPending} onClick={() => void saveThen()}>Save draft</Button>}
@@ -142,45 +143,64 @@ export default function QuoteEditorPage() {
         </Note>
       )}
 
-      <div className="grid gap-5 crm-detail-grid">
-        <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-1 gap-3 crm-quote-address">
-            <Field label="Property address">{(fid) => <TextInput id={fid} value={address} onChange={(e) => setAddress(e.target.value)} disabled={!editable} placeholder="123 Main St" />}</Field>
-            <Field label="Square feet" hint="For size-based prices.">{(fid, d) => <TextInput id={fid} aria-describedby={d} type="number" min={0} value={sqft} onChange={(e) => setSqft(e.target.value)} disabled={!editable} />}</Field>
-          </div>
-          <PropertyLocation value={location} onChange={setLocation} disabled={!editable} />
-          <div className="overflow-x-auto rounded-[10px] border">
-            <table className="crm-table">
-              <thead><tr><th>Service</th><th className="r w-[90px]">Qty</th><th className="r w-[120px]">Price</th><th className="r w-[120px]">Total</th>{editable && <th className="w-10" />}</tr></thead>
-              <tbody>
-                {lines.length === 0 && <tr><td colSpan={5} className="py-6 text-center text-muted-foreground">Add services from the price list below.</td></tr>}
-                {lines.map((l, i) => {
-                  const price = priceFor(l);
-                  const multiple = !l.service_id || catalog.data?.data.find((s) => s.id === l.service_id)?.allow_multiple !== false;
-                  return (
-                    <tr key={l.key}>
-                      <td>{l.service_id || !editable ? l.name : <TextInput aria-label="Item name" value={l.name} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />}</td>
-                      <td className="r">{editable && multiple ? <TextInput aria-label="Quantity" type="number" min={1} max={999} step={1} className="w-16 text-right" value={l.quantity} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, quantity: Math.min(999, Math.max(1, Math.floor(Number(e.target.value) || 1))) } : x)))} /> : l.quantity}</td>
-                      <td className="r tabular-nums">{l.service_id || !editable ? money(price) : <TextInput aria-label="Price" type="number" min={0} step="0.01" className="w-24 text-right" value={l.unit_price} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, unit_price: Math.max(0, Number(e.target.value) || 0) } : x)))} />}</td>
-                      <td className="r font-medium tabular-nums">{money(price * l.quantity)}</td>
-                      {editable && <td><Button variant="ghost" size="icon" className="h-7 w-7" aria-label={`Remove ${l.name}`} onClick={() => setLines(lines.filter((_, j) => j !== i))}><Trash2 className="h-3.5 w-3.5" /></Button></td>}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          {editable && (
-            <div className="flex flex-wrap items-end gap-2">
-              <Field label="Add from the price list" className="min-w-[240px] flex-1">{(fid) => <Select id={fid} value={pick} onChange={(e) => setPick(e.target.value)} placeholder="Choose a service…" options={available.map((c) => ({ value: String(c.id), label: `${c.name} · ${money(c.price)}` }))} />}</Field>
-              <Button variant="outline" size="sm" className="h-8" disabled={!pick || !available.some((item) => String(item.id) === pick)} onClick={addService}><Plus className="mr-1 h-3.5 w-3.5" />Add</Button>
-              <Button variant="ghost" size="sm" className="h-8" onClick={() => setLines([...lines, { key: newKey(), service_id: null, name: 'Custom item', quantity: 1, unit_price: 0 }])}>Custom line</Button>
+      <div className="grid min-w-0 gap-5 crm-detail-grid">
+        <div className="flex min-w-0 flex-col gap-4">
+          <Card title="Property" bodyClassName="space-y-3">
+            <div className="grid grid-cols-1 gap-3 crm-quote-address">
+              <Field label="Property address">{(fid) => <TextInput id={fid} value={address} onChange={(e) => setAddress(e.target.value)} disabled={!editable} placeholder="123 Main St" />}</Field>
+              <Field label="Square feet" hint="For size-based prices.">{(fid, d) => <TextInput id={fid} aria-describedby={d} type="number" min={0} value={sqft} onChange={(e) => setSqft(e.target.value)} disabled={!editable} />}</Field>
             </div>
-          )}
-          <Field label="Note to the client">{(fid) => <TextArea id={fid} value={notes} onChange={(e) => setNotes(e.target.value)} disabled={!editable} placeholder="Anything they should know: timing, access, what’s included." />}</Field>
+            <PropertyLocation value={location} onChange={setLocation} disabled={!editable} />
+          </Card>
+
+          <Card title="Services" bodyClassName="p-0">
+            {lines.length === 0 ? (
+              <p className="px-4 py-7 text-center text-sm text-muted-foreground">{editable ? 'Add services from the price list or enter a custom line.' : 'No services on this quote.'}</p>
+            ) : (
+              <>
+                <div aria-hidden="true" className="crm-quote-line hidden items-center gap-2 border-b bg-muted/40 px-4 py-2 text-xs font-medium text-muted-foreground sm:grid">
+                  <span>Service</span><span className="text-right">Quantity</span><span className="text-right">Price</span><span className="text-right">Total</span>
+                </div>
+                <ul className="divide-y">
+                  {lines.map((l, i) => {
+                    const price = priceFor(l);
+                    const multiple = !l.service_id || catalog.data?.data.find((s) => s.id === l.service_id)?.allow_multiple !== false;
+                    return (
+                      <li key={l.key} className="crm-quote-line relative grid items-center gap-2 px-4 py-3 text-[13px]">
+                        <div className={cn('crm-quote-line-name min-w-0 break-words font-medium', editable && 'crm-quote-line-name--editable')}>
+                          {l.service_id || !editable ? l.name : <TextInput aria-label="Item name" value={l.name} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))} />}
+                        </div>
+                        <div className="min-w-0 sm:text-right">
+                          <span className="mb-1 block text-xs text-muted-foreground sm:sr-only">Quantity</span>
+                          {editable && multiple ? <TextInput aria-label="Quantity" type="number" min={1} max={999} step={1} className="w-full sm:text-right" value={l.quantity} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, quantity: Math.min(999, Math.max(1, Math.floor(Number(e.target.value) || 1))) } : x)))} /> : l.quantity}
+                        </div>
+                        <div className="min-w-0 tabular-nums sm:text-right">
+                          <span className="mb-1 block text-xs text-muted-foreground sm:sr-only">Price</span>
+                          {l.service_id || !editable ? money(price) : <TextInput aria-label="Price" type="number" min={0} step="0.01" className="w-full sm:text-right" value={l.unit_price} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, unit_price: Math.max(0, Number(e.target.value) || 0) } : x)))} />}
+                        </div>
+                        <div className="min-w-0 break-words text-right font-medium tabular-nums">
+                          <span className="mb-1 block text-xs font-normal text-muted-foreground sm:sr-only">Total</span>
+                          {money(price * l.quantity)}
+                        </div>
+                        {editable && <Button variant="ghost" size="icon" className="crm-line-remove h-8 w-8" aria-label={`Remove ${l.name}`} onClick={() => setLines(lines.filter((_, j) => j !== i))}><Trash2 className="h-3.5 w-3.5" /></Button>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+            {editable && (
+              <div className="flex flex-wrap items-end gap-2 border-t p-4">
+                <Field label="Add from the price list" className="crm-quote-service-picker min-w-0">{(fid) => <Select id={fid} value={pick} onChange={(e) => setPick(e.target.value)} placeholder="Choose a service…" options={available.map((c) => ({ value: String(c.id), label: `${c.name} · ${money(c.price)}` }))} />}</Field>
+                <Button variant="outline" size="sm" className="h-9" disabled={!pick || !available.some((item) => String(item.id) === pick)} onClick={addService}><Plus className="mr-1 h-3.5 w-3.5" />Add</Button>
+                <Button variant="ghost" size="sm" className="h-9" onClick={() => setLines([...lines, { key: newKey(), service_id: null, name: 'Custom item', quantity: 1, unit_price: 0 }])}>Custom line</Button>
+              </div>
+            )}
+          </Card>
+          <Field label="Note to the client">{(fid) => <TextArea id={fid} value={notes} onChange={(e) => setNotes(e.target.value)} disabled={!editable} placeholder="Add details about timing, access or what’s included." />}</Field>
         </div>
 
-        <Card title="Summary" className="h-fit">
+        <Card title="Summary" className="h-fit min-w-0 lg:sticky lg:top-4">
           <dl className="flex flex-col gap-2 text-[13px]">
             <div className="flex justify-between"><dt className="text-muted-foreground">Subtotal</dt><dd className="tabular-nums">{money(subtotal)}</dd></div>
             <div className="flex items-center justify-between gap-2">

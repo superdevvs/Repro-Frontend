@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { format } from 'date-fns';
 import { crmApi } from '../api';
 import { useCrmMeta, useCrmMutation, useCrmQuery } from '../hooks';
-import { money } from '../format';
+import { day, money } from '../format';
 import { useRobbieWhere } from '../robbie/useCrmRobbie';
 import type { Person } from '../types';
 import { Field, FilterSelect, Select, TextInput } from '../ui/fields';
@@ -29,6 +30,7 @@ const pct = (n: number | null) => (n === null ? '—' : `${Math.round(n * 100)}%
 /** Reports (frame F2). Reps see their own numbers; admins see everyone and can narrow to one rep. */
 export default function ReportsPage() {
   useRobbieWhere({ page: 'reports' });
+  const compact = useIsMobile();
   const { data: meta } = useCrmMeta();
   const [range, setRange] = useState('month');
   const [rep, setRep] = useState('');
@@ -39,7 +41,7 @@ export default function ReportsPage() {
   return (
     <CrmPage
       title="Reports"
-      description={r ? `${r.period.from} to ${r.period.to}${meta?.can.view_all ? '' : ' · your contacts'}` : undefined}
+      description={r ? `${day(r.period.from)} to ${day(r.period.to)}${meta?.can.view_all ? '' : ' · your contacts'}` : undefined}
       actions={<>
         <FilterSelect label="Period" allLabel="This month" value={range === 'month' ? '' : range} onChange={(v) => setRange(v || 'month')} options={RANGES.slice(1)} />
         {meta?.can.view_all && <FilterSelect label="Rep" allLabel="Everyone" value={rep} onChange={setRep} options={meta.reps.map((x) => ({ value: String(x.id), label: x.name }))} />}
@@ -50,7 +52,7 @@ export default function ReportsPage() {
       {q.error && <ErrorNote error={q.error} onRetry={() => q.refetch()} />}
       {r && (
         <>
-          <StatStrip className="max-md:grid-cols-2" stats={[
+          <StatStrip stats={[
             { key: 'booked', label: 'Booked', value: r.funnel.find((f) => f.stage === 'booked')?.entered ?? 0, delta: null, series: null },
             { key: 'first', label: 'First shoots', value: r.funnel.find((f) => f.stage === 'client_pool')?.entered ?? 0, delta: null, series: null },
             { key: 'quotes', label: 'Quotes accepted', value: r.quotes.accepted, delta: null, series: null },
@@ -62,7 +64,7 @@ export default function ReportsPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={r.funnel} margin={{ left: -16, right: 8, top: 8 }}>
                     <CartesianGrid vertical={false} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={11} stroke="hsl(var(--muted-foreground))" interval={0} />
+                    <XAxis dataKey="label" tickLine={false} axisLine={false} fontSize={11} stroke="hsl(var(--muted-foreground))" interval={compact ? 'preserveStartEnd' : 0} />
                     <YAxis allowDecimals={false} tickLine={false} axisLine={false} fontSize={11} stroke="hsl(var(--muted-foreground))" />
                     <Tooltip cursor={{ fill: 'hsl(var(--secondary))' }} contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
                     <Bar dataKey="entered" name="Contacts" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} maxBarSize={48} />
@@ -89,7 +91,7 @@ export default function ReportsPage() {
                 </ul>
               )}
             </Card>
-            <Card title="Lead sources" bodyClassName="p-0">
+            <Card title="Lead sources" bodyClassName="overflow-x-auto p-0">
               <table className="crm-table">
                 <thead><tr><th>Source</th><th className="r">New contacts</th><th className="r">Became clients</th><th className="r">Rate</th></tr></thead>
                 <tbody>

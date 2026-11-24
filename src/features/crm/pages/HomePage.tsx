@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowUpRight, Bell, CalendarCheck, Check, FileText, Inbox, Sparkles } from 'lucide-react';
+import { AlertTriangle, ArrowUpRight, Bell, CalendarCheck, Check, FileText, Inbox, Sparkles, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { crmApi } from '../api';
@@ -8,7 +8,7 @@ import { useCrmMutation, useCrmQuery } from '../hooks';
 import { ago, money, scheduleTimeLabel, shortDay, time, when } from '../format';
 import { useCrmRobbie, useRobbieWhere } from '../robbie/useCrmRobbie';
 import type { CrmEvent, Insight, Stat } from '../types';
-import { Card, Chip, CrmPage, Empty, ErrorNote, Loading, StatStrip } from '../ui/primitives';
+import { Card, Chip, CrmPage, ErrorNote, Loading, StatStrip } from '../ui/primitives';
 import { CompleteEventDialog } from '../components/EventDialogs';
 
 interface Home {
@@ -51,15 +51,18 @@ export default function HomePage() {
       description={`${todayLabel} · ${scheduleTimeLabel()}`}
       actions={<Button size="sm" variant="outline" className="h-8" onClick={() => robbie?.ask('Plan my day')}><Sparkles className="mr-1.5 h-3.5 w-3.5" />Plan my day</Button>}
     >
-      <nav aria-label="Today's work" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <nav aria-label="Today's work" className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
         {[
-          { label: 'Overdue follow-ups', count: d.overdue_count, to: '/crm/follow-ups', urgent: d.overdue_count > 0 },
-          { label: 'Due today', count: d.today_count ?? today.length, to: '/crm/follow-ups', urgent: false },
-          { label: 'New leads', count: d.new_lead_count ?? d.new_leads.length, to: '#new-leads', urgent: false },
-          { label: 'Quotes to act on', count: d.quote_action_count ?? quotes.length, to: '#quote-actions', urgent: false },
-        ].map(({ label, count, to, urgent }) => {
-          const content = <><span className="text-[13px] font-medium">{label}</span><strong className="mt-2 text-3xl tabular-nums tracking-tight">{count}</strong></>;
-          const style = cn('flex min-w-0 flex-col rounded-xl border bg-card px-4 py-3 hover:border-primary/60', urgent && 'border-amber-500/60 crm-bg-amber crm-text-amber');
+          { label: 'Overdue follow-ups', count: d.overdue_count, to: '/crm/follow-ups', Icon: AlertTriangle, urgent: d.overdue_count > 0 },
+          { label: 'Due today', count: d.today_count ?? today.length, to: '/crm/follow-ups', Icon: CalendarCheck, urgent: false },
+          { label: 'New leads', count: d.new_lead_count ?? d.new_leads.length, to: '#new-leads', Icon: UserPlus, urgent: false },
+          { label: 'Quotes to act on', count: d.quote_action_count ?? quotes.length, to: '#quote-actions', Icon: FileText, urgent: false },
+        ].map(({ label, count, to, Icon, urgent }) => {
+          const content = <>
+            <span className="flex items-center gap-1.5 text-xs font-medium"><Icon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />{label}</span>
+            <strong className="mt-1.5 text-2xl font-semibold leading-7 tabular-nums tracking-tight">{count.toLocaleString()}</strong>
+          </>;
+          const style = cn('flex min-w-0 flex-col rounded-xl border bg-card px-3.5 py-3 transition-colors hover:border-primary/50 hover:bg-secondary/30', urgent && 'border-amber-500/60 crm-bg-amber crm-text-amber');
           return to.startsWith('#') ? <a key={label} href={to} className={style}>{content}</a> : <Link key={label} to={to} className={style}>{content}</Link>;
         })}
       </nav>
@@ -84,7 +87,7 @@ export default function HomePage() {
           </section>
 
           <Card title={<h2 className="flex items-center gap-2 text-[13px] font-semibold"><CalendarCheck className="h-4 w-4 text-muted-foreground" />Today</h2>} actions={<Link to="/crm/follow-ups" className="text-xs font-medium text-accent-foreground hover:underline">All follow-ups</Link>} bodyClassName="p-0">
-            {d.today.length === 0 ? <Empty title="Nothing due today.">A good moment to check on clients who haven’t booked in a while.</Empty> : (
+            {d.today.length === 0 ? <p className="px-4 py-3 text-muted-foreground">No follow-ups due today.</p> : (
               <ul className="divide-y">
                 {[...overdue, ...today].map((e) => (
                   <li key={e.id} className="flex items-center gap-3 px-4 py-2.5">
@@ -103,8 +106,8 @@ export default function HomePage() {
             <Card title={<h2 className="flex items-center gap-2 font-semibold"><FileText className="h-4 w-4" />Quotes to act on</h2>} actions={<Link className="text-xs underline" to="/crm/quotes">All quotes</Link>} bodyClassName="p-0">
               {quotes.length ? <ul className="divide-y">{quotes.map((quote) => <li key={quote.id}>
                 <Link className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-secondary/50" to={`/crm/quotes/${quote.id}`}>
-                  <span><strong>{quote.contact_name}</strong><span className="block text-xs text-muted-foreground">{quote.quote_number} · {quote.status === 'approved' ? 'Ready to send' : quote.status === 'pending_approval' ? 'Awaiting approval' : 'Draft'}</span></span>
-                  <span className="font-medium tabular-nums">{money(quote.total)}</span>
+                  <span className="min-w-0 break-words"><strong>{quote.contact_name}</strong><span className="block text-xs text-muted-foreground">{quote.quote_number} · {quote.status === 'approved' ? 'Ready to send' : quote.status === 'pending_approval' ? 'Awaiting approval' : 'Draft'}</span></span>
+                  <span className="shrink-0 font-medium tabular-nums">{money(quote.total)}</span>
                 </Link>
               </li>)}</ul> : <p className="px-4 py-3 text-muted-foreground">No quotes need action.</p>}
             </Card>

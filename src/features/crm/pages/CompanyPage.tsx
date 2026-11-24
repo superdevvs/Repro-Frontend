@@ -38,24 +38,24 @@ export default function CompanyPage() {
       description={[company.city, company.state].filter(Boolean).join(', ') || undefined}
       actions={company.can_edit ? <Button variant="outline" size="sm" className="h-8" onClick={() => setEditing(true)}><Pencil className="mr-1.5 h-3.5 w-3.5" />Edit</Button> : undefined}
     >
-      <StatStrip className="max-md:grid-cols-2" stats={[
+      <StatStrip stats={[
         { key: 'contacts', label: meta?.can.view_all ? 'Contacts' : 'Your contacts', value: stats.contacts, delta: null, series: null },
         { key: 'pipeline', label: 'In pipeline', value: stats.pipeline, delta: null, series: null },
         { key: 'clients', label: 'Clients', value: stats.clients, delta: null, series: null },
         { key: 'shoots', label: 'Shoots', value: stats.shoots, delta: null, series: null },
       ]} />
       <div className="grid gap-5 crm-detail-grid">
-        <div className="overflow-x-auto rounded-[10px] border">
+        <div className="self-start overflow-x-auto rounded-xl border bg-card">
           <table className="crm-table">
-            <thead><tr><th>Name</th><th>Stage</th>{meta?.can.view_all && <th>Rep</th>}<th className="r">Shoots</th><th>Last contact</th></tr></thead>
+            <thead><tr><th>Name</th><th>Stage</th>{meta?.can.view_all && <th className="max-md:hidden">Rep</th>}<th className="r">Shoots</th><th className="max-md:hidden">Last contact</th></tr></thead>
             <tbody>
               {contacts.map((c) => (
                 <tr key={c.id} data-href onClick={() => navigate(`/crm/contacts/${c.id}`)}>
                   <td><Link to={`/crm/contacts/${c.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{c.name}</Link>{c.title && <span className="block text-xs text-muted-foreground">{c.title}</span>}</td>
                   <td><StageChip stage={c.stage} label={c.stage_label} /></td>
-                  {meta?.can.view_all && <td>{c.assigned_rep ? <span className="flex items-center gap-1.5"><Avatar person={c.assigned_rep} size="sm" />{c.assigned_rep.name}</span> : <Chip tone="amber">Unassigned</Chip>}</td>}
+                  {meta?.can.view_all && <td className="max-md:hidden">{c.assigned_rep ? <span className="flex items-center gap-1.5"><Avatar person={c.assigned_rep} size="sm" />{c.assigned_rep.name}</span> : <Chip tone="amber">Unassigned</Chip>}</td>}
                   <td className="r tabular-nums">{c.shoots?.total ?? '—'}</td>
-                  <td className="text-muted-foreground">{c.last_contacted_at ? ago(c.last_contacted_at) : 'Never'}</td>
+                  <td className="text-muted-foreground max-md:hidden">{c.last_contacted_at ? ago(c.last_contacted_at) : 'Never'}</td>
                 </tr>
               ))}
             </tbody>

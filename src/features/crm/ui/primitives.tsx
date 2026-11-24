@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { ChevronRight, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Health, Person, StageKey, Stat } from '../types';
+import './controls.css';
 
 export type Tone = 'neutral' | 'blue' | 'green' | 'amber' | 'red' | 'violet' | 'line';
 
@@ -51,22 +52,25 @@ export function Sparkline({ points, tone = 'primary' }: { points: number[]; tone
 }
 
 export function StatStrip({ stats, className }: { stats: Stat[]; className?: string }) {
+  if (!stats.length) return null;
+
   return (
-    <div className={cn('crm-stats grid overflow-hidden rounded-xl border bg-card', className)} style={{ '--crm-stat-count': Math.max(1, stats.length) } as React.CSSProperties}>
-      {stats.map((s, i) => (
-        <div key={s.key} className={cn('flex items-end justify-between gap-3 px-4 py-3.5', i > 0 && 'border-l max-md:border-l-0 max-md:border-t')}>
+    <div className={cn('crm-stats grid gap-px overflow-hidden rounded-xl border bg-border', className)}
+      style={{ '--crm-stat-count': stats.length, '--crm-stat-compact-count': Math.min(2, stats.length) } as React.CSSProperties}>
+      {stats.map((s) => (
+        <div key={s.key} className="flex min-w-0 items-center justify-between gap-2 bg-card px-3.5 py-3 sm:px-4">
           <div className="min-w-0">
-            <div className="text-xs text-muted-foreground">{s.label}</div>
-            <div className={cn('mt-1 flex items-baseline gap-2 text-[22px] font-semibold leading-7 tracking-tight tabular-nums', s.tone === 'bad' && s.value > 0 && 'crm-text-red')}>
+            <div className="text-xs font-medium text-muted-foreground">{s.label}</div>
+            <div className={cn('mt-1 flex flex-wrap items-baseline gap-x-2 text-[21px] font-semibold leading-7 tracking-tight tabular-nums', s.tone === 'bad' && s.value > 0 && 'crm-text-red')}>
               {s.value.toLocaleString()}
               {s.delta !== null && s.delta !== 0 && (
                 <span className={cn('text-xs font-medium tracking-normal', s.key === 'overdue' ? 'crm-text-red' : s.delta > 0 ? 'crm-text-green' : 'crm-text-red')}>
-                  {s.delta > 0 ? '+' : ''}{s.delta}
+                  {s.delta > 0 ? '+' : ''}{s.delta.toLocaleString()}
                 </span>
               )}
             </div>
           </div>
-          {s.series && <span className="max-lg:hidden"><Sparkline points={s.series} tone={s.key === 'overdue' ? 'red' : 'primary'} /></span>}
+          {s.series && <span className="hidden shrink-0 2xl:block"><Sparkline points={s.series} tone={s.key === 'overdue' ? 'red' : 'primary'} /></span>}
         </div>
       ))}
     </div>
@@ -87,36 +91,36 @@ export function CrmPage({ title, count, description, crumbs, actions, children, 
 }) {
   return (
     <section className={cn('flex min-h-full min-w-0 flex-col overflow-hidden rounded-[14px] border bg-card text-card-foreground crm-page-panel max-md:rounded-none max-md:border-0 max-md:shadow-none', className)}>
-      <header className="flex min-h-[78px] flex-wrap items-center justify-between gap-x-6 gap-y-2 border-b px-5 py-3.5 max-md:px-4">
-        <div className="min-w-0">
+      <header className="crm-page-header flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-b">
+        <div className="min-w-0 max-w-full">
           {crumbs && crumbs.length > 0 && (
-            <nav aria-label="Breadcrumb" className="mb-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+            <nav aria-label="Breadcrumb" className="mb-1.5 flex flex-wrap items-center gap-1 break-words text-xs text-muted-foreground">
               {crumbs.map((c, i) => (
                 <React.Fragment key={c.label}>
-                  {i > 0 && <ChevronRight className="h-3 w-3" aria-hidden="true" />}
+                  {i > 0 && <ChevronRight className="h-3 w-3 shrink-0" aria-hidden="true" />}
                   {c.to ? <Link to={c.to} className="hover:text-foreground">{c.label}</Link> : <span>{c.label}</span>}
                 </React.Fragment>
               ))}
             </nav>
           )}
-          <h1 className="truncate text-2xl font-semibold leading-8 tracking-tight">
-            {title}{typeof count === 'number' && <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">{count.toLocaleString()}</span>}
+          <h1 className="break-words text-2xl font-semibold leading-8 tracking-tight">
+            {title}{typeof count === 'number' && <span className="ml-2 align-middle text-sm font-medium text-muted-foreground tabular-nums">{count.toLocaleString()}</span>}
           </h1>
           {description && <p className="mt-1 text-[13px] text-muted-foreground">{description}</p>}
         </div>
-        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+        {actions && <div className="flex min-w-0 flex-wrap items-center gap-2">{actions}</div>}
       </header>
       {tabs}
-      <div className={cn('flex min-w-0 flex-1 flex-col gap-4 px-5 pb-7 pt-5 max-md:px-4', bodyClassName)}>{children}</div>
+      <div className={cn('crm-page-body flex min-w-0 flex-1 flex-col gap-4', bodyClassName)}>{children}</div>
     </section>
   );
 }
 
 export function Card({ title, actions, children, className, bodyClassName }: { title?: React.ReactNode; actions?: React.ReactNode; children: React.ReactNode; className?: string; bodyClassName?: string }) {
   return (
-    <div className={cn('rounded-[10px] border bg-card', className)}>
+    <div className={cn('min-w-0 rounded-xl border bg-card', className)}>
       {(title || actions) && (
-        <div className="crm-card-heading flex items-center justify-between gap-3 border-b px-4 py-2.5">
+        <div className="crm-card-heading flex flex-wrap items-center justify-between gap-x-3 gap-y-1.5 border-b px-4 py-3">
           {typeof title === 'string' ? <h2 className="text-[13px] font-semibold">{title}</h2> : title}
           {actions}
         </div>
@@ -171,32 +175,55 @@ export function KeyValues({ rows }: { rows: [string, React.ReactNode][] }) {
   );
 }
 
-export function TabBar<T extends string>({ tabs, value, onChange, className }: { tabs: { key: T; label: string; count?: number | null }[]; value: T; onChange: (key: T) => void; className?: string }) {
+export function TabBar<T extends string>({ tabs, value, onChange, className, ariaLabel = 'Sections', variant = 'page' }: {
+  tabs: { key: T; label: string; count?: number | null }[];
+  value: T;
+  onChange: (key: NoInfer<T>) => void;
+  className?: string;
+  ariaLabel?: string;
+  variant?: 'page' | 'inline';
+}) {
+  const rowRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const row = rowRef.current;
+    const active = row?.querySelector('[aria-selected="true"]');
+    if (!row || !active) return;
+
+    const viewport = row.getBoundingClientRect();
+    const tab = active.getBoundingClientRect();
+    if (tab.left < viewport.left) row.scrollLeft += tab.left - viewport.left;
+    else if (tab.right > viewport.right) row.scrollLeft += tab.right - viewport.right;
+  }, [value, tabs.length]);
+
   return (
-    <div role="tablist" className={cn('flex gap-0.5 overflow-x-auto border-b px-5 max-md:px-4', className)}>
-      {tabs.map((t) => (
-        <button
-          key={t.key}
-          role="tab"
-          type="button"
-          aria-selected={value === t.key}
-          tabIndex={value === t.key ? 0 : -1}
-          onKeyDown={(event) => {
-            if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
-            event.preventDefault();
-            const index = tabs.findIndex((tab) => tab.key === t.key);
-            const target = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
-            onChange(tabs[target].key);
-            event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[target]?.focus();
-          }}
-          onClick={() => onChange(t.key)}
-          className={cn('-mb-px flex shrink-0 items-center gap-1.5 border-b-[1.5px] px-2.5 py-2.5 text-[13px] font-medium transition-colors',
-            value === t.key ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground')}
-        >
-          {t.label}
-          {typeof t.count === 'number' && <span className="rounded-md bg-secondary px-1.5 text-[11px] leading-4 text-muted-foreground tabular-nums">{t.count}</span>}
-        </button>
-      ))}
+    <div ref={rowRef} className={cn('crm-tab-row', variant === 'page' && 'crm-tab-row-page', className)}>
+      <div role="tablist" aria-label={ariaLabel} className="crm-tab-list">
+        {tabs.map((tab, index) => (
+          <button
+            key={tab.key}
+            role="tab"
+            type="button"
+            aria-selected={value === tab.key}
+            tabIndex={value === tab.key ? 0 : -1}
+            onKeyDown={(event) => {
+              if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+              event.preventDefault();
+              const target = event.key === 'Home'
+                ? 0
+                : event.key === 'End'
+                  ? tabs.length - 1
+                  : (index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+              onChange(tabs[target].key);
+              event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>('[role="tab"]')[target]?.focus();
+            }}
+            onClick={() => onChange(tab.key)}
+            className="crm-tab"
+          >
+            {tab.label}
+            {typeof tab.count === 'number' && <span className="crm-tab-count">{tab.count}</span>}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

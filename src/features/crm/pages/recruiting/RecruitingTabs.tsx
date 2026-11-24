@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Copy, ExternalLink, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { useIsLarge } from '@/hooks/use-media-query';
 import { crmApi } from '../../api';
 import { useCrmMutation, useCrmQuery } from '../../hooks';
 import { day } from '../../format';
@@ -14,52 +14,81 @@ import { ROLE_LABEL } from './recruitingShared';
 
 interface Posting { id: number; role: 'photographer' | 'sales_rep'; title: string; state: string; region: string | null; slug: string; description: string | null; status: 'draft' | 'open' | 'closed'; public_url: string; applicants: number | null; opened_at: string | null; closed_at: string | null }
 
+function PostingStatus({ posting }: { posting: Posting }) {
+  return <div className="flex flex-wrap items-center gap-1.5">
+    <Chip tone={posting.status === 'open' ? 'green' : posting.status === 'draft' ? 'line' : 'neutral'} className="capitalize">{posting.status}</Chip>
+    {posting.status === 'open' && posting.opened_at && <span className="text-xs text-muted-foreground">since {day(posting.opened_at)}</span>}
+  </div>;
+}
+
+function PostingApplyLink({ posting }: { posting: Posting }) {
+  if (posting.status !== 'open') return <span className="text-xs text-muted-foreground">Not public</span>;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(posting.public_url);
+      toast.success('Link copied');
+    } catch {
+      toast.error('Could not copy the apply link.');
+    }
+  };
+  return <div className="flex items-center gap-1">
+    <a href={posting.public_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-accent-foreground hover:underline">View apply page<ExternalLink className="h-3 w-3" aria-hidden="true" /></a>
+    <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0" aria-label={`Copy apply link for ${posting.title}`} onClick={() => void copy()}><Copy className="h-3.5 w-3.5" /></Button>
+  </div>;
+}
+
 /** Job postings (frame 15), each with a public apply page. */
 export function PostingsTab({ canManage, states }: { canManage: boolean; states: Record<string, string> }) {
+  const wide = useIsLarge();
   const q = useCrmQuery<{ data: Posting[] }>(['crm', 'postings'], '/recruiting/postings');
   const [editing, setEditing] = useState<Posting | 'new' | null>(null);
   const status = useCrmMutation(({ id, s }: { id: number; s: Posting['status'] }) => crmApi.post(`/recruiting/postings/${id}/status`, { status: s }), { success: 'Posting updated' });
   if (q.isLoading) return <Loading />;
   if (q.error) return <ErrorNote error={q.error} onRetry={() => q.refetch()} />;
+  const postings = q.data?.data ?? [];
+  const region = (p: Posting) => [p.region, states[p.state] ?? p.state].filter(Boolean).join(', ');
+  const actions = (p: Posting) => (
+    <div className="flex flex-wrap items-center gap-1">
+      <Button variant="ghost" size="sm" onClick={() => setEditing(p)}>Edit</Button>
+      <Button variant="outline" size="sm" disabled={status.isPending} onClick={() => status.mutate({ id: p.id, s: p.status === 'open' ? 'closed' : 'open' })}>{p.status === 'open' ? 'Close' : 'Open'}</Button>
+    </div>
+  );
   return (
     <div className="flex flex-col gap-3">
       {canManage && <Button size="sm" variant="outline" className="self-start" onClick={() => setEditing('new')}><Plus className="mr-1.5 h-3.5 w-3.5" />New posting</Button>}
-      {q.data?.data.length === 0 && <Empty title="No job postings yet.">Each posting gets its own apply page on the website.</Empty>}
-      {(q.data?.data.length ?? 0) > 0 && (
+      {postings.length === 0 && <Empty title="No job postings yet.">Each posting gets its own apply page on the website.</Empty>}
+      {postings.length > 0 && (wide ? (
         <div className="overflow-x-auto rounded-[10px] border">
           <table className="crm-table">
             <thead><tr><th>Posting</th><th>Role</th><th>Region</th><th>Status</th><th className="r">Applicants</th><th>Apply page</th>{canManage && <th />}</tr></thead>
             <tbody>
-              {q.data!.data.map((p) => (
+              {postings.map((p) => (
                 <tr key={p.id}>
-                  <td className="font-medium">{p.title}</td>
+                  <td className="break-words font-medium">{p.title}</td>
                   <td>{ROLE_LABEL[p.role]}</td>
-                  <td>{[p.region, states[p.state] ?? p.state].filter(Boolean).join(', ')}</td>
-                  <td><Chip tone={p.status === 'open' ? 'green' : p.status === 'draft' ? 'line' : 'neutral'} className="capitalize">{p.status}</Chip>{p.opened_at && <span className="ml-1.5 text-xs text-muted-foreground">since {day(p.opened_at)}</span>}</td>
+                  <td>{region(p)}</td>
+                  <td><PostingStatus posting={p} /></td>
                   <td className="r tabular-nums">{p.applicants ?? 0}</td>
-                  <td>
-                    {p.status === 'open' ? (
-                      <span className="flex items-center gap-1">
-                        <a href={p.public_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-accent-foreground hover:underline">/careers/{p.slug}<ExternalLink className="h-3 w-3" /></a>
-                        <Button variant="ghost" size="icon" className="h-6 w-6" aria-label="Copy link" onClick={() => { void navigator.clipboard.writeText(p.public_url); toast.success('Link copied'); }}><Copy className="h-3 w-3" /></Button>
-                      </span>
-                    ) : <span className="text-xs text-muted-foreground">Not public</span>}
-                  </td>
-                  {canManage && (
-                    <td className="r">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setEditing(p)}>Edit</Button>
-                        {p.status !== 'open' && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => status.mutate({ id: p.id, s: 'open' })}>Open</Button>}
-                        {p.status === 'open' && <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => status.mutate({ id: p.id, s: 'closed' })}>Close</Button>}
-                      </div>
-                    </td>
-                  )}
+                  <td><PostingApplyLink posting={p} /></td>
+                  {canManage && <td className="r">{actions(p)}</td>}
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      )}
+      ) : (
+        <ul className="grid gap-3 sm:grid-cols-2">
+          {postings.map((p) => <li key={p.id} className="flex min-w-0 flex-col gap-3 rounded-xl border bg-card p-4">
+            <header className="space-y-1.5">
+              <h2 className="break-words font-semibold">{p.title}</h2>
+              <p className="text-xs text-muted-foreground">{ROLE_LABEL[p.role]}{region(p) && ` · ${region(p)}`}</p>
+              <PostingStatus posting={p} />
+            </header>
+            <p className="text-sm tabular-nums">{p.applicants ?? 0} {(p.applicants ?? 0) === 1 ? 'applicant' : 'applicants'}</p>
+            <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t pt-2"><PostingApplyLink posting={p} />{canManage && actions(p)}</div>
+          </li>)}
+        </ul>
+      ))}
       <PostingDialog posting={editing} states={states} onClose={() => setEditing(null)} />
     </div>
   );
@@ -76,14 +105,14 @@ function PostingDialog({ posting, states, onClose }: { posting: Posting | 'new' 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
   return (
     <Dialog open={posting !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="crm-root sm:max-w-xl">
-        <DialogHeader><DialogTitle>{isNew ? 'New job posting' : 'Edit posting'}</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-3">
+      <DialogContent className="crm-root max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-xl">
+        <DialogHeader><DialogTitle>{isNew ? 'New job posting' : 'Edit posting'}</DialogTitle><DialogDescription>Set the role, location and details for the application page.</DialogDescription></DialogHeader>
+        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="Role">{(id) => <Select id={id} value={f.role} onChange={set('role')} options={[{ value: 'photographer', label: 'Photographer' }, { value: 'sales_rep', label: 'Sales rep' }]} />}</Field>
           <Field label="State" required>{(id) => <Select id={id} value={f.state} onChange={set('state')} placeholder="Choose…" options={Object.entries(states).map(([code, name]) => ({ value: code, label: name }))} />}</Field>
-          <Field label="Title" required className="col-span-2">{(id) => <TextInput id={id} value={f.title} onChange={set('title')} placeholder="Real estate photographer, Northern Virginia" />}</Field>
-          <Field label="Region" className="col-span-2">{(id) => <TextInput id={id} value={f.region} onChange={set('region')} placeholder="Arlington, Alexandria, Fairfax" />}</Field>
-          <Field label="Description" className="col-span-2" hint="Shown on the public apply page. Needed before the posting can open.">{(id, d) => <TextArea id={id} aria-describedby={d} rows={6} value={f.description} onChange={set('description')} />}</Field>
+          <Field label="Title" required className="sm:col-span-2">{(id) => <TextInput id={id} value={f.title} onChange={set('title')} placeholder="Real estate photographer, Northern Virginia" />}</Field>
+          <Field label="Region" className="sm:col-span-2">{(id) => <TextInput id={id} value={f.region} onChange={set('region')} placeholder="Arlington, Alexandria, Fairfax" />}</Field>
+          <Field label="Description" className="sm:col-span-2" hint="Shown on the public apply page. Needed before the posting can open.">{(id, d) => <TextArea id={id} aria-describedby={d} rows={6} value={f.description} onChange={set('description')} />}</Field>
         </div>
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={onClose}>Cancel</Button>
@@ -115,29 +144,28 @@ export function CoverageTab() {
   if (q.error || !q.data) return <ErrorNote error={q.error} onRetry={() => q.refetch()} />;
   const byCode = Object.fromEntries(q.data.states.map((s) => [s.code, s]));
   const selected = focus ? byCode[focus] : null;
-  const tone = (code: string) => {
-    const s = byCode[code];
-    if (!s) return 'bg-secondary text-muted-foreground/60';
-    return s.status === 'covered' ? 'bg-emerald-500/85 text-white' : s.status === 'thin' ? 'bg-amber-400/90 text-amber-950' : 'bg-rose-500/80 text-white';
-  };
 
   return (
-    <div className="grid gap-5 crm-coverage-grid">
-      <div className="flex flex-col gap-3">
+    <div className="grid min-w-0 gap-5 crm-coverage-grid">
+      <div className="flex min-w-0 flex-col gap-3">
         <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-emerald-500/85" />Covered (2+ photographers) · {q.data.totals.covered}</span>
           <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-amber-400/90" />Thin (1) · {q.data.totals.thin}</span>
           <span className="flex items-center gap-1.5"><i className="h-3 w-3 rounded bg-rose-500/80" />Gap (applicants or postings, no photographer) · {q.data.totals.gap}</span>
         </div>
-        <div className="grid aspect-[12/8] max-w-[760px] grid-cols-12 grid-rows-8 gap-1" role="grid" aria-label="Coverage by state">
-          {Object.entries(TILES).map(([code, [row, col]]) => (
-            <button key={code} type="button" onClick={() => setFocus(code)} aria-label={`${code}: ${byCode[code] ? `${byCode[code].photographers} photographers, ${byCode[code].in_pipeline} in pipeline` : 'no activity'}`}
-              className={cn('flex flex-col items-center justify-center rounded-md text-[11px] font-semibold leading-tight transition-transform hover:scale-105', tone(code), focus === code && 'ring-2 ring-foreground ring-offset-1')}
-              style={{ gridRow: row + 1, gridColumn: col + 1 }}>
-              {code}
-              {byCode[code] && <span className="text-[9.5px] font-medium opacity-90">{byCode[code].photographers}·{byCode[code].in_pipeline}</span>}
-            </button>
-          ))}
+        <Field label="Find a state" className="sm:hidden">{(id) => <Select id={id} value={focus ?? ''} placeholder="Choose a state…" options={Object.keys(TILES).sort().map((code) => ({ value: code, label: byCode[code]?.name ?? code }))} onChange={(e) => setFocus(e.target.value || null)} />}</Field>
+        <div className="overflow-x-auto p-1">
+          <div className="crm-coverage-map grid gap-1" role="group" aria-label="Coverage by state">
+            {Object.entries(TILES).map(([code, [row, col]]) => (
+              <button key={code} type="button" aria-pressed={focus === code} onClick={() => setFocus(code)} aria-label={`${byCode[code]?.name ?? code}: ${byCode[code] ? `${byCode[code].photographers} photographers, ${byCode[code].in_pipeline} in pipeline` : 'no activity'}`}
+                className="crm-coverage-tile flex flex-col items-center justify-center rounded-md text-xs font-semibold leading-tight transition-shadow"
+                data-coverage={byCode[code]?.status}
+                style={{ gridRow: row + 1, gridColumn: col + 1 }}>
+                {code}
+                {byCode[code] && <span className="text-[10px] font-medium">{byCode[code].photographers}·{byCode[code].in_pipeline}</span>}
+              </button>
+            ))}
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">Numbers on a state: photographers · applicants in the pipeline. Photographers count in the states of their service areas, or their home state.</p>
       </div>
@@ -170,22 +198,28 @@ export function RosterTab() {
   const q = useCrmQuery<{ data: RosterRow[] }>(['crm', 'roster', expiring], '/recruiting/roster', { expiring: expiring ? 1 : undefined });
   return (
     <div className="flex flex-col gap-3">
-      <label className="flex items-center gap-2 text-[13px]"><input type="checkbox" checked={expiring} onChange={(e) => setExpiring(e.target.checked)} />Only expiring in the next 30 days</label>
+      <label className="inline-flex min-h-9 w-fit cursor-pointer items-center gap-2 text-[13px]"><input type="checkbox" className="h-4 w-4 accent-primary" checked={expiring} onChange={(e) => setExpiring(e.target.checked)} />Only expiring in the next 30 days</label>
       {q.isLoading && <Loading />}
       {q.error && <ErrorNote error={q.error} onRetry={() => q.refetch()} />}
       {q.data?.data.length === 0 && <Empty title={expiring ? 'Nothing expires in the next 30 days.' : 'Nobody hired through recruiting yet.'} />}
       {(q.data?.data.length ?? 0) > 0 && (
         <div className="overflow-x-auto rounded-[10px] border">
-          <table className="crm-table">
-            <thead><tr><th>Person</th><th>Role</th><th>States</th><th>FAA Part 107</th><th>Insurance</th></tr></thead>
+          <table className="crm-table crm-workflow-table">
+            <thead><tr><th className="w-1/2 lg:w-auto">Person</th><th className="hidden lg:table-cell">Role</th><th className="hidden lg:table-cell">States</th><th className="hidden lg:table-cell">FAA Part 107</th><th><span className="lg:hidden">Expires</span><span className="hidden lg:inline">Insurance</span></th></tr></thead>
             <tbody>
               {q.data!.data.map((r) => (
                 <tr key={r.user?.id}>
-                  <td className="font-medium">{r.user?.name}</td>
-                  <td>{ROLE_LABEL[r.role] ?? r.role}</td>
-                  <td>{r.states.join(', ') || '—'}</td>
-                  <td>{r.part107_expiry ? <span className={r.part107_expiring ? 'crm-text-red font-medium' : ''}>{day(r.part107_expiry)}</span> : '—'}</td>
-                  <td>{r.insurance_expiry ? <span className={r.insurance_expiring ? 'crm-text-red font-medium' : ''}>{day(r.insurance_expiry)}</span> : '—'}</td>
+                  <td className="break-words font-medium">{r.user?.name}<span className="mt-1 block text-xs font-normal text-muted-foreground lg:hidden">{ROLE_LABEL[r.role] ?? r.role}{r.states.length > 0 && ` · ${r.states.join(', ')}`}</span></td>
+                  <td className="hidden lg:table-cell">{ROLE_LABEL[r.role] ?? r.role}</td>
+                  <td className="hidden lg:table-cell">{r.states.join(', ') || '—'}</td>
+                  <td className="hidden lg:table-cell">{r.part107_expiry ? <span className={r.part107_expiring ? 'crm-text-red font-medium' : ''}>{day(r.part107_expiry)}</span> : '—'}</td>
+                  <td>
+                    <span className="hidden lg:inline">{r.insurance_expiry ? <span className={r.insurance_expiring ? 'crm-text-red font-medium' : ''}>{day(r.insurance_expiry)}</span> : '—'}</span>
+                    <dl className="grid gap-1 text-xs lg:hidden">
+                      <div><dt className="text-muted-foreground">FAA Part 107</dt><dd className={r.part107_expiring ? 'crm-text-red font-medium' : undefined}>{r.part107_expiry ? day(r.part107_expiry) : '—'}</dd></div>
+                      <div><dt className="text-muted-foreground">Insurance</dt><dd className={r.insurance_expiring ? 'crm-text-red font-medium' : undefined}>{r.insurance_expiry ? day(r.insurance_expiry) : '—'}</dd></div>
+                    </dl>
+                  </td>
                 </tr>
               ))}
             </tbody>

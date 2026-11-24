@@ -1,0 +1,88 @@
+.crm-review-comment { flex: 1 1 15rem; }
+.crm-signature-comment { flex: 1 1 13rem; }
+.crm-recruit-search { flex: 1 1 12rem; }
+.crm-sequence-template, .crm-quote-service-picker { flex: 1 1 14rem; }
+.crm-sequence-placeholder { flex: 1 1 10rem; }
+
+.crm-root .crm-chip.crm-workflow-status,
+.crm-root .crm-workflow-statuses > .crm-chip {
+  height: auto;
+  min-height: 1.25rem;
+  white-space: normal;
+}
+
+.crm-workflow-table { table-layout: fixed; }
+.crm-wide-cell { display: none; }
+
+.crm-drip-tile:enabled:hover {
+  border-color: hsl(var(--primary) / .35);
+  background-color: hsl(var(--secondary) / .5);
+}
+
+.crm-quote-line { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+.crm-coverage-map {
+  aspect-ratio: 12 / 8;
+  min-width: 30rem;
+  max-width: 760px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  grid-template-rows: repeat(8, minmax(0, 1fr));
+}
+
+.crm-coverage-tile {
+  background: hsl(var(--secondary));
+  color: hsl(var(--muted-foreground));
+}
+
+.crm-coverage-tile[data-coverage='covered'] {
+  background: #d1fae5;
+  color: #022c22;
+}
+
+.crm-coverage-tile[data-coverage='thin'] {
+  background: #fef3c7;
+  color: #451a03;
+}
+
+.crm-coverage-tile[data-coverage='gap'] {
+  background: #ffe4e6;
+  color: #4c0519;
+}
+
+.dark .crm-coverage-tile[data-coverage='covered'] {
+  background: #064e3b;
+  color: #d1fae5;
+}
+
+.dark .crm-coverage-tile[data-coverage='thin'] {
+  background: #78350f;
+  color: #fef3c7;
+}
+
+.dark .crm-coverage-tile[data-coverage='gap'] {
+  background: #881337;
+  color: #ffe4e6;
+}
+
+.crm-coverage-tile:hover { box-shadow: inset 0 0 0 1px hsl(var(--ring)); }
+.crm-coverage-tile[aria-pressed='true'] { box-shadow: inset 0 0 0 2px hsl(var(--foreground)); }
+
+@media (max-width: 639px) {
+  .crm-sequence-step-top { width: 100%; padding-right: 3rem; }
+  .crm-sequence-template, .crm-sequence-placeholder { flex-basis: 100%; }
+  .crm-quote-line-name { grid-column: span 3 / span 3; }
+  .crm-quote-line-name--editable { padding-right: 2.25rem; }
+  .crm-line-remove { position: absolute; top: .75rem; right: .75rem; }
+}
+
+@media (min-width: 640px) {
+  .crm-quote-line { grid-template-columns: minmax(0, 1fr) 3.5rem 5rem 5rem 2rem; }
+}
+
+@media (min-width: 1024px) {
+  .crm-workflow-table { table-layout: auto; }
+}
+
+@media (min-width: 1280px) {
+  .crm-wide-cell { display: table-cell; }
+}

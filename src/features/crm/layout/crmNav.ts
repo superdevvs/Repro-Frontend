@@ -1,6 +1,9 @@
 import type React from 'react';
 import { BarChart3, Briefcase, Building2, CalendarCheck, FileText, Home, Inbox, KanbanSquare, Mail, UserCheck, Users } from 'lucide-react';
+import sidebarStyles from '@/components/layout/sidebar/SidebarLinks.module.css';
 import { useCrmMeta } from '../hooks';
+
+export const crmSelectedNavClass = `${sidebarStyles.indicatorExpanded} font-medium text-sidebar-accent-foreground ring-1 ring-inset ring-sidebar-border dark:text-sidebar-primary-foreground dark:ring-white/5`;
 
 export interface CrmNavItem { to: string; label: string; icon: React.ElementType; count?: number; hot?: boolean; end?: boolean }
 

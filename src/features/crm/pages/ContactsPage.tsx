@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, Plus, Search, Upload, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Plus, Search, SlidersHorizontal, Upload, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { PageSearch } from '@/components/search/PageSearch';
 import { crmApi } from '../api';
@@ -64,22 +65,24 @@ export default function ContactsPage() {
         {meta?.can.create && <Button size="sm" className="h-8" onClick={() => setAdding(true)}><Plus className="mr-1.5 h-3.5 w-3.5" />Add contact</Button>}
       </>}
     >
-      {statList && <StatStrip stats={statList} className="max-md:grid-cols-2" />}
+      {statList && <StatStrip stats={statList} />}
 
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex h-8 w-60 items-center rounded-lg border bg-background max-md:h-10 max-md:w-full" data-page-search-container>
-          <Search className="ml-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
-          <PageSearch searchId="crm-contacts" scope="crm-contacts" scopeLabel="Contacts" priority={20} aria-label="Search contacts" placeholder="Search name, company, email, phone" value={search} onChange={(e) => setFilter('search', e.target.value)}
-            className="h-full border-0 bg-transparent px-2 text-[13px] shadow-none focus-visible:ring-0" />
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div className="crm-list-search crm-pipeline-search" data-page-search-container>
+          <Search className="ml-2.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <PageSearch searchId="crm-contacts" scope="crm-contacts" scopeLabel="Contacts" priority={20} aria-label="Search contacts" placeholder="Search contacts" value={search} onChange={(e) => setFilter('search', e.target.value)}
+            className="h-full min-w-0 border-0 bg-transparent px-2 text-[13px] shadow-none focus-visible:ring-0" />
         </div>
-        <Button type="button" variant="outline" size="sm" className="md:hidden" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)}>Filters{filterCount ? ` (${filterCount})` : ''}</Button>
-        <div className={`flex-wrap items-center gap-2 md:flex ${filtersOpen ? 'flex' : 'hidden'}`}>
-        <FilterSelect label="Stage" allLabel="All open" value={stage} onChange={(v) => setFilter('stage', v)} options={(meta?.stages ?? []).map((s) => ({ value: s.key, label: s.label }))} />
-        {meta?.can.view_all && <FilterSelect label="Rep" allLabel="All reps" value={rep} onChange={(v) => setFilter('rep_id', v)} options={[{ value: 'unassigned', label: 'Unassigned' }, ...meta.reps.map((r) => ({ value: String(r.id), label: r.name }))]} />}
-        <FilterSelect label="Segment" allLabel="All" value={segment} onChange={(v) => setFilter('segment', v)} options={(meta?.segments ?? []).map((s) => ({ value: s.key, label: s.label }))} />
-        <FilterSelect label="Market" allLabel="All markets" value={market} onChange={(v) => setFilter('market_state', v)} options={(meta?.markets ?? []).map((m) => ({ value: m, label: m }))} />
-        <label className="flex h-8 items-center gap-2 rounded-lg border px-2.5 text-[13px]"><input type="checkbox" checked={review} onChange={(e) => setFilter('filter', e.target.checked ? 'needs_review' : '')} />Needs clean-up</label>
-        {filterCount > 0 && <Button type="button" variant="ghost" size="sm" onClick={() => setParams(search ? { search } : {}, { replace: true })}>Clear filters</Button>}
+        <Button type="button" variant="outline" size="sm" className="md:hidden" aria-expanded={filtersOpen} aria-controls="crm-contact-filters" onClick={() => setFiltersOpen(!filtersOpen)}>
+          <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden="true" />Filters{filterCount ? ` (${filterCount})` : ''}
+        </Button>
+        <div id="crm-contact-filters" className={`min-w-0 flex-wrap items-center gap-2 max-md:w-full md:flex ${filtersOpen ? 'flex' : 'hidden'}`}>
+          <FilterSelect label="Stage" allLabel="All open" value={stage} onChange={(v) => setFilter('stage', v)} options={(meta?.stages ?? []).map((s) => ({ value: s.key, label: s.label }))} />
+          {meta?.can.view_all && <FilterSelect label="Rep" allLabel="All reps" value={rep} onChange={(v) => setFilter('rep_id', v)} options={[{ value: 'unassigned', label: 'Unassigned' }, ...meta.reps.map((r) => ({ value: String(r.id), label: r.name }))]} />}
+          <FilterSelect label="Segment" allLabel="All" value={segment} onChange={(v) => setFilter('segment', v)} options={(meta?.segments ?? []).map((s) => ({ value: s.key, label: s.label }))} />
+          <FilterSelect label="Market" allLabel="All markets" value={market} onChange={(v) => setFilter('market_state', v)} options={(meta?.markets ?? []).map((m) => ({ value: m, label: m }))} />
+          <label className="flex h-9 items-center gap-2 whitespace-nowrap rounded-lg border bg-card px-2.5 text-[13px]"><Checkbox checked={review} onCheckedChange={(checked) => setFilter('filter', checked === true ? 'needs_review' : '')} />Needs clean-up</label>
+          {filterCount > 0 && <Button type="button" variant="ghost" size="sm" onClick={() => setParams(search ? { search } : {}, { replace: true })}>Clear filters</Button>}
         </div>
       </div>
 
@@ -101,22 +104,22 @@ export default function ContactsPage() {
         </Empty>
       )}
       {rows.length > 0 && (
-        <div className="overflow-x-auto rounded-[10px] border">
+        <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="crm-table">
             <thead>
               <tr>
-                {canBulk && <th className="w-8"><input type="checkbox" aria-label="Select all on this page" checked={allSelected} onChange={(e) => setSelected(e.target.checked ? rows.map((r) => r.id) : [])} /></th>}
+                {canBulk && <th className="w-8"><Checkbox aria-label="Select all on this page" checked={allSelected ? true : rows.some((r) => selected.includes(r.id)) ? 'indeterminate' : false} onCheckedChange={(checked) => setSelected(checked === true ? rows.map((r) => r.id) : [])} /></th>}
                 <th>Name</th><th className="max-md:hidden">Company</th><th>Stage</th><th className="max-lg:hidden">Segment</th><th className="max-lg:hidden">Market</th>
                 {meta?.can.view_all && <th className="max-md:hidden">Rep</th>}<th className="max-md:hidden">Last contact</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((c) => (
-                <tr key={c.id} data-href onClick={() => navigate(`/crm/contacts/${c.id}`)}>
-                  {canBulk && <td onClick={(e) => e.stopPropagation()}><input type="checkbox" aria-label={`Select ${c.name}`} checked={selected.includes(c.id)} onChange={(e) => setSelected(e.target.checked ? [...selected, c.id] : selected.filter((x) => x !== c.id))} /></td>}
+                <tr key={c.id} data-href data-selected={selected.includes(c.id)} onClick={() => navigate(`/crm/contacts/${c.id}`)}>
+                  {canBulk && <td onClick={(e) => e.stopPropagation()}><Checkbox aria-label={`Select ${c.name}`} checked={selected.includes(c.id)} onCheckedChange={(checked) => setSelected((items) => checked === true ? [...items, c.id] : items.filter((x) => x !== c.id))} /></td>}
                   <td>
-                    <div className="flex items-center gap-2">
-                      <Link to={`/crm/contacts/${c.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{c.name}</Link>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <Link to={`/crm/contacts/${c.id}`} onClick={(e) => e.stopPropagation()} className="break-words font-medium hover:underline">{c.name}</Link>
                       {c.needs_review && <Chip tone="amber" title={c.review_reasons.join(', ')}>Clean-up</Chip>}
                       {c.email_opted_out && <Chip tone="line">Unsubscribed</Chip>}
                     </div>

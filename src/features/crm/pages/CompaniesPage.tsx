@@ -19,26 +19,26 @@ export default function CompaniesPage() {
 
   return (
     <CrmPage title="Companies" count={q.data?.data.length ?? null} description={meta?.can.view_all ? 'Every company your contacts work at.' : 'Companies where you have contacts. Other reps’ contacts there stay private.'}>
-      <div className="relative flex h-8 w-64 items-center rounded-lg border bg-background max-md:h-10 max-md:w-full" data-page-search-container>
-        <Search className="ml-2.5 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
+      <div className="crm-list-search w-64 max-md:w-full" data-page-search-container>
+        <Search className="ml-2.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
         <PageSearch searchId="crm-companies" scope="crm-companies" scopeLabel="Companies" priority={20} aria-label="Search companies" placeholder="Search companies" value={search} onChange={(e) => setSearch(e.target.value)} className="h-full border-0 bg-transparent px-2 text-[13px] shadow-none focus-visible:ring-0" />
       </div>
       {q.isLoading && <Loading />}
       {q.error && <ErrorNote error={q.error} onRetry={() => q.refetch()} />}
       {q.data?.data.length === 0 && <Empty icon={<Building2 className="h-5 w-5" />} title={search ? 'No companies match.' : 'No companies yet.'}>Companies appear when contacts have a company filled in.</Empty>}
       {q.data && q.data.data.length > 0 && (
-        <div className="overflow-x-auto rounded-[10px] border">
+        <div className="overflow-x-auto rounded-xl border bg-card">
           <table className="crm-table">
-            <thead><tr><th>Company</th><th>Segment</th><th className="r">Contacts</th><th className="r">In pipeline</th><th className="r">Clients</th><th>Last activity</th></tr></thead>
+            <thead><tr><th>Company</th><th className="max-sm:hidden">Segment</th><th className="r">Contacts</th><th className="r max-sm:hidden">In pipeline</th><th className="r">Clients</th><th className="max-md:hidden">Last activity</th></tr></thead>
             <tbody>
               {q.data.data.map((c) => (
                 <tr key={c.id} data-href onClick={() => navigate(`/crm/companies/${c.id}`)}>
                   <td><Link to={`/crm/companies/${c.id}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:underline">{c.name}</Link>{(c.city || c.state) && <span className="block text-xs text-muted-foreground">{[c.city, c.state].filter(Boolean).join(', ')}</span>}</td>
-                  <td>{c.segment ? <Chip tone="line">{c.segment === 'commercial' ? 'Commercial' : 'Residential'}</Chip> : '—'}</td>
+                  <td className="max-sm:hidden">{c.segment ? <Chip tone="line">{c.segment === 'commercial' ? 'Commercial' : 'Residential'}</Chip> : '—'}</td>
                   <td className="r tabular-nums">{c.contacts}</td>
-                  <td className="r tabular-nums">{c.pipeline}</td>
+                  <td className="r max-sm:hidden tabular-nums">{c.pipeline}</td>
                   <td className="r tabular-nums">{c.clients}</td>
-                  <td className="text-muted-foreground">{c.last_touch ? ago(c.last_touch.replace(' ', 'T')) : '—'}</td>
+                  <td className="text-muted-foreground max-md:hidden">{c.last_touch ? ago(c.last_touch.replace(' ', 'T')) : '—'}</td>
                 </tr>
               ))}
             </tbody>
