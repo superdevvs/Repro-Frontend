@@ -11,6 +11,10 @@ export function canManageStudioBilling(role?: string | null): boolean {
   return ['salesrep', 'superadmin'].includes(studioBillingRole(role));
 }
 
+export function canViewStudioPricing(role?: string | null): boolean {
+  return canManageStudioBilling(role) || studioBillingRole(role) === 'admin';
+}
+
 export function isStudioManagedAccount(account: StudioAccount | undefined): account is StudioManagedAccount {
   const value = account as Partial<StudioManagedAccount> | undefined;
   return typeof value?.client?.id === 'string' && typeof value.client.name === 'string'

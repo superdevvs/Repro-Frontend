@@ -1,7 +1,7 @@
 import { usePageLoading } from '@/hooks/use-page-loading';
 
 import React, { useState } from 'react';
-import { Navigate, useSearchParams } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { Tabs, TabsContent } from '@/components/ui/tabs';
@@ -23,9 +23,9 @@ import { ToursSection } from '@/components/integrations/sections/ToursSection';
 import { CouponsList } from '@/components/coupons/CouponsList';
 import { CreateCouponDialog } from '@/components/coupons/CreateCouponDialog';
 import { MessageSquare, Plus, Camera } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { API_BASE_URL } from '@/config/env';
+import { canOpenSchedulingSettings } from '@/config/schedulingSettings';
 import WatermarkEditor from '@/components/settings/WatermarkEditor';
 import { RobbieSettings } from '@/components/settings/RobbieSettings';
 import { hasMonitorRole } from '@/features/server-monitor/client';
@@ -50,6 +50,7 @@ import { ProfileActivityCard } from '@/components/profile/ProfileActivityCard';
 import { ProfileSecurityCard } from '@/components/profile/ProfileSecurityCard';
 
 const BASE_TABS = ['profile', 'account', 'branding', 'notifications', 'desktop-editing'] as const;
+const SchedulingCatalog = React.lazy(() => import('./SchedulingSettings').then(module => ({ default: module.SchedulingCatalog })));
 
 // Roles that participate in the dashboard onboarding tour. `role` is treated as
 // a RoleKey only when it is one of these values.
@@ -61,6 +62,7 @@ const Settings = () => {
   const { user, role, isImpersonating } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { pathname, hash } = useLocation();
   const { saveProfile } = useSelfProfileSave();  const permission = usePermission();
   const integrationsPermission = permission.forResource('integrations');
   const canViewIntegrations = integrationsPermission.canView();
@@ -70,8 +72,9 @@ const Settings = () => {
   const canViewWatermark = permission.can('watermark-settings', 'view');
   const canViewRobbieSettings = permission.can('robbie-settings', 'view');
   const canViewServiceAreas = permission.forResource('accounts').canView();
+  const canViewScheduling = canOpenSchedulingSettings(role) && permission.can('scheduling-settings', 'view');
   const [createCouponOpen, setCreateCouponOpen] = React.useState(false);
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
   // Use clientId from URL if present (for admin editing), otherwise use logged-in user's id
   const clientIdFromUrl = searchParams.get('clientId');
   const clientIdForStorage = clientIdFromUrl || (user?.id ? String(user.id) : 'default');
@@ -143,6 +146,9 @@ const Settings = () => {
     const hideBranding = ['photographer', 'editor', 'editing_manager'].includes(role || '');
     const tabs: TabValue[] = [...BASE_TABS].filter(tab => !(tab === 'branding' && hideBranding)
       && (tab !== 'desktop-editing' || ['admin', 'superadmin', 'editing_manager'].includes(role ?? '')));
+    if (canViewScheduling) {
+      tabs.push('scheduling');
+    }
     if (canViewCoupons) {
       tabs.push('coupons');
     }
@@ -162,7 +168,7 @@ const Settings = () => {
     }
     if (showSystemOverviewTab) tabs.push('overview');
     return tabs;
-  }, [canViewCoupons, canViewIntegrations, canViewRobbieSettings, canViewServiceAreas, canViewWatermark, role, showSystemOverviewTab]);
+  }, [canViewCoupons, canViewIntegrations, canViewRobbieSettings, canViewScheduling, canViewServiceAreas, canViewWatermark, role, showSystemOverviewTab]);
 
   const getValidTab = React.useCallback(
     (tabParam: string | null): TabValue => {
@@ -217,16 +223,17 @@ const Settings = () => {
   }, [user?.avatar, user?.bio, user?.company, user?.email, user?.name, user?.phone, user?.timezone]);
 
   const [activeTab, setActiveTab] = React.useState<TabValue>(() => getValidTab(searchParams.get('tab')));
-  usePageLoading(activeTab === 'branding' && brandingLoading);
+  usePageLoading(permission.isLoading || (activeTab === 'branding' && brandingLoading));
 
   React.useEffect(() => {
+    if (permission.isLoading) return;
     const nextTab = getValidTab(searchParams.get('tab'));
     setActiveTab((current) => (current === nextTab ? current : nextTab));
-  }, [searchParams, getValidTab]);
+  }, [searchParams, getValidTab, permission.isLoading]);
 
   React.useEffect(() => {
     const requestedTab = searchParams.get('tab');
-    if (!requestedTab || availableTabs.includes(requestedTab as TabValue)) {
+    if (permission.isLoading || !requestedTab || availableTabs.includes(requestedTab as TabValue)) {
       return;
     }
 
@@ -234,8 +241,8 @@ const Settings = () => {
     const resolved = resolveSettingsTab(requestedTab, availableTabs);
     if (resolved === 'profile') nextParams.delete('tab');
     else nextParams.set('tab', resolved);
-    setSearchParams(nextParams, { replace: true });
-  }, [availableTabs, searchParams, setSearchParams]);
+    navigate({ pathname, search: nextParams.toString(), hash }, { replace: true });
+  }, [availableTabs, hash, navigate, pathname, permission.isLoading, searchParams]);
 
   const handleTabChange = (value: string) => {
     if (value !== 'account') monitorAccess.recordInteraction(value);
@@ -249,7 +256,7 @@ const Settings = () => {
       nextParams.set('tab', nextTab);
     }
 
-    setSearchParams(nextParams, { replace: true });
+    navigate({ pathname, search: nextParams.toString(), hash }, { replace: true });
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -707,6 +714,14 @@ const Settings = () => {
             <TabsContent value="notifications" className="space-y-4">
               <NotificationPreferencesCard />
             </TabsContent>
+
+            {canViewScheduling && (
+              <TabsContent value="scheduling">
+                <React.Suspense fallback={<p role="status" className="py-6 text-sm text-muted-foreground">Loading scheduling catalog…</p>}>
+                  <SchedulingCatalog embedded />
+                </React.Suspense>
+              </TabsContent>
+            )}
 
             {canViewCoupons && (
               <TabsContent value="coupons" className="space-y-4">

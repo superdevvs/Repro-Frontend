@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isStudioManagedAccount } from '@/lib/studioBillingAccess';
+import { listingStudioManageHref } from '@/config/listingStudio';
 import { useStudioAccount } from '@/hooks/useStudioAccount';
 import { useStudioOrderBalanceRefresh } from '@/hooks/useStudioOrderBalanceRefresh';
 import { forgetStudioAction, studioActionKey } from '@/lib/listingStudioPurchase';
@@ -20,7 +21,9 @@ import { studioDate, studioLabels, studioMoney, studioStatusLabels } from '../cl
 import { StudioPaymentRequestCard } from './StudioPaymentRequestCard';
 import { StudioSubscriptionManagement } from './StudioSubscriptionManagement';
 
-export function StudioManagedWorkspace({ actorId, clientId }: { actorId: string; clientId: string }) {
+export function StudioManagedWorkspace({ actorId, clientId, withinAiEditing = false }: { actorId: string; clientId: string; withinAiEditing?: boolean }) {
+  const studioHref = listingStudioManageHref({ embedded: withinAiEditing });
+  const clientsHref = listingStudioManageHref({ embedded: withinAiEditing, search: 'tab=clients' });
   const queryClient = useQueryClient(); const [params, setParams] = useSearchParams(); const tab = ['billing', 'new', 'orders'].includes(params.get('tab') ?? '') ? params.get('tab')! : 'billing';
   const scope = studioManagedScope(actorId, clientId); const actionScope = studioManagedActionScope(actorId, clientId);
   const accountQuery = useStudioAccount(clientId); const account = isStudioManagedAccount(accountQuery.data) ? accountQuery.data : undefined;
@@ -79,7 +82,7 @@ export function StudioManagedWorkspace({ actorId, clientId }: { actorId: string;
     void requestPayment({ kind: current && selectedPlan.monthlyPriceCents > current.monthlyPriceCents ? 'subscription_upgrade' : 'subscription_purchase', planCode: selectedPlan.code }, replaceCompletedPlan);
   };
   if (accountQuery.isPending || catalog.isPending) return <p role="status" className="p-6">Loading this client’s Studio…</p>;
-  if (!account || !catalog.data || account.client.id !== clientId) return <div role="alert" className="space-y-3 p-6"><h1 className="text-xl font-semibold">Client workspace unavailable</h1><p className="text-sm text-muted-foreground">The client may be inactive, or you may no longer have access.</p><Button variant="outline" onClick={refresh}>Try again</Button><Button asChild variant="ghost"><Link to="/listing-studio/manage?tab=clients">Choose a client</Link></Button></div>;
+  if (!account || !catalog.data || account.client.id !== clientId) return <div role="alert" className="space-y-3 p-6"><h1 className="text-xl font-semibold">Client workspace unavailable</h1><p className="text-sm text-muted-foreground">The client may be inactive, or you may no longer have access.</p><Button variant="outline" onClick={refresh}>Try again</Button><Button asChild variant="ghost"><Link to={clientsHref}>Choose a client</Link></Button></div>;
   const currentPlan = account.capabilities.canSubscribe ? undefined : catalog.data.plans.find(plan => plan.code === account.subscription?.planCode);
   const chosenUpgrade = Boolean(selectedPlan && currentPlan && selectedPlan.monthlyPriceCents > currentPlan.monthlyPriceCents);
   const planFooterNote = (plan: StudioPlan) => {
@@ -91,8 +94,8 @@ export function StudioManagedWorkspace({ actorId, clientId }: { actorId: string;
   };
   return <div className="w-full min-w-0 space-y-5 p-1 sm:p-3 lg:p-5">
     <header className="space-y-4">
-      <Link to="/listing-studio/manage" className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground"><ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" />Listing Studio<span className="text-muted-foreground/40">/</span>Client account</Link>
-      <div className="flex flex-wrap items-center justify-between gap-4"><div className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-lg font-semibold text-primary">{account.client.name.slice(0, 1).toUpperCase()}</span><div className="min-w-0"><h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{account.client.name}</h1><p className="mt-1 break-all text-xs text-muted-foreground">{account.client.email}</p></div></div><div className="flex flex-wrap gap-2"><Button asChild size="sm" variant="outline"><Link to="/listing-studio/manage?tab=clients">Change client</Link></Button><Button size="sm" variant="ghost" aria-label="Refresh client account" onClick={refresh}><RefreshCw aria-hidden="true" className="h-4 w-4" /></Button><Button size="sm" disabled={!account.management.canPurchase || !account.capabilities.canCreateOrder} onClick={() => changeTab('new')}><ImagePlus aria-hidden="true" className="mr-2 h-4 w-4" />New photo edit</Button></div></div>
+      <Link to={studioHref} className="inline-flex items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground"><ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" />Listing Studio<span className="text-muted-foreground/40">/</span>Client account</Link>
+      <div className="flex flex-wrap items-center justify-between gap-4"><div className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-lg font-semibold text-primary">{account.client.name.slice(0, 1).toUpperCase()}</span><div className="min-w-0"><h1 className="text-xl font-semibold tracking-tight sm:text-2xl">{account.client.name}</h1><p className="mt-1 break-all text-xs text-muted-foreground">{account.client.email}</p></div></div><div className="flex flex-wrap gap-2"><Button asChild size="sm" variant="outline"><Link to={clientsHref}>Change client</Link></Button><Button size="sm" variant="ghost" aria-label="Refresh client account" onClick={refresh}><RefreshCw aria-hidden="true" className="h-4 w-4" /></Button><Button size="sm" disabled={!account.management.canPurchase || !account.capabilities.canCreateOrder} onClick={() => changeTab('new')}><ImagePlus aria-hidden="true" className="mr-2 h-4 w-4" />New photo edit</Button></div></div>
     </header>
     {account.notice && <p role="status" className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm leading-6">{account.notice}</p>}
     <section aria-label="Client editing credit" className="grid grid-cols-2 overflow-hidden rounded-2xl border bg-card lg:grid-cols-4">

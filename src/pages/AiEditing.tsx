@@ -1,11 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { usePageLoading } from '@/hooks/use-page-loading';
-import { useSearchParams } from 'react-router-dom';
+import { usePermission } from '@/hooks/usePermission';
+import { Link, useSearchParams } from 'react-router-dom';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 import { InlineSpinner as Loader2 } from '@/components/ui/inline-spinner';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { LISTING_STUDIO_EDITOR_SECTION } from '@/config/listingStudio';
+import { canOpenListingStudioInAiEditing, canUseListingStudioRevisions } from '@/utils/listingStudio';
+import { studioRevisionsDashboardHref } from '@/utils/studioRevisionNavigation';
 import { readShootStudioEntry } from '@/components/studio/shootStudioDeepLink';
 import { studioError, studioWorkspaceService, workspaceSources } from '@/services/studioWorkspaceService';
 import type { StudioShootRef } from '@/services/studioService';
@@ -20,15 +25,101 @@ import { presetAvailability, studioProviderService, type StudioCapabilities } fr
 import { approveEditingReview } from '@/services/shootMediaService';
 import { getApiHeaders } from '@/services/api';
 
-/** Shares the dashboard shell and persists edits before running provider jobs. */
+const ListingStudioStaffWorkspace = lazy(() =>
+  import('./ListingStudioManage').then(module => ({ default: module.ListingStudioStaffWorkspace })),
+);
+
+type EditingMode = V4Preset['kind'];
+const sectionClass = 'rounded-full px-3 py-2 text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground sm:px-6 sm:text-sm';
+
 export default function AiEditing() {
+  const { user, role, isAuthenticated, isImpersonating } = useAuth();
+  const permission = usePermission();
+  const [params, setParams] = useSearchParams();
+  const ownActiveAccount = Boolean(user && isAuthenticated && !isImpersonating && user.isActive !== false);
+  const canOpenPricing = isAuthenticated && canOpenListingStudioInAiEditing(user?.role, true, isImpersonating, user?.isActive);
+  const canOpenRevisions = ownActiveAccount && permission.can('dashboard', 'view') && canUseListingStudioRevisions(role, user?.secondary_roles);
+  const showListingStudio = canOpenPricing || canOpenRevisions;
+  const selected = params.get('section');
+  const shootEntry = readShootStudioEntry(params);
+  const mode: EditingMode = shootEntry ? shootEntry.media === 'videos' ? 'video' : 'image' : selected === 'video' ? 'video' : 'image';
+  const inListingStudio = showListingStudio && selected === LISTING_STUDIO_EDITOR_SECTION && !params.get('workspace');
+  const section = inListingStudio ? LISTING_STUDIO_EDITOR_SECTION : mode;
+  const inWorkspace = Boolean(params.get('workspace'));
+  const [mediaVisited, setMediaVisited] = useState(!inListingStudio);
+  useEffect(() => {
+    if (!inListingStudio) setMediaVisited(true);
+  }, [inListingStudio]);
+  const changeSection = (next: string) => {
+    if (next === section) return;
+    setParams(current => {
+      const search = new URLSearchParams(current);
+      search.set('section', next);
+      // A section switch is separate from the shoot or client deep link that opened the page.
+      ['rec', 'media', 'preset', 'wf', 'clientId', 'tab'].forEach(key => search.delete(key));
+      if (next === LISTING_STUDIO_EDITOR_SECTION) search.delete('d');
+      return search;
+    });
+  };
+
+  return (
+    <DashboardLayout hideFooter>
+      <Tabs value={section} onValueChange={changeSection} className={inWorkspace ? 'flex h-full min-h-0 flex-col' : 'min-w-0'}>
+        {!inWorkspace && (
+          <div className="flex justify-center pt-4 sm:pt-7">
+            <TabsList aria-label="AI Editing sections" className="h-auto max-w-full rounded-full bg-muted/40 p-1">
+              <TabsTrigger value="image" className={sectionClass}>Image</TabsTrigger>
+              <TabsTrigger value="video" className={sectionClass}>Video</TabsTrigger>
+              {showListingStudio && <TabsTrigger value={LISTING_STUDIO_EDITOR_SECTION} className={sectionClass}>Listing Studio</TabsTrigger>}
+            </TabsList>
+          </div>
+        )}
+        <TabsContent
+          value={section}
+          className={inWorkspace ? 'm-0 flex min-h-0 flex-1 flex-col' : 'm-0'}
+          {...(inWorkspace ? { role: 'region', 'aria-label': 'Editing workspace', 'aria-labelledby': undefined, tabIndex: -1 } : {})}
+        >
+          {(!inListingStudio || mediaVisited) && (
+            <div hidden={inListingStudio} className={inWorkspace ? 'flex min-h-0 flex-1 flex-col' : undefined}>
+              <MediaEditingWorkflow key={user?.id} mode={mode} active={!inListingStudio} />
+            </div>
+          )}
+          {inListingStudio && (
+            <div className="mx-auto w-full max-w-[1260px] space-y-4 px-2 pb-8 pt-4 sm:px-5 sm:pt-6">
+              {canOpenRevisions && (
+                <section className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3" aria-label="Studio revisions">
+                  <div>
+                    <h2 className="text-sm font-semibold">Studio revisions</h2>
+                    <p className="text-sm text-muted-foreground">Review and deliver Listing Studio edits in Dashboard Requests.</p>
+                  </div>
+                  <Button asChild variant="outline" size="sm">
+                    <Link to={studioRevisionsDashboardHref('')}>Open Studio revisions</Link>
+                  </Button>
+                </section>
+              )}
+              {canOpenPricing && (
+                <Suspense fallback={<p role="status" className="p-4 text-sm">Loading Listing Studio…</p>}>
+                  <ListingStudioStaffWorkspace clientId={params.get('clientId') ?? undefined} embedded />
+                </Suspense>
+              )}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+    </DashboardLayout>
+  );
+}
+
+/** Persists the media workspace and draft before running provider jobs. */
+function MediaEditingWorkflow({ mode, active: isActive }: { mode: EditingMode; active: boolean }) {
   const { user } = useAuth();
   const [params, setParams] = useSearchParams();
   const workspaceId = params.get('workspace');
-  const entryKey = `${params.get('rec') || ''}:${params.get('media') || ''}:${params.get('preset') || ''}`;
+  const entryKey = JSON.stringify(['d', 'rec', 'media', 'preset'].map(key => params.get(key)));
+  const resolvedEntry = useRef<string | null>(null);
   const [view, setView] = useState<HomeView>(['projects', 'queue'].includes(params.get('d') || '') ? 'history' : params.get('d') === 'templates' ? 'presets' : 'home');
-  const [mode, setMode] = useState<'studio' | 'image' | 'video'>('studio');
-  const [preset, setPreset] = useState<V4Preset>(findPreset(params.get('preset')));
+  const [selectedPreset, setPreset] = useState<V4Preset>(() => findPreset(params.get('preset')));
+  const preset = workspaceId || selectedPreset.kind === mode ? selectedPreset : findPreset(mode === 'video' ? 'walkthrough' : 'listing-ready');
   const [media, setMedia] = useState<V4Media[]>([]);
   const [label, setLabel] = useState('Select a shoot');
   const [workspace, setWorkspace] = useState<V4Workspace | null>(null);
@@ -41,20 +132,32 @@ export default function AiEditing() {
   const historySequence = useRef(0);
   const [picker, setPicker] = useState(false);
   const [pickerShoot, setPickerShoot] = useState<StudioShootRef | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [entryLoading, setEntryLoading] = useState(false);
+  const [workspaceLoading, setWorkspaceLoading] = useState(false);
+  const loading = workspaceId ? workspaceLoading : entryLoading;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [capabilities, setCapabilities] = useState<StudioCapabilities | null>(null);
   const [capabilitiesError, setCapabilitiesError] = useState(false);
-  usePageLoading(loading || (!capabilities && !capabilitiesError) || (!workspaceId && !historyLoaded));
+  const activeTab = useRef(isActive);
+  activeTab.current = isActive;
+  usePageLoading(isActive && (loading || (!capabilities && !capabilitiesError) || (!workspaceId && !historyLoaded)));
   const refreshCapabilities = useCallback(async () => { try { setCapabilities(await studioProviderService.capabilities()); setCapabilitiesError(false); } catch { setCapabilitiesError(true); } }, []);
-  useEffect(() => { let active = true; setCapabilities(null); void studioProviderService.capabilities().then(next => { if (active) { setCapabilities(next); setCapabilitiesError(false); } }).catch(() => { if (active) setCapabilitiesError(true); }); return () => { active = false; }; }, [user?.id]);
+  useEffect(() => {
+    if (!isActive) return;
+    let active = true;
+    void studioProviderService.capabilities().then(next => {
+      if (active) { setCapabilities(next); setCapabilitiesError(false); }
+    }).catch(() => { if (active) setCapabilitiesError(true); });
+    return () => { active = false; };
+  }, [isActive]);
   const lock = useRef(false);
   const operationEpoch = useRef(0);
   const requestId = useRef(crypto.randomUUID());
   const currentId = useRef(workspaceId); currentId.current = workspaceId;
   const refreshHistory = useCallback(async (query = historyQuery.current) => {
+    if (!activeTab.current) return;
     historyQuery.current = query;
     const sequence = ++historySequence.current;
     setHistorySearching(true);
@@ -62,19 +165,29 @@ export default function AiEditing() {
     catch (e) { if (sequence === historySequence.current) setHistoryError(studioError(e)); }
     finally { if (sequence === historySequence.current) { setHistoryLoaded(true); setHistorySearching(false); } }
   }, []);
-  useEffect(() => { historyQuery.current = ''; setHistory([]); setHistoryLoaded(false); void refreshHistory(); return () => { historySequence.current += 1; }; }, [refreshHistory, user?.id]);
   useEffect(() => {
-    if (workspaceId) return;
-    const entry = readShootStudioEntry(new URLSearchParams(window.location.search));
-    if (!entry) return;
-    let active = true; setLoading(true); setError(null); setMedia([]);
+    if (!isActive) return;
+    void refreshHistory();
+    return () => { historySequence.current += 1; };
+  }, [refreshHistory, isActive]);
+  useEffect(() => {
+    if (!isActive || currentId.current) return;
+    const entry = readShootStudioEntry(params);
+    if (!entry || resolvedEntry.current === entryKey) {
+      if (!entry) resolvedEntry.current = null;
+      setEntryLoading(false);
+      return;
+    }
+    resolvedEntry.current = null;
+    let active = true; setEntryLoading(true); setError(null); setMedia([]);
     const chosen = findPreset(entry.presetId || (entry.media === 'videos' ? 'walkthrough' : 'listing-ready'));
-    setMode(entry.media === 'videos' ? 'video' : 'image'); setPreset(chosen);
+    setPreset(chosen);
     void (async () => {
       try {
         const result = await workspaceSources.resolveShoot(entry.shootId);
         if (!result.ok) throw new Error(result.errorMessage || 'This shoot is not available to your account.');
         if (active) {
+          resolvedEntry.current = entryKey;
           const record = result.record;
           const address = String(record?.address || record?.label || record?.name || 'Selected shoot');
           setLabel(address);
@@ -82,12 +195,12 @@ export default function AiEditing() {
           setPicker(true);
         }
       } catch (e) { if (active) setError(studioError(e)); }
-      finally { if (active) setLoading(false); }
+      finally { if (active) setEntryLoading(false); }
     })();
     return () => { active = false; };
     // A new URL entry replaces selection; picker edits do not restart authorization.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entryKey]);
+  }, [entryKey, isActive]);
   const refreshWorkspace = useMemo(() => createWorkspaceRefresh({
     fetchWorkspace: id => studioWorkspaceService.get(id),
     currentScope: () => ({ id: currentId.current, epoch: operationEpoch.current }),
@@ -95,21 +208,35 @@ export default function AiEditing() {
     onError: reason => setError(reason ? studioError(reason) : null),
   }), []);
   useEffect(() => {
-    if (!workspaceId) { setWorkspace(null); return; }
-    let active = true; setLoading(true); setError(null); setWorkspace(null);
-    void studioWorkspaceService.get(workspaceId).then(next => { if (active) { setWorkspace(next); setPreset(findPreset(next.presetId)); setMedia(next.media); setLabel(next.name); } }).catch(e => { if (active) setError(studioError(e)); }).finally(() => { if (active) setLoading(false); });
+    if (!isActive) return;
+    if (!workspaceId) { setWorkspace(null); setWorkspaceLoading(false); return; }
+    let active = true; setWorkspaceLoading(true); setError(null); setWorkspace(null);
+    void studioWorkspaceService.get(workspaceId).then(next => { if (active) { setWorkspace(next); setPreset(findPreset(next.presetId)); setMedia(next.media); setLabel(next.name); } }).catch(e => { if (active) setError(studioError(e)); }).finally(() => { if (active) setWorkspaceLoading(false); });
     return () => { active = false; };
-  }, [workspaceId]);
+  }, [workspaceId, isActive]);
   useEffect(() => {
-    if (!activeWorkspaceId || !workspaceStatus || !['preparing', 'generating'].includes(workspaceStatus)) return;
+    if (!isActive || !activeWorkspaceId || !workspaceStatus || !['preparing', 'generating'].includes(workspaceStatus)) return;
     const timer = window.setInterval(() => { if (!lock.current) void refreshWorkspace(activeWorkspaceId); }, 4000);
     return () => window.clearInterval(timer);
-  }, [activeWorkspaceId, workspaceStatus, refreshWorkspace]);
+  }, [activeWorkspaceId, workspaceStatus, refreshWorkspace, isActive]);
   useEffect(() => {
-    if (workspaceStatus && ['completed', 'failed', 'cancelled', 'ready'].includes(workspaceStatus)) void refreshHistory();
-  }, [workspaceStatus, refreshHistory]);
-  const openWorkspace = (id: string) => setParams(prev => { const next = new URLSearchParams(prev); next.set('workspace', id); return next; });
-  const back = () => { setParams(prev => { const next = new URLSearchParams(prev); next.delete('workspace'); return next; }); setError(null); void refreshHistory(); };
+    if (isActive && workspaceStatus && ['completed', 'failed', 'cancelled', 'ready'].includes(workspaceStatus)) void refreshHistory();
+  }, [workspaceStatus, refreshHistory, isActive]);
+  const openWorkspace = (id: string) => {
+    if (activeTab.current) setParams(prev => { const next = new URLSearchParams(prev); next.set('workspace', id); return next; });
+  };
+  const back = () => {
+    setParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete('workspace');
+      if (workspace && !next.has('section') && !readShootStudioEntry(next)) {
+        next.set('section', findPreset(workspace.presetId).kind);
+      }
+      return next;
+    });
+    setError(null);
+    void refreshHistory();
+  };
   const mutate = async (operation: () => Promise<V4Workspace>) => {
     if (lock.current) throw new Error('Your previous change is still saving. Please wait a moment.');
     const targetId = currentId.current;
@@ -161,7 +288,7 @@ export default function AiEditing() {
     onCancel: () => mutate(() => studioWorkspaceService.run(workspace.id, 'cancel')),
     onRefresh: () => void refreshWorkspace(workspace.id), onDetect: mediaId => studioWorkspaceService.detect(workspace.id, mediaId),
   } : null;
-  return <DashboardLayout hideFooter>
+  return <>
     <div className={workspaceId ? 'flex h-full min-h-0 flex-col' : 'min-w-0'}>
       {capabilitiesError && <div role="status" className="mx-auto mb-3 flex w-full max-w-[1132px] items-center gap-3 rounded-lg border p-3 text-sm"><span className="flex-1">Additional editing options could not be checked.</span><Button variant="ghost" size="sm" onClick={() => void refreshCapabilities()}>Retry</Button></div>}
       {workspace?.shootId && findPreset(workspace.presetId).kind === 'video' && <nav aria-label="Shoot editing projects" className="flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2 text-xs">
@@ -171,12 +298,12 @@ export default function AiEditing() {
       </nav>}
       {loading ? <div className="flex min-h-64 flex-1 items-center justify-center gap-3 text-muted-foreground" role="status"><Loader2 size={22} className="" />Opening your workspace…</div> : props ? props.preset.kind === 'video' ? <VideoWorkspace {...props} /> : <PhotoWorkspace {...props} /> : <>
         {(error || historyError) && <div role="alert" className="mx-auto mb-3 flex max-w-[1132px] items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-sm"><AlertCircle size={17} className="shrink-0 text-destructive" /><span className="flex-1">{error || historyError}</span><Button variant="ghost" size="sm" onClick={() => workspaceId ? void refreshWorkspace(workspaceId) : void refreshHistory()}><RefreshCw size={14} className="mr-1" />Retry</Button>{workspaceId && <Button variant="outline" size="sm" onClick={back}>Back</Button>}</div>}
-        {!workspaceId && <StudioHome onSearch={refreshHistory} historyLoading={historySearching} historyError={!!historyError} capabilities={capabilities} name={user?.name?.split(' ')[0] || 'there'} view={view} onView={setView} mode={mode} onMode={m => { setMode(m); if (m !== 'studio' && preset.kind !== m) setPreset(findPreset(m === 'video' ? 'walkthrough' : 'listing-ready')); }} media={media} label={label} preset={preset} onPreset={setPreset} onMedia={() => setPicker(true)} onStart={(prompt, p) => void start(prompt, p)} busy={busy} workspaces={history} onResume={openWorkspace} onRefresh={() => void refreshHistory()} />}
+        {!workspaceId && <StudioHome active={isActive} onSearch={isActive ? refreshHistory : undefined} historyLoading={historySearching} historyError={!!historyError} capabilities={capabilities} name={user?.name?.split(' ')[0] || 'there'} view={view} onView={setView} mode={mode} media={media} label={label} preset={preset} onPreset={setPreset} onMedia={() => setPicker(true)} onStart={(prompt, p) => void start(prompt, p)} busy={busy} workspaces={history} onResume={openWorkspace} onRefresh={() => void refreshHistory()} />}
       </>}
     </div>
-    <MediaPicker open={picker} onClose={() => setPicker(false)} selected={media} preset={preset} initialShoot={pickerShoot} onSelect={(items, name) => {
+    <MediaPicker open={isActive && picker} onClose={() => setPicker(false)} selected={media} preset={preset} initialShoot={pickerShoot} onSelect={(items, name) => {
       if (workspace) { void mutate(() => studioWorkspaceService.update(workspace.id, { media: items, name, version: workspace.version, config: initialConfig(findPreset(workspace.presetId), items, workspace.config.prompt) })).catch(() => undefined); }
       else { setMedia(items); setLabel(name); requestId.current = crypto.randomUUID(); }
     }} />
-  </DashboardLayout>;
+  </>;
 }

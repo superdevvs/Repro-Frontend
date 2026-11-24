@@ -1,4 +1,5 @@
 import type { SearchResult, SearchScope } from './searchTypes';
+import { LEGACY_SCHEDULING_SETTINGS_PATH } from '@/config/schedulingSettings';
 
 const destinations = [
   ['crm-contacts', 'CRM contacts', '/crm/contacts'],
@@ -6,7 +7,7 @@ const destinations = [
   ['invoices', 'Accounting', '/accounting'], ['listings', 'Exclusive Listings', '/portal'],
   ['email', 'Email Inbox', '/messaging/email/inbox'], ['sms', 'SMS Inbox', '/messaging/sms'],
   ['support', 'Support Requests', '/messaging/email/inbox?tab=support'],
-  ['calls', 'Calls Inbox', '/calls/inbox'], ['services', 'Services and Scheduling', '/scheduling-settings'],
+  ['calls', 'Calls Inbox', '/calls/inbox'], ['services', 'Services and Scheduling', LEGACY_SCHEDULING_SETTINGS_PATH],
   ['studio', 'Editing Studio', '/ai-editing'], ['templates', 'Email Templates', '/messaging/email/templates'],
   ['automations', 'Automations', '/messaging/email/automations'],
   ['availability', 'Availability', '/availability'], ['permissions', 'Permissions', '/permissions'],

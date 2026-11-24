@@ -30,7 +30,8 @@ import {
   Handshake as HandshakeIcon,
 } from 'lucide-react';
 import styles from './SidebarLinks.module.css';
-import { canUseListingStudio, listingStudioIsExternal, listingStudioHref } from '@/utils/listingStudio';
+import { canOpenListingStudioInAiEditing, canUseListingStudio, listingStudioIsExternal, listingStudioHref } from '@/utils/listingStudio';
+import { canOpenSchedulingSettings, LEGACY_SCHEDULING_SETTINGS_PATH } from '@/config/schedulingSettings';
 import { useAuth } from '@/components/auth/AuthProvider';
 import { useMessagingBadgeCounts } from '@/hooks/useMessagingBadgeCounts';
 import { CRM_ENABLED } from '@/features/crm/featureFlag';
@@ -75,7 +76,7 @@ const MotionLink = motion(Link);
 export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const location = useLocation();
   const { pathname } = location;
-  const { user } = useAuth();
+  const { user, isImpersonating } = useAuth();
   const navListRef = React.useRef<HTMLDivElement | null>(null);
   const [activeIndicator, setActiveIndicator] = React.useState<{
     top: number;
@@ -94,7 +95,9 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const accountsPermission = permission.forResource('accounts');
   const availabilityPermission = permission.forResource('availability');
   const canBookShoot = permission.can('book-shoot', 'create');
-  const canViewScheduling = permission.can('scheduling-settings', 'view');
+  const showStandaloneScheduling = canOpenSchedulingSettings(role)
+    && permission.can('scheduling-settings', 'view')
+    && !permission.can('settings', 'view');
   const canViewPortal = permission.can('portal', 'view');
   const canViewAccounting = permission.can('accounting', 'view');
   const canViewCrm = CRM_ENABLED && permission.can('crm-contacts', 'view');
@@ -104,6 +107,8 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
   const canViewCalls = permission.can('voice-calls', 'view');
   const canViewSupport = permission.can('support', 'view');
   const canViewAiEditing = permission.can('ai-editing', 'view');
+  const showStandaloneListingStudio = canUseListingStudio(role, user?.secondary_roles)
+    && !canOpenListingStudioInAiEditing(user?.role ?? role, canViewAiEditing, isImpersonating, user?.isActive);
   const canViewRobbie = permission.can('robbie', 'view');
   const messagingBadges = useMessagingBadgeCounts();
 
@@ -153,7 +158,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
     window.addEventListener('resize', measureActiveIndicator);
 
     return () => window.removeEventListener('resize', measureActiveIndicator);
-  }, [pathname, role, canViewShared, canBookShoot, canViewScheduling, canViewPortal, canViewAccounting, canViewEmailInbox, canViewMessagingOverview, canViewSms, canViewCalls, canViewSupport, canViewAiEditing, canViewRobbie, canViewCrm, measureActiveIndicator]);
+  }, [pathname, role, canViewShared, canBookShoot, showStandaloneScheduling, canViewPortal, showStandaloneListingStudio, canViewAccounting, canViewEmailInbox, canViewMessagingOverview, canViewSms, canViewCalls, canViewSupport, canViewAiEditing, canViewRobbie, canViewCrm, measureActiveIndicator]);
 
   React.useLayoutEffect(() => {
     setActiveIndicator(null);
@@ -298,7 +303,6 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
 
-      {/* AI Editing link - admins only */}
       {canViewAiEditing && (
         <NavLink
           to="/ai-editing"
@@ -358,7 +362,7 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
 
-      {canUseListingStudio(role, user?.secondary_roles) && (
+      {showStandaloneListingStudio && (
         <NavLink
           to={listingStudioHref(location, user?.role ?? role, user?.secondary_roles)}
           external={listingStudioIsExternal(role, user?.secondary_roles)}
@@ -398,13 +402,13 @@ export function SidebarLinks({ isCollapsed, role }: SidebarLinksProps) {
         />
       )}
 
-      {canViewScheduling && !isEditingManager && (
+      {showStandaloneScheduling && (
         <NavLink
-          to="/scheduling-settings"
+          to={LEGACY_SCHEDULING_SETTINGS_PATH}
           icon={<Settings2Icon className="h-5 w-5" />}
           label="Scheduling"
           isCollapsed={isCollapsed}
-          isActive={pathname === '/scheduling-settings'}
+          isActive={pathname === LEGACY_SCHEDULING_SETTINGS_PATH}
           onActivePreview={previewActiveIndicator}
         />
       )}

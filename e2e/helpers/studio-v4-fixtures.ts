@@ -42,7 +42,7 @@ export interface StudioFixtures {
   denyShoot: boolean;
 }
 
-export async function installStudioFixtures(page: Page, baseURL: string | undefined, initial: V4Workspace[] = [], role: 'admin' | 'superadmin' | 'client' = 'admin'): Promise<StudioFixtures> {
+export async function installStudioFixtures(page: Page, baseURL: string | undefined, initial: V4Workspace[] = [], role: 'admin' | 'superadmin' | 'editing_manager' | 'client' = 'admin'): Promise<StudioFixtures> {
   if (!baseURL || !['localhost', '127.0.0.1', '[::1]'].includes(new URL(baseURL).hostname)) {
     throw new Error('Mocked Studio tests require a loopback E2E_BASE_URL; they must never target a deployed app.');
   }

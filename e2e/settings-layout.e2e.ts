@@ -6,7 +6,7 @@ const fixtureUser = (role: string) => ({ id: '900099', name: 'Settings QA', emai
   phone: '+15555550199', company: 'QA Company', timezone: 'America/New_York', bio: '',
   account_status: 'active', email_verified_at: '2026-01-01T00:00:00Z', metadata: { terms_accepted_at: '2026-01-01T00:00:00Z', preferences: {} } });
 
-async function fixture(page: Page, baseURL: string | undefined, role = 'superadmin', theme = 'light') {
+async function fixture(page: Page, baseURL: string | undefined, role = 'superadmin', theme = 'light', extraResources: string[] = []) {
   if (!baseURL || !['127.0.0.1', 'localhost'].includes(new URL(baseURL).hostname)) throw new Error('Settings fixtures require a loopback preview.');
   let actor = fixtureUser(role);
   const writes: { path: string; body: Record<string, unknown> }[] = [];
@@ -19,7 +19,8 @@ async function fixture(page: Page, baseURL: string | undefined, role = 'superadm
     localStorage.setItem('theme', theme);
   }, { user: actor, theme });
   const resources = role === 'editing_manager' ? ['settings', 'dashboard']
-    : ['settings', 'dashboard', 'accounts', 'coupons', 'integrations', 'watermark-settings', 'robbie-settings'];
+    : ['settings', 'dashboard', 'accounts', 'coupons', 'integrations', 'watermark-settings', 'robbie-settings', 'scheduling-settings'];
+  resources.push(...extraResources);
   await page.route('**/api/**', async route => {
     const req = route.request(); const pathname = new URL(req.url()).pathname;
     let body: unknown = { data: [] };
@@ -69,6 +70,9 @@ for (const width of [390, 1280]) {
     await expect(page.getByRole('button', { name: 'Save Changes', exact: true })).toBeInViewport();
     await capture(page, `personal-${width}`);
     await categories.getByRole('tab', { name: 'Business', exact: true }).click();
+    const businessOptions = page.getByRole('tablist', { name: 'Business options', exact: true });
+    await expect(businessOptions.getByRole('tab', { name: 'Scheduling', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await expect(page.getByRole('heading', { name: 'Scheduling Catalog', exact: true })).toBeVisible();
     await page.getByRole('tab', { name: 'Service Areas', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Service Area Assignment', exact: true })).toBeVisible();
     await categories.getByRole('tab', { name: 'My Account', exact: true }).click();
@@ -78,7 +82,7 @@ for (const width of [390, 1280]) {
     for (const [tab, marker] of [
       ['account', 'Account & security'], ['notifications', 'Notification Preferences'], ['branding', 'Branding'],
       ['watermark', 'Logo Watermark'], ['desktop-editing', 'Desktop editing'], ['ai-editing', 'AI Editing'],
-      ['coupons', 'Discounts'], ['service-areas', 'Service Area Assignment'], ['integrations', 'Link shortening'], ['robbie', 'Robbie AI Configuration'],
+      ['scheduling', 'Scheduling Catalog'], ['coupons', 'Discounts'], ['service-areas', 'Service Area Assignment'], ['integrations', 'Link shortening'], ['robbie', 'Robbie AI Configuration'],
     ]) {
       await page.goto(`/settings?tab=${tab}`);
       await expect(page.getByRole('heading', { name: marker, exact: true }).last()).toBeVisible();
@@ -174,6 +178,23 @@ for (const width of [390, 1280]) {
     await expect(page.locator('html')).toHaveClass(/dark/);
     await noOverflow(page);
     await capture(page, `editing-manager-dark-${width}`);
+  });
+
+  test(`an editing manager with catalog access can use the Scheduling bookmark at ${width}px`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await fixture(page, baseURL, 'editing_manager', 'dark', ['scheduling-settings']);
+    await page.goto('/settings?tab=business&catalog=service-groups&search=Exterior#catalog');
+    await expect(page).toHaveURL(/\/settings\?tab=scheduling&catalog=service-groups&search=Exterior#catalog$/);
+    await expect(page.getByRole('heading', { name: 'Scheduling Catalog', exact: true })).toBeVisible();
+    const views = page.getByRole('tablist', { name: 'Scheduling catalog views' });
+    await expect(views.getByRole('tab', { name: 'Service Groups', exact: true })).toHaveAttribute('aria-selected', 'true');
+    await views.getByRole('tab', { name: 'Services', exact: true }).click();
+    await expect(page).toHaveURL(/\/settings\?tab=scheduling&search=Exterior#catalog$/);
+    await expect(page.getByRole('textbox', { name: 'Search services', exact: true })).toHaveValue('Exterior');
+    await page.getByRole('button', { name: 'Service actions', exact: true }).click();
+    await expect(page.getByRole('menuitem', { name: 'Add Category', exact: true })).toBeVisible();
+    await expect(page.getByRole('menuitem', { name: 'Buffer time', exact: true })).toHaveCount(0);
+    await noOverflow(page);
   });
 }
 

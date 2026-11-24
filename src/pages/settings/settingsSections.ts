@@ -12,8 +12,8 @@ export const SETTINGS_GROUPS = [
     { value: 'desktop-editing', label: 'Desktop editing' }, { value: 'standing-notes', label: 'Standing notes' },
     { value: 'ai-editing', label: 'AI providers' },
   ] },
-  { id: 'business', label: 'Business', description: 'Discount codes and photographer service coverage.', tabs: [
-    { value: 'coupons', label: 'Discounts' }, { value: 'service-areas', label: 'Service Areas' },
+  { id: 'business', label: 'Business', description: 'Scheduling, discounts and photographer service coverage.', tabs: [
+    { value: 'scheduling', label: 'Scheduling' }, { value: 'coupons', label: 'Discounts' }, { value: 'service-areas', label: 'Service Areas' },
   ] },
   { id: 'integrations', label: 'Integrations', description: 'Connect providers, tours and messaging services.', tabs: [
     { value: 'integrations', label: 'Integrations' },

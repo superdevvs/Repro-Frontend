@@ -1,5 +1,5 @@
 import { LISTING_STUDIO_CLIENT_PATH, LISTING_STUDIO_WEBSITE_URL } from '@/config/listingStudio';
-import { canManageStudioBilling, studioBillingRole } from '@/lib/studioBillingAccess';
+import { canManageStudioBilling, canViewStudioPricing, studioBillingRole } from '@/lib/studioBillingAccess';
 
 export const LISTING_STUDIO_QUERY = 'listingStudio';
 
@@ -13,6 +13,15 @@ export const listingStudioRole = (role?: string, secondaryRoles?: string[]): str
 
 export const canUseListingStudio = (role?: string, secondaryRoles?: string[]): boolean =>
   canManageStudioBilling(role) || Boolean(listingStudioRole(role, secondaryRoles));
+
+export function canOpenListingStudioInAiEditing(
+  role: string | null | undefined,
+  canViewAiEditing: boolean,
+  isImpersonating: boolean,
+  isActive?: boolean,
+): boolean {
+  return canViewAiEditing && !isImpersonating && isActive !== false && canViewStudioPricing(role);
+}
 
 export const canUseListingStudioDashboard = (role?: string, secondaryRoles?: string[]): boolean =>
   ['salesrep', 'admin', 'superadmin'].includes(listingStudioRole(role, secondaryRoles) ?? '');

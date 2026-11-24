@@ -9,7 +9,7 @@ import { listingStudioService } from '@/services/listingStudioService';
 import { StudioClientPicker } from './StudioClientPicker';
 import { StudioPlanCards, StudioServicePricing } from './StudioPlanCatalog';
 
-export function StudioPricingOverview({ actorId, role }: { actorId: string; role: string }) {
+export function StudioPricingOverview({ actorId, role, withinAiEditing = false }: { actorId: string; role: string; withinAiEditing?: boolean }) {
   const [params, setParams] = useSearchParams();
   const canManage = canManageStudioBilling(role);
   const tab = canManage && params.get('tab') === 'clients' ? 'clients' : 'pricing';
@@ -23,7 +23,7 @@ export function StudioPricingOverview({ actorId, role }: { actorId: string; role
       <div className="space-y-1.5"><p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-primary">Client plans & pricing</p><h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">Listing Studio</h1><p className="max-w-2xl text-sm leading-6 text-muted-foreground">A clear plan for every listing. Explore monthly editing credit and individual photo services.</p></div>
       <div className="flex flex-wrap gap-2"><Button asChild size="sm" variant="outline"><Link to={legacyHref('requests')}><FileText aria-hidden="true" className="mr-2 h-4 w-4" />Requests</Link></Button>{internalStaff && <Button asChild size="sm" variant="outline"><Link to={legacyHref('subscriptions')}>Subscriptions<ArrowUpRight aria-hidden="true" className="ml-2 h-3.5 w-3.5" /></Link></Button>}{canManage && <Button size="sm" onClick={() => changeTab('clients')}><Users aria-hidden="true" className="mr-2 h-4 w-4" />Choose a client</Button>}</div>
     </header>
-    {internalStaff && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/30 px-4 py-3"><p className="flex items-center gap-2 text-xs text-muted-foreground"><ShieldCheck aria-hidden="true" className="h-4 w-4 shrink-0 text-primary" />Staff editing doesn’t use client credits.</p><Button asChild variant="ghost" size="sm"><Link to="/ai-editing"><ImagePlus aria-hidden="true" className="mr-2 h-4 w-4" />Open editor<ArrowUpRight aria-hidden="true" className="ml-2 h-3.5 w-3.5" /></Link></Button></div>}
+    {internalStaff && <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/70 bg-muted/30 px-4 py-3"><p className="flex items-center gap-2 text-xs text-muted-foreground"><ShieldCheck aria-hidden="true" className="h-4 w-4 shrink-0 text-primary" />Staff editing doesn’t use client credits.</p>{!withinAiEditing && <Button asChild variant="ghost" size="sm"><Link to="/ai-editing"><ImagePlus aria-hidden="true" className="mr-2 h-4 w-4" />Open editor<ArrowUpRight aria-hidden="true" className="ml-2 h-3.5 w-3.5" /></Link></Button>}</div>}
     <Tabs value={tab} onValueChange={changeTab}>
       {canManage && <TabsList className="mb-5 h-11 rounded-xl bg-muted/60 p-1"><TabsTrigger value="pricing" className="rounded-lg px-5">Plans & pricing</TabsTrigger><TabsTrigger value="clients" className="rounded-lg px-5">Client accounts</TabsTrigger></TabsList>}
       <TabsContent value="pricing" className="mt-0 space-y-7">
@@ -32,7 +32,7 @@ export function StudioPricingOverview({ actorId, role }: { actorId: string; role
           <StudioServicePricing catalog={pricing} />
         </>}
       </TabsContent>
-      {canManage && <TabsContent value="clients" className="mt-0"><StudioClientPicker actorId={actorId} embedded /></TabsContent>}
+      {canManage && <TabsContent value="clients" className="mt-0"><StudioClientPicker actorId={actorId} embedded withinAiEditing={withinAiEditing} /></TabsContent>}
     </Tabs>
   </div>;
 }

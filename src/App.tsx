@@ -53,6 +53,7 @@ import {
   triggerShootListRefresh,
 } from '@/realtime/realtimeRefreshBus';
 import { renderDevOnlyPublicRoutes } from './app/devOnlyPublicRoutes';
+import { canOpenSchedulingSettings, LEGACY_SCHEDULING_SETTINGS_PATH, schedulingSettingsTarget } from '@/config/schedulingSettings';
 
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const SearchPage = lazy(() => import('./pages/Search'));
@@ -199,6 +200,15 @@ const DashboardShell = () => {
     </DashboardStartupBoundary>
   );
 };
+
+function LegacySchedulingSettingsRoute() {
+  const { role } = useAuth();
+  const { can } = usePermission();
+  const { search, hash } = useLocation();
+  if (!canOpenSchedulingSettings(role)) return <Navigate to="/dashboard" replace />;
+  if (can('settings', 'view')) return <Navigate to={schedulingSettingsTarget(search, hash)} replace />;
+  return <SchedulingSettings />;
+}
 
 const RobbieRouteTracker = () => {
   const location = useLocation();
@@ -652,9 +662,9 @@ const AppRoutes = () => {
           <AiEditing />
         </PermissionRoute>
       } />
-      <Route path="/scheduling-settings" element={
+      <Route path={LEGACY_SCHEDULING_SETTINGS_PATH} element={
         <PermissionRoute resource="scheduling-settings">
-          <SchedulingSettings />
+          <LegacySchedulingSettingsRoute />
         </PermissionRoute>
       } />
       <Route path="/tour-branding" element={

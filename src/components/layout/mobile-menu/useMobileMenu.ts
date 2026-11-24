@@ -8,7 +8,8 @@ import { usePermission } from '@/hooks/usePermission';
 import { canUseEmailWorkspace } from '@/utils/messagingRoles';
 import { MESSAGING_SUPPORT_URL } from '@/pages/messaging/messagingSupport';
 import { useLinkedSharedVisibility } from '@/hooks/useLinkedSharedVisibility';
-import { canUseListingStudio, listingStudioIsExternal, listingStudioHref } from '@/utils/listingStudio';
+import { canOpenListingStudioInAiEditing, canUseListingStudio, listingStudioIsExternal, listingStudioHref } from '@/utils/listingStudio';
+import { canOpenSchedulingSettings, LEGACY_SCHEDULING_SETTINGS_PATH } from '@/config/schedulingSettings';
 
 export interface MobileMenuItem {
   to: string;
@@ -24,9 +25,16 @@ export const useMobileMenu = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
   const { pathname } = location;
-  const { role, user, logout } = useAuth();
+  const { role, user, isImpersonating, logout } = useAuth();
   const permission = usePermission();
   const canViewEmail = canUseEmailWorkspace(role) && permission.can('messaging-email', 'view');
+  const canViewAiEditing = permission.can('ai-editing', 'view');
+  const canViewSettings = permission.can('settings', 'view');
+  const showStandaloneScheduling = canOpenSchedulingSettings(role)
+    && permission.can('scheduling-settings', 'view')
+    && !canViewSettings;
+  const showStandaloneListingStudio = canUseListingStudio(role, user?.secondary_roles)
+    && !canOpenListingStudioInAiEditing(user?.role ?? role, canViewAiEditing, isImpersonating, user?.isActive);
   const linkedSharedVisibility = useLinkedSharedVisibility();
   const canViewShared = linkedSharedVisibility.data.hasLinkedAccounts;
 
@@ -101,11 +109,11 @@ export const useMobileMenu = () => {
       visible: permission.can('accounts', 'view'),
     },
     {
-      to: "/scheduling-settings",
+      to: LEGACY_SCHEDULING_SETTINGS_PATH,
       icon: "Calendar",
       label: "Scheduling",
-      isActive: pathname === '/scheduling-settings',
-      visible: permission.can('scheduling-settings', 'view'),
+      isActive: pathname === LEGACY_SCHEDULING_SETTINGS_PATH,
+      visible: showStandaloneScheduling,
     },
     {
       to: "/portal",
@@ -120,7 +128,7 @@ export const useMobileMenu = () => {
       icon: "Sparkles",
       label: "Listing Studio",
       isActive: pathname === '/listing-studio' || pathname === '/listing-studio/manage' || pathname.startsWith('/listing-studio/manage/'),
-      visible: canUseListingStudio(role, user?.secondary_roles),
+      visible: showStandaloneListingStudio,
     },
     {
       to: "/accounting",
@@ -158,7 +166,7 @@ export const useMobileMenu = () => {
       icon: "Settings",
       label: "Settings",
       isActive: pathname === '/settings' || (role === 'photographer' && pathname === '/photographer-account'),
-      visible: permission.can('settings', 'view'),
+      visible: canViewSettings,
     },
     {
       to: "/cubicasa-scanning",
@@ -172,7 +180,7 @@ export const useMobileMenu = () => {
       icon: "Sparkles",
       label: "AI Editing",
       isActive: pathname === '/ai-editing' || pathname.startsWith('/ai-editing'),
-      visible: permission.can('ai-editing', 'view'),
+      visible: canViewAiEditing,
     },
     {
       to: OLD_DASHBOARD_URL,

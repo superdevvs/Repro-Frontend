@@ -26,7 +26,9 @@ describe('grouped settings navigation', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Notifications' }));
     expect(screen.getByText('notifications panel')).toBeVisible();
     await userEvent.click(screen.getByRole('tab', { name: 'Business' }));
-    expect(screen.getByText('coupons panel')).toBeVisible();
+    expect(screen.getByText('scheduling panel')).toBeVisible();
+    expect(within(screen.getByRole('tablist', { name: 'Business options' })).getAllByRole('tab').map(tab => tab.getAttribute('aria-label')))
+      .toEqual(['Scheduling', 'Discounts', 'Service Areas']);
     await userEvent.click(screen.getByRole('tab', { name: 'My Account' }));
     expect(screen.getByRole('tab', { name: 'Notifications' })).toHaveAttribute('aria-selected', 'true');
   });
@@ -51,7 +53,10 @@ describe('grouped settings navigation', () => {
     for (const tab of allTabs) expect(resolveSettingsTab(tab, allTabs)).toBe(tab);
     expect(resolveSettingsTab('editing', ['profile', 'ai-editing'])).toBe('ai-editing');
     expect(resolveSettingsTab('ai-editing', ['profile', 'desktop-editing'])).toBe('profile');
+    expect(resolveSettingsTab('business', ['profile', 'scheduling', 'coupons'])).toBe('scheduling');
+    expect(resolveSettingsTab('business', ['profile', 'coupons', 'service-areas'])).toBe('coupons');
     expect(resolveSettingsTab('business', ['profile', 'service-areas'])).toBe('service-areas');
+    expect(resolveSettingsTab('scheduling', ['profile', 'service-areas'])).toBe('profile');
     expect(resolveSettingsTab('invalid', allTabs)).toBe('profile');
     expect(visibleSettingsGroups(['profile', 'notifications']).map(group => group.id)).toEqual(['my-account']);
   });

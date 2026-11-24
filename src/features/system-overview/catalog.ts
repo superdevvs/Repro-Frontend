@@ -1,3 +1,5 @@
+import { SCHEDULING_SETTINGS_PATH } from '@/config/schedulingSettings';
+
 export interface SystemPageCatalog {
   id: string;
   label: string;
@@ -306,7 +308,7 @@ export const systemOverviewCatalog: SystemDomainCatalog[] = [
       {
         id: 'settings-scheduling',
         label: 'Scheduling Settings',
-        route: '/scheduling-settings',
+        route: SCHEDULING_SETTINGS_PATH,
         pageKey: 'scheduling-settings',
         components: ['SchedulingSettings'],
         apis: ['/api/admin/settings/{key}', '/api/admin/services', '/api/admin/service-groups'],
