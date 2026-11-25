@@ -30,12 +30,12 @@ describe('Landor media tabs', () => {
     expect(container.querySelector('a[href*="zillow.com"]')).toBeNull();
   });
 
-  it.each(['branded', 'mls', 'generic-mls'] as const)('keeps the %s gallery in saved order instead of moving the cover first', variant => {
+  it.each(['branded', 'mls', 'generic-mls'] as const)('opens the %s gallery on the selected hero and preserves the remaining order', variant => {
     const photos = ['https://media.test/first.jpg', 'https://media.test/second.jpg', 'https://media.test/cover.jpg'];
     const data = normalizePublicTourData({ ...payload, photos, hero_photos: [photos[2]] }, variant);
-    expect(getLandorMedia(data).photos).toEqual(photos);
+    expect(getLandorMedia(data).photos).toEqual([photos[2], photos[0], photos[1]]);
     render(<LandorMedia data={data} />);
-    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', photos[0]);
+    expect(screen.getAllByRole('img')[0]).toHaveAttribute('src', photos[2]);
   });
 
   it('renders the published film once while preserving separate historical videos', () => {

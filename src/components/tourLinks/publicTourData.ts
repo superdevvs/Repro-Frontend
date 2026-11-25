@@ -80,8 +80,6 @@ export interface PublicTourData {
   stats: { beds: number | null; baths: number | null; sqft: number | null; garageCars: number | null };
   photos: string[];
   photoRenditions: PublicTourPhotoRenditions;
-  heroPhotos: string[];
-  heroSlides: string[];
   videos: string[];
   videoLink: string;
   videoPosterUrl: string;
@@ -138,6 +136,16 @@ const urls = (value: unknown): string[] => Array.from(new Set(array(value).map((
   const media = record(item);
   return normalizePublicTourUrl(typeof item === 'string' ? item : text(media.url, media.web_url, media.path));
 }).filter(Boolean)));
+
+/** Pin the selected cover once, preserving the saved order of all remaining public photos. */
+export function publicGalleryPhotos(payload: unknown): string[] {
+  const root = record(payload);
+  if (flag(root.locked)) return [];
+  const covers = urls(root.hero_photos);
+  const photos = urls(root.photos);
+  // Older tours can include extra cover-only images. Keep those after the saved gallery.
+  return Array.from(new Set([...covers.slice(0, 1), ...photos, ...covers.slice(1)]));
+}
 
 export function normalizePublicPhotoRenditions(payload: unknown, photos: string[]): PublicTourPhotoRenditions {
   const allowed = new Set(photos.map(normalizePublicTourUrl));
@@ -212,8 +220,7 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
   const showGarage = flag(root.show_garage ?? links.show_garage);
   const garageTotal = garages.reduce((total, garage) => total + (number(garage.carCount) ?? 0), 0);
   const garageCars = showGarage ? number(details.garage_cars, garages.length ? garageTotal || garages.length : null) : null;
-  const photos = locked ? [] : urls(root.photos);
-  const heroPhotos = locked ? [] : urls(root.hero_photos);
+  const photos = publicGalleryPhotos(root);
   const videoFallback = branded ? links.video_branded
     : variant === 'generic-mls' ? links.video_generic : links.video_mls;
   const featuredEmbedId = text(links.featured_embed_id, links.featured_embed);
@@ -268,9 +275,8 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
       property_status: text(details.property_status, details.propertyStatus, details.status),
       description: text(details.description),
     },
-    stats: { beds, baths, sqft, garageCars }, photos, heroPhotos,
-    photoRenditions: normalizePublicPhotoRenditions(root, [...photos, ...heroPhotos]),
-    heroSlides: Array.from(new Set([...heroPhotos, ...photos])),
+    stats: { beds, baths, sqft, garageCars }, photos,
+    photoRenditions: normalizePublicPhotoRenditions(root, photos),
     videos, videoLink,
     videoPosterUrl: locked || videoRestricted ? '' : normalizePublicTourUrl(text(root.video_poster_url, root.video_thumbnail_url)),
     floorplans, matterportUrl, zillowUrl, zillowFloorplanUrl: zillow.floorplanUrl, iguide,
@@ -282,7 +288,7 @@ export function normalizePublicTourData(payload: unknown, variant: PublicTourVar
     },
     tourStyle: text(root.tour_style, links.tour_style) || 'default', tourPalette: text(root.tour_palette, links.tour_palette) || 'repro', showGarage, locked,
     lockedMessage: locked ? text(root.message) || 'Payment required to unlock this tour.' : '',
-    empty: !locked && !shoot && !photos.length && !heroPhotos.length && !videos.length && !videoLink
+    empty: !locked && !shoot && !photos.length && !videos.length && !videoLink
       && !floorplans.length && !virtualTourEmbeds.length && !iguide.inlineUrl && !matterportUrl && !zillowUrl,
     analytics: { shootId, tourType: variant === 'generic-mls' ? 'generic_mls' : variant },
   };

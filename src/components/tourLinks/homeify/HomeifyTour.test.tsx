@@ -39,7 +39,7 @@ describe('Homeify property tour', () => {
     expect(screen.getByText(propertyPayload.property_details.description)).toBeInTheDocument();
     expect(screen.getByText('0.3 acres')).toBeInTheDocument();
     expect(screen.getByText('BOS123')).toBeInTheDocument();
-    expect(screen.getByAltText('123 Oak Street — photo 1')).toHaveAttribute('src', 'https://media.test/living.jpg');
+    expect(screen.getByAltText('123 Oak Street — photo 1')).toHaveAttribute('src', 'https://media.test/exterior.jpg');
     expect(screen.getByAltText('Floor plan 1')).toHaveAttribute('src', 'https://media.test/plan.jpg');
     const facts = container.querySelector('.homeify-stats');
     expect(facts).toHaveTextContent('4Bedrooms');
@@ -49,14 +49,14 @@ describe('Homeify property tour', () => {
     expect(facts).toHaveTextContent('2Garage spaces');
   });
 
-  it.each(['branded', 'mls', 'generic-mls'] as const)('preserves saved photo order when the cover is a later photo on %s', variant => {
+  it.each(['branded', 'mls', 'generic-mls'] as const)('opens on the selected hero and follows the saved order on %s', variant => {
     const photos = ['https://media.test/first.jpg', 'https://media.test/second.jpg', 'https://media.test/cover.jpg'];
     render(<HomeifyTour data={normalizePublicTourData({ ...propertyPayload, photos, hero_photos: [photos[2]] }, variant)} />);
-    expect(screen.getByAltText(/photo 1$/)).toHaveAttribute('src', photos[0]);
+    expect(screen.getByAltText(/photo 1$/)).toHaveAttribute('src', photos[2]);
     fireEvent.click(screen.getByRole('button', { name: 'Next property photo' }));
-    expect(screen.getByAltText(/photo 2$/)).toHaveAttribute('src', photos[1]);
+    expect(screen.getByAltText(/photo 2$/)).toHaveAttribute('src', photos[0]);
     fireEvent.click(screen.getByRole('button', { name: 'Next property photo' }));
-    expect(screen.getByAltText(/photo 3$/)).toHaveAttribute('src', photos[2]);
+    expect(screen.getByAltText(/photo 3$/)).toHaveAttribute('src', photos[1]);
   });
 
   it.each(['mls', 'generic-mls'] as const)('keeps agent identity and logos out of the %s presentation', (variant) => {

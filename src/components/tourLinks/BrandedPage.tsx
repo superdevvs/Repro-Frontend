@@ -21,7 +21,7 @@ import { TourAboutSection } from './TourAboutSection';
 import { Public3dTourViewer } from './Public3dTourViewer';
 import { resolvePublicZillowSources } from './publicZillowTour';
 import { resolvePublicEmbedSources, resolvePublicIguideSources } from './publicIguideModel';
-import { normalizePublicTourData, normalizePublicPhotoRenditions } from './publicTourData';
+import { normalizePublicTourData, normalizePublicPhotoRenditions, publicGalleryPhotos } from './publicTourData';
 import { publicTourImageSource } from './shared/publicTourImage';
 import { TourContactNumbers } from './TourContactNumbers';
 import { isLandorTourStyle, resolvePublicTourStyle } from './publicTourStyle';
@@ -84,7 +84,6 @@ interface PropertyDetails {
 
 export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {}) {
   const [photos, setPhotos] = useState<string[]>([]);
-  const [heroPhotos, setHeroPhotos] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
   const [videoLink, setVideoLink] = useState<string | null>(null);
   const [shoot, setShoot] = useState<ShootData | null>(null);
@@ -160,8 +159,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
 
         if (!res.ok) throw new Error('Unable to load this property tour.');
         setRawPayload(data);
-        setPhotos(Array.isArray(data?.photos) ? data.photos : []);
-        setHeroPhotos(Array.isArray(data?.hero_photos) ? data.hero_photos : []);
+        setPhotos(publicGalleryPhotos(data));
         setVideos(data?.historical_import && Array.isArray(data?.videos) ? data.videos : []);
         if (data?.video_link || data?.tour_links?.video_link) setVideoLink(data.video_link || data.tour_links?.video_link);
         if (data?.shoot) setShoot(data.shoot);
@@ -210,31 +208,18 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
     fetchData();
   }, [legacyPath]);
 
-  // Hero slideshow always starts with hero image(s), then continues through all remaining photos in sorted order.
-  const heroSlides = useMemo(() => {
-    const seen = new Set<string>();
-    const ordered: string[] = [];
-    [...heroPhotos, ...photos].forEach((url) => {
-      if (url && !seen.has(url)) {
-        seen.add(url);
-        ordered.push(url);
-      }
-    });
-    return ordered;
-  }, [heroPhotos, photos]);
-
   // Ken Burns slideshow — cycle through all photos every 6s
   useEffect(() => {
-    if (heroSlides.length <= 1) return;
+    if (photos.length <= 1) return;
     const timer = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % heroSlides.length);
+      setHeroIndex((prev) => (prev + 1) % photos.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [heroSlides.length]);
+  }, [photos.length]);
 
   useEffect(() => {
     setHeroIndex(0);
-  }, [heroSlides.length]);
+  }, [photos.length]);
 
   // Derived values
   const getBeds = () => {
@@ -364,7 +349,7 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
   }
 
   const fullAddress = [shoot?.address, shoot?.city, shoot?.state, shoot?.zip].filter(Boolean).join(', ');
-  const tourOnly = heroSlides.length === 0 && Boolean(iguideUrl || matterportUrl || zillow3dUrl);
+  const tourOnly = photos.length === 0 && Boolean(iguideUrl || matterportUrl || zillow3dUrl);
 
   return (
     <div className="branded-tour-page fixed inset-0 overflow-auto bg-background text-foreground font-sans">
@@ -390,11 +375,11 @@ export function BrandedPage({ legacyPath = false }: { legacyPath?: boolean } = {
       {/* Hero — Ken Burns slideshow */}
       <div className="p-2.5">
         <div className={tourOnly ? 'rounded-2xl overflow-hidden relative bg-card pt-16 pb-5' : 'rounded-2xl overflow-hidden relative h-[calc(100vh-110px)] md:h-[calc(100vh-120px)] min-h-[500px] md:min-h-[500px]'}>
-          {tourOnly ? <><div className="mx-auto max-w-6xl px-6 mb-5"><p className="text-[10px] uppercase tracking-[.2em] text-primary font-semibold">Property tour</p><h1 className="mt-2 text-2xl md:text-4xl font-bold tracking-tight">{shoot?.address || 'Explore the property'}</h1><p className="mt-2 text-sm text-muted-foreground">Open the linked provider tour to check its current availability.</p></div><Public3dTourViewer autoplay={tourSettings.autoplay} matterportUrl={matterportUrl} zillowUrl={zillow3dUrl} iguideInlineUrl={iguideUrl} iguideOpenUrl={iguideOpenUrl} className="mt-0" heading={iguideUrl ? 'iGuide property tour' : '3D property tour'} /></> : heroSlides.length > 0 ? (
+          {tourOnly ? <><div className="mx-auto max-w-6xl px-6 mb-5"><p className="text-[10px] uppercase tracking-[.2em] text-primary font-semibold">Property tour</p><h1 className="mt-2 text-2xl md:text-4xl font-bold tracking-tight">{shoot?.address || 'Explore the property'}</h1><p className="mt-2 text-sm text-muted-foreground">Open the linked provider tour to check its current availability.</p></div><Public3dTourViewer autoplay={tourSettings.autoplay} matterportUrl={matterportUrl} zillowUrl={zillow3dUrl} iguideInlineUrl={iguideUrl} iguideOpenUrl={iguideOpenUrl} className="mt-0" heading={iguideUrl ? 'iGuide property tour' : '3D property tour'} /></> : photos.length > 0 ? (
             <AnimatePresence mode="sync">
               <motion.img
                 key={heroIndex}
-                src={heroSlides[heroIndex % heroSlides.length]}
+                src={photos[heroIndex % photos.length]}
                 alt="Hero"
                 loading="eager" fetchPriority="high" decoding="async"
                 className="absolute inset-0 w-full h-full object-cover"

@@ -20,7 +20,7 @@ import {
   resolvePublicTourVariantFromPath,
 } from './publicIguideModel';
 import { TourContactNumbers } from './TourContactNumbers';
-import { normalizePublicPhotoRenditions, type PublicTourPhotoRenditions } from './publicTourData';
+import { publicGalleryPhotos, normalizePublicPhotoRenditions, type PublicTourPhotoRenditions } from './publicTourData';
 import { publicTourImageSource } from './shared/publicTourImage';
 
 interface ShootData {
@@ -73,7 +73,6 @@ type SectionId = 'header' | 'gallery' | 'details' | 'embeds' | 'video' | 'floorp
 export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
   const [photoRenditions, setPhotoRenditions] = useState<PublicTourPhotoRenditions>({});
   const [photos, setPhotos] = useState<string[]>([]);
-  const [heroPhotos, setHeroPhotos] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
   const [videoLink, setVideoLink] = useState<string | null>(null);
   const [shoot, setShoot] = useState<ShootData | null>(null);
@@ -152,10 +151,9 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
         
         // The parent has already fetched and authorized this exact tour/unit.
         const data = initialData ?? await (await fetch(`${API_BASE_URL}/api/public/shoots/${shootId}/${endpoint}`, { cache: 'no-cache' })).json();
-        setPhotoRenditions(normalizePublicPhotoRenditions(data, Array.isArray(data?.photos) ? data.photos : []));
-        
-        setPhotos(Array.isArray(data?.photos) ? data.photos : []);
-        setHeroPhotos(Array.isArray(data?.hero_photos) ? data.hero_photos : []);
+        const gallery = publicGalleryPhotos(data);
+        setPhotos(gallery);
+        setPhotoRenditions(normalizePublicPhotoRenditions(data, gallery));
         setVideos(Array.isArray(data?.videos) ? data.videos : []);
         if (data?.video_link || data?.tour_links?.video_link) setVideoLink(data.video_link || data.tour_links?.video_link);
         if (data?.shoot) setShoot(data.shoot);
@@ -524,9 +522,9 @@ export function NeoTour({ initialData }: { initialData?: unknown } = {}) {
       {/* Main Header Section */}
       <section ref={headerRef} id="header" className="relative min-h-screen overflow-hidden border-b border-blue-500/20">
         <div className="absolute inset-0">
-          {(heroPhotos.length > 0 ? heroPhotos : photos).length > 0 ? (
+          {photos.length > 0 ? (
             <img
-              src={(heroPhotos.length > 0 ? heroPhotos : photos)[0]}
+              src={photos[0]}
               alt="Hero Property"
               loading="eager" fetchPriority="high" decoding="async"
               className="w-full h-full object-cover"

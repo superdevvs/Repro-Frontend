@@ -1,4 +1,3 @@
-import { publicGalleryPhotos } from '../publicGalleryPhotos';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { ArrowDown, ArrowUpRight, Bath, BedDouble, CalendarDays, CarFront, Check, ChevronRight, House, Images, Layers3, Mail, MapPin, Maximize, Menu, Printer, Share2, X } from 'lucide-react';
 import { TourContactNumbers } from '../TourContactNumbers';
@@ -31,7 +30,7 @@ export function HomeifyTour({ data }: { data: PublicTourData }) {
   const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
   const sections = [
     { id: 'overview', label: 'Overview' },
-    ...(data.heroSlides.length ? [{ id: 'photos', label: 'Photos' }] : []),
+    ...(data.photos.length ? [{ id: 'photos', label: 'Photos' }] : []),
     ...(hasVideo ? [{ id: 'video', label: 'Video' }] : []),
     ...(has3d ? [{ id: 'tour', label: '3D tour' }] : []),
     ...(hasPlans ? [{ id: 'floorplan', label: 'Floor plans' }] : []),
@@ -125,7 +124,7 @@ export function HomeifyTour({ data }: { data: PublicTourData }) {
           </div>
         </div>
 
-        <HomeifyGallery photos={publicGalleryPhotos(data)} photoRenditions={data.photoRenditions} address={address} shootId={analytics.shootId ?? undefined} tourType={analytics.tourType} />
+        <HomeifyGallery photos={data.photos} photoRenditions={data.photoRenditions} address={address} shootId={analytics.shootId ?? undefined} tourType={analytics.tourType} />
 
         <div className="homeify-content-grid">
           <div className="homeify-main-column">
@@ -161,7 +160,7 @@ export function HomeifyTour({ data }: { data: PublicTourData }) {
             <section className="homeify-panel homeify-explore">
               <span className="homeify-kicker">TAKE A CLOSER LOOK</span><h2>Every detail. One place.</h2>
               <div className="homeify-explore-links">
-                {data.heroSlides.length > 0 && <a href="#photos"><Images size={20} /><span>Property photography<small>{data.heroSlides.length} photos to explore</small></span><ArrowUpRight size={17} /></a>}
+                {data.photos.length > 0 && <a href="#photos"><Images size={20} /><span>Property photography<small>{data.photos.length} photos to explore</small></span><ArrowUpRight size={17} /></a>}
                 {has3d && <a href="#tour"><Layers3 size={20} /><span>Walk through the home<small>Explore the interactive tour</small></span><ArrowUpRight size={17} /></a>}
                 {hasPlans && <a href="#floorplan"><Maximize size={20} /><span>Find your flow<small>View the floor plans</small></span><ArrowUpRight size={17} /></a>}
                 <a href="#location"><MapPin size={20} /><span>Discover the location<small>{shoot.city || 'Explore the neighborhood'}</small></span><ArrowUpRight size={17} /></a>

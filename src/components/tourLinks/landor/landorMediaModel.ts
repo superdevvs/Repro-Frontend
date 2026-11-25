@@ -1,4 +1,3 @@
-import { publicGalleryPhotos } from '../publicGalleryPhotos';
 import type { PublicTourData } from '../publicTourData';
 import { normalizePublicTourUrl } from '../publicIguideModel';
 import { normalizePublicZillowTourUrl } from '../publicZillowTour';
@@ -9,7 +8,7 @@ export type LandorMediaTab = 'photos' | 'plans' | 'video' | 'tour';
 
 /** Shared availability rules keep navigation and the rendered panels in agreement. */
 export function getLandorMedia(data: PublicTourData) {
-  const photos = publicGalleryPhotos(data);
+  const photos = data.locked ? [] : data.photos;
   const floorplans = data.locked ? [] : data.floorplans.filter((plan) => [
     plan.image, plan.preview_url, plan.web_url, plan.thumbnail_url,
     ...(Array.isArray(plan.previewImages) ? plan.previewImages : []),

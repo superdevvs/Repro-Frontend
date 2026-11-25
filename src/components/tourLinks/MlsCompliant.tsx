@@ -21,7 +21,7 @@ import { TourStatsGrid } from './TourStatsGrid';
 import { TourAboutSection } from './TourAboutSection';
 import { Public3dTourViewer } from './Public3dTourViewer';
 import { resolvePublicEmbedSources, resolvePublicIguideSources } from './publicIguideModel';
-import { normalizePublicTourData, normalizePublicPhotoRenditions } from './publicTourData';
+import { normalizePublicTourData, normalizePublicPhotoRenditions, publicGalleryPhotos } from './publicTourData';
 import { publicTourImageSource } from './shared/publicTourImage';
 import { isLandorTourStyle, resolvePublicTourStyle } from './publicTourStyle';
 import NotFound from '@/pages/NotFound';
@@ -64,7 +64,6 @@ interface PropertyDetails {
 
 export function MlsCompliant({ legacyPath = false }: { legacyPath?: boolean } = {}) {
   const [photos, setPhotos] = useState<string[]>([]);
-  const [heroPhotos, setHeroPhotos] = useState<string[]>([]);
   const [videos, setVideos] = useState<string[]>([]);
   const [videoLink, setVideoLink] = useState<string | null>(null);
   const [shoot, setShoot] = useState<ShootData | null>(null);
@@ -136,8 +135,7 @@ export function MlsCompliant({ legacyPath = false }: { legacyPath?: boolean } = 
 
         if (!res.ok) throw new Error('Unable to load this property tour.');
         setRawPayload(data);
-        setPhotos(Array.isArray(data?.photos) ? data.photos : []);
-        setHeroPhotos(Array.isArray(data?.hero_photos) ? data.hero_photos : []);
+        setPhotos(publicGalleryPhotos(data));
         setVideos(Array.isArray(data?.videos) ? data.videos : []);
         if (data?.video_link || data?.tour_links?.video_link) setVideoLink(data.video_link || data.tour_links?.video_link);
         if (data?.shoot) setShoot(data.shoot);
@@ -178,31 +176,18 @@ export function MlsCompliant({ legacyPath = false }: { legacyPath?: boolean } = 
     fetchData();
   }, [legacyPath]);
 
-  // Hero slideshow always starts with hero image(s), then continues through all remaining photos in sorted order.
-  const heroSlides = useMemo(() => {
-    const seen = new Set<string>();
-    const ordered: string[] = [];
-    [...heroPhotos, ...photos].forEach((url) => {
-      if (url && !seen.has(url)) {
-        seen.add(url);
-        ordered.push(url);
-      }
-    });
-    return ordered;
-  }, [heroPhotos, photos]);
-
   // Ken Burns slideshow — cycle through all photos every 6s
   useEffect(() => {
-    if (heroSlides.length <= 1) return;
+    if (photos.length <= 1) return;
     const timer = setInterval(() => {
-      setHeroIndex((prev) => (prev + 1) % heroSlides.length);
+      setHeroIndex((prev) => (prev + 1) % photos.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [heroSlides.length]);
+  }, [photos.length]);
 
   useEffect(() => {
     setHeroIndex(0);
-  }, [heroSlides.length]);
+  }, [photos.length]);
 
   const fullAddress = [shoot?.address, shoot?.city, shoot?.state, shoot?.zip].filter(Boolean).join(', ');
 
@@ -332,11 +317,11 @@ export function MlsCompliant({ legacyPath = false }: { legacyPath?: boolean } = 
       {/* Hero — Ken Burns slideshow with padding */}
       <div className="p-2.5">
         <div className="rounded-2xl overflow-hidden relative" style={{ height: 'calc(100vh - 20px)', minHeight: '600px' }}>
-          {heroSlides.length > 0 ? (
+          {photos.length > 0 ? (
             <AnimatePresence mode="sync">
               <motion.img
                 key={heroIndex}
-                src={heroSlides[heroIndex % heroSlides.length]}
+                src={photos[heroIndex % photos.length]}
                 alt="Hero"
                 loading="eager" fetchPriority="high" decoding="async"
                 className="absolute inset-0 w-full h-full object-cover"

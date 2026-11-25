@@ -1,5 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { buildPublicTourEndpoint, normalizePublicTourData } from './publicTourData';
+import { buildPublicTourEndpoint, normalizePublicTourData, publicGalleryPhotos } from './publicTourData';
+
+describe('public tour photo order', () => {
+  const first = 'https://media.test/z.jpg';
+  const second = 'https://media.test/a.jpg';
+  const cover = 'https://media.test/cover.jpg';
+  const archived = 'https://media.test/extra.jpg';
+
+  it('keeps the saved sequence without a hero and honours a hero-only tour', () => {
+    expect(publicGalleryPhotos({ photos: [first, second] })).toEqual([first, second]);
+    expect(publicGalleryPhotos({ hero_photos: [cover] })).toEqual([cover]);
+  });
+
+  it('pins only the selected cover and retains historical cover-only images once', () => {
+    const payload = { photos: [first, second, cover], hero_photos: [cover, second, archived] };
+    expect(publicGalleryPhotos(payload)).toEqual([cover, first, second, archived]);
+    expect(publicGalleryPhotos({ ...payload, locked: true })).toEqual([]);
+  });
+});
 
 describe('public tour endpoint selection', () => {
   it.each([
@@ -71,8 +89,7 @@ describe('normalizePublicTourData', () => {
       hero_photos: ['https://media.test/b.jpg'], videos: ['https://media.test/video.mp4'], floorplans: [floorplan],
       tour_links: { tour_style: 'homeify' },
     }, 'branded');
-    expect(result.heroSlides).toEqual(['https://media.test/b.jpg', 'https://media.test/a.jpg']);
-    expect(result.photos).toEqual(['https://media.test/a.jpg', 'https://media.test/b.jpg']);
+    expect(result.photos).toEqual(['https://media.test/b.jpg', 'https://media.test/a.jpg']);
     expect(result.videos).toEqual(['https://media.test/video.mp4']);
     expect(result.floorplans).toEqual([floorplan]);
     expect(result.tourStyle).toBe('homeify');
