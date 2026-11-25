@@ -48,10 +48,15 @@ export function useShootDetailsScreen({
     shouldHideClientDetailsProp,
   });
 
-  const refreshShoot = useCallback(async (): Promise<ShootData | null> => {
+  const refreshShoot = useCallback(async (options?: { requireFresh: boolean }): Promise<ShootData | null> => {
     if (!shootId) return null;
 
     try {
+      // A failed or cancelled refetch can still expose cached data. Review needs a successful server read.
+      if (options?.requireFresh) {
+        const fresh = await refetchShoot({ throwOnError: true, cancelRefetch: false });
+        return fresh.isSuccess ? fresh.data : null;
+      }
       const result = await refetchShoot();
       if (result.data) {
         setShoot(result.data);
@@ -59,6 +64,7 @@ export function useShootDetailsScreen({
       }
       return shootData ?? null;
     } catch (error) {
+      if (options?.requireFresh) return null;
       console.error('Error refreshing shoot:', error);
       return shootData ?? null;
     }

@@ -1,4 +1,5 @@
 import { canChooseServiceChangeIntent, type ServiceChangeIntent } from '@/utils/activeShootWork';
+import { captureServiceAdditions } from '../../modal/serviceAdditionReview';
 import { getShootServiceItems } from '@/utils/shootServiceItems';
 import { serviceRequiresPhotographer } from '@/utils/photographerAssignment';
 import { useOverviewTravel } from '@/features/travel/useOverviewTravel';
@@ -291,11 +292,13 @@ export function useShootOverviewEditor({
     canInitializeServiceSelection,
   );
 
+  const editBase = useRef(shoot);
   const initializedEdit = useRef<string | null>(null);
   useEffect(() => {
     if (!isEditMode) { initializedEdit.current = null; return; }
     if (initializedEdit.current === String(shoot.id)) return;
     initializedEdit.current = String(shoot.id);
+    editBase.current = shoot;
     servicePlanTouchedRef.current = false;
 
     const legacyShoot = shoot as ShootWithLegacyOverviewFields;
@@ -332,7 +335,7 @@ export function useShootOverviewEditor({
     setLockboxLocation(typeof propertyDetails.lockboxLocation === 'string' ? propertyDetails.lockboxLocation : '');
     setAccessContactName(typeof propertyDetails.accessContactName === 'string' ? propertyDetails.accessContactName : '');
     setAccessContactPhone(typeof propertyDetails.accessContactPhone === 'string' ? propertyDetails.accessContactPhone : '');
-  }, [initializeMetricsFromShoot, isEditMode, photographerAssignments.groups, shoot]);
+  }, [initializeMetricsFromShoot, isEditMode, photographerAssignments.groups, selectedServiceIds, shoot]);
 
   useEffect(() => {
     if (!isEditMode || selectedServiceIds.length > 0 || serviceSelectionTouchedRef.current) return;
@@ -416,19 +419,20 @@ export function useShootOverviewEditor({
         setEditedShoot(current => ({ ...current, scheduledDate: next.date, time: next.time }));
     },
     assignment: !isEditMode && assignPhotographerOpen && selectedPhotographerId ? buildAssignmentPayload('photographer_id', selectedPhotographerId) : null });
-  const { confirmForceSave, confirmSave } = travel;
+  const { confirmForceSave, confirmSave, acceptServerError } = travel;
   const handleSave = useCallback(async (withWarning = false) => {
     if (!onSave) return;
     // The draft only ever holds display fields; the service payload keys below
     // are request-shaped, so the two types deliberately do not overlap.
     const updates = { ...editedShoot } as unknown as ShootOverviewUpdatePayload;
+    const original = editBase.current;
     const incomingPropertyDetails =
       updates.propertyDetails && typeof updates.propertyDetails === 'object'
         ? { ...(updates.propertyDetails as Record<string, unknown>) }
         : null;
     let propertyUpdate: ReturnType<typeof buildOverviewPropertyDetails>;
     try {
-      propertyUpdate = buildOverviewPropertyDetails({ shoot, incoming: incomingPropertyDetails,
+      propertyUpdate = buildOverviewPropertyDetails({ shoot: editBase.current, incoming: incomingPropertyDetails,
         metrics: propertyMetricsEdit, year: propertyYearBuiltEdit, presenceOption,
         lockboxCode, lockboxLocation, accessContactName, accessContactPhone });
     } catch (error) {
@@ -461,6 +465,11 @@ export function useShootOverviewEditor({
         delete updates.photographer;
       }
     }
+    if (canEditServicePlan && !hasComplimentaryServices) {
+      updates.serviceAdditionDraft = captureServiceAdditions(original, selectedServiceIds, serviceQuantityChanges,
+        servicesList, serviceChangeIntent, !propertyUpdate.unchanged || servicePlanTouchedRef.current
+          || hasOverviewBookingEdits(editedShoot, original) || Object.keys(serviceEditors.serviceEditorChanges).length > 0);
+    }
     if (!canEditAppointments) {
       delete updates.scheduledDate;
       delete updates.time;
@@ -492,7 +501,7 @@ export function useShootOverviewEditor({
       return;
     }
 
-    if (hasNewServices && !hasComplimentaryServices) updates.service_change_intent = serviceChangeIntent;
+    if ((hasNewServices || updates.serviceAdditionDraft) && !hasComplimentaryServices) updates.service_change_intent = serviceChangeIntent;
     const complimentaryServiceOptions = canEditAppointments ? buildCompServicePayload() : null;
     if (complimentaryServiceOptions) {
       updates.complimentary_service_options = complimentaryServiceOptions;
@@ -501,7 +510,11 @@ export function useShootOverviewEditor({
     // `onSave` is typed against the display model, while this payload carries the
     // request-shaped service keys the endpoint requires.
     const travelConfirmation = canEditAppointments ? await (withWarning ? confirmForceSave() : confirmSave()) : {};
-    if (travelConfirmation) onSave({ ...updates, ...travelConfirmation } as unknown as Partial<ShootData>, travel.acceptServerError);
+    if (!travelConfirmation) return;
+    if (updates.serviceAdditionDraft && Object.keys(travelConfirmation).some(key => !['notify_client', 'notify_photographer'].includes(key))) {
+      updates.serviceAdditionDraft.additionsOnly = false;
+    }
+    onSave({ ...updates, ...travelConfirmation } as unknown as Partial<ShootData>, travel.acceptServerError);
   }, [
     accessContactName,
     accessContactPhone,
@@ -939,7 +952,7 @@ export function useShootOverviewEditor({
 
     try {
       const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-      const travelConfirmation = await travel.confirmSave();
+      const travelConfirmation = await confirmSave();
       if (!travelConfirmation) return;
       const response = await fetch(`${API_BASE_URL}/api/shoots/${shoot.id}`, {
         method: 'PATCH',
@@ -950,7 +963,7 @@ export function useShootOverviewEditor({
         },
         body: JSON.stringify({ ...buildAssignmentPayload('photographer_id', selectedPhotographerId), ...travelConfirmation }),
       });
-      if (!response.ok) { travel.acceptServerError(await response.json()); throw new Error('Failed to assign photographer'); }
+      if (!response.ok) { acceptServerError(await response.json()); throw new Error('Failed to assign photographer'); }
 
       toast({
         title: 'Success',
@@ -967,7 +980,7 @@ export function useShootOverviewEditor({
       });
     }
   }, [
-    canReassignPhotographer, travel.blocked, travel.confirmSave, travel.acceptServerError, buildAssignmentPayload,
+    canReassignPhotographer, travel.blocked, confirmSave, acceptServerError, buildAssignmentPayload,
     closePhotographerPicker,
     editModePhotographerRows.length,
     isEditMode,

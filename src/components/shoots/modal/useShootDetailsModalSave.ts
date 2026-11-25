@@ -1,4 +1,4 @@
-import { useRef, useState, type Dispatch, type SetStateAction } from 'react';
+import { useLayoutEffect, useRef, useState, type Dispatch, type SetStateAction } from 'react';
 import { transformShootFromApi, type ApiShoot } from '@/context/shootNormalization';
 import { API_BASE_URL } from '@/config/env';
 import { blurActiveElement } from '../dialogFocusUtils';
@@ -9,13 +9,16 @@ import {
   submitShootServiceMutation,
   type ServiceDetachConfirmation,
 } from '@/utils/shootServiceMutation';
+import { useShootEditConflict } from './useShootEditConflict';
+import type { ServiceAdditionDraft } from './serviceAdditionReview';
 import { prepareShootManagementSave } from '@/utils/shootManagementSave';
 
 interface UseShootDetailsModalSaveParams {
   shoot: ShootData | null;
   setShoot: Dispatch<SetStateAction<ShootData | null>>;
   setIsEditMode: Dispatch<SetStateAction<boolean>>;
-  refreshShoot: () => Promise<ShootData | null>;
+  refreshShoot: (options?: { requireFresh: boolean }) => Promise<ShootData | null>;
+  editSessionKey?: string | null;
   updateShoot: (shootId: string, updates: Partial<ShootData>, options?: { skipApi?: boolean }) => Promise<void>;
   onShootUpdate?: () => void;
   toast: ReturnType<typeof useToast>['toast'];
@@ -26,7 +29,8 @@ interface UseShootDetailsModalSaveParams {
   isRep?: boolean;
 }
 
-type ShootSaveUpdates = Omit<Partial<ShootData>, 'photographer' | 'services'> & {
+type ShootSaveUpdates = Omit<Partial<ShootData>, 'photographer' | 'services' | 'service_items'> & {
+  serviceAdditionDraft?: ServiceAdditionDraft;
   photographer?: ShootData['photographer'] | null;
   services?: unknown[];
   service_items?: unknown[];
@@ -75,6 +79,7 @@ export function useShootDetailsModalSave({
   setShoot,
   setIsEditMode,
   refreshShoot,
+  editSessionKey = shoot ? String(shoot.id) : null,
   updateShoot,
   onShootUpdate,
   toast,
@@ -83,6 +88,7 @@ export function useShootDetailsModalSave({
   isAdmin = false,
   isRep = false,
 }: UseShootDetailsModalSaveParams) {
+  const recovery = useShootEditConflict(editSessionKey, () => refreshShoot({ requireFresh: true }));
   const [isSavingChanges, setIsSavingChanges] = useState(false);
   const saveChangesInFlight = useRef(false);
   const travelFailureHandler = useRef<((data: unknown) => void) | undefined>();
@@ -91,6 +97,13 @@ export function useShootDetailsModalSave({
   const [serviceDetachConfirmation, setServiceDetachConfirmation] = useState<ServiceDetachConfirmation | null>(null);
   const [notifyClientOnSave, setNotifyClientOnSave] = useState(true);
   const [notifyPhotographerOnSave, setNotifyPhotographerOnSave] = useState(true);
+  useLayoutEffect(() => {
+    setPendingUpdates(null);
+    setServiceDetachConfirmation(null);
+    setIsSaveConfirmOpen(false);
+    travelFailureHandler.current = undefined;
+  }, [editSessionKey]);
+
   const to24Hour = (timeString?: string | null) => {
     if (!timeString) return undefined;
     const match = timeString.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
@@ -125,7 +138,7 @@ export function useShootDetailsModalSave({
       return;
     }
 
-    if (saveChangesInFlight.current) {
+    if (String(shoot.id) !== editSessionKey || saveChangesInFlight.current) {
       return;
     }
 
@@ -140,6 +153,7 @@ export function useShootDetailsModalSave({
       return;
     }
 
+    const generation = recovery.generation.current;
     saveChangesInFlight.current = true;
     setIsSavingChanges(true);
     
@@ -502,7 +516,17 @@ export function useShootDetailsModalSave({
             signal: controller.signal,
           });
 
+          if (generation !== recovery.generation.current) return;
           if (result.kind === 'confirmation_required') {
+            if (updates.serviceAdditionDraft?.additionsOnly || recovery.conflict) {
+              // A full stale selection can look like a removal before the server checks its version.
+              // The user requested additions. Never offer to detach somebody else's service.
+              preservePendingUpdates = true;
+              const draft = updates.serviceAdditionDraft;
+              recovery.start(draft && recovery.conflict ? { ...draft, additionsOnly: false } : draft,
+                'The saved service list changed. Review it before adding these services.');
+              return;
+            }
             preservePendingUpdates = true;
             setPendingUpdates(updates as Partial<ShootData>);
             setServiceDetachConfirmation(result.confirmation);
@@ -551,6 +575,7 @@ export function useShootDetailsModalSave({
       if (!updatedShootData || Object.keys(updatedShootData).length === 0 || !updatedShootData.id) {
         console.log('💾 Response missing data, refreshing from API...');
         updatedShootData = await refreshShoot();
+        if (generation !== recovery.generation.current) return;
       } else {
         // Normalize location if needed (raw responses may omit location wrapper)
         const updatedShootRecord = asRecord(updatedShootData);
@@ -598,6 +623,7 @@ export function useShootDetailsModalSave({
         console.warn('💾 No updated shoot data to update context');
       }
       
+      recovery.clear();
       toast({
         title: 'Success',
         description: 'Shoot updated successfully',
@@ -621,6 +647,16 @@ export function useShootDetailsModalSave({
         }, 0);
       }
     } catch (error) {
+      if (generation !== recovery.generation.current) return;
+      if (error instanceof ShootServiceMutationError && error.status === 409 && error.data.code === 'shoot_edit_conflict') {
+        preservePendingUpdates = true;
+        setServiceDetachConfirmation(null);
+        recovery.start(updates.serviceAdditionDraft);
+        return;
+      }
+      if (recovery.conflict) {
+        recovery.start(updates.serviceAdditionDraft, 'Review the latest booking again before retrying.');
+      }
       if (error instanceof ShootServiceMutationError) travelFailureHandler.current?.(error.data);
       preservePendingUpdates = true;
       console.error('💾 Save error:', error);
@@ -676,7 +712,7 @@ export function useShootDetailsModalSave({
   };
 
   const handleSaveRequest = (updates: Partial<ShootData>, onTravelFailure?: (data: unknown) => void) => {
-    if (!shoot || isSavingChanges || isSaveConfirmOpen) return;
+    if (!shoot || String(shoot.id) !== editSessionKey || isSavingChanges || isSaveConfirmOpen || recovery.conflict) return;
 
     travelFailureHandler.current = onTravelFailure;
     setPendingUpdates(updates);
@@ -700,7 +736,33 @@ export function useShootDetailsModalSave({
     }, serviceDetachConfirmation?.token);
   };
 
+  const openReviewedBooking = () => {
+    const latest = recovery.conflict?.latest;
+    if (!latest || saveChangesInFlight.current) return;
+    setShoot(latest);
+    void updateShoot(String(latest.id), latest, { skipApi: true }).catch(() => {});
+    setPendingUpdates(null);
+    setIsEditMode(false);
+    recovery.clear();
+  };
+
+  const applyReviewedAdditions = () => {
+    const latest = recovery.conflict?.latest;
+    const draft = recovery.conflict?.draft;
+    if (!latest || !draft || !recovery.comparison?.canApply || !recovery.comparison.missing.length) return;
+    // The delivered-service endpoint merges service_items-only requests into the current plan.
+    // Sending the original services array here could detach another person's addition.
+    void handleSaveChanges({
+      editVersion: latest.editVersion, service_change_intent: draft.intent, serviceAdditionDraft: draft,
+      service_items: recovery.comparison.missing.map(row => ({ service_id: Number(row.id), quantity: row.quantity })),
+    }, { notifyClient: notifyClientOnSave, notifyPhotographer: notifyPhotographerOnSave });
+  };
+
   return {
+    conflictReview: {
+      conflict: recovery.conflict, comparison: recovery.comparison, review: recovery.review, clear: recovery.clear,
+      applyReviewedAdditions, openReviewedBooking,
+    },
     isSavingChanges,
     isSaveConfirmOpen,
     pendingUpdates,

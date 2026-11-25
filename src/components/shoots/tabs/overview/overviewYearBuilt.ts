@@ -1,3 +1,4 @@
+import { getOverviewEditableAddress } from './overviewAddress';
 import type { ShootData } from '@/types/shoots';
 import { formatDateForInput, formatEditableValue, toNumberOrUndefined } from './shootOverviewEditorSupport';
 import type { ShootWithLegacyOverviewFields } from './shootOverviewUpdateTypes';
@@ -65,14 +66,14 @@ export const buildOverviewPropertyDetails = (draft: PropertyDraft) => {
     && lockboxCode === text('lockboxCode') && lockboxLocation === text('lockboxLocation')
     && accessContactName === text('accessContactName') && accessContactPhone === text('accessContactPhone');
   if (yearChanged && !incoming && metricsUnchanged && accessUnchanged) {
-    return { details: { year_built: yearValue, yearBuilt: yearValue } as Record<string, unknown>, yearOnly: true };
+    return { details: { year_built: yearValue, yearBuilt: yearValue } as Record<string, unknown>, yearOnly: true, unchanged: false };
   }
   return { details: { ...details, ...(presenceOption ? { presenceOption } : {}),
     lockboxCode: presenceOption === 'lockbox' ? lockboxCode || null : null,
     lockboxLocation: presenceOption === 'lockbox' ? lockboxLocation || null : null,
     accessContactName: presenceOption === 'other' ? accessContactName || null : null,
     accessContactPhone: presenceOption === 'other' ? accessContactPhone || null : null,
-  }, yearOnly: false };
+  }, yearOnly: false, unchanged: !incoming && !yearChanged && metricsUnchanged && accessUnchanged };
 };
 export const hasOverviewBookingEdits = (updates: Partial<ShootData>, shoot: ShootData): boolean => {
   if (updates.scheduledDate !== (shoot.scheduledDate ? formatDateForInput(shoot.scheduledDate) : '')
@@ -80,7 +81,7 @@ export const hasOverviewBookingEdits = (updates: Partial<ShootData>, shoot: Shoo
     || String(updates.client?.id ?? '') !== String(shoot.client?.id ?? '')
     || String(updates.photographer?.id ?? '') !== String(shoot.photographer?.id ?? '')) return true;
   if ((['address', 'city', 'state', 'zip'] as const).some(key =>
-    String(updates.location?.[key] ?? '') !== String(shoot.location?.[key] ?? ''))) return true;
+    String(updates.location?.[key] ?? '') !== String(key === 'address' ? getOverviewEditableAddress(shoot) : shoot.location?.[key] ?? ''))) return true;
   return (updates.payment?.discountType ?? null) !== (shoot.payment?.discountType ?? null)
     || (updates.payment?.discountValue ?? null) !== (shoot.payment?.discountValue ?? null)
     || 'adminAdjustedTotalQuote' in updates

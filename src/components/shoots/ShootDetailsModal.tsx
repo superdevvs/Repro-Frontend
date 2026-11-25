@@ -40,6 +40,7 @@ import { useShootDetailsScreen } from './modal/useShootDetailsScreen';
 import { useShootDetailsModalActions } from './modal/useShootDetailsModalActions';
 import { useShootDetailsModalPayments } from './modal/useShootDetailsModalPayments';
 import { useShootDetailsModalWorkflow } from './modal/useShootDetailsModalWorkflow';
+import { ShootSaveConflictPanel } from './modal/ShootSaveConflictPanel';
 import { useShootDetailsModalSave } from './modal/useShootDetailsModalSave';
 import { canSendShootManualNotification } from './modal/shootDetailsCapabilities';
 import {
@@ -520,7 +521,7 @@ export function ShootDetailsModal({
     }
   }, [clientReleaseAccess.canClientDownload, isDownloadDialogOpen, setIsDownloadDialogOpen]);
   const {
-    isSavingChanges,
+    isSavingChanges, conflictReview,
     isSaveConfirmOpen,
     pendingUpdates,
     serviceDetachConfirmation,
@@ -534,7 +535,7 @@ export function ShootDetailsModal({
     handleSaveRequest,
     handleConfirmSave,
   } = useShootDetailsModalSave({
-    shoot,
+    shoot, editSessionKey: isOpen && isEditMode && shootId ? String(shootId) : null,
     setShoot,
     setIsEditMode,
     refreshShoot,
@@ -547,10 +548,6 @@ export function ShootDetailsModal({
     isRep,
   });
 
-  // Handle cancel edit
-  const handleCancelEdit = () => {
-    setIsEditMode(false);
-  };
 
   const statusBadge = shoot ? getStatusBadge(getShootDetailsDisplayStatus(shoot, isEditor ? String(user?.id) : undefined)) : null;
   const paymentBadge = useMemo(() => {
@@ -723,6 +720,7 @@ export function ShootDetailsModal({
           </DialogDescription>
         </DialogHeader>
         
+        <ShootSaveConflictPanel review={conflictReview} saving={isSavingChanges}>
         <ShootDetailsModalActionRail
           shoot={shoot}
           shootAddress={shoot.location?.address || 'Shoot'}
@@ -883,9 +881,10 @@ export function ShootDetailsModal({
           handleApproveEditingReview={handleApproveEditingReview}
           handleFinalise={handleFinalise}
           handleSaveRequest={handleSaveRequest}
-          handleCancelEdit={handleCancelEdit}
+          handleCancelEdit={() => setIsEditMode(false)}
           refreshShootAndParent={refreshShootAndParent}
         />
+        </ShootSaveConflictPanel>
       </DialogContent>
     </Dialog>
 
