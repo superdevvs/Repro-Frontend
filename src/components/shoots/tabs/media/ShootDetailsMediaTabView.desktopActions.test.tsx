@@ -103,7 +103,8 @@ describe('desktop media selection action placement', () => {
     expect(within(actions).queryByRole('button', { name: 'Hide selected' })).not.toBeInTheDocument();
     await user.click(within(actions).getByRole('button', { name: 'More selected file actions' }));
     expect(screen.queryByRole('menuitem', { name: /Delete|Mark media/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: /Print Resolution/ })).toBeVisible();
+    const originalDownloadLabel = collection === 'uploaded' ? 'Download original files' : /Print Resolution/;
+    expect(screen.getByRole('menuitem', { name: originalDownloadLabel })).toBeVisible();
     await user.click(screen.getByRole('menuitem', { name: 'Hide selected' }));
     expect(options.toggleFilesHidden).toHaveBeenCalledExactlyOnceWith([photo.id], true);
     await user.click(within(actions).getByRole('button', { name: 'More selected file actions' }));
