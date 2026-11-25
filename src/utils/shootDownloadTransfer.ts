@@ -20,10 +20,13 @@ export const validateApiDownloadUrl = (value: string): string => {
   return url;
 };
 
-export const fetchApiDownload = (url: string, headers?: HeadersInit, signal?: AbortSignal) => {
+export const fetchApiDownload = (url: string, headers?: HeadersInit, signal?: AbortSignal, jsonBody?: string) => {
   const requestHeaders = new Headers(headers);
   requestHeaders.set('Accept', 'application/zip, application/json;q=0.9, application/octet-stream;q=0.8');
-  return fetch(validateApiDownloadUrl(url), { method: 'GET', headers: requestHeaders, redirect: 'error', signal });
+  if (jsonBody) requestHeaders.set('Content-Type', 'application/json');
+  return fetch(validateApiDownloadUrl(url), {
+    method: jsonBody ? 'POST' : 'GET', headers: requestHeaders, body: jsonBody, redirect: 'error', signal,
+  });
 };
 
 export const saveDownloadBlob = (blob: Blob, filename: string) => {

@@ -326,6 +326,7 @@ export const downloadShootMediaArchive = async ({
 export const downloadShootRawFiles = async ({
   shootId,
   fileIds,
+  requireAll,
   address,
   onDownloading,
   onPreparing,
@@ -334,6 +335,7 @@ export const downloadShootRawFiles = async ({
 }: {
   shootId: string | number;
   fileIds?: Array<string | number>;
+  requireAll?: boolean;
   address?: string | null;
   onDownloading?: () => void;
   onPreparing?: (state: ShootMediaArchivePreparingState) => void;
@@ -344,22 +346,14 @@ export const downloadShootRawFiles = async ({
   headers.Accept = 'application/json, application/zip, application/octet-stream';
   delete headers['Content-Type'];
 
-  const queryParams = new URLSearchParams();
-  if (Array.isArray(fileIds) && fileIds.length > 0) {
-    queryParams.set(
-      'file_ids',
-      fileIds.map((fileId) => String(fileId)).join(','),
-    );
-  }
-
-  const queryString = queryParams.toString();
-  let currentUrl = `${API_BASE_URL}/api/shoots/${shootId}/editor-download-raw${queryString ? `?${queryString}` : ''}`;
+  const selectionBody = fileIds?.length ? JSON.stringify({ file_ids: fileIds, require_all: requireAll }) : undefined;
+  let currentUrl = `${API_BASE_URL}/api/shoots/${shootId}/editor-download-raw`;
   const startedAt = Date.now();
 
   // Poll preparing responses the same way media archives do. Editors previously
   // blocked on a synchronous multi-GB ZIP in this request and hit 499/502.
   while (true) {
-    const response = await fetchApiDownload(currentUrl, headers, signal);
+    const response = await fetchApiDownload(currentUrl, headers, signal, selectionBody);
     const contentType = response.headers.get('content-type') || '';
 
     if (!response.ok && response.status !== 202) {
@@ -392,7 +386,8 @@ export const downloadShootRawFiles = async ({
           pollAfterMs: Math.max(1000, Math.min(10_000, Number(data.poll_after_ms) || 3000)),
         };
         onPreparing?.(preparingState);
-        currentUrl = validateApiDownloadUrl(data.status_url || currentUrl);
+        // Replay the same POST and IDs on each selection poll. A bare GET requests the whole shoot.
+        if (!selectionBody) currentUrl = validateApiDownloadUrl(data.status_url || currentUrl);
         if (Date.now() - startedAt > 15 * 60_000) {
           throw new Error('The archive is still preparing. Please try again shortly.');
         }

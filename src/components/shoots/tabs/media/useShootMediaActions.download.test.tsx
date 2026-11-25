@@ -29,17 +29,17 @@ const setSelectedFiles = vi.fn();
 const createObjectURL = vi.fn();
 const revokeObjectURL = vi.fn();
 
-function useHarness(role = 'admin', finalDownload?: boolean) {
+function useHarness(role = 'admin', finalDownload?: boolean, selectedIds = ['a', 'b']) {
   const [downloading, setDownloading] = useState(false);
   const [popup, setDownloadPopup] = useState(initialPopup);
   const actions = useShootMediaActions({
     shoot: { id: 42, location: { address: '12 Oak Street', city: 'Fairfax' } } as unknown as ShootData,
-    role, displayTab: finalDownload === undefined ? 'uploaded' : 'edited', selectedFiles: new Set(['a', 'b']), setSelectedFiles,
+    role, displayTab: finalDownload === undefined ? 'uploaded' : 'edited', selectedFiles: new Set(selectedIds), setSelectedFiles,
     selectedEditingType: '', setShowAiEditDialog: vi.fn(), setSubmittingAiEdit: vi.fn(),
     setDownloading, setDownloadPopup, setActiveSubTab: vi.fn(), setDisplayTab: vi.fn(),
     rawFiles: [
-      { id: 'a', filename: 'a.jpg', scan_status: 'clean' },
-      { id: 'b', filename: 'b.jpg', scan_status: 'clean' },
+      { id: 'a', filename: 'a.cr3', workflowStage: 'todo', scan_status: 'clean' },
+      { id: 'b', filename: 'b.mp4', workflowStage: 'todo', scan_status: 'clean' },
     ] as MediaFile[],
     editedFiles: finalDownload === undefined ? [] : [
       { id: 'a', filename: 'final-a.jpg', can_download: finalDownload, can_interact: false },
@@ -66,6 +66,19 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.runOnlyPendingTimers(); vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 describe('media download lifetime', () => {
+  it.each([['admin', ['a', 'b']], ['superadmin', ['a']], ['editing_manager', ['b']]] as const)(
+    'hands the exact RAW selection to the prepared archive for %s', async (role, ids) => {
+      downloads.raw.mockResolvedValue({ mode: 'redirect', fileCount: ids.length });
+      const fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+      const { result } = renderHook(() => useHarness(role, undefined, [...ids]));
+      await act(async () => { await result.current.handleDownload('original'); });
+      expect(downloads.raw).toHaveBeenCalledWith({ shootId: 42, fileIds: ids, requireAll: true, address: '12 Oak Street, Fairfax' });
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(createObjectURL).not.toHaveBeenCalled();
+    },
+  );
+
   it('downloads assigned final selections as ZIPs without using the raw endpoint', async () => {
     const fetchMock = vi.fn().mockResolvedValue({ ok: true, headers: new Headers(), blob: async () => new Blob(['zip']) });
     vi.stubGlobal('fetch', fetchMock);
@@ -140,7 +153,7 @@ describe('media download lifetime', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true, headers: new Headers(), blob: async () => new Blob(['zip bytes']),
     }));
-    const { result, unmount } = renderHook(() => useHarness());
+    const { result, unmount } = renderHook(() => useHarness('admin', true));
     await act(async () => { await result.current.handleDownload('original'); });
     expect(result.current.popup.filename).toBe('12-oak-street-fairfax-selected-print.zip');
     await act(async () => { await result.current.handleDownload('small'); });

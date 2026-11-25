@@ -18,6 +18,26 @@ beforeEach(() => {
 afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); document.body.innerHTML = ''; });
 
 describe('shoot archive requests', () => {
+  it('polls a large selected RAW archive using the same IDs and hands the ready ZIP to the browser', async () => {
+    const api = 'https://api.example.test/api/shoots/6064/editor-download-raw';
+    const ready = 'https://media.example.test/full-raw.zip';
+    const fileIds = Array.from({ length: 2000 }, (_, index) => 300000 + index);
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(Response.json({ type: 'preparing', status_url: api, poll_after_ms: 1000 }, { status: 202 }))
+      .mockResolvedValueOnce(Response.json({ type: 'redirect', url: ready, file_count: fileIds.length }));
+    vi.stubGlobal('fetch', fetchMock);
+    const download = downloadShootRawFiles({ shootId: 6064, fileIds, requireAll: true, startDownload: false });
+    await vi.advanceTimersByTimeAsync(1000);
+    await expect(download).resolves.toMatchObject({ mode: 'redirect', url: ready, fileCount: fileIds.length });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    for (const [url, options] of fetchMock.mock.calls) {
+      expect(url).toBe(api);
+      expect(options.method).toBe('POST');
+      expect(JSON.parse(options.body)).toEqual({ file_ids: fileIds, require_all: true });
+    }
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
   it.each([403, 404])('refreshes a stale file list after HTTP %s without retrying the denied download', async status => {
     const refresh = vi.fn();
     const unsubscribe = registerShootDetailRefresh(63, refresh);

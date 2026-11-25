@@ -198,11 +198,22 @@ export function useShootMediaActions({
     if (isEditorRole && Array.from(selectedFiles).some(id =>
       !editedFiles.some(file => file.id === id && file.can_download === true))) return;
 
-    if (!beginBatchDownload()) return;
     const selectedFileIds = Array.from(selectedFiles);
     const filesById = new Map(
       [...rawFiles, ...editedFiles].map((file) => [String(file.id), file]),
     );
+    const officeRawSelection = displayTab === 'uploaded' && size === 'original'
+      && ['admin', 'superadmin', 'editing_manager'].includes(normalizedRole);
+    if (officeRawSelection && selectedFileIds.every(id => {
+      const file = filesById.get(id);
+      return file?.workflowStage === 'todo' && !file.isExtra && !file.is_hidden
+        && file.media_type !== 'iguide' && (file.scan_status ?? file.scanStatus ?? 'clean') === 'clean';
+    })) {
+      await handleEditorDownloadRaw(false, true);
+      return;
+    }
+
+    if (!beginBatchDownload()) return;
     const recoveryFileIds = normalizedRole === 'superadmin'
       ? selectedFileIds.filter((fileId) => {
         const file = filesById.get(String(fileId));
@@ -317,7 +328,7 @@ export function useShootMediaActions({
     setDownloadPopup(resetDownloadPopup());
   };
 
-  const handleEditorDownloadRaw = async (downloadAll = true) => {
+  const handleEditorDownloadRaw = async (downloadAll = true, requireAll = false) => {
     const scoped = getShootUnits(shoot).length > 0;
     const fileIds = downloadAll ? (scoped ? rawFiles.map(file => file.id) : []) : Array.from(selectedFiles);
     if ((!downloadAll || scoped) && fileIds.length === 0) {
@@ -335,6 +346,7 @@ export function useShootMediaActions({
       const result = await downloadShootRawFiles({
         shootId: shoot.id,
         fileIds: downloadAll && !scoped ? undefined : fileIds,
+        ...(requireAll ? { requireAll: true } : {}),
         address: getShootDownloadAddress(shoot),
       });
 

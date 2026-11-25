@@ -60,20 +60,24 @@ export function MediaSelectionActions({ selectedFiles, isClient, isEditor, isAdm
     <span className={desktop ? undefined : 'hidden min-[380px]:inline'}>Mark</span>
     {!desktop && <span className="min-[380px]:hidden sr-only">Mark selected media</span>}
   </Button>;
+  const originalDownload = (
+    <DropdownMenuItem className="min-h-10" disabled={downloading} onSelect={() => void handleDownload('original')}>
+      <Download className="mr-2 h-4 w-4" />
+      {displayTab === 'uploaded' ? 'Download original files' : <div><div className="text-sm font-medium">Print Resolution</div><div className="text-xs text-muted-foreground">Large files for print/design</div></div>}
+    </DropdownMenuItem>
+  );
   const downloadMenuItems = isEditor && displayTab === 'uploaded' ? (
     <DropdownMenuItem className="min-h-10" disabled={downloading} onSelect={() => void handleEditorDownloadRaw(false)}>
       {downloading ? <InlineSpinner className="mr-2 h-4 w-4" aria-hidden="true" /> : <Download className="mr-2 h-4 w-4" />}
       Download selected RAW files
     </DropdownMenuItem>
   ) : <>
+    {displayTab === 'uploaded' && originalDownload}
     <DropdownMenuItem className="min-h-10" disabled={downloading} onSelect={() => void handleDownload('small')}>
       <Download className="mr-2 h-4 w-4" />
       <div><div className="text-sm font-medium">MLS Optimized</div><div className="text-xs text-muted-foreground">Best for MLS uploads</div></div>
     </DropdownMenuItem>
-    <DropdownMenuItem className="min-h-10" disabled={downloading} onSelect={() => void handleDownload('original')}>
-      <Download className="mr-2 h-4 w-4" />
-      <div><div className="text-sm font-medium">Print Resolution</div><div className="text-xs text-muted-foreground">Large files for print/design</div></div>
-    </DropdownMenuItem>
+    {displayTab === 'edited' && originalDownload}
   </>;
 
   return <div className={desktop
