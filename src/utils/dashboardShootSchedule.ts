@@ -125,7 +125,10 @@ export const getDashboardShootDisplayDate = (shoot: DashboardSchedule): Date | n
 export const getDashboardShootDisplayTime = (shoot: DashboardSchedule): string | null => {
   if (hasActiveShootWork(shoot)) {
     const appointmentTime = shoot.activeWorkTime ?? shoot.active_work_time;
-    return appointmentTime ? getShootSchedule({ time: appointmentTime }).time || null : null;
+    // timeLabel preserves the original booking when active work is unscheduled.
+    // startTime may be the date the work was added, so it cannot supply a clock.
+    return getShootSchedule({ time: appointmentTime }).time
+      || getShootSchedule({ time: shoot.timeLabel }).time || null;
   }
   // Summary labels take priority; legacy start_time is a wall-clock fallback.
   return getShootSchedule({ time: shoot.timeLabel, scheduled_at: shoot.startTime }).time || null;

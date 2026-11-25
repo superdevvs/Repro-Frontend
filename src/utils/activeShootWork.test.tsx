@@ -17,7 +17,7 @@ vi.mock('@/contexts/UserPreferencesContext', () => ({
   useUserPreferences: () => ({ formatTemperature: String, formatTime: String, formatDate: String }),
 }));
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllEnvs(); });
 
 const api = {
   id: 5925, address: '1447 York Road', city: 'Lutherville', state: 'MD', zip: '21093',
@@ -120,11 +120,29 @@ describe('additional work visibility', () => {
     expect(getShootOperationalDate(shoot)).toBe('2026-11-02');
   });
 
-  it('uses activation time in the property timezone when new work has no schedule', () => {
+  it('uses the activation date with the original clock when new work has no schedule', () => {
     const shoot = { ...mapShootApiToShootData(api), activeWorkAt: null, activeWorkDate: null, activeWorkTime: null,
       activeWorkStartedAt: '2026-11-06T01:30:00Z' };
     expect(getShootOperationalDate(shoot)).toBe('2026-11-05');
-    expect(getShootOperationalTime(shoot)).toBe('');
+    expect(getShootOperationalTime(shoot)).toBe('13:30');
+  });
+
+  it.each(['America/New_York', 'America/Los_Angeles', 'Asia/Kolkata'])(
+    'resolves the original booking clock in the property timezone for a viewer in %s', timezone => {
+      vi.stubEnv('TZ', timezone);
+      const source = { ...api, active_work_time: null, time: '', scheduled_at: '2026-11-19T16:00:00Z' };
+      expect(getShootOperationalTime(source)).toBe('11:00');
+      expect(getShootOperationalTime({ ...source, active_work_time: '15:45' })).toBe('15:45');
+      expect(getShootOperationalTime({ ...source, scheduled_at: null })).toBe('');
+    },
+  );
+
+  it('shows the original booking clock on Active cards and their dashboard summaries', () => {
+    const shoot = mapShootApiToShootData({ ...api, active_work_time: null, time: '11:00:00' });
+    render(<SharedShootCard shoot={shoot} role="admin" hideHeroImage />);
+    expect(screen.getByText('11:00')).not.toBeNull();
+    expect(shootDataToSummary(shoot).timeLabel).toBe('11:00');
+    expect(shoot.activeWorkTime).toBeNull();
   });
 
   it('returns to the original delivery display after the additional-work cycle closes', () => {

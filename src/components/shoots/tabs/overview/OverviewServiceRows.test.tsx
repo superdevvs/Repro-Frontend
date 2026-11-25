@@ -31,6 +31,14 @@ function mount(role = 'admin', source = shoot, isClient = role === 'client') {
 beforeEach(() => { mocks.files.mockClear(); mocks.capabilities = []; mocks.loaded = true; mocks.raw = [photo('11'), photo('11'), photo('12'), photo('11', true), photo('')]; mocks.edited = [photo('11')]; });
 afterEach(cleanup);
 describe('compact service rows', () => {
+  it('keeps unscheduled Active service rows unassigned despite the original shoot clock', () => {
+    const source = { ...shoot, hasActiveWork: true, scheduledDate: '2026-11-19', time: '11:00',
+      serviceItems: [{ ...services[2], scheduled_at: null }] };
+    mount('admin', source);
+    expect(screen.getByLabelText('Date unassigned · Time unassigned')).toBeVisible();
+    expect(source.serviceItems[0].scheduled_at).toBeNull();
+  });
+
   it.each([false, true])('shows released and pending parts with accurate wording (deferred=%s)', deferred => {
     mount('client', { ...shoot, total_quote: 275, total_paid: 100, serviceItems: [{ ...services[0],
       paid_amount: 100, balance_due: 175, is_unlocked_for_delivery: false, progress_status: 'ready',

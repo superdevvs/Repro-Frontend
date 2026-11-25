@@ -138,4 +138,27 @@ describe('active work appointment clock', () => {
     expect(getDashboardShootDisplayTime(summary)).toBe('15:45');
     expect(formatDashboardShootSchedule(summary)).toBe('Nov 4 • 3:45 PM');
   });
+  it.each(['America/New_York', 'America/Los_Angeles', 'Asia/Kolkata'])(
+    'preserves the original API clock before replacing the Active sorting timestamp in %s', timezone => {
+      vi.stubEnv('TZ', timezone);
+      const input = { id: 6022, status: 'active', has_active_work: true,
+        active_work_at: '2026-11-25T02:30:39Z', active_work_date: '2026-11-24', active_work_time: null,
+        time_label: '11:00:00', start_time: '2026-11-19T11:00:00Z', services: [], is_flagged: false };
+      const normalize = (active_work_time: string | null = null, time_label: string | null = input.time_label) => transformDashboardOverview({
+        stats: { total_shoots: 1, scheduled_today: 0, flagged_shoots: 0, pending_reviews: 0 },
+        upcoming_shoots: [{ ...input, active_work_time, time_label }], photographers: [], pending_reviews: [], activity_log: [], issues: [],
+        workflow: { columns: [] },
+      }).upcomingShoots[0];
+      const summary = normalize();
+      expect(summary.startTime).toBe(input.active_work_at);
+      expect(summary.timeLabel).toBe('11:00:00');
+      expect(formatDashboardShootSchedule(summary)).toBe('Nov 24 • 11:00 AM');
+      expect(getDashboardShootDisplayTime({ ...summary, activeWorkTime: '15:45' })).toBe('15:45');
+      expect(getDashboardShootDisplayTime({ ...summary, timeLabel: null })).toBeNull();
+      expect(getDashboardShootDisplayTime(normalize('15:45'))).toBe('15:45');
+      expect(getDashboardShootDisplayTime(normalize(' '))).toBe('11:00');
+      expect(getDashboardShootDisplayTime(normalize('25:90'))).toBe('11:00');
+      expect(getDashboardShootDisplayTime(normalize(null, null))).toBeNull();
+    },
+  );
 });

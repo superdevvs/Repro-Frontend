@@ -20,6 +20,7 @@ import {
 } from '@/types/dashboard';
 import { extractLocalYmd } from '@/utils/shootLocalDate';
 import { streetWithAptSuite } from '@/utils/shootAddressDisplay';
+import { getShootSchedule } from '@/utils/shootSchedule';
 
 const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSummary => ({
   ...shootAutoDeliveryFields(shoot),
@@ -28,7 +29,9 @@ const normalizeShoot = (shoot: DashboardShootSummaryResponse): DashboardShootSum
   completedAt: shoot.completed_at ?? null,
   deliveredAt: shoot.delivered_at ?? shoot.completed_at ?? null,
   dayLabel: shoot.day_label ?? 'Unscheduled',
-  timeLabel: hasActiveShootWork(shoot) ? shoot.active_work_time ?? shoot.activeWorkTime ?? null : shoot.time_label ?? null,
+  timeLabel: hasActiveShootWork(shoot)
+    ? getShootSchedule({ time: shoot.active_work_time ?? shoot.activeWorkTime }).time || shoot.time_label || null
+    : shoot.time_label ?? null,
   // The backend's start_time ISO carries the shoot's local date in its prefix;
   // extract it as the intended local calendar day so display never drifts.
   scheduledLocalDate: hasActiveShootWork(shoot) ? extractLocalYmd(shoot.active_work_date ?? shoot.activeWorkDate ?? shoot.active_work_at ?? shoot.activeWorkAt) : extractLocalYmd(shoot.start_time) ?? null,

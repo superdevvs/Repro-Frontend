@@ -76,8 +76,10 @@ export const getShootOperationalDate = (shoot: WorkSource): string | null => {
 
 export const getShootOperationalTime = (shoot: WorkSource): string => {
   if (!hasActiveShootWork(shoot)) return shoot.time || '';
-  // The server only emits a clock for a scheduled appointment, never an added-at fallback.
-  return shoot.activeWorkTime ?? shoot.active_work_time ?? '';
+  const appointmentTime = getShootSchedule({ time: shoot.activeWorkTime ?? shoot.active_work_time }).time;
+  // Unscheduled additional work keeps the original booking clock. An added-at
+  // timestamp is never an appointment time.
+  return appointmentTime || getShootSchedule(shoot).time;
 };
 
 export type ServiceChangeIntent = 'new_work' | 'billing_correction';
