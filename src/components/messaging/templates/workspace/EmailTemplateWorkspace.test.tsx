@@ -252,8 +252,9 @@ describe('production email workspace', () => {
     fireEvent.change(message, { target: { value: 'Hello ' } });
     message.focus(); message.setSelectionRange(6, 6); fireEvent.select(message);
     fireEvent.click(screen.getByRole('button', { name: 'Insert personal field' }));
-    fireEvent.click(screen.getByRole('button', { name: '{{client_name}}' }));
-    await waitFor(() => expect(screen.getByLabelText('Tips · one per line')).toHaveValue('Hello {{client_name}}'));
+    expect(screen.getByText(/each To recipient’s saved name/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: '{{recipient_first_name}}' }));
+    await waitFor(() => expect(screen.getByLabelText('Tips · one per line')).toHaveValue('Hello {{recipient_first_name}}'));
     expect(screen.getByRole('dialog', { name: 'Edit email section' })).toBeVisible();
     expect(mocks.update).not.toHaveBeenCalled();
   });

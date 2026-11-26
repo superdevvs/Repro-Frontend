@@ -28,6 +28,7 @@ import type {
 } from '@/types/messaging';
 import { ComposeDirectoryButton } from './ComposeDirectory';
 import { EmailComposeView } from './EmailComposeView';
+import { previewRecipientNames } from './emailRecipientPreview';
 import {
   bodyTextToHtml,
   buildShootOption,
@@ -442,12 +443,15 @@ export default function EmailCompose() {
     };
   }, [attachments.length, canSendExternal, form.body_text, form.related_shoot_id, recipients.bcc.length, recipients.cc.length, recipients.to.length, templatePreviewData?.body_text]);
 
+  const subjectPreview = previewRecipientNames(form.subject);
+  const bodyPreview = previewRecipientNames(form.body_html || bodyTextToHtml(form.body_text));
+  const previewUsesRecipientSample = canSendExternal && (subjectPreview.usesSample || bodyPreview.usesSample);
   const previewSubject = !templateCustomized && templatePreviewData?.subject
     ? templatePreviewData.subject
-    : form.subject;
+    : canSendExternal ? subjectPreview.content : form.subject;
   const previewBodyHtml = !templateCustomized && templatePreviewData?.body_html
     ? templatePreviewData.body_html
-    : form.body_html || bodyTextToHtml(form.body_text);
+    : canSendExternal ? bodyPreview.content : form.body_html || bodyTextToHtml(form.body_text);
   const isMissingRequiredShootContext = !canSendExternal && !isInternalReply
     && (!form.related_shoot_context_type || !form.related_shoot_id);
 
@@ -845,6 +849,7 @@ return (
         selectedTemplate,
         previewSubject,
         previewBodyHtml,
+        previewUsesRecipientSample,
         originalMessage,
         fileInputRef,
         attachFiles,

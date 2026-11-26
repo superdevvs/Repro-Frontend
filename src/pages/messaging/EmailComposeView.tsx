@@ -50,6 +50,7 @@ export interface EmailComposeViewProps {
   selectedTemplate?: MessageTemplate;
   previewSubject: string;
   previewBodyHtml: string;
+  previewUsesRecipientSample?: boolean;
   originalMessage?: Message;
   fileInputRef: RefObject<HTMLInputElement | null>;
   attachFiles: (files: FileList | null) => void;

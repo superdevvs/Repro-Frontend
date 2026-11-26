@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import type { EmailComposeViewProps } from './EmailComposeView';
 import { bodyTextToHtml } from './emailComposeModel';
+import { RECIPIENT_PREVIEW_NOTE } from './emailRecipientPreview';
 import { ComposeFiles, ComposeRobbie, ComposeVariables } from './composeDeskParts';
 
 export function EmailComposeMobile({ scheduleDialog, ...props }: EmailComposeViewProps & { scheduleDialog: ReactNode }) {
@@ -105,6 +106,7 @@ export function EmailComposeMobile({ scheduleDialog, ...props }: EmailComposeVie
 
           {previewMode ? (
             <div className="min-h-[40vh] px-4 py-3">
+              {props.previewUsesRecipientSample && <p className="mb-3 text-xs text-muted-foreground">{RECIPIENT_PREVIEW_NOTE}</p>}
               {previewBodyHtml ? <div className="prose prose-sm max-w-none dark:prose-invert" dangerouslySetInnerHTML={{ __html: previewBodyHtml }} /> : <p className="text-sm text-muted-foreground">Nothing to preview yet.</p>}
             </div>
           ) : (
@@ -129,10 +131,15 @@ export function EmailComposeMobile({ scheduleDialog, ...props }: EmailComposeVie
         {canSendExternal && (
           <ComposeRobbie
             body={form.body_text}
+            bodyHtml={form.body_html}
             subject={form.subject}
             variables={parsedVariables}
             onBody={writeBody}
             onSubject={(value) => { setFormValue('subject', value); setTemplateCustomized(true); }}
+            onRestore={snapshot => {
+              setForm(previous => ({ ...previous, ...(snapshot.subject !== undefined ? { subject: snapshot.subject } : {}), ...(snapshot.body !== undefined ? { body_text: snapshot.body, body_html: snapshot.bodyHtml ?? bodyTextToHtml(snapshot.body) } : {}) }));
+              setTemplateCustomized(true);
+            }}
           />
         )}
 

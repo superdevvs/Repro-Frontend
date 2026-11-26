@@ -78,6 +78,9 @@ export const EMPTY_FORM: ComposeFormState = {
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const variableLibrary = [
+  { name: 'recipient_first_name', label: 'Recipient first name', source: 'recipient' },
+  { name: 'recipient_name', label: 'Recipient full name', source: 'recipient' },
+  { name: 'greeting', label: 'Personal greeting', source: 'recipient' },
   { name: 'client_name', label: 'Client Name', source: 'contact' },
   { name: 'shoot_date', label: 'Shoot Date', source: 'shoot' },
   { name: 'shoot_time', label: 'Shoot Time', source: 'shoot' },

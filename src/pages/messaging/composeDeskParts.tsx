@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { apiClient } from '@/services/api';
 import type { MessagingJsonObject } from '@/types/messaging';
 import { formatFileSize, type DraftAttachmentPlaceholder } from './emailComposeModel';
+import { isAutomaticRecipientField } from './emailRecipientPreview';
 
 type Suggestion = { name: string; label: string };
 
@@ -35,7 +36,7 @@ export function ComposeVariables({
   const [showJson, setShowJson] = useState(false);
   const empty = useMemo(() => {
     const names = new Set<string>([...missing, ...suggestions.filter((entry) => !valueOf(variables, entry.name)).map((entry) => entry.name)]);
-    return [...names];
+    return [...names].filter(name => !isAutomaticRecipientField(name));
   }, [missing, suggestions, variables]);
   const filtered = suggestions.filter((entry) => {
     const hay = `${entry.name} ${entry.label} ${valueOf(variables, entry.name)}`.toLowerCase();
@@ -52,8 +53,9 @@ export function ComposeVariables({
     <section className="relative space-y-2">
       <div className="flex items-baseline justify-between gap-2">
         <h3 className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">Variables</h3>
-        <span className="text-xs text-muted-foreground">{empty.length ? `${empty.length} empty of ${suggestions.length || empty.length}` : `All ${suggestions.length} filled`}</span>
+        <span className="text-xs text-muted-foreground">{empty.length ? `${empty.length} need a value` : 'Fields ready'}</span>
       </div>
+      {suggestions.some(entry => isAutomaticRecipientField(entry.name)) && <p className="text-xs text-muted-foreground">Recipient fields are filled automatically for each To address.</p>}
       <div className="grid max-h-40 grid-cols-2 gap-2 overflow-auto sm:max-h-44">
         {empty.map((name) => (
           <label key={name} className="flex min-w-0 flex-col gap-0.5 rounded-xl border border-border/70 bg-muted/20 px-2 py-1.5">
@@ -78,7 +80,7 @@ export function ComposeVariables({
           {filtered.map((entry) => (
             <button key={entry.name} type="button" className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-2 text-left text-sm hover:bg-muted" onClick={() => { onInsert(entry.name); setShowInsert(false); }}>
               <span>{`{{${entry.name}}}`}</span>
-              <span className="truncate text-xs text-muted-foreground">{valueOf(variables, entry.name) || 'Empty'}</span>
+              <span className="truncate text-xs text-muted-foreground">{isAutomaticRecipientField(entry.name) ? 'Automatic per recipient' : valueOf(variables, entry.name) || 'Empty'}</span>
             </button>
           ))}
         </div>
@@ -149,23 +151,26 @@ function extensionOf(name: string) {
 
 export function ComposeRobbie({
   body,
+  bodyHtml,
   subject,
   variables,
   onBody,
   onSubject,
+  onRestore,
 }: {
   body: string;
+  bodyHtml?: string;
   subject: string;
   variables?: MessagingJsonObject;
   onBody: (value: string) => void;
   onSubject: (value: string) => void;
+  onRestore?: (snapshot: { body?: string; bodyHtml?: string; subject?: string }) => void;
 }) {
   const [ask, setAsk] = useState('');
   const [note, setNote] = useState('Ask Robbie what the email should say.');
-  const [undo, setUndo] = useState<{ body: string; subject: string } | null>(null);
+  const [undo, setUndo] = useState<{ body?: string; bodyHtml?: string; subject?: string } | null>(null);
   const [writing, setWriting] = useState(false);
 
-  const remember = () => setUndo({ body, subject });
   const assist = async (mode: 'write' | 'shorter' | 'warmer' | 'clearer' | 'subject' | 'from_shoot', instruction?: string) => {
     if (writing) return;
     setWriting(true);
@@ -178,10 +183,14 @@ export function ComposeRobbie({
         body,
         variables: variables ?? {},
       });
-      remember();
-      if (response.data.subject) onSubject(response.data.subject);
-      if (response.data.body) onBody(response.data.body);
-      setNote('Robbie updated the letter. You can still edit it.');
+      const subjectChanged = Boolean(response.data.subject) && response.data.subject !== subject;
+      const bodyChanged = mode !== 'subject' && Boolean(response.data.body) && response.data.body !== body;
+      if (subjectChanged || bodyChanged) {
+        setUndo({ ...(subjectChanged ? { subject } : {}), ...(bodyChanged ? { body, bodyHtml } : {}) });
+        if (subjectChanged) onSubject(response.data.subject);
+        if (bodyChanged) onBody(response.data.body);
+      }
+      setNote(subjectChanged || bodyChanged ? 'Robbie updated the letter. You can still edit it.' : 'The current wording is unchanged.');
       if (mode === 'write') setAsk('');
     } catch {
       setNote('Robbie could not write that. Try again.');
@@ -215,7 +224,11 @@ export function ComposeRobbie({
         <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" disabled={writing} onClick={() => void assist('clearer')}>Clearer</button>
         <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-muted-foreground" disabled={writing} onClick={() => void assist('subject')}>Subject</button>
         {undo && (
-          <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-primary" onClick={() => { onBody(undo.body); onSubject(undo.subject); setUndo(null); setNote('Restored the previous letter.'); }}>Undo</button>
+          <button type="button" className="h-11 shrink-0 whitespace-nowrap rounded-lg px-2 text-sm text-primary" onClick={() => {
+            if (onRestore) onRestore(undo);
+            else { if (undo.body !== undefined) onBody(undo.body); if (undo.subject !== undefined) onSubject(undo.subject); }
+            setUndo(null); setNote('Restored the previous letter.');
+          }}>Undo</button>
         )}
       </div>
     </div>

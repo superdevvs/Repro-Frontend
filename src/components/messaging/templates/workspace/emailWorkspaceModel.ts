@@ -42,7 +42,7 @@ export function startingEmail(purpose: 'tips' | 'update' | 'blank'): EmailWorksp
   draft.subject = tips ? 'A few tips for your next shoot' : 'A quick update from R/E Pro Photos';
   draft.editor_document_json.preheader = tips ? 'Small preparations. Better photographs.' : 'Here’s what you need to know.';
   draft.editor_document_json.sections = [
-    { ...newSection('hero'), eyebrow: tips ? 'PHOTOGRAPHER FIELD NOTES' : 'A NOTE FROM REPRO', heading: tips ? 'Good preparation makes the difference.' : 'Keeping you in the loop.', body: (tips ? 'Hi team,\nA few practical reminders for your next shoot.' : 'Hello,\nWe have an update to share with you.') },
+    { ...newSection('hero'), eyebrow: tips ? 'PHOTOGRAPHER FIELD NOTES' : 'A NOTE FROM REPRO', heading: tips ? 'Good preparation makes the difference.' : 'Keeping you in the loop.', body: 'Hi {{recipient_first_name}},\n\n'+(tips ? 'A few practical reminders for your next shoot.' : 'We have an update to share with you.') },
     tips ? { ...newSection('tips'), heading: 'Before you arrive', body: 'Review the shoot brief and property access instructions.\nCheck your equipment and batteries before leaving.\nShare any questions with the team ahead of the shoot.' }
       : { ...newSection(), heading: 'What’s new', body: 'Add the details of your update here. Explain what changed, why it helps, and what your clients should do next.' },
     { ...newSection(), body: 'Have a question? Reply to this email and our team will help.\nThe R/E Pro Photos team' },
